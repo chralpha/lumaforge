@@ -1,11 +1,11 @@
 {
-  "name": "smart-webapp-template",
+  "name": "lumaforge",
   "type": "module",
   "version": "0.0.0",
   "packageManager": "pnpm@10.18.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/innei-template/smart-webapp-template"
+    "url": "https://github.com/chralpha/lumaforge"
   },
   "scripts": {
     "build": "vite build",
@@ -39,6 +39,7 @@
     "foxact": "0.2.49",
     "immer": "10.2.0",
     "jotai": "2.15.1",
+    "libraw-wasm": "^1.1.2",
     "lucide-react": "0.552.0",
     "motion": "12.23.24",
     "ofetch": "1.5.1",
