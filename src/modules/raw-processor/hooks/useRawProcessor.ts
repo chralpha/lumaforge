@@ -26,7 +26,12 @@ import type {
   RawProcessingPipeline,
 } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
-import { isSupportedLUT, parseCubeFile, toLUTData } from '~/lib/lut/cube-parser'
+import {
+  isSupportedLUT,
+  parseCubeFile,
+  toLUTData,
+  validateLUT,
+} from '~/lib/lut/cube-parser'
 import type { DecodedImage } from '~/lib/raw/decoder'
 import { decodeHqRaw, decodeQuickRaw, isSupportedRaw } from '~/lib/raw/decoder'
 
@@ -35,10 +40,13 @@ import {
   deriveCanExport,
   selectDisplaySource,
 } from '../model/derive-session'
+import type { StyleAsset } from '../model/session'
+import { BUILTIN_PRESETS } from '../services/builtin-presets'
 import {
   extractEmbeddedPreviewBestEffort,
   runPreviewPipeline,
 } from '../services/preview-pipeline'
+import { buildBuiltinStyle, toCustomStyle } from '../services/style-system'
 import { useImageSession } from './useImageSession'
 
 export interface UseRawProcessorReturn {
@@ -53,10 +61,13 @@ export interface UseRawProcessorReturn {
   stats: PipelineStats | null
   hasImage: boolean
   canExport: boolean
+  activeStyle: StyleAsset | null
+  presetOptions: typeof BUILTIN_PRESETS
 
   // Actions
   loadFile: (file: File) => Promise<void>
   loadLUT: (file: File) => Promise<void>
+  selectBuiltinStyle: (id: (typeof BUILTIN_PRESETS)[number]['id']) => void
   clearLUT: () => void
   setParams: (params: Partial<ProcessingParams>) => void
   exportImage: (format: 'tiff' | 'jpeg') => Promise<void>
@@ -91,6 +102,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const [lutData, setLutData] = useState<LUTData | null>(null)
   const hasImage = session ? deriveCanEdit(session) : false
   const canExport = session ? deriveCanExport(session) : false
+  const activeStyle = session?.activeStyle || null
 
   useEffect(() => {
     sessionRef.current = session
@@ -338,18 +350,16 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
       try {
         const parsed = await parseCubeFile(file)
+        const validation = validateLUT(parsed)
+        if (!validation.valid) {
+          toast.error('Failed to load LUT', {
+            description: validation.errors[0] || 'Invalid LUT',
+          })
+          return
+        }
+
         setLut(parsed)
-        setActiveStyle({
-          kind: 'custom',
-          name: parsed.title,
-          defaultIntensityLevel: 'standard',
-          currentIntensityLevel: 'standard',
-          lutAsset: {
-            format: 'cube',
-            dimension: parsed.size as 17 | 33 | 65,
-            title: parsed.title,
-          },
-        })
+        setActiveStyle(toCustomStyle(parsed))
         toast.success(`Loaded LUT: ${parsed.title}`, {
           description: `${parsed.size}³ grid`,
         })
@@ -358,6 +368,15 @@ export function useRawProcessor(): UseRawProcessorReturn {
           err instanceof Error ? err.message : 'Failed to parse LUT'
         toast.error('Failed to load LUT', { description: message })
       }
+    },
+    [setActiveStyle, setLut],
+  )
+
+  const selectBuiltinStyle = useCallback(
+    (id: (typeof BUILTIN_PRESETS)[number]['id']) => {
+      setLut(null)
+      setLutData(null)
+      setActiveStyle(buildBuiltinStyle(id))
     },
     [setActiveStyle, setLut],
   )
@@ -465,8 +484,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
     stats,
     hasImage,
     canExport,
+    activeStyle,
+    presetOptions: BUILTIN_PRESETS,
     loadFile,
     loadLUT,
+    selectBuiltinStyle,
     clearLUT,
     setParams: handleSetParams,
     exportImage,

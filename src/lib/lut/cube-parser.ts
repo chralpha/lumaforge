@@ -162,8 +162,10 @@ export function validateLUT(lut: ParsedLUT): {
 } {
   const errors: string[] = []
 
-  if (lut.size < 2 || lut.size > 256) {
-    errors.push(`Invalid LUT size: ${lut.size}. Must be between 2 and 256.`)
+  if (![17, 33, 65].includes(lut.size)) {
+    errors.push(
+      `Unsupported LUT size: ${lut.size}. Only 17, 33, and 65 are allowed in phase 1.`,
+    )
   }
 
   const expectedLength = lut.size * lut.size * lut.size * 3
@@ -173,18 +175,14 @@ export function validateLUT(lut: ParsedLUT): {
     )
   }
 
-  // Check for NaN or Infinity values
   for (let i = 0; i < lut.data.length; i++) {
     if (!Number.isFinite(lut.data[i])) {
       errors.push(`Invalid value at index ${i}: ${lut.data[i]}`)
-      break // Only report first error
+      break
     }
   }
 
-  return {
-    valid: errors.length === 0,
-    errors,
-  }
+  return { valid: errors.length === 0, errors }
 }
 
 /**
