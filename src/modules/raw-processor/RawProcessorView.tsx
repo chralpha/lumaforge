@@ -13,13 +13,15 @@ import { Spring } from '~/lib/spring'
 import {
   ControlsPanel,
   ErrorOverlay,
-  FileDropzone,
   MetadataPanel,
   PreviewCanvas,
   ProgressOverlay,
   StatsPanel,
+  UnsupportedState,
+  UploadState,
 } from './components'
 import { useRawProcessor } from './hooks'
+import { useCapabilityGate } from './hooks/useCapabilityGate'
 
 export interface RawProcessorViewProps {
   className?: string
@@ -85,6 +87,13 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
 
   const isProcessing =
     status === 'loading' || status === 'decoding' || status === 'processing'
+  const capability = useCapabilityGate()
+
+  if (capability.ready && capability.supportStatus === 'unsupported') {
+    return (
+      <UnsupportedState reason={capability.reason || 'WebGL2 is required'} />
+    )
+  }
 
   return (
     <div className={clsxm('relative flex flex-col h-full', className)}>
@@ -117,14 +126,13 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
         {!hasImage ? (
-          // Empty state - file dropzone
           <m.div
             className="flex-1 flex items-center justify-center p-8"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={Spring.presets.smooth}
           >
-            <FileDropzone onFileDrop={handleFileDrop} disabled={isProcessing} />
+            <UploadState onFileDrop={handleFileDrop} disabled={isProcessing} />
           </m.div>
         ) : (
           // Loaded state - preview and controls
