@@ -1,4 +1,6 @@
-import { fileURLToPath, resolve } from 'node:url'
+import { resolve } from 'node:path'
+import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
 import tailwindcss from '@tailwindcss/vite'
 import reactRefresh from '@vitejs/plugin-react'
@@ -6,7 +8,6 @@ import { codeInspectorPlugin } from 'code-inspector-plugin'
 import { defineConfig } from 'vite'
 import { checker } from 'vite-plugin-checker'
 import { routeBuilderPlugin } from 'vite-plugin-route-builder'
-import tsconfigPaths from 'vite-tsconfig-paths'
 
 import PKG from './package.json'
 
@@ -19,7 +20,6 @@ export default defineConfig({
       hotKeys: ['altKey'],
     }),
     reactRefresh(),
-    tsconfigPaths(),
     checker({
       typescript: true,
       enableBuild: true,
@@ -32,6 +32,9 @@ export default defineConfig({
       enableInDev: true,
     }),
   ],
+  resolve: {
+    tsconfigPaths: true,
+  },
   define: {
     APP_DEV_CWD: JSON.stringify(process.cwd()),
     APP_NAME: JSON.stringify(PKG.name),

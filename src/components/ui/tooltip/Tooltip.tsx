@@ -49,7 +49,6 @@ type TooltipProviderProps = React.ComponentProps<
 >
 
 function TooltipProvider(props: TooltipProviderProps) {
-  // eslint-disable-next-line @eslint-react/no-context-provider
   return <TooltipPrimitive.Provider data-slot="tooltip-provider" {...props} />
 }
 

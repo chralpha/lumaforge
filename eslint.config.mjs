@@ -4,9 +4,18 @@ import { defineConfig } from 'eslint-config-hyoban'
 export default defineConfig(
   {
     formatting: false,
+    ignores: (originals) => [
+      ...originals,
+      '.vscode/**',
+      'dist/**',
+      'docs/**',
+      'agents.md',
+      'readme.md',
+    ],
     lessOpinionated: true,
     preferESM: false,
     react: true,
+    stylistic: false,
     tailwindCSS: false,
   },
   {
@@ -19,8 +28,12 @@ export default defineConfig(
       'unicorn/prefer-math-trunc': 'off',
       '@eslint-react/no-clone-element': 0,
       '@eslint-react/hooks-extra/no-direct-set-state-in-use-effect': 0,
+      'antfu/no-top-level-await': 'off',
+      'e18e/prefer-static-regex': 'off',
+      'prefer-exponentiation-operator': 'off',
       // NOTE: Disable this temporarily
       'react-compiler/react-compiler': 0,
+      'react-refresh/only-export-components': 'off',
       'no-restricted-syntax': 0,
       'no-restricted-globals': [
         'error',
@@ -31,12 +44,7 @@ export default defineConfig(
             'You can use `useLocaltion` or `getReadonlyRoute` to get the route info.',
         },
       ],
-    },
-  },
-  {
-    files: ['**/*.tsx'],
-    rules: {
-      '@stylistic/jsx-self-closing-comp': 'error',
+      'ts/no-use-before-define': 'off',
     },
   },
 )

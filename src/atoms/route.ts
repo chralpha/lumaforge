@@ -8,7 +8,7 @@ import { createAtomHooks } from '~/lib/jotai'
 interface RouteAtom {
   params: Readonly<Params<string>>
   searchParams: URLSearchParams
-  location: Location<any>
+  location: Location<unknown>
 }
 
 export const [routeAtom, , , , getReadonlyRoute, setRoute] = createAtomHooks(
@@ -21,16 +21,19 @@ export const [routeAtom, , , , getReadonlyRoute, setRoute] = createAtomHooks(
       hash: '',
       state: null,
       key: '',
+      unstable_mask: undefined,
     },
   }),
 )
 
-const noop = []
+const noop: readonly unknown[] = []
 export const useReadonlyRouteSelector = <T>(
   selector: (route: RouteAtom) => T,
-  deps: any[] = noop,
+  deps: readonly unknown[] = noop,
 ): T =>
   useAtomValue(
+    // The caller owns the selector invalidation contract for this helper.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useMemo(() => selectAtom(routeAtom, (route) => selector(route)), deps),
   )
 
