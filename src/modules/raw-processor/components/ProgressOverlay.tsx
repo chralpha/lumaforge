@@ -16,10 +16,10 @@ export interface ProgressOverlayProps {
 }
 
 const phaseLabels: Record<ProgressOverlayProps['phase'], string> = {
-  loading: 'Loading file...',
-  decoding: 'Decoding RAW...',
-  processing: 'Processing image...',
-  exporting: 'Exporting...',
+  loading: 'Preparing your RAW file...',
+  decoding: 'Building the first preview...',
+  processing: 'Applying the current look...',
+  exporting: 'Preparing JPEG export...',
 }
 
 export function ProgressOverlay({

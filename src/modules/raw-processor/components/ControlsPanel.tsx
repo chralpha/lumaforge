@@ -1,86 +1,53 @@
 /**
- * Controls panel for RAW processing parameters.
+ * Controls panel for style-first RAW editing.
  */
 
 import { m } from 'motion/react'
-import { useCallback } from 'react'
 
 import { Button } from '~/components/ui/button'
 import { Divider } from '~/components/ui/divider'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '~/components/ui/select'
-import { Slider } from '~/components/ui/slider'
 import { clsxm } from '~/lib/cn'
-import { LOG_SPACES } from '~/lib/color/constants'
-import type { ProcessingParams } from '~/lib/gl/pipeline'
 import { Spring } from '~/lib/spring'
 
 import { LutDropzone } from './Dropzone'
+import { IntensityChips } from './IntensityChips'
 
 export interface ControlsPanelProps {
-  params: ProcessingParams
-  onParamsChange: (params: Partial<ProcessingParams>) => void
-  lutName?: string | null
+  presetOptions: Array<{ id: string; name: string }>
+  activePresetId: string | null
+  activeIntensity: 'off' | 'light' | 'standard' | 'strong'
+  viewMode: 'processed' | 'original'
+  onPresetSelect: (id: string) => void
+  onIntensitySelect: (level: 'off' | 'light' | 'standard' | 'strong') => void
+  onViewModeChange: (mode: 'processed' | 'original') => void
   onLutLoad: (files: File[]) => void
   onLutClear: () => void
-  onExport: (format: 'tiff' | 'jpeg') => void
+  onExport: (options: {
+    quality: 'standard' | 'high'
+    fidelity: 'safe' | 'balanced' | 'max'
+  }) => void
   canExport: boolean
   isProcessing: boolean
+  currentLutName?: string | null
   className?: string
 }
 
 export function ControlsPanel({
-  params,
-  onParamsChange,
-  lutName,
+  presetOptions,
+  activePresetId,
+  activeIntensity,
+  viewMode,
+  onPresetSelect,
+  onIntensitySelect,
+  onViewModeChange,
   onLutLoad,
   onLutClear,
   onExport,
   canExport,
   isProcessing,
+  currentLutName,
   className,
 }: ControlsPanelProps) {
-  const handleExposureChange = useCallback(
-    (value: number[]) => {
-      onParamsChange({ exposure: value[0] })
-    },
-    [onParamsChange],
-  )
-
-  const handleSaturationChange = useCallback(
-    (value: number[]) => {
-      onParamsChange({ saturation: value[0] })
-    },
-    [onParamsChange],
-  )
-
-  const handleContrastChange = useCallback(
-    (value: number[]) => {
-      onParamsChange({ contrast: value[0] })
-    },
-    [onParamsChange],
-  )
-
-  const handleLogSpaceChange = useCallback(
-    (value: string) => {
-      onParamsChange({ logSpace: value })
-    },
-    [onParamsChange],
-  )
-
-  const handleReset = useCallback(() => {
-    onParamsChange({
-      exposure: 0,
-      saturation: 1.25,
-      contrast: 1.1,
-    })
-  }, [onParamsChange])
-
   return (
     <m.div
       className={clsxm(
@@ -91,131 +58,91 @@ export function ControlsPanel({
       animate={{ opacity: 1, x: 0 }}
       transition={Spring.presets.smooth}
     >
-      {/* Log Space Selection */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-text">Log Space</label>
-        <Select value={params.logSpace} onValueChange={handleLogSpaceChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select log space" />
-          </SelectTrigger>
-          <SelectContent>
-            {LOG_SPACES.map((space) => (
-              <SelectItem key={space} value={space}>
-                {space}
-              </SelectItem>
+      <div className="space-y-6">
+        <section className="space-y-3">
+          <label className="text-sm font-medium text-text">Builtin looks</label>
+          <div className="grid grid-cols-2 gap-2">
+            {presetOptions.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => onPresetSelect(preset.id)}
+                className={
+                  activePresetId === preset.id
+                    ? 'rounded-xl border border-accent bg-accent/10 px-3 py-3 text-left text-sm text-text'
+                    : 'rounded-xl border border-border bg-background px-3 py-3 text-left text-sm text-text-secondary'
+                }
+              >
+                {preset.name}
+              </button>
             ))}
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-text-tertiary">
-          Target color space for grading
-        </p>
-      </div>
+          </div>
+        </section>
 
-      <Divider />
+        <Divider />
 
-      {/* Exposure */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-text">Exposure</label>
-          <span className="text-sm text-text-secondary tabular-nums">
-            <span>{params.exposure > 0 ? '+' : ''}</span>
-            <span>{params.exposure.toFixed(2)} EV</span>
-          </span>
-        </div>
-        <Slider
-          value={[params.exposure]}
-          onValueChange={handleExposureChange}
-          min={-5}
-          max={5}
-          step={0.05}
-        />
-      </div>
+        <section className="space-y-3">
+          <label className="text-sm font-medium text-text">Intensity</label>
+          <IntensityChips
+            value={activeIntensity}
+            onChange={onIntensitySelect}
+          />
+        </section>
 
-      {/* Saturation */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-text">Saturation</label>
-          <span className="text-sm text-text-secondary tabular-nums">
-            {(params.saturation * 100).toFixed(0)}%
-          </span>
-        </div>
-        <Slider
-          value={[params.saturation]}
-          onValueChange={handleSaturationChange}
-          min={0}
-          max={2}
-          step={0.05}
-        />
-      </div>
+        <Divider />
 
-      {/* Contrast */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-text">Contrast</label>
-          <span className="text-sm text-text-secondary tabular-nums">
-            {(params.contrast * 100).toFixed(0)}%
-          </span>
-        </div>
-        <Slider
-          value={[params.contrast]}
-          onValueChange={handleContrastChange}
-          min={0.5}
-          max={2}
-          step={0.05}
-        />
-      </div>
+        <section className="space-y-3">
+          <label className="text-sm font-medium text-text">Compare</label>
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === 'processed' ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => onViewModeChange('processed')}
+            >
+              Processed
+            </Button>
+            <Button
+              variant={viewMode === 'original' ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => onViewModeChange('original')}
+            >
+              Original
+            </Button>
+          </div>
+        </section>
 
-      <button
-        type="button"
-        onClick={handleReset}
-        className="text-xs text-text-tertiary hover:text-text transition-colors text-left"
-      >
-        Reset adjustments
-      </button>
+        <Divider />
 
-      <Divider />
+        <section className="space-y-2">
+          <label className="text-sm font-medium text-text">Custom LUT</label>
+          <LutDropzone
+            onFileDrop={onLutLoad}
+            currentLut={currentLutName}
+            onClear={onLutClear}
+            disabled={isProcessing}
+          />
+          <p className="text-xs text-text-tertiary">
+            `.cube` LUTs run in a best effort path for Phase 1.
+          </p>
+        </section>
 
-      {/* LUT Selection */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-text">3D LUT</label>
-        <LutDropzone
-          onFileDrop={onLutLoad}
-          currentLut={lutName}
-          onClear={onLutClear}
-          disabled={isProcessing}
-        />
-      </div>
+        <Divider />
 
-      <Divider />
-
-      {/* Export Buttons */}
-      <div className="space-y-3">
-        <label className="text-sm font-medium text-text">Export</label>
-        <div className="flex gap-2">
+        <section className="space-y-3">
+          <label className="text-sm font-medium text-text">Export</label>
           <Button
             variant="primary"
             size="sm"
-            onClick={() => onExport('tiff')}
+            onClick={() => onExport({ quality: 'high', fidelity: 'balanced' })}
             disabled={!canExport || isProcessing}
-            className="flex-1"
+            className="w-full"
           >
-            <i className="i-mingcute-file-download-line mr-2" />
-            TIFF 16-bit
+            Export JPEG
           </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onExport('jpeg')}
-            disabled={!canExport || isProcessing}
-            className="flex-1"
-          >
-            <i className="i-mingcute-pic-line mr-2" />
-            JPEG
-          </Button>
-        </div>
-        <p className="text-xs text-text-tertiary">
-          TIFF exports full 16-bit precision
-        </p>
+          <p className="text-xs text-text-tertiary">
+            Export stays locked until the HQ preview is ready.
+          </p>
+        </section>
       </div>
     </m.div>
   )

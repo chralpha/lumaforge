@@ -19,6 +19,7 @@ import {
   StatsPanel,
   UnsupportedState,
   UploadState,
+  WorkspaceHeader,
 } from './components'
 import { useRawProcessor } from './hooks'
 import { useCapabilityGate } from './hooks/useCapabilityGate'
@@ -34,15 +35,23 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     status,
     error,
     progress,
-    lut,
     lutData,
     stats,
     hasImage,
     canExport,
+    activePresetId,
+    activeIntensity,
+    viewMode,
+    currentLutName,
+    sourceFileName,
+    supportLevel,
+    presetOptions,
     loadFile,
     loadLUT,
+    selectBuiltinStyle,
+    selectIntensityLevel,
+    setViewMode,
     clearLUT,
-    setParams,
     exportImage,
     reset,
     dismissError,
@@ -71,11 +80,28 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
 
   // Handle export
   const handleExport = useCallback(
-    (format: 'tiff' | 'jpeg') => {
-      exportImage(format)
+    (_options?: {
+      quality: 'standard' | 'high'
+      fidelity: 'safe' | 'balanced' | 'max'
+    }) => {
+      exportImage('jpeg')
     },
     [exportImage],
   )
+
+  const handleReplaceFile = useCallback(() => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept =
+      '.cr2,.cr3,.nef,.arw,.raf,.rw2,.orf,.dng,.pef,.srw,.3fr,.fff,.iiq,.raw'
+    input.onchange = () => {
+      const nextFile = input.files?.[0]
+      if (nextFile) {
+        loadFile(nextFile)
+      }
+    }
+    input.click()
+  }, [loadFile])
 
   // Handle stats update from canvas
   const handleStatsUpdate = useCallback(
@@ -97,31 +123,18 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
 
   return (
     <div className={clsxm('relative flex flex-col h-full', className)}>
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          <div className="size-10 rounded-lg bg-accent/10 flex items-center justify-center">
-            <i className="i-mingcute-camera-line text-xl text-accent" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-text">RAW Processor</h1>
-            <p className="text-xs text-text-tertiary">
-              Browser-based RAW image processing
-            </p>
-          </div>
-        </div>
-
-        {hasImage && (
-          <button
-            type="button"
-            onClick={reset}
-            className="text-sm text-text-secondary hover:text-text transition-colors"
-          >
-            <i className="i-mingcute-close-line mr-1" />
-            Close
-          </button>
-        )}
-      </header>
+      {hasImage && (
+        <WorkspaceHeader
+          fileName={sourceFileName}
+          supportLevel={supportLevel}
+          canExport={canExport}
+          onReplaceFile={handleReplaceFile}
+          onResetSession={reset}
+          onOpenExport={() =>
+            handleExport({ quality: 'high', fidelity: 'balanced' })
+          }
+        />
+      )}
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
@@ -192,11 +205,21 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
               transition={Spring.presets.smooth}
             >
               <ControlsPanel
-                params={params}
-                onParamsChange={setParams}
-                lutName={lut?.title}
+                presetOptions={presetOptions.map(({ id, name }) => ({
+                  id,
+                  name,
+                }))}
+                activePresetId={activePresetId}
+                activeIntensity={activeIntensity}
+                viewMode={viewMode}
+                onPresetSelect={(id) =>
+                  selectBuiltinStyle(id as (typeof presetOptions)[number]['id'])
+                }
+                onIntensitySelect={selectIntensityLevel}
+                onViewModeChange={setViewMode}
                 onLutLoad={handleLutDrop}
                 onLutClear={clearLUT}
+                currentLutName={currentLutName}
                 onExport={handleExport}
                 canExport={canExport}
                 isProcessing={isProcessing}

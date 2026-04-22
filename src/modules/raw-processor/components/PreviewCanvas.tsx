@@ -149,7 +149,10 @@ export function PreviewCanvas({
     const pipeline = pipelineRef.current
     if (!pipeline || !isInitialized || !imageData) return
 
-    pipeline.setParams(params)
+    pipeline.setParams({
+      ...params,
+      intensity: params.viewMode === 'original' ? 0 : params.intensity,
+    })
     const stats = pipeline.render()
     onStatsUpdate?.(stats)
   }, [params, isInitialized, imageData, onStatsUpdate])

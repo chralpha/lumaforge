@@ -225,6 +225,7 @@ uniform sampler3D u_lutTexture;
 uniform bool u_useLut;
 uniform vec3 u_lutDomainMin;
 uniform vec3 u_lutDomainMax;
+uniform float u_intensity;
 
 // Processing parameters
 uniform float u_exposure;       // EV stops
@@ -304,8 +305,9 @@ void main() {
   
   // Step 5: Apply LUT
   if (u_useLut) {
-    color = applyLut(color);
-    color = clamp(color, 0.0, 1.0);
+    vec3 processedColor = applyLut(color);
+    processedColor = clamp(processedColor, 0.0, 1.0);
+    color = mix(color, processedColor, u_intensity);
   }
   
   fragColor = vec4(color, 1.0);

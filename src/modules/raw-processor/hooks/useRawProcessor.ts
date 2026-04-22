@@ -46,7 +46,11 @@ import {
   extractEmbeddedPreviewBestEffort,
   runPreviewPipeline,
 } from '../services/preview-pipeline'
-import { buildBuiltinStyle, toCustomStyle } from '../services/style-system'
+import {
+  buildBuiltinStyle,
+  mapIntensityLevel,
+  toCustomStyle,
+} from '../services/style-system'
 import { useImageSession } from './useImageSession'
 
 export interface UseRawProcessorReturn {
@@ -62,12 +66,20 @@ export interface UseRawProcessorReturn {
   hasImage: boolean
   canExport: boolean
   activeStyle: StyleAsset | null
+  activePresetId: (typeof BUILTIN_PRESETS)[number]['id'] | null
+  activeIntensity: 'off' | 'light' | 'standard' | 'strong'
+  viewMode: ProcessingParams['viewMode']
+  currentLutName: string | null
+  sourceFileName: string
+  supportLevel: 'official' | 'experimental'
   presetOptions: typeof BUILTIN_PRESETS
 
   // Actions
   loadFile: (file: File) => Promise<void>
   loadLUT: (file: File) => Promise<void>
   selectBuiltinStyle: (id: (typeof BUILTIN_PRESETS)[number]['id']) => void
+  selectIntensityLevel: (level: 'off' | 'light' | 'standard' | 'strong') => void
+  setViewMode: (mode: ProcessingParams['viewMode']) => void
   clearLUT: () => void
   setParams: (params: Partial<ProcessingParams>) => void
   exportImage: (format: 'tiff' | 'jpeg') => Promise<void>
@@ -103,6 +115,21 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const hasImage = session ? deriveCanEdit(session) : false
   const canExport = session ? deriveCanExport(session) : false
   const activeStyle = session?.activeStyle || null
+  const activePresetId =
+    activeStyle?.kind === 'builtin'
+      ? (BUILTIN_PRESETS.find((preset) => preset.name === activeStyle.name)
+          ?.id ?? null)
+      : null
+  const activeIntensity = activeStyle?.currentIntensityLevel || 'standard'
+  const viewMode = params.viewMode
+  const currentLutName =
+    activeStyle?.kind === 'custom' ? activeStyle.name : null
+  const sourceFileName =
+    session?.sourceFile.name || loadedImage.file?.name || 'RAW photo'
+  const supportLevel =
+    session?.sourceFile.supportLevel === 'official'
+      ? 'official'
+      : 'experimental'
 
   useEffect(() => {
     sessionRef.current = session
@@ -359,7 +386,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
         }
 
         setLut(parsed)
-        setActiveStyle(toCustomStyle(parsed))
+        const style = toCustomStyle(parsed)
+        setActiveStyle(style)
+        setParams((prev) => ({
+          ...prev,
+          intensity: mapIntensityLevel(style.defaultIntensityLevel),
+        }))
         toast.success(`Loaded LUT: ${parsed.title}`, {
           description: `${parsed.size}³ grid`,
         })
@@ -369,16 +401,61 @@ export function useRawProcessor(): UseRawProcessorReturn {
         toast.error('Failed to load LUT', { description: message })
       }
     },
-    [setActiveStyle, setLut],
+    [setActiveStyle, setLut, setParams],
   )
 
   const selectBuiltinStyle = useCallback(
     (id: (typeof BUILTIN_PRESETS)[number]['id']) => {
+      const style = buildBuiltinStyle(id)
       setLut(null)
       setLutData(null)
-      setActiveStyle(buildBuiltinStyle(id))
+      setActiveStyle(style)
+      setParams((prev) => ({
+        ...prev,
+        intensity: mapIntensityLevel(style.defaultIntensityLevel),
+      }))
     },
-    [setActiveStyle, setLut],
+    [setActiveStyle, setLut, setParams],
+  )
+
+  const selectIntensityLevel = useCallback(
+    (level: 'off' | 'light' | 'standard' | 'strong') => {
+      setParams((prev) => ({ ...prev, intensity: mapIntensityLevel(level) }))
+      setSession((prev) => {
+        if (!prev || !prev.activeStyle) {
+          return prev
+        }
+
+        return {
+          ...prev,
+          activeStyle: {
+            ...prev.activeStyle,
+            currentIntensityLevel: level,
+          },
+        }
+      })
+    },
+    [setParams, setSession],
+  )
+
+  const setViewMode = useCallback(
+    (mode: ProcessingParams['viewMode']) => {
+      setParams((prev) => ({ ...prev, viewMode: mode }))
+      setSession((prev) => {
+        if (!prev) {
+          return prev
+        }
+
+        return {
+          ...prev,
+          viewState: {
+            ...prev.viewState,
+            mode,
+          },
+        }
+      })
+    },
+    [setParams, setSession],
   )
 
   // Clear LUT
@@ -485,10 +562,18 @@ export function useRawProcessor(): UseRawProcessorReturn {
     hasImage,
     canExport,
     activeStyle,
+    activePresetId,
+    activeIntensity,
+    viewMode,
+    currentLutName,
+    sourceFileName,
+    supportLevel,
     presetOptions: BUILTIN_PRESETS,
     loadFile,
     loadLUT,
     selectBuiltinStyle,
+    selectIntensityLevel,
+    setViewMode,
     clearLUT,
     setParams: handleSetParams,
     exportImage,

@@ -25,10 +25,8 @@ import {
 } from './shaders'
 
 export interface ProcessingParams {
-  exposure: number // EV stops
-  saturation: number // 1.0 = normal
-  contrast: number // 1.0 = normal
-  logSpace: string // Log encoding name
+  intensity: number
+  viewMode: 'processed' | 'original'
 }
 
 export interface LUTData {
@@ -48,10 +46,8 @@ export interface PipelineStats {
 }
 
 const DEFAULT_PARAMS: ProcessingParams = {
-  exposure: 0,
-  saturation: 1.25,
-  contrast: 1.1,
-  logSpace: 'S-Log3',
+  intensity: 0.7,
+  viewMode: 'processed',
 }
 
 /**
@@ -144,6 +140,7 @@ export class RawProcessingPipeline {
       u_useLut: gl.getUniformLocation(program, 'u_useLut'),
       u_lutDomainMin: gl.getUniformLocation(program, 'u_lutDomainMin'),
       u_lutDomainMax: gl.getUniformLocation(program, 'u_lutDomainMax'),
+      u_intensity: gl.getUniformLocation(program, 'u_intensity'),
       u_exposure: gl.getUniformLocation(program, 'u_exposure'),
       u_saturation: gl.getUniformLocation(program, 'u_saturation'),
       u_contrast: gl.getUniformLocation(program, 'u_contrast'),
@@ -329,18 +326,19 @@ export class RawProcessingPipeline {
     }
 
     // Set processing parameters
-    gl.uniform1f(processUniforms.u_exposure, params.exposure)
-    gl.uniform1f(processUniforms.u_saturation, params.saturation)
-    gl.uniform1f(processUniforms.u_contrast, params.contrast)
+    gl.uniform1f(processUniforms.u_intensity, params.intensity)
+    gl.uniform1f(processUniforms.u_exposure, 0)
+    gl.uniform1f(processUniforms.u_saturation, 1)
+    gl.uniform1f(processUniforms.u_contrast, 1)
 
     // Set gamut matrix
-    const targetGamut = LOG_TO_WORKING_SPACE[params.logSpace] || 'S-Gamut3'
+    const targetGamut = LOG_TO_WORKING_SPACE['S-Log3'] || 'S-Gamut3'
     const matrix = getProPhotoToTargetMatrix(targetGamut)
     const glMatrix = mat3ToGLSL(matrix)
     gl.uniformMatrix3fv(processUniforms.u_gamutMatrix, false, glMatrix)
 
     // Set log space
-    const logSpaceIndex = LOG_SPACE_ENUM[params.logSpace] || 0
+    const logSpaceIndex = LOG_SPACE_ENUM['S-Log3'] || 0
     gl.uniform1i(processUniforms.u_logSpace, logSpaceIndex)
 
     // Draw
