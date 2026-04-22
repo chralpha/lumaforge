@@ -44,7 +44,9 @@ export function useImageSession() {
 
   const replaceFile = useCallback(
     (file: File) => {
-      setSession(createEmptySession(file))
+      const nextSession = createEmptySession(file)
+      setSession(nextSession)
+      return nextSession
     },
     [setSession],
   )

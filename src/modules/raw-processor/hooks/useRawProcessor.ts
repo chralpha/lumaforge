@@ -28,13 +28,17 @@ import type {
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import { isSupportedLUT, parseCubeFile, toLUTData } from '~/lib/lut/cube-parser'
 import type { DecodedImage } from '~/lib/raw/decoder'
-import { decodeRaw, isSupportedRaw } from '~/lib/raw/decoder'
+import { decodeHqRaw, decodeQuickRaw, isSupportedRaw } from '~/lib/raw/decoder'
 
 import {
   deriveCanEdit,
   deriveCanExport,
   selectDisplaySource,
 } from '../model/derive-session'
+import {
+  extractEmbeddedPreviewBestEffort,
+  runPreviewPipeline,
+} from '../services/preview-pipeline'
 import { useImageSession } from './useImageSession'
 
 export interface UseRawProcessorReturn {
@@ -83,9 +87,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
     useImageSession()
 
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
+  const sessionRef = useRef(session)
   const [lutData, setLutData] = useState<LUTData | null>(null)
   const hasImage = session ? deriveCanEdit(session) : false
   const canExport = session ? deriveCanExport(session) : false
+
+  useEffect(() => {
+    sessionRef.current = session
+  }, [session])
 
   // Convert LUT to pipeline format when it changes
   useEffect(() => {
@@ -105,73 +114,206 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
 
       try {
-        replaceFile(file)
+        const nextSession = replaceFile(file)
+        let quickPreview: DecodedImage | null = null
+        let hqPreview: DecodedImage | null = null
+
+        sessionRef.current = nextSession
+        setLoadedImage({ file: null, decoded: null, metadata: null })
         setStatus('loading')
         setProgress(0)
         setError(null)
 
-        const decoded = await decodeRaw(
-          file,
-          {
-            useCameraWB: true,
-          },
-          ({ phase, progress }) => {
-            if (phase === 'loading') {
-              setProgress(progress * 0.3) // 0-30%
-            } else if (phase === 'decoding') {
-              setProgress(30 + progress * 0.7) // 30-100%
-            }
-          },
-        )
-
-        setLoadedImage({
-          file,
-          decoded,
-          metadata: decoded.metadata,
-        })
         setSession((prev) => {
-          if (!prev) {
+          if (!prev || prev.id !== nextSession.id) {
             return prev
-          }
-
-          const previewBundle = {
-            ...prev.previewBundle,
-            quickDecodePreview: {
-              status: 'ready' as const,
-              width: decoded.width,
-              height: decoded.height,
-            },
-            hqImage: {
-              status: 'ready' as const,
-              width: decoded.width,
-              height: decoded.height,
-            },
           }
 
           return {
             ...prev,
-            sourceFile: {
-              ...prev.sourceFile,
-              cameraBrand: decoded.metadata.make,
-              cameraModel: decoded.metadata.model,
-              width: decoded.width,
-              height: decoded.height,
-            },
             previewBundle: {
-              ...previewBundle,
-              displaySource: selectDisplaySource(previewBundle),
+              ...prev.previewBundle,
+              quickDecodePreview: { status: 'loading' },
+              hqImage: { status: 'loading' },
             },
             renderState: {
-              status: 'ready',
-              lastRenderSource: 'hq',
+              status: 'preparing',
             },
           }
         })
-        setStatus('ready')
-        setProgress(100)
 
-        toast.success(`Loaded ${file.name}`, {
-          description: `${decoded.width}×${decoded.height} • ${decoded.metadata.make || 'Unknown'} ${decoded.metadata.model || ''}`,
+        const matchesActiveSession = () =>
+          sessionRef.current?.id === nextSession.id
+
+        const mapPhaseToStatus = (
+          phase: 'loading' | 'decoding' | 'processing' | 'complete',
+        ): ProcessingStatus => {
+          if (phase === 'loading') return 'loading'
+          if (phase === 'decoding') return 'decoding'
+          if (phase === 'processing') return 'processing'
+          return 'ready'
+        }
+
+        const updatePreviewState = (
+          source: 'embedded' | 'quick' | 'hq',
+          payload: { width: number; height: number },
+          decoded?: DecodedImage | null,
+        ) => {
+          if (!matchesActiveSession()) {
+            return
+          }
+
+          setSession((prev) => {
+            if (!prev || prev.id !== nextSession.id) {
+              return prev
+            }
+
+            const previewBundle = {
+              ...prev.previewBundle,
+              embeddedPreview:
+                source === 'embedded'
+                  ? {
+                      status: 'ready' as const,
+                      width: payload.width,
+                      height: payload.height,
+                    }
+                  : prev.previewBundle.embeddedPreview,
+              quickDecodePreview:
+                source === 'quick'
+                  ? {
+                      status: 'ready' as const,
+                      width: payload.width,
+                      height: payload.height,
+                    }
+                  : prev.previewBundle.quickDecodePreview,
+              hqImage:
+                source === 'hq'
+                  ? {
+                      status: 'ready' as const,
+                      width: payload.width,
+                      height: payload.height,
+                    }
+                  : prev.previewBundle.hqImage,
+            }
+
+            return {
+              ...prev,
+              sourceFile: decoded
+                ? {
+                    ...prev.sourceFile,
+                    cameraBrand: decoded.metadata.make,
+                    cameraModel: decoded.metadata.model,
+                    width: decoded.width,
+                    height: decoded.height,
+                  }
+                : prev.sourceFile,
+              previewBundle: {
+                ...previewBundle,
+                displaySource: selectDisplaySource(previewBundle),
+              },
+              renderState: {
+                status: 'ready',
+                lastRenderSource: source,
+              },
+            }
+          })
+
+          if (decoded) {
+            setLoadedImage({
+              file,
+              decoded,
+              metadata: decoded.metadata,
+            })
+            setStatus('ready')
+          }
+        }
+
+        await runPreviewPipeline({
+          file,
+          extractEmbeddedPreview: extractEmbeddedPreviewBestEffort,
+          decodeQuickPreview: async (targetFile) => {
+            quickPreview = await decodeQuickRaw(
+              targetFile,
+              ({ phase, progress }) => {
+                if (!matchesActiveSession()) {
+                  return
+                }
+
+                setStatus(mapPhaseToStatus(phase))
+                setProgress(progress * 0.5)
+              },
+            )
+
+            return { width: quickPreview.width, height: quickPreview.height }
+          },
+          decodeHqPreview: async (targetFile) => {
+            hqPreview = await decodeHqRaw(targetFile, ({ phase, progress }) => {
+              if (!matchesActiveSession()) {
+                return
+              }
+
+              setStatus(mapPhaseToStatus(phase))
+              setProgress(50 + progress * 0.5)
+            })
+
+            return { width: hqPreview.width, height: hqPreview.height }
+          },
+          onEvent: (event) => {
+            if (!matchesActiveSession()) {
+              return
+            }
+
+            switch (event.type) {
+              case 'embedded-ready': {
+                updatePreviewState('embedded', event)
+                break
+              }
+              case 'quick-ready': {
+                updatePreviewState('quick', event, quickPreview)
+                break
+              }
+              case 'hq-ready': {
+                updatePreviewState('hq', event, hqPreview)
+                setProgress(100)
+                if (hqPreview) {
+                  toast.success(`Loaded ${file.name}`, {
+                    description: `${hqPreview.width}×${hqPreview.height} • ${hqPreview.metadata.make || 'Unknown'} ${hqPreview.metadata.model || ''}`,
+                  })
+                }
+                break
+              }
+              case 'hq-failed': {
+                setSession((prev) => {
+                  if (!prev || prev.id !== nextSession.id) {
+                    return prev
+                  }
+
+                  const previewBundle = {
+                    ...prev.previewBundle,
+                    hqImage: {
+                      status: 'failed' as const,
+                      errorCode: event.errorCode,
+                    },
+                  }
+
+                  return {
+                    ...prev,
+                    previewBundle: {
+                      ...previewBundle,
+                      displaySource: selectDisplaySource(previewBundle),
+                    },
+                    renderState: {
+                      ...prev.renderState,
+                      lastErrorCode: event.errorCode,
+                    },
+                  }
+                })
+                setStatus('ready')
+                setProgress(100)
+                break
+              }
+            }
+          },
         })
       } catch (err) {
         const message =

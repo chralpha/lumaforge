@@ -26,15 +26,23 @@ declare module 'libraw-wasm' {
     flip?: number
   }
 
+  export interface LibRawOpenOptions {
+    halfSize?: boolean
+    useCameraWb?: boolean
+    outputColor?: number
+    outputBps?: 8 | 16
+    noAutoBright?: boolean
+  }
+
   export default class LibRaw {
     constructor()
 
     /**
      * Open a RAW file from binary data.
      * @param data - The raw file data as Uint8Array
-     * @param filename - Optional filename for format detection
+     * @param options - Optional libraw processing settings
      */
-    open(data: Uint8Array, filename?: string): Promise<void>
+    open(data: Uint8Array, options?: LibRawOpenOptions): Promise<void>
 
     /**
      * Get image metadata.

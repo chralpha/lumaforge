@@ -4,6 +4,7 @@
  */
 
 import type LibRawClass from 'libraw-wasm'
+import type { LibRawOpenOptions } from 'libraw-wasm'
 
 type LibRawInstance = InstanceType<typeof LibRawClass>
 
@@ -60,17 +61,27 @@ export interface DecodeProgress {
   progress: number // 0-100
 }
 
-type ProgressCallback = (progress: DecodeProgress) => void
+export type ProgressCallback = (progress: DecodeProgress) => void
+
+function toLibRawOptions(options?: DecodeOptions): LibRawOpenOptions {
+  return {
+    halfSize: options?.halfSize ?? false,
+    useCameraWb: options?.useCameraWB ?? true,
+    outputColor: 1,
+    outputBps: 16,
+    noAutoBright: true,
+  }
+}
 
 /**
  * Decode a RAW file.
  * @param file - File or ArrayBuffer containing RAW data
- * @param options - Decode options (currently unused, libraw-wasm has limited config)
+ * @param options - Decode options
  * @param onProgress - Progress callback
  */
 export async function decodeRaw(
   file: File | ArrayBuffer,
-  _options?: DecodeOptions,
+  options?: DecodeOptions,
   onProgress?: ProgressCallback,
 ): Promise<DecodedImage> {
   // Ensure initialized
@@ -94,7 +105,7 @@ export async function decodeRaw(
 
   // Open the RAW file
   const uint8Array = new Uint8Array(buffer)
-  await libraw.open(uint8Array)
+  await libraw.open(uint8Array, toLibRawOptions(options))
 
   onProgress?.({ phase: 'decoding', progress: 0 })
 
@@ -140,6 +151,17 @@ export async function decodeRaw(
       orientation: imageData.flip || 0,
     },
   }
+}
+
+export async function decodeQuickRaw(
+  file: File,
+  onProgress?: ProgressCallback,
+) {
+  return decodeRaw(file, { useCameraWB: true, halfSize: true }, onProgress)
+}
+
+export async function decodeHqRaw(file: File, onProgress?: ProgressCallback) {
+  return decodeRaw(file, { useCameraWB: true, halfSize: false }, onProgress)
 }
 
 /**
