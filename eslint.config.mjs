@@ -30,9 +30,15 @@ export default defineConfig(
       '@eslint-react/hooks-extra/no-direct-set-state-in-use-effect': 0,
       'antfu/no-top-level-await': 'off',
       'e18e/prefer-static-regex': 'off',
+      'jsdoc/check-param-names': 'off',
+      'jsdoc/require-returns-description': 'off',
       'prefer-exponentiation-operator': 'off',
       // NOTE: Disable this temporarily
       'react-compiler/react-compiler': 0,
+      'react-hooks/exhaustive-deps': 'error',
+      'react-naming-convention/ref-name': 'off',
+      'react-naming-convention/use-state': 'off',
+      'react/no-array-index-key': 'off',
       'react-refresh/only-export-components': 'off',
       'no-restricted-syntax': 0,
       'no-restricted-globals': [
@@ -44,6 +50,7 @@ export default defineConfig(
             'You can use `useLocaltion` or `getReadonlyRoute` to get the route info.',
         },
       ],
+      'ts/no-explicit-any': 'off',
       'ts/no-use-before-define': 'off',
     },
   },

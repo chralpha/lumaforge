@@ -11,7 +11,7 @@ export const useViewport = <T>(
   useAtomValue(
     selectAtom(
       viewportAtom,
-      useCallback((atomValue) => selector(atomValue), []),
+      useCallback((atomValue) => selector(atomValue), [selector]),
     ),
   )
 
