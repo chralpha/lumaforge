@@ -3,9 +3,6 @@
  * Handles the complete flow from decoded RAW data to display/export.
  */
 
-import { LOG_TO_WORKING_SPACE } from '~/lib/color/constants'
-import { getProPhotoToTargetMatrix, mat3ToGLSL } from '~/lib/color/matrix'
-
 import type { WebGLCapabilities } from './context'
 import {
   create3DTexture,
@@ -18,7 +15,6 @@ import {
   getRecommendedTextureFormat,
 } from './context'
 import {
-  LOG_SPACE_ENUM,
   PREVIEW_OUTPUT_SHADER,
   PROCESS_FRAGMENT_SHADER,
   VERTEX_SHADER,
@@ -142,11 +138,6 @@ export class RawProcessingPipeline {
       u_lutDomainMin: gl.getUniformLocation(program, 'u_lutDomainMin'),
       u_lutDomainMax: gl.getUniformLocation(program, 'u_lutDomainMax'),
       u_intensity: gl.getUniformLocation(program, 'u_intensity'),
-      u_exposure: gl.getUniformLocation(program, 'u_exposure'),
-      u_saturation: gl.getUniformLocation(program, 'u_saturation'),
-      u_contrast: gl.getUniformLocation(program, 'u_contrast'),
-      u_gamutMatrix: gl.getUniformLocation(program, 'u_gamutMatrix'),
-      u_logSpace: gl.getUniformLocation(program, 'u_logSpace'),
     }
   }
 
@@ -328,21 +319,7 @@ export class RawProcessingPipeline {
       gl.uniform1i(processUniforms.u_useLut, 0)
     }
 
-    // Set processing parameters
     gl.uniform1f(processUniforms.u_intensity, params.intensity)
-    gl.uniform1f(processUniforms.u_exposure, 0)
-    gl.uniform1f(processUniforms.u_saturation, 1)
-    gl.uniform1f(processUniforms.u_contrast, 1)
-
-    // Set gamut matrix
-    const targetGamut = LOG_TO_WORKING_SPACE['S-Log3'] || 'S-Gamut3'
-    const matrix = getProPhotoToTargetMatrix(targetGamut)
-    const glMatrix = mat3ToGLSL(matrix)
-    gl.uniformMatrix3fv(processUniforms.u_gamutMatrix, false, glMatrix)
-
-    // Set log space
-    const logSpaceIndex = LOG_SPACE_ENUM['S-Log3'] || 0
-    gl.uniform1i(processUniforms.u_logSpace, logSpaceIndex)
 
     // Draw
     gl.bindVertexArray(fullscreenQuad!.vao)
@@ -483,12 +460,6 @@ export class RawProcessingPipeline {
     if (fullscreenQuad) {
       gl.deleteVertexArray(fullscreenQuad.vao)
       gl.deleteBuffer(fullscreenQuad.vbo)
-    }
-
-    // Lose context
-    const loseContext = gl.getExtension('WEBGL_lose_context')
-    if (loseContext) {
-      loseContext.loseContext()
     }
 
     this.isInitialized = false

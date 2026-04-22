@@ -266,7 +266,7 @@ export function createTextureFromData(
   gl: WebGL2RenderingContext,
   width: number,
   height: number,
-  data: Float32Array | Uint8Array | Uint16Array,
+  data: Float32Array | Uint8Array | Uint16Array | null,
   options?: {
     internalFormat?: number
     format?: number
@@ -358,43 +358,60 @@ export function createFramebuffer(
     type?: number
   },
 ): { framebuffer: WebGLFramebuffer; texture: WebGLTexture } | null {
-  const framebuffer = gl.createFramebuffer()
-  if (!framebuffer) return null
+  const candidates = options
+    ? [options]
+    : [
+        {
+          internalFormat: gl.RGBA16F,
+          format: gl.RGBA,
+          type: gl.HALF_FLOAT,
+        },
+        {
+          internalFormat: gl.RGBA8,
+          format: gl.RGBA,
+          type: gl.UNSIGNED_BYTE,
+        },
+      ]
 
-  const { internalFormat, format, type } =
-    options || getRecommendedTextureFormat(gl)
+  for (const candidate of candidates) {
+    const framebuffer = gl.createFramebuffer()
+    if (!framebuffer) {
+      return null
+    }
 
-  const texture = createTextureFromData(gl, width, height, null as any, {
-    internalFormat,
-    format,
-    type,
-  })
+    const texture = createTextureFromData(gl, width, height, null, candidate)
+    if (!texture) {
+      gl.deleteFramebuffer(framebuffer)
+      continue
+    }
 
-  if (!texture) {
-    gl.deleteFramebuffer(framebuffer)
-    return null
-  }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D,
+      texture,
+      0,
+    )
 
-  gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
-  gl.framebufferTexture2D(
-    gl.FRAMEBUFFER,
-    gl.COLOR_ATTACHMENT0,
-    gl.TEXTURE_2D,
-    texture,
-    0,
-  )
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER)
+    if (status === gl.FRAMEBUFFER_COMPLETE) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      return { framebuffer, texture }
+    }
 
-  const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER)
-  if (status !== gl.FRAMEBUFFER_COMPLETE) {
-    console.error('Framebuffer is not complete:', status)
+    console.warn('Framebuffer format fallback:', {
+      status,
+      internalFormat: candidate.internalFormat,
+      type: candidate.type,
+    })
     gl.deleteFramebuffer(framebuffer)
     gl.deleteTexture(texture)
-    return null
   }
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-
-  return { framebuffer, texture }
+  console.error('Framebuffer is not complete for any fallback format')
+  return null
 }
 
 /**
