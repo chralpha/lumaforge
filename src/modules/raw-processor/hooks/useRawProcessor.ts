@@ -1,16 +1,8 @@
-/**
- * Custom hook for RAW processor logic.
- * Manages file loading, processing, and export.
- */
-
-import { useAtomValue } from 'jotai'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import type { ProcessingStatus } from '~/atoms/raw-processor'
 import {
-  canExportAtom,
-  hasImageAtom,
   useErrorMessageValue,
   useLoadedImageValue,
   useLutValue,
@@ -37,6 +29,13 @@ import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import { isSupportedLUT, parseCubeFile, toLUTData } from '~/lib/lut/cube-parser'
 import type { DecodedImage } from '~/lib/raw/decoder'
 import { decodeRaw, isSupportedRaw } from '~/lib/raw/decoder'
+
+import {
+  deriveCanEdit,
+  deriveCanExport,
+  selectDisplaySource,
+} from '../model/derive-session'
+import { useImageSession } from './useImageSession'
 
 export interface UseRawProcessorReturn {
   // State
@@ -80,11 +79,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const setLut = useSetLut()
   const stats = usePipelineStatsValue()
   const setStats = useSetPipelineStats()
-  const hasImage = useAtomValue(hasImageAtom)
-  const canExport = useAtomValue(canExportAtom)
+  const { session, replaceFile, resetSession, setActiveStyle, setSession } =
+    useImageSession()
 
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
   const [lutData, setLutData] = useState<LUTData | null>(null)
+  const hasImage = session ? deriveCanEdit(session) : false
+  const canExport = session ? deriveCanExport(session) : false
 
   // Convert LUT to pipeline format when it changes
   useEffect(() => {
@@ -104,6 +105,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
 
       try {
+        replaceFile(file)
         setStatus('loading')
         setProgress(0)
         setError(null)
@@ -127,6 +129,44 @@ export function useRawProcessor(): UseRawProcessorReturn {
           decoded,
           metadata: decoded.metadata,
         })
+        setSession((prev) => {
+          if (!prev) {
+            return prev
+          }
+
+          const previewBundle = {
+            ...prev.previewBundle,
+            quickDecodePreview: {
+              status: 'ready' as const,
+              width: decoded.width,
+              height: decoded.height,
+            },
+            hqImage: {
+              status: 'ready' as const,
+              width: decoded.width,
+              height: decoded.height,
+            },
+          }
+
+          return {
+            ...prev,
+            sourceFile: {
+              ...prev.sourceFile,
+              cameraBrand: decoded.metadata.make,
+              cameraModel: decoded.metadata.model,
+              width: decoded.width,
+              height: decoded.height,
+            },
+            previewBundle: {
+              ...previewBundle,
+              displaySource: selectDisplaySource(previewBundle),
+            },
+            renderState: {
+              status: 'ready',
+              lastRenderSource: 'hq',
+            },
+          }
+        })
         setStatus('ready')
         setProgress(100)
 
@@ -141,7 +181,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         toast.error('Failed to load RAW file', { description: message })
       }
     },
-    [setStatus, setProgress, setError, setLoadedImage],
+    [replaceFile, setError, setLoadedImage, setProgress, setSession, setStatus],
   )
 
   // Load LUT file
@@ -157,6 +197,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
       try {
         const parsed = await parseCubeFile(file)
         setLut(parsed)
+        setActiveStyle({
+          kind: 'custom',
+          name: parsed.title,
+          defaultIntensityLevel: 'standard',
+          currentIntensityLevel: 'standard',
+          lutAsset: {
+            format: 'cube',
+            dimension: parsed.size as 17 | 33 | 65,
+            title: parsed.title,
+          },
+        })
         toast.success(`Loaded LUT: ${parsed.title}`, {
           description: `${parsed.size}³ grid`,
         })
@@ -166,15 +217,16 @@ export function useRawProcessor(): UseRawProcessorReturn {
         toast.error('Failed to load LUT', { description: message })
       }
     },
-    [setLut],
+    [setActiveStyle, setLut],
   )
 
   // Clear LUT
   const clearLUT = useCallback(() => {
     setLut(null)
     setLutData(null)
+    setActiveStyle(null)
     toast.info('LUT cleared')
-  }, [setLut])
+  }, [setActiveStyle, setLut])
 
   // Update params
   const handleSetParams = useCallback(
@@ -238,7 +290,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setError(null)
     setProgress(0)
     setStats(null)
-  }, [setLoadedImage, setStatus, setError, setProgress, setStats])
+    resetSession()
+  }, [resetSession, setError, setLoadedImage, setProgress, setStats, setStatus])
 
   // Dismiss error
   const dismissError = useCallback(() => {
