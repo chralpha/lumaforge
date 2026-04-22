@@ -18,7 +18,6 @@ import {
   useSetProcessingStatus,
   useSetProgress,
 } from '~/atoms/raw-processor'
-import { exportJPEG, exportTIFF } from '~/lib/export/tiff-encoder'
 import type {
   LUTData,
   PipelineStats,
@@ -42,6 +41,11 @@ import {
 } from '../model/derive-session'
 import type { StyleAsset } from '../model/session'
 import { BUILTIN_PRESETS } from '../services/builtin-presets'
+import {
+  buildExportFilename,
+  recommendRetryLevel,
+  runExportJob,
+} from '../services/export-system'
 import {
   extractEmbeddedPreviewBestEffort,
   runPreviewPipeline,
@@ -82,7 +86,10 @@ export interface UseRawProcessorReturn {
   setViewMode: (mode: ProcessingParams['viewMode']) => void
   clearLUT: () => void
   setParams: (params: Partial<ProcessingParams>) => void
-  exportImage: (format: 'tiff' | 'jpeg') => Promise<void>
+  exportImage: (options: {
+    quality: 'standard' | 'high'
+    fidelity: 'safe' | 'balanced' | 'max'
+  }) => Promise<void>
   reset: () => void
   dismissError: () => void
   updateStats: (stats: PipelineStats) => void
@@ -476,49 +483,122 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   // Export image
   const exportImage = useCallback(
-    async (format: 'tiff' | 'jpeg') => {
-      if (!loadedImage.decoded || !pipelineRef.current) {
-        toast.error('No image to export')
+    async ({
+      quality,
+      fidelity,
+    }: {
+      quality: 'standard' | 'high'
+      fidelity: 'safe' | 'balanced' | 'max'
+    }) => {
+      if (
+        !session ||
+        session.previewBundle.hqImage.status !== 'ready' ||
+        !pipelineRef.current
+      ) {
+        toast.error('High-quality preview is required before export')
         return
       }
 
       try {
         setStatus('processing')
 
-        const pipeline = pipelineRef.current
-        const { width, height } = pipeline.getInputDimensions()
-        const filename =
-          loadedImage.file?.name?.replace(/\.[^.]+$/, '') || 'export'
+        setSession((prev) =>
+          prev
+            ? {
+                ...prev,
+                exportState: {
+                  ...prev.exportState,
+                  status: 'exporting',
+                  qualityPreset: quality,
+                  fidelityLevel: fidelity,
+                  retryRecommended: false,
+                  recommendedRetryLevel: undefined,
+                },
+              }
+            : prev,
+        )
 
-        if (format === 'tiff') {
-          // Read full-res pixels from pipeline
-          const pixels = pipeline.readProcessedPixels()
-          if (!pixels) {
-            throw new Error('Failed to read processed pixels')
-          }
-          exportTIFF(pixels, width, height, `${filename}_processed.tiff`)
-          toast.success('TIFF exported', {
-            description: `${width}×${height} 16-bit`,
-          })
-        } else {
-          // Export from canvas
-          const canvas = document.querySelector('canvas')
-          if (canvas) {
-            exportJPEG(canvas, `${filename}_preview.jpg`, 0.95)
-            toast.success('JPEG exported', {
-              description: `Preview quality`,
-            })
-          }
-        }
+        const filename = buildExportFilename(
+          session.sourceFile.name,
+          session.activeStyle?.kind === 'custom'
+            ? 'custom'
+            : session.activeStyle?.name || 'original',
+        )
 
+        const result = await runExportJob({
+          filename,
+          quality: quality === 'high' ? 0.95 : 0.85,
+          renderToCanvas: () =>
+            pipelineRef.current!.renderToHiddenCanvas({
+              width:
+                session.sourceFile.width || loadedImage.decoded?.width || 0,
+              height:
+                session.sourceFile.height || loadedImage.decoded?.height || 0,
+            }),
+        })
+
+        const url = URL.createObjectURL(result.blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = result.filename
+        document.body.append(link)
+        link.click()
+        link.remove()
+        URL.revokeObjectURL(url)
+
+        setSession((prev) =>
+          prev
+            ? {
+                ...prev,
+                exportState: {
+                  ...prev.exportState,
+                  status: 'done',
+                  retryRecommended: false,
+                  lastSuccessfulSize: {
+                    width:
+                      session.sourceFile.width ||
+                      loadedImage.decoded?.width ||
+                      0,
+                    height:
+                      session.sourceFile.height ||
+                      loadedImage.decoded?.height ||
+                      0,
+                  },
+                },
+              }
+            : prev,
+        )
         setStatus('ready')
+        toast.success('JPEG exported', {
+          description: result.filename,
+        })
       } catch (err) {
+        const retryLevel = recommendRetryLevel(fidelity)
         const message = err instanceof Error ? err.message : 'Export failed'
-        toast.error('Export failed', { description: message })
+
+        setSession((prev) =>
+          prev
+            ? {
+                ...prev,
+                exportState: {
+                  ...prev.exportState,
+                  status: 'failed',
+                  lastErrorCode: 'EXPORT_RENDER_FAILED',
+                  retryRecommended: retryLevel !== null,
+                  recommendedRetryLevel: retryLevel ?? undefined,
+                },
+              }
+            : prev,
+        )
         setStatus('ready')
+        toast.error('Export failed', {
+          description: retryLevel
+            ? `${message}. Retry with ${retryLevel} fidelity.`
+            : message,
+        })
       }
     },
-    [loadedImage, setStatus],
+    [loadedImage.decoded, session, setSession, setStatus],
   )
 
   // Reset state

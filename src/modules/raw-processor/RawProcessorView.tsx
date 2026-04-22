@@ -80,11 +80,11 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
 
   // Handle export
   const handleExport = useCallback(
-    (_options?: {
+    (options: {
       quality: 'standard' | 'high'
       fidelity: 'safe' | 'balanced' | 'max'
     }) => {
-      exportImage('jpeg')
+      exportImage(options)
     },
     [exportImage],
   )

@@ -79,6 +79,7 @@ export class RawProcessingPipeline {
   // State
   private inputWidth = 0
   private inputHeight = 0
+  private inputPixels: Float32Array | null = null
   private params: ProcessingParams = { ...DEFAULT_PARAMS }
   private lutData: LUTData | null = null
   private isInitialized = false
@@ -168,6 +169,8 @@ export class RawProcessingPipeline {
    */
   uploadImage(data: Float32Array, width: number, height: number): void {
     const { gl } = this
+
+    this.inputPixels = data
 
     // Delete old texture
     if (this.inputTexture) {
@@ -398,6 +401,33 @@ export class RawProcessingPipeline {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 
     return pixels
+  }
+
+  async renderToHiddenCanvas({
+    width,
+    height,
+  }: {
+    width: number
+    height: number
+  }) {
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+
+    const pipeline = new RawProcessingPipeline(canvas)
+    await pipeline.initialize()
+    if (!this.inputPixels) {
+      throw new Error('EXPORT_SOURCE_MISSING')
+    }
+
+    pipeline.uploadImage(this.inputPixels, this.inputWidth, this.inputHeight)
+    if (this.lutData) {
+      pipeline.uploadLUT(this.lutData)
+    }
+    pipeline.setParams(this.params)
+    pipeline.render()
+
+    return canvas
   }
 
   /**
