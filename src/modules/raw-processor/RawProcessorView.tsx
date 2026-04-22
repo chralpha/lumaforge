@@ -45,6 +45,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     currentLutName,
     sourceFileName,
     supportLevel,
+    progressRecoveryHint,
     presetOptions,
     loadFile,
     loadLUT,
@@ -112,7 +113,10 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
   )
 
   const isProcessing =
-    status === 'loading' || status === 'decoding' || status === 'processing'
+    status === 'loading' ||
+    status === 'decoding' ||
+    status === 'processing' ||
+    status === 'exporting'
   const capability = useCapabilityGate()
 
   if (capability.ready && capability.supportStatus === 'unsupported') {
@@ -176,9 +180,12 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
                       ? 'loading'
                       : status === 'decoding'
                         ? 'decoding'
-                        : 'processing'
+                        : status === 'exporting'
+                          ? 'exporting'
+                          : 'processing'
                   }
                   progress={progress}
+                  recoveryHint={progressRecoveryHint}
                 />
               </div>
 

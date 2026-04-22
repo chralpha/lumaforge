@@ -17,6 +17,7 @@ export type ProcessingStatus =
   | 'loading'
   | 'decoding'
   | 'processing'
+  | 'exporting'
   | 'ready'
   | 'error'
 

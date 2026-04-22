@@ -55,7 +55,31 @@ import {
   mapIntensityLevel,
   toCustomStyle,
 } from '../services/style-system'
+import { classifySupportLevel } from '../services/support-matrix'
 import { useImageSession } from './useImageSession'
+
+function toUserFacingErrorCode(code: unknown) {
+  if (typeof code === 'string' && code.startsWith('LUT_')) return code
+  if (typeof code === 'string' && code.startsWith('EXPORT_')) return code
+  if (typeof code === 'string' && code.startsWith('RAW_')) return code
+  return 'RAW_UNKNOWN'
+}
+
+function getProgressRecoveryHint(status: ProcessingStatus) {
+  if (status === 'loading' || status === 'decoding') {
+    return 'If HQ preview cannot finish, the first visible preview stays available and export remains disabled.'
+  }
+
+  if (status === 'processing') {
+    return 'If the current render step fails, keep the session and retry the look without reloading the browser.'
+  }
+
+  if (status === 'exporting') {
+    return 'If export fails, retry with a lower fidelity level from the current session.'
+  }
+
+  return undefined
+}
 
 export interface UseRawProcessorReturn {
   // State
@@ -76,6 +100,7 @@ export interface UseRawProcessorReturn {
   currentLutName: string | null
   sourceFileName: string
   supportLevel: 'official' | 'experimental'
+  progressRecoveryHint?: string
   presetOptions: typeof BUILTIN_PRESETS
 
   // Actions
@@ -137,6 +162,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     session?.sourceFile.supportLevel === 'official'
       ? 'official'
       : 'experimental'
+  const progressRecoveryHint = getProgressRecoveryHint(status)
 
   useEffect(() => {
     sessionRef.current = session
@@ -249,8 +275,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
                     ...prev.sourceFile,
                     cameraBrand: decoded.metadata.make,
                     cameraModel: decoded.metadata.model,
+                    rawFormat: prev.sourceFile.extension,
                     width: decoded.width,
                     height: decoded.height,
+                    supportLevel: classifySupportLevel({
+                      cameraBrand: decoded.metadata.make,
+                      cameraModel: decoded.metadata.model,
+                      rawFormat: prev.sourceFile.extension,
+                    }),
                   }
                 : prev.sourceFile,
               previewBundle: {
@@ -329,6 +361,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 break
               }
               case 'hq-failed': {
+                const errorCode = toUserFacingErrorCode(event.errorCode)
+
                 setSession((prev) => {
                   if (!prev || prev.id !== nextSession.id) {
                     return prev
@@ -338,7 +372,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                     ...prev.previewBundle,
                     hqImage: {
                       status: 'failed' as const,
-                      errorCode: event.errorCode,
+                      errorCode,
                     },
                   }
 
@@ -350,12 +384,16 @@ export function useRawProcessor(): UseRawProcessorReturn {
                     },
                     renderState: {
                       ...prev.renderState,
-                      lastErrorCode: event.errorCode,
+                      lastErrorCode: errorCode,
                     },
                   }
                 })
                 setStatus('ready')
                 setProgress(100)
+                toast.error('HQ preview unavailable', {
+                  description:
+                    'The first preview stays visible, but export remains disabled until HQ decode succeeds.',
+                })
                 break
               }
             }
@@ -364,7 +402,20 @@ export function useRawProcessor(): UseRawProcessorReturn {
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Failed to load file'
+        const errorCode = toUserFacingErrorCode(message)
         setError(message)
+        setSession((prev) =>
+          prev
+            ? {
+                ...prev,
+                renderState: {
+                  ...prev.renderState,
+                  status: 'failed',
+                  lastErrorCode: errorCode,
+                },
+              }
+            : prev,
+        )
         setStatus('error')
         toast.error('Failed to load RAW file', { description: message })
       }
@@ -376,6 +427,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const loadLUT = useCallback(
     async (file: File) => {
       if (!isSupportedLUT(file)) {
+        setSession((prev) =>
+          prev
+            ? {
+                ...prev,
+                renderState: {
+                  ...prev.renderState,
+                  lastErrorCode: 'LUT_UNSUPPORTED_FORMAT',
+                },
+              }
+            : prev,
+        )
         toast.error('Unsupported LUT format', {
           description: 'Only .cube files are supported',
         })
@@ -386,6 +448,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
         const parsed = await parseCubeFile(file)
         const validation = validateLUT(parsed)
         if (!validation.valid) {
+          setSession((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  renderState: {
+                    ...prev.renderState,
+                    lastErrorCode: 'LUT_INVALID',
+                  },
+                }
+              : prev,
+          )
           toast.error('Failed to load LUT', {
             description: validation.errors[0] || 'Invalid LUT',
           })
@@ -405,10 +478,25 @@ export function useRawProcessor(): UseRawProcessorReturn {
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Failed to parse LUT'
+        const errorCode =
+          toUserFacingErrorCode(message) === 'RAW_UNKNOWN'
+            ? 'LUT_PARSE_FAILED'
+            : toUserFacingErrorCode(message)
+        setSession((prev) =>
+          prev
+            ? {
+                ...prev,
+                renderState: {
+                  ...prev.renderState,
+                  lastErrorCode: errorCode,
+                },
+              }
+            : prev,
+        )
         toast.error('Failed to load LUT', { description: message })
       }
     },
-    [setActiveStyle, setLut, setParams],
+    [setActiveStyle, setLut, setParams, setSession],
   )
 
   const selectBuiltinStyle = useCallback(
@@ -500,7 +588,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
 
       try {
-        setStatus('processing')
+        setStatus('exporting')
 
         setSession((prev) =>
           prev
@@ -575,6 +663,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       } catch (err) {
         const retryLevel = recommendRetryLevel(fidelity)
         const message = err instanceof Error ? err.message : 'Export failed'
+        const errorCode = toUserFacingErrorCode(message)
 
         setSession((prev) =>
           prev
@@ -583,7 +672,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 exportState: {
                   ...prev.exportState,
                   status: 'failed',
-                  lastErrorCode: 'EXPORT_RENDER_FAILED',
+                  lastErrorCode:
+                    errorCode === 'RAW_UNKNOWN'
+                      ? 'EXPORT_RENDER_FAILED'
+                      : errorCode,
                   retryRecommended: retryLevel !== null,
                   recommendedRetryLevel: retryLevel ?? undefined,
                 },
@@ -648,6 +740,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     currentLutName,
     sourceFileName,
     supportLevel,
+    progressRecoveryHint,
     presetOptions: BUILTIN_PRESETS,
     loadFile,
     loadLUT,

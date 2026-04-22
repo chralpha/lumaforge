@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { vi } from 'vitest'
 
 import { RawProcessorView } from '../RawProcessorView'
+import { classifySupportLevel } from '../services/support-matrix'
 
 describe('rawProcessorView', () => {
   it('renders the initial upload CTA', () => {
@@ -38,5 +39,17 @@ describe('rawProcessorView shell states', () => {
     expect(
       screen.getByText('This browser is not supported'),
     ).toBeInTheDocument()
+  })
+})
+
+describe('support classification', () => {
+  it('marks unknown but decodable files as experimental', () => {
+    expect(
+      classifySupportLevel({
+        cameraBrand: 'Sony',
+        cameraModel: 'Unknown Model',
+        rawFormat: 'arw',
+      }),
+    ).toBe('experimental')
   })
 })

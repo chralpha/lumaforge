@@ -12,6 +12,7 @@ export interface ProgressOverlayProps {
   phase: 'loading' | 'decoding' | 'processing' | 'exporting'
   progress?: number // 0-100
   message?: string
+  recoveryHint?: string
   className?: string
 }
 
@@ -27,6 +28,7 @@ export function ProgressOverlay({
   phase,
   progress,
   message,
+  recoveryHint,
   className,
 }: ProgressOverlayProps) {
   return (
@@ -91,6 +93,12 @@ export function ProgressOverlay({
               <p className="text-sm font-medium text-text">
                 {message || phaseLabels[phase]}
               </p>
+
+              {recoveryHint && (
+                <p className="mt-2 max-w-xs text-center text-xs text-text-secondary">
+                  {recoveryHint}
+                </p>
+              )}
 
               {/* Progress bar */}
               {progress !== undefined && (
