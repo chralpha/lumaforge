@@ -3,8 +3,11 @@ import { Provider } from 'jotai'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { resetToDefaults } from '~/atoms/raw-processor'
+import { jotaiStore } from '~/lib/jotai'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
+import { currentSessionAtom } from '../state/session.atoms'
 import { useRawProcessor } from './useRawProcessor'
 
 const rawRuntimeAdapterMock = vi.hoisted(() => ({
@@ -61,11 +64,13 @@ function createDecodedImage(source: 'quick' | 'hq'): DecodedImage {
 }
 
 function wrapper({ children }: { children: ReactNode }) {
-  return <Provider>{children}</Provider>
+  return <Provider store={jotaiStore}>{children}</Provider>
 }
 
 describe('useRawProcessor embedded preview state', () => {
   beforeEach(() => {
+    resetToDefaults()
+    jotaiStore.set(currentSessionAtom, null)
     rawRuntimeAdapterMock.extractEmbeddedPreview.mockReset()
     rawRuntimeAdapterMock.decodeQuickRaw.mockReset()
     rawRuntimeAdapterMock.decodeHqRaw.mockReset()
@@ -80,6 +85,8 @@ describe('useRawProcessor embedded preview state', () => {
   })
 
   afterEach(() => {
+    resetToDefaults()
+    jotaiStore.set(currentSessionAtom, null)
     vi.unstubAllGlobals()
   })
 
@@ -178,5 +185,95 @@ describe('useRawProcessor embedded preview state', () => {
     })
 
     expect(URL.createObjectURL).not.toHaveBeenCalled()
+  })
+
+  it('ignores stale load failures after a replacement session starts', async () => {
+    const staleQuickDecode = deferred<DecodedImage>()
+
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw
+      .mockReturnValueOnce(staleQuickDecode.promise)
+      .mockResolvedValue(createDecodedImage('quick'))
+    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(
+      createDecodedImage('hq'),
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    let staleLoadPromise!: Promise<void>
+    let currentLoadPromise!: Promise<void>
+
+    await act(async () => {
+      staleLoadPromise = result.current.loadFile(
+        new File(['stale'], 'stale.ARW'),
+      )
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      currentLoadPromise = result.current.loadFile(
+        new File(['current'], 'current.ARW'),
+      )
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      staleQuickDecode.reject(new Error('stale decode failed'))
+      await staleLoadPromise
+      await currentLoadPromise
+    })
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+    expect(result.current.error).toBeNull()
+    expect(result.current.sourceFileName).toBe('current.ARW')
+    expect(toastMock.error).not.toHaveBeenCalledWith(
+      'Failed to load RAW file',
+      expect.anything(),
+    )
+  })
+
+  it('clears in-flight loading state on unmount so remount starts idle', async () => {
+    const quickDecode = deferred<DecodedImage>()
+
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockReturnValue(quickDecode.promise)
+    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(
+      createDecodedImage('hq'),
+    )
+
+    const mounted = renderHook(() => useRawProcessor(), { wrapper })
+    let loadPromise!: Promise<void>
+
+    await act(async () => {
+      loadPromise = mounted.result.current.loadFile(
+        new File(['raw'], 'frame.ARW'),
+      )
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      expect(mounted.result.current.status).toBe('loading')
+    })
+
+    mounted.unmount()
+
+    const remounted = renderHook(() => useRawProcessor(), { wrapper })
+    expect(remounted.result.current.status).toBe('idle')
+    expect(remounted.result.current.displaySource).toBe('none')
+
+    await act(async () => {
+      quickDecode.reject(new Error('late decode failed'))
+      await loadPromise
+    })
+
+    expect(remounted.result.current.status).toBe('idle')
+    expect(remounted.result.current.error).toBeNull()
+    expect(toastMock.error).not.toHaveBeenCalledWith(
+      'Failed to load RAW file',
+      expect.anything(),
+    )
+
+    remounted.unmount()
   })
 })

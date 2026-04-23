@@ -239,12 +239,29 @@ export function useRawProcessor(): UseRawProcessorReturn {
     isMountedRef.current = true
 
     return () => {
+      const activeSessionId = activeSessionIdRef.current
       isMountedRef.current = false
       activeSessionIdRef.current = null
       revokeCurrentEmbeddedPreviewUrl()
+      if (activeSessionId) {
+        setLoadedImage({ file: null, decoded: null, metadata: null })
+        setStatus('idle')
+        setError(null)
+        setProgress(0)
+        setStats(null)
+        setSession((prev) => (prev?.id === activeSessionId ? null : prev))
+      }
       sessionRef.current = null
     }
-  }, [revokeCurrentEmbeddedPreviewUrl])
+  }, [
+    revokeCurrentEmbeddedPreviewUrl,
+    setError,
+    setLoadedImage,
+    setProgress,
+    setSession,
+    setStats,
+    setStatus,
+  ])
 
   // Convert LUT to pipeline format when it changes
   useEffect(() => {
@@ -263,11 +280,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
         return
       }
 
+      let loadSessionId: string | null = null
+
       try {
         activeSessionIdRef.current = null
         revokeCurrentEmbeddedPreviewUrl()
 
         const nextSession = replaceFile(file)
+        loadSessionId = nextSession.id
         let quickPreview: DecodedImage | null = null
         let hqPreview: DecodedImage | null = null
 
@@ -531,7 +551,19 @@ export function useRawProcessor(): UseRawProcessorReturn {
             }
           },
         })
+        if (activeSessionIdRef.current === nextSession.id) {
+          activeSessionIdRef.current = null
+        }
       } catch (err) {
+        if (
+          !loadSessionId ||
+          !isMountedRef.current ||
+          activeSessionIdRef.current !== loadSessionId ||
+          sessionRef.current?.id !== loadSessionId
+        ) {
+          return
+        }
+
         const message =
           err instanceof Error ? err.message : 'Failed to load file'
         const errorCode = toUserFacingErrorCode(
@@ -539,7 +571,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         )
         setError(message)
         setSession((prev) =>
-          prev
+          prev && prev.id === loadSessionId
             ? {
                 ...prev,
                 renderState: {
