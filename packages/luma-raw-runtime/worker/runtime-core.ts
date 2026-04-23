@@ -114,6 +114,8 @@ function toMetadata(metadata: LumaRawNativeMetadata): LumaRawMetadata {
 }
 
 function toMimeType(thumbnail: LumaRawNativeThumbnail) {
+  // "bitmap" is native/raw bitmap bytes, not a PNG container. Only advertise
+  // image/png once a native adapter exposes an explicit PNG-encoded format.
   return thumbnail.format === 'jpeg' ? 'image/jpeg' : 'application/octet-stream'
 }
 

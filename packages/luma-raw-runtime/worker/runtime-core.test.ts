@@ -152,6 +152,80 @@ describe('runtime-core', () => {
     expect(response.payload?.data.buffer.byteLength).toBe(4)
   })
 
+  it('keeps bitmap embedded preview bytes as octet-stream', async () => {
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+        return {
+          ...processor,
+          extractThumbnail() {
+            return {
+              data: new Uint8Array([255, 0, 128, 255]),
+              width: 1,
+              height: 1,
+              format: 'bitmap',
+            }
+          },
+        }
+      },
+    })
+
+    const response = await core.handleRequest({
+      id: 'job-bitmap-preview',
+      type: 'extractEmbeddedPreview',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(response).toMatchObject({
+      ok: true,
+      type: 'extractEmbeddedPreview',
+      payload: {
+        mimeType: 'application/octet-stream',
+      },
+    })
+  })
+
+  it('does not infer PNG MIME from bytes without an encoded native format', async () => {
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+        return {
+          ...processor,
+          extractThumbnail() {
+            return {
+              data: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+              width: 1,
+              height: 1,
+              format: 'unknown',
+            }
+          },
+        }
+      },
+    })
+
+    const response = await core.handleRequest({
+      id: 'job-unknown-preview',
+      type: 'extractEmbeddedPreview',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(response).toMatchObject({
+      ok: true,
+      type: 'extractEmbeddedPreview',
+      payload: {
+        mimeType: 'application/octet-stream',
+      },
+    })
+  })
+
   it('returns null when embedded thumbnail is unavailable', async () => {
     const core = createRuntimeCore({
       createProcessor() {
