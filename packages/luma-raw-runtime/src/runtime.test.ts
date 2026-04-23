@@ -6,17 +6,6 @@ import type {
   LumaRawWorkerResponse,
 } from './worker-protocol'
 
-function createDeferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve
-    reject = promiseReject
-  })
-
-  return { promise, resolve, reject }
-}
-
 class RecordingWorker {
   onmessage: ((event: MessageEvent<LumaRawWorkerResponse>) => void) | null =
     null
@@ -158,6 +147,7 @@ function createRuntime(worker = new RecordingWorker()) {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('createLumaRawRuntime', () => {
@@ -204,7 +194,11 @@ describe('createLumaRawRuntime', () => {
       },
     })
     expect(worker.transfers[0]).toHaveLength(1)
-    expect(worker.transfers[0][0]).toBeInstanceOf(ArrayBuffer)
+    const probeRequest = worker.requests[0]
+    if (probeRequest.type !== 'probe') {
+      throw new Error('Expected probe request.')
+    }
+    expect(worker.transfers[0][0]).toBe(probeRequest.payload.fileBuffer)
     expect(probe).toMatchObject({
       jobId: worker.requests[0].id,
       supportLevel: 'experimental',
@@ -291,27 +285,41 @@ describe('createLumaRawRuntime', () => {
 
   it('rejects while reading and never posts the worker request', async () => {
     const { runtime, worker } = createRuntime()
-    const deferred = createDeferred<ArrayBuffer>()
-    const readFile = vi.fn(() => deferred.promise)
-    const file = {
-      name: 'sample.ARW',
-      size: 4,
-      arrayBuffer: readFile,
-    } as unknown as File
+    const file = new File(['raw'], 'sample.ARW')
     const controller = new AbortController()
+    const fileReaderState = {
+      readCalls: 0,
+      aborted: 0,
+    }
+    class AbortableFileReader {
+      onload: ((event: ProgressEvent<FileReader>) => void) | null = null
+      onerror: ((event: ProgressEvent<FileReader>) => void) | null = null
+      onabort: ((event: ProgressEvent<FileReader>) => void) | null = null
+      result: string | ArrayBuffer | null = null
+      error: DOMException | null = null
+      readAsArrayBuffer(_blob: Blob) {
+        fileReaderState.readCalls += 1
+      }
+      abort() {
+        fileReaderState.aborted += 1
+      }
+      addEventListener() {}
+      removeEventListener() {}
+      dispatchEvent() {
+        return true
+      }
+    }
+    vi.stubGlobal('FileReader', AbortableFileReader)
 
     const promise = runtime.decodeQuick(file, controller.signal)
-    expect(readFile).toHaveBeenCalledTimes(1)
+    expect(fileReaderState.readCalls).toBe(1)
 
     controller.abort()
 
     await expect(promise).rejects.toMatchObject({
       code: 'RAW_JOB_CANCELLED',
     })
-
-    deferred.resolve(new ArrayBuffer(4))
-    await Promise.resolve()
-
+    expect(fileReaderState.aborted).toBe(1)
     expect(worker.postMessage).not.toHaveBeenCalled()
 
     runtime.dispose()

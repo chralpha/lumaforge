@@ -10,6 +10,7 @@ const crossOriginIsolationHeaders = {
 
 export default defineConfig({
   root,
+  base: './',
   server: {
     headers: crossOriginIsolationHeaders,
   },

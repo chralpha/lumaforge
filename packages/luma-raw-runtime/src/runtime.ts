@@ -62,62 +62,46 @@ function readFileBytes(file: File, signal?: AbortSignal): Promise<ArrayBuffer> {
     return Promise.reject(createJobCancelledError())
   }
 
+  if (signal) {
+    return readFileBytesWithReader(file, signal)
+  }
+
   if (typeof file.arrayBuffer === 'function') {
-    return readFileBytesWithArrayBuffer(file, signal)
+    return file.arrayBuffer()
   }
 
-  return readFileBytesWithReader(file, signal)
+  return readFileBytesWithReader(file)
 }
 
-function readFileBytesWithArrayBuffer(
-  file: File,
-  signal?: AbortSignal,
-): Promise<ArrayBuffer> {
-  const fileBufferPromise = file.arrayBuffer()
-
-  if (!signal) {
-    return fileBufferPromise
-  }
-
-  return new Promise<ArrayBuffer>((resolve, reject) => {
-    const onAbort = () => {
-      signal.removeEventListener('abort', onAbort)
-      reject(createJobCancelledError())
-    }
-
-    signal.addEventListener('abort', onAbort, { once: true })
-
-    fileBufferPromise.then(
-      (fileBuffer) => {
-        signal.removeEventListener('abort', onAbort)
-        resolve(fileBuffer)
-      },
-      (error) => {
-        signal.removeEventListener('abort', onAbort)
-        reject(error)
-      },
+function readFileBytesWithReader(file: File, signal?: AbortSignal) {
+  if (typeof FileReader === 'undefined') {
+    return Promise.reject(
+      new LumaRawRuntimeError(
+        'RAW_WORKER_PROTOCOL_ERROR',
+        'RAW runtime failed to read file bytes.',
+      ),
     )
-  })
-}
+  }
 
-function readFileBytesWithReader(
-  file: File,
-  signal?: AbortSignal,
-): Promise<ArrayBuffer> {
   return new Promise<ArrayBuffer>((resolve, reject) => {
     const reader = new FileReader()
+    let settled = false
 
     const cleanup = () => {
       signal?.removeEventListener('abort', onAbort)
     }
 
     const onAbort = () => {
-      reader.abort()
+      if (settled) return
+      settled = true
       cleanup()
+      reader.abort()
       reject(createJobCancelledError())
     }
 
     reader.onload = () => {
+      if (settled) return
+      settled = true
       const result = reader.result
       cleanup()
 
