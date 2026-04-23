@@ -114,6 +114,44 @@ describe('runtime-core', () => {
     })
   })
 
+  it('clones embedded preview subarrays into tight owned buffers', async () => {
+    const source = new Uint8Array([9, 8, 1, 2, 3, 4, 7, 6]).subarray(2, 6)
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+        return {
+          ...processor,
+          extractThumbnail() {
+            return {
+              data: source,
+              width: 2,
+              height: 2,
+              format: 'jpeg',
+            }
+          },
+        }
+      },
+    })
+
+    const response = await core.handleRequest({
+      id: 'job-preview-subarray',
+      type: 'extractEmbeddedPreview',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(response.ok && response.type === 'extractEmbeddedPreview').toBe(true)
+    if (!response.ok || response.type !== 'extractEmbeddedPreview') return
+
+    expect(response.payload?.data).toEqual(new Uint8Array([1, 2, 3, 4]))
+    expect(response.payload?.data).not.toBe(source)
+    expect(response.payload?.data.byteOffset).toBe(0)
+    expect(response.payload?.data.buffer.byteLength).toBe(4)
+  })
+
   it('returns null when embedded thumbnail is unavailable', async () => {
     const core = createRuntimeCore({
       createProcessor() {
@@ -182,6 +220,44 @@ describe('runtime-core', () => {
         colorSpace: 'linear-prophoto-rgb',
       },
     })
+  })
+
+  it('clones decoded frame subarrays into tight owned buffers', async () => {
+    const source = new Uint16Array([9, 8, 0, 32768, 65535, 7]).subarray(2, 5)
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+        return {
+          ...processor,
+          decodePreview() {
+            return {
+              data: source,
+              width: 1,
+              height: 1,
+              bits: 16,
+            }
+          },
+        }
+      },
+    })
+
+    const response = await core.handleRequest({
+      id: 'job-frame-subarray',
+      type: 'decodeQuick',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(response.ok && response.type === 'decodeQuick').toBe(true)
+    if (!response.ok || response.type !== 'decodeQuick') return
+
+    expect(response.payload.data).toEqual(new Uint16Array([0, 32768, 65535]))
+    expect(response.payload.data).not.toBe(source)
+    expect(response.payload.data.byteOffset).toBe(0)
+    expect(response.payload.data.buffer.byteLength).toBe(6)
   })
 
   it('opens quick and HQ decodes with native RGB16 ProPhoto settings', async () => {
@@ -357,5 +433,50 @@ describe('runtime-core', () => {
       },
     })
     expect(openCount).toBe(0)
+  })
+
+  it('bounds best-effort cancellation tracking', async () => {
+    const core = createRuntimeCore(makeNativeFactory())
+
+    for (let index = 0; index < 129; index += 1) {
+      await core.handleRequest({
+        id: `cancel-${index}`,
+        type: 'cancel',
+        payload: {
+          targetJobId: `cancelled-${index}`,
+        },
+      })
+    }
+
+    const evicted = await core.handleRequest({
+      id: 'cancelled-0',
+      type: 'probe',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'evicted.ARW',
+        fileSize: 4,
+      },
+    })
+    const retained = await core.handleRequest({
+      id: 'cancelled-128',
+      type: 'probe',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'retained.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(evicted).toMatchObject({
+      ok: true,
+      type: 'probe',
+    })
+    expect(retained).toMatchObject({
+      ok: false,
+      type: 'probe',
+      error: {
+        code: 'RAW_JOB_CANCELLED',
+      },
+    })
   })
 })

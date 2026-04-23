@@ -35,6 +35,8 @@ const hqSettings = {
   userQual: 2,
 } satisfies LumaRawNativeOpenSettings
 
+const maxCancelledJobIds = 128
+
 type Timer = {
   mark: (name: Exclude<keyof LumaRawTimings, 'total'>) => void
   finish: () => LumaRawTimings
@@ -115,6 +117,14 @@ function toMimeType(thumbnail: LumaRawNativeThumbnail) {
   return thumbnail.format === 'jpeg' ? 'image/jpeg' : 'application/octet-stream'
 }
 
+function cloneUint8Array(data: Uint8Array) {
+  return new Uint8Array(data)
+}
+
+function cloneUint16Array(data: Uint16Array) {
+  return new Uint16Array(data)
+}
+
 function failureResponse(
   request: LumaRawWorkerRequest,
   error: unknown,
@@ -170,7 +180,8 @@ function createFramePayload(
     source: request.type === 'decodeHq' ? 'hq' : 'quick',
     width: image.width,
     height: image.height,
-    data: image.data,
+    // Native adapters may return views into WASM/pooled memory; transfer only owned tight buffers.
+    data: cloneUint16Array(image.data),
     layout: 'rgb',
     bitDepth: image.bits,
     colorSpace: 'linear-prophoto-rgb',
@@ -184,9 +195,31 @@ function createFramePayload(
 
 export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
   const cancelledJobIds = new Set<string>()
+  const cancelledJobQueue: string[] = []
+
+  function rememberCancellation(jobId: string) {
+    if (cancelledJobIds.has(jobId)) return
+
+    cancelledJobIds.add(jobId)
+    cancelledJobQueue.push(jobId)
+
+    while (cancelledJobQueue.length > maxCancelledJobIds) {
+      const expiredJobId = cancelledJobQueue.shift()
+      if (expiredJobId) {
+        cancelledJobIds.delete(expiredJobId)
+      }
+    }
+  }
 
   function consumeCancellation(request: LumaRawWorkerRequest) {
-    return cancelledJobIds.delete(request.id)
+    const wasCancelled = cancelledJobIds.delete(request.id)
+    if (!wasCancelled) return false
+
+    const index = cancelledJobQueue.indexOf(request.id)
+    if (index !== -1) {
+      cancelledJobQueue.splice(index, 1)
+    }
+    return true
   }
 
   function handleFileRequest(
@@ -234,7 +267,8 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
               source: 'embedded',
               width: thumbnail.width,
               height: thumbnail.height,
-              data: thumbnail.data,
+              // Native adapters may return views into WASM/pooled memory; transfer only owned tight buffers.
+              data: cloneUint8Array(thumbnail.data),
               mimeType: toMimeType(thumbnail),
               colorSpace: 'display-srgb-preview',
               orientation: nativeMetadata.orientation ?? 1,
@@ -305,7 +339,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
               payload: getRuntimeInfo(),
             }
           case 'cancel':
-            cancelledJobIds.add(request.payload.targetJobId)
+            rememberCancellation(request.payload.targetJobId)
             return {
               id: request.id,
               ok: true,
