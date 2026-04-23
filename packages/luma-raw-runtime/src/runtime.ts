@@ -58,6 +58,21 @@ function mergeSessionReadTimings(
   }
 }
 
+function mergeSessionStageTimings<T extends { timings: LumaRawTimings }>(
+  result: T,
+  sessionInfo: LumaRawSessionInfo,
+): T {
+  return {
+    ...result,
+    timings: {
+      ...sessionInfo.timings,
+      ...result.timings,
+      readFile: sessionInfo.timings.readFile,
+      total: sessionInfo.timings.total + result.timings.total,
+    },
+  }
+}
+
 function createFilePayload(file: File, fileBuffer: ArrayBuffer) {
   return {
     fileBuffer,
@@ -264,7 +279,8 @@ export function createLumaRawRuntime(
     ): Promise<LumaEmbeddedPreview | null> {
       const session = await openSession(file, {}, signal)
       try {
-        return await session.extractEmbeddedPreview(signal)
+        const preview = await session.extractEmbeddedPreview(signal)
+        return preview ? mergeSessionStageTimings(preview, session) : null
       } finally {
         session.dispose()
       }
@@ -273,7 +289,10 @@ export function createLumaRawRuntime(
     async decodeQuick(file: File, signal?: AbortSignal): Promise<LumaRawFrame> {
       const session = await openSession(file, {}, signal)
       try {
-        return await session.decodeQuick(undefined, signal)
+        return mergeSessionStageTimings(
+          await session.decodeQuick(undefined, signal),
+          session,
+        )
       } finally {
         session.dispose()
       }
@@ -282,7 +301,7 @@ export function createLumaRawRuntime(
     async decodeHq(file: File, signal?: AbortSignal): Promise<LumaRawFrame> {
       const session = await openSession(file, {}, signal)
       try {
-        return await session.decodeHq(signal)
+        return mergeSessionStageTimings(await session.decodeHq(signal), session)
       } finally {
         session.dispose()
       }

@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
 import { createNativeFactory } from './native-adapter'
-import type { LumaRawNativeOpenSettings } from './native-types'
+import type {
+  LumaRawNativeDecodePreviewOptions,
+  LumaRawNativeOpenSettings,
+} from './native-types'
 
 type ProcessorValues = {
   openTimings?: unknown
   thumbnail?: unknown
   image?: unknown
+  onDecodePreview?: (options?: LumaRawNativeDecodePreviewOptions) => void
 }
 
 const settings = {
@@ -46,7 +50,8 @@ function createProcessor(values: ProcessorValues) {
       extractThumbnail() {
         return values.thumbnail
       }
-      decodePreview() {
+      decodePreview(options?: LumaRawNativeDecodePreviewOptions) {
+        values.onDecodePreview?.(options)
         return image
       }
       decodeHq() {
@@ -185,6 +190,24 @@ describe('native-adapter', () => {
       copyToWasm: 7,
       librawOpen: 11,
     })
+  })
+
+  it('passes decode preview options to the native processor', () => {
+    const options = { maxOutputPixels: 123 }
+    let receivedOptions: LumaRawNativeDecodePreviewOptions | undefined
+    const processor = createProcessor({
+      onDecodePreview(nextOptions) {
+        receivedOptions = nextOptions
+      },
+    })
+
+    expect(processor.decodePreview(options)).toEqual({
+      data: new Uint16Array([1, 2, 3]),
+      width: 1,
+      height: 1,
+      bits: 16,
+    })
+    expect(receivedOptions).toBe(options)
   })
 
   it('throws when open timing objects are malformed', () => {

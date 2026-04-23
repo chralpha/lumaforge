@@ -380,7 +380,8 @@ describe('createLumaRawRuntime', () => {
       source: 'hq',
       colorSpace: 'linear-prophoto-rgb',
       timings: {
-        total: 11,
+        total: 28,
+        readFile: 10,
       },
     })
     expect(worker.requests[0]).toMatchObject({

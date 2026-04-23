@@ -49,6 +49,7 @@ type Timer = {
 
 type RuntimeSession = {
   sessionId: string
+  openRequestId: string
   processor: LumaRawNativeProcessor
   maxOutputPixels?: number
 }
@@ -291,6 +292,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
   const cancelledJobIds = new Set<string>()
   const cancelledJobQueue: string[] = []
   const sessions = new Map<string, RuntimeSession>()
+  const sessionsByOpenRequestId = new Map<string, RuntimeSession>()
   let sessionCounter = 0
 
   function nextSessionId() {
@@ -470,7 +472,16 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
 
   function disposeSession(session: RuntimeSession) {
     sessions.delete(session.sessionId)
+    sessionsByOpenRequestId.delete(session.openRequestId)
     session.processor.dispose()
+  }
+
+  function disposeSessionForOpenRequest(openRequestId: string) {
+    const session = sessionsByOpenRequestId.get(openRequestId)
+    if (!session) return false
+
+    disposeSession(session)
+    return true
   }
 
   function handleOpenSession(
@@ -507,10 +518,12 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
       const heap = createHeapStats(heapBefore, heapAfter)
       session = {
         sessionId,
+        openRequestId: request.id,
         processor,
         maxOutputPixels: request.payload.maxOutputPixels,
       }
       sessions.set(sessionId, session)
+      sessionsByOpenRequestId.set(request.id, session)
 
       const payload: LumaRawSessionInfo = {
         sessionId,
@@ -685,7 +698,9 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
               payload: getRuntimeInfo(),
             }
           case 'cancel':
-            rememberCancellation(request.payload.targetJobId)
+            if (!disposeSessionForOpenRequest(request.payload.targetJobId)) {
+              rememberCancellation(request.payload.targetJobId)
+            }
             return {
               id: request.id,
               ok: true,

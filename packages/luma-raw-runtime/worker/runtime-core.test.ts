@@ -429,6 +429,64 @@ describe('runtime-core', () => {
     expect(disposeCount).toBe(1)
   })
 
+  it('disposes an opened session when late cancellation targets its open request', async () => {
+    let disposeCount = 0
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+        return {
+          ...processor,
+          dispose() {
+            disposeCount += 1
+            processor.dispose()
+          },
+        }
+      },
+    })
+
+    const open = await core.handleRequest({
+      id: 'job-late-cancel-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(open.ok && open.type === 'openSession').toBe(true)
+    if (!open.ok || open.type !== 'openSession') return
+
+    const cancel = await core.handleRequest({
+      id: 'job-late-cancel',
+      type: 'cancel',
+      payload: {
+        targetJobId: 'job-late-cancel-open',
+      },
+    })
+    const decodeAfterCancel = await core.handleRequest({
+      id: 'job-after-late-cancel',
+      type: 'decodeQuickFromSession',
+      payload: {
+        sessionId: open.payload.sessionId,
+      },
+    })
+
+    expect(cancel).toMatchObject({
+      ok: true,
+      type: 'cancel',
+      payload: { cancelled: true },
+    })
+    expect(disposeCount).toBe(1)
+    expect(decodeAfterCancel).toMatchObject({
+      ok: false,
+      type: 'decodeQuickFromSession',
+      error: {
+        code: 'RAW_WORKER_PROTOCOL_ERROR',
+      },
+    })
+  })
+
   it('returns a protocol error for unknown session ids', async () => {
     const core = createRuntimeCore(makeNativeFactory())
 

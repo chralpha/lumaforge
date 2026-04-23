@@ -201,7 +201,10 @@ class LumaRawProcessor {
     return thumbnail;
   }
 
-  val decodePreview() { return decodeImage(); }
+  val decodePreview(val options) {
+    (void)options;
+    return decodeImage();
+  }
 
   val decodeHq() { return decodeImage(); }
 
