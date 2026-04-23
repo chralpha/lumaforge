@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { LumaRawRuntimeError } from '../src/errors'
 import type { LumaRawNativeFactory } from './native-types'
 import { createRuntimeCore } from './runtime-core'
 
@@ -113,6 +114,34 @@ describe('runtime-core', () => {
     })
   })
 
+  it('returns null when embedded thumbnail is unavailable', async () => {
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+        return {
+          ...processor,
+          extractThumbnail: () => undefined,
+        }
+      },
+    })
+
+    const response = await core.handleRequest({
+      id: 'job-no-thumb',
+      type: 'extractEmbeddedPreview',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(response).toMatchObject({
+      ok: true,
+      type: 'extractEmbeddedPreview',
+      payload: null,
+    })
+  })
+
   it('returns quick and HQ RGB16 Linear ProPhoto frames', async () => {
     const core = createRuntimeCore(makeNativeFactory())
 
@@ -155,6 +184,62 @@ describe('runtime-core', () => {
     })
   })
 
+  it('opens quick and HQ decodes with native RGB16 ProPhoto settings', async () => {
+    const openSettings: unknown[] = []
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+        return {
+          ...processor,
+          openBuffer(data, settings) {
+            openSettings.push(settings)
+            processor.openBuffer(data, settings)
+          },
+        }
+      },
+    })
+
+    await core.handleRequest({
+      id: 'job-settings-quick',
+      type: 'decodeQuick',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+    await core.handleRequest({
+      id: 'job-settings-hq',
+      type: 'decodeHq',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(openSettings).toEqual([
+      {
+        halfSize: true,
+        useCameraWb: true,
+        outputColor: 4,
+        outputBps: 16,
+        noAutoBright: true,
+        userQual: 0,
+        gamm: [1, 1, 1, 1, 0, 0],
+      },
+      {
+        halfSize: false,
+        useCameraWb: true,
+        outputColor: 4,
+        outputBps: 16,
+        noAutoBright: true,
+        userQual: 2,
+        gamm: [1, 1, 1, 1, 0, 0],
+      },
+    ])
+  })
+
   it('reopens each file with fresh per-image native state', async () => {
     const core = createRuntimeCore(makeNativeFactory())
 
@@ -183,5 +268,94 @@ describe('runtime-core', () => {
     expect(second.ok && second.type === 'probe' && second.payload.model).toBe(
       'A7-1',
     )
+  })
+
+  it('preserves primary native failure when dispose also fails', async () => {
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+        return {
+          ...processor,
+          readMetadata() {
+            throw new LumaRawRuntimeError(
+              'RAW_METADATA_FAILED',
+              'metadata failed',
+            )
+          },
+          dispose() {
+            throw new LumaRawRuntimeError(
+              'RAW_RUNTIME_UNAVAILABLE',
+              'dispose failed',
+            )
+          },
+        }
+      },
+    })
+
+    const response = await core.handleRequest({
+      id: 'job-primary-failure',
+      type: 'probe',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(response).toMatchObject({
+      ok: false,
+      type: 'probe',
+      error: {
+        code: 'RAW_METADATA_FAILED',
+        message: 'metadata failed',
+      },
+    })
+  })
+
+  it('acknowledges cancellation and avoids returning data for pre-cancelled jobs', async () => {
+    let openCount = 0
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+        return {
+          ...processor,
+          openBuffer(data, settings) {
+            openCount += 1
+            processor.openBuffer(data, settings)
+          },
+        }
+      },
+    })
+
+    const cancel = await core.handleRequest({
+      id: 'job-cancel-request',
+      type: 'cancel',
+      payload: {
+        targetJobId: 'job-cancelled',
+      },
+    })
+    const cancelled = await core.handleRequest({
+      id: 'job-cancelled',
+      type: 'decodeQuick',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(cancel).toMatchObject({
+      ok: true,
+      type: 'cancel',
+      payload: { cancelled: true },
+    })
+    expect(cancelled).toMatchObject({
+      ok: false,
+      type: 'decodeQuick',
+      error: {
+        code: 'RAW_JOB_CANCELLED',
+      },
+    })
+    expect(openCount).toBe(0)
   })
 })

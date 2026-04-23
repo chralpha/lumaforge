@@ -1,4 +1,4 @@
-import { normalizeRawRuntimeError } from '../src/errors'
+import { LumaRawRuntimeError, normalizeRawRuntimeError } from '../src/errors'
 import type {
   LumaEmbeddedPreview,
   LumaRawFrame,
@@ -132,6 +132,18 @@ function failureResponse(
   } as LumaRawWorkerResponse
 }
 
+function cancelledResponse(
+  request: LumaRawWorkerRequest,
+): LumaRawWorkerResponse {
+  return failureResponse(
+    request,
+    new LumaRawRuntimeError(
+      'RAW_JOB_CANCELLED',
+      'RAW runtime job was cancelled.',
+    ),
+  )
+}
+
 function createProbePayload(
   id: string,
   nativeMetadata: LumaRawNativeMetadata,
@@ -171,14 +183,27 @@ function createFramePayload(
 }
 
 export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
+  const cancelledJobIds = new Set<string>()
+
+  function consumeCancellation(request: LumaRawWorkerRequest) {
+    return cancelledJobIds.delete(request.id)
+  }
+
   function handleFileRequest(
     request: LumaRawWorkerRequest<
       'probe' | 'extractEmbeddedPreview' | 'decodeQuick' | 'decodeHq'
     >,
   ): LumaRawWorkerResponse {
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
     const timer = createTimer()
     const settings = request.type === 'decodeHq' ? hqSettings : quickSettings
     const processor = nativeFactory.createProcessor()
+    let response: LumaRawWorkerResponse | undefined
+    let primaryError: unknown
+    let disposeError: unknown
 
     try {
       processor.openBuffer(new Uint8Array(request.payload.fileBuffer), settings)
@@ -188,7 +213,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
       timer.mark('metadata')
 
       if (request.type === 'probe') {
-        return {
+        response = {
           id: request.id,
           ok: true,
           type: request.type,
@@ -198,9 +223,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
             timer.finish(),
           ),
         }
-      }
-
-      if (request.type === 'extractEmbeddedPreview') {
+      } else if (request.type === 'extractEmbeddedPreview') {
         const thumbnail = processor.extractThumbnail()
         timer.mark('thumbnail')
 
@@ -219,34 +242,53 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
             }
           : null
 
-        return {
+        response = {
           id: request.id,
           ok: true,
           type: request.type,
           payload,
         }
-      }
+      } else {
+        const image =
+          request.type === 'decodeHq'
+            ? processor.decodeHq()
+            : processor.decodePreview()
+        timer.mark('unpack')
 
-      const image =
-        request.type === 'decodeHq'
-          ? processor.decodeHq()
-          : processor.decodePreview()
-      timer.mark('unpack')
-
-      return {
-        id: request.id,
-        ok: true,
-        type: request.type,
-        payload: createFramePayload(
-          request,
-          nativeMetadata,
-          image,
-          timer.finish(),
-        ),
+        response = {
+          id: request.id,
+          ok: true,
+          type: request.type,
+          payload: createFramePayload(
+            request,
+            nativeMetadata,
+            image,
+            timer.finish(),
+          ),
+        }
       }
+    } catch (error) {
+      primaryError = error
     } finally {
-      processor.dispose()
+      try {
+        processor.dispose()
+      } catch (error) {
+        disposeError = error
+      }
+
+      if (!primaryError && response?.ok && consumeCancellation(request)) {
+        response = cancelledResponse(request)
+      }
     }
+
+    if (primaryError) {
+      throw primaryError
+    }
+    if (disposeError) {
+      throw disposeError
+    }
+
+    return response ?? cancelledResponse(request)
   }
 
   return {
@@ -263,6 +305,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
               payload: getRuntimeInfo(),
             }
           case 'cancel':
+            cancelledJobIds.add(request.payload.targetJobId)
             return {
               id: request.id,
               ok: true,
