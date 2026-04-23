@@ -6,6 +6,8 @@ import type {
 } from './native-types'
 
 type EmbindProcessor = {
+  loadBuffer?: (data: Uint8Array) => unknown
+  openWithSettings?: (settings: LumaRawNativeOpenSettings) => unknown
   openBuffer: (data: Uint8Array, settings: LumaRawNativeOpenSettings) => unknown
   readMetadata: () => unknown
   extractThumbnail: () => unknown
@@ -106,6 +108,27 @@ function normalizeOpenTimings(
   }
 }
 
+function normalizeRequiredOpenTimings(value: unknown) {
+  const timings = normalizeOpenTimings(value)
+  if (!timings) {
+    throw new TypeError('Native RAW openBuffer returned invalid timing data.')
+  }
+
+  return timings
+}
+
+function normalizeLoadBufferTimings(value: unknown) {
+  if (value === null || value === undefined || typeof value !== 'object') {
+    throw new TypeError('Native RAW openBuffer returned invalid timing data.')
+  }
+
+  const raw = asRecord(value)
+
+  return {
+    copyToWasm: asOpenTiming(raw.copyToWasm, 'copyToWasm'),
+  }
+}
+
 function normalizeThumbnail(value: unknown) {
   if (value === null || value === undefined) return undefined
 
@@ -160,6 +183,24 @@ export function createNativeFactory(
       const processor = new module.LumaRawProcessor()
 
       return {
+        loadBuffer(data) {
+          if (!processor.loadBuffer) {
+            throw new TypeError(
+              'Native RAW openBuffer returned invalid timing data.',
+            )
+          }
+          return normalizeLoadBufferTimings(processor.loadBuffer(data))
+        },
+        openWithSettings(settings) {
+          if (!processor.openWithSettings) {
+            throw new TypeError(
+              'Native RAW openBuffer returned invalid timing data.',
+            )
+          }
+          return normalizeRequiredOpenTimings(
+            processor.openWithSettings(settings),
+          )
+        },
         openBuffer(data, settings) {
           return normalizeOpenTimings(processor.openBuffer(data, settings))
         },

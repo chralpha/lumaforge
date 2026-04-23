@@ -18,6 +18,16 @@ export type LumaRawTimings = {
   total: number
 }
 
+export type LumaRawHeapStats = {
+  before?: number
+  after?: number
+  peak?: number
+}
+
+export type LumaRawQuickOptions = {
+  maxOutputPixels?: number
+}
+
 export type LumaRawMetadata = {
   width?: number
   height?: number
@@ -57,6 +67,13 @@ export type LumaRawProbe = LumaRawMetadata & {
   timings: LumaRawTimings
 }
 
+export type LumaRawSessionInfo = {
+  sessionId: string
+  probe: LumaRawProbe
+  timings: LumaRawTimings
+  heap?: LumaRawHeapStats
+}
+
 export type LumaRawFrame = {
   jobId: string
   sessionId?: string
@@ -72,6 +89,7 @@ export type LumaRawFrame = {
   whiteLevel?: number
   metadata: LumaRawMetadata
   timings: LumaRawTimings
+  heap?: LumaRawHeapStats
 }
 
 export type LumaEmbeddedPreview = {
@@ -85,10 +103,28 @@ export type LumaEmbeddedPreview = {
   colorSpace: 'display-srgb-preview'
   orientation: number
   timings: LumaRawTimings
+  heap?: LumaRawHeapStats
+}
+
+export type LumaRawDecodeSession = LumaRawSessionInfo & {
+  extractEmbeddedPreview: (
+    signal?: AbortSignal,
+  ) => Promise<LumaEmbeddedPreview | null>
+  decodeQuick: (
+    options?: LumaRawQuickOptions,
+    signal?: AbortSignal,
+  ) => Promise<LumaRawFrame>
+  decodeHq: (signal?: AbortSignal) => Promise<LumaRawFrame>
+  dispose: () => void
 }
 
 export type LumaRawRuntime = {
   init: () => Promise<LumaRawRuntimeInfo>
+  openSession: (
+    file: File,
+    options?: LumaRawQuickOptions,
+    signal?: AbortSignal,
+  ) => Promise<LumaRawDecodeSession>
   probe: (file: File, signal?: AbortSignal) => Promise<LumaRawProbe>
   extractEmbeddedPreview: (
     file: File,

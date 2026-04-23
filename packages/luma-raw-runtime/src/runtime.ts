@@ -1,10 +1,13 @@
 import { LumaRawRuntimeError } from './errors'
 import type {
   LumaEmbeddedPreview,
+  LumaRawDecodeSession,
   LumaRawFrame,
   LumaRawProbe,
+  LumaRawQuickOptions,
   LumaRawRuntime,
   LumaRawRuntimeInfo,
+  LumaRawSessionInfo,
   LumaRawTimings,
 } from './types'
 import { LumaRawWorkerClient } from './worker-client'
@@ -36,6 +39,21 @@ function mergeReadTimings<T extends { timings: LumaRawTimings }>(
       ...result.timings,
       readFile,
       total: result.timings.total + readFile,
+    },
+  }
+}
+
+function mergeSessionReadTimings(
+  sessionInfo: LumaRawSessionInfo,
+  readFile: number,
+): LumaRawSessionInfo {
+  return {
+    ...sessionInfo,
+    probe: mergeReadTimings(sessionInfo.probe, readFile),
+    timings: {
+      ...sessionInfo.timings,
+      readFile,
+      total: sessionInfo.timings.total + readFile,
     },
   }
 }
@@ -159,63 +177,115 @@ export function createLumaRawRuntime(
     options.workerFactory ?? defaultWorkerFactory,
   )
 
+  async function openSession(
+    file: File,
+    options: LumaRawQuickOptions = {},
+    signal?: AbortSignal,
+  ): Promise<LumaRawDecodeSession> {
+    const { fileBuffer, readFile } = await readFileBuffer(file, signal)
+    const sessionInfo = mergeSessionReadTimings(
+      await client.request(
+        'openSession',
+        {
+          ...createFilePayload(file, fileBuffer),
+          maxOutputPixels: options.maxOutputPixels,
+        },
+        [fileBuffer],
+        signal,
+      ),
+      readFile,
+    )
+
+    let disposed = false
+    const closeSession = () => {
+      if (disposed) return
+      disposed = true
+      void client
+        .request('closeSession', { sessionId: sessionInfo.sessionId })
+        .catch(() => undefined)
+    }
+
+    return {
+      ...sessionInfo,
+      extractEmbeddedPreview(stageSignal?: AbortSignal) {
+        return client.request(
+          'extractEmbeddedPreviewFromSession',
+          { sessionId: sessionInfo.sessionId },
+          [],
+          stageSignal,
+        )
+      },
+      decodeQuick(
+        stageOptions: LumaRawQuickOptions = options,
+        stageSignal?: AbortSignal,
+      ) {
+        return client.request(
+          'decodeQuickFromSession',
+          {
+            sessionId: sessionInfo.sessionId,
+            maxOutputPixels: stageOptions.maxOutputPixels,
+          },
+          [],
+          stageSignal,
+        )
+      },
+      decodeHq(stageSignal?: AbortSignal) {
+        return client.request(
+          'decodeHqFromSession',
+          { sessionId: sessionInfo.sessionId },
+          [],
+          stageSignal,
+        )
+      },
+      dispose: closeSession,
+    }
+  }
+
   return {
     async init(): Promise<LumaRawRuntimeInfo> {
       assertCrossOriginIsolation(requireCrossOriginIsolation)
       return client.request('init', { requireCrossOriginIsolation })
     },
 
-    async probe(file: File, signal?: AbortSignal): Promise<LumaRawProbe> {
-      const { fileBuffer, readFile } = await readFileBuffer(file, signal)
-      const probe = await client.request(
-        'probe',
-        createFilePayload(file, fileBuffer),
-        [fileBuffer],
-        signal,
-      )
+    openSession,
 
-      return mergeReadTimings(probe, readFile)
+    async probe(file: File, signal?: AbortSignal): Promise<LumaRawProbe> {
+      const session = await openSession(file, {}, signal)
+      try {
+        return session.probe
+      } finally {
+        session.dispose()
+      }
     },
 
     async extractEmbeddedPreview(
       file: File,
       signal?: AbortSignal,
     ): Promise<LumaEmbeddedPreview | null> {
-      const { fileBuffer, readFile } = await readFileBuffer(file, signal)
-      const preview = await client.request(
-        'extractEmbeddedPreview',
-        createFilePayload(file, fileBuffer),
-        [fileBuffer],
-        signal,
-      )
-
-      if (!preview) return null
-
-      return mergeReadTimings(preview, readFile)
+      const session = await openSession(file, {}, signal)
+      try {
+        return await session.extractEmbeddedPreview(signal)
+      } finally {
+        session.dispose()
+      }
     },
 
     async decodeQuick(file: File, signal?: AbortSignal): Promise<LumaRawFrame> {
-      const { fileBuffer, readFile } = await readFileBuffer(file, signal)
-      const frame = await client.request(
-        'decodeQuick',
-        createFilePayload(file, fileBuffer),
-        [fileBuffer],
-        signal,
-      )
-
-      return mergeReadTimings(frame, readFile)
+      const session = await openSession(file, {}, signal)
+      try {
+        return await session.decodeQuick(undefined, signal)
+      } finally {
+        session.dispose()
+      }
     },
 
     async decodeHq(file: File, signal?: AbortSignal): Promise<LumaRawFrame> {
-      const { fileBuffer, readFile } = await readFileBuffer(file, signal)
-      const frame = await client.request(
-        'decodeHq',
-        createFilePayload(file, fileBuffer),
-        [fileBuffer],
-        signal,
-      )
-
-      return mergeReadTimings(frame, readFile)
+      const session = await openSession(file, {}, signal)
+      try {
+        return await session.decodeHq(signal)
+      } finally {
+        session.dispose()
+      }
     },
 
     dispose() {

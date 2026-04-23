@@ -28,6 +28,15 @@ function createProcessor(values: ProcessorValues) {
 
   return createNativeFactory({
     LumaRawProcessor: class {
+      loadBuffer(_data: Uint8Array) {
+        return { copyToWasm: 0 }
+      }
+      openWithSettings(_settings: LumaRawNativeOpenSettings) {
+        return {
+          copyToWasm: 0,
+          librawOpen: 0,
+        }
+      }
       openBuffer(_data: Uint8Array, _settings: LumaRawNativeOpenSettings) {
         return values.openTimings
       }

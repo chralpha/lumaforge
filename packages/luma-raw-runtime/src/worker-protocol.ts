@@ -4,10 +4,16 @@ import type {
   LumaRawFrame,
   LumaRawProbe,
   LumaRawRuntimeInfo,
+  LumaRawSessionInfo,
 } from './types'
 
 export type LumaRawWorkerRequestType =
   | 'init'
+  | 'openSession'
+  | 'extractEmbeddedPreviewFromSession'
+  | 'decodeQuickFromSession'
+  | 'decodeHqFromSession'
+  | 'closeSession'
   | 'probe'
   | 'extractEmbeddedPreview'
   | 'decodeQuick'
@@ -21,8 +27,22 @@ export type LumaRawWorkerFilePayload = {
   sessionId?: string
 }
 
+export type LumaRawWorkerSessionPayload = {
+  sessionId: string
+}
+
+export type LumaRawWorkerQuickSessionPayload = {
+  sessionId: string
+  maxOutputPixels?: number
+}
+
 export type LumaRawWorkerRequestPayloadByType = {
   init: { requireCrossOriginIsolation: boolean }
+  openSession: LumaRawWorkerFilePayload & { maxOutputPixels?: number }
+  extractEmbeddedPreviewFromSession: LumaRawWorkerSessionPayload
+  decodeQuickFromSession: LumaRawWorkerQuickSessionPayload
+  decodeHqFromSession: LumaRawWorkerSessionPayload
+  closeSession: LumaRawWorkerSessionPayload
   probe: LumaRawWorkerFilePayload
   extractEmbeddedPreview: LumaRawWorkerFilePayload
   decodeQuick: LumaRawWorkerFilePayload
@@ -42,6 +62,11 @@ export type LumaRawWorkerRequest<
 
 export type LumaRawWorkerPayloadByType = {
   init: LumaRawRuntimeInfo
+  openSession: LumaRawSessionInfo
+  extractEmbeddedPreviewFromSession: LumaEmbeddedPreview | null
+  decodeQuickFromSession: LumaRawFrame
+  decodeHqFromSession: LumaRawFrame
+  closeSession: { closed: true }
   probe: LumaRawProbe
   extractEmbeddedPreview: LumaEmbeddedPreview | null
   decodeQuick: LumaRawFrame

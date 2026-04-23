@@ -102,13 +102,23 @@ size_t checkedMultiply(size_t left, size_t right, const std::string &label) {
 
 class LumaRawProcessor {
  public:
-  val openBuffer(val data, val settings) {
-    processor_.recycle();
-    processed_ = false;
-
+  val loadBuffer(val data) {
     const double copy_start = nowMs();
     input_buffer_ = copyInputBytes(data);
     const double copy_end = nowMs();
+
+    val timings = val::object();
+    timings.set("copyToWasm", copy_end - copy_start);
+    return timings;
+  }
+
+  val openWithSettings(val settings) {
+    if (input_buffer_.empty()) {
+      throw std::runtime_error("LibRaw input buffer is empty.");
+    }
+
+    processor_.recycle();
+    processed_ = false;
 
     applySettings(settings);
     const double open_start = nowMs();
@@ -118,8 +128,18 @@ class LumaRawProcessor {
     const double open_end = nowMs();
 
     val timings = val::object();
-    timings.set("copyToWasm", copy_end - copy_start);
+    timings.set("copyToWasm", 0);
     timings.set("librawOpen", open_end - open_start);
+    return timings;
+  }
+
+  val openBuffer(val data, val settings) {
+    val copy_timings = loadBuffer(data);
+    val open_timings = openWithSettings(settings);
+
+    val timings = val::object();
+    timings.set("copyToWasm", copy_timings["copyToWasm"].as<double>());
+    timings.set("librawOpen", open_timings["librawOpen"].as<double>());
     return timings;
   }
 
@@ -264,6 +284,8 @@ class LumaRawProcessor {
 EMSCRIPTEN_BINDINGS(luma_raw_runtime) {
   class_<LumaRawProcessor>("LumaRawProcessor")
       .constructor<>()
+      .function("loadBuffer", &LumaRawProcessor::loadBuffer)
+      .function("openWithSettings", &LumaRawProcessor::openWithSettings)
       .function("openBuffer", &LumaRawProcessor::openBuffer)
       .function("readMetadata", &LumaRawProcessor::readMetadata)
       .function("extractThumbnail", &LumaRawProcessor::extractThumbnail)

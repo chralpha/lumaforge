@@ -7,17 +7,31 @@ import { createRuntimeCore } from './runtime-core'
 const makeNativeFactory = (): LumaRawNativeFactory => ({
   createProcessor() {
     let openCount = 0
+    let loaded = false
 
     return {
-      openBuffer(data) {
-        openCount += 1
+      loadBuffer(data) {
         if (data.byteLength === 0) {
           throw new Error('empty input')
         }
+        loaded = true
+        return {
+          copyToWasm: 0,
+        }
+      },
+      openWithSettings(_settings) {
+        if (!loaded) {
+          throw new Error('missing input')
+        }
+        openCount += 1
         return {
           copyToWasm: 0,
           librawOpen: 0,
         }
+      },
+      openBuffer(data, settings) {
+        this.loadBuffer(data)
+        return this.openWithSettings(settings)
       },
       readMetadata() {
         return {
@@ -296,6 +310,141 @@ describe('runtime-core', () => {
         layout: 'rgb',
         bitDepth: 16,
         colorSpace: 'linear-prophoto-rgb',
+      },
+    })
+  })
+
+  it('opens a session once and reuses loaded input across session stages', async () => {
+    let loadCount = 0
+    let disposeCount = 0
+    let heapBytes = 268435456
+    const openSettings: unknown[] = []
+    const previewOptions: unknown[] = []
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+        return {
+          ...processor,
+          loadBuffer(data) {
+            loadCount += 1
+            return processor.loadBuffer(data)
+          },
+          openWithSettings(settings) {
+            openSettings.push(settings)
+            return processor.openWithSettings(settings)
+          },
+          decodePreview(options) {
+            previewOptions.push(options)
+            return processor.decodePreview(options)
+          },
+          dispose() {
+            disposeCount += 1
+            processor.dispose()
+          },
+        }
+      },
+      heapBytes() {
+        heapBytes += 1024
+        return heapBytes
+      },
+    })
+
+    const open = await core.handleRequest({
+      id: 'job-session-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+        maxOutputPixels: 123,
+      },
+    })
+
+    expect(open.ok && open.type === 'openSession').toBe(true)
+    if (!open.ok || open.type !== 'openSession') return
+    expect(open.payload.heap).toMatchObject({
+      before: 268436480,
+      after: 268437504,
+    })
+
+    const sessionId = open.payload.sessionId
+    const embedded = await core.handleRequest({
+      id: 'job-session-embedded',
+      type: 'extractEmbeddedPreviewFromSession',
+      payload: { sessionId },
+    })
+    const quick = await core.handleRequest({
+      id: 'job-session-quick',
+      type: 'decodeQuickFromSession',
+      payload: { sessionId },
+    })
+    const hq = await core.handleRequest({
+      id: 'job-session-hq',
+      type: 'decodeHqFromSession',
+      payload: { sessionId },
+    })
+    const close = await core.handleRequest({
+      id: 'job-session-close',
+      type: 'closeSession',
+      payload: { sessionId },
+    })
+
+    expect(embedded).toMatchObject({
+      ok: true,
+      type: 'extractEmbeddedPreviewFromSession',
+      payload: {
+        sessionId,
+        source: 'embedded',
+      },
+    })
+    expect(quick).toMatchObject({
+      ok: true,
+      type: 'decodeQuickFromSession',
+      payload: {
+        sessionId,
+        source: 'quick',
+      },
+    })
+    expect(hq).toMatchObject({
+      ok: true,
+      type: 'decodeHqFromSession',
+      payload: {
+        sessionId,
+        source: 'hq',
+      },
+    })
+    expect(close).toMatchObject({
+      ok: true,
+      type: 'closeSession',
+      payload: { closed: true },
+    })
+    expect(loadCount).toBe(1)
+    expect(openSettings).toMatchObject([
+      { halfSize: true },
+      { halfSize: true },
+      { halfSize: true },
+      { halfSize: false },
+    ])
+    expect(previewOptions).toEqual([{ maxOutputPixels: 123 }])
+    expect(disposeCount).toBe(1)
+  })
+
+  it('returns a protocol error for unknown session ids', async () => {
+    const core = createRuntimeCore(makeNativeFactory())
+
+    const response = await core.handleRequest({
+      id: 'job-missing-session',
+      type: 'decodeQuickFromSession',
+      payload: {
+        sessionId: 'missing-session',
+      },
+    })
+
+    expect(response).toMatchObject({
+      ok: false,
+      type: 'decodeQuickFromSession',
+      error: {
+        code: 'RAW_WORKER_PROTOCOL_ERROR',
       },
     })
   })

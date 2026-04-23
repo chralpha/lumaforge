@@ -50,14 +50,24 @@ export type LumaRawNativeOpenTimings = {
   librawOpen: number
 }
 
+export type LumaRawNativeDecodePreviewOptions = {
+  maxOutputPixels?: number
+}
+
 export type LumaRawNativeProcessor = {
+  loadBuffer: (data: Uint8Array) => Pick<LumaRawNativeOpenTimings, 'copyToWasm'>
+  openWithSettings: (
+    settings: LumaRawNativeOpenSettings,
+  ) => LumaRawNativeOpenTimings
   openBuffer: (
     data: Uint8Array,
     settings: LumaRawNativeOpenSettings,
   ) => LumaRawNativeOpenTimings | undefined
   readMetadata: () => LumaRawNativeMetadata
   extractThumbnail: () => LumaRawNativeThumbnail | undefined
-  decodePreview: () => LumaRawNativeImage
+  decodePreview: (
+    options?: LumaRawNativeDecodePreviewOptions,
+  ) => LumaRawNativeImage
   decodeHq: () => LumaRawNativeImage
   dispose: () => void
 }

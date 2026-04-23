@@ -2,9 +2,11 @@ import { LumaRawRuntimeError, normalizeRawRuntimeError } from '../src/errors'
 import type {
   LumaEmbeddedPreview,
   LumaRawFrame,
+  LumaRawHeapStats,
   LumaRawMetadata,
   LumaRawProbe,
   LumaRawRuntimeInfo,
+  LumaRawSessionInfo,
   LumaRawTimings,
 } from '../src/types'
 import type {
@@ -17,6 +19,7 @@ import type {
   LumaRawNativeMetadata,
   LumaRawNativeOpenSettings,
   LumaRawNativeOpenTimings,
+  LumaRawNativeProcessor,
   LumaRawNativeThumbnail,
 } from './native-types'
 
@@ -42,6 +45,12 @@ type Timer = {
   mark: (name: Exclude<keyof LumaRawTimings, 'total'>) => void
   assign: (values: Partial<LumaRawTimings>) => void
   finish: () => LumaRawTimings
+}
+
+type RuntimeSession = {
+  sessionId: string
+  processor: LumaRawNativeProcessor
+  maxOutputPixels?: number
 }
 
 function now() {
@@ -159,6 +168,48 @@ function normalizeOpenTimings(
   }
 }
 
+function normalizeRequiredOpenTimings(timings: unknown) {
+  const openTimings = normalizeOpenTimings(timings)
+  if (!openTimings) {
+    throw new TypeError('Native RAW openBuffer returned invalid timing data.')
+  }
+
+  return openTimings
+}
+
+function normalizeLoadBufferTimings(timings: unknown) {
+  if (
+    timings === null ||
+    timings === undefined ||
+    typeof timings !== 'object'
+  ) {
+    throw new TypeError('Native RAW openBuffer returned invalid timing data.')
+  }
+
+  const raw = timings as Record<string, unknown>
+
+  return {
+    copyToWasm: asOpenTiming(raw.copyToWasm, 'copyToWasm'),
+  }
+}
+
+function openProcessorWithSettings(
+  processor: LumaRawNativeProcessor,
+  settings: LumaRawNativeOpenSettings,
+  timer: Timer,
+  copyToWasmOffset = 0,
+) {
+  const openTimings = normalizeRequiredOpenTimings(
+    processor.openWithSettings(settings),
+  )
+  const copyToWasm = copyToWasmOffset + openTimings.copyToWasm
+  timer.assign({
+    copyToWasm,
+    librawOpen: openTimings.librawOpen,
+    openBuffer: copyToWasm + openTimings.librawOpen,
+  })
+}
+
 function failureResponse(
   request: LumaRawWorkerRequest,
   error: unknown,
@@ -201,17 +252,25 @@ function createProbePayload(
 }
 
 function createFramePayload(
-  request: LumaRawWorkerRequest<'decodeQuick' | 'decodeHq'>,
+  request: LumaRawWorkerRequest<
+    | 'decodeQuick'
+    | 'decodeHq'
+    | 'decodeQuickFromSession'
+    | 'decodeHqFromSession'
+  >,
   nativeMetadata: LumaRawNativeMetadata,
   image: LumaRawNativeImage,
   timings: LumaRawTimings,
+  heap?: LumaRawHeapStats,
 ): LumaRawFrame {
   const metadata = toMetadata(nativeMetadata)
+  const isHq =
+    request.type === 'decodeHq' || request.type === 'decodeHqFromSession'
 
   return {
     jobId: request.id,
     sessionId: request.payload.sessionId,
-    source: request.type === 'decodeHq' ? 'hq' : 'quick',
+    source: isHq ? 'hq' : 'quick',
     width: image.width,
     height: image.height,
     // Native adapters may return views into WASM/pooled memory; transfer only owned tight buffers.
@@ -224,12 +283,45 @@ function createFramePayload(
     whiteLevel: metadata.whiteLevel,
     metadata,
     timings,
+    ...(heap ? { heap } : {}),
   }
 }
 
 export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
   const cancelledJobIds = new Set<string>()
   const cancelledJobQueue: string[] = []
+  const sessions = new Map<string, RuntimeSession>()
+  let sessionCounter = 0
+
+  function nextSessionId() {
+    sessionCounter += 1
+    return `raw-session-${sessionCounter}`
+  }
+
+  function readHeapBytes() {
+    return nativeFactory.heapBytes?.()
+  }
+
+  function createHeapStats(before?: number, after?: number) {
+    if (before === undefined && after === undefined) return undefined
+
+    const heap: LumaRawHeapStats = {}
+    if (before !== undefined) heap.before = before
+    if (after !== undefined) heap.after = after
+    return heap
+  }
+
+  function requireSession(sessionId: string) {
+    const session = sessions.get(sessionId)
+    if (!session) {
+      throw new LumaRawRuntimeError(
+        'RAW_WORKER_PROTOCOL_ERROR',
+        `RAW runtime session does not exist: ${sessionId}`,
+      )
+    }
+
+    return session
+  }
 
   function rememberCancellation(jobId: string) {
     if (cancelledJobIds.has(jobId)) return
@@ -376,6 +468,209 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
     return response ?? cancelledResponse(request)
   }
 
+  function disposeSession(session: RuntimeSession) {
+    sessions.delete(session.sessionId)
+    session.processor.dispose()
+  }
+
+  function handleOpenSession(
+    request: LumaRawWorkerRequest<'openSession'>,
+  ): LumaRawWorkerResponse {
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    const timer = createTimer()
+    const heapBefore = readHeapBytes()
+    const sessionId = nextSessionId()
+    const processor = nativeFactory.createProcessor()
+    let session: RuntimeSession | undefined
+    let response: LumaRawWorkerResponse | undefined
+    let primaryError: unknown
+    let disposeError: unknown
+
+    try {
+      const loadTimings = normalizeLoadBufferTimings(
+        processor.loadBuffer(new Uint8Array(request.payload.fileBuffer)),
+      )
+      openProcessorWithSettings(
+        processor,
+        quickSettings,
+        timer,
+        loadTimings.copyToWasm,
+      )
+
+      const nativeMetadata = processor.readMetadata()
+      timer.mark('metadata')
+      const timings = timer.finish()
+      const heapAfter = readHeapBytes()
+      const heap = createHeapStats(heapBefore, heapAfter)
+      session = {
+        sessionId,
+        processor,
+        maxOutputPixels: request.payload.maxOutputPixels,
+      }
+      sessions.set(sessionId, session)
+
+      const payload: LumaRawSessionInfo = {
+        sessionId,
+        probe: createProbePayload(request.id, nativeMetadata, timings),
+        timings,
+        ...(heap ? { heap } : {}),
+      }
+
+      response = {
+        id: request.id,
+        ok: true,
+        type: request.type,
+        payload,
+      }
+    } catch (error) {
+      primaryError = error
+    } finally {
+      if (primaryError && !session) {
+        try {
+          processor.dispose()
+        } catch (error) {
+          disposeError = error
+        }
+      }
+
+      if (!primaryError && response?.ok && consumeCancellation(request)) {
+        if (session) {
+          try {
+            disposeSession(session)
+          } catch (error) {
+            disposeError = error
+          }
+        }
+        response = cancelledResponse(request)
+      }
+    }
+
+    if (primaryError) {
+      throw primaryError
+    }
+    if (disposeError) {
+      throw disposeError
+    }
+
+    return response ?? cancelledResponse(request)
+  }
+
+  function handleCloseSession(
+    request: LumaRawWorkerRequest<'closeSession'>,
+  ): LumaRawWorkerResponse {
+    const session = requireSession(request.payload.sessionId)
+    disposeSession(session)
+
+    return {
+      id: request.id,
+      ok: true,
+      type: request.type,
+      payload: { closed: true },
+    }
+  }
+
+  function handleExtractEmbeddedPreviewFromSession(
+    request: LumaRawWorkerRequest<'extractEmbeddedPreviewFromSession'>,
+  ): LumaRawWorkerResponse {
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    const session = requireSession(request.payload.sessionId)
+    const timer = createTimer()
+    const heapBefore = readHeapBytes()
+
+    openProcessorWithSettings(session.processor, quickSettings, timer)
+    const nativeMetadata = session.processor.readMetadata()
+    timer.mark('metadata')
+
+    const thumbnail = session.processor.extractThumbnail()
+    timer.mark('thumbnail')
+    const heapAfter = readHeapBytes()
+    const heap = createHeapStats(heapBefore, heapAfter)
+
+    const payload: LumaEmbeddedPreview | null = thumbnail
+      ? {
+          jobId: request.id,
+          sessionId: session.sessionId,
+          source: 'embedded',
+          width: thumbnail.width,
+          height: thumbnail.height,
+          // Native adapters may return views into WASM/pooled memory; transfer only owned tight buffers.
+          data: cloneUint8Array(thumbnail.data),
+          mimeType: toMimeType(thumbnail),
+          colorSpace: 'display-srgb-preview',
+          orientation: nativeMetadata.orientation ?? 1,
+          timings: timer.finish(),
+          ...(heap ? { heap } : {}),
+        }
+      : null
+
+    const response: LumaRawWorkerResponse = {
+      id: request.id,
+      ok: true,
+      type: request.type,
+      payload,
+    }
+
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    return response
+  }
+
+  function handleDecodeFromSession(
+    request: LumaRawWorkerRequest<
+      'decodeQuickFromSession' | 'decodeHqFromSession'
+    >,
+  ): LumaRawWorkerResponse {
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    const session = requireSession(request.payload.sessionId)
+    const timer = createTimer()
+    const heapBefore = readHeapBytes()
+    const settings =
+      request.type === 'decodeHqFromSession' ? hqSettings : quickSettings
+
+    openProcessorWithSettings(session.processor, settings, timer)
+    const nativeMetadata = session.processor.readMetadata()
+    timer.mark('metadata')
+
+    const image =
+      request.type === 'decodeHqFromSession'
+        ? session.processor.decodeHq()
+        : session.processor.decodePreview({
+            maxOutputPixels:
+              request.payload.maxOutputPixels ?? session.maxOutputPixels,
+          })
+    timer.mark('unpack')
+    const heapAfter = readHeapBytes()
+    const response: LumaRawWorkerResponse = {
+      id: request.id,
+      ok: true,
+      type: request.type,
+      payload: createFramePayload(
+        request,
+        nativeMetadata,
+        image,
+        timer.finish(),
+        createHeapStats(heapBefore, heapAfter),
+      ),
+    }
+
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    return response
+  }
+
   return {
     async handleRequest(
       request: LumaRawWorkerRequest,
@@ -397,6 +692,15 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
               type: request.type,
               payload: { cancelled: true },
             }
+          case 'openSession':
+            return handleOpenSession(request)
+          case 'closeSession':
+            return handleCloseSession(request)
+          case 'extractEmbeddedPreviewFromSession':
+            return handleExtractEmbeddedPreviewFromSession(request)
+          case 'decodeQuickFromSession':
+          case 'decodeHqFromSession':
+            return handleDecodeFromSession(request)
           case 'probe':
           case 'extractEmbeddedPreview':
           case 'decodeQuick':

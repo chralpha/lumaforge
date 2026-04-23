@@ -43,6 +43,113 @@ class RecordingWorker {
           } as MessageEvent<LumaRawWorkerResponse>)
         }
 
+        if (request.type === 'openSession') {
+          this.onmessage?.({
+            data: {
+              id: request.id,
+              ok: true,
+              type: 'openSession',
+              payload: {
+                sessionId: 'session-1',
+                probe: {
+                  jobId: request.id,
+                  width: 1,
+                  height: 1,
+                  supportLevel: 'experimental',
+                  timings: {
+                    total: 7,
+                  },
+                },
+                timings: {
+                  total: 7,
+                },
+              },
+            },
+          } as MessageEvent<LumaRawWorkerResponse>)
+        }
+
+        if (request.type === 'extractEmbeddedPreviewFromSession') {
+          this.onmessage?.({
+            data: {
+              id: request.id,
+              ok: true,
+              type: 'extractEmbeddedPreviewFromSession',
+              payload: null,
+            },
+          } as MessageEvent<LumaRawWorkerResponse>)
+        }
+
+        if (request.type === 'decodeQuickFromSession') {
+          this.onmessage?.({
+            data: {
+              id: request.id,
+              ok: true,
+              type: 'decodeQuickFromSession',
+              payload: {
+                jobId: request.id,
+                sessionId: request.payload.sessionId,
+                source: 'quick',
+                width: 1,
+                height: 1,
+                data: new Uint16Array([1, 2, 3]),
+                layout: 'rgb',
+                bitDepth: 16,
+                colorSpace: 'linear-prophoto-rgb',
+                orientation: 1,
+                metadata: {
+                  width: 1,
+                  height: 1,
+                  supportLevel: 'experimental',
+                },
+                timings: {
+                  total: 9,
+                },
+              },
+            },
+          } as MessageEvent<LumaRawWorkerResponse>)
+        }
+
+        if (request.type === 'decodeHqFromSession') {
+          this.onmessage?.({
+            data: {
+              id: request.id,
+              ok: true,
+              type: 'decodeHqFromSession',
+              payload: {
+                jobId: request.id,
+                sessionId: request.payload.sessionId,
+                source: 'hq',
+                width: 2,
+                height: 2,
+                data: new Uint16Array([4, 5, 6, 7]),
+                layout: 'rgb',
+                bitDepth: 16,
+                colorSpace: 'linear-prophoto-rgb',
+                orientation: 1,
+                metadata: {
+                  width: 2,
+                  height: 2,
+                  supportLevel: 'official',
+                },
+                timings: {
+                  total: 11,
+                },
+              },
+            },
+          } as MessageEvent<LumaRawWorkerResponse>)
+        }
+
+        if (request.type === 'closeSession') {
+          this.onmessage?.({
+            data: {
+              id: request.id,
+              ok: true,
+              type: 'closeSession',
+              payload: { closed: true },
+            },
+          } as MessageEvent<LumaRawWorkerResponse>)
+        }
+
         if (request.type === 'probe') {
           this.onmessage?.({
             data: {
@@ -135,6 +242,28 @@ class RecordingWorker {
   )
 }
 
+class EchoWorker {
+  onmessage: ((event: MessageEvent<LumaRawWorkerResponse>) => void) | null =
+    null
+  onerror: ((event: ErrorEvent) => void) | null = null
+  readonly terminate = vi.fn()
+
+  constructor(
+    private readonly handleRequest: (
+      request: LumaRawWorkerRequest,
+    ) => LumaRawWorkerResponse,
+  ) {}
+
+  readonly postMessage = vi.fn((request: LumaRawWorkerRequest) => {
+    const response = this.handleRequest(request)
+    queueMicrotask(() => {
+      this.onmessage?.({
+        data: response,
+      } as MessageEvent<LumaRawWorkerResponse>)
+    })
+  })
+}
+
 function createRuntime(worker = new RecordingWorker()) {
   return {
     runtime: createLumaRawRuntime({
@@ -187,7 +316,7 @@ describe('createLumaRawRuntime', () => {
     const probe = await runtime.probe(file)
 
     expect(worker.requests[0]).toMatchObject({
-      type: 'probe',
+      type: 'openSession',
       payload: {
         fileName: 'sample.ARW',
         fileSize: file.size,
@@ -195,8 +324,8 @@ describe('createLumaRawRuntime', () => {
     })
     expect(worker.transfers[0]).toHaveLength(1)
     const probeRequest = worker.requests[0]
-    if (probeRequest.type !== 'probe') {
-      throw new Error('Expected probe request.')
+    if (probeRequest.type !== 'openSession') {
+      throw new Error('Expected openSession request.')
     }
     expect(worker.transfers[0][0]).toBe(probeRequest.payload.fileBuffer)
     expect(probe).toMatchObject({
@@ -220,16 +349,22 @@ describe('createLumaRawRuntime', () => {
 
     expect(preview).toBeNull()
     expect(worker.requests[0]).toMatchObject({
-      type: 'extractEmbeddedPreview',
+      type: 'openSession',
       payload: {
         fileName: 'sample.ARW',
+      },
+    })
+    expect(worker.requests[1]).toMatchObject({
+      type: 'extractEmbeddedPreviewFromSession',
+      payload: {
+        sessionId: 'session-1',
       },
     })
 
     runtime.dispose()
   })
 
-  it('returns HQ decode frames with merged read timing', async () => {
+  it('returns HQ decode frames through a temporary session', async () => {
     const { runtime, worker } = createRuntime()
     const timingSpy = vi.spyOn(performance, 'now')
     let now = 200
@@ -245,19 +380,134 @@ describe('createLumaRawRuntime', () => {
       source: 'hq',
       colorSpace: 'linear-prophoto-rgb',
       timings: {
-        total: 21,
-        readFile: 10,
+        total: 11,
       },
     })
     expect(worker.requests[0]).toMatchObject({
-      type: 'decodeHq',
+      type: 'openSession',
       payload: {
         fileName: 'sample.ARW',
         fileSize: 3,
       },
     })
+    expect(worker.requests[1]).toMatchObject({
+      type: 'decodeHqFromSession',
+      payload: {
+        sessionId: 'session-1',
+      },
+    })
 
     runtime.dispose()
+  })
+
+  it('opens a session once and runs embedded, quick, and HQ by session id', async () => {
+    const requests: string[] = []
+    const worker = new EchoWorker((request) => {
+      requests.push(request.type)
+
+      if (request.type === 'openSession') {
+        return {
+          id: request.id,
+          ok: true,
+          type: 'openSession',
+          payload: {
+            sessionId: 'session-1',
+            probe: {
+              jobId: request.id,
+              width: 6240,
+              height: 4168,
+              supportLevel: 'experimental',
+              timings: { total: 10 },
+            },
+            timings: {
+              readFile: 5,
+              transferToWorker: 1,
+              copyToWasm: 20,
+              librawOpen: 30,
+              total: 56,
+            },
+            heap: { before: 268435456, after: 268435456 },
+          },
+        }
+      }
+
+      if (request.type === 'extractEmbeddedPreviewFromSession') {
+        return {
+          id: request.id,
+          ok: true,
+          type: request.type,
+          payload: {
+            jobId: request.id,
+            sessionId: 'session-1',
+            source: 'embedded',
+            width: 1616,
+            height: 1080,
+            data: new Uint8Array([1, 2, 3]),
+            mimeType: 'image/jpeg',
+            colorSpace: 'display-srgb-preview',
+            orientation: 1,
+            timings: { thumbnail: 7, total: 7 },
+            heap: { before: 268435456, after: 268435456 },
+          },
+        }
+      }
+
+      if (
+        request.type === 'decodeQuickFromSession' ||
+        request.type === 'decodeHqFromSession'
+      ) {
+        return {
+          id: request.id,
+          ok: true,
+          type: request.type,
+          payload: {
+            jobId: request.id,
+            sessionId: 'session-1',
+            source: request.type === 'decodeHqFromSession' ? 'hq' : 'quick',
+            width: 1000,
+            height: 667,
+            data: new Uint16Array(1000 * 667 * 3),
+            layout: 'rgb',
+            bitDepth: 16,
+            colorSpace: 'linear-prophoto-rgb',
+            orientation: 1,
+            metadata: {
+              width: 1000,
+              height: 667,
+              supportLevel: 'experimental',
+            },
+            timings: { unpack: 100, total: 100 },
+            heap: { before: 268435456, after: 268435456 },
+          },
+        }
+      }
+
+      return {
+        id: request.id,
+        ok: true,
+        type: 'closeSession',
+        payload: { closed: true },
+      }
+    })
+
+    const runtime = createLumaRawRuntime({
+      requireCrossOriginIsolation: false,
+      workerFactory: () => worker as unknown as Worker,
+    })
+
+    const session = await runtime.openSession(new File(['raw'], 'sample.ARW'))
+    await session.extractEmbeddedPreview()
+    await session.decodeQuick()
+    await session.decodeHq()
+    session.dispose()
+
+    expect(requests).toEqual([
+      'openSession',
+      'extractEmbeddedPreviewFromSession',
+      'decodeQuickFromSession',
+      'decodeHqFromSession',
+      'closeSession',
+    ])
   })
 
   it('rejects before file reading starts when aborted', async () => {
