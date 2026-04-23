@@ -16,6 +16,7 @@ import type {
   LumaRawNativeImage,
   LumaRawNativeMetadata,
   LumaRawNativeOpenSettings,
+  LumaRawNativeOpenTimings,
   LumaRawNativeThumbnail,
 } from './native-types'
 
@@ -39,6 +40,7 @@ const maxCancelledJobIds = 128
 
 type Timer = {
   mark: (name: Exclude<keyof LumaRawTimings, 'total'>) => void
+  assign: (values: Partial<LumaRawTimings>) => void
   finish: () => LumaRawTimings
 }
 
@@ -56,6 +58,10 @@ function createTimer(): Timer {
       const current = now()
       timings[name] = current - last
       last = current
+    },
+    assign(values) {
+      Object.assign(timings, values)
+      last = now()
     },
     finish() {
       return {
@@ -125,6 +131,15 @@ function cloneUint8Array(data: Uint8Array) {
 
 function cloneUint16Array(data: Uint16Array) {
   return new Uint16Array(data)
+}
+
+function toOpenTimings(
+  timings: Partial<LumaRawNativeOpenTimings> | undefined,
+): LumaRawNativeOpenTimings {
+  return {
+    copyToWasm: timings?.copyToWasm ?? 0,
+    librawOpen: timings?.librawOpen ?? 0,
+  }
 }
 
 function failureResponse(
@@ -241,8 +256,17 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
     let disposeError: unknown
 
     try {
-      processor.openBuffer(new Uint8Array(request.payload.fileBuffer), settings)
-      timer.mark('openBuffer')
+      const openTimings = toOpenTimings(
+        processor.openBuffer(
+          new Uint8Array(request.payload.fileBuffer),
+          settings,
+        ),
+      )
+      timer.assign({
+        copyToWasm: openTimings.copyToWasm,
+        librawOpen: openTimings.librawOpen,
+        openBuffer: openTimings.copyToWasm + openTimings.librawOpen,
+      })
 
       const nativeMetadata = processor.readMetadata()
       timer.mark('metadata')

@@ -5,7 +5,7 @@ import type {
 } from './native-types'
 
 type EmbindProcessor = {
-  openBuffer: (data: Uint8Array, settings: LumaRawNativeOpenSettings) => void
+  openBuffer: (data: Uint8Array, settings: LumaRawNativeOpenSettings) => unknown
   readMetadata: () => unknown
   extractThumbnail: () => unknown
   decodePreview: () => unknown
@@ -15,6 +15,7 @@ type EmbindProcessor = {
 
 type EmbindModule = {
   LumaRawProcessor: new () => EmbindProcessor
+  HEAPU8?: Uint8Array
 }
 
 type NativeThumbnailFormat = 'jpeg' | 'bitmap' | 'unknown'
@@ -78,6 +79,15 @@ function normalizeMetadata(value: unknown) {
   }
 }
 
+function normalizeOpenTimings(value: unknown) {
+  const raw = asRecord(value)
+
+  return {
+    copyToWasm: asNumber(raw.copyToWasm) ?? 0,
+    librawOpen: asNumber(raw.librawOpen) ?? 0,
+  }
+}
+
 function normalizeThumbnail(value: unknown) {
   if (value === null || value === undefined) return undefined
 
@@ -133,7 +143,7 @@ export function createNativeFactory(
 
       return {
         openBuffer(data, settings) {
-          processor.openBuffer(data, settings)
+          return normalizeOpenTimings(processor.openBuffer(data, settings))
         },
         readMetadata() {
           return normalizeMetadata(processor.readMetadata())
@@ -151,6 +161,9 @@ export function createNativeFactory(
           processor.delete?.()
         },
       }
+    },
+    heapBytes() {
+      return module.HEAPU8?.buffer.byteLength ?? 0
     },
   }
 }

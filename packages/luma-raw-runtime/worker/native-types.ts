@@ -45,8 +45,16 @@ export type LumaRawNativeOpenSettings = {
   gamm: [1, 1, 1, 1, 0, 0]
 }
 
+export type LumaRawNativeOpenTimings = {
+  copyToWasm: number
+  librawOpen: number
+}
+
 export type LumaRawNativeProcessor = {
-  openBuffer: (data: Uint8Array, settings: LumaRawNativeOpenSettings) => void
+  openBuffer: (
+    data: Uint8Array,
+    settings: LumaRawNativeOpenSettings,
+  ) => LumaRawNativeOpenTimings
   readMetadata: () => LumaRawNativeMetadata
   extractThumbnail: () => LumaRawNativeThumbnail | undefined
   decodePreview: () => LumaRawNativeImage
@@ -56,4 +64,5 @@ export type LumaRawNativeProcessor = {
 
 export type LumaRawNativeFactory = {
   createProcessor: () => LumaRawNativeProcessor
+  heapBytes?: () => number
 }

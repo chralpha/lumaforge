@@ -14,6 +14,10 @@ const makeNativeFactory = (): LumaRawNativeFactory => ({
         if (data.byteLength === 0) {
           throw new Error('empty input')
         }
+        return {
+          copyToWasm: 0,
+          librawOpen: 0,
+        }
       },
       readMetadata() {
         return {
@@ -296,6 +300,42 @@ describe('runtime-core', () => {
     })
   })
 
+  it('reports copyToWasm and librawOpen timings separately when native provides them', async () => {
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+
+        return {
+          ...processor,
+          openBuffer(data, settings) {
+            processor.openBuffer(data, settings)
+            return {
+              copyToWasm: 7,
+              librawOpen: 11,
+            }
+          },
+        }
+      },
+    })
+
+    const response = await core.handleRequest({
+      id: 'job-open-timings',
+      type: 'decodeQuick',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(response.ok && response.type === 'decodeQuick').toBe(true)
+    if (!response.ok || response.type !== 'decodeQuick') return
+
+    expect(response.payload.timings.copyToWasm).toBe(7)
+    expect(response.payload.timings.librawOpen).toBe(11)
+    expect(response.payload.timings.openBuffer).toBe(18)
+  })
+
   it('clones decoded frame subarrays into tight owned buffers', async () => {
     const source = new Uint16Array([9, 8, 0, 32768, 65535, 7]).subarray(2, 5)
     const core = createRuntimeCore({
@@ -343,7 +383,7 @@ describe('runtime-core', () => {
           ...processor,
           openBuffer(data, settings) {
             openSettings.push(settings)
-            processor.openBuffer(data, settings)
+            return processor.openBuffer(data, settings)
           },
         }
       },
@@ -471,7 +511,7 @@ describe('runtime-core', () => {
           ...processor,
           openBuffer(data, settings) {
             openCount += 1
-            processor.openBuffer(data, settings)
+            return processor.openBuffer(data, settings)
           },
         }
       },

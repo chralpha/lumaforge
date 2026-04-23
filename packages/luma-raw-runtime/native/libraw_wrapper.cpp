@@ -1,3 +1,4 @@
+#include <emscripten.h>
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 #include <libraw/libraw.h>
@@ -55,8 +56,32 @@ bool isUnavailableThumbnailError(int code) {
          code == LIBRAW_REQUEST_FOR_NONEXISTENT_THUMBNAIL;
 }
 
+double nowMs() { return emscripten_get_now(); }
+
 std::string safeString(const char *value) {
   return value == nullptr ? std::string() : std::string(value);
+}
+
+std::vector<unsigned char> copyInputBytes(val data) {
+  const val Uint8Array = val::global("Uint8Array");
+  const val ArrayBuffer = val::global("ArrayBuffer");
+
+  val u8 = data.instanceof(Uint8Array)
+               ? data
+               : (data.instanceof(ArrayBuffer)
+                      ? Uint8Array.new_(data)
+                      : Uint8Array.new_(data["buffer"], data["byteOffset"],
+                                        data["byteLength"]));
+
+  const size_t length = u8["byteLength"].as<size_t>();
+  std::vector<unsigned char> out(length);
+  if (out.empty()) {
+    return out;
+  }
+
+  val wasmView = val(typed_memory_view(out.size(), out.data()));
+  wasmView.call<void>("set", u8);
+  return out;
 }
 
 val copiedUint8Array(const unsigned char *data, size_t size) {
@@ -77,20 +102,25 @@ size_t checkedMultiply(size_t left, size_t right, const std::string &label) {
 
 class LumaRawProcessor {
  public:
-  void openBuffer(val data, val settings) {
+  val openBuffer(val data, val settings) {
     processor_.recycle();
     processed_ = false;
 
-    const size_t length = data["length"].as<size_t>();
-    input_buffer_.resize(length);
-    for (size_t i = 0; i < length; ++i) {
-      input_buffer_[i] = data[static_cast<int>(i)].as<unsigned char>();
-    }
+    const double copy_start = nowMs();
+    input_buffer_ = copyInputBytes(data);
+    const double copy_end = nowMs();
 
     applySettings(settings);
+    const double open_start = nowMs();
     requireLibRawSuccess(
         "LibRaw open_buffer",
         processor_.open_buffer(input_buffer_.data(), input_buffer_.size()));
+    const double open_end = nowMs();
+
+    val timings = val::object();
+    timings.set("copyToWasm", copy_end - copy_start);
+    timings.set("librawOpen", open_end - open_start);
+    return timings;
   }
 
   val readMetadata() {

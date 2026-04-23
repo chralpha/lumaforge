@@ -4,12 +4,16 @@ export type LumaRawSupportLevel = 'official' | 'experimental' | 'unsupported'
 
 export type LumaRawTimings = {
   readFile?: number
+  transferToWorker?: number
+  copyToWasm?: number
+  librawOpen?: number
   openBuffer?: number
   metadata?: number
   thumbnail?: number
   unpack?: number
   process?: number
   makeMemImage?: number
+  outputCopy?: number
   transfer?: number
   total: number
 }
