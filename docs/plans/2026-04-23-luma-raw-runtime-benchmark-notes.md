@@ -79,3 +79,17 @@ Saved at `/tmp/luma-raw-runtime-bench-example-sony.jsonl`:
 {"runtime":"luma","stage":"quick","file":"example-sony.ARW","width":3120,"height":2084,"total":6441.824999999721,"timings":{"openBuffer":5902.814999999944,"metadata":0.060000000055879354,"unpack":498.69499999983236,"total":6441.824999999721,"readFile":40.239999999757856}}
 {"runtime":"luma","stage":"hq","file":"example-sony.ARW","width":6240,"height":4168,"total":6951.339999999851,"timings":{"openBuffer":5862.930000000168,"metadata":0.09499999973922968,"unpack":1047.1200000001118,"total":6951.339999999851,"readFile":41.14500000001863}}
 ```
+
+## Memory Growth Impact
+
+`ALLOW_MEMORY_GROWTH=1` is retained in `packages/luma-raw-runtime/native/emcc-flags.sh`.
+The current browser benchmark does not directly measure wasm heap growth or peak memory.
+Observed timings include large `openBuffer` costs, so these results should be treated as performance-risk evidence, not proof that memory growth is acceptable.
+Follow-up is required to capture browser memory, heap, or Emscripten heap-growth telemetry before approving default Luma rollout.
+
+## Task 12 Readiness
+
+Default runtime switch to `luma` is deferred and not approved by the current evidence.
+The blockers are: embedded preview reports `0x0` dimensions and is over budget, quick preview is over budget, only HQ for the smaller about 26MP fixture is within target, and fewer than three RAW fixtures have validated benchmark/manual matrix coverage.
+
+Before Task 12 can switch the default runtime, follow-up work must fix embedded preview dimensions and timing, improve quick performance or document an accepted rationale, add at least a third fixture/manual matrix pass, and rerun benchmark evidence.
