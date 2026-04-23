@@ -3,7 +3,7 @@
  */
 
 import { m } from 'motion/react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { clsxm } from '~/lib/cn'
 import type {
@@ -28,7 +28,7 @@ export interface PreviewCanvasProps {
   className?: string
 }
 
-function createRawUploadInput({
+export function createRawUploadInput({
   data,
   layout,
   colorSpace,
@@ -89,6 +89,17 @@ export function PreviewCanvas({
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const uploadInput = useMemo(
+    () =>
+      createRawUploadInput({
+        data: imageData,
+        layout: imageLayout,
+        colorSpace: imageColorSpace,
+        width: imageWidth,
+        height: imageHeight,
+      }),
+    [imageData, imageLayout, imageColorSpace, imageWidth, imageHeight],
+  )
 
   // Initialize pipeline
   useEffect(() => {
@@ -166,7 +177,7 @@ export function PreviewCanvas({
         const pipeline = pipelineRef.current
         if (pipeline) {
           pipeline.resize(canvas.width, canvas.height)
-          if (isInitialized && imageData && imageLayout && imageColorSpace) {
+          if (isInitialized && uploadInput) {
             const stats = pipeline.render()
             onStatsUpdate?.(stats)
           }
@@ -179,28 +190,17 @@ export function PreviewCanvas({
     return () => {
       resizeObserver.disconnect()
     }
-  }, [
-    imageWidth,
-    imageHeight,
-    imageData,
-    imageLayout,
-    imageColorSpace,
-    isInitialized,
-    onStatsUpdate,
-  ])
+  }, [imageWidth, imageHeight, uploadInput, isInitialized, onStatsUpdate])
 
   // Upload image data when it changes
   useEffect(() => {
     const pipeline = pipelineRef.current
-    if (!pipeline || !isInitialized || !imageData) return
+    if (!pipeline || !isInitialized) return
+    if (!imageData) {
+      setError(null)
+      return
+    }
 
-    const uploadInput = createRawUploadInput({
-      data: imageData,
-      layout: imageLayout,
-      colorSpace: imageColorSpace,
-      width: imageWidth,
-      height: imageHeight,
-    })
     if (!uploadInput) {
       setError('Decoded image data does not match the WebGL upload layout')
       return
@@ -208,14 +208,7 @@ export function PreviewCanvas({
 
     pipeline.uploadImage(uploadInput)
     setError(null)
-  }, [
-    imageData,
-    imageLayout,
-    imageColorSpace,
-    imageWidth,
-    imageHeight,
-    isInitialized,
-  ])
+  }, [imageData, uploadInput, isInitialized])
 
   // Upload LUT when it changes
   useEffect(() => {
@@ -232,14 +225,7 @@ export function PreviewCanvas({
   // Update params and render
   useEffect(() => {
     const pipeline = pipelineRef.current
-    if (
-      !pipeline ||
-      !isInitialized ||
-      !imageData ||
-      !imageLayout ||
-      !imageColorSpace
-    )
-      return
+    if (!pipeline || !isInitialized || !uploadInput) return
 
     pipeline.setParams({
       ...params,
@@ -247,37 +233,16 @@ export function PreviewCanvas({
     })
     const stats = pipeline.render()
     onStatsUpdate?.(stats)
-  }, [
-    params,
-    isInitialized,
-    imageData,
-    imageLayout,
-    imageColorSpace,
-    onStatsUpdate,
-  ])
+  }, [params, isInitialized, uploadInput, onStatsUpdate])
 
   // Re-render when LUT changes
   useEffect(() => {
     const pipeline = pipelineRef.current
-    if (
-      !pipeline ||
-      !isInitialized ||
-      !imageData ||
-      !imageLayout ||
-      !imageColorSpace
-    )
-      return
+    if (!pipeline || !isInitialized || !uploadInput) return
 
     const stats = pipeline.render()
     onStatsUpdate?.(stats)
-  }, [
-    lutData,
-    isInitialized,
-    imageData,
-    imageLayout,
-    imageColorSpace,
-    onStatsUpdate,
-  ])
+  }, [lutData, isInitialized, uploadInput, onStatsUpdate])
 
   return (
     <div

@@ -198,14 +198,38 @@ ${PROCESS_FRAGMENT_SHADER_BODY}
 `
 
 export const PROCESS_FRAGMENT_SHADER_U16 = /* glsl */ `#version 300 es
+precision highp uint;
 precision highp usampler2D;
 ${PROCESS_FRAGMENT_SHADER_HEADER}
 
 uniform usampler2D u_inputTexture;
 
+// Generated from src/lib/color/matrix.ts for ProPhoto RGB D50 -> sRGB D65
+// with Bradford chromatic adaptation. Input values are already linear.
+vec3 linearProPhotoToLinearSrgb(vec3 color) {
+  return vec3(
+    dot(color, vec3(2.034367543, -0.727634474, -0.306733069)),
+    dot(color, vec3(-0.228826798, 1.231753396, -0.002926598)),
+    dot(color, vec3(-0.008558424, -0.153268204, 1.161826628))
+  );
+}
+
+vec3 linearSrgbToDisplaySrgb(vec3 color) {
+  color = max(color, vec3(0.0));
+  vec3 lower = color * 12.92;
+  vec3 higher = 1.055 * pow(color, vec3(1.0 / 2.4)) - 0.055;
+  vec3 lowerMix = 1.0 - step(vec3(0.0031308), color);
+  return clamp(mix(higher, lower, lowerMix), 0.0, 1.0);
+}
+
+vec3 linearProPhotoToDisplaySrgb(vec3 color) {
+  return linearSrgbToDisplaySrgb(linearProPhotoToLinearSrgb(color));
+}
+
 vec3 readInputColor(vec2 uv) {
-  uvec3 color = texture(u_inputTexture, uv).rgb;
-  return vec3(color) / 65535.0;
+  highp uvec3 color = texture(u_inputTexture, uv).rgb;
+  vec3 linearProPhoto = vec3(color) / 65535.0;
+  return linearProPhotoToDisplaySrgb(linearProPhoto);
 }
 
 ${PROCESS_FRAGMENT_SHADER_BODY}

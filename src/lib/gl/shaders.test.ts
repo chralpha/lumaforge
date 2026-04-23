@@ -42,17 +42,34 @@ describe('process shader style path', () => {
     expect(PROCESS_FRAGMENT_SHADER_FLOAT).toContain(
       'return texture(u_inputTexture, uv).rgb',
     )
+    expect(PROCESS_FRAGMENT_SHADER_FLOAT).not.toContain(
+      'linearProPhotoToDisplaySrgb',
+    )
     expect(PROCESS_FRAGMENT_SHADER_FLOAT).not.toContain('usampler2D')
   })
 
   it('converts RGB16 unsigned integer input in the shader', () => {
+    expect(PROCESS_FRAGMENT_SHADER_U16).toContain('precision highp uint')
     expect(PROCESS_FRAGMENT_SHADER_U16).toContain(
       'uniform usampler2D u_inputTexture',
     )
     expect(PROCESS_FRAGMENT_SHADER_U16).toContain(
-      'uvec3 color = texture(u_inputTexture, uv).rgb',
+      'highp uvec3 color = texture(u_inputTexture, uv).rgb',
     )
-    expect(PROCESS_FRAGMENT_SHADER_U16).toContain('vec3(color) / 65535.0')
+    expect(PROCESS_FRAGMENT_SHADER_U16).toContain(
+      'vec3 linearProPhoto = vec3(color) / 65535.0',
+    )
+  })
+
+  it('converts RGB16 Linear ProPhoto to display sRGB before style processing', () => {
+    expect(PROCESS_FRAGMENT_SHADER_U16).toContain('linearProPhotoToDisplaySrgb')
+    expect(PROCESS_FRAGMENT_SHADER_U16).toContain('linearProPhotoToLinearSrgb')
+    expect(PROCESS_FRAGMENT_SHADER_U16).toContain(
+      'dot(color, vec3(2.034367543, -0.727634474, -0.306733069))',
+    )
+    expect(PROCESS_FRAGMENT_SHADER_U16).toContain(
+      'return linearProPhotoToDisplaySrgb(linearProPhoto)',
+    )
   })
 
   it.each(PROCESS_SHADER_VARIANTS)(
