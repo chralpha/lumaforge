@@ -127,6 +127,34 @@ describe('native-adapter', () => {
     })
   })
 
+  it('throws when thumbnail dimensions are invalid', () => {
+    const negativeWidth = createProcessor({
+      thumbnail: {
+        data: new Uint8Array([1, 2, 3]),
+        width: -1,
+        height: 1,
+        thumbWidth: 1616,
+        format: 'jpeg',
+      },
+    })
+    const fractionalFallbackHeight = createProcessor({
+      thumbnail: {
+        data: new Uint8Array([1, 2, 3]),
+        width: 1,
+        height: 0,
+        thumbHeight: 1080.5,
+        format: 'jpeg',
+      },
+    })
+
+    expect(() => negativeWidth.extractThumbnail()).toThrow(
+      'Native RAW thumbnail returned invalid width.',
+    )
+    expect(() => fractionalFallbackHeight.extractThumbnail()).toThrow(
+      'Native RAW thumbnail returned invalid thumbHeight.',
+    )
+  })
+
   it('throws when decoded image data is not Uint16Array', () => {
     const processor = createProcessor({
       image: {
@@ -204,14 +232,76 @@ describe('native-adapter', () => {
       height: 2,
       format: 'jpeg',
     })
+    expect(processor.extractThumbnail()?.data).toBe(thumbnailData)
     expect(processor.decodeHq()).toEqual({
       data: imageData,
       width: 2,
       height: 1,
       bits: 16,
     })
+    expect(processor.decodePreview().data).toBe(imageData)
     processor.openBuffer(new Uint8Array([1]), settings)
     processor.dispose()
+  })
+
+  it('normalizes non-tight thumbnail and image output buffers to owned arrays', () => {
+    const thumbnailData = new Uint8Array([8, 9, 1, 2, 3, 7]).subarray(2, 5)
+    const imageData = new Uint16Array([8, 9, 1, 2, 3, 7]).subarray(2, 5)
+    const processor = createProcessor({
+      thumbnail: {
+        data: thumbnailData,
+        width: 3,
+        height: 1,
+        format: 'jpeg',
+      },
+      image: {
+        data: imageData,
+        width: 1,
+        height: 1,
+      },
+    })
+
+    const thumbnail = processor.extractThumbnail()
+    const image = processor.decodePreview()
+
+    expect(thumbnail?.data).toEqual(new Uint8Array([1, 2, 3]))
+    expect(thumbnail?.data).not.toBe(thumbnailData)
+    expect(thumbnail?.data.buffer).not.toBe(thumbnailData.buffer)
+    expect(thumbnail?.data.byteOffset).toBe(0)
+    expect(thumbnail?.data.byteLength).toBe(thumbnail?.data.buffer.byteLength)
+
+    expect(image.data).toEqual(new Uint16Array([1, 2, 3]))
+    expect(image.data).not.toBe(imageData)
+    expect(image.data.buffer).not.toBe(imageData.buffer)
+    expect(image.data.byteOffset).toBe(0)
+    expect(image.data.byteLength).toBe(image.data.buffer.byteLength)
+  })
+
+  it('throws when native output buffers are not transferable ArrayBuffers', () => {
+    const thumbnailBuffer = new SharedArrayBuffer(3)
+    const imageBuffer = new SharedArrayBuffer(6)
+    const thumbnail = createProcessor({
+      thumbnail: {
+        data: new Uint8Array(thumbnailBuffer),
+        width: 3,
+        height: 1,
+        format: 'jpeg',
+      },
+    })
+    const image = createProcessor({
+      image: {
+        data: new Uint16Array(imageBuffer),
+        width: 1,
+        height: 1,
+      },
+    })
+
+    expect(() => thumbnail.extractThumbnail()).toThrow(
+      'Native RAW thumbnail returned data backed by a non-transferable buffer.',
+    )
+    expect(() => image.decodePreview()).toThrow(
+      'Native RAW image returned data backed by a non-transferable buffer.',
+    )
   })
 
   it('preserves undefined open timing returns for runtime fallback timing', () => {

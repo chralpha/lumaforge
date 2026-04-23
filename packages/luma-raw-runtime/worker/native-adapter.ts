@@ -57,6 +57,45 @@ function asPositiveInteger(value: unknown, label: string) {
   return value
 }
 
+function asOptionalThumbnailDimension(value: unknown, label: string) {
+  if (value === null || value === undefined) return undefined
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 0
+  ) {
+    throw new TypeError(`Native RAW thumbnail returned invalid ${label}.`)
+  }
+
+  return value
+}
+
+function isTightTransferableView(data: Uint8Array | Uint16Array) {
+  return data.byteOffset === 0 && data.byteLength === data.buffer.byteLength
+}
+
+function assertTransferableArrayBuffer(
+  data: Uint8Array | Uint16Array,
+  label: string,
+) {
+  if (!(data.buffer instanceof ArrayBuffer)) {
+    throw new TypeError(
+      `Native RAW ${label} returned data backed by a non-transferable buffer.`,
+    )
+  }
+}
+
+function normalizeUint8Output(data: Uint8Array, label: string) {
+  assertTransferableArrayBuffer(data, label)
+  return isTightTransferableView(data) ? data : new Uint8Array(data)
+}
+
+function normalizeUint16Output(data: Uint16Array, label: string) {
+  assertTransferableArrayBuffer(data, label)
+  return isTightTransferableView(data) ? data : new Uint16Array(data)
+}
+
 function normalizeMetadata(value: unknown) {
   const raw = asRecord(value)
   const thumbnailWidth = asNumber(raw.thumbWidth)
@@ -140,11 +179,27 @@ function normalizeThumbnail(value: unknown) {
 
   const format: NativeThumbnailFormat =
     raw.format === 'jpeg' || raw.format === 'bitmap' ? raw.format : 'unknown'
-  const width = asNumber(raw.width) || asNumber(raw.thumbWidth) || 0
-  const height = asNumber(raw.height) || asNumber(raw.thumbHeight) || 0
+  const primaryWidth = asOptionalThumbnailDimension(raw.width, 'width')
+  const primaryHeight = asOptionalThumbnailDimension(raw.height, 'height')
+  const fallbackWidth = asOptionalThumbnailDimension(
+    raw.thumbWidth,
+    'thumbWidth',
+  )
+  const fallbackHeight = asOptionalThumbnailDimension(
+    raw.thumbHeight,
+    'thumbHeight',
+  )
+  const width =
+    primaryWidth === undefined || primaryWidth === 0
+      ? (fallbackWidth ?? 0)
+      : primaryWidth
+  const height =
+    primaryHeight === undefined || primaryHeight === 0
+      ? (fallbackHeight ?? 0)
+      : primaryHeight
 
   return {
-    data: raw.data,
+    data: normalizeUint8Output(raw.data, 'thumbnail'),
     width,
     height,
     format,
@@ -171,7 +226,7 @@ function normalizeImage(value: unknown) {
   }
 
   return {
-    data: raw.data,
+    data: normalizeUint16Output(raw.data, 'image'),
     width,
     height,
     bits: 16 as const,

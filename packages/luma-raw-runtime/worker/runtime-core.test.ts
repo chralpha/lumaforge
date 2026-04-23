@@ -133,7 +133,7 @@ describe('runtime-core', () => {
   })
 
   it('keeps embedded preview buffers without cloning in runtime-core', async () => {
-    const source = new Uint8Array([9, 8, 1, 2, 3, 4, 7, 6]).subarray(2, 6)
+    const source = new Uint8Array([1, 2, 3, 4])
     const core = createRuntimeCore({
       createProcessor() {
         const processor = makeNativeFactory().createProcessor()

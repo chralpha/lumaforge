@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { createNativeFactory } from '../worker/native-adapter'
 import { LumaRawRuntimeError } from './errors'
 import { LumaRawWorkerClient } from './worker-client'
 import type {
@@ -97,6 +98,56 @@ describe('lumaRawWorkerClient', () => {
         third: buffer,
       }),
     ).toHaveLength(1)
+  })
+
+  it('collects adapter-normalized typed array output buffers safely', () => {
+    const pooledThumbnail = new Uint8Array([9, 1, 2, 3, 8]).subarray(1, 4)
+    const pooledImage = new Uint16Array([9, 1, 2, 3, 8]).subarray(1, 4)
+    const processor = createNativeFactory({
+      LumaRawProcessor: class {
+        openBuffer() {
+          return { copyToWasm: 1, librawOpen: 1 }
+        }
+        loadBuffer() {
+          return { copyToWasm: 1 }
+        }
+        openWithSettings() {
+          return { copyToWasm: 0, librawOpen: 1 }
+        }
+        readMetadata() {
+          return {}
+        }
+        extractThumbnail() {
+          return {
+            data: pooledThumbnail,
+            width: 3,
+            height: 1,
+            format: 'jpeg',
+          }
+        }
+        decodePreview() {
+          return { data: pooledImage, width: 1, height: 1 }
+        }
+        decodeHq() {
+          return { data: pooledImage, width: 1, height: 1 }
+        }
+      },
+    }).createProcessor()
+
+    const thumbnail = processor.extractThumbnail()
+    const image = processor.decodePreview()
+    const transferables = collectTransferables({
+      thumbnail: thumbnail?.data,
+      image: image.data,
+    })
+
+    expect(thumbnail?.data.buffer).not.toBe(pooledThumbnail.buffer)
+    expect(image.data.buffer).not.toBe(pooledImage.buffer)
+    expect(transferables).toContain(thumbnail?.data.buffer)
+    expect(transferables).toContain(image.data.buffer)
+    expect(transferables).not.toContain(pooledThumbnail.buffer)
+    expect(transferables).not.toContain(pooledImage.buffer)
+    expect(transferables).toHaveLength(2)
   })
 
   it('correlates worker responses by request id', async () => {
