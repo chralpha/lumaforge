@@ -353,15 +353,32 @@ async function benchLuma(file: File) {
       if (!embedded) {
         throw new Error('No embedded preview available.')
       }
-      printLumaStage(file, 'luma-embedded', embedded)
+      printLumaStage(file, 'luma-embedded', {
+        width: embedded.width,
+        height: embedded.height,
+        timings: embedded.timings,
+        heap: embedded.heap,
+      })
     })
 
     await runLumaStage('luma-quick', async () => {
-      printLumaStage(file, 'luma-quick', await session.decodeQuick())
+      const quick = await session.decodeQuick()
+      printLumaStage(file, 'luma-quick', {
+        width: quick.width,
+        height: quick.height,
+        timings: quick.timings,
+        heap: quick.heap,
+      })
     })
 
     await runLumaStage('luma-hq', async () => {
-      printLumaStage(file, 'luma-hq', await session.decodeHq())
+      const hq = await session.decodeHq()
+      printLumaStage(file, 'luma-hq', {
+        width: hq.width,
+        height: hq.height,
+        timings: hq.timings,
+        heap: hq.heap,
+      })
     })
   } finally {
     session.dispose()

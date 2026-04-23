@@ -280,6 +280,22 @@ function createFramePayload(
   }
 }
 
+function captureHeap(nativeFactory: LumaRawNativeFactory) {
+  return nativeFactory.heapBytes?.()
+}
+
+function heapStats(
+  before?: number,
+  after?: number,
+): LumaRawHeapStats | undefined {
+  if (before === undefined && after === undefined) return undefined
+  return {
+    before,
+    after,
+    peak: Math.max(before ?? 0, after ?? 0),
+  }
+}
+
 export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
   const cancelledJobIds = new Set<string>()
   const cancelledJobQueue: string[] = []
@@ -290,19 +306,6 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
   function nextSessionId() {
     sessionCounter += 1
     return `raw-session-${sessionCounter}`
-  }
-
-  function readHeapBytes() {
-    return nativeFactory.heapBytes?.()
-  }
-
-  function createHeapStats(before?: number, after?: number) {
-    if (before === undefined && after === undefined) return undefined
-
-    const heap: LumaRawHeapStats = {}
-    if (before !== undefined) heap.before = before
-    if (after !== undefined) heap.after = after
-    return heap
   }
 
   function requireSession(sessionId: string) {
@@ -353,6 +356,8 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
 
     const timer = createTimer()
     const settings = request.type === 'decodeHq' ? hqSettings : quickSettings
+    const heapBefore =
+      request.type === 'probe' ? undefined : captureHeap(nativeFactory)
     const processor = nativeFactory.createProcessor()
     let response: LumaRawWorkerResponse | undefined
     let primaryError: unknown
@@ -396,6 +401,8 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
       } else if (request.type === 'extractEmbeddedPreview') {
         const thumbnail = processor.extractThumbnail()
         timer.mark('thumbnail')
+        const heapAfter = captureHeap(nativeFactory)
+        const heap = heapStats(heapBefore, heapAfter)
 
         const payload: LumaEmbeddedPreview | null = thumbnail
           ? {
@@ -409,6 +416,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
               colorSpace: 'display-srgb-preview',
               orientation: nativeMetadata.orientation ?? 1,
               timings: timer.finish(),
+              ...(heap ? { heap } : {}),
             }
           : null
 
@@ -426,6 +434,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
                 maxOutputPixels: defaultQuickMaxOutputPixels,
               })
         timer.mark('unpack')
+        const heapAfter = captureHeap(nativeFactory)
 
         response = {
           id: request.id,
@@ -436,6 +445,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
             nativeMetadata,
             image,
             timer.finish(),
+            heapStats(heapBefore, heapAfter),
           ),
         }
       }
@@ -485,7 +495,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
     }
 
     const timer = createTimer()
-    const heapBefore = readHeapBytes()
+    const heapBefore = captureHeap(nativeFactory)
     const sessionId = nextSessionId()
     const processor = nativeFactory.createProcessor()
     let session: RuntimeSession | undefined
@@ -507,8 +517,8 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
       const nativeMetadata = processor.readMetadata()
       timer.mark('metadata')
       const timings = timer.finish()
-      const heapAfter = readHeapBytes()
-      const heap = createHeapStats(heapBefore, heapAfter)
+      const heapAfter = captureHeap(nativeFactory)
+      const heap = heapStats(heapBefore, heapAfter)
       session = {
         sessionId,
         openRequestId: request.id,
@@ -587,7 +597,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
 
     const session = requireSession(request.payload.sessionId)
     const timer = createTimer()
-    const heapBefore = readHeapBytes()
+    const heapBefore = captureHeap(nativeFactory)
 
     openProcessorWithSettings(session.processor, quickSettings, timer)
     const nativeMetadata = session.processor.readMetadata()
@@ -595,8 +605,8 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
 
     const thumbnail = session.processor.extractThumbnail()
     timer.mark('thumbnail')
-    const heapAfter = readHeapBytes()
-    const heap = createHeapStats(heapBefore, heapAfter)
+    const heapAfter = captureHeap(nativeFactory)
+    const heap = heapStats(heapBefore, heapAfter)
 
     const payload: LumaEmbeddedPreview | null = thumbnail
       ? {
@@ -639,7 +649,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
 
     const session = requireSession(request.payload.sessionId)
     const timer = createTimer()
-    const heapBefore = readHeapBytes()
+    const heapBefore = captureHeap(nativeFactory)
     const settings =
       request.type === 'decodeHqFromSession' ? hqSettings : quickSettings
 
@@ -657,7 +667,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
               defaultQuickMaxOutputPixels,
           })
     timer.mark('unpack')
-    const heapAfter = readHeapBytes()
+    const heapAfter = captureHeap(nativeFactory)
     const response: LumaRawWorkerResponse = {
       id: request.id,
       ok: true,
@@ -667,7 +677,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
         nativeMetadata,
         image,
         timer.finish(),
-        createHeapStats(heapBefore, heapAfter),
+        heapStats(heapBefore, heapAfter),
       ),
     }
 

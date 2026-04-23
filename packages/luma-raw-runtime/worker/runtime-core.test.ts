@@ -311,6 +311,84 @@ describe('runtime-core', () => {
     })
   })
 
+  it('records heap before and after session stages', async () => {
+    let heap = 256
+    const core = createRuntimeCore({
+      createProcessor() {
+        return makeNativeFactory().createProcessor()
+      },
+      heapBytes() {
+        heap += 16
+        return heap
+      },
+    })
+    const expectHeapGrowth = (stats?: {
+      before?: number
+      after?: number
+      peak?: number
+    }) => {
+      expect(stats?.before).toBeGreaterThan(0)
+      expect(stats?.after).toBeGreaterThan(stats?.before ?? 0)
+      expect(stats?.peak).toBe(stats?.after)
+    }
+
+    const opened = await core.handleRequest({
+      id: 'job-heap-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+    expectHeapGrowth(opened.payload.heap)
+
+    const sessionId = opened.payload.sessionId
+    const embedded = await core.handleRequest({
+      id: 'job-heap-embedded',
+      type: 'extractEmbeddedPreviewFromSession',
+      payload: { sessionId },
+    })
+    const quick = await core.handleRequest({
+      id: 'job-heap-quick',
+      type: 'decodeQuickFromSession',
+      payload: { sessionId },
+    })
+    const hq = await core.handleRequest({
+      id: 'job-heap-hq',
+      type: 'decodeHqFromSession',
+      payload: { sessionId },
+    })
+    await core.handleRequest({
+      id: 'job-heap-close',
+      type: 'closeSession',
+      payload: { sessionId },
+    })
+
+    expect(
+      embedded.ok && embedded.type === 'extractEmbeddedPreviewFromSession',
+    ).toBe(true)
+    expect(quick.ok && quick.type === 'decodeQuickFromSession').toBe(true)
+    expect(hq.ok && hq.type === 'decodeHqFromSession').toBe(true)
+    if (
+      !embedded.ok ||
+      embedded.type !== 'extractEmbeddedPreviewFromSession' ||
+      !quick.ok ||
+      quick.type !== 'decodeQuickFromSession' ||
+      !hq.ok ||
+      hq.type !== 'decodeHqFromSession'
+    ) {
+      return
+    }
+
+    expectHeapGrowth(embedded.payload?.heap)
+    expectHeapGrowth(quick.payload.heap)
+    expectHeapGrowth(hq.payload.heap)
+  })
+
   it('opens a session once and reuses loaded input across session stages', async () => {
     let loadCount = 0
     let disposeCount = 0

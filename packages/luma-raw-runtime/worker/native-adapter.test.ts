@@ -65,6 +65,38 @@ function createProcessor(values: ProcessorValues) {
 }
 
 describe('native-adapter', () => {
+  it('reports wasm heap byte length', () => {
+    const factory = createNativeFactory({
+      HEAPU8: new Uint8Array(new ArrayBuffer(64)),
+      LumaRawProcessor: class {
+        loadBuffer() {
+          return { copyToWasm: 0 }
+        }
+        openWithSettings() {
+          return { copyToWasm: 0, librawOpen: 0 }
+        }
+        openBuffer() {
+          return { copyToWasm: 0, librawOpen: 0 }
+        }
+        readMetadata() {
+          return {}
+        }
+        extractThumbnail() {
+          return undefined
+        }
+        decodePreview() {
+          return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
+        }
+        decodeHq() {
+          return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
+        }
+        delete() {}
+      },
+    })
+
+    expect(factory.heapBytes?.()).toBe(64)
+  })
+
   it('throws when a thumbnail object has malformed data', () => {
     const processor = createProcessor({
       thumbnail: {
