@@ -5,6 +5,7 @@ import type {
   LumaRawProbe,
   LumaRawRuntime,
   LumaRawRuntimeInfo,
+  LumaRawTimings,
 } from './types'
 import { LumaRawWorkerClient } from './worker-client'
 
@@ -18,42 +19,135 @@ const defaultWorkerFactory = () =>
     type: 'module',
   })
 
-async function readFileBuffer(file: File) {
-  const start = performance.now()
-  const fileBuffer =
-    typeof file.arrayBuffer === 'function'
-      ? await file.arrayBuffer()
-      : await new Promise<ArrayBuffer>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => {
-            const result = reader.result
-            if (result instanceof ArrayBuffer) {
-              resolve(result)
-              return
-            }
+function createJobCancelledError() {
+  return new LumaRawRuntimeError(
+    'RAW_JOB_CANCELLED',
+    'RAW runtime job was cancelled.',
+  )
+}
 
-            reject(
-              new LumaRawRuntimeError(
-                'RAW_WORKER_PROTOCOL_ERROR',
-                'RAW runtime failed to read file bytes.',
-              ),
-            )
-          }
-          reader.onerror = () => {
-            reject(
-              reader.error ??
-                new LumaRawRuntimeError(
-                  'RAW_WORKER_PROTOCOL_ERROR',
-                  'RAW runtime failed to read file bytes.',
-                ),
-            )
-          }
-          reader.readAsArrayBuffer(file)
-        })
+function mergeReadTimings<T extends { timings: LumaRawTimings }>(
+  result: T,
+  readFile: number,
+): T {
+  return {
+    ...result,
+    timings: {
+      ...result.timings,
+      readFile,
+      total: result.timings.total + readFile,
+    },
+  }
+}
+
+function createFilePayload(file: File, fileBuffer: ArrayBuffer) {
+  return {
+    fileBuffer,
+    fileName: file.name,
+    fileSize: file.size,
+  }
+}
+
+async function readFileBuffer(file: File, signal?: AbortSignal) {
+  const start = performance.now()
+  const fileBuffer = await readFileBytes(file, signal)
   return {
     fileBuffer,
     readFile: performance.now() - start,
   }
+}
+
+function readFileBytes(file: File, signal?: AbortSignal): Promise<ArrayBuffer> {
+  if (signal?.aborted) {
+    return Promise.reject(createJobCancelledError())
+  }
+
+  if (typeof file.arrayBuffer === 'function') {
+    return readFileBytesWithArrayBuffer(file, signal)
+  }
+
+  return readFileBytesWithReader(file, signal)
+}
+
+function readFileBytesWithArrayBuffer(
+  file: File,
+  signal?: AbortSignal,
+): Promise<ArrayBuffer> {
+  const fileBufferPromise = file.arrayBuffer()
+
+  if (!signal) {
+    return fileBufferPromise
+  }
+
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort)
+      reject(createJobCancelledError())
+    }
+
+    signal.addEventListener('abort', onAbort, { once: true })
+
+    fileBufferPromise.then(
+      (fileBuffer) => {
+        signal.removeEventListener('abort', onAbort)
+        resolve(fileBuffer)
+      },
+      (error) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      },
+    )
+  })
+}
+
+function readFileBytesWithReader(
+  file: File,
+  signal?: AbortSignal,
+): Promise<ArrayBuffer> {
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    const reader = new FileReader()
+
+    const cleanup = () => {
+      signal?.removeEventListener('abort', onAbort)
+    }
+
+    const onAbort = () => {
+      reader.abort()
+      cleanup()
+      reject(createJobCancelledError())
+    }
+
+    reader.onload = () => {
+      const result = reader.result
+      cleanup()
+
+      if (result instanceof ArrayBuffer) {
+        resolve(result)
+        return
+      }
+
+      reject(
+        new LumaRawRuntimeError(
+          'RAW_WORKER_PROTOCOL_ERROR',
+          'RAW runtime failed to read file bytes.',
+        ),
+      )
+    }
+
+    reader.onerror = () => {
+      cleanup()
+      reject(
+        reader.error ??
+          new LumaRawRuntimeError(
+            'RAW_WORKER_PROTOCOL_ERROR',
+            'RAW runtime failed to read file bytes.',
+          ),
+      )
+    }
+
+    signal?.addEventListener('abort', onAbort, { once: true })
+    reader.readAsArrayBuffer(file)
+  })
 }
 
 function assertCrossOriginIsolation(required: boolean) {
@@ -88,100 +182,56 @@ export function createLumaRawRuntime(
     },
 
     async probe(file: File, signal?: AbortSignal): Promise<LumaRawProbe> {
-      const { fileBuffer, readFile } = await readFileBuffer(file)
+      const { fileBuffer, readFile } = await readFileBuffer(file, signal)
       const probe = await client.request(
         'probe',
-        {
-          fileBuffer,
-          fileName: file.name,
-          fileSize: file.size,
-        },
+        createFilePayload(file, fileBuffer),
         [fileBuffer],
         signal,
       )
 
-      return {
-        ...probe,
-        timings: {
-          ...probe.timings,
-          readFile,
-          total: probe.timings.total + readFile,
-        },
-      }
+      return mergeReadTimings(probe, readFile)
     },
 
     async extractEmbeddedPreview(
       file: File,
       signal?: AbortSignal,
     ): Promise<LumaEmbeddedPreview | null> {
-      const { fileBuffer, readFile } = await readFileBuffer(file)
+      const { fileBuffer, readFile } = await readFileBuffer(file, signal)
       const preview = await client.request(
         'extractEmbeddedPreview',
-        {
-          fileBuffer,
-          fileName: file.name,
-          fileSize: file.size,
-        },
+        createFilePayload(file, fileBuffer),
         [fileBuffer],
         signal,
       )
 
       if (!preview) return null
 
-      return {
-        ...preview,
-        timings: {
-          ...preview.timings,
-          readFile,
-          total: preview.timings.total + readFile,
-        },
-      }
+      return mergeReadTimings(preview, readFile)
     },
 
     async decodeQuick(file: File, signal?: AbortSignal): Promise<LumaRawFrame> {
-      const { fileBuffer, readFile } = await readFileBuffer(file)
+      const { fileBuffer, readFile } = await readFileBuffer(file, signal)
       const frame = await client.request(
         'decodeQuick',
-        {
-          fileBuffer,
-          fileName: file.name,
-          fileSize: file.size,
-        },
+        createFilePayload(file, fileBuffer),
         [fileBuffer],
         signal,
       )
 
-      return {
-        ...frame,
-        timings: {
-          ...frame.timings,
-          readFile,
-          total: frame.timings.total + readFile,
-        },
-      }
+      return mergeReadTimings(frame, readFile)
     },
 
     async decodeHq(file: File, signal?: AbortSignal): Promise<LumaRawFrame> {
-      const { fileBuffer, readFile } = await readFileBuffer(file)
+      const { fileBuffer, readFile } = await readFileBuffer(file, signal)
       const frame = await client.request(
         'decodeHq',
-        {
-          fileBuffer,
-          fileName: file.name,
-          fileSize: file.size,
-        },
+        createFilePayload(file, fileBuffer),
         [fileBuffer],
         signal,
       )
 
-      return {
-        ...frame,
-        timings: {
-          ...frame.timings,
-          readFile,
-          total: frame.timings.total + readFile,
-        },
-      }
+      return mergeReadTimings(frame, readFile)
     },
 
     dispose() {
