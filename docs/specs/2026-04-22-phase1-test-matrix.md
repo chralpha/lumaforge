@@ -84,3 +84,13 @@ Promote a camera to `official` only after it passes the full checklist below on 
 ## Promotion rule
 
 After each fixture passes the checklist, record the observed `cameraBrand`, `cameraModel`, and `rawFormat` in `src/modules/raw-processor/services/support-matrix.ts` and move that fixture from `experimental` to `official`.
+
+## Post Phase 1.5 RAW Runtime Migration Checks
+
+| Case | Runtime | Expected |
+| --- | --- | --- |
+| Open supported RAW with `VITE_RAW_RUNTIME=libraw-wasm` | legacy | Upload, quick preview, HQ preview, LUT, compare, and JPEG export still work |
+| Open supported RAW with `VITE_RAW_RUNTIME=luma` | luma | Embedded preview appears first when available, quick preview upgrades into the styled canvas, HQ replaces quick without resetting style |
+| Open second RAW in the same tab with `VITE_RAW_RUNTIME=luma` | luma | Camera metadata and preview dimensions come from the second file, not the first |
+| Disable cross-origin isolation and use `VITE_RAW_RUNTIME=luma` | luma | RAW route shows unsupported-state copy explaining cross-origin isolation |
+| Set `VITE_RAW_RUNTIME=libraw-wasm` after a luma failure | legacy | The same file can be processed through the legacy adapter |
