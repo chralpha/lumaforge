@@ -85,6 +85,48 @@ describe('native-adapter', () => {
     expect(processor.extractThumbnail()).toBeUndefined()
   })
 
+  it('normalizes JPEG thumbnail dimensions from metadata fallback fields', () => {
+    const module = {
+      LumaRawProcessor: class {
+        openBuffer() {
+          return { copyToWasm: 1, librawOpen: 2 }
+        }
+        loadBuffer() {
+          return { copyToWasm: 1 }
+        }
+        openWithSettings() {
+          return { copyToWasm: 0, librawOpen: 2 }
+        }
+        readMetadata() {
+          return {}
+        }
+        extractThumbnail() {
+          return {
+            data: new Uint8Array([1, 2, 3]),
+            width: 0,
+            height: 0,
+            thumbWidth: 1616,
+            thumbHeight: 1080,
+            format: 'jpeg',
+          }
+        }
+        decodePreview() {
+          return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
+        }
+        decodeHq() {
+          return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
+        }
+      },
+    }
+
+    const processor = createNativeFactory(module).createProcessor()
+    expect(processor.extractThumbnail()).toMatchObject({
+      width: 1616,
+      height: 1080,
+      format: 'jpeg',
+    })
+  })
+
   it('throws when decoded image data is not Uint16Array', () => {
     const processor = createProcessor({
       image: {

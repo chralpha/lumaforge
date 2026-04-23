@@ -4,7 +4,6 @@
 #include <libraw/libraw.h>
 
 #include <cstdint>
-#include <cstring>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -193,10 +192,17 @@ class LumaRawProcessor {
       return val::undefined();
     }
 
+    const int fallback_width = processor_.imgdata.thumbnail.twidth;
+    const int fallback_height = processor_.imgdata.thumbnail.theight;
+    const int width = image->width > 0 ? image->width : fallback_width;
+    const int height = image->height > 0 ? image->height : fallback_height;
+
     val thumbnail = val::object();
     thumbnail.set("data", copiedUint8Array(image->data, image->data_size));
-    thumbnail.set("width", image->width);
-    thumbnail.set("height", image->height);
+    thumbnail.set("width", width);
+    thumbnail.set("height", height);
+    thumbnail.set("thumbWidth", fallback_width);
+    thumbnail.set("thumbHeight", fallback_height);
     thumbnail.set("format", processedImageFormat(image->type));
     return thumbnail;
   }
@@ -267,11 +273,10 @@ class LumaRawProcessor {
           "LibRaw RGB16 image buffer is smaller than expected.");
     }
 
-    std::vector<uint16_t> rgb(sample_count);
-    std::memcpy(rgb.data(), image->data, byte_count);
+    const uint16_t *source = reinterpret_cast<const uint16_t *>(image->data);
 
     val output = val::object();
-    output.set("data", copiedUint16Array(rgb.data(), rgb.size()));
+    output.set("data", copiedUint16Array(source, sample_count));
     output.set("width", image->width);
     output.set("height", image->height);
     return output;

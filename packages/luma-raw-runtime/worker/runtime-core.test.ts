@@ -132,7 +132,7 @@ describe('runtime-core', () => {
     })
   })
 
-  it('clones embedded preview subarrays into tight owned buffers', async () => {
+  it('keeps embedded preview buffers without cloning in runtime-core', async () => {
     const source = new Uint8Array([9, 8, 1, 2, 3, 4, 7, 6]).subarray(2, 6)
     const core = createRuntimeCore({
       createProcessor() {
@@ -164,10 +164,7 @@ describe('runtime-core', () => {
     expect(response.ok && response.type === 'extractEmbeddedPreview').toBe(true)
     if (!response.ok || response.type !== 'extractEmbeddedPreview') return
 
-    expect(response.payload?.data).toEqual(new Uint8Array([1, 2, 3, 4]))
-    expect(response.payload?.data).not.toBe(source)
-    expect(response.payload?.data.byteOffset).toBe(0)
-    expect(response.payload?.data.buffer.byteLength).toBe(4)
+    expect(response.payload?.data).toBe(source)
   })
 
   it('keeps bitmap embedded preview bytes as octet-stream', async () => {
@@ -614,27 +611,49 @@ describe('runtime-core', () => {
     })
   })
 
-  it('clones decoded frame subarrays into tight owned buffers', async () => {
-    const source = new Uint16Array([9, 8, 0, 32768, 65535, 7]).subarray(2, 5)
+  it('keeps native-owned output buffers without cloning in runtime-core', async () => {
+    const nativeData = new Uint16Array([1, 2, 3])
     const core = createRuntimeCore({
       createProcessor() {
-        const processor = makeNativeFactory().createProcessor()
         return {
-          ...processor,
+          openBuffer() {
+            return { copyToWasm: 1, librawOpen: 1 }
+          },
+          loadBuffer() {
+            return { copyToWasm: 1 }
+          },
+          openWithSettings() {
+            return { copyToWasm: 0, librawOpen: 1 }
+          },
+          readMetadata() {
+            return { width: 1, height: 1 }
+          },
+          extractThumbnail() {
+            return undefined
+          },
           decodePreview() {
             return {
-              data: source,
+              data: nativeData,
               width: 1,
               height: 1,
               bits: 16,
             }
           },
+          decodeHq() {
+            return {
+              data: nativeData,
+              width: 1,
+              height: 1,
+              bits: 16,
+            }
+          },
+          dispose() {},
         }
       },
     })
 
     const response = await core.handleRequest({
-      id: 'job-frame-subarray',
+      id: 'job-no-clone',
       type: 'decodeQuick',
       payload: {
         fileBuffer: new ArrayBuffer(4),
@@ -646,10 +665,7 @@ describe('runtime-core', () => {
     expect(response.ok && response.type === 'decodeQuick').toBe(true)
     if (!response.ok || response.type !== 'decodeQuick') return
 
-    expect(response.payload.data).toEqual(new Uint16Array([0, 32768, 65535]))
-    expect(response.payload.data).not.toBe(source)
-    expect(response.payload.data.byteOffset).toBe(0)
-    expect(response.payload.data.buffer.byteLength).toBe(6)
+    expect(response.payload.data).toBe(nativeData)
   })
 
   it('opens quick and HQ decodes with native RGB16 ProPhoto settings', async () => {

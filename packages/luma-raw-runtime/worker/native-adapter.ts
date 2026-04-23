@@ -140,11 +140,13 @@ function normalizeThumbnail(value: unknown) {
 
   const format: NativeThumbnailFormat =
     raw.format === 'jpeg' || raw.format === 'bitmap' ? raw.format : 'unknown'
+  const width = asNumber(raw.width) || asNumber(raw.thumbWidth) || 0
+  const height = asNumber(raw.height) || asNumber(raw.thumbHeight) || 0
 
   return {
     data: raw.data,
-    width: asNumber(raw.width) || 0,
-    height: asNumber(raw.height) || 0,
+    width,
+    height,
     format,
   }
 }

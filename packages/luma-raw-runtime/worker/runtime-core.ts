@@ -135,14 +135,6 @@ function toMimeType(thumbnail: LumaRawNativeThumbnail) {
   return thumbnail.format === 'jpeg' ? 'image/jpeg' : 'application/octet-stream'
 }
 
-function cloneUint8Array(data: Uint8Array) {
-  return new Uint8Array(data)
-}
-
-function cloneUint16Array(data: Uint16Array) {
-  return new Uint16Array(data)
-}
-
 function asOpenTiming(value: unknown, label: keyof LumaRawNativeOpenTimings) {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     throw new TypeError(
@@ -274,8 +266,7 @@ function createFramePayload(
     source: isHq ? 'hq' : 'quick',
     width: image.width,
     height: image.height,
-    // Native adapters may return views into WASM/pooled memory; transfer only owned tight buffers.
-    data: cloneUint16Array(image.data),
+    data: image.data,
     layout: 'rgb',
     bitDepth: image.bits,
     colorSpace: 'linear-prophoto-rgb',
@@ -412,8 +403,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
               source: 'embedded',
               width: thumbnail.width,
               height: thumbnail.height,
-              // Native adapters may return views into WASM/pooled memory; transfer only owned tight buffers.
-              data: cloneUint8Array(thumbnail.data),
+              data: thumbnail.data,
               mimeType: toMimeType(thumbnail),
               colorSpace: 'display-srgb-preview',
               orientation: nativeMetadata.orientation ?? 1,
@@ -612,8 +602,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
           source: 'embedded',
           width: thumbnail.width,
           height: thumbnail.height,
-          // Native adapters may return views into WASM/pooled memory; transfer only owned tight buffers.
-          data: cloneUint8Array(thumbnail.data),
+          data: thumbnail.data,
           mimeType: toMimeType(thumbnail),
           colorSpace: 'display-srgb-preview',
           orientation: nativeMetadata.orientation ?? 1,
