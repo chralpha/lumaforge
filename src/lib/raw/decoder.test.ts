@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { convertToFloat32RGBA, planDecodedOutputSize } from './decoder'
+import {
+  convertToFloat32RGBA,
+  planDecodedOutputSize,
+  toLibRawOptions,
+} from './decoder'
 
-describe('rAW decoder output sizing', () => {
+describe('raw decoder output sizing', () => {
   it('keeps decoded dimensions when they fit the pixel budget', () => {
     expect(planDecodedOutputSize(400, 300, 120_000)).toEqual({
       width: 400,
@@ -27,5 +31,14 @@ describe('rAW decoder output sizing', () => {
     expect(output.width).toBe(1)
     expect(output.height).toBe(1)
     expect(Array.from(output.data)).toEqual([1, 1, 1, 1])
+  })
+
+  it('keeps libraw auto-bright enabled for visible browser previews', () => {
+    expect(toLibRawOptions({ halfSize: true })).toMatchObject({
+      halfSize: true,
+      noAutoBright: false,
+      outputColor: 1,
+      outputBps: 16,
+    })
   })
 })

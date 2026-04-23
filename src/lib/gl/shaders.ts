@@ -60,7 +60,7 @@ void main() {
 `
 
 /**
- * Preview output shader - applies tone mapping for display.
+ * Preview output shader - maps the processed texture to the display canvas.
  */
 export const PREVIEW_OUTPUT_SHADER = /* glsl */ `#version 300 es
 precision highp float;
@@ -70,23 +70,10 @@ in vec2 v_texCoord;
 out vec4 fragColor;
 
 uniform sampler2D u_inputTexture;
-uniform float u_displayGamma;
-uniform bool u_srgbOutput;
-
-vec3 linearToSRGB(vec3 linear) {
-  vec3 lo = linear * 12.92;
-  vec3 hi = 1.055 * pow(max(linear, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055;
-  return mix(lo, hi, step(vec3(0.0031308), linear));
-}
 
 void main() {
-  vec3 color = texture(u_inputTexture, v_texCoord).rgb;
-
-  if (u_srgbOutput) {
-    color = linearToSRGB(color);
-  } else {
-    color = pow(max(color, vec3(0.0)), vec3(1.0 / u_displayGamma));
-  }
+  vec2 displayTexCoord = vec2(v_texCoord.x, 1.0 - v_texCoord.y);
+  vec3 color = texture(u_inputTexture, displayTexCoord).rgb;
 
   fragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
 }

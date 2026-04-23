@@ -181,8 +181,6 @@ export class RawProcessingPipeline {
 
     this.outputUniforms = {
       u_inputTexture: gl.getUniformLocation(program, 'u_inputTexture'),
-      u_displayGamma: gl.getUniformLocation(program, 'u_displayGamma'),
-      u_srgbOutput: gl.getUniformLocation(program, 'u_srgbOutput'),
     }
   }
 
@@ -387,10 +385,6 @@ export class RawProcessingPipeline {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, processedTexture)
     gl.uniform1i(outputUniforms.u_inputTexture, 0)
-
-    // Output settings
-    gl.uniform1f(outputUniforms.u_displayGamma, 2.2)
-    gl.uniform1i(outputUniforms.u_srgbOutput, 1)
 
     // Draw
     gl.bindVertexArray(fullscreenQuad!.vao)

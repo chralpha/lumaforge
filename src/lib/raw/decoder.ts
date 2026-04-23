@@ -33,7 +33,7 @@ export interface DecodedImage {
   height: number
   channels: number
   bitsPerChannel: number
-  data: Float32Array // Linear RGB float data in RGBA format
+  data: Float32Array // Normalized RGB data in RGBA format
   metadata: ImageMetadata
 }
 
@@ -61,13 +61,13 @@ export type ProgressCallback = (progress: DecodeProgress) => void
 export const QUICK_PREVIEW_MAX_PIXELS = 2_500_000
 export const HQ_PREVIEW_MAX_PIXELS = 8_000_000
 
-function toLibRawOptions(options?: DecodeOptions): LibRawOpenOptions {
+export function toLibRawOptions(options?: DecodeOptions): LibRawOpenOptions {
   return {
     halfSize: options?.halfSize ?? false,
     useCameraWb: options?.useCameraWB ?? true,
     outputColor: 1,
     outputBps: 16,
-    noAutoBright: true,
+    noAutoBright: false,
   }
 }
 
@@ -207,7 +207,7 @@ export function planDecodedOutputSize(
 }
 
 /**
- * Convert raw image data to Float32 linear RGBA.
+ * Convert raw image data to normalized Float32 RGBA.
  */
 export function convertToFloat32RGBA(
   data: Uint8Array | Uint16Array,

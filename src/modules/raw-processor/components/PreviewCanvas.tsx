@@ -79,7 +79,6 @@ export function PreviewCanvas({
   useEffect(() => {
     const container = containerRef.current
     const canvas = canvasRef.current
-    const pipeline = pipelineRef.current
 
     if (!container || !canvas) return
 
@@ -115,8 +114,13 @@ export function PreviewCanvas({
           canvas.height = Math.round(height * dpr)
         }
 
+        const pipeline = pipelineRef.current
         if (pipeline) {
           pipeline.resize(canvas.width, canvas.height)
+          if (isInitialized && imageData) {
+            const stats = pipeline.render()
+            onStatsUpdate?.(stats)
+          }
         }
       }
     })
@@ -126,7 +130,7 @@ export function PreviewCanvas({
     return () => {
       resizeObserver.disconnect()
     }
-  }, [imageWidth, imageHeight])
+  }, [imageWidth, imageHeight, imageData, isInitialized, onStatsUpdate])
 
   // Upload image data when it changes
   useEffect(() => {

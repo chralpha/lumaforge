@@ -54,6 +54,7 @@ Promote a camera to `official` only after it passes the full checklist below on 
 - upload: PASS in host DevTools via an in-browser `File`
 - first preview surface: PASS
 - safe HQ readiness: PASS
+- no-LUT visible preview: PASS
 - builtin preset: PENDING
 - custom LUT: PENDING
 - compare mode: PENDING
