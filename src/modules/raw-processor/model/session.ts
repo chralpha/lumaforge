@@ -9,6 +9,9 @@ export type PreviewAsset = {
   width?: number
   height?: number
   bitmap?: ImageBitmap | null
+  objectUrl?: string
+  mimeType?: string
+  timings?: Record<string, number | undefined>
   errorCode?: string
 }
 

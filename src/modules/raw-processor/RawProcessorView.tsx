@@ -47,6 +47,8 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     supportLevel,
     progressRecoveryHint,
     presetOptions,
+    embeddedPreviewUrl,
+    displaySource,
     loadFile,
     loadLUT,
     selectBuiltinStyle,
@@ -125,6 +127,8 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     status === 'decoding' ||
     status === 'processing' ||
     status === 'exporting'
+  const shouldShowProgressOverlay =
+    isProcessing && (displaySource === 'none' || status === 'exporting')
   const capability = useCapabilityGate()
 
   if (capability.ready && capability.supportStatus === 'unsupported') {
@@ -179,13 +183,15 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
                   imageHeight={loadedImage.decoded?.height || 0}
                   params={params}
                   lutData={lutData}
+                  embeddedPreviewUrl={embeddedPreviewUrl}
+                  displaySource={displaySource}
                   onStatsUpdate={handleStatsUpdate}
                   onPipelineChange={handlePipelineChange}
                 />
 
                 {/* Processing overlay */}
                 <ProgressOverlay
-                  visible={isProcessing}
+                  visible={shouldShowProgressOverlay}
                   phase={
                     status === 'loading'
                       ? 'loading'

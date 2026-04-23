@@ -1,5 +1,13 @@
+export type EmbeddedPreviewPayload = {
+  width: number
+  height: number
+  data: Uint8Array
+  mimeType: string
+  timings?: Record<string, number | undefined>
+}
+
 export type PreviewEvent =
-  | { type: 'embedded-ready'; width: number; height: number }
+  | ({ type: 'embedded-ready' } & EmbeddedPreviewPayload)
   | { type: 'quick-ready'; width: number; height: number }
   | { type: 'hq-ready'; width: number; height: number }
   | { type: 'hq-failed'; errorCode: string }
@@ -21,14 +29,12 @@ export async function runPreviewPipeline({
   onEvent,
 }: {
   file: File
-  extractEmbeddedPreview: (
-    file: File,
-  ) => Promise<{ width: number; height: number } | null>
+  extractEmbeddedPreview: (file: File) => Promise<EmbeddedPreviewPayload | null>
   decodeQuickPreview: (file: File) => Promise<{ width: number; height: number }>
   decodeHqPreview: (file: File) => Promise<{ width: number; height: number }>
   onEvent: (event: PreviewEvent) => void
 }) {
-  let embedded: { width: number; height: number } | null = null
+  let embedded: EmbeddedPreviewPayload | null = null
   try {
     embedded = await extractEmbeddedPreview(file)
   } catch {

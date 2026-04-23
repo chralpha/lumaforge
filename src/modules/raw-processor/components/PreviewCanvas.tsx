@@ -23,6 +23,8 @@ export interface PreviewCanvasProps {
   imageHeight: number
   params: ProcessingParams
   lutData: LUTData | null
+  embeddedPreviewUrl?: string | null
+  displaySource?: 'embedded' | 'quick' | 'hq' | 'none'
   onStatsUpdate?: (stats: PipelineStats) => void
   onPipelineChange?: (pipeline: RawProcessingPipeline | null) => void
   className?: string
@@ -113,6 +115,8 @@ export function PreviewCanvas({
   imageHeight,
   params,
   lutData,
+  embeddedPreviewUrl,
+  displaySource = 'none',
   onStatsUpdate,
   onPipelineChange,
   className,
@@ -122,6 +126,8 @@ export function PreviewCanvas({
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const showEmbeddedPreview =
+    displaySource === 'embedded' && Boolean(embeddedPreviewUrl)
   const uploadInput = useMemo(
     () =>
       createRawUploadInput({
@@ -282,8 +288,19 @@ export function PreviewCanvas({
     >
       <canvas
         ref={canvasRef}
-        className="max-w-full max-h-full object-contain"
+        className={clsxm(
+          'max-w-full max-h-full object-contain',
+          showEmbeddedPreview && 'opacity-0',
+        )}
       />
+
+      {showEmbeddedPreview && (
+        <img
+          src={embeddedPreviewUrl ?? undefined}
+          alt="Embedded RAW preview"
+          className="absolute max-w-full max-h-full object-contain"
+        />
+      )}
 
       {error && (
         <m.div
@@ -304,7 +321,7 @@ export function PreviewCanvas({
         </m.div>
       )}
 
-      {!imageData && !error && (
+      {!imageData && !error && !showEmbeddedPreview && (
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-text-tertiary text-sm">No image loaded</span>
         </div>

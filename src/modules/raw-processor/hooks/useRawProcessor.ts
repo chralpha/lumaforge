@@ -87,6 +87,12 @@ function getProgressRecoveryHint(status: ProcessingStatus) {
   return undefined
 }
 
+function copyToArrayBuffer(data: Uint8Array) {
+  const buffer = new ArrayBuffer(data.byteLength)
+  new Uint8Array(buffer).set(data)
+  return buffer
+}
+
 const LARGE_RAW_SAFE_HQ_REUSE_BYTES = 32 * 1024 * 1024
 
 export interface UseRawProcessorReturn {
@@ -110,6 +116,8 @@ export interface UseRawProcessorReturn {
   supportLevel: 'official' | 'experimental'
   progressRecoveryHint?: string
   presetOptions: typeof BUILTIN_PRESETS
+  embeddedPreviewUrl: string | null
+  displaySource: 'embedded' | 'quick' | 'hq' | 'none'
 
   // Actions
   loadFile: (file: File) => Promise<void>
@@ -151,6 +159,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
   const sessionRef = useRef(session)
+  const embeddedPreviewUrlRef = useRef<string | null>(null)
   const [lutData, setLutData] = useState<LUTData | null>(null)
   const hasImage = session ? deriveCanEdit(session) : false
   const canExport = session ? deriveCanExport(session) : false
@@ -171,10 +180,34 @@ export function useRawProcessor(): UseRawProcessorReturn {
       ? 'official'
       : 'experimental'
   const progressRecoveryHint = getProgressRecoveryHint(status)
+  const embeddedPreviewUrl =
+    session?.previewBundle.embeddedPreview.objectUrl || null
+  const displaySource = session?.previewBundle.displaySource || 'none'
+
+  const revokeCurrentEmbeddedPreviewUrl = useCallback(() => {
+    const urls = new Set(
+      [
+        embeddedPreviewUrlRef.current,
+        sessionRef.current?.previewBundle.embeddedPreview.objectUrl,
+      ].filter((url): url is string => Boolean(url)),
+    )
+
+    for (const url of urls) {
+      URL.revokeObjectURL(url)
+    }
+
+    embeddedPreviewUrlRef.current = null
+  }, [])
 
   useEffect(() => {
     sessionRef.current = session
   }, [session])
+
+  useEffect(() => {
+    return () => {
+      revokeCurrentEmbeddedPreviewUrl()
+    }
+  }, [revokeCurrentEmbeddedPreviewUrl])
 
   // Convert LUT to pipeline format when it changes
   useEffect(() => {
@@ -194,6 +227,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
 
       try {
+        revokeCurrentEmbeddedPreviewUrl()
+
         const nextSession = replaceFile(file)
         let quickPreview: DecodedImage | null = null
         let hqPreview: DecodedImage | null = null
@@ -245,7 +280,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
         const updatePreviewState = (
           source: 'embedded' | 'quick' | 'hq',
-          payload: { width: number; height: number },
+          payload: {
+            width: number
+            height: number
+            objectUrl?: string
+            mimeType?: string
+            timings?: Record<string, number | undefined>
+          },
           decoded?: DecodedImage | null,
         ) => {
           if (!matchesActiveSession()) {
@@ -265,6 +306,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
                       status: 'ready' as const,
                       width: payload.width,
                       height: payload.height,
+                      objectUrl: payload.objectUrl,
+                      mimeType: payload.mimeType,
+                      timings: payload.timings,
                     }
                   : prev.previewBundle.embeddedPreview,
               quickDecodePreview:
@@ -273,6 +317,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                       status: 'ready' as const,
                       width: payload.width,
                       height: payload.height,
+                      timings: payload.timings ?? decoded?.timings,
                     }
                   : prev.previewBundle.quickDecodePreview,
               hqImage:
@@ -281,6 +326,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                       status: 'ready' as const,
                       width: payload.width,
                       height: payload.height,
+                      timings: payload.timings ?? decoded?.timings,
                     }
                   : prev.previewBundle.hqImage,
             }
@@ -371,7 +417,24 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
             switch (event.type) {
               case 'embedded-ready': {
-                updatePreviewState('embedded', event)
+                const objectUrl = URL.createObjectURL(
+                  new Blob([copyToArrayBuffer(event.data)], {
+                    type: event.mimeType,
+                  }),
+                )
+                const previousUrl = embeddedPreviewUrlRef.current
+                if (previousUrl && previousUrl !== objectUrl) {
+                  URL.revokeObjectURL(previousUrl)
+                }
+                embeddedPreviewUrlRef.current = objectUrl
+
+                updatePreviewState('embedded', {
+                  width: event.width,
+                  height: event.height,
+                  objectUrl,
+                  mimeType: event.mimeType,
+                  timings: event.timings,
+                })
                 break
               }
               case 'quick-ready': {
@@ -452,6 +515,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     },
     [
       replaceFile,
+      revokeCurrentEmbeddedPreviewUrl,
       setError,
       setLoadedImage,
       setLut,
@@ -743,13 +807,23 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   // Reset state
   const reset = useCallback(() => {
+    revokeCurrentEmbeddedPreviewUrl()
     setLoadedImage({ file: null, decoded: null, metadata: null })
     setStatus('idle')
     setError(null)
     setProgress(0)
     setStats(null)
     resetSession()
-  }, [resetSession, setError, setLoadedImage, setProgress, setStats, setStatus])
+    sessionRef.current = null
+  }, [
+    resetSession,
+    revokeCurrentEmbeddedPreviewUrl,
+    setError,
+    setLoadedImage,
+    setProgress,
+    setStats,
+    setStatus,
+  ])
 
   // Dismiss error
   const dismissError = useCallback(() => {
@@ -790,6 +864,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
     supportLevel,
     progressRecoveryHint,
     presetOptions: BUILTIN_PRESETS,
+    embeddedPreviewUrl,
+    displaySource,
     loadFile,
     loadLUT,
     selectBuiltinStyle,
