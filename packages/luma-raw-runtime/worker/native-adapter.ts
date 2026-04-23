@@ -24,6 +24,8 @@ type EmbindModule = {
 
 type NativeThumbnailFormat = 'jpeg' | 'bitmap' | 'unknown'
 
+const maxNativeOutputPixels = 2_147_483_647
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object'
     ? (value as Record<string, unknown>)
@@ -94,6 +96,26 @@ function normalizeUint8Output(data: Uint8Array, label: string) {
 function normalizeUint16Output(data: Uint16Array, label: string) {
   assertTransferableArrayBuffer(data, label)
   return isTightTransferableView(data) ? data : new Uint16Array(data)
+}
+
+function normalizeDecodeOptions(options?: LumaRawNativeDecodeOptions) {
+  if (options === null || options === undefined) return undefined
+
+  const { maxOutputPixels } = options
+  if (maxOutputPixels === undefined) return undefined
+  if (
+    typeof maxOutputPixels !== 'number' ||
+    !Number.isFinite(maxOutputPixels) ||
+    !Number.isInteger(maxOutputPixels) ||
+    maxOutputPixels <= 0 ||
+    maxOutputPixels > maxNativeOutputPixels
+  ) {
+    throw new TypeError(
+      'Native RAW decode options include invalid maxOutputPixels.',
+    )
+  }
+
+  return { maxOutputPixels }
 }
 
 function normalizeMetadata(value: unknown) {
@@ -269,10 +291,14 @@ export function createNativeFactory(
           return normalizeThumbnail(processor.extractThumbnail())
         },
         decodePreview(options) {
-          return normalizeImage(processor.decodePreview(options))
+          return normalizeImage(
+            processor.decodePreview(normalizeDecodeOptions(options)),
+          )
         },
         decodeHq(options) {
-          return normalizeImage(processor.decodeHq(options))
+          return normalizeImage(
+            processor.decodeHq(normalizeDecodeOptions(options)),
+          )
         },
         dispose() {
           processor.delete?.()

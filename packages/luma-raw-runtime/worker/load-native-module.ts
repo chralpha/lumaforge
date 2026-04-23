@@ -1,6 +1,9 @@
 import { LumaRawRuntimeError } from '../src/errors'
 import { createNativeFactory } from './native-adapter'
-import type { LumaRawNativeFactory } from './native-types'
+import type {
+  LumaRawNativeDecodeOptions,
+  LumaRawNativeFactory,
+} from './native-types'
 
 type NativeModuleFactory = (options?: {
   locateFile?: (path: string) => string
@@ -59,8 +62,8 @@ export async function loadNativeFactory(): Promise<LumaRawNativeFactory> {
         openBuffer: (data: Uint8Array, settings: unknown) => void
         readMetadata: () => unknown
         extractThumbnail: () => unknown
-        decodePreview: () => unknown
-        decodeHq: () => unknown
+        decodePreview: (options?: LumaRawNativeDecodeOptions) => unknown
+        decodeHq: (options?: LumaRawNativeDecodeOptions) => unknown
         delete?: () => void
       }
     },

@@ -476,7 +476,7 @@ describe('runtime-core', () => {
         fileBuffer: new ArrayBuffer(4),
         fileName: 'sample.ARW',
         fileSize: 4,
-        maxOutputPixels: 2_500_000,
+        maxOutputPixels: 1_000_000,
       },
     })
     expect(opened.ok && opened.type === 'openSession').toBe(true)
@@ -487,12 +487,12 @@ describe('runtime-core', () => {
       type: 'decodeQuickFromSession',
       payload: {
         sessionId: opened.payload.sessionId,
-        maxOutputPixels: 2_500_000,
+        maxOutputPixels: 1_500_000,
       },
     })
 
     expect(response.ok && response.type === 'decodeQuickFromSession').toBe(true)
-    expect(receivedMaxOutputPixels).toBe(2_500_000)
+    expect(receivedMaxOutputPixels).toBe(1_500_000)
   })
 
   it('passes default quick maxOutputPixels to native decodePreview', async () => {

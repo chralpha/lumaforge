@@ -351,8 +351,56 @@ describe('native-adapter', () => {
       height: 1,
       bits: 16,
     })
-    expect(receivedPreviewOptions).toBe(options)
-    expect(receivedHqOptions).toBe(options)
+    expect(receivedPreviewOptions).toEqual(options)
+    expect(receivedPreviewOptions).not.toBe(options)
+    expect(receivedHqOptions).toEqual(options)
+    expect(receivedHqOptions).not.toBe(options)
+  })
+
+  it('omits absent decode maxOutputPixels for uncapped native calls', () => {
+    const receivedOptions: Array<LumaRawNativeDecodeOptions | undefined> = []
+    const processor = createProcessor({
+      onDecodePreview(nextOptions) {
+        receivedOptions.push(nextOptions)
+      },
+      onDecodeHq(nextOptions) {
+        receivedOptions.push(nextOptions)
+      },
+    })
+
+    processor.decodePreview()
+    processor.decodePreview({})
+    processor.decodeHq({})
+
+    expect(receivedOptions).toEqual([undefined, undefined, undefined])
+  })
+
+  it('rejects invalid decode maxOutputPixels before native calls', () => {
+    let nativeCallCount = 0
+    const processor = createProcessor({
+      onDecodePreview() {
+        nativeCallCount += 1
+      },
+      onDecodeHq() {
+        nativeCallCount += 1
+      },
+    })
+    const invalidValues = [0, -1, Number.NaN, 1.5, 2_147_483_648]
+
+    for (const maxOutputPixels of invalidValues) {
+      expect(() =>
+        processor.decodePreview({
+          maxOutputPixels,
+        } as LumaRawNativeDecodeOptions),
+      ).toThrow('Native RAW decode options include invalid maxOutputPixels.')
+      expect(() =>
+        processor.decodeHq({
+          maxOutputPixels,
+        } as LumaRawNativeDecodeOptions),
+      ).toThrow('Native RAW decode options include invalid maxOutputPixels.')
+    }
+
+    expect(nativeCallCount).toBe(0)
   })
 
   it('throws when open timing objects are malformed', () => {

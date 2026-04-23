@@ -131,7 +131,22 @@ OutputSize planOutputSize(int width, int height, int max_pixels) {
 int maxOutputPixelsFromOptions(val options) {
   if (options.isNull() || options.isUndefined()) return 0;
   if (!options.hasOwnProperty("maxOutputPixels")) return 0;
-  return options["maxOutputPixels"].as<int>();
+
+  const val raw_max_output_pixels = options["maxOutputPixels"];
+  if (raw_max_output_pixels.isNull() || raw_max_output_pixels.isUndefined()) {
+    return 0;
+  }
+
+  const double max_output_pixels = raw_max_output_pixels.as<double>();
+  if (!std::isfinite(max_output_pixels) || max_output_pixels <= 0 ||
+      std::floor(max_output_pixels) != max_output_pixels ||
+      max_output_pixels > std::numeric_limits<int>::max()) {
+    throw std::runtime_error(
+        "Luma RAW maxOutputPixels must be a finite positive integer no greater "
+        "than INT_MAX.");
+  }
+
+  return static_cast<int>(max_output_pixels);
 }
 
 class LumaRawProcessor {
@@ -326,7 +341,10 @@ class LumaRawProcessor {
         checkedMultiply(static_cast<size_t>(output_size.width),
                         static_cast<size_t>(output_size.height),
                         "Luma RAW downsample pixel count");
-    std::vector<uint16_t> resized(output_pixel_count * 3);
+    const size_t output_sample_count =
+        checkedMultiply(output_pixel_count, static_cast<size_t>(3),
+                        "Luma RAW downsample sample count");
+    std::vector<uint16_t> resized(output_sample_count);
 
     for (int y = 0; y < output_size.height; ++y) {
       const int source_y = std::min(
