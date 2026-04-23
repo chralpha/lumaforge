@@ -1,0 +1,32 @@
+{
+  "name": "@lumaforge/luma-raw-runtime",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Performance-first browser RAW runtime for LumaForge.",
+  "sideEffects": [
+    "./dist/*.wasm",
+    "./dist/*.worker.js"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build --config vite.config.ts",
+    "build:native": "bash native/build-libraw.sh",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run src worker",
+    "bench:serve": "vite --host 0.0.0.0 --port 4174 --config vite.config.ts"
+  },
+  "devDependencies": {
+    "libraw-wasm": "^1.1.2"
+  }
+}
