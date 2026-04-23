@@ -148,6 +148,9 @@ function firstTiming(timings: BenchTimings | undefined, keys: string[]) {
 
 function heapBytes(heap: BenchHeap | undefined) {
   return firstTiming(heap, [
+    'peak',
+    'after',
+    'before',
     'heapBytes',
     'wasmHeapBytes',
     'usedBytes',
