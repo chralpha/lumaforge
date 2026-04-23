@@ -8,12 +8,11 @@ describe('runPreviewPipeline', () => {
     const onEvent = vi.fn()
 
     await runPreviewPipeline({
-      file: new File(['raw'], 'frame.ARW'),
-      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
-      decodeQuickPreview: vi
-        .fn()
-        .mockResolvedValue({ width: 800, height: 600 }),
-      decodeHqPreview: vi.fn().mockResolvedValue({ width: 4000, height: 3000 }),
+      runtimeSession: {
+        extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+        decodeQuickRaw: vi.fn().mockResolvedValue({ width: 800, height: 600 }),
+        decodeHqRaw: vi.fn().mockResolvedValue({ width: 4000, height: 3000 }),
+      },
       onEvent,
     })
 
@@ -29,12 +28,11 @@ describe('runPreviewPipeline', () => {
     const onEvent = vi.fn()
 
     await runPreviewPipeline({
-      file: new File(['raw'], 'frame.ARW'),
-      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
-      decodeQuickPreview: vi
-        .fn()
-        .mockResolvedValue({ width: 800, height: 600 }),
-      decodeHqPreview: vi.fn().mockRejectedValue(new Error('decode failed')),
+      runtimeSession: {
+        extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+        decodeQuickRaw: vi.fn().mockResolvedValue({ width: 800, height: 600 }),
+        decodeHqRaw: vi.fn().mockRejectedValue(new Error('decode failed')),
+      },
       onEvent,
     })
 
@@ -49,26 +47,27 @@ describe('runPreviewPipeline', () => {
 
   it('still runs quick decode after an embedded preview is found', async () => {
     const onEvent = vi.fn()
-    const decodeQuickPreview = vi
+    const decodeQuickRaw = vi
       .fn()
       .mockResolvedValue({ width: 800, height: 600 })
     const embeddedData = new Uint8Array([1, 2, 3])
 
     await runPreviewPipeline({
-      file: new File(['raw'], 'frame.ARW'),
-      extractEmbeddedPreview: vi.fn().mockResolvedValue({
-        width: 1600,
-        height: 1067,
-        data: embeddedData,
-        mimeType: 'image/jpeg',
-        timings: { total: 8 },
-      }),
-      decodeQuickPreview,
-      decodeHqPreview: vi.fn().mockResolvedValue({ width: 4000, height: 3000 }),
+      runtimeSession: {
+        extractEmbeddedPreview: vi.fn().mockResolvedValue({
+          width: 1600,
+          height: 1067,
+          data: embeddedData,
+          mimeType: 'image/jpeg',
+          timings: { total: 8 },
+        }),
+        decodeQuickRaw,
+        decodeHqRaw: vi.fn().mockResolvedValue({ width: 4000, height: 3000 }),
+      },
       onEvent,
     })
 
-    expect(decodeQuickPreview).toHaveBeenCalledTimes(1)
+    expect(decodeQuickRaw).toHaveBeenCalledTimes(1)
     expect(onEvent.mock.calls[0][0]).toMatchObject({
       type: 'embedded-ready',
       width: 1600,
@@ -87,18 +86,17 @@ describe('runPreviewPipeline', () => {
     const embeddedData = new Uint8Array([9, 8, 7])
 
     await runPreviewPipeline({
-      file: new File(['raw'], 'frame.ARW'),
-      extractEmbeddedPreview: vi.fn().mockResolvedValue({
-        width: 1600,
-        height: 1067,
-        data: embeddedData,
-        mimeType: 'image/jpeg',
-        timings: { total: 12, thumbnail: 4 },
-      }),
-      decodeQuickPreview: vi
-        .fn()
-        .mockResolvedValue({ width: 800, height: 600 }),
-      decodeHqPreview: vi.fn().mockResolvedValue({ width: 4000, height: 3000 }),
+      runtimeSession: {
+        extractEmbeddedPreview: vi.fn().mockResolvedValue({
+          width: 1600,
+          height: 1067,
+          data: embeddedData,
+          mimeType: 'image/jpeg',
+          timings: { total: 12, thumbnail: 4 },
+        }),
+        decodeQuickRaw: vi.fn().mockResolvedValue({ width: 800, height: 600 }),
+        decodeHqRaw: vi.fn().mockResolvedValue({ width: 4000, height: 3000 }),
+      },
       onEvent: (event) => events.push(event),
     })
 
@@ -119,21 +117,22 @@ describe('runPreviewPipeline', () => {
 
   it('continues to quick decode when embedded preview extraction fails', async () => {
     const onEvent = vi.fn()
-    const decodeQuickPreview = vi
+    const decodeQuickRaw = vi
       .fn()
       .mockResolvedValue({ width: 800, height: 600 })
 
     await runPreviewPipeline({
-      file: new File(['raw'], 'frame.ARW'),
-      extractEmbeddedPreview: vi
-        .fn()
-        .mockRejectedValue(new Error('thumbnail unavailable')),
-      decodeQuickPreview,
-      decodeHqPreview: vi.fn().mockResolvedValue({ width: 4000, height: 3000 }),
+      runtimeSession: {
+        extractEmbeddedPreview: vi
+          .fn()
+          .mockRejectedValue(new Error('thumbnail unavailable')),
+        decodeQuickRaw,
+        decodeHqRaw: vi.fn().mockResolvedValue({ width: 4000, height: 3000 }),
+      },
       onEvent,
     })
 
-    expect(decodeQuickPreview).toHaveBeenCalledTimes(1)
+    expect(decodeQuickRaw).toHaveBeenCalledTimes(1)
     expect(onEvent).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: 'embedded-ready' }),
     )
@@ -149,12 +148,11 @@ describe('runPreviewPipeline', () => {
     })
 
     await runPreviewPipeline({
-      file: new File(['raw'], 'frame.ARW'),
-      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
-      decodeQuickPreview: vi
-        .fn()
-        .mockResolvedValue({ width: 800, height: 600 }),
-      decodeHqPreview: vi.fn().mockRejectedValue(error),
+      runtimeSession: {
+        extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+        decodeQuickRaw: vi.fn().mockResolvedValue({ width: 800, height: 600 }),
+        decodeHqRaw: vi.fn().mockRejectedValue(error),
+      },
       onEvent,
     })
 

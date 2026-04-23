@@ -11,6 +11,7 @@ import { currentSessionAtom } from '../state/session.atoms'
 import { useRawProcessor } from './useRawProcessor'
 
 const rawRuntimeAdapterMock = vi.hoisted(() => ({
+  openSession: vi.fn(),
   extractEmbeddedPreview: vi.fn(),
   decodeQuickRaw: vi.fn(),
   decodeHqRaw: vi.fn(),
@@ -76,6 +77,7 @@ describe('useRawProcessor embedded preview state', () => {
   beforeEach(() => {
     resetToDefaults()
     jotaiStore.set(currentSessionAtom, null)
+    rawRuntimeAdapterMock.openSession.mockReset()
     rawRuntimeAdapterMock.extractEmbeddedPreview.mockReset()
     rawRuntimeAdapterMock.decodeQuickRaw.mockReset()
     rawRuntimeAdapterMock.decodeHqRaw.mockReset()
@@ -87,6 +89,14 @@ describe('useRawProcessor embedded preview state', () => {
       createObjectURL: vi.fn(() => 'blob:embedded-preview'),
       revokeObjectURL: vi.fn(),
     })
+    rawRuntimeAdapterMock.openSession.mockImplementation(() =>
+      Promise.resolve({
+        extractEmbeddedPreview: rawRuntimeAdapterMock.extractEmbeddedPreview,
+        decodeQuickRaw: rawRuntimeAdapterMock.decodeQuickRaw,
+        decodeHqRaw: rawRuntimeAdapterMock.decodeHqRaw,
+        dispose: vi.fn(),
+      }),
+    )
   })
 
   afterEach(() => {
@@ -162,6 +172,39 @@ describe('useRawProcessor embedded preview state', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:embedded-preview')
     expect(result.current.embeddedPreviewUrl).toBeNull()
     expect(result.current.displaySource).toBe('none')
+  })
+
+  it('opens one runtime session for a load and disposes it after preview completion', async () => {
+    const file = new File(['raw'], 'frame.ARW')
+    const extractEmbeddedPreview = vi.fn().mockResolvedValue(null)
+    const decodeQuickRaw = vi
+      .fn()
+      .mockResolvedValue(createDecodedImage('quick'))
+    const decodeHqRaw = vi.fn().mockResolvedValue(createDecodedImage('hq'))
+    const dispose = vi.fn()
+
+    rawRuntimeAdapterMock.openSession.mockResolvedValue({
+      extractEmbeddedPreview,
+      decodeQuickRaw,
+      decodeHqRaw,
+      dispose,
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(file)
+    })
+
+    expect(rawRuntimeAdapterMock.openSession).toHaveBeenCalledTimes(1)
+    expect(rawRuntimeAdapterMock.openSession).toHaveBeenCalledWith(file)
+    expect(extractEmbeddedPreview).toHaveBeenCalledTimes(1)
+    expect(decodeQuickRaw).toHaveBeenCalledTimes(1)
+    expect(decodeHqRaw).toHaveBeenCalledTimes(1)
+    expect(dispose).toHaveBeenCalledTimes(1)
+    expect(rawRuntimeAdapterMock.extractEmbeddedPreview).not.toHaveBeenCalled()
+    expect(rawRuntimeAdapterMock.decodeQuickRaw).not.toHaveBeenCalled()
+    expect(rawRuntimeAdapterMock.decodeHqRaw).not.toHaveBeenCalled()
   })
 
   it('does not create embedded object URLs after unmount', async () => {

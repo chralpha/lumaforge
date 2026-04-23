@@ -6,6 +6,8 @@ import type {
 } from '@lumaforge/luma-raw-runtime'
 
 import type { DecodedImage, ImageMetadata, ProgressCallback } from './decoder'
+import { QUICK_PREVIEW_MAX_PIXELS } from './decoder'
+import type { RawRuntimeSession } from './runtime-adapter'
 
 let singletonRuntime: LumaRawRuntime | null = null
 let singletonRuntimePromise: Promise<LumaRawRuntime> | null = null
@@ -166,6 +168,40 @@ export async function decodeHqRawWithLuma(
     return frameToDecodedImage(frame)
   } catch (error) {
     throw normalizeRawAdapterError(error, 'RAW_HQ_DECODE_FAILED')
+  }
+}
+
+export async function openRawSessionWithLuma(
+  file: File,
+  runtimeFactory?: () => LumaRawRuntime,
+): Promise<RawRuntimeSession> {
+  const runtime = await getRuntime(runtimeFactory)
+  await runtime.init()
+  const session = await runtime.openSession(file, {
+    maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
+  })
+
+  return {
+    extractEmbeddedPreview() {
+      return session.extractEmbeddedPreview()
+    },
+    async decodeQuickRaw(onProgress?: ProgressCallback) {
+      onProgress?.({ phase: 'decoding', progress: 50 })
+      const frame = await session.decodeQuick({
+        maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
+      })
+      onProgress?.({ phase: 'complete', progress: 100 })
+      return frameToDecodedImage(frame)
+    },
+    async decodeHqRaw(onProgress?: ProgressCallback) {
+      onProgress?.({ phase: 'decoding', progress: 50 })
+      const frame = await session.decodeHq()
+      onProgress?.({ phase: 'complete', progress: 100 })
+      return frameToDecodedImage(frame)
+    },
+    dispose() {
+      session.dispose()
+    },
   }
 }
 

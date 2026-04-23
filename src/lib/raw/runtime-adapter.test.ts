@@ -58,7 +58,37 @@ function makeFrame(data: Uint16Array): LumaRawFrame {
   }
 }
 
-function makeLumaRuntime(data = new Uint16Array([0, 32768, 65535])) {
+function makeLumaFrame(source: 'quick' | 'hq') {
+  return {
+    jobId: `${source}-1`,
+    source,
+    width: 1,
+    height: 1,
+    data: new Uint16Array([0, 32768, 65535]),
+    layout: 'rgb' as const,
+    bitDepth: 16 as const,
+    colorSpace: 'linear-prophoto-rgb' as const,
+    orientation: 1,
+    metadata: {
+      width: 1,
+      height: 1,
+      supportLevel: 'experimental' as const,
+    },
+    timings: { total: 1 },
+  }
+}
+
+function makeLumaRuntime(
+  dataOrOverrides: Uint16Array | Partial<LumaRawRuntime> = new Uint16Array([
+    0, 32768, 65535,
+  ]),
+) {
+  const data =
+    dataOrOverrides instanceof Uint16Array
+      ? dataOrOverrides
+      : new Uint16Array([0, 32768, 65535])
+  const overrides =
+    dataOrOverrides instanceof Uint16Array ? {} : dataOrOverrides
   const quickFrame = makeFrame(data)
 
   return {
@@ -89,6 +119,22 @@ function makeLumaRuntime(data = new Uint16Array([0, 32768, 65535])) {
         source: 'hq',
       }),
       dispose: vi.fn<LumaRawRuntime['dispose']>(),
+      openSession: vi.fn<LumaRawRuntime['openSession']>().mockResolvedValue({
+        sessionId: 'session-1',
+        probe: {
+          jobId: 'probe',
+          width: 6240,
+          height: 4168,
+          supportLevel: 'experimental',
+          timings: { total: 1 },
+        },
+        timings: { total: 1 },
+        extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+        decodeQuick: vi.fn().mockResolvedValue(makeLumaFrame('quick')),
+        decodeHq: vi.fn().mockResolvedValue(makeLumaFrame('hq')),
+        dispose: vi.fn(),
+      }),
+      ...overrides,
     } satisfies LumaRawRuntime,
     quickFrame,
   }
@@ -187,6 +233,47 @@ describe('raw runtime adapter', () => {
       code: 'RAW_CROSS_ORIGIN_ISOLATION_REQUIRED',
       message: 'Cross-origin isolation is required.',
     })
+  })
+
+  it('opens one luma session and decodes stages without rereading the file', async () => {
+    const extractEmbeddedPreview = vi.fn().mockResolvedValue(null)
+    const decodeQuick = vi.fn().mockResolvedValue(makeLumaFrame('quick'))
+    const decodeHq = vi.fn().mockResolvedValue(makeLumaFrame('hq'))
+    const dispose = vi.fn()
+    const { runtime } = makeLumaRuntime({
+      openSession: vi.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        probe: {
+          jobId: 'probe',
+          width: 6240,
+          height: 4168,
+          supportLevel: 'experimental',
+          timings: { total: 1 },
+        },
+        timings: { total: 1 },
+        extractEmbeddedPreview,
+        decodeQuick,
+        decodeHq,
+        dispose,
+      }),
+    })
+
+    const adapter = createRawRuntimeAdapter({
+      runtimeKind: 'luma',
+      lumaRuntimeFactory: () => runtime,
+    })
+
+    const session = await adapter.openSession(new File(['raw'], 'sample.ARW'))
+    await session.extractEmbeddedPreview()
+    await session.decodeQuickRaw()
+    await session.decodeHqRaw()
+    session.dispose()
+
+    expect(runtime.openSession).toHaveBeenCalledTimes(1)
+    expect(extractEmbeddedPreview).toHaveBeenCalledTimes(1)
+    expect(decodeQuick).toHaveBeenCalledTimes(1)
+    expect(decodeHq).toHaveBeenCalledTimes(1)
+    expect(dispose).toHaveBeenCalledTimes(1)
   })
 
   it('shares one singleton runtime across concurrent first luma calls', async () => {

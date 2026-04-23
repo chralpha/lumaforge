@@ -12,11 +12,20 @@ import {
   decodeHqRawWithLuma,
   decodeQuickRawWithLuma,
   extractEmbeddedPreviewWithLuma,
+  openRawSessionWithLuma,
 } from './luma-runtime-adapter'
 
 export type RawRuntimeKind = 'libraw-wasm' | 'luma'
 
+export type RawRuntimeSession = {
+  extractEmbeddedPreview: () => Promise<LumaEmbeddedPreview | null>
+  decodeQuickRaw: (onProgress?: ProgressCallback) => Promise<DecodedImage>
+  decodeHqRaw: (onProgress?: ProgressCallback) => Promise<DecodedImage>
+  dispose: () => void
+}
+
 export type RawRuntimeAdapter = {
+  openSession: (file: File) => Promise<RawRuntimeSession>
   extractEmbeddedPreview: (file: File) => Promise<LumaEmbeddedPreview | null>
   decodeQuickRaw: (
     file: File,
@@ -41,6 +50,9 @@ export function createRawRuntimeAdapter({
 } = {}): RawRuntimeAdapter {
   if (runtimeKind === 'luma') {
     return {
+      openSession(file) {
+        return openRawSessionWithLuma(file, lumaRuntimeFactory)
+      },
       extractEmbeddedPreview(file) {
         return extractEmbeddedPreviewWithLuma(file, lumaRuntimeFactory)
       },
@@ -54,6 +66,20 @@ export function createRawRuntimeAdapter({
   }
 
   return {
+    openSession(file) {
+      return Promise.resolve({
+        extractEmbeddedPreview() {
+          return Promise.resolve(null)
+        },
+        decodeQuickRaw(onProgress) {
+          return decodeQuickRawLegacy(file, onProgress)
+        },
+        decodeHqRaw(onProgress) {
+          return decodeHqRawLegacy(file, onProgress)
+        },
+        dispose() {},
+      })
+    },
     extractEmbeddedPreview() {
       return Promise.resolve(null)
     },

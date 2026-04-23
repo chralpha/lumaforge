@@ -33,6 +33,7 @@ import {
 } from '~/lib/lut/cube-parser'
 import type { DecodedImage } from '~/lib/raw/decoder'
 import { isSupportedRaw } from '~/lib/raw/decoder'
+import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
 import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
 import {
@@ -162,6 +163,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const embeddedPreviewUrlRef = useRef<string | null>(null)
   const isMountedRef = useRef(false)
   const activeSessionIdRef = useRef<string | null>(null)
+  const runtimeSessionRef = useRef<RawRuntimeSession | null>(null)
+  const disposedRuntimeSessionsRef = useRef<WeakSet<RawRuntimeSession>>(
+    new WeakSet(),
+  )
   const [lutData, setLutData] = useState<LUTData | null>(null)
   const hasImage = session ? deriveCanEdit(session) : false
   const canExport = session ? deriveCanExport(session) : false
@@ -231,6 +236,24 @@ export function useRawProcessor(): UseRawProcessorReturn {
     clearSessionEmbeddedPreviewUrl(sessionId)
   }, [clearSessionEmbeddedPreviewUrl])
 
+  const disposeRuntimeSession = useCallback(
+    (runtimeSession = runtimeSessionRef.current) => {
+      if (
+        !runtimeSession ||
+        disposedRuntimeSessionsRef.current.has(runtimeSession)
+      ) {
+        return
+      }
+
+      disposedRuntimeSessionsRef.current.add(runtimeSession)
+      runtimeSession.dispose()
+      if (runtimeSessionRef.current === runtimeSession) {
+        runtimeSessionRef.current = null
+      }
+    },
+    [],
+  )
+
   useEffect(() => {
     sessionRef.current = session
   }, [session])
@@ -242,6 +265,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       const activeSessionId = activeSessionIdRef.current
       isMountedRef.current = false
       activeSessionIdRef.current = null
+      disposeRuntimeSession()
       revokeCurrentEmbeddedPreviewUrl()
       if (activeSessionId) {
         setLoadedImage({ file: null, decoded: null, metadata: null })
@@ -255,6 +279,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     }
   }, [
     revokeCurrentEmbeddedPreviewUrl,
+    disposeRuntimeSession,
     setError,
     setLoadedImage,
     setProgress,
@@ -281,9 +306,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
 
       let loadSessionId: string | null = null
+      let runtimeSession: RawRuntimeSession | null = null
 
       try {
         activeSessionIdRef.current = null
+        disposeRuntimeSession()
         revokeCurrentEmbeddedPreviewUrl()
 
         const nextSession = replaceFile(file)
@@ -430,46 +457,53 @@ export function useRawProcessor(): UseRawProcessorReturn {
           }
         }
 
+        runtimeSession = await rawRuntimeAdapter.openSession(file)
+        if (!matchesActiveSession()) {
+          return
+        }
+
+        disposeRuntimeSession()
+        const activeRuntimeSession = runtimeSession
+        runtimeSessionRef.current = activeRuntimeSession
+
         await runPreviewPipeline({
-          file,
-          extractEmbeddedPreview: rawRuntimeAdapter.extractEmbeddedPreview,
-          decodeQuickPreview: async (targetFile) => {
-            quickPreview = await rawRuntimeAdapter.decodeQuickRaw(
-              targetFile,
-              ({ phase, progress }) => {
-                if (!matchesActiveSession()) {
-                  return
-                }
+          runtimeSession: {
+            extractEmbeddedPreview() {
+              return activeRuntimeSession.extractEmbeddedPreview()
+            },
+            async decodeQuickRaw() {
+              quickPreview = await activeRuntimeSession.decodeQuickRaw(
+                ({ phase, progress }) => {
+                  if (!matchesActiveSession()) {
+                    return
+                  }
 
-                setStatus(mapPhaseToStatus(phase))
-                setProgress(progress * 0.5)
-              },
-            )
+                  setStatus(mapPhaseToStatus(phase))
+                  setProgress(progress * 0.5)
+                },
+              )
 
-            return { width: quickPreview.width, height: quickPreview.height }
-          },
-          decodeHqPreview: async (targetFile) => {
-            if (
-              quickPreview &&
-              targetFile.size >= LARGE_RAW_SAFE_HQ_REUSE_BYTES
-            ) {
-              hqPreview = quickPreview
+              return { width: quickPreview.width, height: quickPreview.height }
+            },
+            async decodeHqRaw() {
+              if (quickPreview && file.size >= LARGE_RAW_SAFE_HQ_REUSE_BYTES) {
+                hqPreview = quickPreview
+                return { width: hqPreview.width, height: hqPreview.height }
+              }
+
+              hqPreview = await activeRuntimeSession.decodeHqRaw(
+                ({ phase, progress }) => {
+                  if (!matchesActiveSession()) {
+                    return
+                  }
+
+                  setStatus(mapPhaseToStatus(phase))
+                  setProgress(50 + progress * 0.5)
+                },
+              )
+
               return { width: hqPreview.width, height: hqPreview.height }
-            }
-
-            hqPreview = await rawRuntimeAdapter.decodeHqRaw(
-              targetFile,
-              ({ phase, progress }) => {
-                if (!matchesActiveSession()) {
-                  return
-                }
-
-                setStatus(mapPhaseToStatus(phase))
-                setProgress(50 + progress * 0.5)
-              },
-            )
-
-            return { width: hqPreview.width, height: hqPreview.height }
+            },
           },
           onEvent: (event) => {
             if (!matchesActiveSession()) {
@@ -586,9 +620,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
         )
         setStatus('error')
         toast.error('Failed to load RAW file', { description: message })
+      } finally {
+        if (runtimeSession) {
+          disposeRuntimeSession(runtimeSession)
+        }
       }
     },
     [
+      disposeRuntimeSession,
       replaceFile,
       revokeCurrentEmbeddedPreviewUrl,
       setError,
@@ -883,6 +922,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   // Reset state
   const reset = useCallback(() => {
     activeSessionIdRef.current = null
+    disposeRuntimeSession()
     revokeCurrentEmbeddedPreviewUrl()
     setLoadedImage({ file: null, decoded: null, metadata: null })
     setStatus('idle')
@@ -893,6 +933,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     sessionRef.current = null
   }, [
     resetSession,
+    disposeRuntimeSession,
     revokeCurrentEmbeddedPreviewUrl,
     setError,
     setLoadedImage,

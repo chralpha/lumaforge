@@ -22,21 +22,19 @@ function toPreviewErrorCode(error: unknown, fallbackCode: string) {
 }
 
 export async function runPreviewPipeline({
-  file,
-  extractEmbeddedPreview,
-  decodeQuickPreview,
-  decodeHqPreview,
+  runtimeSession,
   onEvent,
 }: {
-  file: File
-  extractEmbeddedPreview: (file: File) => Promise<EmbeddedPreviewPayload | null>
-  decodeQuickPreview: (file: File) => Promise<{ width: number; height: number }>
-  decodeHqPreview: (file: File) => Promise<{ width: number; height: number }>
+  runtimeSession: {
+    extractEmbeddedPreview: () => Promise<EmbeddedPreviewPayload | null>
+    decodeQuickRaw: () => Promise<{ width: number; height: number }>
+    decodeHqRaw: () => Promise<{ width: number; height: number }>
+  }
   onEvent: (event: PreviewEvent) => void
 }) {
   let embedded: EmbeddedPreviewPayload | null = null
   try {
-    embedded = await extractEmbeddedPreview(file)
+    embedded = await runtimeSession.extractEmbeddedPreview()
   } catch {
     embedded = null
   }
@@ -45,12 +43,12 @@ export async function runPreviewPipeline({
     onEvent({ type: 'embedded-ready', ...embedded })
   }
 
-  const quick = await decodeQuickPreview(file)
+  const quick = await runtimeSession.decodeQuickRaw()
   onEvent({ type: 'quick-ready', ...quick })
   await yieldToPreviewPaint()
 
   try {
-    const hq = await decodeHqPreview(file)
+    const hq = await runtimeSession.decodeHqRaw()
     onEvent({ type: 'hq-ready', ...hq })
   } catch (error) {
     onEvent({
