@@ -1,44 +1,24 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  convertToFloat32RGBA,
-  planDecodedOutputSize,
-  toLibRawOptions,
+  getFileExtension,
+  isSupportedRaw,
+  QUICK_PREVIEW_MAX_PIXELS,
 } from './decoder'
 
-describe('raw decoder output sizing', () => {
-  it('keeps decoded dimensions when they fit the pixel budget', () => {
-    expect(planDecodedOutputSize(400, 300, 120_000)).toEqual({
-      width: 400,
-      height: 300,
-    })
+describe('raw shared helpers', () => {
+  it('accepts common camera RAW extensions case-insensitively', () => {
+    expect(isSupportedRaw(new File(['raw'], 'sony.ARW'))).toBe(true)
+    expect(isSupportedRaw('nikon.nef')).toBe(true)
+    expect(isSupportedRaw('lut.cube')).toBe(false)
   })
 
-  it('scales decoded dimensions down while preserving aspect ratio', () => {
-    const size = planDecodedOutputSize(8000, 6000, 12_000_000)
-
-    expect(size).toEqual({ width: 4000, height: 3000 })
-    expect(size.width * size.height).toBeLessThanOrEqual(12_000_000)
+  it('returns lowercase file extensions', () => {
+    expect(getFileExtension('Frame.NEF')).toBe('nef')
+    expect(getFileExtension('no-extension')).toBe('')
   })
 
-  it('converts RGB source data into capped RGBA float output', () => {
-    const source = new Uint8Array([
-      255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255,
-    ])
-
-    const output = convertToFloat32RGBA(source, 2, 2, 8, 1)
-
-    expect(output.width).toBe(1)
-    expect(output.height).toBe(1)
-    expect(Array.from(output.data)).toEqual([1, 1, 1, 1])
-  })
-
-  it('keeps libraw auto-bright enabled for visible browser previews', () => {
-    expect(toLibRawOptions({ halfSize: true })).toMatchObject({
-      halfSize: true,
-      noAutoBright: false,
-      outputColor: 1,
-      outputBps: 16,
-    })
+  it('keeps the app quick preview cap aligned with the runtime session cap', () => {
+    expect(QUICK_PREVIEW_MAX_PIXELS).toBe(2_500_000)
   })
 })

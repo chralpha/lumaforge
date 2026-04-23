@@ -42,7 +42,6 @@
     "foxact": "0.3.0",
     "immer": "11.1.4",
     "jotai": "2.19.1",
-    "libraw-wasm": "^1.1.2",
     "lucide-react": "1.8.0",
     "motion": "12.38.0",
     "ofetch": "1.5.1",
