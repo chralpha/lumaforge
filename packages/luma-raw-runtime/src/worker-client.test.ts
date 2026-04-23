@@ -6,6 +6,7 @@ import type {
   LumaRawWorkerRequest,
   LumaRawWorkerResponse,
 } from './worker-protocol'
+import { collectTransferables } from './worker-protocol'
 
 class FakeWorker {
   onmessage: ((event: MessageEvent<LumaRawWorkerResponse>) => void) | null =
@@ -22,9 +23,32 @@ class FakeWorker {
   emit(response: LumaRawWorkerResponse) {
     this.onmessage?.({ data: response } as MessageEvent<LumaRawWorkerResponse>)
   }
+
+  emitError(message = 'worker failed') {
+    this.onerror?.({ message } as ErrorEvent)
+  }
+}
+
+class ThrowingWorker extends FakeWorker {
+  override readonly postMessage = vi.fn(() => {
+    throw new DOMException('failed to post message')
+  })
 }
 
 describe('lumaRawWorkerClient', () => {
+  it('deduplicates transferables by backing buffer', () => {
+    const buffer = new ArrayBuffer(16)
+    const view = new Uint8Array(buffer)
+
+    expect(
+      collectTransferables({
+        first: buffer,
+        second: view,
+        third: buffer,
+      }),
+    ).toHaveLength(1)
+  })
+
   it('correlates worker responses by request id', async () => {
     const fakeWorker = new FakeWorker()
     const client = new LumaRawWorkerClient(
@@ -109,5 +133,84 @@ describe('lumaRawWorkerClient', () => {
 
     await expect(promise).rejects.toBeInstanceOf(LumaRawRuntimeError)
     await expect(promise).rejects.toMatchObject({ code: 'RAW_OPEN_FAILED' })
+  })
+
+  it('rejects pending requests on dispose', async () => {
+    const fakeWorker = new FakeWorker()
+    const client = new LumaRawWorkerClient(
+      () => fakeWorker as unknown as Worker,
+    )
+    const controller = new AbortController()
+
+    const promise = client.request(
+      'probe',
+      {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+      undefined,
+      controller.signal,
+    )
+
+    client.dispose()
+    controller.abort()
+
+    await expect(promise).rejects.toMatchObject({
+      code: 'RAW_RUNTIME_UNAVAILABLE',
+    })
+    expect(fakeWorker.requests).toHaveLength(1)
+  })
+
+  it('rejects pending requests on worker error', async () => {
+    const fakeWorker = new FakeWorker()
+    const client = new LumaRawWorkerClient(
+      () => fakeWorker as unknown as Worker,
+    )
+    const controller = new AbortController()
+
+    const promise = client.request(
+      'decodeHq',
+      {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+      undefined,
+      controller.signal,
+    )
+
+    fakeWorker.emitError()
+    controller.abort()
+
+    await expect(promise).rejects.toMatchObject({
+      code: 'RAW_WORKER_PROTOCOL_ERROR',
+    })
+    expect(fakeWorker.requests).toHaveLength(1)
+  })
+
+  it('cleans up and rejects when postMessage throws', async () => {
+    const fakeWorker = new ThrowingWorker()
+    const client = new LumaRawWorkerClient(
+      () => fakeWorker as unknown as Worker,
+    )
+    const controller = new AbortController()
+
+    const promise = client.request(
+      'extractEmbeddedPreview',
+      {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+      undefined,
+      controller.signal,
+    )
+
+    await expect(promise).rejects.toMatchObject({
+      code: 'RAW_WORKER_PROTOCOL_ERROR',
+    })
+    controller.abort()
+    expect(fakeWorker.postMessage).toHaveBeenCalledTimes(1)
   })
 })

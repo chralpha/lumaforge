@@ -2,6 +2,7 @@ import { LumaRawRuntimeError } from './errors'
 import type {
   LumaRawWorkerPayloadByType,
   LumaRawWorkerRequest,
+  LumaRawWorkerRequestPayloadByType,
   LumaRawWorkerRequestType,
   LumaRawWorkerResponse,
 } from './worker-protocol'
@@ -10,8 +11,9 @@ import { collectTransferables } from './worker-protocol'
 type PendingRequest = {
   resolve: (value: unknown) => void
   reject: (reason: unknown) => void
-  abortListener?: () => void
+  cleanup: () => void
   signal?: AbortSignal
+  abortListener?: () => void
 }
 
 let requestCounter = 0
@@ -29,18 +31,12 @@ export class LumaRawWorkerClient {
 
   request<T extends LumaRawWorkerRequestType>(
     type: T,
-    payload: Extract<LumaRawWorkerRequest, { type: T }>['payload'],
+    payload: LumaRawWorkerRequestPayloadByType[T],
     transfer: Transferable[] = collectTransferables(payload),
     signal?: AbortSignal,
   ): Promise<LumaRawWorkerPayloadByType[T]> {
     const worker = this.ensureWorker()
     const id = nextRequestId()
-
-    const request = {
-      id,
-      type,
-      payload,
-    } as LumaRawWorkerRequest
 
     return new Promise<LumaRawWorkerPayloadByType[T]>((resolve, reject) => {
       if (signal?.aborted) {
@@ -53,45 +49,72 @@ export class LumaRawWorkerClient {
         return
       }
 
-      const abortListener = () => {
-        this.pending.delete(id)
-        worker.postMessage({
-          id: nextRequestId(),
-          type: 'cancel',
-          payload: { targetJobId: id },
-        } satisfies LumaRawWorkerRequest)
-        reject(
+      const pending: PendingRequest = {
+        resolve: resolve as (value: unknown) => void,
+        reject,
+        signal,
+        cleanup: () => {
+          if (pending.abortListener && pending.signal) {
+            pending.signal.removeEventListener('abort', pending.abortListener)
+          }
+          this.pending.delete(id)
+        },
+      }
+
+      pending.abortListener = () => {
+        this.rejectPending(
+          id,
           new LumaRawRuntimeError(
             'RAW_JOB_CANCELLED',
             'RAW runtime job was cancelled.',
           ),
         )
+        try {
+          worker.postMessage({
+            id: nextRequestId(),
+            type: 'cancel',
+            payload: { targetJobId: id },
+          } satisfies LumaRawWorkerRequest<'cancel'>)
+        } catch {
+          // Cancellation best-effort only; the original request is already settled.
+        }
       }
 
-      signal?.addEventListener('abort', abortListener, { once: true })
-      this.pending.set(id, {
-        resolve: resolve as (value: unknown) => void,
-        reject,
-        abortListener,
-        signal,
-      })
+      signal?.addEventListener('abort', pending.abortListener, { once: true })
+      this.pending.set(id, pending)
 
-      worker.postMessage(request, transfer)
+      try {
+        const request = {
+          id,
+          type,
+          payload,
+        } satisfies LumaRawWorkerRequest<T>
+        worker.postMessage(request, transfer)
+      } catch (error) {
+        this.rejectPending(
+          id,
+          new LumaRawRuntimeError(
+            'RAW_WORKER_PROTOCOL_ERROR',
+            error instanceof Error
+              ? error.message
+              : 'RAW runtime worker failed to post the request.',
+            { cause: error },
+          ),
+        )
+      }
     })
   }
 
   dispose() {
-    for (const pending of this.pending.values()) {
-      pending.reject(
-        new LumaRawRuntimeError(
-          'RAW_RUNTIME_UNAVAILABLE',
-          'RAW runtime worker was disposed.',
-        ),
-      )
-    }
-    this.pending.clear()
-    this.worker?.terminate()
+    const worker = this.worker
     this.worker = null
+    this.rejectAllPending(
+      new LumaRawRuntimeError(
+        'RAW_RUNTIME_UNAVAILABLE',
+        'RAW runtime worker was disposed.',
+      ),
+    )
+    worker?.terminate()
   }
 
   private ensureWorker() {
@@ -102,35 +125,47 @@ export class LumaRawWorkerClient {
       this.handleResponse(event.data)
     }
     worker.onerror = (event) => {
+      this.worker = null
       const error = new LumaRawRuntimeError(
         'RAW_WORKER_PROTOCOL_ERROR',
         event.message || 'RAW runtime worker failed.',
       )
-      for (const pending of this.pending.values()) {
-        pending.reject(error)
-      }
-      this.pending.clear()
+      this.rejectAllPending(error)
+      worker.terminate()
     }
     this.worker = worker
     return worker
   }
 
   private handleResponse(response: LumaRawWorkerResponse) {
-    const pending = this.pending.get(response.id)
-    if (!pending) return
-
-    this.pending.delete(response.id)
-    if (pending.abortListener) {
-      pending.signal?.removeEventListener('abort', pending.abortListener)
-    }
-
     if (response.ok) {
-      pending.resolve(response.payload)
+      this.resolvePending(response.id, response.payload)
       return
     }
 
-    pending.reject(
+    this.rejectPending(
+      response.id,
       new LumaRawRuntimeError(response.error.code, response.error.message),
     )
+  }
+
+  private resolvePending(id: string, value: unknown) {
+    const pending = this.pending.get(id)
+    if (!pending) return
+    pending.cleanup()
+    pending.resolve(value)
+  }
+
+  private rejectPending(id: string, reason: unknown) {
+    const pending = this.pending.get(id)
+    if (!pending) return
+    pending.cleanup()
+    pending.reject(reason)
+  }
+
+  private rejectAllPending(reason: unknown) {
+    for (const id of [...this.pending.keys()]) {
+      this.rejectPending(id, reason)
+    }
   }
 }
