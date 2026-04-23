@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { LumaRawRuntimeError } from './errors'
+import { LumaRawRuntimeError, normalizeRawRuntimeError } from './errors'
 import type { LumaRawFrame, LumaRawRuntimeInfo, LumaRawTimings } from './types'
 
 describe('luma raw runtime public contract', () => {
@@ -43,9 +43,21 @@ describe('luma raw runtime public contract', () => {
       'RAW_CROSS_ORIGIN_ISOLATION_REQUIRED',
       'Cross-origin isolation is required for pthread RAW decode.',
     )
+    const normalized = normalizeRawRuntimeError(
+      error,
+      'RAW_WORKER_PROTOCOL_ERROR',
+    )
+    const wrapped = normalizeRawRuntimeError(
+      new Error('unexpected worker failure'),
+      'RAW_WORKER_PROTOCOL_ERROR',
+    )
 
-    expect(error.name).toBe('LumaRawRuntimeError')
-    expect(error.code).toBe('RAW_CROSS_ORIGIN_ISOLATION_REQUIRED')
+    expect(normalized).toBe(error)
+    expect(normalized.name).toBe('LumaRawRuntimeError')
+    expect(normalized.code).toBe('RAW_CROSS_ORIGIN_ISOLATION_REQUIRED')
+    expect(wrapped.name).toBe('LumaRawRuntimeError')
+    expect(wrapped.code).toBe('RAW_WORKER_PROTOCOL_ERROR')
+    expect(wrapped.message).toBe('unexpected worker failure')
   })
 
   it('reports runtime capabilities without app dependencies', () => {
