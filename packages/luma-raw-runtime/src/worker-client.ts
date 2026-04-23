@@ -35,7 +35,6 @@ export class LumaRawWorkerClient {
     transfer: Transferable[] = collectTransferables(payload),
     signal?: AbortSignal,
   ): Promise<LumaRawWorkerPayloadByType[T]> {
-    const worker = this.ensureWorker()
     const id = nextRequestId()
 
     return new Promise<LumaRawWorkerPayloadByType[T]>((resolve, reject) => {
@@ -44,6 +43,22 @@ export class LumaRawWorkerClient {
           new LumaRawRuntimeError(
             'RAW_JOB_CANCELLED',
             'RAW runtime job was cancelled.',
+          ),
+        )
+        return
+      }
+
+      let worker: Worker
+      try {
+        worker = this.ensureWorker()
+      } catch (error) {
+        reject(
+          new LumaRawRuntimeError(
+            'RAW_WORKER_PROTOCOL_ERROR',
+            error instanceof Error
+              ? error.message
+              : 'RAW runtime worker failed to initialize.',
+            { cause: error },
           ),
         )
         return

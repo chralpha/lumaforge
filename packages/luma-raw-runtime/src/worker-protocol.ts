@@ -33,10 +33,12 @@ export type LumaRawWorkerRequestPayloadByType = {
 export type LumaRawWorkerRequest<
   T extends LumaRawWorkerRequestType = LumaRawWorkerRequestType,
 > = {
-  id: string
-  type: T
-  payload: LumaRawWorkerRequestPayloadByType[T]
-}
+  [K in T]: {
+    id: string
+    type: K
+    payload: LumaRawWorkerRequestPayloadByType[K]
+  }
+}[T]
 
 export type LumaRawWorkerPayloadByType = {
   init: LumaRawRuntimeInfo

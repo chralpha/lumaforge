@@ -35,6 +35,56 @@ class ThrowingWorker extends FakeWorker {
   })
 }
 
+describe('lumaRawWorkerRequest typing', () => {
+  it('narrows payload by request type', () => {
+    const request: LumaRawWorkerRequest = {
+      id: 'raw-job-1',
+      type: 'probe',
+      payload: {
+        fileBuffer: new ArrayBuffer(1),
+        fileName: 'sample.ARW',
+        fileSize: 1,
+      },
+    }
+
+    function assertNarrowing(narrowedRequest: LumaRawWorkerRequest) {
+      switch (narrowedRequest.type) {
+        case 'probe':
+          expect(narrowedRequest.payload.fileName).toBe('sample.ARW')
+          break
+        case 'init':
+          expect(narrowedRequest.payload.requireCrossOriginIsolation).toBe(
+            false,
+          )
+          break
+        default:
+          break
+      }
+    }
+
+    assertNarrowing(request)
+
+    if (false) {
+      function acceptInitRequest(
+        _request: LumaRawWorkerRequest<'init'>,
+      ): void {}
+
+      const badPayload = {
+        fileBuffer: new ArrayBuffer(1),
+        fileName: 'sample.ARW',
+        fileSize: 1,
+      }
+
+      acceptInitRequest({
+        id: 'raw-job-2',
+        type: 'init',
+        // @ts-expect-error payload must match the request type
+        payload: badPayload,
+      })
+    }
+  })
+})
+
 describe('lumaRawWorkerClient', () => {
   it('deduplicates transferables by backing buffer', () => {
     const buffer = new ArrayBuffer(16)
@@ -212,5 +262,20 @@ describe('lumaRawWorkerClient', () => {
     })
     controller.abort()
     expect(fakeWorker.postMessage).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects when worker creation fails', async () => {
+    const client = new LumaRawWorkerClient(() => {
+      throw new Error('boom')
+    })
+
+    await expect(
+      client.request('init', {
+        requireCrossOriginIsolation: false,
+      }),
+    ).rejects.toMatchObject({
+      code: 'RAW_WORKER_PROTOCOL_ERROR',
+      message: 'boom',
+    })
   })
 })
