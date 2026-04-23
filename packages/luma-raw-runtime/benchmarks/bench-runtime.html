@@ -25,8 +25,14 @@
   </head>
   <body>
     <h1>Luma RAW Runtime Benchmark</h1>
-    <input id="fixture" type="file" accept=".arw,.cr2,.cr3,.nef,.raf,.rw2,.orf,.dng,.pef,.srw,.3fr,.fff,.iiq,.raw" />
+    <input
+      id="fixture"
+      type="file"
+      multiple
+      accept=".arw,.cr2,.cr3,.nef,.raf,.rw2,.orf,.dng,.pef,.srw,.3fr,.fff,.iiq,.raw"
+    />
     <button id="run" type="button">Run benchmark</button>
+    <button id="copy" type="button">Copy JSONL</button>
     <pre id="output"></pre>
     <script type="module" src="./bench-runtime.ts"></script>
   </body>

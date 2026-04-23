@@ -1,44 +1,110 @@
 import LibRaw from 'libraw-wasm'
 
 import { createLumaRawRuntime } from '../src/runtime'
+import type {
+  LumaEmbeddedPreview,
+  LumaRawFrame,
+  LumaRawProbe,
+  LumaRawRuntime,
+} from '../src/types'
+
+const QUICK_PREVIEW_MAX_PIXELS = 2_500_000
+const LARGE_RAW_SAFE_HQ_REUSE_BYTES = 32 * 1024 * 1024
+
+type BenchStage =
+  | 'legacy-quick'
+  | 'legacy-hq'
+  | 'luma-open-session'
+  | 'luma-embedded'
+  | 'luma-quick'
+  | 'luma-hq'
+
+type BenchTargetStatus = 'within-target' | 'over-target' | 'baseline'
+type BenchRuntime = 'libraw-wasm' | 'luma'
+type BenchTimings = Record<string, number | undefined>
+type BenchHeap = Record<string, number | undefined>
 
 type BenchRecord = {
-  runtime: 'libraw-wasm' | 'luma'
-  stage: 'full' | 'embedded' | 'quick' | 'hq' | 'init'
+  runtime: BenchRuntime
+  stage: BenchStage
   file: string
+  size: number
+  fileSize: number
+  megapixels?: number
   width?: number
   height?: number
   total: number
-  timings?: Record<string, number | undefined>
+  read?: number
+  transfer?: number
+  copy?: number
+  open?: number
+  unpack?: number
+  process?: number
+  heapBytes?: number
+  targetStatus: BenchTargetStatus
+  timings?: BenchTimings
+  heap?: BenchHeap
 }
 
 type BenchErrorRecord = {
-  runtime: 'libraw-wasm' | 'luma'
-  stage: BenchRecord['stage']
+  runtime: BenchRuntime
+  stage: BenchStage
   file: string
+  size: number
+  fileSize: number
   error: string
 }
 
-function getRequiredElement<T extends Element>(selector: string): T {
-  const element = document.querySelector<T>(selector)
-  if (!element) {
-    throw new Error(`Missing benchmark page control: ${selector}`)
+type LumaSessionStageResult = (LumaEmbeddedPreview | LumaRawFrame) & {
+  timings: BenchTimings & { total: number }
+  heap?: BenchHeap
+}
+
+type LumaRawSession = {
+  probe: LumaRawProbe & {
+    timings: BenchTimings & { total: number }
+    heap?: BenchHeap
   }
+  extractEmbeddedPreview: () => Promise<LumaSessionStageResult | null>
+  decodeQuick: () => Promise<LumaSessionStageResult>
+  decodeHq: () => Promise<LumaSessionStageResult>
+  dispose: () => void
+}
+
+type LumaRawRuntimeWithAnticipatedSession = LumaRawRuntime & {
+  openSession?: (
+    file: File,
+    options?: { quickMaxOutputPixels?: number },
+  ) => Promise<LumaRawSession>
+}
+
+function required<T extends Element>(selector: string): T {
+  const element = document.querySelector<T>(selector)
+  if (!element) throw new Error(`Missing benchmark control: ${selector}`)
   return element
 }
 
-const input = getRequiredElement<HTMLInputElement>('#fixture')
-const runButton = getRequiredElement<HTMLButtonElement>('#run')
-const output = getRequiredElement<HTMLPreElement>('#output')
+const input = required<HTMLInputElement>('#fixture')
+const runButton = required<HTMLButtonElement>('#run')
+const copyButton = required<HTMLButtonElement>('#copy')
+const output = required<HTMLPreElement>('#output')
 
-function print(record: BenchRecord) {
-  const line = JSON.stringify(record)
-  output.textContent += `${line}\n`
+function targetStatus(stage: BenchStage, total: number): BenchTargetStatus {
+  if (stage === 'legacy-quick' || stage === 'legacy-hq') return 'baseline'
+  if (stage === 'luma-embedded') {
+    return total < 1000 ? 'within-target' : 'over-target'
+  }
+  if (stage === 'luma-quick') {
+    return total <= 4000 ? 'within-target' : 'over-target'
+  }
+  if (stage === 'luma-hq') {
+    return total <= 8000 ? 'within-target' : 'over-target'
+  }
+  return 'baseline'
 }
 
-function printError(record: BenchErrorRecord) {
-  const line = JSON.stringify(record)
-  output.textContent += `${line}\n`
+function print(record: BenchRecord | BenchErrorRecord) {
+  output.textContent += `${JSON.stringify(record)}\n`
 }
 
 function errorMessage(error: unknown) {
@@ -46,144 +112,253 @@ function errorMessage(error: unknown) {
 }
 
 function terminateLibrawWorker(libraw: LibRaw) {
-  // libraw-wasm stores the worker on a private runtime shape; check it before terminating.
   const worker = (libraw as unknown as { worker?: unknown }).worker
-  if (worker instanceof Worker) {
-    worker.terminate()
+  if (worker instanceof Worker) worker.terminate()
+}
+
+function outputMegapixels(width?: number, height?: number) {
+  return width && height
+    ? Number(((width * height) / 1_000_000).toFixed(2))
+    : undefined
+}
+
+function firstTiming(timings: BenchTimings | undefined, keys: string[]) {
+  for (const key of keys) {
+    const value = timings?.[key]
+    if (typeof value === 'number') return value
+  }
+  return undefined
+}
+
+function heapBytes(heap: BenchHeap | undefined) {
+  return firstTiming(heap, [
+    'heapBytes',
+    'wasmHeapBytes',
+    'usedBytes',
+    'usedHeapBytes',
+  ])
+}
+
+function recordTimingFields(timings: BenchTimings | undefined) {
+  return {
+    read: firstTiming(timings, ['read', 'readFile']),
+    transfer: firstTiming(timings, ['transfer']),
+    copy: firstTiming(timings, ['copy', 'copyToWasm']),
+    open: firstTiming(timings, ['open', 'openBuffer']),
+    unpack: firstTiming(timings, ['unpack']),
+    process: firstTiming(timings, ['process']),
   }
 }
 
-async function benchLegacy(file: File) {
-  const start = performance.now()
+function makeRecord(
+  base: Omit<BenchRecord, 'targetStatus'> & {
+    targetStatus?: BenchTargetStatus
+  },
+): BenchRecord {
+  return {
+    ...base,
+    ...recordTimingFields(base.timings),
+    heapBytes: heapBytes(base.heap),
+    targetStatus: base.targetStatus ?? targetStatus(base.stage, base.total),
+  }
+}
+
+async function legacyDecode(file: File, stage: 'legacy-quick' | 'legacy-hq') {
   const libraw = new LibRaw()
+  const timings: BenchTimings = {}
+  const start = performance.now()
+
   try {
+    const readStart = performance.now()
     const bytes = new Uint8Array(await file.arrayBuffer())
+    timings.read = performance.now() - readStart
+
+    const openStart = performance.now()
     await libraw.open(bytes, {
-      halfSize: false,
+      halfSize: stage === 'legacy-quick',
       useCameraWb: true,
       outputColor: 1,
       outputBps: 16,
       noAutoBright: false,
     })
+    timings.open = performance.now() - openStart
+
+    const processStart = performance.now()
     const image = await libraw.imageData()
-    print({
+    timings.process = performance.now() - processStart
+    timings.total = performance.now() - start
+
+    const record = makeRecord({
       runtime: 'libraw-wasm',
-      stage: 'full',
+      stage,
       file: file.name,
+      size: file.size,
+      fileSize: file.size,
       width: image.width,
       height: image.height,
-      total: performance.now() - start,
+      megapixels: outputMegapixels(image.width, image.height),
+      total: timings.total,
+      targetStatus: 'baseline',
+      timings,
     })
+    print(record)
+    return record
   } catch (error) {
-    printError({
+    print({
       runtime: 'libraw-wasm',
-      stage: 'full',
+      stage,
       file: file.name,
+      size: file.size,
+      fileSize: file.size,
       error: errorMessage(error),
     })
+    return undefined
   } finally {
     terminateLibrawWorker(libraw)
   }
 }
 
+async function benchLegacy(file: File) {
+  const quick = await legacyDecode(file, 'legacy-quick')
+
+  if (file.size >= LARGE_RAW_SAFE_HQ_REUSE_BYTES) {
+    if (quick) {
+      print({
+        ...quick,
+        stage: 'legacy-hq',
+        timings: {
+          ...quick.timings,
+          reusedFromLegacyQuick: 1,
+        },
+      })
+    } else {
+      print({
+        runtime: 'libraw-wasm',
+        stage: 'legacy-hq',
+        file: file.name,
+        size: file.size,
+        fileSize: file.size,
+        error:
+          'Skipped large-file HQ legacy decode because legacy quick failed.',
+      })
+    }
+    return
+  }
+
+  await legacyDecode(file, 'legacy-hq')
+}
+
+function assertOpenSession(
+  runtime: LumaRawRuntime,
+): asserts runtime is LumaRawRuntimeWithAnticipatedSession & {
+  openSession: NonNullable<LumaRawRuntimeWithAnticipatedSession['openSession']>
+} {
+  const candidate = runtime as LumaRawRuntimeWithAnticipatedSession
+  if (typeof candidate.openSession !== 'function') {
+    throw new TypeError('Luma runtime openSession API is not available yet.')
+  }
+}
+
+function printLumaStage(
+  file: File,
+  stage: BenchStage,
+  result: {
+    width?: number
+    height?: number
+    timings: BenchTimings & { total: number }
+    heap?: BenchHeap
+  },
+  targetOverride?: BenchTargetStatus,
+) {
+  print(
+    makeRecord({
+      runtime: 'luma',
+      stage,
+      file: file.name,
+      size: file.size,
+      fileSize: file.size,
+      width: result.width,
+      height: result.height,
+      megapixels: outputMegapixels(result.width, result.height),
+      total: result.timings.total,
+      targetStatus: targetOverride,
+      timings: result.timings,
+      heap: result.heap,
+    }),
+  )
+}
+
 async function benchLuma(file: File) {
-  const runtime = createLumaRawRuntime({
-    requireCrossOriginIsolation: false,
-  })
+  const runtime = createLumaRawRuntime({ requireCrossOriginIsolation: false })
+  let session: LumaRawSession | undefined
+
   try {
-    try {
-      await runtime.init()
-    } catch (error) {
-      printError({
-        runtime: 'luma',
-        stage: 'init',
-        file: file.name,
-        error: errorMessage(error),
-      })
-      return
-    }
+    await runtime.init()
+    assertOpenSession(runtime)
 
-    const runStage = async (
-      stage: Exclude<BenchRecord['stage'], 'full' | 'init'>,
-      action: () => Promise<void>,
-    ) => {
-      try {
-        await action()
-      } catch (error) {
-        printError({
-          runtime: 'luma',
-          stage,
-          file: file.name,
-          error: errorMessage(error),
-        })
-      }
-    }
-
-    await runStage('embedded', async () => {
-      const embedded = await runtime.extractEmbeddedPreview(file)
-      if (!embedded) return
-
-      print({
-        runtime: 'luma',
-        stage: 'embedded',
-        file: file.name,
-        width: embedded.width,
-        height: embedded.height,
-        total: embedded.timings.total,
-        timings: embedded.timings,
-      })
+    session = await runtime.openSession(file, {
+      quickMaxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
     })
 
-    await runStage('quick', async () => {
-      const quick = await runtime.decodeQuick(file)
-      print({
-        runtime: 'luma',
-        stage: 'quick',
-        file: file.name,
-        width: quick.width,
-        height: quick.height,
-        total: quick.timings.total,
-        timings: quick.timings,
-      })
-    })
+    printLumaStage(file, 'luma-open-session', session.probe, 'baseline')
 
-    await runStage('hq', async () => {
-      const hq = await runtime.decodeHq(file)
+    const embedded = await session.extractEmbeddedPreview()
+    if (embedded) {
+      printLumaStage(file, 'luma-embedded', embedded)
+    } else {
       print({
         runtime: 'luma',
-        stage: 'hq',
+        stage: 'luma-embedded',
         file: file.name,
-        width: hq.width,
-        height: hq.height,
-        total: hq.timings.total,
-        timings: hq.timings,
+        size: file.size,
+        fileSize: file.size,
+        error: 'No embedded preview available.',
       })
+    }
+
+    printLumaStage(file, 'luma-quick', await session.decodeQuick())
+    printLumaStage(file, 'luma-hq', await session.decodeHq())
+  } catch (error) {
+    print({
+      runtime: 'luma',
+      stage: 'luma-open-session',
+      file: file.name,
+      size: file.size,
+      fileSize: file.size,
+      error: errorMessage(error),
     })
   } finally {
+    session?.dispose()
     runtime.dispose()
   }
 }
 
-async function main() {
-  runButton.disabled = true
+async function run() {
   output.textContent = ''
-  try {
-    const file = input.files?.[0]
-    if (!file) {
-      output.textContent = 'Choose a RAW fixture first.\n'
-      return
-    }
+  const files = [...(input.files ?? [])]
+  if (files.length === 0) {
+    output.textContent = 'Choose at least one RAW fixture.\n'
+    return
+  }
 
-    await benchLegacy(file)
-    await benchLuma(file)
+  runButton.disabled = true
+  try {
+    for (const file of files) {
+      await benchLegacy(file)
+      await benchLuma(file)
+    }
   } finally {
     runButton.disabled = false
   }
 }
 
 runButton.addEventListener('click', () => {
-  main().catch((error) => {
+  run().catch((error) => {
     output.textContent += `${errorMessage(error)}\n`
     console.error(error)
   })
+})
+
+copyButton.addEventListener('click', async () => {
+  await navigator.clipboard.writeText(output.textContent || '')
 })
