@@ -188,4 +188,32 @@ describe('raw runtime adapter', () => {
       message: 'Cross-origin isolation is required.',
     })
   })
+
+  it('shares one singleton runtime across concurrent first luma calls', async () => {
+    vi.resetModules()
+
+    const { runtime } = makeLumaRuntime()
+    const createLumaRawRuntime = vi.fn(() => runtime)
+    vi.doMock('@lumaforge/luma-raw-runtime', () => ({
+      createLumaRawRuntime,
+    }))
+
+    try {
+      const { decodeQuickRawWithLuma, disposeLumaRawRuntime } =
+        await import('./luma-runtime-adapter')
+
+      await Promise.all([
+        decodeQuickRawWithLuma(new File(['raw-a'], 'a.ARW')),
+        decodeQuickRawWithLuma(new File(['raw-b'], 'b.ARW')),
+      ])
+
+      expect(createLumaRawRuntime).toHaveBeenCalledTimes(1)
+      expect(runtime.decodeQuick).toHaveBeenCalledTimes(2)
+
+      disposeLumaRawRuntime()
+    } finally {
+      vi.doUnmock('@lumaforge/luma-raw-runtime')
+      vi.resetModules()
+    }
+  })
 })

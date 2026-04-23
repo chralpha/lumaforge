@@ -75,6 +75,31 @@ describe('runPreviewPipeline', () => {
     )
   })
 
+  it('continues to quick decode when embedded preview extraction fails', async () => {
+    const onEvent = vi.fn()
+    const decodeQuickPreview = vi
+      .fn()
+      .mockResolvedValue({ width: 800, height: 600 })
+
+    await runPreviewPipeline({
+      file: new File(['raw'], 'frame.ARW'),
+      extractEmbeddedPreview: vi
+        .fn()
+        .mockRejectedValue(new Error('thumbnail unavailable')),
+      decodeQuickPreview,
+      decodeHqPreview: vi.fn().mockResolvedValue({ width: 4000, height: 3000 }),
+      onEvent,
+    })
+
+    expect(decodeQuickPreview).toHaveBeenCalledTimes(1)
+    expect(onEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'embedded-ready' }),
+    )
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'quick-ready', width: 800, height: 600 }),
+    )
+  })
+
   it('preserves stable runtime error codes from HQ failures', async () => {
     const onEvent = vi.fn()
     const error = Object.assign(new Error('cross-origin isolation required'), {

@@ -8,6 +8,7 @@ import type {
 import type { DecodedImage, ImageMetadata, ProgressCallback } from './decoder'
 
 let singletonRuntime: LumaRawRuntime | null = null
+let singletonRuntimePromise: Promise<LumaRawRuntime> | null = null
 
 export class RawAdapterError extends Error {
   readonly code: LumaRawErrorCode
@@ -28,13 +29,23 @@ async function getRuntime(runtimeFactory?: () => LumaRawRuntime) {
     return singletonRuntime
   }
 
-  const { createLumaRawRuntime } = await import('@lumaforge/luma-raw-runtime')
+  singletonRuntimePromise ??= import('@lumaforge/luma-raw-runtime')
+    .then(({ createLumaRawRuntime }) => {
+      const runtime =
+        singletonRuntime ??
+        createLumaRawRuntime({
+          requireCrossOriginIsolation: true,
+        })
 
-  singletonRuntime = createLumaRawRuntime({
-    requireCrossOriginIsolation: true,
-  })
+      singletonRuntime = runtime
+      return runtime
+    })
+    .catch((error: unknown) => {
+      singletonRuntimePromise = null
+      throw error
+    })
 
-  return singletonRuntime
+  return singletonRuntimePromise
 }
 
 function getRawErrorCode(error: unknown): LumaRawErrorCode | undefined {
@@ -161,6 +172,7 @@ export async function decodeHqRawWithLuma(
 export function disposeLumaRawRuntime() {
   singletonRuntime?.dispose()
   singletonRuntime = null
+  singletonRuntimePromise = null
 }
 
 export function toRawAdapterError(error: unknown) {

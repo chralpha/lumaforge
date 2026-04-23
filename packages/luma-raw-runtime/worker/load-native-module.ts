@@ -1,3 +1,4 @@
+import { LumaRawRuntimeError } from '../src/errors'
 import { createNativeFactory } from './native-adapter'
 import type { LumaRawNativeFactory } from './native-types'
 
@@ -9,30 +10,48 @@ function nativeAssetUrl(fileName: string) {
   const currentUrl = new URL(import.meta.url)
   const pathParts = currentUrl.pathname.split('/').filter(Boolean)
   const inBuiltWorkerAssets =
-    pathParts.at(-1)?.startsWith('runtime.worker-') &&
-    pathParts.at(-2) === 'assets' &&
-    pathParts.at(-3) === 'dist'
+    pathParts.at(-1)?.startsWith('runtime.worker') &&
+    pathParts.at(-2) === 'assets'
   const nativeDir = inBuiltWorkerAssets ? '../native/' : '../dist/native/'
 
   return new URL(`${nativeDir}${fileName}`, import.meta.url).href
 }
 
+function createMissingNativeAssetsError(cause: unknown) {
+  return new LumaRawRuntimeError(
+    'RAW_RUNTIME_UNAVAILABLE',
+    'Luma RAW native assets are missing or unavailable. Run `pnpm --filter @lumaforge/luma-raw-runtime build:native` before using VITE_RAW_RUNTIME=luma.',
+    { cause },
+  )
+}
+
 export async function loadNativeFactory(): Promise<LumaRawNativeFactory> {
   const moduleUrl = nativeAssetUrl('luma_raw.js')
   const wasmUrl = nativeAssetUrl('luma_raw.wasm')
-  const moduleImport = (await import(/* @vite-ignore */ moduleUrl)) as {
-    default: NativeModuleFactory
+  let moduleImport: { default: NativeModuleFactory }
+
+  try {
+    moduleImport = (await import(/* @vite-ignore */ moduleUrl)) as {
+      default: NativeModuleFactory
+    }
+  } catch (error) {
+    throw createMissingNativeAssetsError(error)
   }
 
-  const module = await moduleImport.default({
-    locateFile(path) {
-      if (path.endsWith('.wasm')) {
-        return wasmUrl
-      }
+  let module: unknown
+  try {
+    module = await moduleImport.default({
+      locateFile(path) {
+        if (path.endsWith('.wasm')) {
+          return wasmUrl
+        }
 
-      return path
-    },
-  })
+        return path
+      },
+    })
+  } catch (error) {
+    throw createMissingNativeAssetsError(error)
+  }
 
   return createNativeFactory(
     module as {

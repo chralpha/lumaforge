@@ -28,7 +28,13 @@ export async function runPreviewPipeline({
   decodeHqPreview: (file: File) => Promise<{ width: number; height: number }>
   onEvent: (event: PreviewEvent) => void
 }) {
-  const embedded = await extractEmbeddedPreview(file)
+  let embedded: { width: number; height: number } | null = null
+  try {
+    embedded = await extractEmbeddedPreview(file)
+  } catch {
+    embedded = null
+  }
+
   if (embedded) {
     onEvent({ type: 'embedded-ready', ...embedded })
   }
