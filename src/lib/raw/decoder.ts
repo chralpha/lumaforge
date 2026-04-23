@@ -28,12 +28,22 @@ export interface DecodeOptions {
   maxOutputPixels?: number
 }
 
+export type DecodedImageLayout = 'rgba-float32' | 'rgb-u16'
+
+export type DecodedImageColorSpace =
+  | 'display-srgb-preview'
+  | 'linear-prophoto-rgb'
+
 export interface DecodedImage {
   width: number
   height: number
-  channels: number
-  bitsPerChannel: number
-  data: Float32Array // Normalized RGB data in RGBA format
+  channels: 3 | 4
+  bitsPerChannel: 16 | 32
+  data: Float32Array | Uint16Array
+  layout: DecodedImageLayout
+  colorSpace: DecodedImageColorSpace
+  source?: 'quick' | 'hq'
+  timings?: Record<string, number | undefined>
   metadata: ImageMetadata
 }
 
@@ -127,9 +137,11 @@ export async function decodeRaw(
     return {
       width: output.width,
       height: output.height,
-      channels: 3,
+      channels: 4,
       bitsPerChannel: 32,
       data: output.data,
+      layout: 'rgba-float32',
+      colorSpace: 'display-srgb-preview',
       metadata: {
         make: metadata.make,
         model: metadata.model,

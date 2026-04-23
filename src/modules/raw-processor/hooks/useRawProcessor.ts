@@ -32,7 +32,8 @@ import {
   validateLUT,
 } from '~/lib/lut/cube-parser'
 import type { DecodedImage } from '~/lib/raw/decoder'
-import { decodeHqRaw, decodeQuickRaw, isSupportedRaw } from '~/lib/raw/decoder'
+import { isSupportedRaw } from '~/lib/raw/decoder'
+import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
 import {
   deriveCanEdit,
@@ -46,10 +47,7 @@ import {
   recommendRetryLevel,
   runExportJob,
 } from '../services/export-system'
-import {
-  extractEmbeddedPreviewBestEffort,
-  runPreviewPipeline,
-} from '../services/preview-pipeline'
+import { runPreviewPipeline } from '../services/preview-pipeline'
 import {
   buildBuiltinStyle,
   mapIntensityLevel,
@@ -319,9 +317,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
         await runPreviewPipeline({
           file,
-          extractEmbeddedPreview: extractEmbeddedPreviewBestEffort,
+          extractEmbeddedPreview: rawRuntimeAdapter.extractEmbeddedPreview,
           decodeQuickPreview: async (targetFile) => {
-            quickPreview = await decodeQuickRaw(
+            quickPreview = await rawRuntimeAdapter.decodeQuickRaw(
               targetFile,
               ({ phase, progress }) => {
                 if (!matchesActiveSession()) {
@@ -344,14 +342,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
               return { width: hqPreview.width, height: hqPreview.height }
             }
 
-            hqPreview = await decodeHqRaw(targetFile, ({ phase, progress }) => {
-              if (!matchesActiveSession()) {
-                return
-              }
+            hqPreview = await rawRuntimeAdapter.decodeHqRaw(
+              targetFile,
+              ({ phase, progress }) => {
+                if (!matchesActiveSession()) {
+                  return
+                }
 
-              setStatus(mapPhaseToStatus(phase))
-              setProgress(50 + progress * 0.5)
-            })
+                setStatus(mapPhaseToStatus(phase))
+                setProgress(50 + progress * 0.5)
+              },
+            )
 
             return { width: hqPreview.width, height: hqPreview.height }
           },
