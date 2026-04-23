@@ -50,26 +50,26 @@ pnpm --filter @lumaforge/luma-raw-runtime bench:serve
 
 ## Result Table
 
-| File | Runtime | Stage | File size | Width | Height | MP | Total ms | Read ms | Transfer ms | Copy ms | Open ms | Unpack ms | Process ms | Heap before | Heap after | Heap peak/bytes | Status |
-| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| example-sony.ARW | libraw-wasm | legacy-quick | 31793152 | 3136 | 2084 | 6.54 | 4354 | 59 |  |  | 3818 |  | 477 |  |  |  | baseline |
-| example-sony.ARW | libraw-wasm | legacy-hq | 31793152 | 6272 | 4168 | 26.14 | 6148 | 62 |  |  | 3776 |  | 2310 |  |  |  | baseline |
-| example-sony.ARW | luma | luma-open-session | 31793152 | 6240 | 4168 | 26.01 | 78 | 46 |  | 19 | 10 |  |  | 268435456 | 268435456 | 268435456 | baseline |
-| example-sony.ARW | luma | luma-embedded | 31793152 | 6192 | 4128 | 25.56 | 11 |  |  | 0 | 0 |  |  | 268435456 | 268435456 | 268435456 | within-target |
-| example-sony.ARW | luma | luma-quick | 31793152 | 1934 | 1292 | 2.5 | 448 |  |  | 0 | 0 | 448 |  | 268435456 | 268435456 | 268435456 | within-target |
-| example-sony.ARW | luma | luma-hq | 31793152 | 6240 | 4168 | 26.01 | 883 |  |  | 0 | 0 | 883 |  | 268435456 | 450297856 | 450297856 | within-target |
-| SGL00940.ARW | libraw-wasm | legacy-quick | 82817024 | 4783 | 3187 | 15.24 | 11644 | 196 |  |  | 9955 |  | 1493 |  |  |  | baseline |
-| SGL00940.ARW | libraw-wasm | legacy-hq | 82817024 | 4783 | 3187 | 15.24 | 11644 | 196 |  |  | 9955 |  | 1493 |  |  |  | baseline |
-| SGL00940.ARW | luma | luma-open-session | 82817024 | 9566 | 6374 | 60.97 | 165 | 110 |  | 41 | 10 |  |  | 268435456 | 268435456 | 268435456 | baseline |
-| SGL00940.ARW | luma | luma-embedded | 82817024 | 9504 | 6336 | 60.22 | 17 |  |  | 0 | 0 |  |  | 268435456 | 268435456 | 268435456 | within-target |
-| SGL00940.ARW | luma | luma-quick | 82817024 | 1936 | 1290 | 2.5 | 1362 |  |  | 0 | 0 | 1362 |  | 268435456 | 484048896 | 484048896 | within-target |
-| SGL00940.ARW | luma | luma-hq | 82817024 | 9566 | 6374 | 60.97 | 3273 |  |  | 0 | 0 | 3273 |  | 484048896 | 1068171264 | 1068171264 | within-target |
-| SGL_1998.NEF | libraw-wasm | legacy-quick | 56377803 | 2760 | 4144 | 11.44 | 8483 | 238 |  |  | 6761 |  | 1485 |  |  |  | baseline |
-| SGL_1998.NEF | libraw-wasm | legacy-hq | 56377803 | 2760 | 4144 | 11.44 | 8483 | 238 |  |  | 6761 |  | 1485 |  |  |  | baseline |
-| SGL_1998.NEF | luma | luma-open-session | 56377803 | 8288 | 5520 | 45.75 | 116 | 75 |  | 28 | 10 |  |  | 268435456 | 268435456 | 268435456 | baseline |
-| SGL_1998.NEF | luma | luma-embedded | 56377803 | 8256 | 5504 | 45.44 | 8 |  |  | 0 | 0 |  |  | 268435456 | 268435456 | 268435456 | within-target |
-| SGL_1998.NEF | luma | luma-quick | 56377803 | 1290 | 1937 | 2.5 | 1382 |  |  | 0 | 0 | 1382 |  | 268435456 | 386662400 | 386662400 | within-target |
-| SGL_1998.NEF | luma | luma-hq | 56377803 | 5520 | 8288 | 45.75 | 2293 |  |  | 0 | 0 | 2292 |  | 386662400 | 790560768 | 790560768 | within-target |
+| File | Runtime | Stage | File size | Width | Height | MP | Total ms | Read ms | Transfer ms | Copy ms | Open buffer ms | LibRaw open ms | Unpack ms | Process ms | Heap before | Heap after | Heap peak/bytes | Status |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| example-sony.ARW | libraw-wasm | legacy-quick | 31793152 | 3136 | 2084 | 6.54 | 4354 | 59 |  |  | 3818 |  |  | 477 |  |  |  | baseline |
+| example-sony.ARW | libraw-wasm | legacy-hq | 31793152 | 6272 | 4168 | 26.14 | 6148 | 62 |  |  | 3776 |  |  | 2310 |  |  |  | baseline |
+| example-sony.ARW | luma | luma-open-session | 31793152 | 6240 | 4168 | 26.01 | 78 | 46 |  | 19 | 29 | 10 |  |  | 268435456 | 268435456 | 268435456 | baseline |
+| example-sony.ARW | luma | luma-embedded | 31793152 | 6192 | 4128 | 25.56 | 11 |  |  | 0 | 0 | 0 |  |  | 268435456 | 268435456 | 268435456 | within-target |
+| example-sony.ARW | luma | luma-quick | 31793152 | 1934 | 1292 | 2.5 | 448 |  |  | 0 | 0 | 0 | 448 |  | 268435456 | 268435456 | 268435456 | within-target |
+| example-sony.ARW | luma | luma-hq | 31793152 | 6240 | 4168 | 26.01 | 883 |  |  | 0 | 0 | 0 | 883 |  | 268435456 | 450297856 | 450297856 | within-target |
+| SGL00940.ARW | libraw-wasm | legacy-quick | 82817024 | 4783 | 3187 | 15.24 | 11644 | 196 |  |  | 9955 |  |  | 1493 |  |  |  | baseline |
+| SGL00940.ARW | libraw-wasm | legacy-hq | 82817024 | 4783 | 3187 | 15.24 | 11644 | 196 |  |  | 9955 |  |  | 1493 |  |  |  | baseline |
+| SGL00940.ARW | luma | luma-open-session | 82817024 | 9566 | 6374 | 60.97 | 165 | 110 |  | 41 | 51 | 10 |  |  | 268435456 | 268435456 | 268435456 | baseline |
+| SGL00940.ARW | luma | luma-embedded | 82817024 | 9504 | 6336 | 60.22 | 17 |  |  | 0 | 0 | 0 |  |  | 268435456 | 268435456 | 268435456 | within-target |
+| SGL00940.ARW | luma | luma-quick | 82817024 | 1936 | 1290 | 2.5 | 1362 |  |  | 0 | 0 | 0 | 1362 |  | 268435456 | 484048896 | 484048896 | within-target |
+| SGL00940.ARW | luma | luma-hq | 82817024 | 9566 | 6374 | 60.97 | 3273 |  |  | 0 | 0 | 0 | 3273 |  | 484048896 | 1068171264 | 1068171264 | within-target |
+| SGL_1998.NEF | libraw-wasm | legacy-quick | 56377803 | 2760 | 4144 | 11.44 | 8483 | 238 |  |  | 6761 |  |  | 1485 |  |  |  | baseline |
+| SGL_1998.NEF | libraw-wasm | legacy-hq | 56377803 | 2760 | 4144 | 11.44 | 8483 | 238 |  |  | 6761 |  |  | 1485 |  |  |  | baseline |
+| SGL_1998.NEF | luma | luma-open-session | 56377803 | 8288 | 5520 | 45.75 | 116 | 75 |  | 28 | 38 | 10 |  |  | 268435456 | 268435456 | 268435456 | baseline |
+| SGL_1998.NEF | luma | luma-embedded | 56377803 | 8256 | 5504 | 45.44 | 8 |  |  | 0 | 0 | 0 |  |  | 268435456 | 268435456 | 268435456 | within-target |
+| SGL_1998.NEF | luma | luma-quick | 56377803 | 1290 | 1937 | 2.5 | 1382 |  |  | 0 | 0 | 0 | 1382 |  | 268435456 | 386662400 | 386662400 | within-target |
+| SGL_1998.NEF | luma | luma-hq | 56377803 | 5520 | 8288 | 45.75 | 2293 |  |  | 0 | 0 | 0 | 2292 |  | 386662400 | 790560768 | 790560768 | within-target |
 
 ## Performance Optimization V2 Summary
 
@@ -94,7 +94,8 @@ The file contains 18 JSONL rows covering:
 
 `ALLOW_MEMORY_GROWTH=1` is retained in `packages/luma-raw-runtime/native/emcc-flags.sh`.
 The native build exports `HEAPU8` via `EXPORTED_RUNTIME_METHODS=HEAPU8`, allowing the worker adapter to report wasm heap byte length before and after each Luma stage.
-Observed heap growth reached 1,068,171,264 bytes after `SGL00940.ARW` HQ decode and 790,560,768 bytes after `SGL_1998.NEF` HQ decode.
+Observed heap peak reached 1,068,171,264 bytes after `SGL00940.ARW` HQ decode and 790,560,768 bytes after `SGL_1998.NEF` HQ decode.
+The largest observed per-stage heap increase was 584,122,368 bytes for `SGL00940.ARW` HQ decode, from 484,048,896 bytes before the stage to 1,068,171,264 bytes after it.
 
 ## Rollout Gate Readiness
 
