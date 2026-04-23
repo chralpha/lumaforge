@@ -160,6 +160,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
   const sessionRef = useRef(session)
   const embeddedPreviewUrlRef = useRef<string | null>(null)
+  const isMountedRef = useRef(false)
+  const activeSessionIdRef = useRef<string | null>(null)
   const [lutData, setLutData] = useState<LUTData | null>(null)
   const hasImage = session ? deriveCanEdit(session) : false
   const canExport = session ? deriveCanExport(session) : false
@@ -184,7 +186,36 @@ export function useRawProcessor(): UseRawProcessorReturn {
     session?.previewBundle.embeddedPreview.objectUrl || null
   const displaySource = session?.previewBundle.displaySource || 'none'
 
+  const clearSessionEmbeddedPreviewUrl = useCallback(
+    (sessionId?: string) => {
+      setSession((prev) => {
+        if (!prev || (sessionId && prev.id !== sessionId)) {
+          return prev
+        }
+
+        if (!prev.previewBundle.embeddedPreview.objectUrl) {
+          return prev
+        }
+
+        const previewBundle = {
+          ...prev.previewBundle,
+          embeddedPreview: { status: 'idle' as const },
+        }
+
+        return {
+          ...prev,
+          previewBundle: {
+            ...previewBundle,
+            displaySource: selectDisplaySource(previewBundle),
+          },
+        }
+      })
+    },
+    [setSession],
+  )
+
   const revokeCurrentEmbeddedPreviewUrl = useCallback(() => {
+    const sessionId = sessionRef.current?.id
     const urls = new Set(
       [
         embeddedPreviewUrlRef.current,
@@ -197,15 +228,21 @@ export function useRawProcessor(): UseRawProcessorReturn {
     }
 
     embeddedPreviewUrlRef.current = null
-  }, [])
+    clearSessionEmbeddedPreviewUrl(sessionId)
+  }, [clearSessionEmbeddedPreviewUrl])
 
   useEffect(() => {
     sessionRef.current = session
   }, [session])
 
   useEffect(() => {
+    isMountedRef.current = true
+
     return () => {
+      isMountedRef.current = false
+      activeSessionIdRef.current = null
       revokeCurrentEmbeddedPreviewUrl()
+      sessionRef.current = null
     }
   }, [revokeCurrentEmbeddedPreviewUrl])
 
@@ -227,6 +264,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
 
       try {
+        activeSessionIdRef.current = null
         revokeCurrentEmbeddedPreviewUrl()
 
         const nextSession = replaceFile(file)
@@ -234,6 +272,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         let hqPreview: DecodedImage | null = null
 
         sessionRef.current = nextSession
+        activeSessionIdRef.current = nextSession.id
         setLoadedImage({ file: null, decoded: null, metadata: null })
         setStatus('loading')
         setProgress(0)
@@ -267,6 +306,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
         })
 
         const matchesActiveSession = () =>
+          isMountedRef.current &&
+          activeSessionIdRef.current === nextSession.id &&
           sessionRef.current?.id === nextSession.id
 
         const mapPhaseToStatus = (
@@ -807,6 +848,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   // Reset state
   const reset = useCallback(() => {
+    activeSessionIdRef.current = null
     revokeCurrentEmbeddedPreviewUrl()
     setLoadedImage({ file: null, decoded: null, metadata: null })
     setStatus('idle')

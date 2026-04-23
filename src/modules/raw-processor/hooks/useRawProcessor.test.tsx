@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { Provider } from 'jotai'
 import type { ReactNode } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { DecodedImage } from '~/lib/raw/decoder'
 
@@ -73,14 +73,14 @@ describe('useRawProcessor embedded preview state', () => {
     toastMock.error.mockReset()
     toastMock.info.mockReset()
 
-    Object.defineProperty(URL, 'createObjectURL', {
-      configurable: true,
-      value: vi.fn(() => 'blob:embedded-preview'),
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:embedded-preview'),
+      revokeObjectURL: vi.fn(),
     })
-    Object.defineProperty(URL, 'revokeObjectURL', {
-      configurable: true,
-      value: vi.fn(),
-    })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('stores embedded object URLs, upgrades display source, and revokes on reset', async () => {
@@ -135,5 +135,48 @@ describe('useRawProcessor embedded preview state', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:embedded-preview')
     expect(result.current.embeddedPreviewUrl).toBeNull()
     expect(result.current.displaySource).toBe('none')
+  })
+
+  it('does not create embedded object URLs after unmount', async () => {
+    const embeddedPreview = deferred<{
+      width: number
+      height: number
+      data: Uint8Array
+      mimeType: string
+      timings: Record<string, number | undefined>
+    } | null>()
+
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockReturnValue(
+      embeddedPreview.promise,
+    )
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(
+      createDecodedImage('hq'),
+    )
+
+    const { result, unmount } = renderHook(() => useRawProcessor(), { wrapper })
+    let loadPromise!: Promise<void>
+
+    await act(async () => {
+      loadPromise = result.current.loadFile(new File(['raw'], 'frame.ARW'))
+      await Promise.resolve()
+    })
+
+    unmount()
+
+    await act(async () => {
+      embeddedPreview.resolve({
+        width: 1600,
+        height: 1067,
+        data: new Uint8Array([1, 2, 3]),
+        mimeType: 'image/jpeg',
+        timings: { total: 8 },
+      })
+      await loadPromise
+    })
+
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
   })
 })

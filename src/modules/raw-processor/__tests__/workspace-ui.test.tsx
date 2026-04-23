@@ -1,5 +1,5 @@
 import { act, render, screen } from '@testing-library/react'
-import { beforeEach, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 
 import { ControlsPanel } from '../components/ControlsPanel'
 import { PreviewCanvas } from '../components/PreviewCanvas'
@@ -37,6 +37,10 @@ beforeEach(() => {
       disconnect() {}
     },
   )
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 describe('controlsPanel', () => {
