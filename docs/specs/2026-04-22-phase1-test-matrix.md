@@ -99,6 +99,6 @@ After each fixture passes the checklist, record the observed `cameraBrand`, `cam
 
 | Fixture | Runtime | Embedded | Quick | HQ | Heap telemetry | Result |
 | --- | --- | --- | --- | --- | --- | --- |
-| example-sony.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Not emitted in JSONL | Awaiting Task 9 rollout gate |
-| SGL00940.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Not emitted in JSONL | Awaiting Task 9 rollout gate |
-| SGL_1998.NEF | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Not emitted in JSONL | Awaiting Task 9 rollout gate |
+| example-sony.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | Awaiting Task 9 rollout gate |
+| SGL00940.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | Awaiting Task 9 rollout gate |
+| SGL_1998.NEF | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | Awaiting Task 9 rollout gate |

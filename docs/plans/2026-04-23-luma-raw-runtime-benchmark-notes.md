@@ -26,10 +26,12 @@ pnpm --filter @lumaforge/luma-raw-runtime bench:serve
 | Command | Result | Evidence |
 | --- | --- | --- |
 | `pnpm test:run` | PASS | 18 test files passed, 127 tests passed |
-| `VITE_RAW_RUNTIME=libraw-wasm pnpm build` | PASS | Production build completed in 4.39s; Vite emitted existing large-chunk, generated-route optional export, and checker timing warnings |
+| `VITE_RAW_RUNTIME=libraw-wasm pnpm build` | PASS | Production build completed in 5.07s; Vite emitted existing large-chunk, generated-route optional export, and checker timing warnings |
 | `. "$HOME/.cache/lumaforge-emsdk/emsdk_env.sh" >/dev/null` | PASS | Emscripten SDK environment activated for the native build shell |
-| `pnpm --filter @lumaforge/luma-raw-runtime build:native` | PASS | Built native runtime into `packages/luma-raw-runtime/dist/native`; emcc warned about `-pthread` with `ALLOW_MEMORY_GROWTH` |
-| `VITE_RAW_RUNTIME=luma pnpm build` | PASS | Production build completed in 4.35s; Vite emitted the same existing warnings |
+| `pnpm --filter @lumaforge/luma-raw-runtime build:native` | PASS | Built native runtime into `packages/luma-raw-runtime/dist/native`; generated JS now exports `Module["HEAPU8"]`; emcc warned about `-pthread` with `ALLOW_MEMORY_GROWTH` |
+| `VITE_RAW_RUNTIME=luma pnpm build` | PASS | Production build completed in 4.26s; Vite emitted the same existing warnings |
+| `pnpm test:run packages/luma-raw-runtime/worker/native-adapter.test.ts -t "heap"` | PASS | 3 heap telemetry tests passed |
+| `pnpm test:run packages/luma-raw-runtime/worker/runtime-core.test.ts -t "heap"` | PASS | 1 session heap telemetry test passed |
 
 ## Fixtures
 
@@ -50,24 +52,24 @@ pnpm --filter @lumaforge/luma-raw-runtime bench:serve
 
 | File | Runtime | Stage | Width | Height | MP | Total ms | Copy ms | Open ms | Unpack ms | Heap before | Heap after | Status |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| example-sony.ARW | libraw-wasm | legacy-quick | 3136 | 2084 | 6.54 | 4410 | 0 | 0 | 521 |  |  | baseline |
-| example-sony.ARW | libraw-wasm | legacy-hq | 6272 | 4168 | 26.14 | 6749 | 0 | 0 | 2866 |  |  | baseline |
-| example-sony.ARW | luma | luma-open-session | 6240 | 4168 | 26.01 | 73 | 17 | 10 | 0 |  |  | baseline |
-| example-sony.ARW | luma | luma-embedded | 6192 | 4128 | 25.56 | 14 | 0 | 0 | 0 |  |  | within-target |
-| example-sony.ARW | luma | luma-quick | 1934 | 1292 | 2.5 | 446 | 0 | 0 | 445 |  |  | within-target |
-| example-sony.ARW | luma | luma-hq | 6240 | 4168 | 26.01 | 1056 | 0 | 0 | 1056 |  |  | within-target |
-| SGL00940.ARW | libraw-wasm | legacy-quick | 4783 | 3187 | 15.24 | 12179 | 0 | 0 | 1485 |  |  | baseline |
-| SGL00940.ARW | libraw-wasm | legacy-hq | 4783 | 3187 | 15.24 | 12179 | 0 | 0 | 1485 |  |  | baseline |
-| SGL00940.ARW | luma | luma-open-session | 9566 | 6374 | 60.97 | 173 | 45 | 10 | 0 |  |  | baseline |
-| SGL00940.ARW | luma | luma-embedded | 9504 | 6336 | 60.22 | 17 | 0 | 0 | 0 |  |  | within-target |
-| SGL00940.ARW | luma | luma-quick | 1936 | 1290 | 2.5 | 1335 | 0 | 0 | 1335 |  |  | within-target |
-| SGL00940.ARW | luma | luma-hq | 9566 | 6374 | 60.97 | 3864 | 0 | 0 | 3864 |  |  | within-target |
-| SGL_1998.NEF | libraw-wasm | legacy-quick | 2760 | 4144 | 11.44 | 8656 | 0 | 0 | 1540 |  |  | baseline |
-| SGL_1998.NEF | libraw-wasm | legacy-hq | 2760 | 4144 | 11.44 | 8656 | 0 | 0 | 1540 |  |  | baseline |
-| SGL_1998.NEF | luma | luma-open-session | 8288 | 5520 | 45.75 | 123 | 31 | 11 | 0 |  |  | baseline |
-| SGL_1998.NEF | luma | luma-embedded | 8256 | 5504 | 45.44 | 9 | 0 | 0 | 0 |  |  | within-target |
-| SGL_1998.NEF | luma | luma-quick | 1290 | 1937 | 2.5 | 1409 | 0 | 0 | 1408 |  |  | within-target |
-| SGL_1998.NEF | luma | luma-hq | 5520 | 8288 | 45.75 | 2206 | 0 | 0 | 2205 |  |  | within-target |
+| example-sony.ARW | libraw-wasm | legacy-quick | 3136 | 2084 | 6.54 | 4354 | 0 | 0 | 477 |  |  | baseline |
+| example-sony.ARW | libraw-wasm | legacy-hq | 6272 | 4168 | 26.14 | 6148 | 0 | 0 | 2310 |  |  | baseline |
+| example-sony.ARW | luma | luma-open-session | 6240 | 4168 | 26.01 | 78 | 19 | 10 | 0 | 268435456 | 268435456 | baseline |
+| example-sony.ARW | luma | luma-embedded | 6192 | 4128 | 25.56 | 11 | 0 | 0 | 0 | 268435456 | 268435456 | within-target |
+| example-sony.ARW | luma | luma-quick | 1934 | 1292 | 2.5 | 448 | 0 | 0 | 448 | 268435456 | 268435456 | within-target |
+| example-sony.ARW | luma | luma-hq | 6240 | 4168 | 26.01 | 883 | 0 | 0 | 883 | 268435456 | 450297856 | within-target |
+| SGL00940.ARW | libraw-wasm | legacy-quick | 4783 | 3187 | 15.24 | 11644 | 0 | 0 | 1493 |  |  | baseline |
+| SGL00940.ARW | libraw-wasm | legacy-hq | 4783 | 3187 | 15.24 | 11644 | 0 | 0 | 1493 |  |  | baseline |
+| SGL00940.ARW | luma | luma-open-session | 9566 | 6374 | 60.97 | 165 | 41 | 10 | 0 | 268435456 | 268435456 | baseline |
+| SGL00940.ARW | luma | luma-embedded | 9504 | 6336 | 60.22 | 17 | 0 | 0 | 0 | 268435456 | 268435456 | within-target |
+| SGL00940.ARW | luma | luma-quick | 1936 | 1290 | 2.5 | 1362 | 0 | 0 | 1362 | 268435456 | 484048896 | within-target |
+| SGL00940.ARW | luma | luma-hq | 9566 | 6374 | 60.97 | 3273 | 0 | 0 | 3273 | 484048896 | 1068171264 | within-target |
+| SGL_1998.NEF | libraw-wasm | legacy-quick | 2760 | 4144 | 11.44 | 8483 | 0 | 0 | 1485 |  |  | baseline |
+| SGL_1998.NEF | libraw-wasm | legacy-hq | 2760 | 4144 | 11.44 | 8483 | 0 | 0 | 1485 |  |  | baseline |
+| SGL_1998.NEF | luma | luma-open-session | 8288 | 5520 | 45.75 | 116 | 28 | 10 | 0 | 268435456 | 268435456 | baseline |
+| SGL_1998.NEF | luma | luma-embedded | 8256 | 5504 | 45.44 | 8 | 0 | 0 | 0 | 268435456 | 268435456 | within-target |
+| SGL_1998.NEF | luma | luma-quick | 1290 | 1937 | 2.5 | 1382 | 0 | 0 | 1382 | 268435456 | 386662400 | within-target |
+| SGL_1998.NEF | luma | luma-hq | 5520 | 8288 | 45.75 | 2293 | 0 | 0 | 2292 | 386662400 | 790560768 | within-target |
 
 ## Performance Optimization V2 Summary
 
@@ -75,7 +77,7 @@ pnpm --filter @lumaforge/luma-raw-runtime bench:serve
 - LibRaw open parsing now reports as `librawOpen`.
 - Luma uses one runtime session per RAW file.
 - Quick output is capped to 2.5MP by default.
-- Heap telemetry columns are preserved per stage, but this run did not emit heap values.
+- Heap telemetry is recorded per Luma stage.
 - Rollout remains blocked if any required Luma stage exceeds target or any embedded preview reports `0x0`.
 
 ## Raw Benchmark Output
@@ -91,11 +93,12 @@ The file contains 18 JSONL rows covering:
 ## Memory Growth Impact
 
 `ALLOW_MEMORY_GROWTH=1` is retained in `packages/luma-raw-runtime/native/emcc-flags.sh`.
-The V2 result table keeps heap telemetry columns for each stage, but this run emitted blank `heap.before` and `heap.after` values in the benchmark JSONL.
-Treat the timing evidence as valid for the performance gate and keep heap-value population as a follow-up verification concern before default rollout.
+The native build exports `HEAPU8` via `EXPORTED_RUNTIME_METHODS=HEAPU8`, allowing the worker adapter to report wasm heap byte length before and after each Luma stage.
+Observed heap growth reached 1,068,171,264 bytes after `SGL00940.ARW` HQ decode and 790,560,768 bytes after `SGL_1998.NEF` HQ decode.
 
 ## Rollout Gate Readiness
 
 Default runtime switch to `luma` is not approved by this Task 8 documentation update.
 This benchmark run did not find required Luma stages over target, and embedded previews did not report `0x0`.
-The remaining rollout decision is deferred to Task 9 gate review and any follow-up needed to populate heap byte values in benchmark output.
+Heap telemetry is present for all Luma benchmark rows.
+The remaining rollout decision is deferred to Task 9 gate review.
