@@ -511,6 +511,26 @@ describe('createLumaRawRuntime', () => {
     ])
   })
 
+  it('does not recreate a worker when disposing a session after runtime disposal', async () => {
+    const worker = new RecordingWorker()
+    const workerFactory = vi.fn(() => worker as unknown as Worker)
+    const runtime = createLumaRawRuntime({
+      requireCrossOriginIsolation: false,
+      workerFactory,
+    })
+
+    const session = await runtime.openSession(new File(['raw'], 'sample.ARW'))
+
+    expect(workerFactory).toHaveBeenCalledTimes(1)
+    runtime.dispose()
+    session.dispose()
+
+    expect(workerFactory).toHaveBeenCalledTimes(1)
+    expect(worker.requests.map((request) => request.type)).toEqual([
+      'openSession',
+    ])
+  })
+
   it('rejects before file reading starts when aborted', async () => {
     const { runtime, worker } = createRuntime()
     const readFile = vi.fn(() => Promise.resolve(new ArrayBuffer(4)))

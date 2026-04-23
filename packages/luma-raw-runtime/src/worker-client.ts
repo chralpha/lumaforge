@@ -25,6 +25,7 @@ function nextRequestId() {
 
 export class LumaRawWorkerClient {
   private worker: Worker | null = null
+  private disposed = false
   private readonly pending = new Map<string, PendingRequest>()
 
   constructor(private readonly createWorker: () => Worker) {}
@@ -38,6 +39,16 @@ export class LumaRawWorkerClient {
     const id = nextRequestId()
 
     return new Promise<LumaRawWorkerPayloadByType[T]>((resolve, reject) => {
+      if (this.disposed) {
+        reject(
+          new LumaRawRuntimeError(
+            'RAW_RUNTIME_UNAVAILABLE',
+            'RAW runtime worker was disposed.',
+          ),
+        )
+        return
+      }
+
       if (signal?.aborted) {
         reject(
           new LumaRawRuntimeError(
@@ -123,6 +134,7 @@ export class LumaRawWorkerClient {
   dispose() {
     const worker = this.worker
     this.worker = null
+    this.disposed = true
     this.rejectAllPending(
       new LumaRawRuntimeError(
         'RAW_RUNTIME_UNAVAILABLE',
