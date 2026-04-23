@@ -51,6 +51,10 @@ describe('luma raw runtime public contract', () => {
       new Error('unexpected worker failure'),
       'RAW_WORKER_PROTOCOL_ERROR',
     )
+    const fallback = normalizeRawRuntimeError(
+      'unexpected string failure',
+      'RAW_RUNTIME_UNAVAILABLE',
+    )
 
     expect(normalized).toBe(error)
     expect(normalized.name).toBe('LumaRawRuntimeError')
@@ -58,6 +62,9 @@ describe('luma raw runtime public contract', () => {
     expect(wrapped.name).toBe('LumaRawRuntimeError')
     expect(wrapped.code).toBe('RAW_WORKER_PROTOCOL_ERROR')
     expect(wrapped.message).toBe('unexpected worker failure')
+    expect(fallback.name).toBe('LumaRawRuntimeError')
+    expect(fallback.code).toBe('RAW_RUNTIME_UNAVAILABLE')
+    expect(fallback.message).toBe('RAW runtime request failed.')
   })
 
   it('reports runtime capabilities without app dependencies', () => {
