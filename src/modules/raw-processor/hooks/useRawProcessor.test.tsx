@@ -67,6 +67,11 @@ function wrapper({ children }: { children: ReactNode }) {
   return <Provider store={jotaiStore}>{children}</Provider>
 }
 
+async function flushPromises() {
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 describe('useRawProcessor embedded preview state', () => {
   beforeEach(() => {
     resetToDefaults()
@@ -85,22 +90,27 @@ describe('useRawProcessor embedded preview state', () => {
   })
 
   afterEach(() => {
-    resetToDefaults()
-    jotaiStore.set(currentSessionAtom, null)
+    act(() => {
+      resetToDefaults()
+      jotaiStore.set(currentSessionAtom, null)
+    })
     vi.unstubAllGlobals()
   })
 
   it('stores embedded object URLs, upgrades display source, and revokes on reset', async () => {
+    const embeddedPreview = deferred<{
+      width: number
+      height: number
+      data: Uint8Array
+      mimeType: string
+      timings: Record<string, number | undefined>
+    } | null>()
     const quickDecode = deferred<DecodedImage>()
     const hqDecode = deferred<DecodedImage>()
 
-    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue({
-      width: 1600,
-      height: 1067,
-      data: new Uint8Array([1, 2, 3]),
-      mimeType: 'image/jpeg',
-      timings: { total: 8 },
-    })
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockReturnValue(
+      embeddedPreview.promise,
+    )
     rawRuntimeAdapterMock.decodeQuickRaw.mockReturnValue(quickDecode.promise)
     rawRuntimeAdapterMock.decodeHqRaw.mockReturnValue(hqDecode.promise)
 
@@ -112,6 +122,16 @@ describe('useRawProcessor embedded preview state', () => {
       await Promise.resolve()
     })
 
+    await act(async () => {
+      embeddedPreview.resolve({
+        width: 1600,
+        height: 1067,
+        data: new Uint8Array([1, 2, 3]),
+        mimeType: 'image/jpeg',
+        timings: { total: 8 },
+      })
+      await flushPromises()
+    })
     await waitFor(() => {
       expect(result.current.displaySource).toBe('embedded')
     })
@@ -120,7 +140,7 @@ describe('useRawProcessor embedded preview state', () => {
 
     await act(async () => {
       quickDecode.resolve(createDecodedImage('quick'))
-      await Promise.resolve()
+      await flushPromises()
     })
     await waitFor(() => {
       expect(result.current.displaySource).toBe('quick')
@@ -171,7 +191,9 @@ describe('useRawProcessor embedded preview state', () => {
       await Promise.resolve()
     })
 
-    unmount()
+    act(() => {
+      unmount()
+    })
 
     await act(async () => {
       embeddedPreview.resolve({
@@ -189,14 +211,14 @@ describe('useRawProcessor embedded preview state', () => {
 
   it('ignores stale load failures after a replacement session starts', async () => {
     const staleQuickDecode = deferred<DecodedImage>()
+    const currentQuickDecode = deferred<DecodedImage>()
+    const currentHqDecode = deferred<DecodedImage>()
 
     rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
     rawRuntimeAdapterMock.decodeQuickRaw
       .mockReturnValueOnce(staleQuickDecode.promise)
-      .mockResolvedValue(createDecodedImage('quick'))
-    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(
-      createDecodedImage('hq'),
-    )
+      .mockReturnValue(currentQuickDecode.promise)
+    rawRuntimeAdapterMock.decodeHqRaw.mockReturnValue(currentHqDecode.promise)
 
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
     let staleLoadPromise!: Promise<void>
@@ -217,14 +239,19 @@ describe('useRawProcessor embedded preview state', () => {
     })
 
     await act(async () => {
-      staleQuickDecode.reject(new Error('stale decode failed'))
-      await staleLoadPromise
+      currentQuickDecode.resolve(createDecodedImage('quick'))
+      currentHqDecode.resolve(createDecodedImage('hq'))
       await currentLoadPromise
     })
-
     await waitFor(() => {
       expect(result.current.status).toBe('ready')
     })
+
+    await act(async () => {
+      staleQuickDecode.reject(new Error('stale decode failed'))
+      await staleLoadPromise
+    })
+
     expect(result.current.error).toBeNull()
     expect(result.current.sourceFileName).toBe('current.ARW')
     expect(toastMock.error).not.toHaveBeenCalledWith(
@@ -256,7 +283,9 @@ describe('useRawProcessor embedded preview state', () => {
       expect(mounted.result.current.status).toBe('loading')
     })
 
-    mounted.unmount()
+    act(() => {
+      mounted.unmount()
+    })
 
     const remounted = renderHook(() => useRawProcessor(), { wrapper })
     expect(remounted.result.current.status).toBe('idle')
@@ -273,6 +302,45 @@ describe('useRawProcessor embedded preview state', () => {
       'Failed to load RAW file',
       expect.anything(),
     )
+
+    remounted.unmount()
+  })
+
+  it('preserves completed failure state across unmount after active load failure', async () => {
+    const quickDecode = deferred<DecodedImage>()
+
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockReturnValue(quickDecode.promise)
+    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(
+      createDecodedImage('hq'),
+    )
+
+    const mounted = renderHook(() => useRawProcessor(), { wrapper })
+    let loadPromise!: Promise<void>
+
+    await act(async () => {
+      loadPromise = mounted.result.current.loadFile(
+        new File(['raw'], 'failed.ARW'),
+      )
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      quickDecode.reject(new Error('quick decode failed'))
+      await loadPromise
+    })
+
+    expect(mounted.result.current.status).toBe('error')
+    expect(mounted.result.current.error).toBe('quick decode failed')
+
+    act(() => {
+      mounted.unmount()
+    })
+
+    const remounted = renderHook(() => useRawProcessor(), { wrapper })
+    expect(remounted.result.current.status).toBe('error')
+    expect(remounted.result.current.error).toBe('quick decode failed')
+    expect(remounted.result.current.sourceFileName).toBe('failed.ARW')
 
     remounted.unmount()
   })

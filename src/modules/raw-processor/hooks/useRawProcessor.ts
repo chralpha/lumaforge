@@ -564,6 +564,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
           return
         }
 
+        activeSessionIdRef.current = null
+
         const message =
           err instanceof Error ? err.message : 'Failed to load file'
         const errorCode = toUserFacingErrorCode(

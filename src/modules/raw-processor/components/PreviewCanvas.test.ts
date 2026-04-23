@@ -1,8 +1,85 @@
-import { describe, expect, it, vi } from 'vitest'
+import { act, render } from '@testing-library/react'
+import { createElement } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createRawUploadInput, syncRawUploadInput } from './PreviewCanvas'
+import type { ProcessingParams } from '~/lib/gl/pipeline'
+
+import {
+  createRawUploadInput,
+  PreviewCanvas,
+  syncRawUploadInput,
+} from './PreviewCanvas'
+
+const pipelineMock = vi.hoisted(() => ({
+  instances: [] as Array<{
+    initialize: ReturnType<typeof vi.fn>
+    dispose: ReturnType<typeof vi.fn>
+    resize: ReturnType<typeof vi.fn>
+    render: ReturnType<typeof vi.fn>
+    clearImage: ReturnType<typeof vi.fn>
+    uploadImage: ReturnType<typeof vi.fn>
+    clearLUT: ReturnType<typeof vi.fn>
+    uploadLUT: ReturnType<typeof vi.fn>
+    setParams: ReturnType<typeof vi.fn>
+  }>,
+  initialize: vi.fn(),
+}))
+
+vi.mock('~/lib/gl/pipeline', () => ({
+  RawProcessingPipeline: vi.fn().mockImplementation(() => {
+    const instance = {
+      initialize: pipelineMock.initialize,
+      dispose: vi.fn(),
+      resize: vi.fn(),
+      render: vi.fn(() => ({ renderMs: 1 })),
+      clearImage: vi.fn(),
+      uploadImage: vi.fn(),
+      clearLUT: vi.fn(),
+      uploadLUT: vi.fn(),
+      setParams: vi.fn(),
+    }
+
+    pipelineMock.instances.push(instance)
+    return instance
+  }),
+}))
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve
+    reject = innerReject
+  })
+
+  return { promise, resolve, reject }
+}
+
+const defaultParams: ProcessingParams = {
+  intensity: 0.7,
+  viewMode: 'processed',
+  styleKind: 'none',
+  builtinPreset: null,
+}
 
 describe('preview canvas upload descriptor', () => {
+  beforeEach(() => {
+    pipelineMock.instances.length = 0
+    pipelineMock.initialize.mockReset()
+    pipelineMock.initialize.mockResolvedValue(undefined)
+    vi.stubGlobal(
+      'ResizeObserver',
+      vi.fn().mockImplementation(() => ({
+        observe: vi.fn(),
+        disconnect: vi.fn(),
+      })),
+    )
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('accepts legacy Float32 RGBA display-sRGB input', () => {
     const data = new Float32Array(4)
 
@@ -140,5 +217,41 @@ describe('preview canvas upload descriptor', () => {
     expect(pipeline.clearImage).not.toHaveBeenCalled()
     expect(pipeline.uploadImage).toHaveBeenCalledWith(uploadInput)
     expect(setError).toHaveBeenCalledWith(null)
+  })
+
+  it('does not publish a pipeline after unmount during async initialization', async () => {
+    const initialize = deferred<void>()
+    const onPipelineChange = vi.fn()
+    pipelineMock.initialize.mockReturnValueOnce(initialize.promise)
+
+    const { unmount } = render(
+      createElement(PreviewCanvas, {
+        imageData: null,
+        imageLayout: null,
+        imageColorSpace: null,
+        imageWidth: 0,
+        imageHeight: 0,
+        params: defaultParams,
+        lutData: null,
+        onPipelineChange,
+      }),
+    )
+
+    expect(pipelineMock.instances).toHaveLength(1)
+    const [pipeline] = pipelineMock.instances
+
+    act(() => {
+      unmount()
+    })
+
+    await act(async () => {
+      initialize.resolve()
+      await initialize.promise
+      await Promise.resolve()
+    })
+
+    expect(pipeline.dispose).toHaveBeenCalledTimes(1)
+    expect(onPipelineChange).toHaveBeenCalledWith(null)
+    expect(onPipelineChange).not.toHaveBeenCalledWith(pipeline)
   })
 })

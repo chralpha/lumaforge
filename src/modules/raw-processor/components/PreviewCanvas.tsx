@@ -146,16 +146,37 @@ export function PreviewCanvas({
     if (!canvas) return
 
     let pipeline: RawProcessingPipeline | null = null
+    let cancelled = false
+    let disposed = false
+
+    const disposePipeline = () => {
+      if (!pipeline || disposed) {
+        return
+      }
+
+      pipeline.dispose()
+      pipeline = null
+      disposed = true
+    }
 
     const init = async () => {
       try {
         pipeline = new RawProcessingPipeline(canvas)
         await pipeline.initialize()
+        if (cancelled) {
+          disposePipeline()
+          return
+        }
+
         pipelineRef.current = pipeline
         onPipelineChange?.(pipeline)
         setIsInitialized(true)
         setError(null)
       } catch (err) {
+        if (cancelled) {
+          return
+        }
+
         console.error('Failed to initialize WebGL pipeline:', err)
         setError(
           err instanceof Error ? err.message : 'WebGL initialization failed',
@@ -166,11 +187,10 @@ export function PreviewCanvas({
     init()
 
     return () => {
-      if (pipeline) {
-        pipeline.dispose()
-        pipelineRef.current = null
-        onPipelineChange?.(null)
-      }
+      cancelled = true
+      disposePipeline()
+      pipelineRef.current = null
+      onPipelineChange?.(null)
     }
   }, [onPipelineChange])
 
