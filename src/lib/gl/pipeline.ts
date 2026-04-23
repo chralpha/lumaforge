@@ -9,6 +9,7 @@ import {
   createFramebuffer,
   createFullscreenQuad,
   createProgram,
+  createRgb16UiTextureFromData,
   createTextureFromData,
   createWebGL2Context,
   detectCapabilities,
@@ -16,7 +17,8 @@ import {
 } from './context'
 import {
   PREVIEW_OUTPUT_SHADER,
-  PROCESS_FRAGMENT_SHADER,
+  PROCESS_FRAGMENT_SHADER_FLOAT,
+  PROCESS_FRAGMENT_SHADER_U16,
   VERTEX_SHADER,
 } from './shaders'
 
@@ -54,6 +56,44 @@ export interface PipelineStats {
   totalTime: number
   inputSize: { width: number; height: number }
   previewSize: { width: number; height: number }
+}
+
+export type RawUploadInput =
+  | {
+      data: Float32Array
+      width: number
+      height: number
+      layout: 'rgba-float32'
+      colorSpace: 'display-srgb-preview'
+    }
+  | {
+      data: Uint16Array
+      width: number
+      height: number
+      layout: 'rgb-u16'
+      colorSpace: 'linear-prophoto-rgb'
+    }
+
+export type RawUploadInputFormat = 'float-rgba' | 'uint16-rgb'
+
+export function describeRawUploadInput(input: RawUploadInput): {
+  inputFormat: RawUploadInputFormat
+  channelCount: 3 | 4
+  bytesPerPixel: 6 | 16
+} {
+  if (input.layout === 'rgb-u16') {
+    return {
+      inputFormat: 'uint16-rgb',
+      channelCount: 3,
+      bytesPerPixel: 6,
+    }
+  }
+
+  return {
+    inputFormat: 'float-rgba',
+    channelCount: 4,
+    bytesPerPixel: 16,
+  }
 }
 
 const DEFAULT_PARAMS: ProcessingParams = {
@@ -94,7 +134,8 @@ export class RawProcessingPipeline {
   private capabilities: WebGLCapabilities
 
   // Shader programs
-  private processProgram: WebGLProgram | null = null
+  private processProgramFloat: WebGLProgram | null = null
+  private processProgramU16: WebGLProgram | null = null
   private outputProgram: WebGLProgram | null = null
 
   // Geometry
@@ -115,13 +156,13 @@ export class RawProcessingPipeline {
   // State
   private inputWidth = 0
   private inputHeight = 0
-  private inputPixels: Float32Array | null = null
+  private inputUpload: RawUploadInput | null = null
+  private inputFormat: RawUploadInputFormat = 'float-rgba'
   private params: ProcessingParams = { ...DEFAULT_PARAMS }
   private lutData: LUTData | null = null
   private isInitialized = false
 
   // Uniforms locations cache
-  private processUniforms: Record<string, WebGLUniformLocation | null> = {}
   private outputUniforms: Record<string, WebGLUniformLocation | null> = {}
 
   constructor(canvas: HTMLCanvasElement) {
@@ -143,19 +184,27 @@ export class RawProcessingPipeline {
     const { gl } = this
 
     // Create shader programs
-    this.processProgram = createProgram(
+    this.processProgramFloat = createProgram(
       gl,
       VERTEX_SHADER,
-      PROCESS_FRAGMENT_SHADER,
+      PROCESS_FRAGMENT_SHADER_FLOAT,
+    )
+    this.processProgramU16 = createProgram(
+      gl,
+      VERTEX_SHADER,
+      PROCESS_FRAGMENT_SHADER_U16,
     )
     this.outputProgram = createProgram(gl, VERTEX_SHADER, PREVIEW_OUTPUT_SHADER)
 
-    if (!this.processProgram || !this.outputProgram) {
+    if (
+      !this.processProgramFloat ||
+      !this.processProgramU16 ||
+      !this.outputProgram
+    ) {
       throw new Error('Failed to create shader programs')
     }
 
     // Cache uniform locations
-    this.cacheProcessUniforms()
     this.cacheOutputUniforms()
 
     // Create fullscreen quad
@@ -200,11 +249,12 @@ export class RawProcessingPipeline {
     return texture
   }
 
-  private cacheProcessUniforms(): void {
+  private getProcessUniforms(
+    program: WebGLProgram,
+  ): Record<string, WebGLUniformLocation | null> {
     const { gl } = this
-    const program = this.processProgram!
 
-    this.processUniforms = {
+    return {
       u_inputTexture: gl.getUniformLocation(program, 'u_inputTexture'),
       u_lutTexture: gl.getUniformLocation(program, 'u_lutTexture'),
       u_useLut: gl.getUniformLocation(program, 'u_useLut'),
@@ -228,35 +278,50 @@ export class RawProcessingPipeline {
 
   /**
    * Upload decoded RAW image data to GPU.
-   * @param data - Linear RGB float data (RGBA format)
-   * @param width - Image width
-   * @param height - Image height
+   * @param input - Decoded RAW data and its GPU upload layout.
    */
-  uploadImage(data: Float32Array, width: number, height: number): void {
+  uploadImage(input: RawUploadInput): void {
     const { gl } = this
 
-    this.inputPixels = data
+    this.inputUpload = input
+    this.inputFormat = describeRawUploadInput(input).inputFormat
 
     // Delete old texture
     if (this.inputTexture) {
       gl.deleteTexture(this.inputTexture)
     }
 
-    // Get recommended format
-    const { internalFormat, format, type } = getRecommendedTextureFormat(gl)
+    if (input.layout === 'rgb-u16') {
+      this.inputTexture = createRgb16UiTextureFromData(
+        gl,
+        input.width,
+        input.height,
+        input.data,
+      )
+    } else {
+      const { internalFormat, format, type } = getRecommendedTextureFormat(gl)
+      this.inputTexture = createTextureFromData(
+        gl,
+        input.width,
+        input.height,
+        input.data,
+        {
+          internalFormat,
+          format,
+          type,
+        },
+      )
+    }
 
-    // Create input texture
-    this.inputTexture = createTextureFromData(gl, width, height, data, {
-      internalFormat,
-      format,
-      type,
-    })
+    if (!this.inputTexture) {
+      throw new Error('Failed to create input texture')
+    }
 
-    this.inputWidth = width
-    this.inputHeight = height
+    this.inputWidth = input.width
+    this.inputHeight = input.height
 
     // Recreate processing framebuffer at new size
-    this.recreateProcessFBO(width, height)
+    this.recreateProcessFBO(input.width, input.height)
   }
 
   private recreateProcessFBO(width: number, height: number): void {
@@ -358,7 +423,8 @@ export class RawProcessingPipeline {
   private renderProcessPass(): void {
     const {
       gl,
-      processProgram,
+      processProgramFloat,
+      processProgramU16,
       processFBO,
       inputWidth,
       inputHeight,
@@ -366,10 +432,17 @@ export class RawProcessingPipeline {
       lutTexture,
       fallbackLutTexture,
       lutData,
-      processUniforms,
       fullscreenQuad,
       params,
+      inputFormat,
     } = this
+    const processProgram =
+      inputFormat === 'uint16-rgb' ? processProgramU16 : processProgramFloat
+
+    if (!processProgram) {
+      throw new Error('PROCESS_PROGRAM_MISSING')
+    }
+    const processUniforms = this.getProcessUniforms(processProgram)
 
     // Bind FBO
     gl.bindFramebuffer(gl.FRAMEBUFFER, processFBO)
@@ -483,11 +556,11 @@ export class RawProcessingPipeline {
 
     const pipeline = new RawProcessingPipeline(canvas)
     await pipeline.initialize()
-    if (!this.inputPixels) {
+    if (!this.inputUpload) {
       throw new Error('EXPORT_SOURCE_MISSING')
     }
 
-    pipeline.uploadImage(this.inputPixels, this.inputWidth, this.inputHeight)
+    pipeline.uploadImage(this.inputUpload)
     if (this.lutData) {
       pipeline.uploadLUT(this.lutData)
     }
@@ -530,7 +603,8 @@ export class RawProcessingPipeline {
       fallbackLutTexture,
       processedTexture,
       processFBO,
-      processProgram,
+      processProgramFloat,
+      processProgramU16,
       outputProgram,
       fullscreenQuad,
     } = this
@@ -545,7 +619,8 @@ export class RawProcessingPipeline {
     if (processFBO) gl.deleteFramebuffer(processFBO)
 
     // Delete programs
-    if (processProgram) gl.deleteProgram(processProgram)
+    if (processProgramFloat) gl.deleteProgram(processProgramFloat)
+    if (processProgramU16) gl.deleteProgram(processProgramU16)
     if (outputProgram) gl.deleteProgram(outputProgram)
 
     // Delete geometry

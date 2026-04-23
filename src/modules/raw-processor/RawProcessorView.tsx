@@ -173,6 +173,8 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
               <div className="flex-1 relative">
                 <PreviewCanvas
                   imageData={loadedImage.decoded?.data || null}
+                  imageLayout={loadedImage.decoded?.layout || null}
+                  imageColorSpace={loadedImage.decoded?.colorSpace || null}
                   imageWidth={loadedImage.decoded?.width || 0}
                   imageHeight={loadedImage.decoded?.height || 0}
                   params={params}

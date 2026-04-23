@@ -10,12 +10,15 @@ import type {
   LUTData,
   PipelineStats,
   ProcessingParams,
+  RawUploadInput,
 } from '~/lib/gl/pipeline'
 import { RawProcessingPipeline } from '~/lib/gl/pipeline'
 import { Spring } from '~/lib/spring'
 
 export interface PreviewCanvasProps {
-  imageData: Float32Array | null
+  imageData: Float32Array | Uint16Array | null
+  imageLayout: RawUploadInput['layout'] | null
+  imageColorSpace: RawUploadInput['colorSpace'] | null
   imageWidth: number
   imageHeight: number
   params: ProcessingParams
@@ -25,8 +28,54 @@ export interface PreviewCanvasProps {
   className?: string
 }
 
+function createRawUploadInput({
+  data,
+  layout,
+  colorSpace,
+  width,
+  height,
+}: {
+  data: Float32Array | Uint16Array | null
+  layout: RawUploadInput['layout'] | null
+  colorSpace: RawUploadInput['colorSpace'] | null
+  width: number
+  height: number
+}): RawUploadInput | null {
+  if (!data || !layout || !colorSpace) {
+    return null
+  }
+
+  if (layout === 'rgb-u16') {
+    if (data instanceof Uint16Array && colorSpace === 'linear-prophoto-rgb') {
+      return {
+        data,
+        width,
+        height,
+        layout,
+        colorSpace,
+      }
+    }
+
+    return null
+  }
+
+  if (data instanceof Float32Array && colorSpace === 'display-srgb-preview') {
+    return {
+      data,
+      width,
+      height,
+      layout,
+      colorSpace,
+    }
+  }
+
+  return null
+}
+
 export function PreviewCanvas({
   imageData,
+  imageLayout,
+  imageColorSpace,
   imageWidth,
   imageHeight,
   params,
@@ -117,7 +166,7 @@ export function PreviewCanvas({
         const pipeline = pipelineRef.current
         if (pipeline) {
           pipeline.resize(canvas.width, canvas.height)
-          if (isInitialized && imageData) {
+          if (isInitialized && imageData && imageLayout && imageColorSpace) {
             const stats = pipeline.render()
             onStatsUpdate?.(stats)
           }
@@ -130,15 +179,43 @@ export function PreviewCanvas({
     return () => {
       resizeObserver.disconnect()
     }
-  }, [imageWidth, imageHeight, imageData, isInitialized, onStatsUpdate])
+  }, [
+    imageWidth,
+    imageHeight,
+    imageData,
+    imageLayout,
+    imageColorSpace,
+    isInitialized,
+    onStatsUpdate,
+  ])
 
   // Upload image data when it changes
   useEffect(() => {
     const pipeline = pipelineRef.current
     if (!pipeline || !isInitialized || !imageData) return
 
-    pipeline.uploadImage(imageData, imageWidth, imageHeight)
-  }, [imageData, imageWidth, imageHeight, isInitialized])
+    const uploadInput = createRawUploadInput({
+      data: imageData,
+      layout: imageLayout,
+      colorSpace: imageColorSpace,
+      width: imageWidth,
+      height: imageHeight,
+    })
+    if (!uploadInput) {
+      setError('Decoded image data does not match the WebGL upload layout')
+      return
+    }
+
+    pipeline.uploadImage(uploadInput)
+    setError(null)
+  }, [
+    imageData,
+    imageLayout,
+    imageColorSpace,
+    imageWidth,
+    imageHeight,
+    isInitialized,
+  ])
 
   // Upload LUT when it changes
   useEffect(() => {
@@ -155,7 +232,14 @@ export function PreviewCanvas({
   // Update params and render
   useEffect(() => {
     const pipeline = pipelineRef.current
-    if (!pipeline || !isInitialized || !imageData) return
+    if (
+      !pipeline ||
+      !isInitialized ||
+      !imageData ||
+      !imageLayout ||
+      !imageColorSpace
+    )
+      return
 
     pipeline.setParams({
       ...params,
@@ -163,16 +247,37 @@ export function PreviewCanvas({
     })
     const stats = pipeline.render()
     onStatsUpdate?.(stats)
-  }, [params, isInitialized, imageData, onStatsUpdate])
+  }, [
+    params,
+    isInitialized,
+    imageData,
+    imageLayout,
+    imageColorSpace,
+    onStatsUpdate,
+  ])
 
   // Re-render when LUT changes
   useEffect(() => {
     const pipeline = pipelineRef.current
-    if (!pipeline || !isInitialized || !imageData) return
+    if (
+      !pipeline ||
+      !isInitialized ||
+      !imageData ||
+      !imageLayout ||
+      !imageColorSpace
+    )
+      return
 
     const stats = pipeline.render()
     onStatsUpdate?.(stats)
-  }, [lutData, isInitialized, imageData, onStatsUpdate])
+  }, [
+    lutData,
+    isInitialized,
+    imageData,
+    imageLayout,
+    imageColorSpace,
+    onStatsUpdate,
+  ])
 
   return (
     <div

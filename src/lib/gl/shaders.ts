@@ -24,15 +24,13 @@ void main() {
 /**
  * Main fragment shader for the phase-1 RAW processing pipeline.
  */
-export const PROCESS_FRAGMENT_SHADER = /* glsl */ `#version 300 es
+const PROCESS_FRAGMENT_SHADER_HEADER = /* glsl */ `
 precision highp float;
-precision highp sampler2D;
 precision highp sampler3D;
 
 in vec2 v_texCoord;
 out vec4 fragColor;
 
-uniform sampler2D u_inputTexture;
 uniform sampler3D u_lutTexture;
 uniform bool u_useLut;
 uniform vec3 u_lutDomainMin;
@@ -41,7 +39,9 @@ uniform float u_intensity;
 uniform int u_styleKind;
 uniform int u_builtinPreset;
 uniform int u_lutInputProfile;
+`
 
+const PROCESS_FRAGMENT_SHADER_BODY = /* glsl */ `
 const int STYLE_NONE = 0;
 const int STYLE_BUILTIN = 1;
 const int STYLE_CUSTOM = 2;
@@ -169,7 +169,7 @@ vec3 applyLut(vec3 color) {
 }
 
 void main() {
-  vec3 baseColor = clamp01(texture(u_inputTexture, v_texCoord).rgb);
+  vec3 baseColor = clamp01(readInputColor(v_texCoord));
   vec3 styledColor = baseColor;
   float intensity = clamp(u_intensity, 0.0, 1.0);
 
@@ -182,6 +182,33 @@ void main() {
 
   fragColor = vec4(clamp01(mix(baseColor, styledColor, intensity)), 1.0);
 }
+`
+
+export const PROCESS_FRAGMENT_SHADER_FLOAT = /* glsl */ `#version 300 es
+precision highp sampler2D;
+${PROCESS_FRAGMENT_SHADER_HEADER}
+
+uniform sampler2D u_inputTexture;
+
+vec3 readInputColor(vec2 uv) {
+  return texture(u_inputTexture, uv).rgb;
+}
+
+${PROCESS_FRAGMENT_SHADER_BODY}
+`
+
+export const PROCESS_FRAGMENT_SHADER_U16 = /* glsl */ `#version 300 es
+precision highp usampler2D;
+${PROCESS_FRAGMENT_SHADER_HEADER}
+
+uniform usampler2D u_inputTexture;
+
+vec3 readInputColor(vec2 uv) {
+  uvec3 color = texture(u_inputTexture, uv).rgb;
+  return vec3(color) / 65535.0;
+}
+
+${PROCESS_FRAGMENT_SHADER_BODY}
 `
 
 /**

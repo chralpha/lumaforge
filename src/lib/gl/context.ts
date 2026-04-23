@@ -312,6 +312,44 @@ export function createTextureFromData(
 }
 
 /**
+ * Creates an integer RGB16 texture from Luma runtime RGB data.
+ */
+export function createRgb16UiTextureFromData(
+  gl: WebGL2RenderingContext,
+  width: number,
+  height: number,
+  data: Uint16Array,
+): WebGLTexture | null {
+  const texture = gl.createTexture()
+  if (!texture) return null
+
+  gl.bindTexture(gl.TEXTURE_2D, texture)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+  try {
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGB16UI,
+      width,
+      height,
+      0,
+      gl.RGB_INTEGER,
+      gl.UNSIGNED_SHORT,
+      data,
+    )
+  } finally {
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
+  }
+
+  return texture
+}
+
+/**
  * Creates a 3D texture for LUT.
  */
 export function create3DTexture(

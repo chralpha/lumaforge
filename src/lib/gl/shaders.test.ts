@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import { PREVIEW_OUTPUT_SHADER, PROCESS_FRAGMENT_SHADER } from './shaders'
+import {
+  PREVIEW_OUTPUT_SHADER,
+  PROCESS_FRAGMENT_SHADER_FLOAT,
+  PROCESS_FRAGMENT_SHADER_U16,
+} from './shaders'
+
+const PROCESS_SHADER_VARIANTS = [
+  ['float', PROCESS_FRAGMENT_SHADER_FLOAT],
+  ['u16', PROCESS_FRAGMENT_SHADER_U16],
+] as const
 
 describe('preview output shader', () => {
   it('flips the processed texture vertically for browser display', () => {
@@ -14,21 +23,52 @@ describe('preview output shader', () => {
 })
 
 describe('process shader style path', () => {
-  it('has one shared style path with explicit style uniforms', () => {
-    expect(PROCESS_FRAGMENT_SHADER).toContain('u_styleKind')
-    expect(PROCESS_FRAGMENT_SHADER).toContain('u_builtinPreset')
-    expect(PROCESS_FRAGMENT_SHADER).toContain('u_lutInputProfile')
-    expect(PROCESS_FRAGMENT_SHADER).toContain('STYLE_BUILTIN')
-    expect(PROCESS_FRAGMENT_SHADER).toContain('STYLE_CUSTOM')
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant has the shared style path with explicit style uniforms',
+    (_name, shader) => {
+      expect(shader).toContain('u_styleKind')
+      expect(shader).toContain('u_builtinPreset')
+      expect(shader).toContain('u_lutInputProfile')
+      expect(shader).toContain('STYLE_BUILTIN')
+      expect(shader).toContain('STYLE_CUSTOM')
+      expect(shader).toContain('u_builtinPreset == 7')
+    },
+  )
+
+  it('uses a normalized float sampler for legacy RGBA input', () => {
+    expect(PROCESS_FRAGMENT_SHADER_FLOAT).toContain(
+      'uniform sampler2D u_inputTexture',
+    )
+    expect(PROCESS_FRAGMENT_SHADER_FLOAT).toContain(
+      'return texture(u_inputTexture, uv).rgb',
+    )
+    expect(PROCESS_FRAGMENT_SHADER_FLOAT).not.toContain('usampler2D')
   })
 
-  it('prepares V-Log LUT input before sampling custom LUTs', () => {
-    expect(PROCESS_FRAGMENT_SHADER).toContain('rec709LinearToVGamutLinear')
-    expect(PROCESS_FRAGMENT_SHADER).toContain('vLogEncodeChannel')
-    expect(PROCESS_FRAGMENT_SHADER).toContain('prepareLutInput')
+  it('converts RGB16 unsigned integer input in the shader', () => {
+    expect(PROCESS_FRAGMENT_SHADER_U16).toContain(
+      'uniform usampler2D u_inputTexture',
+    )
+    expect(PROCESS_FRAGMENT_SHADER_U16).toContain(
+      'uvec3 color = texture(u_inputTexture, uv).rgb',
+    )
+    expect(PROCESS_FRAGMENT_SHADER_U16).toContain('vec3(color) / 65535.0')
   })
 
-  it('mixes the styled output against the normalized original', () => {
-    expect(PROCESS_FRAGMENT_SHADER).toContain('mix(baseColor, styledColor')
-  })
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant prepares V-Log LUT input before sampling custom LUTs',
+    (_name, shader) => {
+      expect(shader).toContain('rec709LinearToVGamutLinear')
+      expect(shader).toContain('vLogEncodeChannel')
+      expect(shader).toContain('prepareLutInput')
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant mixes the styled output against the normalized original',
+    (_name, shader) => {
+      expect(shader).toContain('vec3 baseColor = clamp01(readInputColor')
+      expect(shader).toContain('mix(baseColor, styledColor')
+    },
+  )
 })
