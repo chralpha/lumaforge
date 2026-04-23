@@ -385,10 +385,10 @@ Run:
 ```bash
 pnpm test:run src/lib/raw/decoder.test.ts src/lib/raw/runtime-adapter.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx
 pnpm exec tsc --noEmit
-rg "libraw-wasm" src package.json pnpm-lock.yaml
+rg "libraw-wasm" src package.json
 ```
 
-Expected: tests and typecheck pass. The final `rg` command exits non-zero because no matches remain in active app source, root package manifest, or lockfile.
+Expected: tests and typecheck pass. The final `rg` command exits non-zero because no matches remain in active app source or the root package manifest. `pnpm-lock.yaml` can still reference `libraw-wasm` until Task 3 removes the runtime benchmark dev dependency.
 
 - [ ] **Step 6: Commit Task 2**
 
@@ -556,4 +556,3 @@ Run:
 git add docs/plans/2026-04-23-luma-raw-runtime-benchmark-notes.md docs/specs/2026-04-22-phase1-test-matrix.md docs/specs/2026-04-23-luma-raw-runtime-migration-design.md PLAN.md ACCEPTANCE.md
 git commit -m "docs(raw-runtime): finalize luma default migration"
 ```
-
