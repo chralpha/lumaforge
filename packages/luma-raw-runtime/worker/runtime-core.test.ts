@@ -336,6 +336,77 @@ describe('runtime-core', () => {
     expect(response.payload.timings.openBuffer).toBe(18)
   })
 
+  it('uses measured openBuffer timing when native open timings are unavailable', async () => {
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+
+        return {
+          ...processor,
+          openBuffer(data, settings) {
+            processor.openBuffer(data, settings)
+            return undefined
+          },
+        }
+      },
+    })
+
+    const response = await core.handleRequest({
+      id: 'job-open-fallback-timing',
+      type: 'decodeQuick',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(response.ok && response.type === 'decodeQuick').toBe(true)
+    if (!response.ok || response.type !== 'decodeQuick') return
+
+    expect(response.payload.timings.openBuffer).toBeGreaterThanOrEqual(0)
+    expect(response.payload.timings.copyToWasm).toBeUndefined()
+    expect(response.payload.timings.librawOpen).toBeUndefined()
+  })
+
+  it('returns a stable failure when native open timings are malformed', async () => {
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+
+        return {
+          ...processor,
+          openBuffer(data, settings) {
+            processor.openBuffer(data, settings)
+            return {
+              copyToWasm: -1,
+              librawOpen: 11,
+            }
+          },
+        }
+      },
+    })
+
+    const response = await core.handleRequest({
+      id: 'job-bad-open-timings',
+      type: 'decodeQuick',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(response).toMatchObject({
+      ok: false,
+      type: 'decodeQuick',
+      error: {
+        code: 'RAW_OPEN_FAILED',
+        message: 'Native RAW openBuffer returned invalid copyToWasm timing.',
+      },
+    })
+  })
+
   it('clones decoded frame subarrays into tight owned buffers', async () => {
     const source = new Uint16Array([9, 8, 0, 32768, 65535, 7]).subarray(2, 5)
     const core = createRuntimeCore({

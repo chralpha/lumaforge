@@ -4,6 +4,7 @@ import { createNativeFactory } from './native-adapter'
 import type { LumaRawNativeOpenSettings } from './native-types'
 
 type ProcessorValues = {
+  openTimings?: unknown
   thumbnail?: unknown
   image?: unknown
 }
@@ -27,7 +28,9 @@ function createProcessor(values: ProcessorValues) {
 
   return createNativeFactory({
     LumaRawProcessor: class {
-      openBuffer(_data: Uint8Array, _settings: LumaRawNativeOpenSettings) {}
+      openBuffer(_data: Uint8Array, _settings: LumaRawNativeOpenSettings) {
+        return values.openTimings
+      }
       readMetadata() {
         return {}
       }
@@ -153,5 +156,52 @@ describe('native-adapter', () => {
     })
     processor.openBuffer(new Uint8Array([1]), settings)
     processor.dispose()
+  })
+
+  it('preserves undefined open timing returns for runtime fallback timing', () => {
+    const processor = createProcessor({ openTimings: undefined })
+
+    expect(processor.openBuffer(new Uint8Array([1]), settings)).toBeUndefined()
+  })
+
+  it('normalizes valid open timing objects', () => {
+    const processor = createProcessor({
+      openTimings: {
+        copyToWasm: 7,
+        librawOpen: 11,
+      },
+    })
+
+    expect(processor.openBuffer(new Uint8Array([1]), settings)).toEqual({
+      copyToWasm: 7,
+      librawOpen: 11,
+    })
+  })
+
+  it('throws when open timing objects are malformed', () => {
+    const negativeTiming = createProcessor({
+      openTimings: {
+        copyToWasm: -1,
+        librawOpen: 11,
+      },
+    })
+    const missingTiming = createProcessor({
+      openTimings: {
+        copyToWasm: 7,
+      },
+    })
+    const nonObjectTiming = createProcessor({
+      openTimings: 12,
+    })
+
+    expect(() =>
+      negativeTiming.openBuffer(new Uint8Array([1]), settings),
+    ).toThrow('Native RAW openBuffer returned invalid copyToWasm timing.')
+    expect(() =>
+      missingTiming.openBuffer(new Uint8Array([1]), settings),
+    ).toThrow('Native RAW openBuffer returned invalid librawOpen timing.')
+    expect(() =>
+      nonObjectTiming.openBuffer(new Uint8Array([1]), settings),
+    ).toThrow('Native RAW openBuffer returned invalid timing data.')
   })
 })

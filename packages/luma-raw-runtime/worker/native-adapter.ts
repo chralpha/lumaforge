@@ -1,6 +1,7 @@
 import type {
   LumaRawNativeFactory,
   LumaRawNativeOpenSettings,
+  LumaRawNativeOpenTimings,
   LumaRawNativeProcessor,
 } from './native-types'
 
@@ -28,6 +29,16 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function asOpenTiming(value: unknown, label: keyof LumaRawNativeOpenTimings) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new TypeError(
+      `Native RAW openBuffer returned invalid ${label} timing.`,
+    )
+  }
+
+  return value
 }
 
 function asPositiveInteger(value: unknown, label: string) {
@@ -79,12 +90,19 @@ function normalizeMetadata(value: unknown) {
   }
 }
 
-function normalizeOpenTimings(value: unknown) {
+function normalizeOpenTimings(
+  value: unknown,
+): LumaRawNativeOpenTimings | undefined {
+  if (value === undefined) return undefined
+  if (value === null || typeof value !== 'object') {
+    throw new TypeError('Native RAW openBuffer returned invalid timing data.')
+  }
+
   const raw = asRecord(value)
 
   return {
-    copyToWasm: asNumber(raw.copyToWasm) ?? 0,
-    librawOpen: asNumber(raw.librawOpen) ?? 0,
+    copyToWasm: asOpenTiming(raw.copyToWasm, 'copyToWasm'),
+    librawOpen: asOpenTiming(raw.librawOpen, 'librawOpen'),
   }
 }
 

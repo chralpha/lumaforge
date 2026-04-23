@@ -133,12 +133,29 @@ function cloneUint16Array(data: Uint16Array) {
   return new Uint16Array(data)
 }
 
-function toOpenTimings(
-  timings: Partial<LumaRawNativeOpenTimings> | undefined,
-): LumaRawNativeOpenTimings {
+function asOpenTiming(value: unknown, label: keyof LumaRawNativeOpenTimings) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new TypeError(
+      `Native RAW openBuffer returned invalid ${label} timing.`,
+    )
+  }
+
+  return value
+}
+
+function normalizeOpenTimings(
+  timings: unknown,
+): LumaRawNativeOpenTimings | undefined {
+  if (timings === undefined) return undefined
+  if (timings === null || typeof timings !== 'object') {
+    throw new TypeError('Native RAW openBuffer returned invalid timing data.')
+  }
+
+  const raw = timings as Record<string, unknown>
+
   return {
-    copyToWasm: timings?.copyToWasm ?? 0,
-    librawOpen: timings?.librawOpen ?? 0,
+    copyToWasm: asOpenTiming(raw.copyToWasm, 'copyToWasm'),
+    librawOpen: asOpenTiming(raw.librawOpen, 'librawOpen'),
   }
 }
 
@@ -256,17 +273,25 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
     let disposeError: unknown
 
     try {
-      const openTimings = toOpenTimings(
+      const openStart = now()
+      const openTimings = normalizeOpenTimings(
         processor.openBuffer(
           new Uint8Array(request.payload.fileBuffer),
           settings,
         ),
       )
-      timer.assign({
-        copyToWasm: openTimings.copyToWasm,
-        librawOpen: openTimings.librawOpen,
-        openBuffer: openTimings.copyToWasm + openTimings.librawOpen,
-      })
+      const openElapsed = now() - openStart
+      timer.assign(
+        openTimings
+          ? {
+              copyToWasm: openTimings.copyToWasm,
+              librawOpen: openTimings.librawOpen,
+              openBuffer: openTimings.copyToWasm + openTimings.librawOpen,
+            }
+          : {
+              openBuffer: openElapsed,
+            },
+      )
 
       const nativeMetadata = processor.readMetadata()
       timer.mark('metadata')
