@@ -23,4 +23,26 @@ describe('runPreviewPipeline', () => {
       expect.objectContaining({ type: 'hq-ready', width: 4000, height: 3000 }),
     )
   })
+
+  it('keeps the quick preview path observable when HQ decode fails', async () => {
+    const onEvent = vi.fn()
+
+    await runPreviewPipeline({
+      file: new File(['raw'], 'frame.ARW'),
+      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+      decodeQuickPreview: vi
+        .fn()
+        .mockResolvedValue({ width: 800, height: 600 }),
+      decodeHqPreview: vi.fn().mockRejectedValue(new Error('decode failed')),
+      onEvent,
+    })
+
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'quick-ready', width: 800, height: 600 }),
+    )
+    expect(onEvent).toHaveBeenCalledWith({
+      type: 'hq-failed',
+      errorCode: 'RAW_HQ_DECODE_FAILED',
+    })
+  })
 })
