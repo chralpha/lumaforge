@@ -67,6 +67,7 @@ export class RawProcessingPipeline {
   // Textures
   private inputTexture: WebGLTexture | null = null
   private lutTexture: WebGLTexture | null = null
+  private fallbackLutTexture: WebGLTexture | null = null
   private processedTexture: WebGLTexture | null = null
 
   // Framebuffers
@@ -124,7 +125,40 @@ export class RawProcessingPipeline {
       throw new Error('Failed to create fullscreen quad')
     }
 
+    this.fallbackLutTexture = this.createFallbackLutTexture()
+    if (!this.fallbackLutTexture) {
+      throw new Error('Failed to create fallback LUT texture')
+    }
+
     this.isInitialized = true
+  }
+
+  private createFallbackLutTexture(): WebGLTexture | null {
+    const { gl } = this
+    const texture = gl.createTexture()
+    if (!texture) return null
+
+    gl.bindTexture(gl.TEXTURE_3D, texture)
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE)
+    gl.texImage3D(
+      gl.TEXTURE_3D,
+      0,
+      gl.RGB8,
+      1,
+      1,
+      1,
+      0,
+      gl.RGB,
+      gl.UNSIGNED_BYTE,
+      new Uint8Array([0, 0, 0]),
+    )
+    gl.bindTexture(gl.TEXTURE_3D, null)
+
+    return texture
   }
 
   private cacheProcessUniforms(): void {
@@ -290,6 +324,7 @@ export class RawProcessingPipeline {
       inputHeight,
       inputTexture,
       lutTexture,
+      fallbackLutTexture,
       lutData,
       processUniforms,
       fullscreenQuad,
@@ -309,14 +344,19 @@ export class RawProcessingPipeline {
 
     // Bind LUT texture
     gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(
+      gl.TEXTURE_3D,
+      lutTexture && lutData ? lutTexture : fallbackLutTexture,
+    )
+    gl.uniform1i(processUniforms.u_lutTexture, 1)
     if (lutTexture && lutData) {
-      gl.bindTexture(gl.TEXTURE_3D, lutTexture)
-      gl.uniform1i(processUniforms.u_lutTexture, 1)
       gl.uniform1i(processUniforms.u_useLut, 1)
       gl.uniform3fv(processUniforms.u_lutDomainMin, lutData.domainMin)
       gl.uniform3fv(processUniforms.u_lutDomainMax, lutData.domainMax)
     } else {
       gl.uniform1i(processUniforms.u_useLut, 0)
+      gl.uniform3fv(processUniforms.u_lutDomainMin, [0, 0, 0])
+      gl.uniform3fv(processUniforms.u_lutDomainMax, [1, 1, 1])
     }
 
     gl.uniform1f(processUniforms.u_intensity, params.intensity)
@@ -437,6 +477,7 @@ export class RawProcessingPipeline {
       gl,
       inputTexture,
       lutTexture,
+      fallbackLutTexture,
       processedTexture,
       processFBO,
       processProgram,
@@ -447,6 +488,7 @@ export class RawProcessingPipeline {
     // Delete textures
     if (inputTexture) gl.deleteTexture(inputTexture)
     if (lutTexture) gl.deleteTexture(lutTexture)
+    if (fallbackLutTexture) gl.deleteTexture(fallbackLutTexture)
     if (processedTexture) gl.deleteTexture(processedTexture)
 
     // Delete framebuffers

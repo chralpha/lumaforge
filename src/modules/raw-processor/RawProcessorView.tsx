@@ -7,7 +7,7 @@ import { m } from 'motion/react'
 import { useCallback } from 'react'
 
 import { clsxm } from '~/lib/cn'
-import type { PipelineStats } from '~/lib/gl/pipeline'
+import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import { Spring } from '~/lib/spring'
 
 import {
@@ -57,6 +57,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     reset,
     dismissError,
     updateStats,
+    pipelineRef,
   } = useRawProcessor()
 
   // Handle file drop
@@ -110,6 +111,13 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
       updateStats(newStats)
     },
     [updateStats],
+  )
+
+  const handlePipelineChange = useCallback(
+    (pipeline: RawProcessingPipeline | null) => {
+      pipelineRef.current = pipeline
+    },
+    [pipelineRef],
   )
 
   const isProcessing =
@@ -170,6 +178,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
                   params={params}
                   lutData={lutData}
                   onStatsUpdate={handleStatsUpdate}
+                  onPipelineChange={handlePipelineChange}
                 />
 
                 {/* Processing overlay */}

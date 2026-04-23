@@ -81,6 +81,8 @@ function getProgressRecoveryHint(status: ProcessingStatus) {
   return undefined
 }
 
+const LARGE_RAW_SAFE_HQ_REUSE_BYTES = 32 * 1024 * 1024
+
 export interface UseRawProcessorReturn {
   // State
   params: ProcessingParams
@@ -325,6 +327,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
             return { width: quickPreview.width, height: quickPreview.height }
           },
           decodeHqPreview: async (targetFile) => {
+            if (
+              quickPreview &&
+              targetFile.size >= LARGE_RAW_SAFE_HQ_REUSE_BYTES
+            ) {
+              hqPreview = quickPreview
+              return { width: hqPreview.width, height: hqPreview.height }
+            }
+
             hqPreview = await decodeHqRaw(targetFile, ({ phase, progress }) => {
               if (!matchesActiveSession()) {
                 return

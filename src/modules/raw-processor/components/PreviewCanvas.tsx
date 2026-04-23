@@ -21,6 +21,7 @@ export interface PreviewCanvasProps {
   params: ProcessingParams
   lutData: LUTData | null
   onStatsUpdate?: (stats: PipelineStats) => void
+  onPipelineChange?: (pipeline: RawProcessingPipeline | null) => void
   className?: string
 }
 
@@ -31,6 +32,7 @@ export function PreviewCanvas({
   params,
   lutData,
   onStatsUpdate,
+  onPipelineChange,
   className,
 }: PreviewCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -51,6 +53,7 @@ export function PreviewCanvas({
         pipeline = new RawProcessingPipeline(canvas)
         await pipeline.initialize()
         pipelineRef.current = pipeline
+        onPipelineChange?.(pipeline)
         setIsInitialized(true)
         setError(null)
       } catch (err) {
@@ -67,9 +70,10 @@ export function PreviewCanvas({
       if (pipeline) {
         pipeline.dispose()
         pipelineRef.current = null
+        onPipelineChange?.(null)
       }
     }
-  }, [])
+  }, [onPipelineChange])
 
   // Handle canvas resize
   useEffect(() => {

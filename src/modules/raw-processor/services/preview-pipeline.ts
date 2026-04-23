@@ -27,6 +27,7 @@ export async function runPreviewPipeline({
   if (!embedded) {
     const quick = await decodeQuickPreview(file)
     onEvent({ type: 'quick-ready', ...quick })
+    await yieldToPreviewPaint()
   }
 
   try {
@@ -39,4 +40,21 @@ export async function runPreviewPipeline({
 
 export async function extractEmbeddedPreviewBestEffort() {
   return null
+}
+
+function yieldToPreviewPaint() {
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.requestAnimationFrame === 'function'
+  ) {
+    return new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.setTimeout(resolve, 0)
+      })
+    })
+  }
+
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, 0)
+  })
 }
