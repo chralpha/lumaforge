@@ -61,10 +61,9 @@ type LumaSessionStageResult = (LumaEmbeddedPreview | LumaRawFrame) & {
 }
 
 type LumaRawSession = {
-  probe: LumaRawProbe & {
-    timings: BenchTimings & { total: number }
-    heap?: BenchHeap
-  }
+  probe: LumaRawProbe
+  timings: BenchTimings & { total: number }
+  heap?: BenchHeap
   extractEmbeddedPreview: () => Promise<LumaSessionStageResult | null>
   decodeQuick: () => Promise<LumaSessionStageResult>
   decodeHq: () => Promise<LumaSessionStageResult>
@@ -74,7 +73,7 @@ type LumaRawSession = {
 type LumaRawRuntimeWithAnticipatedSession = LumaRawRuntime & {
   openSession?: (
     file: File,
-    options?: { quickMaxOutputPixels?: number },
+    options?: { maxOutputPixels?: number },
   ) => Promise<LumaRawSession>
 }
 
@@ -297,10 +296,20 @@ async function benchLuma(file: File) {
     assertOpenSession(runtime)
 
     session = await runtime.openSession(file, {
-      quickMaxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
+      maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
     })
 
-    printLumaStage(file, 'luma-open-session', session.probe, 'baseline')
+    printLumaStage(
+      file,
+      'luma-open-session',
+      {
+        width: session.probe.width,
+        height: session.probe.height,
+        timings: session.timings,
+        heap: session.heap,
+      },
+      'baseline',
+    )
 
     const embedded = await session.extractEmbeddedPreview()
     if (embedded) {
