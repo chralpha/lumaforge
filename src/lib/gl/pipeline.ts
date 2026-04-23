@@ -324,15 +324,42 @@ export class RawProcessingPipeline {
     this.recreateProcessFBO(input.width, input.height)
   }
 
+  /**
+   * Clear uploaded image state so render/export cannot reuse stale pixels.
+   */
+  clearImage(): void {
+    const { gl } = this
+
+    if (this.inputTexture) {
+      gl.deleteTexture(this.inputTexture)
+      this.inputTexture = null
+    }
+    if (this.processFBO) {
+      gl.deleteFramebuffer(this.processFBO)
+      this.processFBO = null
+    }
+    if (this.processedTexture) {
+      gl.deleteTexture(this.processedTexture)
+      this.processedTexture = null
+    }
+
+    this.inputUpload = null
+    this.inputFormat = 'float-rgba'
+    this.inputWidth = 0
+    this.inputHeight = 0
+  }
+
   private recreateProcessFBO(width: number, height: number): void {
     const { gl } = this
 
     // Delete old FBO
     if (this.processFBO) {
       gl.deleteFramebuffer(this.processFBO)
+      this.processFBO = null
     }
     if (this.processedTexture) {
       gl.deleteTexture(this.processedTexture)
+      this.processedTexture = null
     }
 
     const result = createFramebuffer(gl, width, height)

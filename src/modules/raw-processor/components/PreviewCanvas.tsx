@@ -72,6 +72,39 @@ export function createRawUploadInput({
   return null
 }
 
+type RawUploadPipeline = Pick<
+  RawProcessingPipeline,
+  'clearImage' | 'uploadImage'
+>
+
+export function syncRawUploadInput({
+  pipeline,
+  imageData,
+  uploadInput,
+  setError,
+}: {
+  pipeline: RawUploadPipeline
+  imageData: Float32Array | Uint16Array | null
+  uploadInput: RawUploadInput | null
+  setError: (error: string | null) => void
+}): boolean {
+  if (!imageData) {
+    pipeline.clearImage()
+    setError(null)
+    return false
+  }
+
+  if (!uploadInput) {
+    pipeline.clearImage()
+    setError('Decoded image data does not match the WebGL upload layout')
+    return false
+  }
+
+  pipeline.uploadImage(uploadInput)
+  setError(null)
+  return true
+}
+
 export function PreviewCanvas({
   imageData,
   imageLayout,
@@ -196,18 +229,13 @@ export function PreviewCanvas({
   useEffect(() => {
     const pipeline = pipelineRef.current
     if (!pipeline || !isInitialized) return
-    if (!imageData) {
-      setError(null)
-      return
-    }
 
-    if (!uploadInput) {
-      setError('Decoded image data does not match the WebGL upload layout')
-      return
-    }
-
-    pipeline.uploadImage(uploadInput)
-    setError(null)
+    syncRawUploadInput({
+      pipeline,
+      imageData,
+      uploadInput,
+      setError,
+    })
   }, [imageData, uploadInput, isInitialized])
 
   // Upload LUT when it changes
