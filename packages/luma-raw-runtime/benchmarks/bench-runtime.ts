@@ -86,6 +86,7 @@ function required<T extends Element>(selector: string): T {
 const input = required<HTMLInputElement>('#fixture')
 const runButton = required<HTMLButtonElement>('#run')
 const copyButton = required<HTMLButtonElement>('#copy')
+const copyStatus = required<HTMLSpanElement>('#copy-status')
 const output = required<HTMLPreElement>('#output')
 
 function targetStatus(stage: BenchStage, total: number): BenchTargetStatus {
@@ -104,6 +105,22 @@ function targetStatus(stage: BenchStage, total: number): BenchTargetStatus {
 
 function print(record: BenchRecord | BenchErrorRecord) {
   output.textContent += `${JSON.stringify(record)}\n`
+}
+
+function printError(
+  runtime: BenchRuntime,
+  stage: BenchStage,
+  file: File,
+  error: unknown,
+) {
+  print({
+    runtime,
+    stage,
+    file: file.name,
+    size: file.size,
+    fileSize: file.size,
+    error: errorMessage(error),
+  })
 }
 
 function errorMessage(error: unknown) {
@@ -298,7 +315,13 @@ async function benchLuma(file: File) {
     session = await runtime.openSession(file, {
       maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
     })
+  } catch (error) {
+    printError('luma', 'luma-open-session', file, error)
+    runtime.dispose()
+    return
+  }
 
+  try {
     printLumaStage(
       file,
       'luma-open-session',
@@ -311,39 +334,44 @@ async function benchLuma(file: File) {
       'baseline',
     )
 
-    const embedded = await session.extractEmbeddedPreview()
-    if (embedded) {
-      printLumaStage(file, 'luma-embedded', embedded)
-    } else {
-      print({
-        runtime: 'luma',
-        stage: 'luma-embedded',
-        file: file.name,
-        size: file.size,
-        fileSize: file.size,
-        error: 'No embedded preview available.',
-      })
+    const runLumaStage = async (
+      stage: Exclude<
+        BenchStage,
+        'legacy-quick' | 'legacy-hq' | 'luma-open-session'
+      >,
+      action: () => Promise<void>,
+    ) => {
+      try {
+        await action()
+      } catch (error) {
+        printError('luma', stage, file, error)
+      }
     }
 
-    printLumaStage(file, 'luma-quick', await session.decodeQuick())
-    printLumaStage(file, 'luma-hq', await session.decodeHq())
-  } catch (error) {
-    print({
-      runtime: 'luma',
-      stage: 'luma-open-session',
-      file: file.name,
-      size: file.size,
-      fileSize: file.size,
-      error: errorMessage(error),
+    await runLumaStage('luma-embedded', async () => {
+      const embedded = await session.extractEmbeddedPreview()
+      if (!embedded) {
+        throw new Error('No embedded preview available.')
+      }
+      printLumaStage(file, 'luma-embedded', embedded)
+    })
+
+    await runLumaStage('luma-quick', async () => {
+      printLumaStage(file, 'luma-quick', await session.decodeQuick())
+    })
+
+    await runLumaStage('luma-hq', async () => {
+      printLumaStage(file, 'luma-hq', await session.decodeHq())
     })
   } finally {
-    session?.dispose()
+    session.dispose()
     runtime.dispose()
   }
 }
 
 async function run() {
   output.textContent = ''
+  copyStatus.textContent = ''
   const files = [...(input.files ?? [])]
   if (files.length === 0) {
     output.textContent = 'Choose at least one RAW fixture.\n'
@@ -369,5 +397,19 @@ runButton.addEventListener('click', () => {
 })
 
 copyButton.addEventListener('click', async () => {
-  await navigator.clipboard.writeText(output.textContent || '')
+  const clipboard = navigator.clipboard
+  if (!clipboard || typeof clipboard.writeText !== 'function') {
+    copyStatus.textContent = 'Clipboard unavailable'
+    copyButton.title = 'Clipboard unavailable in this browser context'
+    return
+  }
+
+  try {
+    await clipboard.writeText(output.textContent || '')
+    copyStatus.textContent = 'Copied'
+    copyButton.title = 'Copied JSONL output'
+  } catch (error) {
+    copyStatus.textContent = 'Copy failed'
+    copyButton.title = errorMessage(error)
+  }
 })
