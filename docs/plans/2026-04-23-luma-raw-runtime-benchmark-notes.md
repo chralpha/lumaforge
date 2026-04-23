@@ -99,10 +99,10 @@ The largest observed per-stage heap increase was 584,122,368 bytes for `SGL00940
 
 ## Rollout Gate Readiness
 
-Default runtime switch to `luma` is not approved by this Task 8 documentation update.
+Default runtime switch to `luma` is not approved by this optimization plan.
 This benchmark run did not find required Luma stages over target, and embedded previews did not report `0x0`.
 Heap telemetry is present for all Luma benchmark rows.
-The remaining rollout decision is deferred to Task 9 gate review.
+Task 9 gate review completed with the rollout status recorded below.
 
 ## V2 Rollout Gate
 
