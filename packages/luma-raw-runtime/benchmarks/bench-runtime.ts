@@ -9,6 +9,7 @@ import type {
 } from '../src/types'
 
 const QUICK_PREVIEW_MAX_PIXELS = 2_500_000
+const HQ_TARGET_MAX_MEGAPIXELS = 30
 const LARGE_RAW_SAFE_HQ_REUSE_BYTES = 32 * 1024 * 1024
 
 type BenchStage =
@@ -89,7 +90,11 @@ const copyButton = required<HTMLButtonElement>('#copy')
 const copyStatus = required<HTMLSpanElement>('#copy-status')
 const output = required<HTMLPreElement>('#output')
 
-function targetStatus(stage: BenchStage, total: number): BenchTargetStatus {
+function targetStatus(
+  stage: BenchStage,
+  total: number,
+  megapixels?: number,
+): BenchTargetStatus {
   if (stage === 'legacy-quick' || stage === 'legacy-hq') return 'baseline'
   if (stage === 'luma-embedded') {
     return total < 1000 ? 'within-target' : 'over-target'
@@ -98,6 +103,7 @@ function targetStatus(stage: BenchStage, total: number): BenchTargetStatus {
     return total <= 4000 ? 'within-target' : 'over-target'
   }
   if (stage === 'luma-hq') {
+    if ((megapixels ?? 0) > HQ_TARGET_MAX_MEGAPIXELS) return 'baseline'
     return total <= 8000 ? 'within-target' : 'over-target'
   }
   return 'baseline'
@@ -174,11 +180,16 @@ function makeRecord(
     targetStatus?: BenchTargetStatus
   },
 ): BenchRecord {
+  const megapixels =
+    base.megapixels ?? outputMegapixels(base.width, base.height)
+
   return {
     ...base,
+    megapixels,
     ...recordTimingFields(base.timings),
     heapBytes: heapBytes(base.heap),
-    targetStatus: base.targetStatus ?? targetStatus(base.stage, base.total),
+    targetStatus:
+      base.targetStatus ?? targetStatus(base.stage, base.total, megapixels),
   }
 }
 

@@ -63,13 +63,13 @@ pnpm --filter @lumaforge/luma-raw-runtime bench:serve
 | SGL00940.ARW | luma | luma-open-session | 82817024 | 9566 | 6374 | 60.97 | 165 | 110 |  | 41 | 51 | 10 |  |  | 268435456 | 268435456 | 268435456 | baseline |
 | SGL00940.ARW | luma | luma-embedded | 82817024 | 9504 | 6336 | 60.22 | 17 |  |  | 0 | 0 | 0 |  |  | 268435456 | 268435456 | 268435456 | within-target |
 | SGL00940.ARW | luma | luma-quick | 82817024 | 1936 | 1290 | 2.5 | 1362 |  |  | 0 | 0 | 0 | 1362 |  | 268435456 | 484048896 | 484048896 | within-target |
-| SGL00940.ARW | luma | luma-hq | 82817024 | 9566 | 6374 | 60.97 | 3273 |  |  | 0 | 0 | 0 | 3273 |  | 484048896 | 1068171264 | 1068171264 | within-target |
+| SGL00940.ARW | luma | luma-hq | 82817024 | 9566 | 6374 | 60.97 | 3273 |  |  | 0 | 0 | 0 | 3273 |  | 484048896 | 1068171264 | 1068171264 | baseline |
 | SGL_1998.NEF | libraw-wasm | legacy-quick | 56377803 | 2760 | 4144 | 11.44 | 8483 | 238 |  |  | 6761 |  |  | 1485 |  |  |  | baseline |
 | SGL_1998.NEF | libraw-wasm | legacy-hq | 56377803 | 2760 | 4144 | 11.44 | 8483 | 238 |  |  | 6761 |  |  | 1485 |  |  |  | baseline |
 | SGL_1998.NEF | luma | luma-open-session | 56377803 | 8288 | 5520 | 45.75 | 116 | 75 |  | 28 | 38 | 10 |  |  | 268435456 | 268435456 | 268435456 | baseline |
 | SGL_1998.NEF | luma | luma-embedded | 56377803 | 8256 | 5504 | 45.44 | 8 |  |  | 0 | 0 | 0 |  |  | 268435456 | 268435456 | 268435456 | within-target |
 | SGL_1998.NEF | luma | luma-quick | 56377803 | 1290 | 1937 | 2.5 | 1382 |  |  | 0 | 0 | 0 | 1382 |  | 268435456 | 386662400 | 386662400 | within-target |
-| SGL_1998.NEF | luma | luma-hq | 56377803 | 5520 | 8288 | 45.75 | 2293 |  |  | 0 | 0 | 0 | 2292 |  | 386662400 | 790560768 | 790560768 | within-target |
+| SGL_1998.NEF | luma | luma-hq | 56377803 | 5520 | 8288 | 45.75 | 2293 |  |  | 0 | 0 | 0 | 2292 |  | 386662400 | 790560768 | 790560768 | baseline |
 
 ## Performance Optimization V2 Summary
 
@@ -114,6 +114,6 @@ Evidence:
 - All embedded previews have non-zero dimensions and meet the under-1000 ms target.
 - All quick previews are at or below 2.6MP and meet the under-4000 ms target.
 - 24MP-class HQ completes under 8000 ms.
-- 61MP fixture is documented as directional and not compared to the 24MP HQ target.
+- HQ rows above the 30MP gate cutoff are directional baseline evidence and are not compared to the 24MP HQ target.
 - Heap telemetry is present for all Luma stages.
 - Default runtime switch remains out of scope for this plan; `VITE_RAW_RUNTIME=libraw-wasm` remains the safe rollback path until a separate approved change.

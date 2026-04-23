@@ -229,10 +229,11 @@ const runButton = required<HTMLButtonElement>('#run')
 const copyButton = required<HTMLButtonElement>('#copy')
 const output = required<HTMLPreElement>('#output')
 
-function targetStatus(stage: BenchStage, total: number): BenchRecord['targetStatus'] {
+function targetStatus(stage: BenchStage, total: number, megapixels?: number): BenchRecord['targetStatus'] {
   if (stage === 'legacy-quick' || stage === 'legacy-hq') return 'baseline'
   if (stage === 'luma-embedded') return total < 1000 ? 'within-target' : 'over-target'
   if (stage === 'luma-quick') return total <= 4000 ? 'within-target' : 'over-target'
+  if (stage === 'luma-hq' && (megapixels ?? 0) > 30) return 'baseline'
   if (stage === 'luma-hq') return total <= 8000 ? 'within-target' : 'over-target'
   return 'baseline'
 }
@@ -359,6 +360,7 @@ async function benchLuma(file: File) {
     })
 
     const hq = await session.decodeHq()
+    const hqMegapixels = outputMegapixels(hq.width, hq.height)
     print({
       runtime: 'luma',
       stage: 'luma-hq',
@@ -366,9 +368,9 @@ async function benchLuma(file: File) {
       fileSize: file.size,
       width: hq.width,
       height: hq.height,
-      megapixels: outputMegapixels(hq.width, hq.height),
+      megapixels: hqMegapixels,
       total: hq.timings.total,
-      targetStatus: targetStatus('luma-hq', hq.timings.total),
+      targetStatus: targetStatus('luma-hq', hq.timings.total, hqMegapixels),
       timings: hq.timings,
       heap: hq.heap,
     })
@@ -2446,9 +2448,9 @@ Append to `docs/specs/2026-04-22-phase1-test-matrix.md`:
 
 | Fixture | Runtime | Embedded | Quick | HQ | Heap telemetry | Result |
 | --- | --- | --- | --- | --- | --- | --- |
-| example-sony.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | Awaiting Task 9 rollout gate |
-| SGL00940.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | Awaiting Task 9 rollout gate |
-| SGL_1998.NEF | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | Awaiting Task 9 rollout gate |
+| example-sony.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | V2 gate passed; default switch separate |
+| SGL00940.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | V2 gate passed; default switch separate |
+| SGL_1998.NEF | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | V2 gate passed; default switch separate |
 ```
 
 - [ ] **Step 6: Commit**
@@ -2601,7 +2603,7 @@ Built Luma RAW native runtime into
 - `example-sony.ARW` embedded preview has non-zero dimensions and total under 1000 ms.
 - `example-sony.ARW` quick preview is capped near 2.5MP and total under 4000 ms.
 - `example-sony.ARW` HQ remains under 8000 ms.
-- `SGL_1998.NEF` is included in benchmark evidence.
+- `SGL_1998.NEF` is included in benchmark evidence and its >30MP HQ row is directional, not compared to the 24MP HQ budget gate.
 - `SGL00940.ARW` is recorded as 61MP directional evidence, not as the 24MP HQ budget gate.
 - Heap before/after is present for every Luma stage.
 - App preview pipeline opens one Luma runtime session per selected file.
