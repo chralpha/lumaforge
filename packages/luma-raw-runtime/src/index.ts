@@ -11,3 +11,4 @@ export type {
   LumaRawSupportLevel,
   LumaRawTimings,
 } from './types'
+export { LumaRawWorkerClient } from './worker-client'
