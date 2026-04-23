@@ -72,5 +72,5 @@ export type LumaRawNativeProcessor = {
 
 export type LumaRawNativeFactory = {
   createProcessor: () => LumaRawNativeProcessor
-  heapBytes?: () => number
+  heapBytes?: () => number | undefined
 }

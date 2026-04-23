@@ -64,37 +64,53 @@ function createProcessor(values: ProcessorValues) {
   }).createProcessor()
 }
 
+function createFactoryWithHeap(heap?: Uint8Array) {
+  return createNativeFactory({
+    ...(heap !== undefined ? { HEAPU8: heap } : {}),
+    LumaRawProcessor: class {
+      loadBuffer() {
+        return { copyToWasm: 0 }
+      }
+      openWithSettings() {
+        return { copyToWasm: 0, librawOpen: 0 }
+      }
+      openBuffer() {
+        return { copyToWasm: 0, librawOpen: 0 }
+      }
+      readMetadata() {
+        return {}
+      }
+      extractThumbnail() {
+        return undefined
+      }
+      decodePreview() {
+        return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
+      }
+      decodeHq() {
+        return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
+      }
+      delete() {}
+    },
+  })
+}
+
 describe('native-adapter', () => {
   it('reports wasm heap byte length', () => {
-    const factory = createNativeFactory({
-      HEAPU8: new Uint8Array(new ArrayBuffer(64)),
-      LumaRawProcessor: class {
-        loadBuffer() {
-          return { copyToWasm: 0 }
-        }
-        openWithSettings() {
-          return { copyToWasm: 0, librawOpen: 0 }
-        }
-        openBuffer() {
-          return { copyToWasm: 0, librawOpen: 0 }
-        }
-        readMetadata() {
-          return {}
-        }
-        extractThumbnail() {
-          return undefined
-        }
-        decodePreview() {
-          return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
-        }
-        decodeHq() {
-          return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
-        }
-        delete() {}
-      },
-    })
+    const factory = createFactoryWithHeap(new Uint8Array(new ArrayBuffer(64)))
 
     expect(factory.heapBytes?.()).toBe(64)
+  })
+
+  it('returns undefined when wasm heap telemetry is unavailable', () => {
+    const factory = createFactoryWithHeap()
+
+    expect(factory.heapBytes?.()).toBeUndefined()
+  })
+
+  it('preserves zero-length wasm heap byte length', () => {
+    const factory = createFactoryWithHeap(new Uint8Array(new ArrayBuffer(0)))
+
+    expect(factory.heapBytes?.()).toBe(0)
   })
 
   it('throws when a thumbnail object has malformed data', () => {

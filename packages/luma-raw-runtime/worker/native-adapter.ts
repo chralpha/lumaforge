@@ -307,7 +307,7 @@ export function createNativeFactory(
     },
     heapBytes() {
       const heap = (module as unknown as { HEAPU8?: Uint8Array }).HEAPU8
-      return heap?.buffer.byteLength ?? 0
+      return heap ? heap.buffer.byteLength : undefined
     },
   }
 }
