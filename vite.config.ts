@@ -23,6 +23,10 @@ const LUMA_RAW_NATIVE_SOURCE_DIR = resolve(
   './packages/luma-raw-runtime/dist/native',
 )
 const LUMA_RAW_NATIVE_ASSETS = ['luma_raw.js', 'luma_raw.wasm'] as const
+const CROSS_ORIGIN_ISOLATION_HEADERS = {
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'require-corp',
+}
 
 function assertLumaRawNativeAssets() {
   const missingAssets = LUMA_RAW_NATIVE_ASSETS.filter(
@@ -73,6 +77,12 @@ export default defineConfig(({ mode }) => {
   const enableLumaRuntime = rawRuntime === 'luma'
 
   return {
+    server: {
+      headers: CROSS_ORIGIN_ISOLATION_HEADERS,
+    },
+    preview: {
+      headers: CROSS_ORIGIN_ISOLATION_HEADERS,
+    },
     plugins: [
       lumaRawNativeAssetsPlugin(enableLumaRuntime),
       codeInspectorPlugin({

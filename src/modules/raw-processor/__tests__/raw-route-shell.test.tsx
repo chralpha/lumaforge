@@ -40,6 +40,25 @@ describe('rawProcessorView shell states', () => {
       screen.getByText('This browser is not supported'),
     ).toBeInTheDocument()
   })
+
+  it('shows the unsupported state when luma runtime needs cross-origin isolation', () => {
+    mockedUseCapabilityGate.mockReturnValue({
+      ready: true,
+      supportStatus: 'unsupported',
+      reason: 'Cross-origin isolation is required for pthread RAW decode',
+    })
+
+    render(<RawProcessorView />)
+
+    expect(
+      screen.getByText('This browser is not supported'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Cross-origin isolation is required for pthread RAW decode',
+      ),
+    ).toBeInTheDocument()
+  })
 })
 
 describe('support classification', () => {
