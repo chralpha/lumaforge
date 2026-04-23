@@ -2,20 +2,28 @@ import type {
   LumaRawWorkerRequest,
   LumaRawWorkerResponse,
 } from '../src/worker-protocol'
+import { loadNativeFactory } from './load-native-module'
+import { createRuntimeCore } from './runtime-core'
 
-const worker = self as DedicatedWorkerGlobalScope
+let corePromise: ReturnType<typeof createCore>
 
-worker.onmessage = (event: MessageEvent<LumaRawWorkerRequest>) => {
-  const request = event.data
-  const response = {
-    id: request.id,
-    ok: false,
-    type: request.type,
-    error: {
-      code: 'RAW_RUNTIME_UNAVAILABLE',
-      message: 'RAW runtime worker is not implemented yet.',
-    },
-  } satisfies LumaRawWorkerResponse
+async function createCore() {
+  const nativeFactory = await loadNativeFactory()
+  return createRuntimeCore(nativeFactory)
+}
 
-  worker.postMessage(response)
+self.onmessage = async (event: MessageEvent<LumaRawWorkerRequest>) => {
+  corePromise ??= createCore()
+  const core = await corePromise
+  const response = await core.handleRequest(event.data)
+  const transfer: Transferable[] = []
+
+  if (response.ok) {
+    const payload = response.payload as { data?: Uint8Array | Uint16Array }
+    if (payload?.data) {
+      transfer.push(payload.data.buffer)
+    }
+  }
+
+  self.postMessage(response satisfies LumaRawWorkerResponse, transfer)
 }

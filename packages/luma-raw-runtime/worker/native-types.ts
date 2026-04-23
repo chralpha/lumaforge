@@ -1,0 +1,59 @@
+export type LumaRawNativeMetadata = {
+  width?: number
+  height?: number
+  rawWidth?: number
+  rawHeight?: number
+  make?: string
+  model?: string
+  lens?: string
+  iso?: number
+  aperture?: number
+  focalLength?: number
+  shutter?: number
+  timestamp?: number
+  orientation?: number
+  blackLevel?: number
+  whiteLevel?: number
+  thumbnail?: {
+    width: number
+    height: number
+    format: 'jpeg' | 'bitmap' | 'unknown'
+  }
+}
+
+export type LumaRawNativeThumbnail = {
+  data: Uint8Array
+  width: number
+  height: number
+  format: 'jpeg' | 'bitmap' | 'unknown'
+}
+
+export type LumaRawNativeImage = {
+  data: Uint16Array
+  width: number
+  height: number
+  bits: 16
+}
+
+export type LumaRawNativeOpenSettings = {
+  halfSize: boolean
+  useCameraWb: true
+  outputColor: 4
+  outputBps: 16
+  noAutoBright: true
+  userQual: number
+  gamm: [1, 1, 1, 1, 0, 0]
+}
+
+export type LumaRawNativeProcessor = {
+  openBuffer: (data: Uint8Array, settings: LumaRawNativeOpenSettings) => void
+  readMetadata: () => LumaRawNativeMetadata
+  extractThumbnail: () => LumaRawNativeThumbnail | undefined
+  decodePreview: () => LumaRawNativeImage
+  decodeHq: () => LumaRawNativeImage
+  dispose: () => void
+}
+
+export type LumaRawNativeFactory = {
+  createProcessor: () => LumaRawNativeProcessor
+}
