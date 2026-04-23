@@ -1,8 +1,6 @@
-export type DecodedImageLayout = 'rgba-float32' | 'rgb-u16'
+type DecodedImageLayout = 'rgba-float32' | 'rgb-u16'
 
-export type DecodedImageColorSpace =
-  | 'display-srgb-preview'
-  | 'linear-prophoto-rgb'
+type DecodedImageColorSpace = 'display-srgb-preview' | 'linear-prophoto-rgb'
 
 export interface DecodedImage {
   width: number
