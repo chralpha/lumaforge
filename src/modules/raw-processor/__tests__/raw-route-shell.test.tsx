@@ -41,7 +41,7 @@ describe('rawProcessorView shell states', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows the unsupported state when luma runtime needs cross-origin isolation', () => {
+  it('shows the unsupported state when RAW decode needs cross-origin isolation', () => {
     mockedUseCapabilityGate.mockReturnValue({
       ready: true,
       supportStatus: 'unsupported',

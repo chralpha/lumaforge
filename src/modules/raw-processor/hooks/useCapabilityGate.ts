@@ -2,10 +2,6 @@ import { useMemo } from 'react'
 
 import { detectCapabilities } from '~/lib/gl/context'
 
-function isLumaRuntimeEnabled() {
-  return import.meta.env.VITE_RAW_RUNTIME === 'luma'
-}
-
 export function useCapabilityGate() {
   return useMemo(() => {
     const caps = detectCapabilities()
@@ -19,7 +15,6 @@ export function useCapabilityGate() {
     }
 
     if (
-      isLumaRuntimeEnabled() &&
       typeof globalThis.crossOriginIsolated === 'boolean' &&
       !globalThis.crossOriginIsolated
     ) {

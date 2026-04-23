@@ -5,17 +5,11 @@ import type {
 
 import type { DecodedImage, ProgressCallback } from './decoder'
 import {
-  decodeHqRaw as decodeHqRawLegacy,
-  decodeQuickRaw as decodeQuickRawLegacy,
-} from './decoder'
-import {
   decodeHqRawWithLuma,
   decodeQuickRawWithLuma,
   extractEmbeddedPreviewWithLuma,
   openRawSessionWithLuma,
 } from './luma-runtime-adapter'
-
-export type RawRuntimeKind = 'libraw-wasm' | 'luma'
 
 export type RawRuntimeSession = {
   extractEmbeddedPreview: (
@@ -45,54 +39,24 @@ export type RawRuntimeAdapter = {
   ) => Promise<DecodedImage>
 }
 
-export function runtimeKindFromEnv(): RawRuntimeKind {
-  return import.meta.env.VITE_RAW_RUNTIME === 'luma' ? 'luma' : 'libraw-wasm'
-}
-
 export function createRawRuntimeAdapter({
-  runtimeKind = runtimeKindFromEnv(),
   lumaRuntimeFactory,
 }: {
-  runtimeKind?: RawRuntimeKind
   lumaRuntimeFactory?: () => LumaRawRuntime
 } = {}): RawRuntimeAdapter {
-  if (runtimeKind === 'luma') {
-    return {
-      openSession(file, signal) {
-        return openRawSessionWithLuma(file, lumaRuntimeFactory, signal)
-      },
-      extractEmbeddedPreview(file) {
-        return extractEmbeddedPreviewWithLuma(file, lumaRuntimeFactory)
-      },
-      decodeQuickRaw(file, onProgress) {
-        return decodeQuickRawWithLuma(file, onProgress, lumaRuntimeFactory)
-      },
-      decodeHqRaw(file, onProgress) {
-        return decodeHqRawWithLuma(file, onProgress, lumaRuntimeFactory)
-      },
-    }
-  }
-
   return {
-    openSession(file) {
-      return Promise.resolve({
-        extractEmbeddedPreview() {
-          return Promise.resolve(null)
-        },
-        decodeQuickRaw(onProgress) {
-          return decodeQuickRawLegacy(file, onProgress)
-        },
-        decodeHqRaw(onProgress) {
-          return decodeHqRawLegacy(file, onProgress)
-        },
-        dispose() {},
-      })
+    openSession(file, signal) {
+      return openRawSessionWithLuma(file, lumaRuntimeFactory, signal)
     },
-    extractEmbeddedPreview() {
-      return Promise.resolve(null)
+    extractEmbeddedPreview(file) {
+      return extractEmbeddedPreviewWithLuma(file, lumaRuntimeFactory)
     },
-    decodeQuickRaw: decodeQuickRawLegacy,
-    decodeHqRaw: decodeHqRawLegacy,
+    decodeQuickRaw(file, onProgress) {
+      return decodeQuickRawWithLuma(file, onProgress, lumaRuntimeFactory)
+    },
+    decodeHqRaw(file, onProgress) {
+      return decodeHqRawWithLuma(file, onProgress, lumaRuntimeFactory)
+    },
   }
 }
 

@@ -6,23 +6,7 @@ import type {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { disposeLumaRawRuntime } from './luma-runtime-adapter'
-import type { RawRuntimeKind } from './runtime-adapter'
-import { createRawRuntimeAdapter, runtimeKindFromEnv } from './runtime-adapter'
-
-const originalRuntimeKind = import.meta.env.VITE_RAW_RUNTIME
-
-function setRawRuntimeEnv(value: RawRuntimeKind | undefined) {
-  const env = import.meta.env as ImportMetaEnv & {
-    VITE_RAW_RUNTIME?: RawRuntimeKind
-  }
-
-  if (value) {
-    env.VITE_RAW_RUNTIME = value
-    return
-  }
-
-  delete env.VITE_RAW_RUNTIME
-}
+import { createRawRuntimeAdapter } from './runtime-adapter'
 
 function makeRuntimeInfo(): LumaRawRuntimeInfo {
   return {
@@ -141,16 +125,26 @@ function makeLumaRuntime(
 }
 
 afterEach(() => {
-  setRawRuntimeEnv(originalRuntimeKind)
   disposeLumaRawRuntime()
   vi.clearAllMocks()
 })
 
 describe('raw runtime adapter', () => {
-  it('returns embedded preview bytes from an injected luma runtime', async () => {
+  it('uses the luma runtime by default without an env flag', async () => {
     const { runtime } = makeLumaRuntime()
     const adapter = createRawRuntimeAdapter({
-      runtimeKind: 'luma',
+      lumaRuntimeFactory: () => runtime,
+    })
+
+    await adapter.decodeQuickRaw(new File(['raw'], 'sample.ARW'))
+
+    expect(runtime.init).toHaveBeenCalledTimes(1)
+    expect(runtime.decodeQuick).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns embedded preview bytes from the default luma runtime', async () => {
+    const { runtime } = makeLumaRuntime()
+    const adapter = createRawRuntimeAdapter({
       lumaRuntimeFactory: () => runtime,
     })
 
@@ -172,7 +166,6 @@ describe('raw runtime adapter', () => {
     const quickData = new Uint16Array([0, 32768, 65535])
     const { runtime } = makeLumaRuntime(quickData)
     const adapter = createRawRuntimeAdapter({
-      runtimeKind: 'luma',
       lumaRuntimeFactory: () => runtime,
     })
 
@@ -194,25 +187,6 @@ describe('raw runtime adapter', () => {
     })
   })
 
-  it('keeps legacy runtime as the default and has no embedded preview', async () => {
-    setRawRuntimeEnv(undefined)
-
-    const adapter = createRawRuntimeAdapter()
-
-    expect(runtimeKindFromEnv()).toBe('libraw-wasm')
-    await expect(
-      adapter.extractEmbeddedPreview(new File(['raw'], 'sample.ARW')),
-    ).resolves.toBeNull()
-  })
-
-  it('selects luma only when the env flag is exactly luma', () => {
-    setRawRuntimeEnv('libraw-wasm')
-    expect(runtimeKindFromEnv()).toBe('libraw-wasm')
-
-    setRawRuntimeEnv('luma')
-    expect(runtimeKindFromEnv()).toBe('luma')
-  })
-
   it('preserves stable luma runtime error codes', async () => {
     const { runtime } = makeLumaRuntime()
     const runtimeError = Object.assign(
@@ -223,7 +197,6 @@ describe('raw runtime adapter', () => {
     )
     vi.mocked(runtime.init).mockRejectedValue(runtimeError)
     const adapter = createRawRuntimeAdapter({
-      runtimeKind: 'luma',
       lumaRuntimeFactory: () => runtime,
     })
 
@@ -261,7 +234,6 @@ describe('raw runtime adapter', () => {
     })
 
     const adapter = createRawRuntimeAdapter({
-      runtimeKind: 'luma',
       lumaRuntimeFactory: () => runtime,
     })
 
@@ -291,7 +263,6 @@ describe('raw runtime adapter', () => {
       openSession: vi.fn().mockRejectedValue(new Error('open exploded')),
     })
     const adapter = createRawRuntimeAdapter({
-      runtimeKind: 'luma',
       lumaRuntimeFactory: () => runtime,
     })
 
@@ -328,7 +299,6 @@ describe('raw runtime adapter', () => {
       }),
     })
     const adapter = createRawRuntimeAdapter({
-      runtimeKind: 'luma',
       lumaRuntimeFactory: () => runtime,
     })
     const session = await adapter.openSession(new File(['raw'], 'sample.ARW'))
