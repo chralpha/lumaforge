@@ -20,7 +20,7 @@ Promote a camera to `official` only after it passes the full checklist below on 
 | Fixture | Intended role | rawFormat | Support status | Validation status |
 | --- | --- | --- | --- | --- |
 | `/workspaces/LumaForge/test-images/SGL00940.ARW` | Official-candidate Sony fixture | `arw` | `experimental` | In progress |
-| `/workspaces/LumaForge/test-images/SGL_1998.NEF` | Official-candidate Nikon fixture | `nef` | `experimental` | Upload, preview, safe HQ readiness, and JPEG export pass in host DevTools; style/LUT checks pending |
+| `/workspaces/LumaForge/test-images/SGL_1998.NEF` | Official-candidate Nikon fixture | `nef` | `experimental` | Upload, preview, safe HQ readiness, JPEG export, builtin style, custom LUT, and compare pass in host DevTools |
 
 ## Additional manual cases queued for T9
 
@@ -55,9 +55,9 @@ Promote a camera to `official` only after it passes the full checklist below on 
 - first preview surface: PASS
 - safe HQ readiness: PASS
 - no-LUT visible preview: PASS
-- builtin preset: PENDING
-- custom LUT: PENDING
-- compare mode: PENDING
+- builtin preset: PASS in host DevTools (`Warm` changed the preview; `Off` restored the sampled original pixel)
+- custom LUT: PASS in host DevTools with a legal 33³ V-Log-marked `.cube`
+- compare mode: PASS in host DevTools (`Original` restored the sampled source pixel; `Processed` restored the styled pixel)
 - export balanced: PASS (`SGL_1998_original.jpg`)
 - export fallback recommendation: PENDING
 

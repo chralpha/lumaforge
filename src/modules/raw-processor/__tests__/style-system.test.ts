@@ -27,9 +27,24 @@ describe('style-system', () => {
       domainMin: [0, 0, 0],
       domainMax: [1, 1, 1],
       data: new Float32Array(33 * 33 * 33 * 3),
+      inputProfile: 'display-srgb',
     })
 
     expect(style.kind).toBe('custom')
     expect(style.warning).toMatch(/best effort/i)
+  })
+
+  it('labels V-Log custom LUT styles with their input profile', () => {
+    const style = toCustomStyle({
+      title: 'Camera LUT',
+      size: 33,
+      domainMin: [0, 0, 0],
+      domainMax: [1, 1, 1],
+      data: new Float32Array(33 * 33 * 33 * 3),
+      inputProfile: 'v-log',
+    })
+
+    expect(style.lutAsset?.inputProfile).toBe('v-log')
+    expect(style.warning).toMatch(/V-Log input/i)
   })
 })

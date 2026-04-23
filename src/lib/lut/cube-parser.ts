@@ -3,7 +3,7 @@
  * Parses Adobe/Resolve-style .cube 3D LUT files.
  */
 
-import type { LUTData } from '~/lib/gl/pipeline'
+import type { LUTData, LUTInputProfile } from '~/lib/gl/pipeline'
 
 export interface ParsedLUT {
   title: string
@@ -11,6 +11,54 @@ export interface ParsedLUT {
   domainMin: [number, number, number]
   domainMax: [number, number, number]
   data: Float32Array
+  inputProfile: LUTInputProfile
+}
+
+interface ParseCubeOptions {
+  sourceName?: string
+}
+
+const CUBE_FLOAT_PATTERN = '[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:e[+-]?\\d+)?'
+const CUBE_DATA_LINE_RE = new RegExp(
+  `^${CUBE_FLOAT_PATTERN}\\s+${CUBE_FLOAT_PATTERN}\\s+${CUBE_FLOAT_PATTERN}(?:\\s|$)`,
+  'i',
+)
+const DOMAIN_MIN_RE = new RegExp(
+  `DOMAIN_MIN\\s+(${CUBE_FLOAT_PATTERN})\\s+(${CUBE_FLOAT_PATTERN})\\s+(${CUBE_FLOAT_PATTERN})`,
+  'i',
+)
+const DOMAIN_MAX_RE = new RegExp(
+  `DOMAIN_MAX\\s+(${CUBE_FLOAT_PATTERN})\\s+(${CUBE_FLOAT_PATTERN})\\s+(${CUBE_FLOAT_PATTERN})`,
+  'i',
+)
+
+function stripCubeExtension(name: string): string {
+  return name.replace(/\.cube$/i, '')
+}
+
+export function inferLUTInputProfile({
+  content,
+  sourceName,
+  title,
+}: {
+  content: string
+  sourceName?: string
+  title?: string
+}): LUTInputProfile {
+  const signature = `${sourceName || ''}\n${title || ''}\n${content.slice(
+    0,
+    4096,
+  )}`.toLowerCase()
+
+  if (
+    /(?:^|[^a-z0-9])v-?log(?:[^a-z0-9]|$)/.test(signature) ||
+    /(?:^|[^a-z0-9])vlog(?:[^a-z0-9]|$)/.test(signature) ||
+    /lumixphotostyle\s+vlog/.test(signature)
+  ) {
+    return 'v-log'
+  }
+
+  return 'display-srgb'
 }
 
 /**
@@ -18,7 +66,10 @@ export interface ParsedLUT {
  * @param content - String content of the .cube file
  * @returns Parsed LUT data
  */
-export function parseCubeLUT(content: string): ParsedLUT {
+export function parseCubeLUT(
+  content: string,
+  options: ParseCubeOptions = {},
+): ParsedLUT {
   const lines = content.split(/\r?\n/)
 
   let title = ''
@@ -50,7 +101,7 @@ export function parseCubeLUT(content: string): ParsedLUT {
     }
 
     if (line.startsWith('DOMAIN_MIN')) {
-      const match = line.match(/DOMAIN_MIN\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)/)
+      const match = line.match(DOMAIN_MIN_RE)
       if (match) {
         domainMin = [
           Number.parseFloat(match[1]),
@@ -62,7 +113,7 @@ export function parseCubeLUT(content: string): ParsedLUT {
     }
 
     if (line.startsWith('DOMAIN_MAX')) {
-      const match = line.match(/DOMAIN_MAX\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)/)
+      const match = line.match(DOMAIN_MAX_RE)
       if (match) {
         domainMax = [
           Number.parseFloat(match[1]),
@@ -83,7 +134,7 @@ export function parseCubeLUT(content: string): ParsedLUT {
     }
 
     // Data lines
-    if (inData && /^[\d.-]+\s+[\d.-]+\s+[\d.-]+/.test(line)) {
+    if (inData && CUBE_DATA_LINE_RE.test(line)) {
       dataLines.push(line)
     }
   }
@@ -121,12 +172,23 @@ export function parseCubeLUT(content: string): ParsedLUT {
     data[i * 3 + 2] = values[2]
   }
 
+  const resolvedTitle =
+    title ||
+    (options.sourceName
+      ? stripCubeExtension(options.sourceName)
+      : 'Untitled LUT')
+
   return {
-    title: title || 'Untitled LUT',
+    title: resolvedTitle,
     size,
     domainMin,
     domainMax,
     data,
+    inputProfile: inferLUTInputProfile({
+      content,
+      sourceName: options.sourceName,
+      title: resolvedTitle,
+    }),
   }
 }
 
@@ -135,9 +197,7 @@ export function parseCubeLUT(content: string): ParsedLUT {
  */
 export async function parseCubeFile(file: File): Promise<ParsedLUT> {
   const content = await file.text()
-  const lut = parseCubeLUT(content)
-  lut.title = lut.title || file.name.replace(/\.cube$/i, '')
-  return lut
+  return parseCubeLUT(content, { sourceName: file.name })
 }
 
 /**
@@ -150,6 +210,7 @@ export function toLUTData(parsed: ParsedLUT): LUTData {
     domainMin: parsed.domainMin,
     domainMax: parsed.domainMax,
     title: parsed.title,
+    inputProfile: parsed.inputProfile,
   }
 }
 
@@ -209,6 +270,7 @@ export function generateIdentityLUT(size = 33): ParsedLUT {
     domainMin: [0, 0, 0],
     domainMax: [1, 1, 1],
     data,
+    inputProfile: 'display-srgb',
   }
 }
 

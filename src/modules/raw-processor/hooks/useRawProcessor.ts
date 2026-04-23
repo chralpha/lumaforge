@@ -197,6 +197,15 @@ export function useRawProcessor(): UseRawProcessorReturn {
         setStatus('loading')
         setProgress(0)
         setError(null)
+        setLut(null)
+        setLutData(null)
+        setParams((prev) => ({
+          ...prev,
+          intensity: 0.7,
+          viewMode: 'processed',
+          styleKind: 'none',
+          builtinPreset: null,
+        }))
 
         setSession((prev) => {
           if (!prev || prev.id !== nextSession.id) {
@@ -430,7 +439,16 @@ export function useRawProcessor(): UseRawProcessorReturn {
         toast.error('Failed to load RAW file', { description: message })
       }
     },
-    [replaceFile, setError, setLoadedImage, setProgress, setSession, setStatus],
+    [
+      replaceFile,
+      setError,
+      setLoadedImage,
+      setLut,
+      setParams,
+      setProgress,
+      setSession,
+      setStatus,
+    ],
   )
 
   // Load LUT file
@@ -480,6 +498,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
         setActiveStyle(style)
         setParams((prev) => ({
           ...prev,
+          styleKind: 'custom',
+          builtinPreset: null,
           intensity: mapIntensityLevel(style.defaultIntensityLevel),
         }))
         toast.success(`Loaded LUT: ${parsed.title}`, {
@@ -517,6 +537,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
       setActiveStyle(style)
       setParams((prev) => ({
         ...prev,
+        styleKind: 'builtin',
+        builtinPreset: id,
         intensity: mapIntensityLevel(style.defaultIntensityLevel),
       }))
     },
@@ -568,8 +590,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setLut(null)
     setLutData(null)
     setActiveStyle(null)
+    setParams((prev) => ({
+      ...prev,
+      styleKind: 'none',
+      builtinPreset: null,
+    }))
     toast.info('LUT cleared')
-  }, [setActiveStyle, setLut])
+  }, [setActiveStyle, setLut, setParams])
 
   // Update params
   const handleSetParams = useCallback(

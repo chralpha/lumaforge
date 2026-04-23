@@ -36,6 +36,8 @@ export interface LoadedImageState {
 const baseProcessingParamsAtom = atom<ProcessingParams>({
   intensity: 0.7,
   viewMode: 'processed',
+  styleKind: 'none',
+  builtinPreset: null,
 })
 
 export const [
@@ -184,5 +186,7 @@ export function resetToDefaults(): void {
   setProcessingParams({
     intensity: 0.7,
     viewMode: 'processed',
+    styleKind: 'none',
+    builtinPreset: null,
   })
 }

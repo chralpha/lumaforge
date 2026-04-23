@@ -1,6 +1,5 @@
 /**
  * Color constants and mappings for RAW processing pipeline.
- * Based on Raw-Alchemy Python implementation.
  */
 
 // Maps user-facing Log space names to their corresponding linear color gamuts

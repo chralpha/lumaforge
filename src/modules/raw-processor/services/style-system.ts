@@ -27,17 +27,22 @@ export function buildBuiltinStyle(id: (typeof BUILTIN_PRESETS)[number]['id']) {
 }
 
 export function toCustomStyle(lut: ParsedLUT) {
+  const warning =
+    lut.inputProfile === 'v-log'
+      ? 'This LUT declares a V-Log input and uses internal input preparation. Exact camera matching still depends on the source RAW transform.'
+      : 'Custom LUTs are applied in a best effort path and may not match pro video software exactly.'
+
   return {
     kind: 'custom' as const,
     name: lut.title || 'Custom LUT',
     defaultIntensityLevel: 'standard' as const,
     currentIntensityLevel: 'standard' as const,
-    warning:
-      'Custom LUTs are applied in a best effort path and may not match pro video software exactly.',
+    warning,
     lutAsset: {
       format: 'cube' as const,
       dimension: lut.size as 17 | 33 | 65,
       title: lut.title,
+      inputProfile: lut.inputProfile,
     },
   }
 }

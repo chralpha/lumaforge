@@ -30,6 +30,7 @@ export type StyleAsset = {
     format: 'cube'
     dimension: 17 | 33 | 65
     title?: string
+    inputProfile?: 'display-srgb' | 'v-log'
   }
   inputPrepProfile?: {
     profileId: string

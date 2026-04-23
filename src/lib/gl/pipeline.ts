@@ -23,7 +23,21 @@ import {
 export interface ProcessingParams {
   intensity: number
   viewMode: 'processed' | 'original'
+  styleKind: 'none' | 'builtin' | 'custom'
+  builtinPreset: BuiltinStylePreset | null
 }
+
+export type BuiltinStylePreset =
+  | 'neutral'
+  | 'warm'
+  | 'cool'
+  | 'film-soft'
+  | 'film-contrast'
+  | 'cinematic'
+  | 'fade'
+  | 'mono'
+
+export type LUTInputProfile = 'display-srgb' | 'v-log'
 
 export interface LUTData {
   size: number
@@ -31,6 +45,7 @@ export interface LUTData {
   domainMin: [number, number, number]
   domainMax: [number, number, number]
   title?: string
+  inputProfile: LUTInputProfile
 }
 
 export interface PipelineStats {
@@ -44,6 +59,30 @@ export interface PipelineStats {
 const DEFAULT_PARAMS: ProcessingParams = {
   intensity: 0.7,
   viewMode: 'processed',
+  styleKind: 'none',
+  builtinPreset: null,
+}
+
+const STYLE_KIND_UNIFORMS: Record<ProcessingParams['styleKind'], number> = {
+  none: 0,
+  builtin: 1,
+  custom: 2,
+}
+
+const BUILTIN_PRESET_UNIFORMS: Record<BuiltinStylePreset, number> = {
+  neutral: 0,
+  warm: 1,
+  cool: 2,
+  'film-soft': 3,
+  'film-contrast': 4,
+  cinematic: 5,
+  fade: 6,
+  mono: 7,
+}
+
+const LUT_INPUT_PROFILE_UNIFORMS: Record<LUTInputProfile, number> = {
+  'display-srgb': 0,
+  'v-log': 1,
 }
 
 /**
@@ -172,6 +211,9 @@ export class RawProcessingPipeline {
       u_lutDomainMin: gl.getUniformLocation(program, 'u_lutDomainMin'),
       u_lutDomainMax: gl.getUniformLocation(program, 'u_lutDomainMax'),
       u_intensity: gl.getUniformLocation(program, 'u_intensity'),
+      u_styleKind: gl.getUniformLocation(program, 'u_styleKind'),
+      u_builtinPreset: gl.getUniformLocation(program, 'u_builtinPreset'),
+      u_lutInputProfile: gl.getUniformLocation(program, 'u_lutInputProfile'),
     }
   }
 
@@ -358,6 +400,20 @@ export class RawProcessingPipeline {
     }
 
     gl.uniform1f(processUniforms.u_intensity, params.intensity)
+    gl.uniform1i(
+      processUniforms.u_styleKind,
+      STYLE_KIND_UNIFORMS[params.styleKind],
+    )
+    gl.uniform1i(
+      processUniforms.u_builtinPreset,
+      params.builtinPreset ? BUILTIN_PRESET_UNIFORMS[params.builtinPreset] : 0,
+    )
+    gl.uniform1i(
+      processUniforms.u_lutInputProfile,
+      lutData
+        ? LUT_INPUT_PROFILE_UNIFORMS[lutData.inputProfile]
+        : LUT_INPUT_PROFILE_UNIFORMS['display-srgb'],
+    )
 
     // Draw
     gl.bindVertexArray(fullscreenQuad!.vao)
