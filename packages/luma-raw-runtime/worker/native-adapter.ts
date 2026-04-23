@@ -29,6 +29,19 @@ function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
+function asPositiveInteger(value: unknown, label: string) {
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value <= 0
+  ) {
+    throw new TypeError(`Native RAW image returned invalid ${label}.`)
+  }
+
+  return value
+}
+
 function normalizeMetadata(value: unknown) {
   const raw = asRecord(value)
   const thumbnailWidth = asNumber(raw.thumbWidth)
@@ -66,8 +79,12 @@ function normalizeMetadata(value: unknown) {
 }
 
 function normalizeThumbnail(value: unknown) {
+  if (value === null || value === undefined) return undefined
+
   const raw = asRecord(value)
-  if (!(raw.data instanceof Uint8Array)) return undefined
+  if (!(raw.data instanceof Uint8Array)) {
+    throw new TypeError('Native RAW thumbnail did not return Uint8Array data.')
+  }
 
   const format: NativeThumbnailFormat =
     raw.format === 'jpeg' || raw.format === 'bitmap' ? raw.format : 'unknown'
@@ -86,10 +103,23 @@ function normalizeImage(value: unknown) {
     throw new TypeError('Native RAW image did not return Uint16Array data.')
   }
 
+  const width = asPositiveInteger(raw.width, 'width')
+  const height = asPositiveInteger(raw.height, 'height')
+  const expectedLength = width * height * 3
+
+  if (!Number.isSafeInteger(expectedLength)) {
+    throw new TypeError('Native RAW image dimensions are too large.')
+  }
+  if (raw.data.length !== expectedLength) {
+    throw new TypeError(
+      'Native RAW image data length does not match RGB dimensions.',
+    )
+  }
+
   return {
     data: raw.data,
-    width: asNumber(raw.width) || 0,
-    height: asNumber(raw.height) || 0,
+    width,
+    height,
     bits: 16 as const,
   }
 }

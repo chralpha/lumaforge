@@ -6,9 +6,13 @@ type NativeModuleFactory = (options?: {
 }) => Promise<unknown>
 
 function nativeAssetUrl(fileName: string) {
-  const nativeDir = import.meta.url.includes('/assets/')
-    ? '../native/'
-    : '../dist/native/'
+  const currentUrl = new URL(import.meta.url)
+  const pathParts = currentUrl.pathname.split('/').filter(Boolean)
+  const inBuiltWorkerAssets =
+    pathParts.at(-1)?.startsWith('runtime.worker-') &&
+    pathParts.at(-2) === 'assets' &&
+    pathParts.at(-3) === 'dist'
+  const nativeDir = inBuiltWorkerAssets ? '../native/' : '../dist/native/'
 
   return new URL(`${nativeDir}${fileName}`, import.meta.url).href
 }

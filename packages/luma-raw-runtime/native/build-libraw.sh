@@ -4,7 +4,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-REPO_ROOT="$(cd "${PACKAGE_DIR}/../.." && pwd)"
 BASELINE_ROOT="${LIBRAW_WASM_ROOT:-/workspaces/LumaForge/LibRaw/LibRaw-Wasm}"
 
 source "${SCRIPT_DIR}/emcc-flags.sh"

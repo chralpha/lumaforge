@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -64,6 +65,14 @@ val copiedUint8Array(const unsigned char *data, size_t size) {
 
 val copiedUint16Array(const uint16_t *data, size_t size) {
   return val::global("Uint16Array").new_(typed_memory_view(size, data));
+}
+
+size_t checkedMultiply(size_t left, size_t right, const std::string &label) {
+  if (left != 0 && right > std::numeric_limits<size_t>::max() / left) {
+    throw std::runtime_error(label + " exceeds native addressable memory.");
+  }
+
+  return left * right;
 }
 
 class LumaRawProcessor {
@@ -191,11 +200,18 @@ class LumaRawProcessor {
     }
 
     const size_t pixel_count =
-        static_cast<size_t>(image->width) * static_cast<size_t>(image->height);
-    const size_t sample_count = pixel_count * static_cast<size_t>(image->colors);
-    const size_t byte_count = sample_count * sizeof(uint16_t);
+        checkedMultiply(static_cast<size_t>(image->width),
+                        static_cast<size_t>(image->height),
+                        "LibRaw RGB16 pixel count");
+    const size_t sample_count =
+        checkedMultiply(pixel_count, static_cast<size_t>(image->colors),
+                        "LibRaw RGB16 sample count");
+    const size_t byte_count =
+        checkedMultiply(sample_count, sizeof(uint16_t),
+                        "LibRaw RGB16 byte count");
     if (image->data_size < byte_count) {
-      throw std::runtime_error("LibRaw RGB16 image buffer is smaller than expected.");
+      throw std::runtime_error(
+          "LibRaw RGB16 image buffer is smaller than expected.");
     }
 
     std::vector<uint16_t> rgb(sample_count);
