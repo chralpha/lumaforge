@@ -1,5 +1,3 @@
-import LibRaw from 'libraw-wasm'
-
 import { createLumaRawRuntime } from '../src/runtime'
 import type {
   LumaEmbeddedPreview,
@@ -10,18 +8,15 @@ import type {
 
 const QUICK_PREVIEW_MAX_PIXELS = 2_500_000
 const HQ_TARGET_MAX_MEGAPIXELS = 30
-const LARGE_RAW_SAFE_HQ_REUSE_BYTES = 32 * 1024 * 1024
 
 type BenchStage =
-  | 'legacy-quick'
-  | 'legacy-hq'
   | 'luma-open-session'
   | 'luma-embedded'
   | 'luma-quick'
   | 'luma-hq'
 
 type BenchTargetStatus = 'within-target' | 'over-target' | 'baseline'
-type BenchRuntime = 'libraw-wasm' | 'luma'
+type BenchRuntime = 'luma'
 type BenchTimings = Record<string, number | undefined>
 type BenchHeap = Record<string, number | undefined>
 
@@ -95,7 +90,6 @@ function targetStatus(
   total: number,
   megapixels?: number,
 ): BenchTargetStatus {
-  if (stage === 'legacy-quick' || stage === 'legacy-hq') return 'baseline'
   if (stage === 'luma-embedded') {
     return total < 1000 ? 'within-target' : 'over-target'
   }
@@ -113,14 +107,9 @@ function print(record: BenchRecord | BenchErrorRecord) {
   output.textContent += `${JSON.stringify(record)}\n`
 }
 
-function printError(
-  runtime: BenchRuntime,
-  stage: BenchStage,
-  file: File,
-  error: unknown,
-) {
+function printError(stage: BenchStage, file: File, error: unknown) {
   print({
-    runtime,
+    runtime: 'luma',
     stage,
     file: file.name,
     size: file.size,
@@ -131,11 +120,6 @@ function printError(
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? (error.stack ?? error.message) : String(error)
-}
-
-function terminateLibrawWorker(libraw: LibRaw) {
-  const worker = (libraw as unknown as { worker?: unknown }).worker
-  if (worker instanceof Worker) worker.terminate()
 }
 
 function outputMegapixels(width?: number, height?: number) {
@@ -193,91 +177,6 @@ function makeRecord(
   }
 }
 
-async function legacyDecode(file: File, stage: 'legacy-quick' | 'legacy-hq') {
-  const libraw = new LibRaw()
-  const timings: BenchTimings = {}
-  const start = performance.now()
-
-  try {
-    const readStart = performance.now()
-    const bytes = new Uint8Array(await file.arrayBuffer())
-    timings.read = performance.now() - readStart
-
-    const openStart = performance.now()
-    await libraw.open(bytes, {
-      halfSize: stage === 'legacy-quick',
-      useCameraWb: true,
-      outputColor: 1,
-      outputBps: 16,
-      noAutoBright: false,
-    })
-    timings.open = performance.now() - openStart
-
-    const processStart = performance.now()
-    const image = await libraw.imageData()
-    timings.process = performance.now() - processStart
-    timings.total = performance.now() - start
-
-    const record = makeRecord({
-      runtime: 'libraw-wasm',
-      stage,
-      file: file.name,
-      size: file.size,
-      fileSize: file.size,
-      width: image.width,
-      height: image.height,
-      megapixels: outputMegapixels(image.width, image.height),
-      total: timings.total,
-      targetStatus: 'baseline',
-      timings,
-    })
-    print(record)
-    return record
-  } catch (error) {
-    print({
-      runtime: 'libraw-wasm',
-      stage,
-      file: file.name,
-      size: file.size,
-      fileSize: file.size,
-      error: errorMessage(error),
-    })
-    return undefined
-  } finally {
-    terminateLibrawWorker(libraw)
-  }
-}
-
-async function benchLegacy(file: File) {
-  const quick = await legacyDecode(file, 'legacy-quick')
-
-  if (file.size >= LARGE_RAW_SAFE_HQ_REUSE_BYTES) {
-    if (quick) {
-      print({
-        ...quick,
-        stage: 'legacy-hq',
-        timings: {
-          ...quick.timings,
-          reusedFromLegacyQuick: 1,
-        },
-      })
-    } else {
-      print({
-        runtime: 'libraw-wasm',
-        stage: 'legacy-hq',
-        file: file.name,
-        size: file.size,
-        fileSize: file.size,
-        error:
-          'Skipped large-file HQ legacy decode because legacy quick failed.',
-      })
-    }
-    return
-  }
-
-  await legacyDecode(file, 'legacy-hq')
-}
-
 function assertOpenSession(
   runtime: LumaRawRuntime,
 ): asserts runtime is LumaRawRuntimeWithAnticipatedSession & {
@@ -330,7 +229,7 @@ async function benchLuma(file: File) {
       maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
     })
   } catch (error) {
-    printError('luma', 'luma-open-session', file, error)
+    printError('luma-open-session', file, error)
     runtime.dispose()
     return
   }
@@ -349,16 +248,13 @@ async function benchLuma(file: File) {
     )
 
     const runLumaStage = async (
-      stage: Exclude<
-        BenchStage,
-        'legacy-quick' | 'legacy-hq' | 'luma-open-session'
-      >,
+      stage: Exclude<BenchStage, 'luma-open-session'>,
       action: () => Promise<void>,
     ) => {
       try {
         await action()
       } catch (error) {
-        printError('luma', stage, file, error)
+        printError(stage, file, error)
       }
     }
 
@@ -412,7 +308,6 @@ async function run() {
   runButton.disabled = true
   try {
     for (const file of files) {
-      await benchLegacy(file)
       await benchLuma(file)
     }
   } finally {

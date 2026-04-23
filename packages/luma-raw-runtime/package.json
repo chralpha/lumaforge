@@ -25,8 +25,5 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run src worker",
     "bench:serve": "vite --host 0.0.0.0 --port 4174 --config vite.config.ts"
-  },
-  "devDependencies": {
-    "libraw-wasm": "^1.1.2"
   }
 }

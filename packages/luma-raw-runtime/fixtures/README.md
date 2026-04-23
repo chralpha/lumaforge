@@ -16,12 +16,15 @@ pnpm --filter @lumaforge/luma-raw-runtime bench:serve
 
 Open `http://localhost:4174/benchmarks/bench-runtime.html`, select all three RAW fixtures, and click `Run benchmark`.
 
-The benchmark is app-equivalent:
+The live benchmark validates the optimized Luma runtime only:
 
-- legacy quick uses `libraw-wasm` with `halfSize: true`
-- legacy HQ uses the current Phase 1 large-file behavior: reuse quick for files at or above 32 MiB
-- Luma uses one decode session per file
+- Luma opens one decode session per file
 - Luma embedded, quick, and HQ timings are reported separately
 - output JSONL includes file, size, megapixels, stage, width, height, total, read, transfer, copy, open, unpack/process, heap bytes, and target status
+
+Historical app-equivalent legacy comparison rows are recorded in:
+
+- `docs/plans/2026-04-23-luma-raw-runtime-benchmark-notes.md`
+- `/tmp/luma-raw-runtime-perf-v2.jsonl` when available in the local validation environment
 
 Keep fixture files in this directory only on local machines unless the project has explicit redistribution rights for a sample.
