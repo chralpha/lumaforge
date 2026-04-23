@@ -21,7 +21,7 @@
   ],
   "scripts": {
     "build": "vite build --config vite.config.ts && tsc -p tsconfig.build.json",
-    "build:native": "bash -lc 'if [ -f native/build-libraw.sh ]; then bash native/build-libraw.sh; else echo \"native/build-libraw.sh is not available yet; add it in Task 5.\" >&2; exit 1; fi'",
+    "build:native": "bash native/build-libraw.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run src worker",
     "bench:serve": "vite --host 0.0.0.0 --port 4174 --config vite.config.ts"
