@@ -196,15 +196,132 @@ describe('useRawProcessor embedded preview state', () => {
       await result.current.loadFile(file)
     })
 
+    const openSignal = rawRuntimeAdapterMock.openSession.mock.calls[0]?.[1]
     expect(rawRuntimeAdapterMock.openSession).toHaveBeenCalledTimes(1)
-    expect(rawRuntimeAdapterMock.openSession).toHaveBeenCalledWith(file)
-    expect(extractEmbeddedPreview).toHaveBeenCalledTimes(1)
-    expect(decodeQuickRaw).toHaveBeenCalledTimes(1)
-    expect(decodeHqRaw).toHaveBeenCalledTimes(1)
+    expect(rawRuntimeAdapterMock.openSession).toHaveBeenCalledWith(
+      file,
+      openSignal,
+    )
+    expect(openSignal).toBeInstanceOf(AbortSignal)
+    expect(openSignal.aborted).toBe(false)
+    expect(extractEmbeddedPreview).toHaveBeenCalledWith(openSignal)
+    expect(decodeQuickRaw).toHaveBeenCalledWith(
+      expect.any(Function),
+      openSignal,
+    )
+    expect(decodeHqRaw).toHaveBeenCalledWith(expect.any(Function), openSignal)
     expect(dispose).toHaveBeenCalledTimes(1)
     expect(rawRuntimeAdapterMock.extractEmbeddedPreview).not.toHaveBeenCalled()
     expect(rawRuntimeAdapterMock.decodeQuickRaw).not.toHaveBeenCalled()
     expect(rawRuntimeAdapterMock.decodeHqRaw).not.toHaveBeenCalled()
+  })
+
+  it('aborts and disposes stale runtime session when replacing files', async () => {
+    const staleQuickDecode = deferred<DecodedImage>()
+    const staleSession = {
+      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+      decodeQuickRaw: vi.fn().mockReturnValue(staleQuickDecode.promise),
+      decodeHqRaw: vi.fn(),
+      dispose: vi.fn(),
+    }
+    const currentSession = {
+      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+      decodeQuickRaw: vi.fn().mockResolvedValue(createDecodedImage('quick')),
+      decodeHqRaw: vi.fn().mockResolvedValue(createDecodedImage('hq')),
+      dispose: vi.fn(),
+    }
+    let staleSignal: AbortSignal | undefined
+    let currentSignal: AbortSignal | undefined
+
+    rawRuntimeAdapterMock.openSession
+      .mockImplementationOnce((_file: File, signal?: AbortSignal) => {
+        staleSignal = signal
+        return Promise.resolve(staleSession)
+      })
+      .mockImplementationOnce((_file: File, signal?: AbortSignal) => {
+        currentSignal = signal
+        return Promise.resolve(currentSession)
+      })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    let staleLoadPromise!: Promise<void>
+    let currentLoadPromise!: Promise<void>
+
+    await act(async () => {
+      staleLoadPromise = result.current.loadFile(
+        new File(['stale'], 'stale.ARW'),
+      )
+      await Promise.resolve()
+    })
+    await waitFor(() => {
+      expect(staleSession.decodeQuickRaw).toHaveBeenCalled()
+    })
+
+    await act(async () => {
+      currentLoadPromise = result.current.loadFile(
+        new File(['current'], 'current.ARW'),
+      )
+      await currentLoadPromise
+    })
+
+    expect(staleSignal).toBeInstanceOf(AbortSignal)
+    expect(staleSignal?.aborted).toBe(true)
+    expect(staleSession.dispose).toHaveBeenCalledTimes(1)
+    expect(currentSignal).toBeInstanceOf(AbortSignal)
+    expect(currentSignal?.aborted).toBe(false)
+    expect(currentSession.dispose).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      staleQuickDecode.reject(new Error('stale decode aborted'))
+      await staleLoadPromise
+    })
+
+    expect(staleSession.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('aborts and disposes runtime session on reset', async () => {
+    const quickDecode = deferred<DecodedImage>()
+    const runtimeSession = {
+      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+      decodeQuickRaw: vi.fn().mockReturnValue(quickDecode.promise),
+      decodeHqRaw: vi.fn(),
+      dispose: vi.fn(),
+    }
+    let signal: AbortSignal | undefined
+
+    rawRuntimeAdapterMock.openSession.mockImplementation(
+      (_file: File, nextSignal?: AbortSignal) => {
+        signal = nextSignal
+        return Promise.resolve(runtimeSession)
+      },
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    let loadPromise!: Promise<void>
+
+    await act(async () => {
+      loadPromise = result.current.loadFile(new File(['raw'], 'frame.ARW'))
+      await Promise.resolve()
+    })
+    await waitFor(() => {
+      expect(runtimeSession.decodeQuickRaw).toHaveBeenCalled()
+    })
+
+    act(() => {
+      result.current.reset()
+    })
+
+    expect(signal).toBeInstanceOf(AbortSignal)
+    expect(signal?.aborted).toBe(true)
+    expect(runtimeSession.dispose).toHaveBeenCalledTimes(1)
+    expect(result.current.status).toBe('idle')
+
+    await act(async () => {
+      quickDecode.reject(new Error('reset aborted decode'))
+      await loadPromise
+    })
+
+    expect(runtimeSession.dispose).toHaveBeenCalledTimes(1)
   })
 
   it('does not create embedded object URLs after unmount', async () => {

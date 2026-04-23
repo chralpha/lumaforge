@@ -174,30 +174,55 @@ export async function decodeHqRawWithLuma(
 export async function openRawSessionWithLuma(
   file: File,
   runtimeFactory?: () => LumaRawRuntime,
+  signal?: AbortSignal,
 ): Promise<RawRuntimeSession> {
-  const runtime = await getRuntime(runtimeFactory)
-  await runtime.init()
-  const session = await runtime.openSession(file, {
-    maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
-  })
+  let session: Awaited<ReturnType<LumaRawRuntime['openSession']>>
+  try {
+    const runtime = await getRuntime(runtimeFactory)
+    await runtime.init()
+    session = await runtime.openSession(
+      file,
+      {
+        maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
+      },
+      signal,
+    )
+  } catch (error) {
+    throw normalizeRawAdapterError(error, 'RAW_OPEN_FAILED')
+  }
 
   return {
-    extractEmbeddedPreview() {
-      return session.extractEmbeddedPreview()
+    async extractEmbeddedPreview(signal?: AbortSignal) {
+      try {
+        return await session.extractEmbeddedPreview(signal)
+      } catch (error) {
+        throw normalizeRawAdapterError(error, 'RAW_THUMBNAIL_UNAVAILABLE')
+      }
     },
-    async decodeQuickRaw(onProgress?: ProgressCallback) {
-      onProgress?.({ phase: 'decoding', progress: 50 })
-      const frame = await session.decodeQuick({
-        maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
-      })
-      onProgress?.({ phase: 'complete', progress: 100 })
-      return frameToDecodedImage(frame)
+    async decodeQuickRaw(onProgress?: ProgressCallback, signal?: AbortSignal) {
+      try {
+        onProgress?.({ phase: 'decoding', progress: 50 })
+        const frame = await session.decodeQuick(
+          {
+            maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
+          },
+          signal,
+        )
+        onProgress?.({ phase: 'complete', progress: 100 })
+        return frameToDecodedImage(frame)
+      } catch (error) {
+        throw normalizeRawAdapterError(error, 'RAW_QUICK_DECODE_FAILED')
+      }
     },
-    async decodeHqRaw(onProgress?: ProgressCallback) {
-      onProgress?.({ phase: 'decoding', progress: 50 })
-      const frame = await session.decodeHq()
-      onProgress?.({ phase: 'complete', progress: 100 })
-      return frameToDecodedImage(frame)
+    async decodeHqRaw(onProgress?: ProgressCallback, signal?: AbortSignal) {
+      try {
+        onProgress?.({ phase: 'decoding', progress: 50 })
+        const frame = await session.decodeHq(signal)
+        onProgress?.({ phase: 'complete', progress: 100 })
+        return frameToDecodedImage(frame)
+      } catch (error) {
+        throw normalizeRawAdapterError(error, 'RAW_HQ_DECODE_FAILED')
+      }
     },
     dispose() {
       session.dispose()

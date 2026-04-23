@@ -240,6 +240,8 @@ describe('raw runtime adapter', () => {
     const decodeQuick = vi.fn().mockResolvedValue(makeLumaFrame('quick'))
     const decodeHq = vi.fn().mockResolvedValue(makeLumaFrame('hq'))
     const dispose = vi.fn()
+    const openSignal = new AbortController().signal
+    const stageSignal = new AbortController().signal
     const { runtime } = makeLumaRuntime({
       openSession: vi.fn().mockResolvedValue({
         sessionId: 'session-1',
@@ -263,17 +265,89 @@ describe('raw runtime adapter', () => {
       lumaRuntimeFactory: () => runtime,
     })
 
-    const session = await adapter.openSession(new File(['raw'], 'sample.ARW'))
-    await session.extractEmbeddedPreview()
-    await session.decodeQuickRaw()
-    await session.decodeHqRaw()
+    const file = new File(['raw'], 'sample.ARW')
+    const session = await adapter.openSession(file, openSignal)
+    await session.extractEmbeddedPreview(stageSignal)
+    await session.decodeQuickRaw(undefined, stageSignal)
+    await session.decodeHqRaw(undefined, stageSignal)
     session.dispose()
 
-    expect(runtime.openSession).toHaveBeenCalledTimes(1)
-    expect(extractEmbeddedPreview).toHaveBeenCalledTimes(1)
-    expect(decodeQuick).toHaveBeenCalledTimes(1)
-    expect(decodeHq).toHaveBeenCalledTimes(1)
+    expect(runtime.openSession).toHaveBeenCalledWith(
+      file,
+      expect.objectContaining({ maxOutputPixels: expect.any(Number) }),
+      openSignal,
+    )
+    expect(extractEmbeddedPreview).toHaveBeenCalledWith(stageSignal)
+    expect(decodeQuick).toHaveBeenCalledWith(
+      expect.objectContaining({ maxOutputPixels: expect.any(Number) }),
+      stageSignal,
+    )
+    expect(decodeHq).toHaveBeenCalledWith(stageSignal)
     expect(dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('normalizes generic luma session open failures', async () => {
+    const { runtime } = makeLumaRuntime({
+      openSession: vi.fn().mockRejectedValue(new Error('open exploded')),
+    })
+    const adapter = createRawRuntimeAdapter({
+      runtimeKind: 'luma',
+      lumaRuntimeFactory: () => runtime,
+    })
+
+    await expect(
+      adapter.openSession(new File(['raw'], 'sample.ARW')),
+    ).rejects.toMatchObject({
+      name: 'RawAdapterError',
+      code: 'RAW_OPEN_FAILED',
+      message: 'open exploded',
+    })
+  })
+
+  it('normalizes generic luma session stage failures', async () => {
+    const extractEmbeddedPreview = vi
+      .fn()
+      .mockRejectedValue(new Error('thumbnail exploded'))
+    const decodeQuick = vi.fn().mockRejectedValue(new Error('quick exploded'))
+    const decodeHq = vi.fn().mockRejectedValue(new Error('hq exploded'))
+    const { runtime } = makeLumaRuntime({
+      openSession: vi.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        probe: {
+          jobId: 'probe',
+          width: 6240,
+          height: 4168,
+          supportLevel: 'experimental',
+          timings: { total: 1 },
+        },
+        timings: { total: 1 },
+        extractEmbeddedPreview,
+        decodeQuick,
+        decodeHq,
+        dispose: vi.fn(),
+      }),
+    })
+    const adapter = createRawRuntimeAdapter({
+      runtimeKind: 'luma',
+      lumaRuntimeFactory: () => runtime,
+    })
+    const session = await adapter.openSession(new File(['raw'], 'sample.ARW'))
+
+    await expect(session.extractEmbeddedPreview()).rejects.toMatchObject({
+      name: 'RawAdapterError',
+      code: 'RAW_THUMBNAIL_UNAVAILABLE',
+      message: 'thumbnail exploded',
+    })
+    await expect(session.decodeQuickRaw()).rejects.toMatchObject({
+      name: 'RawAdapterError',
+      code: 'RAW_QUICK_DECODE_FAILED',
+      message: 'quick exploded',
+    })
+    await expect(session.decodeHqRaw()).rejects.toMatchObject({
+      name: 'RawAdapterError',
+      code: 'RAW_HQ_DECODE_FAILED',
+      message: 'hq exploded',
+    })
   })
 
   it('shares one singleton runtime across concurrent first luma calls', async () => {

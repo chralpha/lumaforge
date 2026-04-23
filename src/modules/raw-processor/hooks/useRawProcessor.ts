@@ -164,6 +164,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const isMountedRef = useRef(false)
   const activeSessionIdRef = useRef<string | null>(null)
   const runtimeSessionRef = useRef<RawRuntimeSession | null>(null)
+  const runtimeAbortControllerRef = useRef<AbortController | null>(null)
   const disposedRuntimeSessionsRef = useRef<WeakSet<RawRuntimeSession>>(
     new WeakSet(),
   )
@@ -254,6 +255,15 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [],
   )
 
+  const abortRuntimeWork = useCallback(() => {
+    const controller = runtimeAbortControllerRef.current
+    if (controller && !controller.signal.aborted) {
+      controller.abort()
+    }
+    runtimeAbortControllerRef.current = null
+    disposeRuntimeSession()
+  }, [disposeRuntimeSession])
+
   useEffect(() => {
     sessionRef.current = session
   }, [session])
@@ -265,7 +275,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       const activeSessionId = activeSessionIdRef.current
       isMountedRef.current = false
       activeSessionIdRef.current = null
-      disposeRuntimeSession()
+      abortRuntimeWork()
       revokeCurrentEmbeddedPreviewUrl()
       if (activeSessionId) {
         setLoadedImage({ file: null, decoded: null, metadata: null })
@@ -279,7 +289,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     }
   }, [
     revokeCurrentEmbeddedPreviewUrl,
-    disposeRuntimeSession,
+    abortRuntimeWork,
     setError,
     setLoadedImage,
     setProgress,
@@ -307,11 +317,16 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
       let loadSessionId: string | null = null
       let runtimeSession: RawRuntimeSession | null = null
+      let runtimeAbortController: AbortController | null = null
+      let previewCompleted = false
 
       try {
         activeSessionIdRef.current = null
-        disposeRuntimeSession()
+        abortRuntimeWork()
         revokeCurrentEmbeddedPreviewUrl()
+        runtimeAbortController = new AbortController()
+        runtimeAbortControllerRef.current = runtimeAbortController
+        const runtimeSignal = runtimeAbortController.signal
 
         const nextSession = replaceFile(file)
         loadSessionId = nextSession.id
@@ -457,8 +472,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
           }
         }
 
-        runtimeSession = await rawRuntimeAdapter.openSession(file)
+        runtimeSession = await rawRuntimeAdapter.openSession(
+          file,
+          runtimeSignal,
+        )
         if (!matchesActiveSession()) {
+          runtimeAbortController.abort()
           return
         }
 
@@ -469,7 +488,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         await runPreviewPipeline({
           runtimeSession: {
             extractEmbeddedPreview() {
-              return activeRuntimeSession.extractEmbeddedPreview()
+              return activeRuntimeSession.extractEmbeddedPreview(runtimeSignal)
             },
             async decodeQuickRaw() {
               quickPreview = await activeRuntimeSession.decodeQuickRaw(
@@ -481,6 +500,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                   setStatus(mapPhaseToStatus(phase))
                   setProgress(progress * 0.5)
                 },
+                runtimeSignal,
               )
 
               return { width: quickPreview.width, height: quickPreview.height }
@@ -500,6 +520,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                   setStatus(mapPhaseToStatus(phase))
                   setProgress(50 + progress * 0.5)
                 },
+                runtimeSignal,
               )
 
               return { width: hqPreview.width, height: hqPreview.height }
@@ -585,6 +606,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
             }
           },
         })
+        previewCompleted = true
         if (activeSessionIdRef.current === nextSession.id) {
           activeSessionIdRef.current = null
         }
@@ -621,12 +643,22 @@ export function useRawProcessor(): UseRawProcessorReturn {
         setStatus('error')
         toast.error('Failed to load RAW file', { description: message })
       } finally {
+        if (
+          runtimeAbortController &&
+          runtimeAbortControllerRef.current === runtimeAbortController
+        ) {
+          if (!previewCompleted && !runtimeAbortController.signal.aborted) {
+            runtimeAbortController.abort()
+          }
+          runtimeAbortControllerRef.current = null
+        }
         if (runtimeSession) {
           disposeRuntimeSession(runtimeSession)
         }
       }
     },
     [
+      abortRuntimeWork,
       disposeRuntimeSession,
       replaceFile,
       revokeCurrentEmbeddedPreviewUrl,
@@ -922,7 +954,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   // Reset state
   const reset = useCallback(() => {
     activeSessionIdRef.current = null
-    disposeRuntimeSession()
+    abortRuntimeWork()
     revokeCurrentEmbeddedPreviewUrl()
     setLoadedImage({ file: null, decoded: null, metadata: null })
     setStatus('idle')
@@ -933,7 +965,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     sessionRef.current = null
   }, [
     resetSession,
-    disposeRuntimeSession,
+    abortRuntimeWork,
     revokeCurrentEmbeddedPreviewUrl,
     setError,
     setLoadedImage,
