@@ -166,4 +166,26 @@ describe('raw runtime adapter', () => {
     setRawRuntimeEnv('luma')
     expect(runtimeKindFromEnv()).toBe('luma')
   })
+
+  it('preserves stable luma runtime error codes', async () => {
+    const { runtime } = makeLumaRuntime()
+    const runtimeError = Object.assign(
+      new Error('Cross-origin isolation is required.'),
+      {
+        code: 'RAW_CROSS_ORIGIN_ISOLATION_REQUIRED',
+      },
+    )
+    vi.mocked(runtime.init).mockRejectedValue(runtimeError)
+    const adapter = createRawRuntimeAdapter({
+      runtimeKind: 'luma',
+      lumaRuntimeFactory: () => runtime,
+    })
+
+    await expect(
+      adapter.decodeQuickRaw(new File(['raw'], 'sample.ARW')),
+    ).rejects.toMatchObject({
+      code: 'RAW_CROSS_ORIGIN_ISOLATION_REQUIRED',
+      message: 'Cross-origin isolation is required.',
+    })
+  })
 })

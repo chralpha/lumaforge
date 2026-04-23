@@ -12,6 +12,10 @@ import { routeBuilderPlugin } from 'vite-plugin-route-builder'
 import PKG from './package.json'
 
 const ROOT = fileURLToPath(new URL('./', import.meta.url))
+const LUMA_RAW_RUNTIME_SOURCE = resolve(
+  ROOT,
+  './packages/luma-raw-runtime/src/index.ts',
+)
 
 export default defineConfig({
   plugins: [
@@ -33,6 +37,9 @@ export default defineConfig({
     }),
   ],
   resolve: {
+    alias: {
+      '@lumaforge/luma-raw-runtime': LUMA_RAW_RUNTIME_SOURCE,
+    },
     tsconfigPaths: true,
   },
   define: {

@@ -2,19 +2,14 @@
   "compilerOptions": {
     "target": "ESNext",
     "jsx": "preserve",
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ESNext"
-    ],
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "paths": {
-      "~/*": [
-        "./src/*"
-      ],
-      "@pkg": [
-        "./package.json"
+      "~/*": ["./src/*"],
+      "@pkg": ["./package.json"],
+      "@lumaforge/luma-raw-runtime": [
+        "./packages/luma-raw-runtime/src/index.ts"
       ]
     },
     "resolveJsonModule": true,
@@ -25,9 +20,7 @@
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
     "skipDefaultLibCheck": true,
-    "skipLibCheck": true,
+    "skipLibCheck": true
   },
-  "include": [
-    "./src/**/*",
-  ]
+  "include": ["./src/**/*"]
 }

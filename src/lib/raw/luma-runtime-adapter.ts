@@ -1,27 +1,64 @@
 import type {
   LumaEmbeddedPreview,
+  LumaRawErrorCode,
   LumaRawFrame,
   LumaRawRuntime,
-} from '@lumaforge/luma-raw-runtime'
-import {
-  createLumaRawRuntime,
-  LumaRawRuntimeError,
 } from '@lumaforge/luma-raw-runtime'
 
 import type { DecodedImage, ImageMetadata, ProgressCallback } from './decoder'
 
 let singletonRuntime: LumaRawRuntime | null = null
 
-function getRuntime(runtimeFactory?: () => LumaRawRuntime) {
+export class RawAdapterError extends Error {
+  readonly code: LumaRawErrorCode
+
+  constructor(code: LumaRawErrorCode, message: string, options?: ErrorOptions) {
+    super(message, options)
+    this.name = 'RawAdapterError'
+    this.code = code
+  }
+}
+
+async function getRuntime(runtimeFactory?: () => LumaRawRuntime) {
   if (runtimeFactory) {
     return runtimeFactory()
   }
 
-  singletonRuntime ??= createLumaRawRuntime({
+  if (singletonRuntime) {
+    return singletonRuntime
+  }
+
+  const { createLumaRawRuntime } = await import('@lumaforge/luma-raw-runtime')
+
+  singletonRuntime = createLumaRawRuntime({
     requireCrossOriginIsolation: true,
   })
 
   return singletonRuntime
+}
+
+function getRawErrorCode(error: unknown): LumaRawErrorCode | undefined {
+  if (typeof error !== 'object' || !error || !('code' in error)) {
+    return undefined
+  }
+
+  const code = (error as { code?: unknown }).code
+  if (typeof code === 'string' && code.startsWith('RAW_')) {
+    return code as LumaRawErrorCode
+  }
+
+  return undefined
+}
+
+function normalizeRawAdapterError(
+  error: unknown,
+  fallbackCode: LumaRawErrorCode,
+) {
+  const code = getRawErrorCode(error) ?? fallbackCode
+  const message =
+    error instanceof Error ? error.message : 'RAW runtime request failed.'
+
+  return new RawAdapterError(code, message, { cause: error })
 }
 
 function formatLumaShutter(shutter?: number) {
@@ -66,9 +103,13 @@ export async function extractEmbeddedPreviewWithLuma(
   file: File,
   runtimeFactory?: () => LumaRawRuntime,
 ): Promise<LumaEmbeddedPreview | null> {
-  const runtime = getRuntime(runtimeFactory)
-  await runtime.init()
-  return runtime.extractEmbeddedPreview(file)
+  try {
+    const runtime = await getRuntime(runtimeFactory)
+    await runtime.init()
+    return runtime.extractEmbeddedPreview(file)
+  } catch (error) {
+    throw normalizeRawAdapterError(error, 'RAW_THUMBNAIL_UNAVAILABLE')
+  }
 }
 
 export async function decodeQuickRawWithLuma(
@@ -76,18 +117,22 @@ export async function decodeQuickRawWithLuma(
   onProgress?: ProgressCallback,
   runtimeFactory?: () => LumaRawRuntime,
 ): Promise<DecodedImage> {
-  onProgress?.({ phase: 'loading', progress: 0 })
+  try {
+    onProgress?.({ phase: 'loading', progress: 0 })
 
-  const runtime = getRuntime(runtimeFactory)
-  await runtime.init()
+    const runtime = await getRuntime(runtimeFactory)
+    await runtime.init()
 
-  onProgress?.({ phase: 'decoding', progress: 50 })
+    onProgress?.({ phase: 'decoding', progress: 50 })
 
-  const frame = await runtime.decodeQuick(file)
+    const frame = await runtime.decodeQuick(file)
 
-  onProgress?.({ phase: 'complete', progress: 100 })
+    onProgress?.({ phase: 'complete', progress: 100 })
 
-  return frameToDecodedImage(frame)
+    return frameToDecodedImage(frame)
+  } catch (error) {
+    throw normalizeRawAdapterError(error, 'RAW_QUICK_DECODE_FAILED')
+  }
 }
 
 export async function decodeHqRawWithLuma(
@@ -95,18 +140,22 @@ export async function decodeHqRawWithLuma(
   onProgress?: ProgressCallback,
   runtimeFactory?: () => LumaRawRuntime,
 ): Promise<DecodedImage> {
-  onProgress?.({ phase: 'loading', progress: 0 })
+  try {
+    onProgress?.({ phase: 'loading', progress: 0 })
 
-  const runtime = getRuntime(runtimeFactory)
-  await runtime.init()
+    const runtime = await getRuntime(runtimeFactory)
+    await runtime.init()
 
-  onProgress?.({ phase: 'decoding', progress: 50 })
+    onProgress?.({ phase: 'decoding', progress: 50 })
 
-  const frame = await runtime.decodeHq(file)
+    const frame = await runtime.decodeHq(file)
 
-  onProgress?.({ phase: 'complete', progress: 100 })
+    onProgress?.({ phase: 'complete', progress: 100 })
 
-  return frameToDecodedImage(frame)
+    return frameToDecodedImage(frame)
+  } catch (error) {
+    throw normalizeRawAdapterError(error, 'RAW_HQ_DECODE_FAILED')
+  }
 }
 
 export function disposeLumaRawRuntime() {
@@ -115,9 +164,8 @@ export function disposeLumaRawRuntime() {
 }
 
 export function toRawAdapterError(error: unknown) {
-  if (error instanceof LumaRawRuntimeError) {
-    return error.code
-  }
+  const code = getRawErrorCode(error)
+  if (code) return code
 
   if (error instanceof Error) {
     return error.message

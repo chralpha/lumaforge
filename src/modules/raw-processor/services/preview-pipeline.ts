@@ -4,6 +4,15 @@ export type PreviewEvent =
   | { type: 'hq-ready'; width: number; height: number }
   | { type: 'hq-failed'; errorCode: string }
 
+function toPreviewErrorCode(error: unknown, fallbackCode: string) {
+  if (typeof error === 'object' && error && 'code' in error) {
+    const code = (error as { code?: unknown }).code
+    if (typeof code === 'string') return code
+  }
+
+  return fallbackCode
+}
+
 export async function runPreviewPipeline({
   file,
   extractEmbeddedPreview,
@@ -24,17 +33,18 @@ export async function runPreviewPipeline({
     onEvent({ type: 'embedded-ready', ...embedded })
   }
 
-  if (!embedded) {
-    const quick = await decodeQuickPreview(file)
-    onEvent({ type: 'quick-ready', ...quick })
-    await yieldToPreviewPaint()
-  }
+  const quick = await decodeQuickPreview(file)
+  onEvent({ type: 'quick-ready', ...quick })
+  await yieldToPreviewPaint()
 
   try {
     const hq = await decodeHqPreview(file)
     onEvent({ type: 'hq-ready', ...hq })
-  } catch {
-    onEvent({ type: 'hq-failed', errorCode: 'RAW_HQ_DECODE_FAILED' })
+  } catch (error) {
+    onEvent({
+      type: 'hq-failed',
+      errorCode: toPreviewErrorCode(error, 'RAW_HQ_DECODE_FAILED'),
+    })
   }
 }
 

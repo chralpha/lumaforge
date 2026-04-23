@@ -12,6 +12,9 @@ export default defineConfig({
     alias: {
       '~': fileURLToPath(new URL('./src', import.meta.url)),
       '@pkg': fileURLToPath(new URL('./package.json', import.meta.url)),
+      '@lumaforge/luma-raw-runtime': fileURLToPath(
+        new URL('./packages/luma-raw-runtime/src/index.ts', import.meta.url),
+      ),
     },
   },
   test: {

@@ -63,6 +63,14 @@ function toUserFacingErrorCode(code: unknown) {
   return 'RAW_UNKNOWN'
 }
 
+function getStableErrorCode(error: unknown) {
+  if (typeof error !== 'object' || !error || !('code' in error)) {
+    return undefined
+  }
+
+  return (error as { code?: unknown }).code
+}
+
 function getProgressRecoveryHint(status: ProcessingStatus) {
   if (status === 'loading' || status === 'decoding') {
     return 'If HQ preview cannot finish, the first visible preview stays available and export remains disabled.'
@@ -422,7 +430,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Failed to load file'
-        const errorCode = toUserFacingErrorCode(message)
+        const errorCode = toUserFacingErrorCode(
+          getStableErrorCode(err) ?? message,
+        )
         setError(message)
         setSession((prev) =>
           prev
