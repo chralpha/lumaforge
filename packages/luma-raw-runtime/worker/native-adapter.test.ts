@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createNativeFactory } from './native-adapter'
 import type {
-  LumaRawNativeDecodePreviewOptions,
+  LumaRawNativeDecodeOptions,
   LumaRawNativeOpenSettings,
 } from './native-types'
 
@@ -10,7 +10,8 @@ type ProcessorValues = {
   openTimings?: unknown
   thumbnail?: unknown
   image?: unknown
-  onDecodePreview?: (options?: LumaRawNativeDecodePreviewOptions) => void
+  onDecodePreview?: (options?: LumaRawNativeDecodeOptions) => void
+  onDecodeHq?: (options?: LumaRawNativeDecodeOptions) => void
 }
 
 const settings = {
@@ -50,11 +51,12 @@ function createProcessor(values: ProcessorValues) {
       extractThumbnail() {
         return values.thumbnail
       }
-      decodePreview(options?: LumaRawNativeDecodePreviewOptions) {
+      decodePreview(options?: LumaRawNativeDecodeOptions) {
         values.onDecodePreview?.(options)
         return image
       }
-      decodeHq() {
+      decodeHq(options?: LumaRawNativeDecodeOptions) {
+        values.onDecodeHq?.(options)
         return image
       }
       delete() {}
@@ -324,12 +326,16 @@ describe('native-adapter', () => {
     })
   })
 
-  it('passes decode preview options to the native processor', () => {
+  it('passes decode options to the native processor', () => {
     const options = { maxOutputPixels: 123 }
-    let receivedOptions: LumaRawNativeDecodePreviewOptions | undefined
+    let receivedPreviewOptions: LumaRawNativeDecodeOptions | undefined
+    let receivedHqOptions: LumaRawNativeDecodeOptions | undefined
     const processor = createProcessor({
       onDecodePreview(nextOptions) {
-        receivedOptions = nextOptions
+        receivedPreviewOptions = nextOptions
+      },
+      onDecodeHq(nextOptions) {
+        receivedHqOptions = nextOptions
       },
     })
 
@@ -339,7 +345,14 @@ describe('native-adapter', () => {
       height: 1,
       bits: 16,
     })
-    expect(receivedOptions).toBe(options)
+    expect(processor.decodeHq(options)).toEqual({
+      data: new Uint16Array([1, 2, 3]),
+      width: 1,
+      height: 1,
+      bits: 16,
+    })
+    expect(receivedPreviewOptions).toBe(options)
+    expect(receivedHqOptions).toBe(options)
   })
 
   it('throws when open timing objects are malformed', () => {

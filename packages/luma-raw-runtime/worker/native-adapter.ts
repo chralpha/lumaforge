@@ -1,5 +1,5 @@
 import type {
-  LumaRawNativeDecodePreviewOptions,
+  LumaRawNativeDecodeOptions,
   LumaRawNativeFactory,
   LumaRawNativeOpenSettings,
   LumaRawNativeOpenTimings,
@@ -12,8 +12,8 @@ type EmbindProcessor = {
   openBuffer: (data: Uint8Array, settings: LumaRawNativeOpenSettings) => unknown
   readMetadata: () => unknown
   extractThumbnail: () => unknown
-  decodePreview: (options?: LumaRawNativeDecodePreviewOptions) => unknown
-  decodeHq: () => unknown
+  decodePreview: (options?: LumaRawNativeDecodeOptions) => unknown
+  decodeHq: (options?: LumaRawNativeDecodeOptions) => unknown
   delete?: () => void
 }
 
@@ -271,8 +271,8 @@ export function createNativeFactory(
         decodePreview(options) {
           return normalizeImage(processor.decodePreview(options))
         },
-        decodeHq() {
-          return normalizeImage(processor.decodeHq())
+        decodeHq(options) {
+          return normalizeImage(processor.decodeHq(options))
         },
         dispose() {
           processor.delete?.()

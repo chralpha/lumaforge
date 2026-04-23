@@ -3,6 +3,8 @@
 #include <emscripten/val.h>
 #include <libraw/libraw.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -15,6 +17,11 @@ namespace {
 using emscripten::class_;
 using emscripten::typed_memory_view;
 using emscripten::val;
+
+struct OutputSize {
+  int width;
+  int height;
+};
 
 std::string librawError(const std::string &operation, int code) {
   return operation + " failed: " + LibRaw::strerror(code);
@@ -97,6 +104,34 @@ size_t checkedMultiply(size_t left, size_t right, const std::string &label) {
   }
 
   return left * right;
+}
+
+OutputSize planOutputSize(int width, int height, int max_pixels) {
+  if (max_pixels <= 0 || static_cast<double>(width) * height <= max_pixels) {
+    return {width, height};
+  }
+
+  const double scale =
+      std::sqrt(static_cast<double>(max_pixels) /
+                (static_cast<double>(width) * height));
+  int out_width = std::max(1, static_cast<int>(std::floor(width * scale)));
+  int out_height = std::max(1, static_cast<int>(std::floor(height * scale)));
+
+  while (static_cast<double>(out_width) * out_height > max_pixels) {
+    if (out_width >= out_height) {
+      --out_width;
+    } else {
+      --out_height;
+    }
+  }
+
+  return {out_width, out_height};
+}
+
+int maxOutputPixelsFromOptions(val options) {
+  if (options.isNull() || options.isUndefined()) return 0;
+  if (!options.hasOwnProperty("maxOutputPixels")) return 0;
+  return options["maxOutputPixels"].as<int>();
 }
 
 class LumaRawProcessor {
@@ -207,12 +242,13 @@ class LumaRawProcessor {
     return thumbnail;
   }
 
-  val decodePreview(val options) {
-    (void)options;
-    return decodeImage();
+  val decodePreview(val options = val::undefined()) {
+    return decodeImage(maxOutputPixelsFromOptions(options));
   }
 
-  val decodeHq() { return decodeImage(); }
+  val decodeHq(val options = val::undefined()) {
+    return decodeImage(maxOutputPixelsFromOptions(options));
+  }
 
  private:
   void applySettings(val settings) {
@@ -240,7 +276,7 @@ class LumaRawProcessor {
     processed_ = true;
   }
 
-  val decodeImage() {
+  val decodeImage(int max_output_pixels) {
     ensureProcessed();
 
     int image_error = LIBRAW_SUCCESS;
@@ -273,12 +309,50 @@ class LumaRawProcessor {
           "LibRaw RGB16 image buffer is smaller than expected.");
     }
 
+    const OutputSize output_size =
+        planOutputSize(image->width, image->height, max_output_pixels);
     const uint16_t *source = reinterpret_cast<const uint16_t *>(image->data);
 
     val output = val::object();
-    output.set("data", copiedUint16Array(source, sample_count));
-    output.set("width", image->width);
-    output.set("height", image->height);
+    if (output_size.width == image->width &&
+        output_size.height == image->height) {
+      output.set("data", copiedUint16Array(source, sample_count));
+      output.set("width", image->width);
+      output.set("height", image->height);
+      return output;
+    }
+
+    const size_t output_pixel_count =
+        checkedMultiply(static_cast<size_t>(output_size.width),
+                        static_cast<size_t>(output_size.height),
+                        "Luma RAW downsample pixel count");
+    std::vector<uint16_t> resized(output_pixel_count * 3);
+
+    for (int y = 0; y < output_size.height; ++y) {
+      const int source_y = std::min(
+          image->height - 1,
+          static_cast<int>(std::floor(((static_cast<double>(y) + 0.5) *
+                                       image->height) /
+                                      output_size.height)));
+      for (int x = 0; x < output_size.width; ++x) {
+        const int source_x = std::min(
+            image->width - 1,
+            static_cast<int>(std::floor(((static_cast<double>(x) + 0.5) *
+                                         image->width) /
+                                        output_size.width)));
+        const size_t src =
+            (static_cast<size_t>(source_y) * image->width + source_x) * 3;
+        const size_t dst =
+            (static_cast<size_t>(y) * output_size.width + x) * 3;
+        resized[dst] = source[src];
+        resized[dst + 1] = source[src + 1];
+        resized[dst + 2] = source[src + 2];
+      }
+    }
+
+    output.set("data", copiedUint16Array(resized.data(), resized.size()));
+    output.set("width", output_size.width);
+    output.set("height", output_size.height);
     return output;
   }
 

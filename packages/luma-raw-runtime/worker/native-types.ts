@@ -50,7 +50,7 @@ export type LumaRawNativeOpenTimings = {
   librawOpen: number
 }
 
-export type LumaRawNativeDecodePreviewOptions = {
+export type LumaRawNativeDecodeOptions = {
   maxOutputPixels?: number
 }
 
@@ -65,10 +65,8 @@ export type LumaRawNativeProcessor = {
   ) => LumaRawNativeOpenTimings | undefined
   readMetadata: () => LumaRawNativeMetadata
   extractThumbnail: () => LumaRawNativeThumbnail | undefined
-  decodePreview: (
-    options?: LumaRawNativeDecodePreviewOptions,
-  ) => LumaRawNativeImage
-  decodeHq: () => LumaRawNativeImage
+  decodePreview: (options?: LumaRawNativeDecodeOptions) => LumaRawNativeImage
+  decodeHq: (options?: LumaRawNativeDecodeOptions) => LumaRawNativeImage
   dispose: () => void
 }
 

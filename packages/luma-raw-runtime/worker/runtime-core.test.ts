@@ -426,6 +426,143 @@ describe('runtime-core', () => {
     expect(disposeCount).toBe(1)
   })
 
+  it('passes quick maxOutputPixels to native decodePreview', async () => {
+    let receivedMaxOutputPixels: number | undefined
+
+    const core = createRuntimeCore({
+      createProcessor() {
+        return {
+          openBuffer() {
+            return { copyToWasm: 1, librawOpen: 1 }
+          },
+          loadBuffer() {
+            return { copyToWasm: 1 }
+          },
+          openWithSettings() {
+            return { copyToWasm: 0, librawOpen: 1 }
+          },
+          readMetadata() {
+            return { width: 6000, height: 4000 }
+          },
+          extractThumbnail() {
+            return undefined
+          },
+          decodePreview(options) {
+            receivedMaxOutputPixels = options?.maxOutputPixels
+            return {
+              data: new Uint16Array(1500 * 1000 * 3),
+              width: 1500,
+              height: 1000,
+              bits: 16,
+            }
+          },
+          decodeHq() {
+            return {
+              data: new Uint16Array(6000 * 4000 * 3),
+              width: 6000,
+              height: 4000,
+              bits: 16,
+            }
+          },
+          dispose() {},
+        }
+      },
+    })
+
+    const opened = await core.handleRequest({
+      id: 'job-open-session',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+        maxOutputPixels: 2_500_000,
+      },
+    })
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+
+    const response = await core.handleRequest({
+      id: 'job-quick-session',
+      type: 'decodeQuickFromSession',
+      payload: {
+        sessionId: opened.payload.sessionId,
+        maxOutputPixels: 2_500_000,
+      },
+    })
+
+    expect(response.ok && response.type === 'decodeQuickFromSession').toBe(true)
+    expect(receivedMaxOutputPixels).toBe(2_500_000)
+  })
+
+  it('passes default quick maxOutputPixels to native decodePreview', async () => {
+    const previewOptions: unknown[] = []
+    const hqOptions: unknown[] = []
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+        return {
+          ...processor,
+          decodePreview(options) {
+            previewOptions.push(options)
+            return processor.decodePreview(options)
+          },
+          decodeHq(options) {
+            hqOptions.push(options)
+            return processor.decodeHq(options)
+          },
+        }
+      },
+    })
+
+    const quick = await core.handleRequest({
+      id: 'job-default-quick-cap',
+      type: 'decodeQuick',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+    const opened = await core.handleRequest({
+      id: 'job-default-session-cap-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+
+    const sessionQuick = await core.handleRequest({
+      id: 'job-default-session-cap-quick',
+      type: 'decodeQuickFromSession',
+      payload: {
+        sessionId: opened.payload.sessionId,
+      },
+    })
+    const hq = await core.handleRequest({
+      id: 'job-default-hq-no-cap',
+      type: 'decodeHqFromSession',
+      payload: {
+        sessionId: opened.payload.sessionId,
+      },
+    })
+
+    expect(quick.ok && quick.type === 'decodeQuick').toBe(true)
+    expect(
+      sessionQuick.ok && sessionQuick.type === 'decodeQuickFromSession',
+    ).toBe(true)
+    expect(hq.ok && hq.type === 'decodeHqFromSession').toBe(true)
+    expect(previewOptions).toEqual([
+      { maxOutputPixels: 2_500_000 },
+      { maxOutputPixels: 2_500_000 },
+    ])
+    expect(hqOptions).toEqual([undefined])
+  })
+
   it('disposes an opened session when late cancellation targets its open request', async () => {
     let disposeCount = 0
     const core = createRuntimeCore({

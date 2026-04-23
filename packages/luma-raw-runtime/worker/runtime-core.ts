@@ -40,6 +40,7 @@ const hqSettings = {
 } satisfies LumaRawNativeOpenSettings
 
 const maxCancelledJobIds = 128
+const defaultQuickMaxOutputPixels = 2_500_000
 
 type Timer = {
   mark: (name: Exclude<keyof LumaRawTimings, 'total'>) => void
@@ -421,7 +422,9 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
         const image =
           request.type === 'decodeHq'
             ? processor.decodeHq()
-            : processor.decodePreview()
+            : processor.decodePreview({
+                maxOutputPixels: defaultQuickMaxOutputPixels,
+              })
         timer.mark('unpack')
 
         response = {
@@ -649,7 +652,9 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
         ? session.processor.decodeHq()
         : session.processor.decodePreview({
             maxOutputPixels:
-              request.payload.maxOutputPixels ?? session.maxOutputPixels,
+              request.payload.maxOutputPixels ??
+              session.maxOutputPixels ??
+              defaultQuickMaxOutputPixels,
           })
     timer.mark('unpack')
     const heapAfter = readHeapBytes()
