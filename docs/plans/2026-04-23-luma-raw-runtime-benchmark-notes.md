@@ -103,3 +103,17 @@ Default runtime switch to `luma` is not approved by this Task 8 documentation up
 This benchmark run did not find required Luma stages over target, and embedded previews did not report `0x0`.
 Heap telemetry is present for all Luma benchmark rows.
 The remaining rollout decision is deferred to Task 9 gate review.
+
+## V2 Rollout Gate
+
+Status: eligible for default-runtime rollout in a separate change.
+
+Evidence:
+
+- Rollout-check script exited `0` for `/tmp/luma-raw-runtime-perf-v2.jsonl` with `checked: 12` and `failures: []`.
+- All embedded previews have non-zero dimensions and meet the under-1000 ms target.
+- All quick previews are at or below 2.6MP and meet the under-4000 ms target.
+- 24MP-class HQ completes under 8000 ms.
+- 61MP fixture is documented as directional and not compared to the 24MP HQ target.
+- Heap telemetry is present for all Luma stages.
+- Default runtime switch remains out of scope for this plan; `VITE_RAW_RUNTIME=libraw-wasm` remains the safe rollback path until a separate approved change.
