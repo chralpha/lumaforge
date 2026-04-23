@@ -5,9 +5,17 @@ type NativeModuleFactory = (options?: {
   locateFile?: (path: string) => string
 }) => Promise<unknown>
 
+function nativeAssetUrl(fileName: string) {
+  const nativeDir = import.meta.url.includes('/assets/')
+    ? '../native/'
+    : '../dist/native/'
+
+  return new URL(`${nativeDir}${fileName}`, import.meta.url).href
+}
+
 export async function loadNativeFactory(): Promise<LumaRawNativeFactory> {
-  const moduleUrl = new URL('../dist/native/luma_raw.js', import.meta.url).href
-  const wasmUrl = new URL('../dist/native/luma_raw.wasm', import.meta.url).href
+  const moduleUrl = nativeAssetUrl('luma_raw.js')
+  const wasmUrl = nativeAssetUrl('luma_raw.wasm')
   const moduleImport = (await import(/* @vite-ignore */ moduleUrl)) as {
     default: NativeModuleFactory
   }

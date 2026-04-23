@@ -1,3 +1,5 @@
+import { readdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'vite'
@@ -8,9 +10,33 @@ const crossOriginIsolationHeaders = {
   'Cross-Origin-Embedder-Policy': 'require-corp',
 }
 
+function cleanDistExceptNative() {
+  const distDir = join(root, 'dist')
+
+  try {
+    for (const entry of readdirSync(distDir)) {
+      if (entry === 'native') continue
+
+      rmSync(join(distDir, entry), { force: true, recursive: true })
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error
+    }
+  }
+}
+
 export default defineConfig({
   root,
   base: './',
+  plugins: [
+    {
+      name: 'luma-raw-preserve-native-assets',
+      buildStart() {
+        cleanDistExceptNative()
+      },
+    },
+  ],
   server: {
     headers: crossOriginIsolationHeaders,
   },
@@ -19,7 +45,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    emptyOutDir: true,
+    emptyOutDir: false,
     lib: {
       entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
       formats: ['es'],
