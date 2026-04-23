@@ -94,3 +94,11 @@ After each fixture passes the checklist, record the observed `cameraBrand`, `cam
 | Open second RAW in the same tab with `VITE_RAW_RUNTIME=luma` | luma | Camera metadata and preview dimensions come from the second file, not the first |
 | Disable cross-origin isolation and use `VITE_RAW_RUNTIME=luma` | luma | RAW route shows unsupported-state copy explaining cross-origin isolation |
 | Set `VITE_RAW_RUNTIME=libraw-wasm` after a luma failure | legacy | The same file can be processed through the legacy adapter |
+
+## Post Phase 1.5 Runtime Performance Validation
+
+| Fixture | Runtime | Embedded | Quick | HQ | Heap telemetry | Result |
+| --- | --- | --- | --- | --- | --- | --- |
+| example-sony.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Not emitted in JSONL | Awaiting Task 9 rollout gate |
+| SGL00940.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Not emitted in JSONL | Awaiting Task 9 rollout gate |
+| SGL_1998.NEF | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Not emitted in JSONL | Awaiting Task 9 rollout gate |
