@@ -28,10 +28,10 @@ const contextMock = vi.hoisted(() => {
   }
 
   const gl = {
-    TEXTURE_2D: 0x0DE1,
-    TEXTURE_3D: 0x806F,
-    TEXTURE0: 0x84C0,
-    TEXTURE1: 0x84C1,
+    TEXTURE_2D: 0x0de1,
+    TEXTURE_3D: 0x806f,
+    TEXTURE0: 0x84c0,
+    TEXTURE1: 0x84c1,
     TEXTURE_MIN_FILTER: 0x2801,
     TEXTURE_MAG_FILTER: 0x2800,
     TEXTURE_WRAP_S: 0x2802,
@@ -39,17 +39,17 @@ const contextMock = vi.hoisted(() => {
     TEXTURE_WRAP_R: 0x8072,
     NEAREST: 0x2600,
     LINEAR: 0x2601,
-    CLAMP_TO_EDGE: 0x812F,
+    CLAMP_TO_EDGE: 0x812f,
     RGB8: 0x8051,
     RGB: 0x1907,
     RGBA: 0x1908,
     RGBA32F: 0x8814,
-    RGB16UI: 0x8D77,
-    RGB_INTEGER: 0x8D98,
+    RGB16UI: 0x8d77,
+    RGB_INTEGER: 0x8d98,
     UNSIGNED_BYTE: 0x1401,
     UNSIGNED_SHORT: 0x1403,
     FLOAT: 0x1406,
-    FRAMEBUFFER: 0x8D40,
+    FRAMEBUFFER: 0x8d40,
     TRIANGLE_STRIP: 0x0005,
     createTexture: vi.fn(() => ({})),
     bindTexture: vi.fn(),
@@ -75,6 +75,9 @@ const contextMock = vi.hoisted(() => {
     drawArrays: vi.fn(),
     finish: vi.fn(),
     readPixels: vi.fn(),
+    getExtension: vi.fn((name: string) =>
+      name === 'WEBGL_lose_context' ? { loseContext: vi.fn() } : null,
+    ),
   }
 
   return {
@@ -195,6 +198,32 @@ describe('rawProcessingPipeline export rendering', () => {
     )
   })
 
+  it('disposes the hidden full-frame pipeline after export render', async () => {
+    const pipeline = await createSourcePipeline(createRawInput(2, 2))
+    const disposeSpy = vi.spyOn(RawProcessingPipeline.prototype, 'dispose')
+
+    await pipeline.renderToHiddenCanvas({ width: 2, height: 2 })
+
+    expect(disposeSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('disposes the hidden full-frame pipeline after render failure', async () => {
+    const pipeline = await createSourcePipeline(createRawInput(2, 2))
+    const disposeSpy = vi.spyOn(RawProcessingPipeline.prototype, 'dispose')
+    const renderSpy = vi
+      .spyOn(RawProcessingPipeline.prototype, 'render')
+      .mockImplementationOnce(() => {
+        throw new Error('EXPORT_RENDER_FAILED')
+      })
+
+    await expect(
+      pipeline.renderToHiddenCanvas({ width: 2, height: 2 }),
+    ).rejects.toThrow('EXPORT_RENDER_FAILED')
+
+    expect(renderSpy).toHaveBeenCalledTimes(1)
+    expect(disposeSpy).toHaveBeenCalledTimes(1)
+  })
+
   it('renders oversized exports in cropped tiles and stitches them into one output canvas', async () => {
     contextMock.capabilities.maxTextureSize = 1024
     const pipeline = await createSourcePipeline(createRawInput(1500, 900))
@@ -224,6 +253,25 @@ describe('rawProcessingPipeline export rendering', () => {
     expect(uploadImageSpy).toHaveBeenCalledWith(
       expect.objectContaining({ width: 476, height: 900 }),
     )
+  })
+
+  it('reuses one hidden pipeline for every tile in an oversized export', async () => {
+    contextMock.capabilities.maxTextureSize = 1024
+    const pipeline = await createSourcePipeline(createRawInput(1500, 900))
+    const initializeSpy = vi.spyOn(
+      RawProcessingPipeline.prototype,
+      'initialize',
+    )
+    const disposeSpy = vi.spyOn(RawProcessingPipeline.prototype, 'dispose')
+
+    await pipeline.renderToHiddenCanvas({
+      width: 1500,
+      height: 900,
+    })
+
+    expect(drawImage).toHaveBeenCalledTimes(2)
+    expect(initializeSpy).toHaveBeenCalledTimes(1)
+    expect(disposeSpy).toHaveBeenCalledTimes(1)
   })
 
   it('preserves retryable export fit errors from planning failures', async () => {

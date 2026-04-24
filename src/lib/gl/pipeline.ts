@@ -28,12 +28,12 @@ import {
   detectCapabilities,
   getRecommendedTextureFormat,
 } from './context'
-import type {ExportRenderOptions} from './export';
+import type { ExportRenderOptions } from './export'
 import {
   createExportTiles,
   cropRawUploadInput,
   ExportRenderError,
-  planExportRenderTarget
+  planExportRenderTarget,
 } from './export'
 import {
   PREVIEW_OUTPUT_SHADER,
@@ -811,17 +811,29 @@ export class RawProcessingPipeline {
     const canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = height
+    const outputCanvas = document.createElement('canvas')
+    outputCanvas.width = width
+    outputCanvas.height = height
+    const outputContext = outputCanvas.getContext('2d')
+    if (!outputContext) {
+      throw new Error('EXPORT_CANVAS_CONTEXT_MISSING')
+    }
 
     const pipeline = new RawProcessingPipeline(canvas)
-    await pipeline.initialize()
-    pipeline.uploadImage(inputUpload)
-    if (this.lutData) {
-      pipeline.uploadLUT(this.lutData)
+    try {
+      await pipeline.initialize()
+      pipeline.uploadImage(inputUpload)
+      if (this.lutData) {
+        pipeline.uploadLUT(this.lutData)
+      }
+      pipeline.setParams(this.params)
+      pipeline.render()
+      outputContext.drawImage(canvas, 0, 0, width, height)
+    } finally {
+      pipeline.dispose({ releaseContext: true })
     }
-    pipeline.setParams(this.params)
-    pipeline.render()
 
-    return canvas
+    return outputCanvas
   }
 
   private async renderTiledHiddenCanvas(
@@ -847,20 +859,21 @@ export class RawProcessingPipeline {
       throw new Error('EXPORT_CANVAS_CONTEXT_MISSING')
     }
 
-    for (const tile of createExportTiles(plan)) {
-      const tileCanvas = document.createElement('canvas')
-      tileCanvas.width = tile.width
-      tileCanvas.height = tile.height
+    const tileCanvas = document.createElement('canvas')
+    tileCanvas.width = plan.tileWidth
+    tileCanvas.height = plan.tileHeight
 
-      const pipeline = new RawProcessingPipeline(tileCanvas)
+    const pipeline = new RawProcessingPipeline(tileCanvas)
+    try {
       await pipeline.initialize()
+      if (this.lutData) {
+        pipeline.uploadLUT(this.lutData)
+      }
+      pipeline.setParams(this.params)
 
-      try {
+      for (const tile of createExportTiles(plan)) {
+        pipeline.resize(tile.width, tile.height)
         pipeline.uploadImage(cropRawUploadInput(this.inputUpload, tile))
-        if (this.lutData) {
-          pipeline.uploadLUT(this.lutData)
-        }
-        pipeline.setParams(this.params)
         pipeline.render()
 
         context.drawImage(
@@ -874,9 +887,9 @@ export class RawProcessingPipeline {
           tile.width,
           tile.height,
         )
-      } finally {
-        pipeline.dispose()
       }
+    } finally {
+      pipeline.dispose({ releaseContext: true })
     }
 
     return canvas
@@ -907,7 +920,11 @@ export class RawProcessingPipeline {
   /**
    * Dispose all resources.
    */
-  dispose(): void {
+  dispose({
+    releaseContext = false,
+  }: {
+    releaseContext?: boolean
+  } = {}): void {
     const {
       gl,
       inputTexture,
@@ -939,6 +956,20 @@ export class RawProcessingPipeline {
     if (fullscreenQuad) {
       gl.deleteVertexArray(fullscreenQuad.vao)
       gl.deleteBuffer(fullscreenQuad.vbo)
+    }
+
+    this.inputTexture = null
+    this.lutTexture = null
+    this.fallbackLutTexture = null
+    this.processedTexture = null
+    this.processFBO = null
+    this.processProgramFloat = null
+    this.processProgramU16 = null
+    this.outputProgram = null
+    this.fullscreenQuad = null
+
+    if (releaseContext) {
+      gl.getExtension('WEBGL_lose_context')?.loseContext()
     }
 
     this.isInitialized = false
