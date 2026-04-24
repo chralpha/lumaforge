@@ -9,6 +9,87 @@
 export type LogEncodingFn = (linear: number) => number
 export type LogDecodingFn = (encoded: number) => number
 
+export type TransferFunctionId =
+  | 's-log2'
+  | 's-log3'
+  | 'canon-log'
+  | 'canon-log2'
+  | 'canon-log3'
+  | 'n-log'
+  | 'f-log'
+  | 'f-log2'
+  | 'f-log2c'
+  | 'v-log'
+  | 'logc3'
+  | 'logc4'
+  | 'log3g10'
+  | 'acescc'
+  | 'acescct'
+  | 'srgb'
+  | 'gamma24'
+  | 'l-log'
+
+export interface TransferFunctionReferencePoint {
+  label: string
+  linear: number
+  encoded: number
+}
+
+export interface TransferFunctionMetadata {
+  id: TransferFunctionId
+  label: string
+  encode: LogEncodingFn
+  decode: LogDecodingFn
+  aliases: string[]
+  source: string
+  referencePoints: TransferFunctionReferencePoint[]
+}
+
+const TRANSFER_SOURCE_URLS: Record<TransferFunctionId, string> = {
+  's-log2': 'https://www.sony.com/electronics/support/articles/00145908',
+  's-log3':
+    'https://pro.sony/s3/cms-static-content/uploadfile/06/1237494271406.pdf',
+  'canon-log':
+    'https://www.usa.canon.com/content/dam/canon-assets/white-papers/pro/white-paper-canon-log-gamma-curves.pdf',
+  'canon-log2':
+    'https://www.usa.canon.com/content/dam/canon-assets/white-papers/pro/white-paper-canon-log-gamma-curves.pdf',
+  'canon-log3':
+    'https://www.usa.canon.com/content/dam/canon-assets/white-papers/pro/white-paper-canon-log-gamma-curves.pdf',
+  'n-log': 'https://downloadcenter.nikonimglib.com/en/download/sw/258.html',
+  'f-log':
+    'https://dl.fujifilm-x.com/support/lut/F-Log_DataSheet_E_Ver.1.2.pdf',
+  'f-log2':
+    'https://dl.fujifilm-x.com/support/lut/F-Log2_DataSheet_E_Ver.1.0.pdf',
+  'f-log2c':
+    'https://dl.fujifilm-x.com/support/lut/F-Log2C_DataSheet_E_Ver.1.0.pdf',
+  'v-log':
+    'https://pro-av.panasonic.net/en/cinema_camera_varicam_eva/support/pdf/VARICAM_V-Log_V-Gamut.pdf',
+  logc3:
+    'https://www.arri.com/en/learn-help/learn-help-camera-system/image-science/log-c',
+  logc4:
+    'https://www.arri.com/resource/blob/278790/f3318e8c9c65617d8c5ca3f8b3e32051/2023-05-arri-logc4-specification-data.pdf',
+  log3g10:
+    'https://www.red.com/download/white-paper-on-redwidegamutrgb-and-log3g10',
+  acescc: 'https://docs.acescentral.com/encodings/acescc/',
+  acescct: 'https://docs.acescentral.com/encodings/acescct/',
+  srgb: 'https://www.w3.org/Graphics/Color/srgb.pdf',
+  gamma24:
+    'https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.1886-0-201103-I!!PDF-E.pdf',
+  'l-log': 'https://leica-camera.com/',
+}
+
+/**
+ * S-Log2 encoding (Sony)
+ */
+export function sLog2Encode(linear: number): number {
+  const reflectedLinear = 0.9 * linear
+  return 0.432699 * Math.log10(reflectedLinear + 0.037584) + 0.616596 + 0.03
+}
+
+export function sLog2Decode(encoded: number): number {
+  return (Math.pow(10, (encoded - 0.03 - 0.616596) / 0.432699) - 0.037584) / 0.9
+}
+
 /**
  * S-Log3 encoding (Sony)
  * Reference: S-Log3 Technical Summary
@@ -142,12 +223,37 @@ export function nLogDecode(encoded: number): number {
   const b = 0.0075
   const c = 150 / 1023
   const d = 619 / 1023
-  const cut = 0.363 // Approximate output at input cut
+  const cut = Math.pow(0.328, 1 / 3) * a + b
 
   if (encoded < cut) {
     return Math.pow((encoded - b) / a, 3)
   }
   return Math.exp((encoded - d) / c)
+}
+
+/**
+ * Canon Log encoding
+ */
+export function canonLogEncode(linear: number): number {
+  const a = 0.529136
+  const b = 10.1596
+  const c = 0.0730597
+
+  if (linear < 0) {
+    return -a * Math.log10(-b * linear + 1) + c
+  }
+  return a * Math.log10(b * linear + 1) + c
+}
+
+export function canonLogDecode(encoded: number): number {
+  const a = 0.529136
+  const b = 10.1596
+  const c = 0.0730597
+
+  if (encoded < c) {
+    return -(Math.pow(10, (c - encoded) / a) - 1) / b
+  }
+  return (Math.pow(10, (encoded - c) / a) - 1) / b
 }
 
 /**
@@ -162,8 +268,7 @@ export function canonLog2Encode(linear: number): number {
 }
 
 export function canonLog2Decode(encoded: number): number {
-  const cut = 0.00023146608
-  if (encoded < cut) {
+  if (encoded <= 0.000235) {
     return (0.000235 - encoded) / (0.235 - 0.000235)
   }
   return Math.pow(10, (encoded - 0.392964) / 0.092864) - 0.000235
@@ -292,6 +397,69 @@ export function lLogDecode(encoded: number): number {
   return 0.006 * (Math.pow(10, (encoded - 0.048) / 0.233161) - 1)
 }
 
+const ACES_LOG_A = 17.52
+const ACES_LOG_B = 9.72
+const ACESCC_LOW = Math.pow(2, -16)
+const ACESCC_CUT = Math.pow(2, -15)
+const ACESCC_CUT_ENCODED = (Math.log2(ACESCC_CUT) + ACES_LOG_B) / ACES_LOG_A
+const ACESCCT_CUT = 0.0078125
+const ACESCCT_SLOPE = 10.5402377416545
+const ACESCCT_OFFSET = 0.0729055341958355
+const ACESCCT_CUT_ENCODED = 0.155251141552511
+
+export function acesccEncode(linear: number): number {
+  if (linear <= 0) {
+    return (Math.log2(ACESCC_LOW) + ACES_LOG_B) / ACES_LOG_A
+  }
+  if (linear < ACESCC_CUT) {
+    return (Math.log2(ACESCC_LOW + linear * 0.5) + ACES_LOG_B) / ACES_LOG_A
+  }
+  return (Math.log2(linear) + ACES_LOG_B) / ACES_LOG_A
+}
+
+export function acesccDecode(encoded: number): number {
+  if (encoded <= ACESCC_CUT_ENCODED) {
+    return (Math.pow(2, encoded * ACES_LOG_A - ACES_LOG_B) - ACESCC_LOW) * 2
+  }
+  return Math.pow(2, encoded * ACES_LOG_A - ACES_LOG_B)
+}
+
+export function acescctEncode(linear: number): number {
+  if (linear <= ACESCCT_CUT) {
+    return ACESCCT_SLOPE * linear + ACESCCT_OFFSET
+  }
+  return (Math.log2(linear) + ACES_LOG_B) / ACES_LOG_A
+}
+
+export function acescctDecode(encoded: number): number {
+  if (encoded <= ACESCCT_CUT_ENCODED) {
+    return (encoded - ACESCCT_OFFSET) / ACESCCT_SLOPE
+  }
+  return Math.pow(2, encoded * ACES_LOG_A - ACES_LOG_B)
+}
+
+export function srgbEncode(linear: number): number {
+  if (linear <= 0.0031308) {
+    return 12.92 * linear
+  }
+  return 1.055 * Math.pow(linear, 1 / 2.4) - 0.055
+}
+
+export function srgbDecode(encoded: number): number {
+  if (encoded <= 0.04045) {
+    return encoded / 12.92
+  }
+  return Math.pow((encoded + 0.055) / 1.055, 2.4)
+}
+
+export function gamma24Encode(linear: number): number {
+  return Math.pow(Math.max(linear, 0), 1 / 2.4)
+}
+
+export function gamma24Decode(encoded: number): number {
+  return Math.pow(Math.max(encoded, 0), 2.4)
+}
+
 /**
  * Mapping of log space names to encode/decode functions
  */
@@ -299,6 +467,7 @@ export const LOG_FUNCTIONS: Record<
   string,
   { encode: LogEncodingFn; decode: LogDecodingFn }
 > = {
+  'S-Log2': { encode: sLog2Encode, decode: sLog2Decode },
   'S-Log3': { encode: sLog3Encode, decode: sLog3Decode },
   'S-Log3.Cine': { encode: sLog3Encode, decode: sLog3Decode },
   'V-Log': { encode: vLogEncode, decode: vLogDecode },
@@ -306,12 +475,252 @@ export const LOG_FUNCTIONS: Record<
   'F-Log2': { encode: fLog2Encode, decode: fLog2Decode },
   'F-Log2C': { encode: fLog2Encode, decode: fLog2Decode },
   'N-Log': { encode: nLogEncode, decode: nLogDecode },
+  'Canon Log': { encode: canonLogEncode, decode: canonLogDecode },
   'Canon Log 2': { encode: canonLog2Encode, decode: canonLog2Decode },
   'Canon Log 3': { encode: canonLog3Encode, decode: canonLog3Decode },
   'Arri LogC3': { encode: logC3Encode, decode: logC3Decode },
   'Arri LogC4': { encode: logC4Encode, decode: logC4Decode },
   Log3G10: { encode: log3G10Encode, decode: log3G10Decode },
+  ACEScc: { encode: acesccEncode, decode: acesccDecode },
+  ACEScct: { encode: acescctEncode, decode: acescctDecode },
+  sRGB: { encode: srgbEncode, decode: srgbDecode },
+  'Gamma 2.4': { encode: gamma24Encode, decode: gamma24Decode },
+  'Rec.709 Gamma 2.4': { encode: gamma24Encode, decode: gamma24Decode },
   'L-Log': { encode: lLogEncode, decode: lLogDecode },
+}
+
+function referencePoint(
+  label: string,
+  linear: number,
+  encoded: number,
+): TransferFunctionReferencePoint {
+  return { label, linear, encoded }
+}
+
+export const TRANSFER_FUNCTIONS: Record<
+  TransferFunctionId,
+  TransferFunctionMetadata
+> = {
+  's-log2': {
+    id: 's-log2',
+    label: 'S-Log2',
+    encode: sLog2Encode,
+    decode: sLog2Decode,
+    aliases: ['S-Log2', 'SLog2', 'Sony S-Log2'],
+    source: TRANSFER_SOURCE_URLS['s-log2'],
+    referencePoints: [
+      referencePoint('black', 0, sLog2Encode(0)),
+      referencePoint('18% gray sanity', 0.18, sLog2Encode(0.18)),
+    ],
+  },
+  's-log3': {
+    id: 's-log3',
+    label: 'S-Log3',
+    encode: sLog3Encode,
+    decode: sLog3Decode,
+    aliases: ['S-Log3', 'SLog3', 'Sony S-Log3'],
+    source: TRANSFER_SOURCE_URLS['s-log3'],
+    referencePoints: [
+      referencePoint('black', 0, 95 / 1023),
+      referencePoint('18% gray', 0.18, 420 / 1023),
+    ],
+  },
+  'canon-log': {
+    id: 'canon-log',
+    label: 'Canon Log',
+    encode: canonLogEncode,
+    decode: canonLogDecode,
+    aliases: ['Canon Log', 'C-Log', 'CLog'],
+    source: TRANSFER_SOURCE_URLS['canon-log'],
+    referencePoints: [
+      referencePoint('black', 0, canonLogEncode(0)),
+      referencePoint('18% gray sanity', 0.18, canonLogEncode(0.18)),
+    ],
+  },
+  'canon-log2': {
+    id: 'canon-log2',
+    label: 'Canon Log 2',
+    encode: canonLog2Encode,
+    decode: canonLog2Decode,
+    aliases: ['Canon Log 2', 'C-Log2', 'CLog2', 'clog2'],
+    source: TRANSFER_SOURCE_URLS['canon-log2'],
+    referencePoints: [
+      referencePoint('black', 0, canonLog2Encode(0)),
+      referencePoint('18% gray sanity', 0.18, canonLog2Encode(0.18)),
+    ],
+  },
+  'canon-log3': {
+    id: 'canon-log3',
+    label: 'Canon Log 3',
+    encode: canonLog3Encode,
+    decode: canonLog3Decode,
+    aliases: ['Canon Log 3', 'C-Log3', 'CLog3', 'clog3'],
+    source: TRANSFER_SOURCE_URLS['canon-log3'],
+    referencePoints: [
+      referencePoint('black', 0, canonLog3Encode(0)),
+      referencePoint('18% gray sanity', 0.18, canonLog3Encode(0.18)),
+    ],
+  },
+  'n-log': {
+    id: 'n-log',
+    label: 'N-Log',
+    encode: nLogEncode,
+    decode: nLogDecode,
+    aliases: ['N-Log', 'NLog', 'Nikon N-Log'],
+    source: TRANSFER_SOURCE_URLS['n-log'],
+    referencePoints: [
+      referencePoint('black', 0, nLogEncode(0)),
+      referencePoint('18% gray sanity', 0.18, nLogEncode(0.18)),
+    ],
+  },
+  'f-log': {
+    id: 'f-log',
+    label: 'F-Log',
+    encode: fLogEncode,
+    decode: fLogDecode,
+    aliases: ['F-Log', 'FLog', 'Fujifilm F-Log'],
+    source: TRANSFER_SOURCE_URLS['f-log'],
+    referencePoints: [
+      referencePoint('0% reflection', 0, 95 / 1023),
+      referencePoint('18% gray', 0.18, 470 / 1023),
+      referencePoint('90% reflection', 0.9, 705 / 1023),
+    ],
+  },
+  'f-log2': {
+    id: 'f-log2',
+    label: 'F-Log2',
+    encode: fLog2Encode,
+    decode: fLog2Decode,
+    aliases: ['F-Log2', 'FLog2', 'Fujifilm F-Log2'],
+    source: TRANSFER_SOURCE_URLS['f-log2'],
+    referencePoints: [
+      referencePoint('0% reflection', 0, 95 / 1023),
+      referencePoint('18% gray', 0.18, 400 / 1023),
+      referencePoint('90% reflection', 0.9, 570 / 1023),
+    ],
+  },
+  'f-log2c': {
+    id: 'f-log2c',
+    label: 'F-Log2C',
+    encode: fLog2Encode,
+    decode: fLog2Decode,
+    aliases: ['F-Log2C', 'FLog2C', 'F-Log2 C', 'Fujifilm F-Log2C'],
+    source: TRANSFER_SOURCE_URLS['f-log2c'],
+    referencePoints: [
+      referencePoint('0% reflection', 0, 95 / 1023),
+      referencePoint('18% gray', 0.18, 400 / 1023),
+      referencePoint('90% reflection', 0.9, 570 / 1023),
+    ],
+  },
+  'v-log': {
+    id: 'v-log',
+    label: 'V-Log',
+    encode: vLogEncode,
+    decode: vLogDecode,
+    aliases: ['V-Log', 'VLog', 'Panasonic V-Log'],
+    source: TRANSFER_SOURCE_URLS['v-log'],
+    referencePoints: [
+      referencePoint('black', 0, 0.125),
+      referencePoint('18% gray sanity', 0.18, vLogEncode(0.18)),
+    ],
+  },
+  logc3: {
+    id: 'logc3',
+    label: 'LogC3',
+    encode: logC3Encode,
+    decode: logC3Decode,
+    aliases: ['LogC3', 'Log C3', 'Arri LogC3', 'ARRI LogC3'],
+    source: TRANSFER_SOURCE_URLS.logc3,
+    referencePoints: [
+      referencePoint('black', 0, logC3Encode(0)),
+      referencePoint('18% gray', 0.18, logC3Encode(0.18)),
+    ],
+  },
+  logc4: {
+    id: 'logc4',
+    label: 'LogC4',
+    encode: logC4Encode,
+    decode: logC4Decode,
+    aliases: ['LogC4', 'Log C4', 'Arri LogC4', 'ARRI LogC4'],
+    source: TRANSFER_SOURCE_URLS.logc4,
+    referencePoints: [
+      referencePoint('black', 0, 95 / 1023),
+      referencePoint('18% gray', 0.18, 0.2783958365482653),
+      referencePoint('LogC4 maximum', 469.8, 1),
+    ],
+  },
+  log3g10: {
+    id: 'log3g10',
+    label: 'Log3G10',
+    encode: log3G10Encode,
+    decode: log3G10Decode,
+    aliases: ['Log3G10', 'Log 3G10', 'RED Log3G10'],
+    source: TRANSFER_SOURCE_URLS.log3g10,
+    referencePoints: [
+      referencePoint('black sanity', 0, log3G10Encode(0)),
+      referencePoint('18% gray', 0.18, 1 / 3),
+    ],
+  },
+  acescc: {
+    id: 'acescc',
+    label: 'ACEScc',
+    encode: acesccEncode,
+    decode: acesccDecode,
+    aliases: ['ACEScc'],
+    source: TRANSFER_SOURCE_URLS.acescc,
+    referencePoints: [
+      referencePoint('zero', 0, acesccEncode(0)),
+      referencePoint('18% gray', 0.18, 0.4135884),
+    ],
+  },
+  acescct: {
+    id: 'acescct',
+    label: 'ACEScct',
+    encode: acescctEncode,
+    decode: acescctDecode,
+    aliases: ['ACEScct'],
+    source: TRANSFER_SOURCE_URLS.acescct,
+    referencePoints: [
+      referencePoint('zero', 0, 0.0729055341958355),
+      referencePoint('18% gray', 0.18, 0.4135884),
+    ],
+  },
+  srgb: {
+    id: 'srgb',
+    label: 'sRGB',
+    encode: srgbEncode,
+    decode: srgbDecode,
+    aliases: ['sRGB', 'IEC 61966-2-1'],
+    source: TRANSFER_SOURCE_URLS.srgb,
+    referencePoints: [
+      referencePoint('black', 0, 0),
+      referencePoint('linear segment threshold', 0.0031308, 0.04045),
+    ],
+  },
+  gamma24: {
+    id: 'gamma24',
+    label: 'Gamma 2.4',
+    encode: gamma24Encode,
+    decode: gamma24Decode,
+    aliases: ['Gamma 2.4', 'gamma24', 'BT.1886'],
+    source: TRANSFER_SOURCE_URLS.gamma24,
+    referencePoints: [
+      referencePoint('black', 0, 0),
+      referencePoint('18% gray', 0.18, gamma24Encode(0.18)),
+    ],
+  },
+  'l-log': {
+    id: 'l-log',
+    label: 'L-Log',
+    encode: lLogEncode,
+    decode: lLogDecode,
+    aliases: ['L-Log', 'LLog', 'Leica L-Log'],
+    source: TRANSFER_SOURCE_URLS['l-log'],
+    referencePoints: [
+      referencePoint('black', 0, lLogEncode(0)),
+      referencePoint('18% gray sanity', 0.18, lLogEncode(0.18)),
+    ],
+  },
 }
 
 /**

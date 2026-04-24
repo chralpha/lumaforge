@@ -3,8 +3,8 @@
  * Implements gamut conversion and log encoding for RAW processing.
  */
 
-import type { ColorSpaceDef } from './constants'
-import { COLOR_SPACES } from './constants'
+import type { ColorGamutId, ColorSpaceDef } from './constants'
+import { COLOR_SPACES, resolveColorSpaceKey } from './constants'
 
 /**
  * 3x3 Matrix type for color transformations
@@ -168,17 +168,20 @@ const matrixCache = new Map<string, Mat3>()
  * Handles chromatic adaptation when white points differ.
  */
 export function getGamutMatrix(srcSpace: string, dstSpace: string): Mat3 {
-  const cacheKey = `${srcSpace}→${dstSpace}`
-  if (matrixCache.has(cacheKey)) {
-    return matrixCache.get(cacheKey)!
-  }
+  const srcKey = resolveColorSpaceKey(srcSpace)
+  const dstKey = resolveColorSpaceKey(dstSpace)
 
-  const src = COLOR_SPACES[srcSpace]
-  const dst = COLOR_SPACES[dstSpace]
+  const src = srcKey ? COLOR_SPACES[srcKey] : undefined
+  const dst = dstKey ? COLOR_SPACES[dstKey] : undefined
 
   if (!src || !dst) {
     console.warn(`Unknown color space: ${srcSpace} or ${dstSpace}`)
     return mat3Identity()
+  }
+
+  const cacheKey = `${srcKey}→${dstKey}`
+  if (matrixCache.has(cacheKey)) {
+    return matrixCache.get(cacheKey)!
   }
 
   // Compute matrices
@@ -213,6 +216,26 @@ export function getGamutMatrix(srcSpace: string, dstSpace: string): Mat3 {
  */
 export function getProPhotoToTargetMatrix(targetGamut: string): Mat3 {
   return getGamutMatrix('ProPhoto RGB', targetGamut)
+}
+
+export function getLinearProPhotoToGamutMatrix(
+  targetGamut: ColorGamutId | string,
+): Mat3 {
+  return getGamutMatrix('prophoto-rgb', targetGamut)
+}
+
+export function getLinearGamutMatrix(
+  srcGamut: ColorGamutId | string,
+  dstGamut: ColorGamutId | string,
+): Mat3 {
+  return getGamutMatrix(srcGamut, dstGamut)
+}
+
+export function getLUTOutputToTargetMatrix(
+  lutOutputGamut: ColorGamutId | string,
+  targetGamut: ColorGamutId | string,
+): Mat3 {
+  return getLinearGamutMatrix(lutOutputGamut, targetGamut)
 }
 
 /**
