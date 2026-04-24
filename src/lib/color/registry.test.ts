@@ -96,4 +96,14 @@ describe('color registry', () => {
       })[0]?.id,
     ).toBe('fuji-fgamutc-flog2c')
   })
+
+  it('does not return the full catalog for empty LUT hint text', () => {
+    expect(
+      inferLUTColorProfileHints({
+        title: '  ',
+        sourceName: '\t',
+        comments: ['', '   '],
+      }),
+    ).toEqual([])
+  })
 })

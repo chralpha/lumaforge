@@ -260,37 +260,54 @@ export function canonLogDecode(encoded: number): number {
  * Canon Log 2 encoding
  */
 export function canonLog2Encode(linear: number): number {
-  const cut = 0.000023146608
-  if (linear < cut) {
-    return -(0.235 - 0.000235) * linear + 0.000235
+  const a = 0.24136077
+  const b = 87.099375
+  const c = 0.092864125
+
+  if (linear < 0) {
+    return -a * Math.log10(1 - (b * linear) / 0.9) + c
   }
-  return 0.092864 * Math.log10(linear + 0.000235) + 0.392964
+  return a * Math.log10(1 + (b * linear) / 0.9) + c
 }
 
 export function canonLog2Decode(encoded: number): number {
-  if (encoded <= 0.000235) {
-    return (0.000235 - encoded) / (0.235 - 0.000235)
+  const a = 0.24136077
+  const b = 87.099375
+  const c = 0.092864125
+
+  if (encoded < c) {
+    return (0.9 * (1 - Math.pow(10, (c - encoded) / a))) / b
   }
-  return Math.pow(10, (encoded - 0.392964) / 0.092864) - 0.000235
+  return (0.9 * (Math.pow(10, (encoded - c) / a) - 1)) / b
 }
 
 /**
  * Canon Log 3 encoding
  */
 export function canonLog3Encode(linear: number): number {
-  const cut = 0.014
-  if (linear < cut) {
-    return 0.36726845 * linear + 0.12783901
+  const a = 0.36726845
+  const b = 14.98325
+
+  if (linear < -0.0126) {
+    return -a * Math.log10(1 - (b * linear) / 0.9) + 0.12783901
   }
-  return 0.09802097 * Math.log10(linear + 0.01) + 0.36726845
+  if (linear <= 0.0126) {
+    return (linear * 1.9754798) / 0.9 + 0.12512219
+  }
+  return a * Math.log10(1 + (b * linear) / 0.9) + 0.12240537
 }
 
 export function canonLog3Decode(encoded: number): number {
-  const cut = 0.13246729 // Approximate
-  if (encoded < cut) {
-    return (encoded - 0.12783901) / 0.36726845
+  const a = 0.36726845
+  const b = 14.98325
+
+  if (encoded < 0.097465473) {
+    return (0.9 * (1 - Math.pow(10, (0.12783901 - encoded) / a))) / b
   }
-  return Math.pow(10, (encoded - 0.36726845) / 0.09802097) - 0.01
+  if (encoded <= 0.15277891) {
+    return (0.9 * (encoded - 0.12512219)) / 1.9754798
+  }
+  return (0.9 * (Math.pow(10, (encoded - 0.12240537) / a) - 1)) / b
 }
 
 /**
@@ -545,8 +562,9 @@ export const TRANSFER_FUNCTIONS: Record<
     aliases: ['Canon Log 2', 'C-Log2', 'CLog2', 'clog2'],
     source: TRANSFER_SOURCE_URLS['canon-log2'],
     referencePoints: [
-      referencePoint('black', 0, canonLog2Encode(0)),
-      referencePoint('18% gray sanity', 0.18, canonLog2Encode(0.18)),
+      referencePoint('black', 0, 0.092864125),
+      referencePoint('18% gray', 0.18, 0.39825469203794917),
+      referencePoint('high', 1, 0.5732292786822207),
     ],
   },
   'canon-log3': {
@@ -557,8 +575,11 @@ export const TRANSFER_FUNCTIONS: Record<
     aliases: ['Canon Log 3', 'C-Log3', 'CLog3', 'clog3'],
     source: TRANSFER_SOURCE_URLS['canon-log3'],
     referencePoints: [
-      referencePoint('black', 0, canonLog3Encode(0)),
-      referencePoint('18% gray sanity', 0.18, canonLog3Encode(0.18)),
+      referencePoint('lower branch cut', -0.0126, 0.0974654728),
+      referencePoint('black', 0, 0.12512219),
+      referencePoint('upper branch cut', 0.0126, 0.1527789072),
+      referencePoint('18% gray', 0.18, 0.3433893703739356),
+      referencePoint('high', 1, 0.5802777942163708),
     ],
   },
   'n-log': {

@@ -5,6 +5,10 @@ import {
   acesccEncode,
   acescctDecode,
   acescctEncode,
+  canonLog2Decode,
+  canonLog2Encode,
+  canonLog3Decode,
+  canonLog3Encode,
   gamma24Decode,
   gamma24Encode,
   LOG_FUNCTIONS,
@@ -85,6 +89,88 @@ describe('transfer function registry', () => {
         expect(Number.isFinite(decoded), `${id} decoded ${linear}`).toBe(true)
         expect(decoded, `${id} round trip ${linear}`).toBeCloseTo(linear, 5)
       }
+    }
+  })
+
+  it('matches every registered transfer reference point through encode and decode', () => {
+    for (const transfer of Object.values(TRANSFER_FUNCTIONS)) {
+      for (const reference of transfer.referencePoints) {
+        expect(
+          transfer.encode(reference.linear),
+          `${transfer.id} encode ${reference.label}`,
+        ).toBeCloseTo(reference.encoded, 2)
+        expect(
+          transfer.decode(reference.encoded),
+          `${transfer.id} decode ${reference.label}`,
+        ).toBeCloseTo(reference.linear, 2)
+      }
+    }
+  })
+})
+
+describe('canon log transfer functions', () => {
+  it('matches Canon Log 2 reference points', () => {
+    expect(canonLog2Encode(0)).toBeCloseTo(0.092864125, 8)
+    expect(canonLog2Decode(0.092864125)).toBeCloseTo(0, 8)
+
+    expect(canonLog2Encode(0.18)).toBeCloseTo(0.39825469203794917, 8)
+    expect(canonLog2Decode(0.39825469203794917)).toBeCloseTo(0.18, 8)
+
+    expect(canonLog2Encode(1)).toBeCloseTo(0.5732292786822207, 8)
+    expect(canonLog2Decode(0.5732292786822207)).toBeCloseTo(1, 8)
+  })
+
+  it('keeps Canon Log 2 continuous around black', () => {
+    const black = 0.092864125
+
+    expect(canonLog2Encode(-1e-8)).toBeCloseTo(black, 6)
+    expect(canonLog2Encode(0)).toBeCloseTo(black, 8)
+    expect(canonLog2Encode(1e-8)).toBeCloseTo(black, 6)
+
+    expect(canonLog2Decode(black - 1e-8)).toBeCloseTo(0, 6)
+    expect(canonLog2Decode(black)).toBeCloseTo(0, 8)
+    expect(canonLog2Decode(black + 1e-8)).toBeCloseTo(0, 6)
+  })
+
+  it('matches Canon Log 3 reference points and branch cuts', () => {
+    expect(canonLog3Encode(0)).toBeCloseTo(0.12512219, 8)
+    expect(canonLog3Decode(0.12512219)).toBeCloseTo(0, 8)
+
+    expect(canonLog3Encode(0.18)).toBeCloseTo(0.3433893703739356, 8)
+    expect(canonLog3Decode(0.3433893703739356)).toBeCloseTo(0.18, 8)
+
+    expect(canonLog3Encode(1)).toBeCloseTo(0.5802777942163708, 8)
+    expect(canonLog3Decode(0.5802777942163708)).toBeCloseTo(1, 8)
+
+    expect(canonLog3Encode(-0.0126)).toBeCloseTo(0.0974654728, 8)
+    expect(canonLog3Decode(0.0974654728)).toBeCloseTo(-0.0126, 8)
+    expect(canonLog3Encode(0.0126)).toBeCloseTo(0.1527789072, 8)
+    expect(canonLog3Decode(0.1527789072)).toBeCloseTo(0.0126, 8)
+  })
+
+  it('keeps Canon Log 3 continuous around both branch cuts', () => {
+    const lowLinearCut = -0.0126
+    const lowEncodedCut = 0.0974654728
+    const highLinearCut = 0.0126
+    const highEncodedCut = 0.1527789072
+
+    for (const offset of [-1e-8, 0, 1e-8]) {
+      expect(canonLog3Encode(lowLinearCut + offset)).toBeCloseTo(
+        lowEncodedCut,
+        6,
+      )
+      expect(canonLog3Encode(highLinearCut + offset)).toBeCloseTo(
+        highEncodedCut,
+        6,
+      )
+      expect(canonLog3Decode(lowEncodedCut + offset)).toBeCloseTo(
+        lowLinearCut,
+        6,
+      )
+      expect(canonLog3Decode(highEncodedCut + offset)).toBeCloseTo(
+        highLinearCut,
+        6,
+      )
     }
   })
 })

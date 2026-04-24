@@ -390,9 +390,11 @@ export function inferLUTColorProfileHints(input: {
   sourceName?: string
   comments: string[]
 }): LUTColorProfile[] {
-  return searchLUTColorProfiles(
-    [input.title, input.sourceName, ...input.comments]
-      .filter(Boolean)
-      .join(' '),
-  )
+  const query = [input.title, input.sourceName, ...input.comments]
+    .filter(Boolean)
+    .join(' ')
+
+  if (!query.trim()) return []
+
+  return searchLUTColorProfiles(query)
 }
