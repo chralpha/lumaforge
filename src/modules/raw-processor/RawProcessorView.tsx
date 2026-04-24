@@ -39,6 +39,8 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     stats,
     hasImage,
     canExport,
+    activeStyle,
+    lutProfileSelection,
     activePresetId,
     activeIntensity,
     viewMode,
@@ -51,6 +53,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     displaySource,
     loadFile,
     loadLUT,
+    selectLUTProfile,
     selectBuiltinStyle,
     selectIntensityLevel,
     setViewMode,
@@ -244,6 +247,13 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
                 onLutLoad={handleLutDrop}
                 onLutClear={clearLUT}
                 currentLutName={currentLutName}
+                lutProfileSelection={lutProfileSelection}
+                lutProfileResolution={
+                  activeStyle?.kind === 'custom'
+                    ? activeStyle.lutAsset?.profileResolution
+                    : null
+                }
+                onLutProfileSelect={selectLUTProfile}
                 onExport={handleExport}
                 canExport={canExport}
                 isProcessing={isProcessing}
