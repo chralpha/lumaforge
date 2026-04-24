@@ -992,9 +992,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         })
       } catch (err) {
         const retryLevel = isExportRenderError(err)
-          ? err.retryable
-            ? recommendRetryLevel(fidelity)
-            : null
+          ? null
           : recommendRetryLevel(fidelity)
         const message = err instanceof Error ? err.message : 'Export failed'
         const errorCode = isExportRenderError(err)

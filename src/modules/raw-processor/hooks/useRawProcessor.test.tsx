@@ -392,7 +392,7 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
-  it('records retry guidance from retryable export fit failures', async () => {
+  it('does not recommend lower fidelity for full-resolution export fit failures', async () => {
     jotaiStore.set(currentSessionAtom, {
       ...createTestSession(),
       sourceFile: {
@@ -423,8 +423,8 @@ describe('useRawProcessor embedded preview state', () => {
     expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({
       status: 'failed',
       lastErrorCode: 'EXPORT_CANVAS_LIMIT_EXCEEDED',
-      retryRecommended: true,
-      recommendedRetryLevel: 'balanced',
+      retryRecommended: false,
+      recommendedRetryLevel: undefined,
     })
   })
 
