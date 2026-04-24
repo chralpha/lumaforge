@@ -81,26 +81,80 @@ describe('lUT explicit profile labels', () => {
   })
 
   it('does not resolve output profile labels as input profiles', () => {
-    expect(
-      resolveLUTProfile({
-        title: 'Client LUT',
-        comments: ['Output profile: V-Log'],
-      }),
-    ).not.toMatchObject({
+    const resolution = resolveLUTProfile({
+      title: 'Client LUT',
+      comments: ['Output profile: V-Log'],
+    })
+
+    expect(resolution).not.toMatchObject({
       kind: 'resolved',
       profile: { id: 'panasonic-vgamut-vlog' },
+    })
+    expect(resolution).toMatchObject({
+      kind: 'needs-user-selection',
+      suggestions: [],
     })
   })
 
   it('does not resolve target profile labels as input profiles', () => {
-    expect(
-      resolveLUTProfile({
-        title: 'Client LUT',
-        comments: ['Target profile = VLog'],
-      }),
-    ).not.toMatchObject({
-      kind: 'resolved',
-      profile: { id: 'panasonic-vgamut-vlog' },
+    const resolution = resolveLUTProfile({
+      title: 'Client LUT',
+      comments: ['Target profile = VLog'],
+    })
+
+    expect(resolution).toMatchObject({
+      kind: 'needs-user-selection',
+      suggestions: [],
+    })
+  })
+
+  it('does not resolve destination profile labels as input profiles', () => {
+    const resolution = resolveLUTProfile({
+      title: 'Client LUT',
+      comments: ['Destination profile: V-Log'],
+    })
+
+    expect(resolution).toMatchObject({
+      kind: 'needs-user-selection',
+      suggestions: [],
+    })
+  })
+
+  it('does not resolve bare profile labels as input profiles', () => {
+    const resolution = resolveLUTProfile({
+      title: 'Client LUT',
+      comments: ['Profile: V-Log'],
+    })
+
+    expect(resolution).toMatchObject({
+      kind: 'needs-user-selection',
+      suggestions: [],
+    })
+  })
+
+  it('ignores mixed-case output-side to markers for input inference', () => {
+    const resolution = resolveLUTProfile({
+      title: 'UnknownCamera_To_VLog',
+      sourceName: 'UnknownCamera_To_VLog.cube',
+      comments: [],
+    })
+
+    expect(resolution).toMatchObject({
+      kind: 'needs-user-selection',
+      suggestions: [],
+    })
+  })
+
+  it('ignores mixed-case output-side for markers for input inference', () => {
+    const resolution = resolveLUTProfile({
+      title: 'UnknownCamera_FOR_VLog',
+      sourceName: 'UnknownCamera_FOR_VLog.cube',
+      comments: [],
+    })
+
+    expect(resolution).toMatchObject({
+      kind: 'needs-user-selection',
+      suggestions: [],
     })
   })
 })

@@ -165,11 +165,31 @@ function stripOutputSide(value: string): string {
     return ''
   }
 
-  const directionalMarker = value.match(
-    /(?:^|[^a-z0-9])(?:to|for)(?:[^a-z0-9]|$)|(?:^|[^a-z0-9])(?:to|for)(?=[A-Z0-9])/,
-  )
+  const directionalMarker =
+    value.match(/(?:^|[^a-z0-9])(?:to|for)(?=$|[^a-z0-9])/i) ??
+    value.match(/(?:^|[^A-Za-z0-9])(?:to|To|TO|for|For|FOR)(?=[A-Z0-9])/)
   if (!directionalMarker || directionalMarker.index === undefined) return value
   return value.slice(0, directionalMarker.index)
+}
+
+function buildInputProfileInput(input: {
+  title: string
+  sourceName?: string
+  comments: string[]
+}): { title: string; sourceName?: string; comments: string[] } {
+  const title = stripOutputSide(input.title).trim()
+  const sourceName = input.sourceName
+    ? stripOutputSide(input.sourceName).trim() || undefined
+    : undefined
+  const comments = input.comments
+    .map((comment) => stripOutputSide(comment).trim())
+    .filter((comment) => comment.length > 0)
+
+  return {
+    title,
+    sourceName,
+    comments,
+  }
 }
 
 function buildInputSignature(input: {
@@ -177,10 +197,7 @@ function buildInputSignature(input: {
   sourceName?: string
   comments: string[]
 }): string {
-  return [input.sourceName, input.title, ...input.comments]
-    .filter((value): value is string => Boolean(value))
-    .map(stripOutputSide)
-    .join('\n')
+  return buildProfileSignature(buildInputProfileInput(input))
 }
 
 function hasDisplaySRGBInputMarker(signature: string): boolean {
@@ -383,8 +400,9 @@ export function resolveLUTProfile(input: {
     }
   }
 
+  const inputProfileInput = buildInputProfileInput(input)
   const suggestions = uniqueProfiles(
-    inferLUTColorProfileHints(input).map((profile) =>
+    inferLUTColorProfileHints(inputProfileInput).map((profile) =>
       annotateProfileOutput(profile, signature),
     ),
   )
