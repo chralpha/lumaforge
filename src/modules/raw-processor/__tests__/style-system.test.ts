@@ -1,10 +1,30 @@
 import { describe, expect, it } from 'vitest'
 
+import { parseCubeLUT } from '~/lib/lut/cube-parser'
+
 import {
   buildBuiltinStyle,
   mapIntensityLevel,
   toCustomStyle,
 } from '../services/style-system'
+
+function makeCube(title: string, comment?: string) {
+  const lines = [
+    `TITLE "${title}"`,
+    comment ? `# ${comment}` : '',
+    'LUT_3D_SIZE 2',
+    '0 0 0',
+    '1 0 0',
+    '0 1 0',
+    '1 1 0',
+    '0 0 1',
+    '1 0 1',
+    '0 1 1',
+    '1 1 1',
+  ].filter(Boolean)
+
+  return lines.join('\n')
+}
 
 describe('style-system', () => {
   it('builds builtin styles with an input prep profile', () => {
@@ -21,30 +41,35 @@ describe('style-system', () => {
   })
 
   it('adds a best-effort warning to custom LUT styles', () => {
-    const style = toCustomStyle({
-      title: 'Client LUT',
-      size: 33,
-      domainMin: [0, 0, 0],
-      domainMax: [1, 1, 1],
-      data: new Float32Array(33 * 33 * 33 * 3),
-      inputProfile: 'display-srgb',
-    })
+    const style = toCustomStyle(
+      parseCubeLUT(makeCube('Client display sRGB LUT')),
+    )
 
     expect(style.kind).toBe('custom')
     expect(style.warning).toMatch(/best effort/i)
+    expect(style.lutAsset).toMatchObject({
+      inputProfile: 'display-srgb',
+      profileResolution: {
+        kind: 'resolved',
+        profile: { id: 'display-srgb' },
+      },
+    })
   })
 
   it('labels V-Log custom LUT styles with their input profile', () => {
-    const style = toCustomStyle({
-      title: 'Camera LUT',
-      size: 33,
-      domainMin: [0, 0, 0],
-      domainMax: [1, 1, 1],
-      data: new Float32Array(33 * 33 * 33 * 3),
-      inputProfile: 'v-log',
-    })
+    const style = toCustomStyle(
+      parseCubeLUT(makeCube('Camera LUT', 'LUMIXPHOTOSTYLE VLOG'), {
+        sourceName: 'Panasonic_VLog_to_Rec709.cube',
+      }),
+    )
 
     expect(style.lutAsset?.inputProfile).toBe('v-log')
-    expect(style.warning).toMatch(/V-Log input/i)
+    expect(style.warning).toMatch(/Panasonic V-Gamut \/ V-Log input/i)
+    expect(style.lutAsset).toMatchObject({
+      profileResolution: {
+        kind: 'resolved',
+        profile: { id: 'panasonic-vgamut-vlog' },
+      },
+    })
   })
 })

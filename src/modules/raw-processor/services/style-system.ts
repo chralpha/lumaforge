@@ -1,3 +1,4 @@
+import type { LUTProfileResolution } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 
 import { BUILTIN_PRESETS } from './builtin-presets'
@@ -26,10 +27,18 @@ export function buildBuiltinStyle(id: (typeof BUILTIN_PRESETS)[number]['id']) {
   }
 }
 
+function describeLUTInput(profileResolution: LUTProfileResolution): string {
+  if (profileResolution.kind === 'resolved') {
+    return profileResolution.profile.label
+  }
+
+  return 'an unresolved LUT profile'
+}
+
 export function toCustomStyle(lut: ParsedLUT) {
   const warning =
     lut.inputProfile === 'v-log'
-      ? 'This LUT declares a V-Log input and uses internal input preparation. Exact camera matching still depends on the source RAW transform.'
+      ? `This LUT is resolved as ${describeLUTInput(lut.profileResolution)} input and uses internal input preparation. Exact camera matching still depends on the source RAW transform.`
       : 'Custom LUTs are applied in a best effort path and may not match pro video software exactly.'
 
   return {
@@ -43,6 +52,9 @@ export function toCustomStyle(lut: ParsedLUT) {
       dimension: lut.size as 17 | 33 | 65,
       title: lut.title,
       inputProfile: lut.inputProfile,
+      profileResolution: lut.profileResolution,
+      fingerprint: lut.fingerprint,
+      sourceName: lut.sourceName,
     },
   }
 }

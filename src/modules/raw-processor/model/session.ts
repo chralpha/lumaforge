@@ -1,3 +1,5 @@
+import type { LUTInputProfile, LUTProfileResolution } from '~/lib/gl/pipeline'
+
 export type SupportLevel = 'official' | 'experimental' | 'unsupported'
 export type PreviewStatus = 'idle' | 'loading' | 'ready' | 'failed'
 export type DisplaySource = 'embedded' | 'quick' | 'hq' | 'none'
@@ -33,7 +35,10 @@ export type StyleAsset = {
     format: 'cube'
     dimension: 17 | 33 | 65
     title?: string
-    inputProfile?: 'display-srgb' | 'v-log'
+    sourceName?: string
+    fingerprint?: string
+    inputProfile?: LUTInputProfile
+    profileResolution?: LUTProfileResolution
   }
   inputPrepProfile?: {
     profileId: string

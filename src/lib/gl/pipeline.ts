@@ -3,6 +3,8 @@
  * Handles the complete flow from decoded RAW data to display/export.
  */
 
+import type { LUTColorProfile } from '~/lib/color/registry'
+
 import type { WebGLCapabilities } from './context'
 import {
   create3DTexture,
@@ -41,6 +43,14 @@ export type BuiltinStylePreset =
 
 export type LUTInputProfile = 'display-srgb' | 'v-log'
 
+export type LUTProfileResolution =
+  | {
+      kind: 'resolved'
+      profile: LUTColorProfile
+      confidence: 'explicit' | 'filename' | 'user'
+    }
+  | { kind: 'needs-user-selection'; suggestions: LUTColorProfile[] }
+
 export interface LUTData {
   size: number
   data: Float32Array
@@ -48,6 +58,7 @@ export interface LUTData {
   domainMax: [number, number, number]
   title?: string
   inputProfile: LUTInputProfile
+  profileResolution: LUTProfileResolution
 }
 
 export interface PipelineStats {
