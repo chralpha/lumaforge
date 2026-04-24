@@ -181,8 +181,14 @@ describe('process shader style path', () => {
       const displayBranch = shader.match(
         /vec3 applyDisplayLut\(vec3 sceneLinearProPhoto\) \{[\s\S]*?\n\}/,
       )?.[0]
-      expect(displayBranch).toContain('linearProPhotoToDisplaySrgb')
-      expect(displayBranch).toContain('applyLut(displayColor)')
+      expect(displayBranch).toContain('linearProPhotoToLinearSrgb')
+      expect(displayBranch).toContain(
+        'encodeTransfer(displayLinear, u_lutInputTransfer)',
+      )
+      expect(displayBranch).toContain(
+        'applySignalRangeForLutInput(lutInputEncoded, u_lutInputRange)',
+      )
+      expect(displayBranch).toContain('applyLut(lutInput)')
     },
   )
 

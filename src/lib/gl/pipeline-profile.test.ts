@@ -55,6 +55,21 @@ describe('lUT pipeline profile uniforms', () => {
     ])
   })
 
+  it('preserves non-sRGB display-look transfer and range uniforms', () => {
+    const profile = getLUTColorProfile('rec709-gamma24')
+    expect(profile).toBeDefined()
+
+    const uniforms = resolveLUTPipelineProfileUniforms(resolved(profile!))
+
+    expect(uniforms.lutRole).toBe(LUT_ROLE_UNIFORMS['display-look'])
+    expect(uniforms.lutInputTransfer).toBe(LUT_TRANSFER_UNIFORMS.gamma24)
+    expect(uniforms.lutInputRange).toBe(LUT_RANGE_UNIFORMS.full)
+    expect(uniforms.lutOutputRange).toBe(LUT_RANGE_UNIFORMS.full)
+    expect(Array.from(uniforms.inputToLutGamut)).toEqual([
+      1, 0, 0, 0, 1, 0, 0, 0, 1,
+    ])
+  })
+
   it('defaults combined Rec.709 output LUTs to gamma24 output when omitted', () => {
     const profile: LUTColorProfile = {
       id: 'test-combined-rec709',

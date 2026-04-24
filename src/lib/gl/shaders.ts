@@ -466,8 +466,10 @@ vec3 applyLut(vec3 color) {
 }
 
 vec3 applyDisplayLut(vec3 sceneLinearProPhoto) {
-  vec3 displayColor = linearProPhotoToDisplaySrgb(sceneLinearProPhoto);
-  return clamp01(applyLut(displayColor));
+  vec3 displayLinear = max(linearProPhotoToLinearSrgb(sceneLinearProPhoto), vec3(0.0));
+  vec3 lutInputEncoded = encodeTransfer(displayLinear, u_lutInputTransfer);
+  vec3 lutInput = applySignalRangeForLutInput(lutInputEncoded, u_lutInputRange);
+  return clamp01(applyLut(lutInput));
 }
 
 vec3 applySceneLutToDisplayLinear(vec3 sceneLinearProPhoto) {
