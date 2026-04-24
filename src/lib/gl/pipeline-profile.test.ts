@@ -63,6 +63,7 @@ describe('lUT pipeline profile uniforms', () => {
 
     expect(uniforms.lutRole).toBe(LUT_ROLE_UNIFORMS['display-look'])
     expect(uniforms.lutInputTransfer).toBe(LUT_TRANSFER_UNIFORMS.gamma24)
+    expect(uniforms.lutOutputTransfer).toBe(LUT_TRANSFER_UNIFORMS.gamma24)
     expect(uniforms.lutInputRange).toBe(LUT_RANGE_UNIFORMS.full)
     expect(uniforms.lutOutputRange).toBe(LUT_RANGE_UNIFORMS.full)
     expect(Array.from(uniforms.inputToLutGamut)).toEqual([

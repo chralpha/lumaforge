@@ -230,8 +230,9 @@ export function resolveLUTPipelineProfileUniforms(
         LUT_TRANSFER_UNIFORMS[profile.inputTransfer] ??
         DISPLAY_PROFILE_UNIFORMS.lutInputTransfer,
       lutOutputTransfer:
-        LUT_TRANSFER_UNIFORMS[profile.outputTransfer ?? 'srgb'] ??
-        DISPLAY_PROFILE_UNIFORMS.lutOutputTransfer,
+        LUT_TRANSFER_UNIFORMS[
+          profile.outputTransfer ?? profile.inputTransfer
+        ] ?? DISPLAY_PROFILE_UNIFORMS.lutOutputTransfer,
       lutInputRange: LUT_RANGE_UNIFORMS[profile.inputRange],
       lutOutputRange: LUT_RANGE_UNIFORMS[profile.outputRange ?? 'full'],
     }

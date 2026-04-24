@@ -188,7 +188,15 @@ describe('process shader style path', () => {
       expect(displayBranch).toContain(
         'applySignalRangeForLutInput(lutInputEncoded, u_lutInputRange)',
       )
-      expect(displayBranch).toContain('applyLut(lutInput)')
+      expect(displayBranch).toContain(
+        'removeSignalRangeFromLutOutput(applyLut(lutInput), u_lutOutputRange)',
+      )
+      expect(displayBranch).toContain(
+        'decodeTransfer(lutOutputEncoded, u_lutOutputTransfer)',
+      )
+      expect(displayBranch).toContain(
+        'return linearToSrgb(displayLinearOutput)',
+      )
     },
   )
 
