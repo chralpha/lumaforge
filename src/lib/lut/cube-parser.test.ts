@@ -199,6 +199,7 @@ describe('cube-parser input profiles', () => {
     if (cineon.profileResolution.kind !== 'needs-user-selection') {
       throw new Error('Expected Cineon LUT to require profile selection')
     }
+    expect(cineon.profileResolution.reason).toBe('unsupported-output')
     expect(cineon.profileResolution.suggestions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'sony-sgamut3cine-slog3' }),

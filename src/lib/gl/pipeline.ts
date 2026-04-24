@@ -60,7 +60,11 @@ export type LUTProfileResolution =
       profile: LUTColorProfile
       confidence: 'explicit' | 'filename' | 'user'
     }
-  | { kind: 'needs-user-selection'; suggestions: LUTColorProfile[] }
+  | {
+      kind: 'needs-user-selection'
+      suggestions: LUTColorProfile[]
+      reason?: 'unsupported-output'
+    }
 
 export interface LUTData {
   size: number
@@ -197,6 +201,15 @@ const DISPLAY_PROFILE_UNIFORMS: LUTPipelineProfileUniforms = {
   lutRole: LUT_ROLE_UNIFORMS['display-look'],
   lutInputRange: LUT_RANGE_UNIFORMS.full,
   lutOutputRange: LUT_RANGE_UNIFORMS.full,
+}
+
+export function isLUTProfileRenderable(
+  profileResolution?: LUTProfileResolution | null,
+): boolean {
+  return (
+    profileResolution?.kind !== 'needs-user-selection' ||
+    profileResolution.reason !== 'unsupported-output'
+  )
 }
 
 function resolveLUTOutputTransfer(
@@ -632,12 +645,18 @@ export class RawProcessingPipeline {
 
     // Bind LUT texture
     gl.activeTexture(gl.TEXTURE1)
+    const useRenderableLut = Boolean(
+      lutTexture &&
+      lutData &&
+      isLUTProfileRenderable(lutData.profileResolution),
+    )
+
     gl.bindTexture(
       gl.TEXTURE_3D,
-      lutTexture && lutData ? lutTexture : fallbackLutTexture,
+      useRenderableLut ? lutTexture : fallbackLutTexture,
     )
     gl.uniform1i(processUniforms.u_lutTexture, 1)
-    if (lutTexture && lutData) {
+    if (useRenderableLut && lutData) {
       gl.uniform1i(processUniforms.u_useLut, 1)
       gl.uniform3fv(processUniforms.u_lutDomainMin, lutData.domainMin)
       gl.uniform3fv(processUniforms.u_lutDomainMax, lutData.domainMax)

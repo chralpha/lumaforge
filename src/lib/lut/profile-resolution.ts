@@ -122,6 +122,10 @@ export function applyLUTProfileSelection(
   lut: ParsedLUT,
   profileId: string,
 ): ParsedLUT | undefined {
+  if (hasUnsupportedOutputAnnotation(buildProfileSignature(lut))) {
+    return undefined
+  }
+
   const profile = storeLUTProfileSelection(lut.fingerprint, profileId)
   if (!profile) return undefined
 
@@ -338,7 +342,12 @@ function inferOutputAnnotation(
 function hasUnsupportedOutputAnnotation(signature: string): boolean {
   const normalized = normalizeProfileText(signature)
   const compact = compactProfileText(signature)
-  return /\bto\s+cineon\b/.test(normalized) || compact.includes('tocineon')
+  return (
+    /\b(?:to|for)\s+(?:cineon|log\s*c)\b/.test(normalized) ||
+    ['tocineon', 'forcineon', 'tologc', 'forlogc'].some((marker) =>
+      compact.includes(marker),
+    )
+  )
 }
 
 function annotateProfileOutput(
@@ -382,6 +391,7 @@ export function resolveLUTProfile(input: {
 
     return {
       kind: 'needs-user-selection',
+      reason: 'unsupported-output',
       suggestions,
     }
   }

@@ -4,6 +4,7 @@ import type { LUTColorProfile } from '~/lib/color/registry'
 import { getLUTColorProfile } from '~/lib/color/registry'
 
 import {
+  isLUTProfileRenderable,
   LUT_RANGE_UNIFORMS,
   LUT_ROLE_UNIFORMS,
   LUT_TRANSFER_UNIFORMS,
@@ -39,14 +40,19 @@ describe('lUT pipeline profile uniforms', () => {
   })
 
   it('maps unresolved profile choices to the display compatibility path', () => {
-    const uniforms = resolveLUTPipelineProfileUniforms({
+    const resolution = {
       kind: 'needs-user-selection',
       suggestions: [],
-    })
+    } as const satisfies {
+      kind: 'needs-user-selection'
+      suggestions: LUTColorProfile[]
+    }
+    const uniforms = resolveLUTPipelineProfileUniforms(resolution)
 
     expect(uniforms.lutRole).toBe(LUT_ROLE_UNIFORMS['display-look'])
     expect(uniforms.lutInputTransfer).toBe(LUT_TRANSFER_UNIFORMS.srgb)
     expect(uniforms.lutOutputTransfer).toBe(LUT_TRANSFER_UNIFORMS.srgb)
+    expect(isLUTProfileRenderable(resolution)).toBe(true)
     expect(Array.from(uniforms.inputToLutGamut)).toEqual([
       1, 0, 0, 0, 1, 0, 0, 0, 1,
     ])
@@ -146,5 +152,15 @@ describe('lUT pipeline profile uniforms', () => {
     expect(technicalUniforms.lutOutputTransfer).not.toBe(
       LUT_TRANSFER_UNIFORMS['s-log3'],
     )
+  })
+
+  it('marks unsupported output resolutions as not renderable', () => {
+    expect(
+      isLUTProfileRenderable({
+        kind: 'needs-user-selection',
+        reason: 'unsupported-output',
+        suggestions: [],
+      }),
+    ).toBe(false)
   })
 })

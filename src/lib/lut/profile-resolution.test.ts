@@ -1,10 +1,32 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import {
+  applyLUTProfileSelection,
   getStoredLUTProfileSelection,
   resolveLUTProfile,
   storeLUTProfileSelection,
 } from './profile-resolution'
+
+function makeParsedLUTForProfileSelection(sourceName: string) {
+  const profileResolution = resolveLUTProfile({
+    title: 'Sony technical LUT',
+    sourceName,
+    comments: [],
+  })
+
+  return {
+    title: 'Sony technical LUT',
+    sourceName,
+    comments: [],
+    size: 2,
+    domainMin: [0, 0, 0] as [number, number, number],
+    domainMax: [1, 1, 1] as [number, number, number],
+    data: new Float32Array(2 * 2 * 2 * 3),
+    fingerprint: sourceName,
+    profileResolution,
+    inputProfile: 'display-srgb' as const,
+  }
+}
 
 describe('lUT profile selection persistence', () => {
   beforeEach(() => {
@@ -180,5 +202,34 @@ describe('lUT explicit profile labels', () => {
         role: 'combined-look-output',
       },
     })
+  })
+
+  it('detects unsupported for Cineon and unknown LogC directional outputs', () => {
+    for (const sourceName of [
+      'SLog3_SGamut3Cine_for_Cineon.cube',
+      'SLog3_SGamut3Cine_toCineon.cube',
+      'SLog3_SGamut3Cine_to_LogC.cube',
+      'SLog3_SGamut3Cine_for_LogC.cube',
+    ]) {
+      const resolution = resolveLUTProfile({
+        title: 'Sony technical LUT',
+        sourceName,
+        comments: [],
+      })
+
+      expect(resolution).toMatchObject({
+        kind: 'needs-user-selection',
+        reason: 'unsupported-output',
+      })
+    }
+  })
+
+  it('does not let profile selection make unsupported outputs renderable', () => {
+    const selected = applyLUTProfileSelection(
+      makeParsedLUTForProfileSelection('SLog3_SGamut3Cine_to_Cineon.cube'),
+      'sony-sgamut3cine-slog3',
+    )
+
+    expect(selected).toBeUndefined()
   })
 })
