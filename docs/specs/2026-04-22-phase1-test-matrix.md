@@ -89,15 +89,15 @@ After each fixture passes the checklist, record the observed `cameraBrand`, `cam
 
 | Case | Runtime | Expected |
 | --- | --- | --- |
-| Open supported RAW with the default runtime | luma prototype | Embedded preview appears first when available, quick preview upgrades into the styled canvas, and HQ replaces quick without resetting style |
-| Open second RAW in the same tab with the default runtime | luma prototype | Camera metadata and preview dimensions come from the second file, and the session state is rebuilt from the second file instead of the first |
+| Open supported RAW with the default runtime | luma | Embedded preview appears first when available, quick preview upgrades into the styled canvas, and HQ replaces quick without resetting style |
+| Open second RAW in the same tab with the default runtime | luma | Camera metadata and preview dimensions come from the second file, and the session state is rebuilt from the second file instead of the first |
 | Disable cross-origin isolation | luma | RAW route shows unsupported-state copy explaining that cross-origin isolation is required for pthread RAW decode |
-| Run package/source dependency scan | repo | App/package source has no npm `libraw-wasm` dependency, but independent native readiness remains blocked until native build files also pass `rg "LibRaw-Wasm\|BASELINE_ROOT\|LIBRAW_WASM_ROOT\|/workspaces/LumaForge" packages/luma-raw-runtime/native .github/workflows` |
+| Run package/source dependency scan | repo | `! rg "libraw-wasm" package.json pnpm-lock.yaml src packages` exits successfully, proving there are no active package or source references |
 
 ## Post Phase 1.5 Runtime Performance Validation
 
 | Fixture | Runtime | Embedded | Quick | HQ | Heap telemetry | Result |
 | --- | --- | --- | --- | --- | --- | --- |
-| example-sony.ARW | luma prototype session | Recorded in historical V2 benchmark notes | Recorded in historical V2 benchmark notes | Recorded in historical V2 benchmark notes | Recorded | Historical prototype pass; must be repeated after independent source build |
-| SGL00940.ARW | luma prototype session | Recorded in historical V2 benchmark notes | Recorded in historical V2 benchmark notes | Recorded in historical V2 benchmark notes | Recorded | Historical prototype pass; must be repeated after independent source build |
-| SGL_1998.NEF | luma prototype session | Recorded in historical V2 benchmark notes | Recorded in historical V2 benchmark notes | Recorded in historical V2 benchmark notes | Recorded | Historical prototype pass; must be repeated after independent source build |
+| example-sony.ARW | luma session | 10ms | 456ms at 2.50MP | 955ms at 26.01MP | Recorded | Independent source-built local benchmark PASS; 24MP-class hard gate met; clean-checkout GitHub Actions run still required for production-ready status |
+| SGL00940.ARW | luma session | 18ms | 1,394ms at 2.50MP | 2,595ms at 60.97MP | Recorded | Independent source-built local benchmark PASS; 60MP HQ retained as directional evidence; clean-checkout GitHub Actions run still required for production-ready status |
+| SGL_1998.NEF | luma session | 8ms | 1,424ms at 2.50MP | 2,107ms at 45.75MP | Recorded | Independent source-built local benchmark PASS; 45MP HQ retained as directional evidence; clean-checkout GitHub Actions run still required for production-ready status |

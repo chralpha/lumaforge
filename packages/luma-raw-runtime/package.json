@@ -22,8 +22,13 @@
   "scripts": {
     "build": "vite build --config vite.config.ts && tsc -p tsconfig.build.json",
     "build:native": "bash native/build-libraw.sh",
+    "fixtures:fetch-public": "node fixtures/scripts/fetch-public-fixtures.mjs",
+    "native:fetch": "node native/scripts/fetch-sources.mjs",
+    "native:verify": "node native/scripts/verify-native-artifacts.mjs && pnpm --filter @lumaforge/luma-raw-runtime native:verify-baseline",
+    "native:verify-baseline": "node native/scripts/verify-no-baseline-deps.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run src worker",
+    "test": "vitest run src worker --exclude src/native-smoke.test.ts",
+    "test:native-smoke": "vitest run src/native-smoke.test.ts --environment jsdom",
     "bench:serve": "vite --host 0.0.0.0 --port 4174 --config vite.config.ts"
   }
 }

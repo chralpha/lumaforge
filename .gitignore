@@ -5,3 +5,7 @@ dist-ssr
 *.local
 
 generated-routes.ts
+packages/luma-raw-runtime/native/.cache/
+packages/luma-raw-runtime/native/vendor/
+packages/luma-raw-runtime/native/build/
+packages/luma-raw-runtime/fixtures/.cache/

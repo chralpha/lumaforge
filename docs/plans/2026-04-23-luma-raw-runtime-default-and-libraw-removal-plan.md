@@ -20,7 +20,7 @@ This plan follows the completed optimization plan:
 - `/tmp/luma-raw-runtime-perf-v2.jsonl`
 - `docs/plans/2026-04-23-luma-raw-runtime-benchmark-notes.md`
 
-V2 proved the optimized Luma session runtime was promising in the app scenario, but that evidence is now historical prototype evidence only. Independent runtime rollout is blocked until the source-build and CI gates in the 2026-04-24 plan pass.
+V2 provided historical prototype/app-scenario evidence only. Independent native-build release readiness remains blocked until the 2026-04-24 pinned-source rebuild and CI gates pass; this older plan records the fallback-removal work that was attempted before that correction.
 
 Do not remove the native LibRaw C++ dependency used by `packages/luma-raw-runtime/native/libraw_wrapper.cpp`. Only remove the npm package named `libraw-wasm` and app/runtime-package code that imports it.
 
@@ -489,12 +489,12 @@ In `docs/plans/2026-04-23-luma-raw-runtime-benchmark-notes.md`, add a final stat
 ```md
 ## Default Runtime And Dependency Removal
 
-Status: historical prototype PASS only; independent native runtime readiness is blocked until the 2026-04-24 source-build and CI gates pass.
+Historical status: superseded for independent native-build readiness as of 2026-04-24.
 
 - The app RAW facade now always uses `@lumaforge/luma-raw-runtime`.
 - The npm `libraw-wasm` dependency has been removed from the root app, runtime package benchmark, and lockfile.
 - Legacy benchmark rows in this document are historical V2 baseline evidence only.
-- Live benchmark runs are Luma-only validation runs, but they must be repeated after the independent native build chain replaces the local `LibRaw-Wasm` baseline.
+- Live benchmark runs are Luma-only prototype validation runs, not release evidence for an independently rebuilt native runtime.
 ```
 
 Also remove text that says the default switch remains out of scope.
@@ -513,7 +513,7 @@ In `docs/specs/2026-04-22-phase1-test-matrix.md`, replace the migration rows tha
 In `docs/specs/2026-04-23-luma-raw-runtime-migration-design.md`, add a status note near the top:
 
 ```md
-> 2026-04-23 update: V2 performance validation passed and the final migration removes the feature-flagged `libraw-wasm` fallback. The app default is now the custom Luma RAW runtime; `libraw-wasm` references below are retained only as historical migration baseline context.
+> 2026-04-24 correction: Historical V2 prototype/app-scenario validation is superseded for independent native-build readiness. Release readiness is blocked until the 2026-04-24 pinned-source rebuild and CI gates pass; `libraw-wasm` references below are retained only as historical migration baseline context.
 ```
 
 - [ ] **Step 4: Update root memory**

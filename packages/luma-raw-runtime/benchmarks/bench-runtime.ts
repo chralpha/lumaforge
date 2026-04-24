@@ -19,37 +19,61 @@ type BenchTargetStatus = 'within-target' | 'over-target' | 'baseline'
 type BenchRuntime = 'luma'
 type BenchTimings = Record<string, number | undefined>
 type BenchHeap = Record<string, number | undefined>
+type BenchMetric = number | null
+
+type BenchProvenance = {
+  sourceLockSha256: string | null
+}
 
 type BenchRecord = {
   runtime: BenchRuntime
   stage: BenchStage
   file: string
+  fileName: string
   size: number
   fileSize: number
-  megapixels?: number
-  width?: number
-  height?: number
-  total: number
-  read?: number
-  transfer?: number
-  copy?: number
-  open?: number
-  unpack?: number
-  process?: number
-  heapBytes?: number
+  width: BenchMetric
+  height: BenchMetric
+  megapixels: BenchMetric
+  total: BenchMetric
+  totalMs: BenchMetric
+  read: BenchMetric
+  transfer: BenchMetric
+  copyToWasm: BenchMetric
+  librawOpen: BenchMetric
+  openBuffer: BenchMetric
+  unpack: BenchMetric
+  process: BenchMetric
+  output: BenchMetric
+  heapBytes: BenchMetric
+  heapBefore: BenchMetric
+  heapAfter: BenchMetric
+  heapPeak: BenchMetric
   targetStatus: BenchTargetStatus
+  provenanceSourceLockSha256: string | null
+  error: string | null
   timings?: BenchTimings
   heap?: BenchHeap
 }
 
-type BenchErrorRecord = {
+type BenchRecordInput = {
   runtime: BenchRuntime
   stage: BenchStage
   file: string
+  fileName: string
   size: number
   fileSize: number
-  error: string
+  width?: number
+  height?: number
+  megapixels?: number
+  total: number
+  targetStatus?: BenchTargetStatus
+  provenanceSourceLockSha256: string | null
+  timings?: BenchTimings
+  heap?: BenchHeap
 }
+
+type BenchErrorRecord = BenchRecord & { error: string }
 
 type LumaSessionStageResult = (LumaEmbeddedPreview | LumaRawFrame) & {
   timings: BenchTimings & { total: number }
@@ -84,6 +108,7 @@ const runButton = required<HTMLButtonElement>('#run')
 const copyButton = required<HTMLButtonElement>('#copy')
 const copyStatus = required<HTMLSpanElement>('#copy-status')
 const output = required<HTMLPreElement>('#output')
+const provenanceUrl = new URL('../dist/native/provenance.json', import.meta.url)
 
 function targetStatus(
   stage: BenchStage,
@@ -107,13 +132,28 @@ function print(record: BenchRecord | BenchErrorRecord) {
   output.textContent += `${JSON.stringify(record)}\n`
 }
 
-function printError(stage: BenchStage, file: File, error: unknown) {
-  print({
+function printError(
+  stage: BenchStage,
+  file: File,
+  provenance: BenchProvenance,
+  error: unknown,
+) {
+  const record = makeRecord({
     runtime: 'luma',
     stage,
     file: file.name,
+    fileName: file.name,
     size: file.size,
     fileSize: file.size,
+    total: 0,
+    targetStatus: 'baseline',
+    provenanceSourceLockSha256: provenance.sourceLockSha256,
+  })
+
+  print({
+    ...record,
+    total: null,
+    totalMs: null,
     error: errorMessage(error),
   })
 }
@@ -136,44 +176,64 @@ function firstTiming(timings: BenchTimings | undefined, keys: string[]) {
   return undefined
 }
 
-function heapBytes(heap: BenchHeap | undefined) {
-  return firstTiming(heap, [
-    'peak',
-    'after',
-    'before',
-    'heapBytes',
-    'wasmHeapBytes',
-    'usedBytes',
-    'usedHeapBytes',
-  ])
+function metric(value: number | undefined): BenchMetric {
+  return value ?? null
+}
+
+function heapBytes(heap: BenchHeap | undefined): BenchMetric {
+  return (
+    firstTiming(heap, [
+      'peak',
+      'after',
+      'before',
+      'heapBytes',
+      'wasmHeapBytes',
+      'usedBytes',
+      'usedHeapBytes',
+    ]) ?? null
+  )
+}
+
+function heapStatsFields(heap: BenchHeap | undefined) {
+  return {
+    heapBefore: metric(firstTiming(heap, ['before'])),
+    heapAfter: metric(firstTiming(heap, ['after'])),
+    heapPeak: metric(firstTiming(heap, ['peak'])),
+  }
 }
 
 function recordTimingFields(timings: BenchTimings | undefined) {
   return {
-    read: firstTiming(timings, ['read', 'readFile']),
-    transfer: firstTiming(timings, ['transfer']),
-    copy: firstTiming(timings, ['copy', 'copyToWasm']),
-    open: firstTiming(timings, ['open', 'openBuffer']),
-    unpack: firstTiming(timings, ['unpack']),
-    process: firstTiming(timings, ['process']),
+    read: metric(firstTiming(timings, ['read', 'readFile'])),
+    transfer: metric(firstTiming(timings, ['transfer', 'transferToWorker'])),
+    copyToWasm: metric(firstTiming(timings, ['copyToWasm'])),
+    librawOpen: metric(firstTiming(timings, ['librawOpen'])),
+    openBuffer: metric(firstTiming(timings, ['openBuffer'])),
+    unpack: metric(firstTiming(timings, ['unpack'])),
+    process: metric(firstTiming(timings, ['process'])),
+    output: metric(
+      firstTiming(timings, ['output', 'outputCopy', 'makeMemImage']),
+    ),
   }
 }
 
-function makeRecord(
-  base: Omit<BenchRecord, 'targetStatus'> & {
-    targetStatus?: BenchTargetStatus
-  },
-): BenchRecord {
+function makeRecord(base: BenchRecordInput): BenchRecord {
   const megapixels =
-    base.megapixels ?? outputMegapixels(base.width, base.height)
+    base.megapixels ?? outputMegapixels(base.width, base.height) ?? null
 
   return {
     ...base,
+    width: base.width ?? null,
+    height: base.height ?? null,
     megapixels,
+    totalMs: base.total,
     ...recordTimingFields(base.timings),
     heapBytes: heapBytes(base.heap),
+    ...heapStatsFields(base.heap),
     targetStatus:
-      base.targetStatus ?? targetStatus(base.stage, base.total, megapixels),
+      base.targetStatus ??
+      targetStatus(base.stage, base.total, megapixels ?? undefined),
+    error: null,
   }
 }
 
@@ -190,6 +250,7 @@ function assertOpenSession(
 
 function printLumaStage(
   file: File,
+  provenance: BenchProvenance,
   stage: BenchStage,
   result: {
     width?: number
@@ -204,6 +265,7 @@ function printLumaStage(
       runtime: 'luma',
       stage,
       file: file.name,
+      fileName: file.name,
       size: file.size,
       fileSize: file.size,
       width: result.width,
@@ -211,13 +273,37 @@ function printLumaStage(
       megapixels: outputMegapixels(result.width, result.height),
       total: result.timings.total,
       targetStatus: targetOverride,
+      provenanceSourceLockSha256: provenance.sourceLockSha256,
       timings: result.timings,
       heap: result.heap,
     }),
   )
 }
 
-async function benchLuma(file: File) {
+function asProvenance(value: unknown): BenchProvenance {
+  if (value && typeof value === 'object') {
+    const sourceLockSha256 = (value as { sourceLockSha256?: unknown })
+      .sourceLockSha256
+    if (typeof sourceLockSha256 === 'string' && sourceLockSha256.length > 0) {
+      return { sourceLockSha256 }
+    }
+  }
+
+  return { sourceLockSha256: null }
+}
+
+async function loadProvenance(): Promise<BenchProvenance> {
+  try {
+    const response = await fetch(provenanceUrl, { cache: 'no-store' })
+    if (!response.ok) return { sourceLockSha256: null }
+
+    return asProvenance(await response.json())
+  } catch {
+    return { sourceLockSha256: null }
+  }
+}
+
+async function benchLuma(file: File, provenance: BenchProvenance) {
   const runtime = createLumaRawRuntime({ requireCrossOriginIsolation: false })
   let session: LumaRawSession | undefined
 
@@ -229,7 +315,7 @@ async function benchLuma(file: File) {
       maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
     })
   } catch (error) {
-    printError('luma-open-session', file, error)
+    printError('luma-open-session', file, provenance, error)
     runtime.dispose()
     return
   }
@@ -237,6 +323,7 @@ async function benchLuma(file: File) {
   try {
     printLumaStage(
       file,
+      provenance,
       'luma-open-session',
       {
         width: session.probe.width,
@@ -254,7 +341,7 @@ async function benchLuma(file: File) {
       try {
         await action()
       } catch (error) {
-        printError(stage, file, error)
+        printError(stage, file, provenance, error)
       }
     }
 
@@ -263,7 +350,7 @@ async function benchLuma(file: File) {
       if (!embedded) {
         throw new Error('No embedded preview available.')
       }
-      printLumaStage(file, 'luma-embedded', {
+      printLumaStage(file, provenance, 'luma-embedded', {
         width: embedded.width,
         height: embedded.height,
         timings: embedded.timings,
@@ -273,7 +360,7 @@ async function benchLuma(file: File) {
 
     await runLumaStage('luma-quick', async () => {
       const quick = await session.decodeQuick()
-      printLumaStage(file, 'luma-quick', {
+      printLumaStage(file, provenance, 'luma-quick', {
         width: quick.width,
         height: quick.height,
         timings: quick.timings,
@@ -283,7 +370,7 @@ async function benchLuma(file: File) {
 
     await runLumaStage('luma-hq', async () => {
       const hq = await session.decodeHq()
-      printLumaStage(file, 'luma-hq', {
+      printLumaStage(file, provenance, 'luma-hq', {
         width: hq.width,
         height: hq.height,
         timings: hq.timings,
@@ -307,8 +394,9 @@ async function run() {
 
   runButton.disabled = true
   try {
+    const provenance = await loadProvenance()
     for (const file of files) {
-      await benchLuma(file)
+      await benchLuma(file, provenance)
     }
   } finally {
     runButton.disabled = false

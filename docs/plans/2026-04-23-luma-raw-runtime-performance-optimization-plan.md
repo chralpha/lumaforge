@@ -2450,9 +2450,9 @@ Append to `docs/specs/2026-04-22-phase1-test-matrix.md`:
 
 | Fixture | Runtime | Embedded | Quick | HQ | Heap telemetry | Result |
 | --- | --- | --- | --- | --- | --- | --- |
-| example-sony.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | V2 gate passed; default switch separate |
-| SGL00940.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | V2 gate passed; default switch separate |
-| SGL_1998.NEF | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | V2 gate passed; default switch separate |
+| example-sony.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | Historical V2 prototype evidence only; independent native-build readiness is blocked until pinned-source rebuild and CI gates pass |
+| SGL00940.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | Historical V2 prototype evidence only; independent native-build readiness is blocked until pinned-source rebuild and CI gates pass |
+| SGL_1998.NEF | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | Historical V2 prototype evidence only; independent native-build readiness is blocked until pinned-source rebuild and CI gates pass |
 ```
 
 - [ ] **Step 6: Commit**
@@ -2512,7 +2512,7 @@ When Step 1 exits `0`, append:
 ```md
 ## V2 Rollout Gate
 
-Status: eligible for default-runtime rollout in a separate change.
+Historical status: app-scenario prototype evidence only; independent native-build release readiness is blocked until pinned-source rebuild and CI gates pass.
 
 Evidence:
 

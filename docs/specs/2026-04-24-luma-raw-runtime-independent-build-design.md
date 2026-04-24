@@ -290,7 +290,7 @@ Do not claim the runtime is production-ready until all gates pass.
 | Gate | Requirement |
 | --- | --- |
 | Source provenance | `sources.lock.json` exists, all downloads verify SHA-256, provenance JSON is emitted |
-| Baseline independence | `rg "LibRaw-Wasm|BASELINE_ROOT|/workspaces/LumaForge" packages/luma-raw-runtime/native .github` finds no active build dependency |
+| Baseline independence | `pnpm --filter @lumaforge/luma-raw-runtime native:verify-baseline` passes, or an equivalent scan finds no active build dependency outside verifier source, generated artifacts, caches, vendored sources, and historical docs |
 | CI reproducibility | GitHub Actions builds native wasm from clean checkout |
 | Smoke decode | CI opens at least one locked public RAW fixture with the CI-built wasm |
 | App build | Root `pnpm build` runs after native build and does not depend on local `dist/native` leftovers |

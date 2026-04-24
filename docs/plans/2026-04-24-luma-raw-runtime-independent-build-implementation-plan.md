@@ -103,15 +103,13 @@ pnpm --filter @lumaforge/luma-raw-runtime test
 pnpm build
 ```
 
-And this scan must find no active native or CI build dependency on local baseline artifacts:
+And this guard must find no active native or CI build dependency on local baseline artifacts:
 
 ```bash
-rg "LibRaw-Wasm|BASELINE_ROOT|LIBRAW_WASM_ROOT|/workspaces/LumaForge" \
-  packages/luma-raw-runtime/native \
-  .github/workflows
+pnpm --filter @lumaforge/luma-raw-runtime native:verify-baseline
 ```
 
-Expected: no matches in active build files. Historical docs may still mention those strings if clearly marked as historical or superseded.
+Expected: pass. The guard intentionally ignores its own pattern literals, generated artifacts, caches, vendored sources, and historical docs. Historical docs may still mention those strings if clearly marked as historical or superseded.
 
 ## Task 1: Make The Current State Honest
 
@@ -196,19 +194,41 @@ Create `packages/luma-raw-runtime/native/scripts/verify-no-baseline-deps.mjs`:
 
 ```js
 import { fileURLToPath } from 'node:url'
-import { readFile } from 'node:fs/promises'
-import { relative, resolve } from 'node:path'
+import { readdir, readFile, stat } from 'node:fs/promises'
+import { join, relative, resolve, sep } from 'node:path'
 import { argv, exit } from 'node:process'
 
 const scriptDir = resolve(fileURLToPath(new URL('.', import.meta.url)))
 const nativeRoot = resolve(scriptDir, '..')
 const packageRoot = resolve(nativeRoot, '..')
 const repoRoot = resolve(packageRoot, '../..')
-const defaultFiles = [
-  'packages/luma-raw-runtime/native/build-libraw.sh',
-  'packages/luma-raw-runtime/native/emcc-flags.sh',
+const defaultRoots = [
+  'packages/luma-raw-runtime/native',
   'packages/luma-raw-runtime/package.json',
-  '.github/workflows/build.yml',
+  '.github/workflows',
+]
+const ignoredPathParts = new Set([
+  '.cache',
+  'build',
+  'dist',
+  'node_modules',
+  'vendor',
+])
+const ignoredFiles = new Set([
+  // The guard source intentionally contains the forbidden pattern literals.
+  'packages/luma-raw-runtime/native/scripts/verify-no-baseline-deps.mjs',
+  'packages/luma-raw-runtime/native/sources.lock.json',
+])
+const ignoredSuffixes = [
+  '.a',
+  '.bc',
+  '.d',
+  '.js',
+  '.map',
+  '.o',
+  '.wasm',
+  '.wasm.map',
+  '.provenance.json',
 ]
 const patterns = [
   /LibRaw-Wasm/,
@@ -217,12 +237,49 @@ const patterns = [
   /\/workspaces\/LumaForge/,
 ]
 
-const files = argv.slice(2)
-const targets = files.length > 0 ? files : defaultFiles
+function normalizeRelative(path) {
+  return path.split(sep).join('/')
+}
+
+function shouldIgnore(path) {
+  const normalized = normalizeRelative(path)
+  if (ignoredFiles.has(normalized)) return true
+  if (ignoredSuffixes.some((suffix) => normalized.endsWith(suffix))) {
+    return true
+  }
+  return normalized.split('/').some((part) => ignoredPathParts.has(part))
+}
+
+async function collectFiles(target) {
+  const absolutePath = resolve(repoRoot, target)
+  const relativePath = relative(repoRoot, absolutePath)
+
+  if (shouldIgnore(relativePath)) return []
+
+  let entry
+  try {
+    entry = await stat(absolutePath)
+  } catch {
+    return []
+  }
+
+  if (entry.isDirectory()) {
+    const children = await readdir(absolutePath)
+    const nested = await Promise.all(
+      children.map((child) => collectFiles(join(relativePath, child))),
+    )
+    return nested.flat()
+  }
+
+  return entry.isFile() ? [absolutePath] : []
+}
+
+const inputs = argv.slice(2)
+const targets = inputs.length > 0 ? inputs : defaultRoots
+const files = (await Promise.all(targets.map(collectFiles))).flat()
 const failures = []
 
-for (const file of targets) {
-  const path = resolve(repoRoot, file)
+for (const path of files) {
   let text
   try {
     text = await readFile(path, 'utf8')
@@ -547,9 +604,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-node "${SCRIPT_DIR}/scripts/verify-no-baseline-deps.mjs" \
-  "packages/luma-raw-runtime/native/emcc-flags.sh" \
-  ".github/workflows/build.yml"
+node "${SCRIPT_DIR}/scripts/verify-no-baseline-deps.mjs"
 
 node "${SCRIPT_DIR}/scripts/fetch-sources.mjs"
 bash "${SCRIPT_DIR}/scripts/build-deps.sh"
@@ -1164,11 +1219,13 @@ Expected: all pass.
 
 - [ ] **Step 2: Record release status**
 
-If all acceptance gates pass, record:
+If local acceptance gates pass but GitHub Actions has not run yet, record:
 
 ```md
-Independent Luma RAW runtime status: release-ready for browser-local RAW MVP.
+Independent Luma RAW runtime status: local release-readiness gates passed for browser-local RAW MVP; production-ready status still requires a GitHub Actions run from a clean checkout.
 ```
+
+If local and GitHub Actions gates both pass, production-ready status may be recorded.
 
 If any gate fails, record:
 

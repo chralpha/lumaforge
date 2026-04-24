@@ -1,30 +1,31 @@
 # Luma RAW Runtime Fixtures
 
-RAW fixtures are local developer assets and are not committed by default.
+CI uses locked public fixtures:
 
-Run the browser benchmark against these local files:
+```bash
+pnpm --filter @lumaforge/luma-raw-runtime fixtures:fetch-public
+```
 
-- `/workspaces/LumaForge/LibRaw/LibRaw-Wasm/example-sony.ARW`
-- `/workspaces/LumaForge/test-images/SGL00940.ARW`
-- `/workspaces/LumaForge/test-images/SGL_1998.NEF`
+The public fixture set provides the locked input for clean-build decode smoke coverage. It does not prove high-megapixel performance.
 
-Benchmark command:
+Local performance benchmarks default to the browser file picker:
 
 ```bash
 pnpm --filter @lumaforge/luma-raw-runtime bench:serve
 ```
 
-Open `http://localhost:4174/benchmarks/bench-runtime.html`, select all three RAW fixtures, and click `Run benchmark`.
+Open `benchmarks/bench-runtime.html`, select one or more local RAW files, and
+copy the JSONL output. The benchmark page does not read fixture paths from the
+environment.
 
-The live benchmark validates the optimized Luma runtime only:
+There is currently no headless local-fixture helper in this package. If one is
+added, its contract is:
 
-- Luma opens one decode session per file
-- Luma embedded, quick, and HQ timings are reported separately
-- output JSONL includes file, size, megapixels, stage, width, height, total, read, transfer, copy, open, unpack/process, heap bytes, and target status
+```bash
+LUMAFORGE_RAW_FIXTURE_DIR=/absolute/path/to/local/fixtures \
+  pnpm --filter @lumaforge/luma-raw-runtime <headless-benchmark-command>
+```
 
-Historical app-equivalent legacy comparison rows are recorded in:
-
-- `docs/plans/2026-04-23-luma-raw-runtime-benchmark-notes.md`
-- `/tmp/luma-raw-runtime-perf-v2.jsonl` when available in the local validation environment
-
-Keep fixture files in this directory only on local machines unless the project has explicit redistribution rights for a sample.
+That helper must fail with a clear message when `LUMAFORGE_RAW_FIXTURE_DIR` is
+missing. Do not hard-code local absolute fixture paths in runtime source,
+benchmark code, or CI.

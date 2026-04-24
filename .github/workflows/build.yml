@@ -1,6 +1,3 @@
-# This workflow will do a clean install of node dependencies, build the source code and run tests across different versions of node
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
-
 name: Build
 
 on:
@@ -13,29 +10,82 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [lts/*]
+    env:
+      EMSDK_VERSION: 5.0.6
+      EMSDK_REF: 948c31acd3f369a5da276e33ab2ed57108c165e5
 
     steps:
-      - uses: actions/checkout@v2
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v2
-        with:
-          node-version: ${{ matrix.node-version }}
+      - uses: actions/checkout@v4
 
-      - name: Cache pnpm modules
-        uses: actions/cache@v4
-        env:
-          cache-name: cache-pnpm-modules
+      - name: Use Node.js
+        uses: actions/setup-node@v4
         with:
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ matrix.node-version }}-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-${{ matrix.node-version }}-
+          node-version: lts/*
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          run_install: true
-      - run: pnpm run build
+          run_install: false
+
+      - name: Configure pnpm store
+        run: pnpm config set store-dir ~/.pnpm-store
+
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake libtool pkg-config
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Cache Emscripten SDK
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/lumaforge-emsdk
+          key: ${{ runner.os }}-${{ runner.arch }}-emsdk-${{ env.EMSDK_VERSION }}-${{ env.EMSDK_REF }}
+
+      - name: Install Emscripten SDK
+        run: |
+          if [ ! -d "$HOME/.cache/lumaforge-emsdk/.git" ]; then
+            rm -rf "$HOME/.cache/lumaforge-emsdk"
+            git clone https://github.com/emscripten-core/emsdk.git "$HOME/.cache/lumaforge-emsdk"
+          fi
+          cd "$HOME/.cache/lumaforge-emsdk"
+          git fetch --tags --force origin
+          git reset --hard "$EMSDK_REF"
+          ./emsdk install "$EMSDK_VERSION"
+          ./emsdk activate "$EMSDK_VERSION"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build native RAW runtime
+        run: |
+          . "$HOME/.cache/lumaforge-emsdk/emsdk_env.sh"
+          pnpm --filter @lumaforge/luma-raw-runtime build:native
+          pnpm --filter @lumaforge/luma-raw-runtime native:verify
+
+      - name: Fetch public RAW smoke fixtures
+        run: pnpm --filter @lumaforge/luma-raw-runtime fixtures:fetch-public
+
+      - name: Smoke test CI-built native runtime
+        run: pnpm --filter @lumaforge/luma-raw-runtime test:native-smoke
+
+      - name: Test runtime package
+        run: pnpm --filter @lumaforge/luma-raw-runtime test
+
+      - name: Build runtime package
+        run: pnpm --filter @lumaforge/luma-raw-runtime build
+
+      - name: Build app
+        run: pnpm run build
+
+      - name: Verify app native assets
+        run: |
+          test -f dist/native/luma_raw.js
+          test -f dist/native/luma_raw.wasm

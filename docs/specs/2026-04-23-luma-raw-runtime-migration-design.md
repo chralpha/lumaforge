@@ -1,9 +1,7 @@
 # LumaForge 专用 RAW Runtime 迁移设计
 
-> 2026-04-24 correction: This document is superseded for native runtime readiness by `docs/specs/2026-04-24-luma-raw-runtime-independent-build-design.md` and `docs/plans/2026-04-24-luma-raw-runtime-independent-build-implementation-plan.md`. The V2 measurements remain historical prototype evidence, but they do not prove an independent Luma runtime because the native build linked against local `LibRaw-Wasm` artifacts and CI did not rebuild wasm from pinned sources.
-
 - 日期：2026-04-23
-- 状态：Superseded for independent native runtime readiness
+- 状态：Superseded for independent native-build readiness
 - 类型：Phase 1 后续迁移设计
 - 目标包：`packages/luma-raw-runtime`
 - 依赖文档：
@@ -11,7 +9,9 @@
   - `docs/plans/2026-04-22-phase1-browser-raw-mvp-implementation-plan.md`
   - `ACCEPTANCE.md`
 
-> 2026-04-24 update: The app integration and V2 performance validation are historical migration evidence. They are not sufficient release evidence for the self-owned runtime until the independent source-build and CI gates pass.
+> 2026-04-24 correction: This document is superseded for native runtime readiness by `docs/specs/2026-04-24-luma-raw-runtime-independent-build-design.md` and `docs/plans/2026-04-24-luma-raw-runtime-independent-build-implementation-plan.md`. The V2 measurements remain historical prototype evidence, but they do not prove an independent Luma runtime because the native build linked against local `LibRaw-Wasm` artifacts and CI did not rebuild wasm from pinned sources.
+
+> Historical note: V2 performance validation was recorded against a prototype migration path. Keep any `libraw-wasm` references below as historical comparison context only; release readiness now depends on the 2026-04-24 independent native build gates.
 
 ## 1. 定位
 

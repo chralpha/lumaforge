@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "toolchain": {
+    "emsdk": "5.0.6"
+  },
+  "sources": [
+    {
+      "name": "libraw",
+      "version": "0.22.1",
+      "url": "https://github.com/LibRaw/LibRaw/archive/refs/tags/0.22.1.tar.gz",
+      "sha256": "e676248284075605aa2697a66eeed7dc258820bd1d4988c724d29edffd726726",
+      "archiveName": "libraw-0.22.1.tar.gz",
+      "extractDir": "LibRaw-0.22.1"
+    },
+    {
+      "name": "lcms2",
+      "version": "2.18",
+      "url": "https://downloads.sourceforge.net/project/lcms/lcms/2.18/lcms2-2.18.tar.gz",
+      "sha256": "ee67be3566f459362c1ee094fde2c159d33fa0390aa4ed5f5af676f9e5004347",
+      "archiveName": "lcms2-2.18.tar.gz",
+      "extractDir": "lcms2-2.18"
+    }
+  ]
+}
