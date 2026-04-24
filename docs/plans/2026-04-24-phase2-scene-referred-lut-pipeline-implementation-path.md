@@ -619,7 +619,18 @@ Use GPU matrices and 3D textures for transforms.
 - Add fallback warnings for low-precision WebGL devices.
 - Evaluate tetrahedral interpolation as an optional quality upgrade.
 
-## 11. Product UX Principle
+## 11. Phase 2.1 Deferrals
+
+The following items are explicitly deferred from the Phase 2 acceptance bar and
+should be tracked as Phase 2.1 quality upgrades:
+
+- Real GPU shader-vs-CPU pixel equivalence tests over rendered synthetic color
+  patches.
+- Tetrahedral 3D LUT interpolation and related quality/performance evaluation.
+- Product-level export telemetry surfacing or persistence, beyond the internal
+  pipeline telemetry needed for diagnostics.
+
+## 12. Product UX Principle
 
 The user should not have to understand the full transform graph. The advanced truth is:
 
@@ -642,7 +653,7 @@ Choose what the LUT was made for.
 
 That single choice is the key to N-to-N compatibility.
 
-## 12. Official Reference Sources
+## 13. Official Reference Sources
 
 - ACES Input Transforms: <https://docs.acescentral.com/system-components/input-transforms/>
 - ACEScc Specification: <https://docs.acescentral.com/encodings/acescc/>
