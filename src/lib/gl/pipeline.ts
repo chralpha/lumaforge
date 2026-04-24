@@ -29,6 +29,11 @@ import {
   getRecommendedTextureFormat,
 } from './context'
 import {
+  createExportTiles,
+  cropRawUploadInput,
+  planExportRenderTarget,
+} from './export'
+import {
   PREVIEW_OUTPUT_SHADER,
   PROCESS_FRAGMENT_SHADER_FLOAT,
   PROCESS_FRAGMENT_SHADER_U16,
@@ -768,22 +773,110 @@ export class RawProcessingPipeline {
     width: number
     height: number
   }) {
+    if (!this.inputUpload) {
+      throw new Error('EXPORT_SOURCE_MISSING')
+    }
+
+    const plan = planExportRenderTarget({
+      width,
+      height,
+      maxTextureSize: this.capabilities.maxTextureSize,
+    })
+
+    if (plan.strategy === 'fail') {
+      throw new Error(
+        plan.reason === 'canvas-limit'
+          ? 'EXPORT_CANVAS_LIMIT_EXCEEDED'
+          : 'EXPORT_GPU_LIMIT_EXCEEDED',
+      )
+    }
+
+    if (plan.strategy === 'tiled') {
+      return await this.renderTiledHiddenCanvas(plan)
+    }
+
+    return await this.renderFullFrameHiddenCanvas(width, height)
+  }
+
+  private async renderFullFrameHiddenCanvas(
+    width: number,
+    height: number,
+  ): Promise<HTMLCanvasElement> {
+    const inputUpload = this.inputUpload
+    if (!inputUpload) {
+      throw new Error('EXPORT_SOURCE_MISSING')
+    }
+
     const canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = height
 
     const pipeline = new RawProcessingPipeline(canvas)
     await pipeline.initialize()
-    if (!this.inputUpload) {
-      throw new Error('EXPORT_SOURCE_MISSING')
-    }
-
-    pipeline.uploadImage(this.inputUpload)
+    pipeline.uploadImage(inputUpload)
     if (this.lutData) {
       pipeline.uploadLUT(this.lutData)
     }
     pipeline.setParams(this.params)
     pipeline.render()
+
+    return canvas
+  }
+
+  private async renderTiledHiddenCanvas(
+    plan: Extract<
+      ReturnType<typeof planExportRenderTarget>,
+      { strategy: 'tiled' }
+    >,
+  ): Promise<HTMLCanvasElement> {
+    if (
+      !this.inputUpload ||
+      this.inputUpload.width !== plan.width ||
+      this.inputUpload.height !== plan.height
+    ) {
+      throw new Error('EXPORT_TILED_REQUIRES_SOURCE_SIZE')
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = plan.width
+    canvas.height = plan.height
+
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('EXPORT_CANVAS_CONTEXT_MISSING')
+    }
+
+    for (const tile of createExportTiles(plan)) {
+      const tileCanvas = document.createElement('canvas')
+      tileCanvas.width = tile.width
+      tileCanvas.height = tile.height
+
+      const pipeline = new RawProcessingPipeline(tileCanvas)
+      await pipeline.initialize()
+
+      try {
+        pipeline.uploadImage(cropRawUploadInput(this.inputUpload, tile))
+        if (this.lutData) {
+          pipeline.uploadLUT(this.lutData)
+        }
+        pipeline.setParams(this.params)
+        pipeline.render()
+
+        context.drawImage(
+          tileCanvas,
+          0,
+          0,
+          tile.width,
+          tile.height,
+          tile.x,
+          tile.y,
+          tile.width,
+          tile.height,
+        )
+      } finally {
+        pipeline.dispose()
+      }
+    }
 
     return canvas
   }
