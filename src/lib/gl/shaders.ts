@@ -75,6 +75,7 @@ const int TRANSFER_LOGC4 = 13;
 const int TRANSFER_LOG3G10 = 14;
 const int TRANSFER_ACESCC = 15;
 const int TRANSFER_ACESCCT = 16;
+const int TRANSFER_L_LOG = 17;
 
 vec3 clamp01(vec3 color) {
   return clamp(color, 0.0, 1.0);
@@ -240,7 +241,7 @@ float encodeNLog(float linearValue) {
 float decodeNLog(float encodedValue) {
   float cut = pow(0.328, 1.0 / 3.0) * (650.0 / 1023.0) + 0.0075;
   if (encodedValue < cut) {
-    return pow((encodedValue - 0.0075) / (650.0 / 1023.0), 3.0);
+    return pow(max((encodedValue - 0.0075) / (650.0 / 1023.0), 0.0), 3.0);
   }
   return exp((encodedValue - (619.0 / 1023.0)) / (150.0 / 1023.0));
 }
@@ -369,6 +370,21 @@ float decodeACEScct(float encodedValue) {
   return pow(2.0, encodedValue * 17.52 - 9.72);
 }
 
+float encodeLLog(float linearValue) {
+  float value = max(linearValue, 0.0);
+  if (value < 0.006) {
+    return 8.0 * value;
+  }
+  return 0.233161 * (log(value / 0.006 + 1.0) / log(10.0)) + 0.048;
+}
+
+float decodeLLog(float encodedValue) {
+  if (encodedValue < 0.048) {
+    return max(encodedValue / 8.0, 0.0);
+  }
+  return 0.006 * (pow(10.0, (encodedValue - 0.048) / 0.233161) - 1.0);
+}
+
 float encodeTransferChannel(float linearValue, int transfer) {
   if (transfer == TRANSFER_SRGB) return linearToSrgb(vec3(linearValue)).r;
   if (transfer == TRANSFER_GAMMA24) return pow(max(linearValue, 0.0), 1.0 / 2.4);
@@ -387,6 +403,7 @@ float encodeTransferChannel(float linearValue, int transfer) {
   if (transfer == TRANSFER_LOG3G10) return encodeLog3G10(linearValue);
   if (transfer == TRANSFER_ACESCC) return encodeACEScc(linearValue);
   if (transfer == TRANSFER_ACESCCT) return encodeACEScct(linearValue);
+  if (transfer == TRANSFER_L_LOG) return encodeLLog(linearValue);
   return linearValue;
 }
 
@@ -408,6 +425,7 @@ float decodeTransferChannel(float encodedValue, int transfer) {
   if (transfer == TRANSFER_LOG3G10) return decodeLog3G10(encodedValue);
   if (transfer == TRANSFER_ACESCC) return decodeACEScc(encodedValue);
   if (transfer == TRANSFER_ACESCCT) return decodeACEScct(encodedValue);
+  if (transfer == TRANSFER_L_LOG) return decodeLLog(encodedValue);
   return encodedValue;
 }
 

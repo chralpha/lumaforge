@@ -113,6 +113,7 @@ describe('process shader style path', () => {
         'TRANSFER_LOG3G10',
         'TRANSFER_ACESCC',
         'TRANSFER_ACESCCT',
+        'TRANSFER_L_LOG',
       ]) {
         expect(shader).toContain(transferConst)
       }
@@ -126,6 +127,28 @@ describe('process shader style path', () => {
       expect(shader).not.toContain('rec709LinearToVGamutLinear')
       expect(shader).not.toContain('u_lutInputProfile')
       expect(shader).not.toContain('LUT_INPUT_V_LOG')
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant dispatches L-Log and clamps N-Log decode to avoid NaN',
+    (_name, shader) => {
+      expect(shader).toContain('const int TRANSFER_L_LOG = 17')
+      expect(shader).toContain('float encodeLLog(float linearValue)')
+      expect(shader).toContain('float decodeLLog(float encodedValue)')
+      expect(shader).toContain(
+        'if (transfer == TRANSFER_L_LOG) return encodeLLog(linearValue)',
+      )
+      expect(shader).toContain(
+        'if (transfer == TRANSFER_L_LOG) return decodeLLog(encodedValue)',
+      )
+
+      const nLogDecode = shader.match(
+        /float decodeNLog\(float encodedValue\) \{[\s\S]*?\n\}/,
+      )?.[0]
+      expect(nLogDecode).toContain(
+        'pow(max((encodedValue - 0.0075) / (650.0 / 1023.0), 0.0), 3.0)',
+      )
     },
   )
 
