@@ -9,12 +9,12 @@ import { Button } from '~/components/ui/button'
 import { Divider } from '~/components/ui/divider'
 import { Input } from '~/components/ui/input'
 import { clsxm } from '~/lib/cn'
-import type {LUTColorProfile} from '~/lib/color/registry';
+import type { LUTColorProfile } from '~/lib/color/registry'
 import {
   getColorGamut,
   getLUTColorProfile,
   getTransferFunction,
-  searchLUTColorProfiles
+  searchLUTColorProfiles,
 } from '~/lib/color/registry'
 import type { LUTProfileResolution } from '~/lib/gl/pipeline'
 import { Spring } from '~/lib/spring'
@@ -258,14 +258,21 @@ function LUTProfileStatus({
   const resolvedProfile = getResolvedProfile(selection, resolution)
   const outputLabel = getProfileOutputLabel(resolvedProfile)
   const isPending = selection?.status === 'pending'
+  const isFilenameMatch =
+    selection?.status === 'resolved' && selection.confidence === 'filename'
   const isUnsupportedOutput =
     resolution?.kind === 'needs-user-selection' &&
     resolution.reason === 'unsupported-output'
   const suggestions =
-    selection?.status === 'pending' ? selection.suggestions : []
+    selection?.status === 'pending'
+      ? selection.suggestions
+      : isFilenameMatch && resolvedProfile
+        ? [resolvedProfile]
+        : []
   const activeProfileId =
     selection?.status === 'resolved' ? selection.profileId : resolvedProfile?.id
-  const showSelector = !isUnsupportedOutput && (isPending || selectorOpen)
+  const showSelector =
+    !isUnsupportedOutput && (isPending || isFilenameMatch || selectorOpen)
   const handleSelect = (profileId: string) => {
     onSelect(profileId)
     setSelectorOpen(false)

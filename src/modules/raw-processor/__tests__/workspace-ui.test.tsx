@@ -81,7 +81,9 @@ describe('controlsPanel', () => {
     expect(screen.queryByText('Log Space')).not.toBeInTheDocument()
   })
 
-  it('shows resolved LUT profile input and Rec.709 output labels', () => {
+  it('opens the selector by default for filename-inferred LUT profiles', async () => {
+    const user = userEvent.setup()
+    const onLutProfileSelect = vi.fn()
     const profile = getLUTColorProfile('sony-sgamut3cine-slog3')!
 
     render(
@@ -105,17 +107,64 @@ describe('controlsPanel', () => {
             },
             confidence: 'filename',
           },
+          onLutProfileSelect,
+        })}
+      />,
+    )
+
+    expect(screen.getByText('LUT input:')).toBeInTheDocument()
+    expect(
+      screen.getAllByText('Sony S-Gamut3.Cine / S-Log3').length,
+    ).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('LUT output:')).toBeInTheDocument()
+    expect(screen.getByText('Rec.709 display')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Change LUT input' }),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Search LUT input')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Sony S-Gamut3.Cine / S-Log3' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('ARRI Wide Gamut 4 / LogC4')).toBeInTheDocument()
+
+    await user.click(
+      screen.getByRole('button', { name: 'Panasonic V-Gamut / V-Log' }),
+    )
+
+    expect(onLutProfileSelect).toHaveBeenCalledWith('panasonic-vgamut-vlog')
+  })
+
+  it('keeps explicit LUT profile matches collapsed', () => {
+    const profile = getLUTColorProfile('sony-sgamut3cine-slog3')!
+
+    render(
+      <ControlsPanel
+        {...controlsPanelProps({
+          currentLutName: 'Sony Look.cube',
+          lutProfileSelection: {
+            status: 'resolved',
+            fingerprint: 'abc123',
+            profileId: profile.id,
+            confidence: 'explicit',
+          },
+          lutProfileResolution: {
+            kind: 'resolved',
+            profile: {
+              ...profile,
+              role: 'combined-look-output',
+              outputGamut: 'srgb-rec709',
+              outputTransfer: 'gamma24',
+              outputRange: 'full',
+            },
+            confidence: 'explicit',
+          },
         })}
       />,
     )
 
     expect(screen.getByText('LUT input:')).toBeInTheDocument()
     expect(screen.getByText('Sony S-Gamut3.Cine / S-Log3')).toBeInTheDocument()
-    expect(screen.getByText('LUT output:')).toBeInTheDocument()
-    expect(screen.getByText('Rec.709 display')).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Change LUT input' }),
-    ).toBeInTheDocument()
+    expect(screen.queryByLabelText('Search LUT input')).not.toBeInTheDocument()
   })
 
   it('shows unknown LUT guidance and searchable profile options', async () => {
