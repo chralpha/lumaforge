@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Performance-first browser RAW runtime for LumaForge.",
+  "license": "SEE LICENSE IN LICENSE",
   "sideEffects": [
     "./dist/*.wasm",
     "./dist/*.worker.js"
@@ -17,7 +18,17 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "LICENSE",
+    "README.md",
+    "THIRD_PARTY_LICENSES",
+    "THIRD_PARTY_NOTICES.md",
+    "dist",
+    "native/build-libraw.sh",
+    "native/emcc-flags.sh",
+    "native/libraw_wrapper.cpp",
+    "native/patches/README.md",
+    "native/scripts",
+    "native/sources.lock.json"
   ],
   "scripts": {
     "build": "vite build --config vite.config.ts && tsc -p tsconfig.build.json",
