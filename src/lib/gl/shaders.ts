@@ -518,7 +518,6 @@ ${PROCESS_FRAGMENT_SHADER_BODY}
 `
 
 export const PROCESS_FRAGMENT_SHADER_U16 = /* glsl */ `#version 300 es
-precision highp uint;
 precision highp usampler2D;
 ${PROCESS_FRAGMENT_SHADER_HEADER}
 

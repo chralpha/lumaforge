@@ -49,7 +49,8 @@ describe('process shader style path', () => {
   })
 
   it('converts RGB16 unsigned integer input in the shader', () => {
-    expect(PROCESS_FRAGMENT_SHADER_U16).toContain('precision highp uint')
+    expect(PROCESS_FRAGMENT_SHADER_U16).not.toContain('precision highp uint')
+    expect(PROCESS_FRAGMENT_SHADER_U16).toContain('precision highp usampler2D')
     expect(PROCESS_FRAGMENT_SHADER_U16).toContain(
       'uniform usampler2D u_inputTexture',
     )
