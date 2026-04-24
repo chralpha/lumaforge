@@ -476,7 +476,7 @@ void main() {
   float intensity = clamp(u_intensity, 0.0, 1.0);
 
   if (u_styleKind == STYLE_BUILTIN) {
-    styledColor = applyBuiltinStyle(baseDisplayColor);
+    styledColor = mix(baseDisplayColor, applyBuiltinStyle(baseDisplayColor), intensity);
   } else if (u_styleKind == STYLE_CUSTOM && u_useLut) {
     if (u_lutRole == LUT_ROLE_SCENE_CREATIVE) {
       vec3 styledDisplayLinear = applySceneLutToDisplayLinear(baseSceneLinearProPhoto);

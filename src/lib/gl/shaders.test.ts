@@ -189,6 +189,19 @@ describe('process shader style path', () => {
   )
 
   it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant preserves builtin style intensity mixing in display domain',
+    (_name, shader) => {
+      const builtinMain = shader.match(
+        /if \(u_styleKind == STYLE_BUILTIN\) \{[\s\S]*?\n {2}\}/,
+      )?.[0]
+      expect(builtinMain).toBeDefined()
+      expect(builtinMain).toContain(
+        'styledColor = mix(baseDisplayColor, applyBuiltinStyle(baseDisplayColor), intensity)',
+      )
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
     '%s variant keeps display-domain intensity mixing for display and combined-output paths',
     (_name, shader) => {
       expect(shader).toContain(
