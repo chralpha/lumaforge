@@ -89,16 +89,15 @@ After each fixture passes the checklist, record the observed `cameraBrand`, `cam
 
 | Case | Runtime | Expected |
 | --- | --- | --- |
-| Open supported RAW with `VITE_RAW_RUNTIME=libraw-wasm` | legacy | Upload, quick preview, HQ preview, LUT, compare, and JPEG export still work |
-| Open supported RAW with `VITE_RAW_RUNTIME=luma` | luma | Embedded preview appears first when available, quick preview upgrades into the styled canvas, HQ replaces quick without resetting style |
-| Open second RAW in the same tab with `VITE_RAW_RUNTIME=luma` | luma | Camera metadata and preview dimensions come from the second file, not the first |
-| Disable cross-origin isolation and use `VITE_RAW_RUNTIME=luma` | luma | RAW route shows unsupported-state copy explaining cross-origin isolation |
-| Set `VITE_RAW_RUNTIME=libraw-wasm` after a luma failure | legacy | The same file can be processed through the legacy adapter |
+| Open supported RAW with the default runtime | luma | Embedded preview appears first when available, quick preview upgrades into the styled canvas, and HQ replaces quick without resetting style |
+| Open second RAW in the same tab with the default runtime | luma | Camera metadata and preview dimensions come from the second file, and the session state is rebuilt from the second file instead of the first |
+| Disable cross-origin isolation | luma | RAW route shows unsupported-state copy explaining that cross-origin isolation is required for pthread RAW decode |
+| Run package/source dependency scan | repo | `! rg "libraw-wasm" package.json pnpm-lock.yaml src packages` exits successfully, proving there are no active package or source references |
 
 ## Post Phase 1.5 Runtime Performance Validation
 
 | Fixture | Runtime | Embedded | Quick | HQ | Heap telemetry | Result |
 | --- | --- | --- | --- | --- | --- | --- |
-| example-sony.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | V2 gate passed; default switch separate |
-| SGL00940.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | V2 gate passed; default switch separate |
-| SGL_1998.NEF | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | V2 gate passed; default switch separate |
+| example-sony.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | V2 gate passed and the final Luma-only migration is complete |
+| SGL00940.ARW | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | V2 gate passed and the final Luma-only migration is complete |
+| SGL_1998.NEF | luma session | Recorded in benchmark notes | Recorded in benchmark notes | Recorded in benchmark notes | Recorded | V2 gate passed and the final Luma-only migration is complete |

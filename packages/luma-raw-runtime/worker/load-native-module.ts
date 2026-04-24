@@ -23,7 +23,7 @@ function nativeAssetUrl(fileName: string) {
 function createMissingNativeAssetsError(cause: unknown) {
   return new LumaRawRuntimeError(
     'RAW_RUNTIME_UNAVAILABLE',
-    'Luma RAW native assets are missing or unavailable. Run `pnpm --filter @lumaforge/luma-raw-runtime build:native` before using VITE_RAW_RUNTIME=luma.',
+    'Luma RAW native assets are missing or unavailable. Run `pnpm --filter @lumaforge/luma-raw-runtime build:native` before using the Luma RAW runtime.',
     { cause },
   )
 }

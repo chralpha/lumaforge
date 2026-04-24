@@ -2,7 +2,16 @@
 
 Date: 2026-04-23
 
-## Commands
+## Default Runtime And Dependency Removal
+
+Status: PASS as of 2026-04-24.
+
+- The app RAW facade now always uses `@lumaforge/luma-raw-runtime`.
+- The npm `libraw-wasm` dependency has been removed from the root app, runtime package benchmark, and lockfile.
+- Legacy benchmark rows in this document are historical V2 baseline evidence only.
+- Live benchmark runs are Luma-only validation runs.
+
+## Historical V2 Benchmark Commands
 
 ```bash
 pnpm test:run
@@ -13,6 +22,8 @@ VITE_RAW_RUNTIME=luma pnpm build
 pnpm --filter @lumaforge/luma-raw-runtime bench:serve
 ```
 
+These commands were captured during the V2 benchmark run before the final fallback removal. They are retained only as baseline evidence for the legacy-to-Luma comparison below.
+
 ## Targets
 
 | Target | Expected |
@@ -21,7 +32,7 @@ pnpm --filter @lumaforge/luma-raw-runtime bench:serve
 | quick preview | 2000 to 4000 ms |
 | 24MP HQ preview | 5000 to 8000 ms |
 
-## Automated Check Results
+## Historical V2 Automated Check Results
 
 | Command | Result | Evidence |
 | --- | --- | --- |
@@ -78,7 +89,7 @@ pnpm --filter @lumaforge/luma-raw-runtime bench:serve
 - Luma uses one runtime session per RAW file.
 - Quick output is capped to 2.5MP by default.
 - Heap telemetry is recorded per Luma stage.
-- Rollout remains blocked if any required Luma stage exceeds target or any embedded preview reports `0x0`.
+- V2 gate passed; the separate final migration has since made Luma the default runtime and removed the feature-flagged fallback.
 
 ## Raw Benchmark Output
 
@@ -87,7 +98,7 @@ Saved at `/tmp/luma-raw-runtime-perf-v2.jsonl`.
 The file contains 18 JSONL rows covering:
 
 - `example-sony.ARW`, `SGL00940.ARW`, and `SGL_1998.NEF`
-- `legacy-quick` and `legacy-hq` for `libraw-wasm`
+- historical `legacy-quick` and `legacy-hq` rows for `libraw-wasm`
 - `luma-open-session`, `luma-embedded`, `luma-quick`, and `luma-hq` for `luma`
 
 ## Memory Growth Impact
@@ -99,14 +110,13 @@ The largest observed per-stage heap increase was 584,122,368 bytes for `SGL00940
 
 ## Rollout Gate Readiness
 
-Default runtime switch to `luma` is not approved by this optimization plan.
 This benchmark run did not find required Luma stages over target, and embedded previews did not report `0x0`.
 Heap telemetry is present for all Luma benchmark rows.
-Task 9 gate review completed with the rollout status recorded below.
+Task 9 gate review completed with the rollout status recorded below, and the later final migration used that result to remove the app fallback and npm `libraw-wasm` dependency.
 
 ## V2 Rollout Gate
 
-Status: eligible for default-runtime rollout in a separate change.
+Historical status: eligible for default-runtime rollout in a separate change.
 
 Evidence:
 
@@ -116,4 +126,4 @@ Evidence:
 - 24MP-class HQ completes under 8000 ms.
 - HQ rows above the 30MP gate cutoff are directional baseline evidence and are not compared to the 24MP HQ target.
 - Heap telemetry is present for all Luma stages.
-- Default runtime switch remains out of scope for this plan; `VITE_RAW_RUNTIME=libraw-wasm` remains the safe rollback path until a separate approved change.
+- This V2 gate result is now historical context for the completed Luma-only migration.

@@ -1,13 +1,15 @@
 # LumaForge 专用 RAW Runtime 迁移设计
 
 - 日期：2026-04-23
-- 状态：Draft for review
+- 状态：Final migration complete
 - 类型：Phase 1 后续迁移设计
 - 目标包：`packages/luma-raw-runtime`
 - 依赖文档：
   - `docs/specs/2026-04-22-phase1-browser-raw-mvp-design.md`
   - `docs/plans/2026-04-22-phase1-browser-raw-mvp-implementation-plan.md`
   - `ACCEPTANCE.md`
+
+> 2026-04-24 update: V2 performance validation passed and the final migration removes the feature-flagged `libraw-wasm` fallback. The app default is now the custom Luma RAW runtime; `libraw-wasm` references below are retained only as historical migration baseline context.
 
 ## 1. 定位
 
