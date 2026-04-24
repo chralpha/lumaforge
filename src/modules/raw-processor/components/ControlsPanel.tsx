@@ -254,7 +254,6 @@ function LUTProfileStatus({
   resolution?: LUTProfileResolution | null
   onSelect: (profileId: string) => void
 }) {
-  const [selectorOpen, setSelectorOpen] = useState(false)
   const resolvedProfile = getResolvedProfile(selection, resolution)
   const outputLabel = getProfileOutputLabel(resolvedProfile)
   const isPending = selection?.status === 'pending'
@@ -271,8 +270,10 @@ function LUTProfileStatus({
         : []
   const activeProfileId =
     selection?.status === 'resolved' ? selection.profileId : resolvedProfile?.id
-  const showSelector =
-    !isUnsupportedOutput && (isPending || isFilenameMatch || selectorOpen)
+  const [selectorOpen, setSelectorOpen] = useState(
+    !isUnsupportedOutput && (isPending || isFilenameMatch),
+  )
+  const showSelector = !isUnsupportedOutput && selectorOpen
   const handleSelect = (profileId: string) => {
     onSelect(profileId)
     setSelectorOpen(false)
@@ -423,6 +424,7 @@ export function ControlsPanel({
           />
           {currentLutName && (
             <LUTProfileStatus
+              key={lutProfileSelection?.fingerprint ?? currentLutName}
               selection={lutProfileSelection}
               resolution={lutProfileResolution}
               onSelect={onLutProfileSelect}

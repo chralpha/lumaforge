@@ -127,6 +127,14 @@ describe('controlsPanel', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('ARRI Wide Gamut 4 / LogC4')).toBeInTheDocument()
 
+    await user.click(screen.getByRole('button', { name: 'Change LUT input' }))
+
+    expect(screen.queryByLabelText('Search LUT input')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Change LUT input' }))
+
+    expect(screen.getByLabelText('Search LUT input')).toBeInTheDocument()
+
     await user.click(
       screen.getByRole('button', { name: 'Panasonic V-Gamut / V-Log' }),
     )
@@ -165,6 +173,62 @@ describe('controlsPanel', () => {
     expect(screen.getByText('LUT input:')).toBeInTheDocument()
     expect(screen.getByText('Sony S-Gamut3.Cine / S-Log3')).toBeInTheDocument()
     expect(screen.queryByLabelText('Search LUT input')).not.toBeInTheDocument()
+  })
+
+  it('resets selector state and search when switching LUT fingerprints', async () => {
+    const user = userEvent.setup()
+    const sonyProfile = getLUTColorProfile('sony-sgamut3cine-slog3')!
+    const canonProfile = getLUTColorProfile('canon-cinema-gamut-clog3')!
+
+    const firstLutProps = controlsPanelProps({
+      currentLutName: 'Sony Look.cube',
+      lutProfileSelection: {
+        status: 'resolved',
+        fingerprint: 'first-lut',
+        profileId: sonyProfile.id,
+        confidence: 'explicit',
+      },
+      lutProfileResolution: {
+        kind: 'resolved',
+        profile: sonyProfile,
+        confidence: 'explicit',
+      },
+    })
+    const { rerender } = render(<ControlsPanel {...firstLutProps} />)
+
+    await user.click(screen.getByRole('button', { name: 'Change LUT input' }))
+    await user.type(screen.getByLabelText('Search LUT input'), 'panasonic')
+
+    expect(screen.getByLabelText('Search LUT input')).toHaveValue('panasonic')
+    expect(
+      screen.queryByText('ARRI Wide Gamut 4 / LogC4'),
+    ).not.toBeInTheDocument()
+
+    rerender(
+      <ControlsPanel
+        {...controlsPanelProps({
+          currentLutName: 'Canon Look.cube',
+          lutProfileSelection: {
+            status: 'resolved',
+            fingerprint: 'second-lut',
+            profileId: canonProfile.id,
+            confidence: 'explicit',
+          },
+          lutProfileResolution: {
+            kind: 'resolved',
+            profile: canonProfile,
+            confidence: 'explicit',
+          },
+        })}
+      />,
+    )
+
+    expect(screen.queryByLabelText('Search LUT input')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Change LUT input' }))
+
+    expect(screen.getByLabelText('Search LUT input')).toHaveValue('')
+    expect(screen.getByText('ARRI Wide Gamut 4 / LogC4')).toBeInTheDocument()
   })
 
   it('shows unknown LUT guidance and searchable profile options', async () => {
