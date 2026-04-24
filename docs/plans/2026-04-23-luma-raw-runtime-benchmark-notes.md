@@ -2,7 +2,7 @@
 
 Date: 2026-04-23
 
-> 2026-04-24 correction: This document is superseded for native runtime readiness by `docs/specs/2026-04-24-luma-raw-runtime-independent-build-design.md`, `docs/plans/2026-04-24-luma-raw-runtime-independent-build-implementation-plan.md`, and `docs/plans/2026-04-24-luma-raw-runtime-independent-benchmark-notes.md`. The V2 measurements remain historical prototype evidence, but they do not prove an independent Luma runtime because the native build linked against local `LibRaw-Wasm` artifacts and CI did not rebuild wasm from pinned sources. The independent local source-build benchmark gate is now recorded separately as PASS, with production-ready status pending clean-checkout GitHub Actions evidence.
+> 2026-04-24 correction: This document is superseded for native runtime readiness by `docs/specs/2026-04-24-luma-raw-runtime-independent-build-design.md`, `docs/plans/2026-04-24-luma-raw-runtime-independent-build-implementation-plan.md`, and `docs/plans/2026-04-24-luma-raw-runtime-independent-benchmark-notes.md`. The V2 measurements remain historical prototype evidence, but they do not prove an independent Luma runtime because the native build linked against local `LibRaw-Wasm` artifacts and CI did not rebuild wasm from pinned sources. The independent source-build benchmark gate and clean-checkout GitHub Actions gate are now recorded separately as PASS.
 
 ## Default Runtime And Dependency Removal
 
@@ -116,11 +116,11 @@ This benchmark run did not find required Luma stages over target, and embedded p
 Heap telemetry is present for all Luma benchmark rows.
 Task 9 gate review completed with the historical prototype/app-scenario status recorded below, but that result is superseded for independent native-build readiness until the 2026-04-24 pinned-source rebuild and CI gates pass.
 
-Independent gate update: the 2026-04-24 independent benchmark pass is recorded in `docs/plans/2026-04-24-luma-raw-runtime-independent-benchmark-notes.md` as a local source-build PASS. The independent source build generated fresh native artifacts from `sources.lock.json`, verified provenance, and produced `/tmp/luma-raw-runtime-independent-perf.jsonl`. Production-ready status still requires GitHub Actions evidence from a clean checkout.
+Independent gate update: the 2026-04-24 independent benchmark pass is recorded in `docs/plans/2026-04-24-luma-raw-runtime-independent-benchmark-notes.md` as a source-build PASS. The independent source build generated fresh native artifacts from `sources.lock.json`, verified provenance, produced `/tmp/luma-raw-runtime-independent-perf.jsonl`, and passed the clean-checkout GitHub Actions gate.
 
 ## V2 Rollout Gate
 
-Historical status: app-scenario prototype evidence only; independent native-build readiness is now governed by the 2026-04-24 source-built benchmark, local verification notes, and the pending clean-checkout GitHub Actions gate.
+Historical status: app-scenario prototype evidence only; independent native-build readiness is now governed by the 2026-04-24 source-built benchmark, local verification notes, and the passed clean-checkout GitHub Actions gate.
 
 Evidence:
 

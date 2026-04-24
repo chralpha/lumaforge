@@ -8,6 +8,8 @@
 
 **Tech Stack:** pnpm workspace, TypeScript, Node scripts, GitHub Actions, Emscripten SDK 5.0.6, LibRaw 0.22.1, Little CMS 2.18, Web Worker, Embind, Vitest, browser benchmark harness
 
+**Status:** Complete as of 2026-04-24. Local source-build, smoke, app build, benchmark, and GitHub Actions clean-checkout gates have passed.
+
 ---
 
 ## Scope Guard
@@ -119,7 +121,7 @@ Expected: pass. The guard intentionally ignores its own pattern literals, genera
 - Modify: `docs/plans/2026-04-23-luma-raw-runtime-default-and-libraw-removal-plan.md`
 - Modify: `docs/specs/2026-04-22-phase1-test-matrix.md`
 
-- [ ] **Step 1: Add supersession banners**
+- [x] **Step 1: Add supersession banners**
 
 Add this banner near the top of the three 2026-04-23 runtime docs:
 
@@ -129,7 +131,7 @@ Add this banner near the top of the three 2026-04-23 runtime docs:
 
 In `docs/specs/2026-04-22-phase1-test-matrix.md`, change migration rows that say final Luma-only migration is complete so they say independent native-build readiness is blocked until the new source/CI gates pass.
 
-- [ ] **Step 2: Verify docs now distinguish prototype evidence from release evidence**
+- [x] **Step 2: Verify docs now distinguish prototype evidence from release evidence**
 
 Run:
 
@@ -139,7 +141,7 @@ rg -n "Final migration complete|Status: PASS|V2 gate passed|final Luma-only migr
 
 Expected: no unqualified production-readiness claims remain. Matches are acceptable only when the surrounding line explicitly labels the result as historical or superseded.
 
-- [ ] **Step 3: Commit Task 1**
+- [x] **Step 3: Commit Task 1**
 
 ```bash
 git add docs/specs/2026-04-23-luma-raw-runtime-migration-design.md \
@@ -157,7 +159,7 @@ git commit -m "docs(raw): mark prototype runtime evidence as superseded"
 - Modify: `packages/luma-raw-runtime/package.json`
 - Modify: `.gitignore`
 
-- [ ] **Step 1: Add the native source lock**
+- [x] **Step 1: Add the native source lock**
 
 Create `packages/luma-raw-runtime/native/sources.lock.json`:
 
@@ -188,7 +190,7 @@ Create `packages/luma-raw-runtime/native/sources.lock.json`:
 }
 ```
 
-- [ ] **Step 2: Add the baseline dependency guard**
+- [x] **Step 2: Add the baseline dependency guard**
 
 Create `packages/luma-raw-runtime/native/scripts/verify-no-baseline-deps.mjs`:
 
@@ -303,7 +305,7 @@ if (failures.length > 0) {
 console.log('No forbidden native baseline dependencies found.')
 ```
 
-- [ ] **Step 3: Add native cache ignores**
+- [x] **Step 3: Add native cache ignores**
 
 Append to `.gitignore`:
 
@@ -314,7 +316,7 @@ packages/luma-raw-runtime/native/build/
 packages/luma-raw-runtime/fixtures/.cache/
 ```
 
-- [ ] **Step 4: Add package scripts**
+- [x] **Step 4: Add package scripts**
 
 In `packages/luma-raw-runtime/package.json`, add:
 
@@ -328,7 +330,7 @@ In `packages/luma-raw-runtime/package.json`, add:
 
 Keep existing scripts intact.
 
-- [ ] **Step 5: Verify the guard fails before the build rewrite**
+- [x] **Step 5: Verify the guard fails before the build rewrite**
 
 Run:
 
@@ -338,7 +340,7 @@ pnpm --filter @lumaforge/luma-raw-runtime native:verify-baseline
 
 Expected before Task 4: FAIL, because `native/build-libraw.sh` still references `BASELINE_ROOT` and `LibRaw-Wasm`.
 
-- [ ] **Step 6: Commit Task 2**
+- [x] **Step 6: Commit Task 2**
 
 ```bash
 git add .gitignore \
@@ -354,7 +356,7 @@ git commit -m "build(raw): add native source lock and baseline guard"
 - Create: `packages/luma-raw-runtime/native/scripts/fetch-sources.mjs`
 - Modify: `packages/luma-raw-runtime/package.json`
 
-- [ ] **Step 1: Implement source fetch script**
+- [x] **Step 1: Implement source fetch script**
 
 Create `packages/luma-raw-runtime/native/scripts/fetch-sources.mjs`:
 
@@ -436,7 +438,7 @@ for (const source of lock.sources) {
 }
 ```
 
-- [ ] **Step 2: Add fetch script to package.json**
+- [x] **Step 2: Add fetch script to package.json**
 
 Add:
 
@@ -448,7 +450,7 @@ Add:
 }
 ```
 
-- [ ] **Step 3: Verify source fetching**
+- [x] **Step 3: Verify source fetching**
 
 Run:
 
@@ -460,7 +462,7 @@ test -d packages/luma-raw-runtime/native/vendor/lcms2-2.18
 
 Expected: both extracted source directories exist.
 
-- [ ] **Step 4: Commit Task 3**
+- [x] **Step 4: Commit Task 3**
 
 ```bash
 git add packages/luma-raw-runtime/package.json \
@@ -477,7 +479,7 @@ git commit -m "build(raw): fetch pinned native sources"
 - Modify: `packages/luma-raw-runtime/native/emcc-flags.sh`
 - Create: `packages/luma-raw-runtime/native/patches/README.md`
 
-- [ ] **Step 1: Add patch policy**
+- [x] **Step 1: Add patch policy**
 
 Create `packages/luma-raw-runtime/native/patches/README.md`:
 
@@ -496,7 +498,7 @@ Rules:
 The initial independent build uses no source patches.
 ```
 
-- [ ] **Step 2: Add dependency build script**
+- [x] **Step 2: Add dependency build script**
 
 Create `packages/luma-raw-runtime/native/scripts/build-deps.sh`:
 
@@ -560,7 +562,7 @@ test -d "${SYSROOT_DIR}/include/libraw"
 echo "Built native dependencies into ${SYSROOT_DIR}"
 ```
 
-- [ ] **Step 3: Add wasm link script**
+- [x] **Step 3: Add wasm link script**
 
 Create `packages/luma-raw-runtime/native/scripts/build-wasm.sh`:
 
@@ -592,7 +594,7 @@ node "${NATIVE_DIR}/scripts/verify-native-artifacts.mjs" --write-provenance
 echo "Built Luma RAW native runtime into ${PACKAGE_DIR}/dist/native"
 ```
 
-- [ ] **Step 4: Rewrite build orchestrator**
+- [x] **Step 4: Rewrite build orchestrator**
 
 Replace `packages/luma-raw-runtime/native/build-libraw.sh` with:
 
@@ -614,7 +616,7 @@ cd "${REPO_ROOT}"
 pnpm --filter @lumaforge/luma-raw-runtime native:verify-baseline
 ```
 
-- [ ] **Step 5: Keep Emscripten flags explicit**
+- [x] **Step 5: Keep Emscripten flags explicit**
 
 Update `packages/luma-raw-runtime/native/emcc-flags.sh` so flags are grouped and exported:
 
@@ -629,7 +631,7 @@ export LUMA_RAW_LDFLAGS="-O3 -flto -pthread -s USE_PTHREADS=1 -s MODULARIZE=1 -s
 
 Do not add local include or library paths here.
 
-- [ ] **Step 6: Make scripts executable**
+- [x] **Step 6: Make scripts executable**
 
 Run:
 
@@ -639,7 +641,7 @@ chmod +x packages/luma-raw-runtime/native/build-libraw.sh \
   packages/luma-raw-runtime/native/scripts/build-wasm.sh
 ```
 
-- [ ] **Step 7: Verify the guard now passes**
+- [x] **Step 7: Verify the guard now passes**
 
 Run:
 
@@ -649,7 +651,7 @@ pnpm --filter @lumaforge/luma-raw-runtime native:verify-baseline
 
 Expected: PASS with `No forbidden native baseline dependencies found.`
 
-- [ ] **Step 8: Commit Task 4**
+- [x] **Step 8: Commit Task 4**
 
 ```bash
 git add packages/luma-raw-runtime/native
@@ -662,7 +664,7 @@ git commit -m "build(raw): build native runtime from pinned sources"
 - Create: `packages/luma-raw-runtime/native/scripts/verify-native-artifacts.mjs`
 - Modify: `packages/luma-raw-runtime/package.json`
 
-- [ ] **Step 1: Implement artifact verification**
+- [x] **Step 1: Implement artifact verification**
 
 Create `packages/luma-raw-runtime/native/scripts/verify-native-artifacts.mjs`:
 
@@ -737,7 +739,7 @@ if (argv.includes('--write-provenance')) {
 console.log('Native artifacts verified.')
 ```
 
-- [ ] **Step 2: Add verify script**
+- [x] **Step 2: Add verify script**
 
 Add to `packages/luma-raw-runtime/package.json`:
 
@@ -749,7 +751,7 @@ Add to `packages/luma-raw-runtime/package.json`:
 }
 ```
 
-- [ ] **Step 3: Build and verify native artifacts locally**
+- [x] **Step 3: Build and verify native artifacts locally**
 
 Activate Emscripten 5.0.6, then run:
 
@@ -765,7 +767,7 @@ Expected:
 - `packages/luma-raw-runtime/dist/native/provenance.json` exists.
 - Baseline guard passes.
 
-- [ ] **Step 4: Commit Task 5**
+- [x] **Step 4: Commit Task 5**
 
 ```bash
 git add packages/luma-raw-runtime/package.json \
@@ -778,7 +780,7 @@ git commit -m "build(raw): record native artifact provenance"
 **Files:**
 - Modify: `.github/workflows/build.yml`
 
-- [ ] **Step 1: Replace CI with native-aware build**
+- [x] **Step 1: Replace CI with native-aware build**
 
 Rewrite `.github/workflows/build.yml` around this shape:
 
@@ -856,7 +858,7 @@ jobs:
         run: pnpm run build
 ```
 
-- [ ] **Step 2: Run YAML-level local checks**
+- [x] **Step 2: Run YAML-level local checks**
 
 Run:
 
@@ -866,7 +868,7 @@ pnpm --filter @lumaforge/luma-raw-runtime native:verify-baseline
 
 Expected: PASS. The CI file must not include `LibRaw-Wasm` or `/workspaces/LumaForge`.
 
-- [ ] **Step 3: Commit Task 6**
+- [x] **Step 3: Commit Task 6**
 
 ```bash
 git add .github/workflows/build.yml
@@ -882,7 +884,7 @@ git commit -m "ci(raw): rebuild native runtime from source"
 - Modify: `packages/luma-raw-runtime/package.json`
 - Modify: `.github/workflows/build.yml`
 
-- [ ] **Step 1: Add public fixture lock**
+- [x] **Step 1: Add public fixture lock**
 
 Create `packages/luma-raw-runtime/fixtures/public.lock.json`:
 
@@ -902,7 +904,7 @@ Create `packages/luma-raw-runtime/fixtures/public.lock.json`:
 }
 ```
 
-- [ ] **Step 2: Add fixture fetch script**
+- [x] **Step 2: Add fixture fetch script**
 
 Create `packages/luma-raw-runtime/fixtures/scripts/fetch-public-fixtures.mjs` using the same download and SHA-256 verification pattern as `native/scripts/fetch-sources.mjs`. Store files under:
 
@@ -912,7 +914,7 @@ packages/luma-raw-runtime/fixtures/.cache/public/
 
 The script must print each fetched fixture name and fail on hash mismatch.
 
-- [ ] **Step 3: Add package script**
+- [x] **Step 3: Add package script**
 
 Add:
 
@@ -924,7 +926,7 @@ Add:
 }
 ```
 
-- [ ] **Step 4: Update fixture README**
+- [x] **Step 4: Update fixture README**
 
 Replace absolute-path-only fixture instructions with:
 
@@ -949,7 +951,7 @@ pnpm --filter @lumaforge/luma-raw-runtime bench:serve
 Do not hard-code local absolute fixture paths in runtime source or CI.
 ```
 
-- [ ] **Step 5: Add CI fixture fetch step**
+- [x] **Step 5: Add CI fixture fetch step**
 
 In `.github/workflows/build.yml`, after native build and before runtime package tests:
 
@@ -958,7 +960,7 @@ In `.github/workflows/build.yml`, after native build and before runtime package 
         run: pnpm --filter @lumaforge/luma-raw-runtime fixtures:fetch-public
 ```
 
-- [ ] **Step 6: Commit Task 7**
+- [x] **Step 6: Commit Task 7**
 
 ```bash
 git add packages/luma-raw-runtime/fixtures \
@@ -974,7 +976,7 @@ git commit -m "test(raw): add public fixture smoke inputs"
 - Modify: `packages/luma-raw-runtime/package.json`
 - Modify: `.github/workflows/build.yml`
 
-- [ ] **Step 1: Add a browser-capable smoke test command**
+- [x] **Step 1: Add a browser-capable smoke test command**
 
 If the existing Vitest config cannot load the real wasm module in Node, add a separate script:
 
@@ -988,7 +990,7 @@ If the existing Vitest config cannot load the real wasm module in Node, add a se
 
 If jsdom cannot run pthread wasm reliably, use a Playwright-backed smoke page instead. The acceptance criterion is real CI-built wasm opening a real RAW fixture, not only mock-native tests.
 
-- [ ] **Step 2: Add smoke test behavior**
+- [x] **Step 2: Add smoke test behavior**
 
 The smoke test must:
 
@@ -998,7 +1000,7 @@ The smoke test must:
 - Assert metadata has positive width and height.
 - Assert either embedded preview exists with non-zero dimensions or quick decode returns a non-empty RGB16 frame.
 
-- [ ] **Step 3: Add CI smoke test step**
+- [x] **Step 3: Add CI smoke test step**
 
 In `.github/workflows/build.yml`, after public fixture fetch:
 
@@ -1007,7 +1009,7 @@ In `.github/workflows/build.yml`, after public fixture fetch:
         run: pnpm --filter @lumaforge/luma-raw-runtime test:native-smoke
 ```
 
-- [ ] **Step 4: Commit Task 8**
+- [x] **Step 4: Commit Task 8**
 
 ```bash
 git add packages/luma-raw-runtime/src/native-smoke.test.ts \
@@ -1023,7 +1025,7 @@ git commit -m "test(raw): smoke test ci-built wasm"
 - Modify: `packages/luma-raw-runtime/benchmarks/bench-runtime.html`
 - Modify: `packages/luma-raw-runtime/fixtures/README.md`
 
-- [ ] **Step 1: Remove required absolute fixture paths**
+- [x] **Step 1: Remove required absolute fixture paths**
 
 Ensure benchmark code has no required path references:
 
@@ -1033,7 +1035,7 @@ rg "/workspaces/LumaForge|LibRaw-Wasm" packages/luma-raw-runtime/benchmarks pack
 
 Expected after edits: no matches except explanatory text clearly labeled as local examples.
 
-- [ ] **Step 2: Keep file-picker benchmark as the default**
+- [x] **Step 2: Keep file-picker benchmark as the default**
 
 `bench-runtime.html` should accept multiple user-selected files and print JSONL rows with:
 
@@ -1050,7 +1052,7 @@ Expected after edits: no matches except explanatory text clearly labeled as loca
 - target status
 - provenance source lock hash
 
-- [ ] **Step 3: Add environment-driven local fixture helper**
+- [x] **Step 3: Add environment-driven local fixture helper**
 
 If a headless benchmark helper exists, make it read:
 
@@ -1060,7 +1062,7 @@ LUMAFORGE_RAW_FIXTURE_DIR=/absolute/path/to/local/fixtures
 
 It must fail with a clear message when the env var is missing rather than defaulting to `/workspaces/LumaForge/test-images`.
 
-- [ ] **Step 4: Commit Task 9**
+- [x] **Step 4: Commit Task 9**
 
 ```bash
 git add packages/luma-raw-runtime/benchmarks \
@@ -1074,7 +1076,7 @@ git commit -m "bench(raw): remove absolute fixture assumptions"
 - Modify: `docs/plans/2026-04-23-luma-raw-runtime-benchmark-notes.md`
 - Create: `docs/plans/2026-04-24-luma-raw-runtime-independent-benchmark-notes.md`
 
-- [ ] **Step 1: Build from source before measuring**
+- [x] **Step 1: Build from source before measuring**
 
 Run:
 
@@ -1088,7 +1090,7 @@ pnpm build
 
 Expected: all pass. Do not benchmark stale `dist/native` output.
 
-- [ ] **Step 2: Run real fixture benchmark**
+- [x] **Step 2: Run real fixture benchmark**
 
 Run the browser benchmark with the local high-megapixel fixture directory:
 
@@ -1109,7 +1111,7 @@ Save JSONL to:
 /tmp/luma-raw-runtime-independent-perf.jsonl
 ```
 
-- [ ] **Step 3: Apply rollout thresholds**
+- [x] **Step 3: Apply rollout thresholds**
 
 The independent build passes performance only if:
 
@@ -1120,7 +1122,7 @@ The independent build passes performance only if:
 - every Luma row has heap telemetry
 - provenance source lock hash is present in benchmark output
 
-- [ ] **Step 4: Write independent benchmark notes**
+- [x] **Step 4: Write independent benchmark notes**
 
 Create `docs/plans/2026-04-24-luma-raw-runtime-independent-benchmark-notes.md` with:
 
@@ -1133,7 +1135,7 @@ Create `docs/plans/2026-04-24-luma-raw-runtime-independent-benchmark-notes.md` w
 - pass/fail gate result
 - regressions versus V2 prototype
 
-- [ ] **Step 5: Commit Task 10**
+- [x] **Step 5: Commit Task 10**
 
 ```bash
 git add docs/plans/2026-04-23-luma-raw-runtime-benchmark-notes.md \
@@ -1150,7 +1152,7 @@ git commit -m "docs(raw): record independent runtime benchmark gate"
   - `packages/luma-raw-runtime/worker/runtime-core.ts`
   - `packages/luma-raw-runtime/benchmarks/bench-runtime.ts`
 
-- [ ] **Step 1: Compare independent build against prototype V2**
+- [x] **Step 1: Compare independent build against prototype V2**
 
 Use the independent benchmark notes and historical V2 table. Identify the first regressed timing bucket:
 
@@ -1163,7 +1165,7 @@ Use the independent benchmark notes and historical V2 table. Identify the first 
 - `outputCopy`
 - heap growth
 
-- [ ] **Step 2: Pick one optimization target**
+- [x] **Step 2: Pick one optimization target**
 
 Only optimize the first dominant regression. Do not tune compiler flags and wrapper behavior in the same commit.
 
@@ -1175,7 +1177,7 @@ Recommended order:
 4. Keep quick `halfSize=true`, `userQual=0`, `outputBps=16`, and `maxOutputPixels=2_500_000`.
 5. Reduce output copy only if `outputCopy` dominates after decode timings are healthy.
 
-- [ ] **Step 3: Re-run focused benchmark after each optimization**
+- [x] **Step 3: Re-run focused benchmark after each optimization**
 
 Run the independent build and the same fixture subset after each change:
 
@@ -1188,7 +1190,7 @@ pnpm --filter @lumaforge/luma-raw-runtime bench:serve
 
 Record the before/after row in the independent benchmark notes.
 
-- [ ] **Step 4: Commit each optimization separately**
+- [x] **Step 4: Commit each optimization separately**
 
 Use one commit per measured optimization:
 
@@ -1204,7 +1206,7 @@ git commit -m "perf(raw): reduce <measured bottleneck>"
 - Modify: `docs/plans/2026-04-23-luma-raw-runtime-benchmark-notes.md`
 - Modify: `docs/plans/2026-04-24-luma-raw-runtime-independent-benchmark-notes.md`
 
-- [ ] **Step 1: Run final verification**
+- [x] **Step 1: Run final verification**
 
 Run:
 
@@ -1217,15 +1219,13 @@ pnpm build
 
 Expected: all pass.
 
-- [ ] **Step 2: Record release status**
+- [x] **Step 2: Record release status**
 
-If local acceptance gates pass but GitHub Actions has not run yet, record:
+Recorded release status:
 
 ```md
-Independent Luma RAW runtime status: local release-readiness gates passed for browser-local RAW MVP; production-ready status still requires a GitHub Actions run from a clean checkout.
+Independent Luma RAW runtime status: production-ready for the browser-local RAW MVP. Local release-readiness gates and GitHub Actions clean-checkout native build/smoke gates passed.
 ```
-
-If local and GitHub Actions gates both pass, production-ready status may be recorded.
 
 If any gate fails, record:
 
@@ -1241,7 +1241,7 @@ Required fix:
 - <specific fix>
 ```
 
-- [ ] **Step 3: Commit final readiness update**
+- [x] **Step 3: Commit final readiness update**
 
 ```bash
 git add docs/specs/2026-04-22-phase1-test-matrix.md \

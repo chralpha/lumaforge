@@ -98,6 +98,6 @@ After each fixture passes the checklist, record the observed `cameraBrand`, `cam
 
 | Fixture | Runtime | Embedded | Quick | HQ | Heap telemetry | Result |
 | --- | --- | --- | --- | --- | --- | --- |
-| example-sony.ARW | luma session | 10ms | 456ms at 2.50MP | 955ms at 26.01MP | Recorded | Independent source-built local benchmark PASS; 24MP-class hard gate met; clean-checkout GitHub Actions run still required for production-ready status |
-| SGL00940.ARW | luma session | 18ms | 1,394ms at 2.50MP | 2,595ms at 60.97MP | Recorded | Independent source-built local benchmark PASS; 60MP HQ retained as directional evidence; clean-checkout GitHub Actions run still required for production-ready status |
-| SGL_1998.NEF | luma session | 8ms | 1,424ms at 2.50MP | 2,107ms at 45.75MP | Recorded | Independent source-built local benchmark PASS; 45MP HQ retained as directional evidence; clean-checkout GitHub Actions run still required for production-ready status |
+| example-sony.ARW | luma session | 10ms | 456ms at 2.50MP | 955ms at 26.01MP | Recorded | Independent source-built benchmark PASS; 24MP-class hard gate met; GitHub Actions clean-checkout gate PASS |
+| SGL00940.ARW | luma session | 18ms | 1,394ms at 2.50MP | 2,595ms at 60.97MP | Recorded | Independent source-built benchmark PASS; 60MP HQ retained as directional evidence; GitHub Actions clean-checkout gate PASS |
+| SGL_1998.NEF | luma session | 8ms | 1,424ms at 2.50MP | 2,107ms at 45.75MP | Recorded | Independent source-built benchmark PASS; 45MP HQ retained as directional evidence; GitHub Actions clean-checkout gate PASS |

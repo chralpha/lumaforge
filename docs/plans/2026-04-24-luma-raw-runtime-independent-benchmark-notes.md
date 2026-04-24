@@ -2,9 +2,9 @@
 
 Date: 2026-04-24
 
-Status: local source-build and performance gates PASS.
+Status: local source-build, performance, and GitHub Actions clean-checkout gates PASS.
 
-Independent Luma RAW runtime status: local release-readiness gates passed for browser-local RAW MVP; production-ready status still requires a GitHub Actions run from a clean checkout.
+Independent Luma RAW runtime status: production-ready for the browser-local RAW MVP. Local release-readiness gates and GitHub Actions clean-checkout native build/smoke gates passed.
 
 ## Provenance
 
@@ -36,7 +36,7 @@ Locked native sources:
 | `pnpm --filter @lumaforge/luma-raw-runtime test:native-smoke` | PASS | Public DNG smoke decode passed with locally rebuilt native artifacts through the same smoke path used by CI. |
 | `pnpm --filter @lumaforge/luma-raw-runtime test` | PASS | 5 test files, 63 tests passed. |
 | `pnpm build` | PASS | App production build completed and packaged the native RAW assets. |
-| GitHub Actions clean-checkout native build | PENDING | Not run in this local workspace; required before claiming production-ready release status. |
+| GitHub Actions clean-checkout native build | PASS | Branch CI passed after rebuilding native wasm from a clean checkout and running the runtime smoke gate. |
 
 ## Fixture List
 
@@ -71,7 +71,7 @@ Every JSONL row has `provenanceSourceLockSha256 = 0063ccceab14b963713aa43ec03585
 
 Independent performance gate result: PASS.
 
-Release-readiness caveat: the local source-build, smoke, app build, and performance gates passed. The design's CI reproducibility gate remains pending until GitHub Actions builds native wasm and runs the smoke decode from a clean checkout.
+Release-readiness result: the local source-build, smoke, app build, performance, and GitHub Actions CI reproducibility gates passed.
 
 Threshold status:
 
