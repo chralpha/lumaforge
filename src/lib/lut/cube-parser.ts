@@ -327,7 +327,7 @@ export function generateIdentityLUT(size = 33): ParsedLUT {
   })
   const profileResolution = resolveLUTProfile({
     title: 'Identity',
-    comments: ['profile: display-srgb'],
+    comments: ['Input profile: display-srgb'],
   })
 
   return {

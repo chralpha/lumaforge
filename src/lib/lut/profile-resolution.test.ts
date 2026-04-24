@@ -65,3 +65,42 @@ describe('lUT profile selection persistence', () => {
     ).not.toThrow()
   })
 })
+
+describe('lUT explicit profile labels', () => {
+  it('resolves input profile labels as explicit input profiles', () => {
+    expect(
+      resolveLUTProfile({
+        title: 'Client LUT',
+        comments: ['Input profile: V-Log'],
+      }),
+    ).toMatchObject({
+      kind: 'resolved',
+      confidence: 'explicit',
+      profile: { id: 'panasonic-vgamut-vlog' },
+    })
+  })
+
+  it('does not resolve output profile labels as input profiles', () => {
+    expect(
+      resolveLUTProfile({
+        title: 'Client LUT',
+        comments: ['Output profile: V-Log'],
+      }),
+    ).not.toMatchObject({
+      kind: 'resolved',
+      profile: { id: 'panasonic-vgamut-vlog' },
+    })
+  })
+
+  it('does not resolve target profile labels as input profiles', () => {
+    expect(
+      resolveLUTProfile({
+        title: 'Client LUT',
+        comments: ['Target profile = VLog'],
+      }),
+    ).not.toMatchObject({
+      kind: 'resolved',
+      profile: { id: 'panasonic-vgamut-vlog' },
+    })
+  })
+})

@@ -158,6 +158,13 @@ function buildProfileSignature(input: {
 }
 
 function stripOutputSide(value: string): string {
+  if (
+    /\b(?:output|target|destination)\s+profile\s*[:=]/i.test(value) ||
+    /\bprofile\s*[:=]/i.test(value)
+  ) {
+    return ''
+  }
+
   const directionalMarker = value.match(
     /(?:^|[^a-z0-9])(?:to|for)(?:[^a-z0-9]|$)|(?:^|[^a-z0-9])(?:to|for)(?=[A-Z0-9])/,
   )
@@ -238,7 +245,7 @@ function inferStrongProfile(signature: string): LUTColorProfile | undefined {
 
 function findExplicitProfile(signature: string): LUTColorProfile | undefined {
   const matches = signature.matchAll(
-    /\b(?:input\s+)?(?:lut\s+)?profile\s*[:=]\s*([^\n#;]+)/gi,
+    /\b(?:(?:lut\s+)?input|source|camera)\s+profile\s*[:=]\s*([^\n#;]+)/gi,
   )
 
   for (const match of matches) {
