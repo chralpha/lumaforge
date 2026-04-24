@@ -329,13 +329,16 @@ function inferOutputAnnotation(
   }
 
   if (/\bto\s+cineon\b/.test(normalized) || compact.includes('tocineon')) {
-    return {
-      role: 'combined-look-output',
-      outputRange: 'unknown',
-    }
+    return {}
   }
 
   return {}
+}
+
+function hasUnsupportedOutputAnnotation(signature: string): boolean {
+  const normalized = normalizeProfileText(signature)
+  const compact = compactProfileText(signature)
+  return /\bto\s+cineon\b/.test(normalized) || compact.includes('tocineon')
 }
 
 function annotateProfileOutput(
@@ -371,6 +374,17 @@ export function resolveLUTProfile(input: {
   fingerprint?: string
 }): LUTProfileResolution {
   const signature = buildProfileSignature(input)
+
+  if (hasUnsupportedOutputAnnotation(signature)) {
+    const suggestions = uniqueProfiles(
+      inferLUTColorProfileHints(buildInputProfileInput(input)),
+    )
+
+    return {
+      kind: 'needs-user-selection',
+      suggestions,
+    }
+  }
 
   if (input.fingerprint) {
     const storedProfile = getStoredLUTProfileSelection(input.fingerprint)

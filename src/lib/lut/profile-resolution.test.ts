@@ -157,4 +157,28 @@ describe('lUT explicit profile labels', () => {
       suggestions: [],
     })
   })
+
+  it('does not resolve unsupported Cineon output annotations as renderable profiles', () => {
+    const resolution = resolveLUTProfile({
+      title: 'Sony technical LUT',
+      sourceName: 'SLog3_SGamut3Cine_to_Cineon.cube',
+      comments: [],
+    })
+
+    expect(resolution.kind).toBe('needs-user-selection')
+    if (resolution.kind !== 'needs-user-selection') {
+      throw new Error('Expected Cineon LUT to require profile selection')
+    }
+    expect(resolution.suggestions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'sony-sgamut3cine-slog3' }),
+      ]),
+    )
+    expect(resolution).not.toMatchObject({
+      kind: 'resolved',
+      profile: {
+        role: 'combined-look-output',
+      },
+    })
+  })
 })

@@ -206,14 +206,16 @@ function resolveLUTOutputTransfer(
 
   if (profile.role === 'display-look') return 'srgb'
 
+  if (profile.role === 'scene-creative') return profile.inputTransfer
+
   if (
     profile.role === 'combined-look-output' &&
-    (profile.outputGamut ?? DISPLAY_TARGET_GAMUT) === DISPLAY_TARGET_GAMUT
+    profile.outputGamut === DISPLAY_TARGET_GAMUT
   ) {
     return 'gamma24'
   }
 
-  return profile.inputTransfer
+  return 'linear'
 }
 
 export function resolveLUTPipelineProfileUniforms(

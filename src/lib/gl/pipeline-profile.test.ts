@@ -113,4 +113,38 @@ describe('lUT pipeline profile uniforms', () => {
     expect(uniforms.lutOutputTransfer).toBe(LUT_TRANSFER_UNIFORMS.linear)
     expect(uniforms.lutOutputTransfer).not.toBe(LUT_TRANSFER_UNIFORMS['s-log3'])
   })
+
+  it('does not infer camera or gamma output transfer for omitted non-display outputs', () => {
+    const profile = getLUTColorProfile('sony-sgamut3cine-slog3')
+    expect(profile).toBeDefined()
+
+    const technicalUniforms = resolveLUTPipelineProfileUniforms(
+      resolved({
+        ...profile!,
+        role: 'technical-output',
+        outputTransfer: undefined,
+      }),
+    )
+    const combinedUniforms = resolveLUTPipelineProfileUniforms(
+      resolved({
+        ...profile!,
+        role: 'combined-look-output',
+        outputGamut: undefined,
+        outputTransfer: undefined,
+      }),
+    )
+
+    expect(technicalUniforms.lutOutputTransfer).toBe(
+      LUT_TRANSFER_UNIFORMS.linear,
+    )
+    expect(combinedUniforms.lutOutputTransfer).toBe(
+      LUT_TRANSFER_UNIFORMS.linear,
+    )
+    expect(combinedUniforms.lutOutputTransfer).not.toBe(
+      LUT_TRANSFER_UNIFORMS.gamma24,
+    )
+    expect(technicalUniforms.lutOutputTransfer).not.toBe(
+      LUT_TRANSFER_UNIFORMS['s-log3'],
+    )
+  })
 })

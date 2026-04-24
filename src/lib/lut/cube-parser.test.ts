@@ -174,12 +174,9 @@ describe('cube-parser input profiles', () => {
     }
   })
 
-  it('annotates to Linear and to Cineon output phrases conservatively', () => {
+  it('annotates to Linear output phrases with a supported linear transfer', () => {
     const linear = parseCubeLUT(makeCube({ title: 'Sony technical LUT' }), {
       sourceName: 'SLog3_SGamut3Cine_to_Linear.cube',
-    })
-    const cineon = parseCubeLUT(makeCube({ title: 'Sony technical LUT' }), {
-      sourceName: 'SLog3_SGamut3Cine_to_Cineon.cube',
     })
 
     expect(linear.profileResolution).toMatchObject({
@@ -191,13 +188,25 @@ describe('cube-parser input profiles', () => {
         outputRange: 'unknown',
       },
     })
-    expect(cineon.profileResolution).toMatchObject({
+  })
+
+  it('fails closed for unsupported Cineon output phrases', () => {
+    const cineon = parseCubeLUT(makeCube({ title: 'Sony technical LUT' }), {
+      sourceName: 'SLog3_SGamut3Cine_to_Cineon.cube',
+    })
+
+    expect(cineon.profileResolution.kind).toBe('needs-user-selection')
+    if (cineon.profileResolution.kind !== 'needs-user-selection') {
+      throw new Error('Expected Cineon LUT to require profile selection')
+    }
+    expect(cineon.profileResolution.suggestions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'sony-sgamut3cine-slog3' }),
+      ]),
+    )
+    expect(cineon.profileResolution).not.toMatchObject({
       kind: 'resolved',
-      profile: {
-        id: 'sony-sgamut3cine-slog3',
-        role: 'combined-look-output',
-        outputRange: 'unknown',
-      },
+      profile: { outputTransfer: 'gamma24' },
     })
   })
 
