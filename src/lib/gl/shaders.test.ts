@@ -114,6 +114,7 @@ describe('process shader style path', () => {
         'TRANSFER_ACESCC',
         'TRANSFER_ACESCCT',
         'TRANSFER_L_LOG',
+        'TRANSFER_LINEAR',
       ]) {
         expect(shader).toContain(transferConst)
       }
@@ -148,6 +149,19 @@ describe('process shader style path', () => {
       )?.[0]
       expect(nLogDecode).toContain(
         'pow(max((encodedValue - 0.0075) / (650.0 / 1023.0), 0.0), 3.0)',
+      )
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant treats linear transfer as an explicit no-op',
+    (_name, shader) => {
+      expect(shader).toContain('const int TRANSFER_LINEAR = 18')
+      expect(shader).toContain(
+        'if (transfer == TRANSFER_LINEAR) return linearValue',
+      )
+      expect(shader).toContain(
+        'if (transfer == TRANSFER_LINEAR) return encodedValue',
       )
     },
   )

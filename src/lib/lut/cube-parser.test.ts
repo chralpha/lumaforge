@@ -187,6 +187,7 @@ describe('cube-parser input profiles', () => {
       profile: {
         id: 'sony-sgamut3cine-slog3',
         role: 'technical-output',
+        outputTransfer: 'linear',
         outputRange: 'unknown',
       },
     })

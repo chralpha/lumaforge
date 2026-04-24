@@ -323,6 +323,7 @@ function inferOutputAnnotation(
   if (/\bto\s+linear\b/.test(normalized) || compact.includes('tolinear')) {
     return {
       role: 'technical-output',
+      outputTransfer: 'linear',
       outputRange: 'unknown',
     }
   }

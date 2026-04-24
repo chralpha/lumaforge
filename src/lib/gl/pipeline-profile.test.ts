@@ -94,4 +94,23 @@ describe('lUT pipeline profile uniforms', () => {
       1, 0, 0, 0, 1, 0, 0, 0, 1,
     ])
   })
+
+  it('maps technical linear LUT outputs to the linear no-op transfer', () => {
+    const profile = getLUTColorProfile('sony-sgamut3cine-slog3')
+    expect(profile).toBeDefined()
+
+    const uniforms = resolveLUTPipelineProfileUniforms(
+      resolved({
+        ...profile!,
+        role: 'technical-output',
+        outputTransfer: 'linear',
+        outputRange: 'unknown',
+      }),
+    )
+
+    expect(uniforms.lutRole).toBe(LUT_ROLE_UNIFORMS['technical-output'])
+    expect(uniforms.lutInputTransfer).toBe(LUT_TRANSFER_UNIFORMS['s-log3'])
+    expect(uniforms.lutOutputTransfer).toBe(LUT_TRANSFER_UNIFORMS.linear)
+    expect(uniforms.lutOutputTransfer).not.toBe(LUT_TRANSFER_UNIFORMS['s-log3'])
+  })
 })

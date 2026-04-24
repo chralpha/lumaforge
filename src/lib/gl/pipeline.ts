@@ -174,6 +174,7 @@ export const LUT_TRANSFER_UNIFORMS: Record<TransferFunctionId, number> = {
   acescc: 15,
   acescct: 16,
   'l-log': 17,
+  linear: 18,
 }
 
 export interface LUTPipelineProfileUniforms {

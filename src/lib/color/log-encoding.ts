@@ -28,6 +28,7 @@ export type TransferFunctionId =
   | 'srgb'
   | 'gamma24'
   | 'l-log'
+  | 'linear'
 
 export interface TransferFunctionReferencePoint {
   label: string
@@ -76,6 +77,7 @@ const TRANSFER_SOURCE_URLS: Record<TransferFunctionId, string> = {
   gamma24:
     'https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.1886-0-201103-I!!PDF-E.pdf',
   'l-log': 'https://leica-camera.com/',
+  linear: 'https://en.wikipedia.org/wiki/Linear_light',
 }
 
 /**
@@ -477,6 +479,10 @@ export function gamma24Decode(encoded: number): number {
   return Math.pow(Math.max(encoded, 0), 2.4)
 }
 
+export function linearTransfer(value: number): number {
+  return value
+}
+
 /**
  * Mapping of log space names to encode/decode functions
  */
@@ -741,6 +747,15 @@ export const TRANSFER_FUNCTIONS: Record<
       referencePoint('black', 0, lLogEncode(0)),
       referencePoint('18% gray sanity', 0.18, lLogEncode(0.18)),
     ],
+  },
+  linear: {
+    id: 'linear',
+    label: 'Linear',
+    encode: linearTransfer,
+    decode: linearTransfer,
+    aliases: ['Linear', 'Linear Light', 'Scene Linear'],
+    source: TRANSFER_SOURCE_URLS.linear,
+    referencePoints: [referencePoint('18% gray', 0.18, 0.18)],
   },
 }
 

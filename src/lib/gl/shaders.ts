@@ -76,6 +76,7 @@ const int TRANSFER_LOG3G10 = 14;
 const int TRANSFER_ACESCC = 15;
 const int TRANSFER_ACESCCT = 16;
 const int TRANSFER_L_LOG = 17;
+const int TRANSFER_LINEAR = 18;
 
 vec3 clamp01(vec3 color) {
   return clamp(color, 0.0, 1.0);
@@ -386,6 +387,7 @@ float decodeLLog(float encodedValue) {
 }
 
 float encodeTransferChannel(float linearValue, int transfer) {
+  if (transfer == TRANSFER_LINEAR) return linearValue;
   if (transfer == TRANSFER_SRGB) return linearToSrgb(vec3(linearValue)).r;
   if (transfer == TRANSFER_GAMMA24) return pow(max(linearValue, 0.0), 1.0 / 2.4);
   if (transfer == TRANSFER_S_LOG2) return encodeSLog2(linearValue);
@@ -408,6 +410,7 @@ float encodeTransferChannel(float linearValue, int transfer) {
 }
 
 float decodeTransferChannel(float encodedValue, int transfer) {
+  if (transfer == TRANSFER_LINEAR) return encodedValue;
   if (transfer == TRANSFER_SRGB) return srgbToLinear(vec3(encodedValue)).r;
   if (transfer == TRANSFER_GAMMA24) return pow(max(encodedValue, 0.0), 2.4);
   if (transfer == TRANSFER_S_LOG2) return decodeSLog2(encodedValue);
