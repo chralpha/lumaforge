@@ -142,11 +142,6 @@ const BUILTIN_PRESET_UNIFORMS: Record<BuiltinStylePreset, number> = {
   mono: 7,
 }
 
-const LUT_INPUT_PROFILE_UNIFORMS: Record<LUTInputProfile, number> = {
-  'display-srgb': 0,
-  'v-log': 1,
-}
-
 export const LUT_ROLE_UNIFORMS: Record<LUTRole, number> = {
   'display-look': 0,
   'scene-creative': 1,
@@ -400,7 +395,6 @@ export class RawProcessingPipeline {
       u_intensity: gl.getUniformLocation(program, 'u_intensity'),
       u_styleKind: gl.getUniformLocation(program, 'u_styleKind'),
       u_builtinPreset: gl.getUniformLocation(program, 'u_builtinPreset'),
-      u_lutInputProfile: gl.getUniformLocation(program, 'u_lutInputProfile'),
       u_inputToLutGamut: gl.getUniformLocation(program, 'u_inputToLutGamut'),
       u_lutOutputToDisplayGamut: gl.getUniformLocation(
         program,
@@ -657,12 +651,6 @@ export class RawProcessingPipeline {
     gl.uniform1i(
       processUniforms.u_builtinPreset,
       params.builtinPreset ? BUILTIN_PRESET_UNIFORMS[params.builtinPreset] : 0,
-    )
-    gl.uniform1i(
-      processUniforms.u_lutInputProfile,
-      lutData
-        ? LUT_INPUT_PROFILE_UNIFORMS[lutData.inputProfile]
-        : LUT_INPUT_PROFILE_UNIFORMS['display-srgb'],
     )
     const lutProfileUniforms = resolveLUTPipelineProfileUniforms(
       lutData?.profileResolution,

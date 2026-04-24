@@ -28,7 +28,6 @@ describe('process shader style path', () => {
     (_name, shader) => {
       expect(shader).toContain('u_styleKind')
       expect(shader).toContain('u_builtinPreset')
-      expect(shader).toContain('u_lutInputProfile')
       expect(shader).toContain('STYLE_BUILTIN')
       expect(shader).toContain('STYLE_CUSTOM')
       expect(shader).toContain('u_builtinPreset == 7')
@@ -124,7 +123,8 @@ describe('process shader style path', () => {
         'vec3 decodeTransfer(vec3 encodedColor, int transfer)',
       )
       expect(shader).not.toContain('rec709LinearToVGamutLinear')
-      expect(shader).not.toContain('u_lutInputProfile == LUT_INPUT_V_LOG')
+      expect(shader).not.toContain('u_lutInputProfile')
+      expect(shader).not.toContain('LUT_INPUT_V_LOG')
     },
   )
 
@@ -132,13 +132,15 @@ describe('process shader style path', () => {
     '%s variant applies matrix and transfer before scene LUT sampling while keeping display LUT path',
     (_name, shader) => {
       expect(shader).toContain('vec3 applyDisplayLut(vec3 sceneLinearProPhoto)')
-      expect(shader).toContain('vec3 applySceneLut(vec3 sceneLinearProPhoto)')
+      expect(shader).toContain(
+        'vec3 applySceneLutToDisplayLinear(vec3 sceneLinearProPhoto)',
+      )
       expect(shader).toContain(
         'vec3 applyCombinedOutputLut(vec3 sceneLinearProPhoto)',
       )
 
       const sceneBranch = shader.match(
-        /vec3 applySceneLut\(vec3 sceneLinearProPhoto\) \{[\s\S]*?\n\}/,
+        /vec3 applySceneLutToDisplayLinear\(vec3 sceneLinearProPhoto\) \{[\s\S]*?\n\}/,
       )?.[0]
       expect(sceneBranch).toBeDefined()
       expect(
@@ -150,23 +152,53 @@ describe('process shader style path', () => {
       expect(sceneBranch).toContain(
         'u_lutOutputToDisplayGamut * lutOutputLinear',
       )
+      expect(sceneBranch).not.toContain('linearToSrgb')
 
       const displayBranch = shader.match(
         /vec3 applyDisplayLut\(vec3 sceneLinearProPhoto\) \{[\s\S]*?\n\}/,
       )?.[0]
       expect(displayBranch).toContain('linearProPhotoToDisplaySrgb')
       expect(displayBranch).toContain('applyLut(displayColor)')
-      expect(shader).toContain('mix(baseDisplayColor, styledColor, intensity)')
     },
   )
 
   it.each(PROCESS_SHADER_VARIANTS)(
-    '%s variant mixes the styled output against the normalized original',
+    '%s variant mixes scene creative LUT intensity in linear display domain',
+    (_name, shader) => {
+      const sceneMain = shader.match(
+        /if \(u_lutRole == LUT_ROLE_SCENE_CREATIVE\) \{[\s\S]*?\n {4}\}/,
+      )?.[0]
+      expect(sceneMain).toBeDefined()
+      expect(sceneMain).toContain(
+        'vec3 styledDisplayLinear = applySceneLutToDisplayLinear(baseSceneLinearProPhoto)',
+      )
+      expect(sceneMain).toContain(
+        'vec3 mixedDisplayLinear = mix(baseDisplayLinear, styledDisplayLinear, intensity)',
+      )
+      expect(sceneMain).toContain(
+        'styledColor = linearToSrgb(mixedDisplayLinear)',
+      )
+      expect(sceneMain).not.toContain('mix(baseDisplayColor, styledColor')
+
+      expect(shader).toContain(
+        'vec3 baseDisplayLinear = linearProPhotoToLinearSrgb(baseSceneLinearProPhoto)',
+      )
+      expect(shader).toContain('fragColor = vec4(clamp01(styledColor), 1.0)')
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant keeps display-domain intensity mixing for display and combined-output paths',
     (_name, shader) => {
       expect(shader).toContain(
         'vec3 baseSceneLinearProPhoto = max(readInputSceneLinearProPhoto',
       )
-      expect(shader).toContain('mix(baseDisplayColor, styledColor')
+      expect(shader).toContain(
+        'styledColor = mix(baseDisplayColor, applyCombinedOutputLut(baseSceneLinearProPhoto), intensity)',
+      )
+      expect(shader).toContain(
+        'styledColor = mix(baseDisplayColor, applyDisplayLut(baseSceneLinearProPhoto), intensity)',
+      )
     },
   )
 })

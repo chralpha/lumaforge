@@ -38,7 +38,6 @@ uniform vec3 u_lutDomainMax;
 uniform float u_intensity;
 uniform int u_styleKind;
 uniform int u_builtinPreset;
-uniform int u_lutInputProfile;
 uniform mat3 u_inputToLutGamut;
 uniform mat3 u_lutOutputToDisplayGamut;
 uniform int u_lutInputTransfer;
@@ -52,8 +51,6 @@ const PROCESS_FRAGMENT_SHADER_BODY = /* glsl */ `
 const int STYLE_NONE = 0;
 const int STYLE_BUILTIN = 1;
 const int STYLE_CUSTOM = 2;
-const int LUT_INPUT_DISPLAY_SRGB = 0;
-const int LUT_INPUT_V_LOG = 1;
 const int LUT_ROLE_DISPLAY_LOOK = 0;
 const int LUT_ROLE_SCENE_CREATIVE = 1;
 const int LUT_ROLE_COMBINED_LOOK_OUTPUT = 2;
@@ -455,13 +452,12 @@ vec3 applyDisplayLut(vec3 sceneLinearProPhoto) {
   return clamp01(applyLut(displayColor));
 }
 
-vec3 applySceneLut(vec3 sceneLinearProPhoto) {
+vec3 applySceneLutToDisplayLinear(vec3 sceneLinearProPhoto) {
   vec3 lutInputLinear = max(u_inputToLutGamut * sceneLinearProPhoto, vec3(0.0));
   vec3 lutInputEncoded = applySignalRangeForLutInput(encodeTransfer(lutInputLinear, u_lutInputTransfer), u_lutInputRange);
   vec3 lutOutputEncoded = removeSignalRangeFromLutOutput(applyLut(lutInputEncoded), u_lutOutputRange);
   vec3 lutOutputLinear = max(decodeTransfer(lutOutputEncoded, u_lutOutputTransfer), vec3(0.0));
-  vec3 displayLinear = max(u_lutOutputToDisplayGamut * lutOutputLinear, vec3(0.0));
-  return linearToSrgb(displayLinear);
+  return max(u_lutOutputToDisplayGamut * lutOutputLinear, vec3(0.0));
 }
 
 vec3 applyCombinedOutputLut(vec3 sceneLinearProPhoto) {
@@ -474,7 +470,8 @@ vec3 applyCombinedOutputLut(vec3 sceneLinearProPhoto) {
 
 void main() {
   vec3 baseSceneLinearProPhoto = max(readInputSceneLinearProPhoto(v_texCoord), vec3(0.0));
-  vec3 baseDisplayColor = linearProPhotoToDisplaySrgb(baseSceneLinearProPhoto);
+  vec3 baseDisplayLinear = linearProPhotoToLinearSrgb(baseSceneLinearProPhoto);
+  vec3 baseDisplayColor = linearToSrgb(baseDisplayLinear);
   vec3 styledColor = baseDisplayColor;
   float intensity = clamp(u_intensity, 0.0, 1.0);
 
@@ -482,15 +479,17 @@ void main() {
     styledColor = applyBuiltinStyle(baseDisplayColor);
   } else if (u_styleKind == STYLE_CUSTOM && u_useLut) {
     if (u_lutRole == LUT_ROLE_SCENE_CREATIVE) {
-      styledColor = applySceneLut(baseSceneLinearProPhoto);
+      vec3 styledDisplayLinear = applySceneLutToDisplayLinear(baseSceneLinearProPhoto);
+      vec3 mixedDisplayLinear = mix(baseDisplayLinear, styledDisplayLinear, intensity);
+      styledColor = linearToSrgb(mixedDisplayLinear);
     } else if (u_lutRole == LUT_ROLE_COMBINED_LOOK_OUTPUT || u_lutRole == LUT_ROLE_TECHNICAL_OUTPUT) {
-      styledColor = applyCombinedOutputLut(baseSceneLinearProPhoto);
+      styledColor = mix(baseDisplayColor, applyCombinedOutputLut(baseSceneLinearProPhoto), intensity);
     } else {
-      styledColor = applyDisplayLut(baseSceneLinearProPhoto);
+      styledColor = mix(baseDisplayColor, applyDisplayLut(baseSceneLinearProPhoto), intensity);
     }
   }
 
-  fragColor = vec4(clamp01(mix(baseDisplayColor, styledColor, intensity)), 1.0);
+  fragColor = vec4(clamp01(styledColor), 1.0);
 }
 `
 
