@@ -7,7 +7,7 @@ import tailwindcss from '@tailwindcss/vite'
 import reactRefresh from '@vitejs/plugin-react'
 import { codeInspectorPlugin } from 'code-inspector-plugin'
 import type { Plugin } from 'vite'
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 import { checker } from 'vite-plugin-checker'
 import { routeBuilderPlugin } from 'vite-plugin-route-builder'
 
@@ -35,24 +35,20 @@ function assertLumaRawNativeAssets() {
 
   if (missingAssets.length > 0) {
     throw new Error(
-      `VITE_RAW_RUNTIME=luma requires native assets (${missingAssets.join(
+      `The Luma RAW runtime requires native assets (${missingAssets.join(
         ', ',
-      )}). Run \`pnpm --filter @lumaforge/luma-raw-runtime build:native\` before building or serving the Luma runtime.`,
+      )}). Run \`pnpm --filter @lumaforge/luma-raw-runtime build:native\` before building or serving the app.`,
     )
   }
 }
 
-function lumaRawNativeAssetsPlugin(enabled: boolean): Plugin {
+function lumaRawNativeAssetsPlugin(): Plugin {
   return {
     name: 'lumaforge-luma-raw-native-assets',
     configResolved() {
-      if (enabled) {
-        assertLumaRawNativeAssets()
-      }
+      assertLumaRawNativeAssets()
     },
     writeBundle(options) {
-      if (!enabled) return
-
       assertLumaRawNativeAssets()
 
       const outputDir = options.dir
@@ -71,11 +67,7 @@ function lumaRawNativeAssetsPlugin(enabled: boolean): Plugin {
   }
 }
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, ROOT, '')
-  const rawRuntime = env.VITE_RAW_RUNTIME ?? process.env.VITE_RAW_RUNTIME
-  const enableLumaRuntime = rawRuntime === 'luma'
-
+export default defineConfig(() => {
   return {
     server: {
       headers: CROSS_ORIGIN_ISOLATION_HEADERS,
@@ -84,7 +76,7 @@ export default defineConfig(({ mode }) => {
       headers: CROSS_ORIGIN_ISOLATION_HEADERS,
     },
     plugins: [
-      lumaRawNativeAssetsPlugin(enableLumaRuntime),
+      lumaRawNativeAssetsPlugin(),
       codeInspectorPlugin({
         bundler: 'vite',
         hotKeys: ['altKey'],
