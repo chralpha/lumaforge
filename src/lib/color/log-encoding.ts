@@ -518,7 +518,7 @@ export const TRANSFER_FUNCTIONS: Record<
     label: 'S-Log3',
     encode: sLog3Encode,
     decode: sLog3Decode,
-    aliases: ['S-Log3', 'SLog3', 'Sony S-Log3'],
+    aliases: ['S-Log3', 'S-Log3.Cine', 'SLog3', 'Sony S-Log3'],
     source: TRANSFER_SOURCE_URLS['s-log3'],
     referencePoints: [
       referencePoint('black', 0, 95 / 1023),
@@ -702,7 +702,7 @@ export const TRANSFER_FUNCTIONS: Record<
     label: 'Gamma 2.4',
     encode: gamma24Encode,
     decode: gamma24Decode,
-    aliases: ['Gamma 2.4', 'gamma24', 'BT.1886'],
+    aliases: ['Gamma 2.4', 'Rec.709 Gamma 2.4', 'gamma24', 'BT.1886'],
     source: TRANSFER_SOURCE_URLS.gamma24,
     referencePoints: [
       referencePoint('black', 0, 0),

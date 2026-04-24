@@ -174,7 +174,7 @@ export const COLOR_SPACES: Record<string, ColorSpaceDef> = {
     },
     whitePoint: D65_WHITE,
     gamma: 'linear',
-    aliases: ['Rec.2020', 'BT.2020', 'N-Log Rec.2020', 'rec2020'],
+    aliases: ['Rec.2020', 'BT.2020', 'N-Gamut', 'N-Log Rec.2020', 'rec2020'],
     source: COLOR_GAMUT_SOURCE_URLS.rec2020,
   },
   'S-Gamut': {
@@ -335,7 +335,7 @@ export const COLOR_SPACES: Record<string, ColorSpaceDef> = {
     },
     whitePoint: D65_WHITE,
     gamma: 'linear',
-    aliases: ['N-Log Rec.2020', 'Rec.2020', 'BT.2020', 'rec2020'],
+    aliases: ['N-Gamut', 'N-Log Rec.2020', 'Rec.2020', 'BT.2020', 'rec2020'],
     source: COLOR_GAMUT_SOURCE_URLS.rec2020,
   },
   'ACES AP1': {

@@ -57,8 +57,14 @@ describe('color registry', () => {
 
   it('stores transfer functions with legacy aliases', () => {
     expect(getTransferFunction('S-Log3')?.id).toBe('s-log3')
+    expect(getTransferFunction('S-Log3.Cine')?.id).toBe('s-log3')
     expect(getTransferFunction('F-Log2C')?.id).toBe('f-log2c')
     expect(getTransferFunction('Gamma 2.4')?.id).toBe('gamma24')
+    expect(getTransferFunction('Rec.709 Gamma 2.4')?.id).toBe('gamma24')
+  })
+
+  it('stores color gamuts with legacy aliases', () => {
+    expect(getColorGamut('N-Gamut')?.id).toBe('rec2020')
   })
 
   it('searches profiles by camera ecosystem, gamut, transfer, and aliases', () => {
