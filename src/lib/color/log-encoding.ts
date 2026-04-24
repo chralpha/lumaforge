@@ -224,31 +224,29 @@ export function logC3Decode(encoded: number): number {
 /**
  * ARRI LogC4 encoding
  */
-export function logC4Encode(linear: number): number {
-  const a = (Math.pow(2, 18) - 16) / 117.45
-  const b = (16 - 64) / 117.45
-  const c = 14
-  const s = (7 * Math.log(2) * Math.pow(2, 7 - c * a)) / (a * 117.45)
-  const t = (Math.pow(2, 7 - c * a) - b) / a
+const LOG_C4_A = (Math.pow(2, 18) - 16) / 117.45
+const LOG_C4_B = (1023 - 95) / 1023
+const LOG_C4_C = 95 / 1023
+const LOG_C4_S =
+  (7 * Math.log(2) * Math.pow(2, 7 - (14 * LOG_C4_C) / LOG_C4_B)) /
+  (LOG_C4_A * LOG_C4_B)
+const LOG_C4_T = (Math.pow(2, 14 * (-LOG_C4_C / LOG_C4_B) + 6) - 64) / LOG_C4_A
 
-  if (linear >= t) {
-    return (Math.log2(a * linear + b) + c) / 14
+export function logC4Encode(linear: number): number {
+  if (linear < LOG_C4_T) {
+    return (linear - LOG_C4_T) / LOG_C4_S
   }
-  return (linear - t) / s
+
+  return ((Math.log2(LOG_C4_A * linear + 64) - 6) / 14) * LOG_C4_B + LOG_C4_C
 }
 
 export function logC4Decode(encoded: number): number {
-  const a = (Math.pow(2, 18) - 16) / 117.45
-  const b = (16 - 64) / 117.45
-  const c = 14
-  const s = (7 * Math.log(2) * Math.pow(2, 7 - c * a)) / (a * 117.45)
-  const t = (Math.pow(2, 7 - c * a) - b) / a
-  const cut = 0 // In encoded space
-
-  if (encoded >= cut) {
-    return (Math.pow(2, encoded * 14 - c) - b) / a
+  if (encoded < 0) {
+    return encoded * LOG_C4_S + LOG_C4_T
   }
-  return encoded * s + t
+
+  const p = (14 * (encoded - LOG_C4_C)) / LOG_C4_B + 6
+  return (Math.pow(2, p) - 64) / LOG_C4_A
 }
 
 /**
