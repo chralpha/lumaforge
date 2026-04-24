@@ -16,7 +16,11 @@ import type {
   SignalRange,
 } from '~/lib/color/registry'
 
-import type { WebGLCapabilities } from './context'
+import type {
+  PipelineCapabilityWarning,
+  ProcessTargetPrecision,
+  WebGLCapabilities,
+} from './context'
 import {
   create3DTexture,
   createFramebuffer,
@@ -26,7 +30,9 @@ import {
   createTextureFromData,
   createWebGL2Context,
   detectCapabilities,
+  getProcessingTextureFormatWarnings,
   getRecommendedTextureFormat,
+  selectProcessingTextureFormat,
 } from './context'
 import type { ExportRenderOptions } from './export'
 import {
@@ -85,10 +91,19 @@ export interface LUTData {
 
 export interface PipelineStats {
   uploadTime: number
+  lutUploadTime: number
   processTime: number
   totalTime: number
   inputSize: { width: number; height: number }
   previewSize: { width: number; height: number }
+  inputFormat: RawUploadInputFormat
+  transformPath: PipelineTransformPath
+  lutRole: LUTRole | null
+  lutInputTransfer: TransferFunctionId | null
+  lutOutputTransfer: TransferFunctionId | null
+  lutSize: number | null
+  processTargetPrecision: ProcessTargetPrecision
+  capabilityWarnings: PipelineCapabilityWarning[]
 }
 
 export type RawUploadInput =
@@ -108,6 +123,38 @@ export type RawUploadInput =
     }
 
 export type RawUploadInputFormat = 'float-rgba' | 'uint16-rgb'
+
+export type PipelineTransformPath =
+  | 'no-lut'
+  | 'builtin-style'
+  | 'display-lut'
+  | 'scene-creative-lut'
+  | 'combined-output-lut'
+  | 'technical-output-lut'
+  | 'disabled-lut'
+
+export interface PipelineTelemetrySnapshot {
+  inputFormat: RawUploadInputFormat
+  transformPath: PipelineTransformPath
+  lutRole: LUTRole | null
+  lutInputTransfer: TransferFunctionId | null
+  lutOutputTransfer: TransferFunctionId | null
+  lutSize: number | null
+  processTargetPrecision: ProcessTargetPrecision
+  capabilityWarnings: PipelineCapabilityWarning[]
+}
+
+export interface ExportRenderStats extends PipelineTelemetrySnapshot {
+  strategy: 'full-frame' | 'tiled' | 'fail'
+  width: number
+  height: number
+  tileCount: number
+  planningTime: number
+  renderTime: number
+  totalTime: number
+  reason?: 'texture-limit' | 'memory-budget' | 'canvas-limit' | 'gpu-limit'
+  retryable?: boolean
+}
 
 export function describeRawUploadInput(input: RawUploadInput): {
   inputFormat: RawUploadInputFormat
@@ -316,6 +363,11 @@ export class RawProcessingPipeline {
   private inputFormat: RawUploadInputFormat = 'float-rgba'
   private params: ProcessingParams = { ...DEFAULT_PARAMS }
   private lutData: LUTData | null = null
+  private lastImageUploadTime = 0
+  private lastLutUploadTime = 0
+  private processTargetPrecision: ProcessTargetPrecision = 'rgba16f'
+  private capabilityWarnings: PipelineCapabilityWarning[] = []
+  private lastExportStats: ExportRenderStats | null = null
   private isInitialized = false
 
   // Uniforms locations cache
@@ -329,6 +381,9 @@ export class RawProcessingPipeline {
     }
     this.gl = gl
     this.capabilities = detectCapabilities(gl)
+    const textureSelection = selectProcessingTextureFormat(this.capabilities)
+    this.processTargetPrecision = textureSelection.precision
+    this.capabilityWarnings = textureSelection.warnings
   }
 
   /**
@@ -449,6 +504,7 @@ export class RawProcessingPipeline {
    * @param input - Decoded RAW data and its GPU upload layout.
    */
   uploadImage(input: RawUploadInput): void {
+    const startTime = performance.now()
     const { gl } = this
 
     this.inputUpload = input
@@ -490,6 +546,7 @@ export class RawProcessingPipeline {
 
     // Recreate processing framebuffer at new size
     this.recreateProcessFBO(input.width, input.height)
+    this.lastImageUploadTime = performance.now() - startTime
   }
 
   /**
@@ -515,6 +572,7 @@ export class RawProcessingPipeline {
     this.inputFormat = 'float-rgba'
     this.inputWidth = 0
     this.inputHeight = 0
+    this.lastImageUploadTime = 0
   }
 
   private recreateProcessFBO(width: number, height: number): void {
@@ -534,6 +592,11 @@ export class RawProcessingPipeline {
     if (result) {
       this.processFBO = result.framebuffer
       this.processedTexture = result.texture
+      this.processTargetPrecision =
+        result.textureFormat?.precision ?? this.processTargetPrecision
+      this.capabilityWarnings = getProcessingTextureFormatWarnings(
+        this.processTargetPrecision,
+      )
     }
   }
 
@@ -541,6 +604,7 @@ export class RawProcessingPipeline {
    * Upload a 3D LUT.
    */
   uploadLUT(lut: LUTData): void {
+    const startTime = performance.now()
     const { gl } = this
 
     // Delete old LUT texture
@@ -550,6 +614,7 @@ export class RawProcessingPipeline {
 
     this.lutTexture = create3DTexture(gl, lut.size, lut.data)
     this.lutData = lut
+    this.lastLutUploadTime = performance.now() - startTime
   }
 
   /**
@@ -562,6 +627,7 @@ export class RawProcessingPipeline {
       this.lutTexture = null
     }
     this.lutData = null
+    this.lastLutUploadTime = 0
   }
 
   /**
@@ -587,11 +653,13 @@ export class RawProcessingPipeline {
 
     if (!this.isInitialized || !this.inputTexture) {
       return {
-        uploadTime: 0,
+        uploadTime: this.lastImageUploadTime,
+        lutUploadTime: this.lastLutUploadTime,
         processTime: 0,
         totalTime: 0,
         inputSize: { width: 0, height: 0 },
         previewSize: { width: canvas.width, height: canvas.height },
+        ...this.getTelemetrySnapshot(),
       }
     }
 
@@ -607,11 +675,61 @@ export class RawProcessingPipeline {
     const processTime = performance.now() - processStart
 
     return {
-      uploadTime: 0,
+      uploadTime: this.lastImageUploadTime,
+      lutUploadTime: this.lastLutUploadTime,
       processTime,
       totalTime: performance.now() - startTime,
       inputSize: { width: this.inputWidth, height: this.inputHeight },
       previewSize: { width: canvas.width, height: canvas.height },
+      ...this.getTelemetrySnapshot(),
+    }
+  }
+
+  private getTelemetrySnapshot(): PipelineTelemetrySnapshot {
+    const profileResolution = this.lutData?.profileResolution
+    const resolvedProfile =
+      profileResolution?.kind === 'resolved' ? profileResolution.profile : null
+    const outputTransfer = resolvedProfile
+      ? resolveLUTOutputTransfer(resolvedProfile)
+      : null
+
+    return {
+      inputFormat: this.inputFormat,
+      transformPath: this.getTransformPath(),
+      lutRole: resolvedProfile?.role ?? null,
+      lutInputTransfer: resolvedProfile?.inputTransfer ?? null,
+      lutOutputTransfer: outputTransfer,
+      lutSize: this.lutData?.size ?? null,
+      processTargetPrecision: this.processTargetPrecision,
+      capabilityWarnings: [...this.capabilityWarnings],
+    }
+  }
+
+  private getTransformPath(): PipelineTransformPath {
+    if (this.params.styleKind === 'builtin') {
+      return 'builtin-style'
+    }
+    if (this.params.styleKind !== 'custom' || !this.lutData) {
+      return 'no-lut'
+    }
+    if (!isLUTProfileRenderable(this.lutData.profileResolution)) {
+      return 'disabled-lut'
+    }
+
+    const profileResolution = this.lutData.profileResolution
+    if (profileResolution.kind !== 'resolved') {
+      return 'display-lut'
+    }
+
+    switch (profileResolution.profile.role) {
+      case 'display-look':
+        return 'display-lut'
+      case 'scene-creative':
+        return 'scene-creative-lut'
+      case 'combined-look-output':
+        return 'combined-output-lut'
+      case 'technical-output':
+        return 'technical-output-lut'
     }
   }
 
@@ -781,22 +899,56 @@ export class RawProcessingPipeline {
       throw new Error('EXPORT_SOURCE_MISSING')
     }
 
+    const totalStart = performance.now()
+    const planningStart = performance.now()
     const plan = planExportRenderTarget({
       width,
       height,
       maxTextureSize: this.capabilities.maxTextureSize,
       ...exportOptions,
     })
+    const planningTime = performance.now() - planningStart
 
     if (plan.strategy === 'fail') {
+      this.lastExportStats = {
+        ...this.getTelemetrySnapshot(),
+        strategy: 'fail',
+        width: plan.width,
+        height: plan.height,
+        tileCount: 0,
+        planningTime,
+        renderTime: 0,
+        totalTime: performance.now() - totalStart,
+        reason: plan.reason,
+        retryable: plan.retryable,
+      }
       throw ExportRenderError.fromFailedPlan(plan)
     }
 
-    if (plan.strategy === 'tiled') {
-      return await this.renderTiledHiddenCanvas(plan)
+    const renderStart = performance.now()
+    const outputCanvas =
+      plan.strategy === 'tiled'
+        ? await this.renderTiledHiddenCanvas(plan)
+        : await this.renderFullFrameHiddenCanvas(width, height)
+    const renderTime = performance.now() - renderStart
+
+    this.lastExportStats = {
+      ...this.getTelemetrySnapshot(),
+      strategy: plan.strategy,
+      width: plan.width,
+      height: plan.height,
+      tileCount: plan.strategy === 'tiled' ? createExportTiles(plan).length : 1,
+      planningTime,
+      renderTime,
+      totalTime: performance.now() - totalStart,
+      reason: plan.strategy === 'tiled' ? plan.reason : undefined,
     }
 
-    return await this.renderFullFrameHiddenCanvas(width, height)
+    return outputCanvas
+  }
+
+  getLastExportStats(): ExportRenderStats | null {
+    return this.lastExportStats
   }
 
   private async renderFullFrameHiddenCanvas(

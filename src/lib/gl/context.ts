@@ -20,6 +20,26 @@ export interface WebGLCapabilities {
   vendorInfo: string
 }
 
+export type ProcessTargetPrecision = 'rgba16f' | 'rgba8'
+
+export type PipelineCapabilityWarningCode = 'LOW_PRECISION_RENDER_TARGET'
+
+export interface PipelineCapabilityWarning {
+  code: PipelineCapabilityWarningCode
+  message: string
+}
+
+export interface ProcessingTextureFormatSelection {
+  precision: ProcessTargetPrecision
+  warnings: PipelineCapabilityWarning[]
+}
+
+export const LOW_PRECISION_RENDER_TARGET_WARNING: PipelineCapabilityWarning = {
+  code: 'LOW_PRECISION_RENDER_TARGET',
+  message:
+    'High-quality GPU rendering is unavailable on this device; preview and export may show smoother tonal steps less accurately.',
+}
+
 let cachedCapabilities: WebGLCapabilities | null = null
 
 /**
@@ -168,6 +188,31 @@ export function canUseHalfFloatRendering(): boolean {
   return caps.colorBufferHalfFloat && caps.halfFloatTexturesLinear
 }
 
+export function getProcessingTextureFormatWarnings(
+  precision: ProcessTargetPrecision,
+): PipelineCapabilityWarning[] {
+  return precision === 'rgba8' ? [LOW_PRECISION_RENDER_TARGET_WARNING] : []
+}
+
+export function selectProcessingTextureFormat(
+  capabilities: WebGLCapabilities,
+): ProcessingTextureFormatSelection {
+  if (
+    capabilities.colorBufferHalfFloat &&
+    capabilities.halfFloatTexturesLinear
+  ) {
+    return {
+      precision: 'rgba16f',
+      warnings: [],
+    }
+  }
+
+  return {
+    precision: 'rgba8',
+    warnings: getProcessingTextureFormatWarnings('rgba8'),
+  }
+}
+
 /**
  * Gets the recommended texture format for the current device.
  */
@@ -311,6 +356,13 @@ export function createTextureFromData(
   return texture
 }
 
+interface TextureFormatOptions {
+  internalFormat: number
+  format: number
+  type: number
+  precision?: ProcessTargetPrecision
+}
+
 /**
  * Creates an integer RGB16 texture from Luma runtime RGB data.
  */
@@ -390,12 +442,12 @@ export function createFramebuffer(
   gl: WebGL2RenderingContext,
   width: number,
   height: number,
-  options?: {
-    internalFormat?: number
-    format?: number
-    type?: number
-  },
-): { framebuffer: WebGLFramebuffer; texture: WebGLTexture } | null {
+  options?: TextureFormatOptions,
+): {
+  framebuffer: WebGLFramebuffer
+  texture: WebGLTexture
+  textureFormat: { precision: ProcessTargetPrecision }
+} | null {
   const candidates = options
     ? [options]
     : [
@@ -403,11 +455,13 @@ export function createFramebuffer(
           internalFormat: gl.RGBA16F,
           format: gl.RGBA,
           type: gl.HALF_FLOAT,
+          precision: 'rgba16f' as const,
         },
         {
           internalFormat: gl.RGBA8,
           format: gl.RGBA,
           type: gl.UNSIGNED_BYTE,
+          precision: 'rgba8' as const,
         },
       ]
 
@@ -435,7 +489,15 @@ export function createFramebuffer(
     const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER)
     if (status === gl.FRAMEBUFFER_COMPLETE) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-      return { framebuffer, texture }
+      return {
+        framebuffer,
+        texture,
+        textureFormat: {
+          precision:
+            candidate.precision ??
+            (candidate.internalFormat === gl.RGBA16F ? 'rgba16f' : 'rgba8'),
+        },
+      }
     }
 
     console.warn('Framebuffer format fallback:', {

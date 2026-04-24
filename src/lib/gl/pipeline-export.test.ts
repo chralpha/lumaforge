@@ -95,6 +95,31 @@ const contextMock = vi.hoisted(() => {
 vi.mock('./context', () => ({
   createWebGL2Context: vi.fn(() => contextMock.gl),
   detectCapabilities: vi.fn(() => contextMock.capabilities),
+  selectProcessingTextureFormat: vi.fn((capabilities) =>
+    capabilities.colorBufferHalfFloat && capabilities.halfFloatTexturesLinear
+      ? { precision: 'rgba16f', warnings: [] }
+      : {
+          precision: 'rgba8',
+          warnings: [
+            {
+              code: 'LOW_PRECISION_RENDER_TARGET',
+              message:
+                'High-quality GPU rendering is unavailable on this device; preview and export may show smoother tonal steps less accurately.',
+            },
+          ],
+        },
+  ),
+  getProcessingTextureFormatWarnings: vi.fn((precision) =>
+    precision === 'rgba8'
+      ? [
+          {
+            code: 'LOW_PRECISION_RENDER_TARGET',
+            message:
+              'High-quality GPU rendering is unavailable on this device; preview and export may show smoother tonal steps less accurately.',
+          },
+        ]
+      : [],
+  ),
   getRecommendedTextureFormat: vi.fn((gl) => ({
     internalFormat: gl.RGBA32F,
     format: gl.RGBA,
@@ -198,6 +223,29 @@ describe('rawProcessingPipeline export rendering', () => {
     )
   })
 
+  it('reports transform-path and LUT upload telemetry in preview stats', async () => {
+    const pipeline = await createSourcePipeline(createRawInput(2, 2))
+    pipeline.uploadLUT(createLUTData('sony-sgamut3cine-slog3'))
+    pipeline.setParams({
+      intensity: 0.75,
+      viewMode: 'processed',
+      styleKind: 'custom',
+      builtinPreset: null,
+    })
+
+    const stats = pipeline.render()
+
+    expect(stats.inputFormat).toBe('uint16-rgb')
+    expect(stats.transformPath).toBe('scene-creative-lut')
+    expect(stats.lutRole).toBe('scene-creative')
+    expect(stats.lutInputTransfer).toBe('s-log3')
+    expect(stats.lutOutputTransfer).toBe('s-log3')
+    expect(stats.lutSize).toBe(2)
+    expect(stats.lutUploadTime).toBeGreaterThanOrEqual(0)
+    expect(stats.processTargetPrecision).toBe('rgba16f')
+    expect(stats.capabilityWarnings).toEqual([])
+  })
+
   it('disposes the hidden full-frame pipeline after export render', async () => {
     const pipeline = await createSourcePipeline(createRawInput(2, 2))
     const disposeSpy = vi.spyOn(RawProcessingPipeline.prototype, 'dispose')
@@ -253,6 +301,31 @@ describe('rawProcessingPipeline export rendering', () => {
     expect(uploadImageSpy).toHaveBeenCalledWith(
       expect.objectContaining({ width: 476, height: 900 }),
     )
+  })
+
+  it('records export planning and tile render telemetry', async () => {
+    contextMock.capabilities.maxTextureSize = 1024
+    const pipeline = await createSourcePipeline(createRawInput(1500, 900))
+
+    await pipeline.renderToHiddenCanvas({
+      width: 1500,
+      height: 900,
+    })
+
+    expect(pipeline.getLastExportStats()).toMatchObject({
+      strategy: 'tiled',
+      width: 1500,
+      height: 900,
+      tileCount: 2,
+      inputFormat: 'uint16-rgb',
+      transformPath: 'no-lut',
+      processTargetPrecision: 'rgba16f',
+    })
+    expect(pipeline.getLastExportStats()?.planningTime).toBeGreaterThanOrEqual(
+      0,
+    )
+    expect(pipeline.getLastExportStats()?.renderTime).toBeGreaterThanOrEqual(0)
+    expect(pipeline.getLastExportStats()?.totalTime).toBeGreaterThanOrEqual(0)
   })
 
   it('reuses one hidden pipeline for every tile in an oversized export', async () => {

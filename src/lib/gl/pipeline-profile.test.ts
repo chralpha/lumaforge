@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import type { LUTColorProfile } from '~/lib/color/registry'
-import { getLUTColorProfile } from '~/lib/color/registry'
+import {
+  getLUTColorProfile,
+  TIER1_LUT_COLOR_PROFILES,
+} from '~/lib/color/registry'
 
 import {
   isLUTProfileRenderable,
@@ -19,7 +22,47 @@ function resolved(profile: LUTColorProfile) {
   }
 }
 
+const IDENTITY_MATRIX = [1, 0, 0, 0, 1, 0, 0, 0, 1]
+
 describe('lUT pipeline profile uniforms', () => {
+  it.each(
+    TIER1_LUT_COLOR_PROFILES.filter(
+      (profile) => profile.role !== 'display-look',
+    ),
+  )(
+    'routes Tier 1 scene profile $id through its declared non-display transform',
+    (profile) => {
+      const uniforms = resolveLUTPipelineProfileUniforms(resolved(profile))
+
+      expect(uniforms.lutRole).toBe(LUT_ROLE_UNIFORMS[profile.role])
+      expect(uniforms.lutRole).not.toBe(LUT_ROLE_UNIFORMS['display-look'])
+      expect(uniforms.lutInputTransfer).toBe(
+        LUT_TRANSFER_UNIFORMS[profile.inputTransfer],
+      )
+      expect(uniforms.lutInputRange).toBe(
+        LUT_RANGE_UNIFORMS[profile.inputRange],
+      )
+      expect(Array.from(uniforms.inputToLutGamut)).not.toEqual(IDENTITY_MATRIX)
+    },
+  )
+
+  it.each(
+    TIER1_LUT_COLOR_PROFILES.filter(
+      (profile) => profile.role === 'display-look',
+    ),
+  )('keeps Tier 1 display profile $id on the compatibility path', (profile) => {
+    const uniforms = resolveLUTPipelineProfileUniforms(resolved(profile))
+
+    expect(uniforms.lutRole).toBe(LUT_ROLE_UNIFORMS['display-look'])
+    expect(uniforms.lutInputTransfer).toBe(
+      LUT_TRANSFER_UNIFORMS[profile.inputTransfer],
+    )
+    expect(Array.from(uniforms.inputToLutGamut)).toEqual(IDENTITY_MATRIX)
+    expect(Array.from(uniforms.lutOutputToDisplayGamut)).toEqual(
+      IDENTITY_MATRIX,
+    )
+  })
+
   it('maps resolved scene creative profiles to transfer, role, range, and non-display matrices', () => {
     const profile = getLUTColorProfile('panasonic-vgamut-vlog')
     expect(profile).toBeDefined()
@@ -31,12 +74,10 @@ describe('lUT pipeline profile uniforms', () => {
     expect(uniforms.lutOutputTransfer).toBe(LUT_TRANSFER_UNIFORMS['v-log'])
     expect(uniforms.lutInputRange).toBe(LUT_RANGE_UNIFORMS.full)
     expect(uniforms.lutOutputRange).toBe(LUT_RANGE_UNIFORMS.full)
-    expect(Array.from(uniforms.inputToLutGamut)).not.toEqual([
-      1, 0, 0, 0, 1, 0, 0, 0, 1,
-    ])
-    expect(Array.from(uniforms.lutOutputToDisplayGamut)).not.toEqual([
-      1, 0, 0, 0, 1, 0, 0, 0, 1,
-    ])
+    expect(Array.from(uniforms.inputToLutGamut)).not.toEqual(IDENTITY_MATRIX)
+    expect(Array.from(uniforms.lutOutputToDisplayGamut)).not.toEqual(
+      IDENTITY_MATRIX,
+    )
   })
 
   it('maps unresolved profile choices to the display compatibility path', () => {
@@ -53,12 +94,10 @@ describe('lUT pipeline profile uniforms', () => {
     expect(uniforms.lutInputTransfer).toBe(LUT_TRANSFER_UNIFORMS.srgb)
     expect(uniforms.lutOutputTransfer).toBe(LUT_TRANSFER_UNIFORMS.srgb)
     expect(isLUTProfileRenderable(resolution)).toBe(true)
-    expect(Array.from(uniforms.inputToLutGamut)).toEqual([
-      1, 0, 0, 0, 1, 0, 0, 0, 1,
-    ])
-    expect(Array.from(uniforms.lutOutputToDisplayGamut)).toEqual([
-      1, 0, 0, 0, 1, 0, 0, 0, 1,
-    ])
+    expect(Array.from(uniforms.inputToLutGamut)).toEqual(IDENTITY_MATRIX)
+    expect(Array.from(uniforms.lutOutputToDisplayGamut)).toEqual(
+      IDENTITY_MATRIX,
+    )
   })
 
   it('preserves non-sRGB display-look transfer and range uniforms', () => {
@@ -72,9 +111,7 @@ describe('lUT pipeline profile uniforms', () => {
     expect(uniforms.lutOutputTransfer).toBe(LUT_TRANSFER_UNIFORMS.gamma24)
     expect(uniforms.lutInputRange).toBe(LUT_RANGE_UNIFORMS.full)
     expect(uniforms.lutOutputRange).toBe(LUT_RANGE_UNIFORMS.full)
-    expect(Array.from(uniforms.inputToLutGamut)).toEqual([
-      1, 0, 0, 0, 1, 0, 0, 0, 1,
-    ])
+    expect(Array.from(uniforms.inputToLutGamut)).toEqual(IDENTITY_MATRIX)
   })
 
   it('defaults combined Rec.709 output LUTs to gamma24 output when omitted', () => {
@@ -96,9 +133,9 @@ describe('lUT pipeline profile uniforms', () => {
     expect(uniforms.lutOutputTransfer).toBe(LUT_TRANSFER_UNIFORMS.gamma24)
     expect(uniforms.lutInputRange).toBe(LUT_RANGE_UNIFORMS.legal)
     expect(uniforms.lutOutputRange).toBe(LUT_RANGE_UNIFORMS.full)
-    expect(Array.from(uniforms.lutOutputToDisplayGamut)).toEqual([
-      1, 0, 0, 0, 1, 0, 0, 0, 1,
-    ])
+    expect(Array.from(uniforms.lutOutputToDisplayGamut)).toEqual(
+      IDENTITY_MATRIX,
+    )
   })
 
   it('maps technical linear LUT outputs to the linear no-op transfer', () => {
