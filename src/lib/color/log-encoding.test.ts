@@ -11,6 +11,8 @@ import {
   canonLog3Encode,
   gamma24Decode,
   gamma24Encode,
+  getLogDecoder,
+  getLogEncoder,
   LOG_FUNCTIONS,
   log3G10Encode,
   logC4Decode,
@@ -75,6 +77,15 @@ describe('transfer function registry', () => {
       LOG_FUNCTIONS['F-Log2'].encode(0.18),
       8,
     )
+  })
+
+  it('returns no-op encode and decode helpers for linear aliases', () => {
+    for (const alias of ['Linear', 'linear']) {
+      expect(getLogEncoder(alias)(0.42)).toBe(0.42)
+      expect(getLogDecoder(alias)(0.42)).toBe(0.42)
+      expect(LOG_FUNCTIONS[alias].encode(0.18)).toBe(0.18)
+      expect(LOG_FUNCTIONS[alias].decode(0.18)).toBe(0.18)
+    }
   })
 
   it('round trips practical scene-linear reference values for every Tier 1 transfer', () => {

@@ -510,6 +510,8 @@ export const LOG_FUNCTIONS: Record<
   'Gamma 2.4': { encode: gamma24Encode, decode: gamma24Decode },
   'Rec.709 Gamma 2.4': { encode: gamma24Encode, decode: gamma24Decode },
   'L-Log': { encode: lLogEncode, decode: lLogDecode },
+  Linear: { encode: linearTransfer, decode: linearTransfer },
+  linear: { encode: linearTransfer, decode: linearTransfer },
 }
 
 function referencePoint(
