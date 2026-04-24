@@ -4,7 +4,7 @@ import {
   getStoredLUTProfileSelection,
   resolveLUTProfile,
   storeLUTProfileSelection,
-} from './cube-parser'
+} from './profile-resolution'
 
 describe('lUT profile selection persistence', () => {
   beforeEach(() => {

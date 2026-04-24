@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetToDefaults } from '~/atoms/raw-processor'
 import { jotaiStore } from '~/lib/jotai'
-import { getStoredLUTProfileSelection } from '~/lib/lut/cube-parser'
+import { getStoredLUTProfileSelection } from '~/lib/lut/profile-resolution'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
 import { currentSessionAtom } from '../state/session.atoms'

@@ -26,12 +26,12 @@ import type {
 } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import {
-  applyLUTProfileSelection,
   isSupportedLUT,
   parseCubeFile,
   toLUTData,
   validateLUT,
 } from '~/lib/lut/cube-parser'
+import { applyLUTProfileSelection } from '~/lib/lut/profile-resolution'
 import type { DecodedImage } from '~/lib/raw/decoder'
 import { isSupportedRaw } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'

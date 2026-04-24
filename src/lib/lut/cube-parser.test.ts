@@ -4,10 +4,18 @@ import { parseCubeLUT, toLUTData } from './cube-parser'
 
 function makeCube({
   comments = [],
+  mutateEntry,
   size = 2,
   title,
 }: {
   comments?: string[]
+  mutateEntry?: (input: {
+    b: number
+    g: number
+    index: number
+    r: number
+    values: [number, number, number]
+  }) => [number, number, number]
   size?: number
   title?: string
 }) {
@@ -22,7 +30,17 @@ function makeCube({
   for (let b = 0; b < size; b++) {
     for (let g = 0; g < size; g++) {
       for (let r = 0; r < size; r++) {
-        lines.push(`${r * step} ${g * step} ${b * step}`)
+        const index = lines.length
+        const values = mutateEntry
+          ? mutateEntry({
+              b,
+              g,
+              index,
+              r,
+              values: [r * step, g * step, b * step],
+            })
+          : [r * step, g * step, b * step]
+        lines.push(`${values[0]} ${values[1]} ${values[2]}`)
       }
     }
   }
@@ -102,6 +120,38 @@ describe('cube-parser input profiles', () => {
     expect(lut.inputProfile).toBe('display-srgb')
   })
 
+  it('does not treat output-side V-Log as Panasonic V-Log input', () => {
+    const lut = parseCubeLUT(makeCube({ title: 'Sony technical LUT' }), {
+      sourceName: 'SLog3_SGamut3Cine_to_VLog.cube',
+    })
+
+    expect(lut.profileResolution).toMatchObject({
+      kind: 'resolved',
+      confidence: 'filename',
+      profile: {
+        id: 'sony-sgamut3cine-slog3',
+        outputRange: 'unknown',
+      },
+    })
+    expect(lut.profileResolution).not.toMatchObject({
+      kind: 'resolved',
+      profile: { id: 'panasonic-vgamut-vlog' },
+    })
+    expect(lut.inputProfile).toBe('display-srgb')
+  })
+
+  it('keeps ambiguous output-side V-Log filenames out of high-confidence V-Log input', () => {
+    const lut = parseCubeLUT(makeCube({ title: 'Conversion LUT' }), {
+      sourceName: 'UnknownCamera_to_VLog.cube',
+    })
+
+    expect(lut.profileResolution).not.toMatchObject({
+      kind: 'resolved',
+      profile: { id: 'panasonic-vgamut-vlog' },
+    })
+    expect(lut.inputProfile).toBe('display-srgb')
+  })
+
   it('annotates bare BT.709 and BT.1886 output phrases', () => {
     const bt709 = parseCubeLUT(makeCube({ title: 'Sony technical LUT' }), {
       sourceName: 'SLog3_SGamut3Cine_BT709.cube',
@@ -163,5 +213,22 @@ describe('cube-parser input profiles', () => {
 
     expect(lut.data.length).toBe(2 * 2 * 2 * 3)
     expect(lut.data[3]).toBeCloseTo(0.00001)
+  })
+
+  it('fingerprints interior LUT content instead of only endpoints', () => {
+    const baseCube = makeCube({ size: 3, title: 'Same LUT' })
+    const changedInteriorCube = makeCube({
+      size: 3,
+      title: 'Same LUT',
+      mutateEntry: ({ r, g, b, values }) =>
+        r === 1 && g === 1 && b === 1
+          ? [0.12345, values[1], values[2]]
+          : values,
+    })
+    const options = { sourceName: 'same-name.cube' }
+
+    expect(parseCubeLUT(baseCube, options).fingerprint).not.toBe(
+      parseCubeLUT(changedInteriorCube, options).fingerprint,
+    )
   })
 })
