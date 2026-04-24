@@ -32,6 +32,22 @@ export interface ExportRenderPlanInput {
   renderBytesPerPixel?: number
 }
 
+export type ExportRenderOptions = Omit<
+  ExportRenderPlanInput,
+  'width' | 'height' | 'maxTextureSize'
+>
+
+export type ExportFidelity = 'safe' | 'balanced' | 'max'
+
+export type ExportRenderErrorCode =
+  | 'EXPORT_CANVAS_LIMIT_EXCEEDED'
+  | 'EXPORT_GPU_LIMIT_EXCEEDED'
+
+export type ExportRenderFailureReason = Extract<
+  ExportRenderPlan,
+  { strategy: 'fail' }
+>['reason']
+
 export interface ExportTile {
   x: number
   y: number
@@ -44,6 +60,89 @@ const DEFAULT_MAX_CANVAS_PIXELS = 120_000_000
 const DEFAULT_MEMORY_BUDGET_BYTES = 768 * 1024 * 1024
 const DEFAULT_RENDER_BYTES_PER_PIXEL = 32
 const MIN_TILE_SIZE = 256
+
+const EXPORT_OPTIONS_BY_FIDELITY: Record<
+  ExportFidelity,
+  Required<ExportRenderOptions>
+> = {
+  safe: {
+    maxCanvasSize: 8192,
+    maxCanvasPixels: 50_000_000,
+    memoryBudgetBytes: 256 * 1024 * 1024,
+    renderBytesPerPixel: DEFAULT_RENDER_BYTES_PER_PIXEL,
+  },
+  balanced: {
+    maxCanvasSize: 12000,
+    maxCanvasPixels: 80_000_000,
+    memoryBudgetBytes: 512 * 1024 * 1024,
+    renderBytesPerPixel: DEFAULT_RENDER_BYTES_PER_PIXEL,
+  },
+  max: {
+    maxCanvasSize: DEFAULT_MAX_CANVAS_SIZE,
+    maxCanvasPixels: DEFAULT_MAX_CANVAS_PIXELS,
+    memoryBudgetBytes: DEFAULT_MEMORY_BUDGET_BYTES,
+    renderBytesPerPixel: DEFAULT_RENDER_BYTES_PER_PIXEL,
+  },
+}
+
+export class ExportRenderError extends Error {
+  readonly code: ExportRenderErrorCode
+  readonly retryable: boolean
+  readonly reason: ExportRenderFailureReason
+  readonly width: number
+  readonly height: number
+
+  constructor(
+    code: ExportRenderErrorCode,
+    {
+      retryable,
+      reason,
+      width,
+      height,
+    }: {
+      retryable: boolean
+      reason: ExportRenderFailureReason
+      width: number
+      height: number
+    },
+  ) {
+    super(code)
+    this.name = 'ExportRenderError'
+    this.code = code
+    this.retryable = retryable
+    this.reason = reason
+    this.width = width
+    this.height = height
+  }
+
+  static fromFailedPlan(
+    plan: Extract<ExportRenderPlan, { strategy: 'fail' }>,
+  ): ExportRenderError {
+    return new ExportRenderError(
+      plan.reason === 'canvas-limit'
+        ? 'EXPORT_CANVAS_LIMIT_EXCEEDED'
+        : 'EXPORT_GPU_LIMIT_EXCEEDED',
+      {
+        retryable: plan.retryable,
+        reason: plan.reason,
+        width: plan.width,
+        height: plan.height,
+      },
+    )
+  }
+}
+
+export function isExportRenderError(
+  error: unknown,
+): error is ExportRenderError {
+  return error instanceof ExportRenderError
+}
+
+export function getExportRenderOptionsForFidelity(
+  fidelity: ExportFidelity,
+): Required<ExportRenderOptions> {
+  return { ...EXPORT_OPTIONS_BY_FIDELITY[fidelity] }
+}
 
 export function planExportRenderTarget({
   width,

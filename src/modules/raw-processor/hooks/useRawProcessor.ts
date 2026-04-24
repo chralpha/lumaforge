@@ -18,6 +18,10 @@ import {
   useSetProcessingStatus,
   useSetProgress,
 } from '~/atoms/raw-processor'
+import {
+  getExportRenderOptionsForFidelity,
+  isExportRenderError,
+} from '~/lib/gl/export'
 import type {
   LUTData,
   PipelineStats,
@@ -95,8 +99,6 @@ function copyToArrayBuffer(data: Uint8Array) {
   new Uint8Array(buffer).set(data)
   return buffer
 }
-
-const LARGE_RAW_SAFE_HQ_REUSE_BYTES = 32 * 1024 * 1024
 
 export interface UseRawProcessorReturn {
   // State
@@ -511,11 +513,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
               return { width: quickPreview.width, height: quickPreview.height }
             },
             async decodeHqRaw() {
-              if (quickPreview && file.size >= LARGE_RAW_SAFE_HQ_REUSE_BYTES) {
-                hqPreview = quickPreview
-                return { width: hqPreview.width, height: hqPreview.height }
-              }
-
               hqPreview = await activeRuntimeSession.decodeHqRaw(
                 ({ phase, progress }) => {
                   if (!matchesActiveSession()) {
@@ -954,6 +951,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 session.sourceFile.width || loadedImage.decoded?.width || 0,
               height:
                 session.sourceFile.height || loadedImage.decoded?.height || 0,
+              exportOptions: getExportRenderOptionsForFidelity(fidelity),
             }),
         })
 
@@ -993,9 +991,15 @@ export function useRawProcessor(): UseRawProcessorReturn {
           description: result.filename,
         })
       } catch (err) {
-        const retryLevel = recommendRetryLevel(fidelity)
+        const retryLevel = isExportRenderError(err)
+          ? err.retryable
+            ? recommendRetryLevel(fidelity)
+            : null
+          : recommendRetryLevel(fidelity)
         const message = err instanceof Error ? err.message : 'Export failed'
-        const errorCode = toUserFacingErrorCode(message)
+        const errorCode = isExportRenderError(err)
+          ? err.code
+          : toUserFacingErrorCode(getStableErrorCode(err) ?? message)
 
         setSession((prev) =>
           prev

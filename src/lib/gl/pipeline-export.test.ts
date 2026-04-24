@@ -225,4 +225,44 @@ describe('rawProcessingPipeline export rendering', () => {
       expect.objectContaining({ width: 476, height: 900 }),
     )
   })
+
+  it('preserves retryable export fit errors from planning failures', async () => {
+    const pipeline = await createSourcePipeline(createRawInput(1500, 900))
+
+    await expect(
+      pipeline.renderToHiddenCanvas({
+        width: 1500,
+        height: 900,
+        exportOptions: {
+          maxCanvasSize: 1024,
+          maxCanvasPixels: 1024 * 1024,
+          memoryBudgetBytes: 768 * 1024 * 1024,
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: 'EXPORT_CANVAS_LIMIT_EXCEEDED',
+      retryable: true,
+      width: 1500,
+      height: 900,
+    })
+  })
+
+  it('uses caller-provided planning options instead of static defaults', async () => {
+    contextMock.capabilities.maxTextureSize = 4096
+    const pipeline = await createSourcePipeline(createRawInput(1500, 900))
+
+    const canvas = await pipeline.renderToHiddenCanvas({
+      width: 1500,
+      height: 900,
+      exportOptions: {
+        maxCanvasSize: 4096,
+        maxCanvasPixels: 2_000_000,
+        memoryBudgetBytes: 16 * 1024 * 1024,
+      },
+    })
+
+    expect(canvas.width).toBe(1500)
+    expect(canvas.height).toBe(900)
+    expect(drawImage).toHaveBeenCalledTimes(6)
+  })
 })

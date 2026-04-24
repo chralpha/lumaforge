@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetToDefaults } from '~/atoms/raw-processor'
+import { ExportRenderError } from '~/lib/gl/export'
 import { jotaiStore } from '~/lib/jotai'
 import { getStoredLUTProfileSelection } from '~/lib/lut/profile-resolution'
 import type { DecodedImage } from '~/lib/raw/decoder'
@@ -120,6 +121,12 @@ function createTestSession() {
       retryRecommended: false,
     },
   }
+}
+
+function createFileWithSize(name: string, size: number) {
+  const file = new File(['raw'], name)
+  Object.defineProperty(file, 'size', { value: size })
+  return file
 }
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -348,6 +355,169 @@ describe('useRawProcessor embedded preview state', () => {
     expect(rawRuntimeAdapterMock.extractEmbeddedPreview).not.toHaveBeenCalled()
     expect(rawRuntimeAdapterMock.decodeQuickRaw).not.toHaveBeenCalled()
     expect(rawRuntimeAdapterMock.decodeHqRaw).not.toHaveBeenCalled()
+  })
+
+  it('does not mark large quick previews as export-ready HQ output', async () => {
+    const file = createFileWithSize('large.ARW', 33 * 1024 * 1024)
+    const decodeQuickRaw = vi
+      .fn()
+      .mockResolvedValue(createDecodedImage('quick'))
+    const decodeHqRaw = vi.fn().mockRejectedValue(
+      Object.assign(new Error('hq unavailable'), {
+        code: 'RAW_HQ_DECODE_FAILED',
+      }),
+    )
+
+    rawRuntimeAdapterMock.openSession.mockResolvedValue({
+      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+      decodeQuickRaw,
+      decodeHqRaw,
+      dispose: vi.fn(),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(file)
+    })
+
+    const session = jotaiStore.get(currentSessionAtom)
+    expect(decodeQuickRaw).toHaveBeenCalled()
+    expect(decodeHqRaw).toHaveBeenCalled()
+    expect(result.current.displaySource).toBe('quick')
+    expect(result.current.canExport).toBe(false)
+    expect(session?.previewBundle.hqImage).toEqual({
+      status: 'failed',
+      errorCode: 'RAW_HQ_DECODE_FAILED',
+    })
+  })
+
+  it('records retry guidance from retryable export fit failures', async () => {
+    jotaiStore.set(currentSessionAtom, {
+      ...createTestSession(),
+      sourceFile: {
+        ...createTestSession().sourceFile,
+        width: 800,
+        height: 600,
+      },
+    })
+
+    const renderToHiddenCanvas = vi.fn().mockRejectedValue(
+      new ExportRenderError('EXPORT_CANVAS_LIMIT_EXCEEDED', {
+        retryable: true,
+        reason: 'canvas-limit',
+        width: 800,
+        height: 600,
+      }),
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    result.current.pipelineRef.current = {
+      renderToHiddenCanvas,
+    } as unknown as typeof result.current.pipelineRef.current
+
+    await act(async () => {
+      await result.current.exportImage({ quality: 'high', fidelity: 'max' })
+    })
+
+    expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({
+      status: 'failed',
+      lastErrorCode: 'EXPORT_CANVAS_LIMIT_EXCEEDED',
+      retryRecommended: true,
+      recommendedRetryLevel: 'balanced',
+    })
+  })
+
+  it('does not recommend a lower fidelity retry for non-retryable export fit failures', async () => {
+    jotaiStore.set(currentSessionAtom, {
+      ...createTestSession(),
+      sourceFile: {
+        ...createTestSession().sourceFile,
+        width: 800,
+        height: 600,
+      },
+    })
+
+    const renderToHiddenCanvas = vi.fn().mockRejectedValue(
+      new ExportRenderError('EXPORT_GPU_LIMIT_EXCEEDED', {
+        retryable: false,
+        reason: 'gpu-limit',
+        width: 800,
+        height: 600,
+      }),
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    result.current.pipelineRef.current = {
+      renderToHiddenCanvas,
+    } as unknown as typeof result.current.pipelineRef.current
+
+    await act(async () => {
+      await result.current.exportImage({ quality: 'high', fidelity: 'max' })
+    })
+
+    expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({
+      status: 'failed',
+      lastErrorCode: 'EXPORT_GPU_LIMIT_EXCEEDED',
+      retryRecommended: false,
+      recommendedRetryLevel: undefined,
+    })
+  })
+
+  it('passes fidelity planning options into hidden canvas export rendering', async () => {
+    jotaiStore.set(currentSessionAtom, {
+      ...createTestSession(),
+      sourceFile: {
+        ...createTestSession().sourceFile,
+        width: 800,
+        height: 600,
+      },
+    })
+
+    const renderToHiddenCanvas = vi.fn().mockRejectedValue(
+      new ExportRenderError('EXPORT_GPU_LIMIT_EXCEEDED', {
+        retryable: false,
+        reason: 'gpu-limit',
+        width: 800,
+        height: 600,
+      }),
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    result.current.pipelineRef.current = {
+      renderToHiddenCanvas,
+    } as unknown as typeof result.current.pipelineRef.current
+
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'safe',
+      })
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'max',
+      })
+    })
+
+    const safeOptions = renderToHiddenCanvas.mock.calls[0]?.[0].exportOptions
+    const maxOptions = renderToHiddenCanvas.mock.calls[1]?.[0].exportOptions
+
+    expect(renderToHiddenCanvas).toHaveBeenCalledWith(
+      expect.objectContaining({
+        width: 800,
+        height: 600,
+        exportOptions: expect.objectContaining({
+          memoryBudgetBytes: expect.any(Number),
+          maxCanvasPixels: expect.any(Number),
+        }),
+      }),
+    )
+    expect(safeOptions.memoryBudgetBytes).toBeLessThan(
+      maxOptions.memoryBudgetBytes,
+    )
+    expect(safeOptions.maxCanvasPixels).toBeLessThan(maxOptions.maxCanvasPixels)
   })
 
   it('aborts and disposes stale runtime session when replacing files', async () => {

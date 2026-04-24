@@ -28,10 +28,12 @@ import {
   detectCapabilities,
   getRecommendedTextureFormat,
 } from './context'
+import type {ExportRenderOptions} from './export';
 import {
   createExportTiles,
   cropRawUploadInput,
-  planExportRenderTarget,
+  ExportRenderError,
+  planExportRenderTarget
 } from './export'
 import {
   PREVIEW_OUTPUT_SHADER,
@@ -769,9 +771,11 @@ export class RawProcessingPipeline {
   async renderToHiddenCanvas({
     width,
     height,
+    exportOptions,
   }: {
     width: number
     height: number
+    exportOptions?: ExportRenderOptions
   }) {
     if (!this.inputUpload) {
       throw new Error('EXPORT_SOURCE_MISSING')
@@ -781,14 +785,11 @@ export class RawProcessingPipeline {
       width,
       height,
       maxTextureSize: this.capabilities.maxTextureSize,
+      ...exportOptions,
     })
 
     if (plan.strategy === 'fail') {
-      throw new Error(
-        plan.reason === 'canvas-limit'
-          ? 'EXPORT_CANVAS_LIMIT_EXCEEDED'
-          : 'EXPORT_GPU_LIMIT_EXCEEDED',
-      )
+      throw ExportRenderError.fromFailedPlan(plan)
     }
 
     if (plan.strategy === 'tiled') {

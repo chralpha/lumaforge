@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { planExportRenderTarget } from './export'
+import {
+  ExportRenderError,
+  getExportRenderOptionsForFidelity,
+  planExportRenderTarget,
+} from './export'
 
 describe('export render target planner', () => {
   it('uses a full-frame render when GPU and canvas limits can hold the image', () => {
@@ -95,5 +99,34 @@ describe('export render target planner', () => {
       reason: 'gpu-limit',
       retryable: false,
     })
+  })
+
+  it('creates typed retryable errors from failed render plans', () => {
+    const error = ExportRenderError.fromFailedPlan({
+      strategy: 'fail',
+      width: 20000,
+      height: 12000,
+      reason: 'canvas-limit',
+      retryable: true,
+    })
+
+    expect(error).toMatchObject({
+      code: 'EXPORT_CANVAS_LIMIT_EXCEEDED',
+      retryable: true,
+      width: 20000,
+      height: 12000,
+    })
+    expect(error.message).toBe('EXPORT_CANVAS_LIMIT_EXCEEDED')
+  })
+
+  it('maps fidelity levels to explicit export planning budgets', () => {
+    const safe = getExportRenderOptionsForFidelity('safe')
+    const balanced = getExportRenderOptionsForFidelity('balanced')
+    const max = getExportRenderOptionsForFidelity('max')
+
+    expect(safe.memoryBudgetBytes).toBeLessThan(balanced.memoryBudgetBytes)
+    expect(balanced.memoryBudgetBytes).toBeLessThan(max.memoryBudgetBytes)
+    expect(safe.maxCanvasPixels).toBeLessThan(balanced.maxCanvasPixels)
+    expect(balanced.maxCanvasPixels).toBeLessThan(max.maxCanvasPixels)
   })
 })
