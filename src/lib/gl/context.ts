@@ -40,6 +40,12 @@ export const LOW_PRECISION_RENDER_TARGET_WARNING: PipelineCapabilityWarning = {
     'High-quality GPU rendering is unavailable on this device; preview and export may show smoother tonal steps less accurately.',
 }
 
+function clonePipelineCapabilityWarning(
+  warning: PipelineCapabilityWarning,
+): PipelineCapabilityWarning {
+  return { ...warning }
+}
+
 let cachedCapabilities: WebGLCapabilities | null = null
 
 /**
@@ -191,7 +197,9 @@ export function canUseHalfFloatRendering(): boolean {
 export function getProcessingTextureFormatWarnings(
   precision: ProcessTargetPrecision,
 ): PipelineCapabilityWarning[] {
-  return precision === 'rgba8' ? [LOW_PRECISION_RENDER_TARGET_WARNING] : []
+  return precision === 'rgba8'
+    ? [clonePipelineCapabilityWarning(LOW_PRECISION_RENDER_TARGET_WARNING)]
+    : []
 }
 
 export function selectProcessingTextureFormat(

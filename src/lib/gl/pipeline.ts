@@ -152,7 +152,14 @@ export interface ExportRenderStats extends PipelineTelemetrySnapshot {
   planningTime: number
   renderTime: number
   totalTime: number
-  reason?: 'texture-limit' | 'memory-budget' | 'canvas-limit' | 'gpu-limit'
+  reason?:
+    | 'texture-limit'
+    | 'memory-budget'
+    | 'canvas-limit'
+    | 'gpu-limit'
+    | 'render-failure'
+  failureCode?: string
+  failureMessage?: string
   retryable?: boolean
 }
 
@@ -174,6 +181,31 @@ export function describeRawUploadInput(input: RawUploadInput): {
     channelCount: 4,
     bytesPerPixel: 16,
   }
+}
+
+function getExportFailureCode(error: unknown): string {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    typeof error.code === 'string'
+  ) {
+    return error.code
+  }
+
+  if (error instanceof Error) {
+    return error.message || error.name
+  }
+
+  return String(error)
+}
+
+function getExportFailureMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  return String(error)
 }
 
 const DEFAULT_PARAMS: ProcessingParams = {
@@ -613,6 +645,12 @@ export class RawProcessingPipeline {
     }
 
     this.lutTexture = create3DTexture(gl, lut.size, lut.data)
+    if (!this.lutTexture) {
+      this.lutData = null
+      this.lastLutUploadTime = performance.now() - startTime
+      throw new Error('Failed to create LUT texture')
+    }
+
     this.lutData = lut
     this.lastLutUploadTime = performance.now() - startTime
   }
@@ -701,7 +739,9 @@ export class RawProcessingPipeline {
       lutOutputTransfer: outputTransfer,
       lutSize: this.lutData?.size ?? null,
       processTargetPrecision: this.processTargetPrecision,
-      capabilityWarnings: [...this.capabilityWarnings],
+      capabilityWarnings: this.capabilityWarnings.map((warning) => ({
+        ...warning,
+      })),
     }
   }
 
@@ -710,6 +750,9 @@ export class RawProcessingPipeline {
       return 'builtin-style'
     }
     if (this.params.styleKind !== 'custom' || !this.lutData) {
+      return 'no-lut'
+    }
+    if (!this.lutTexture) {
       return 'no-lut'
     }
     if (!isLUTProfileRenderable(this.lutData.profileResolution)) {
@@ -926,10 +969,31 @@ export class RawProcessingPipeline {
     }
 
     const renderStart = performance.now()
-    const outputCanvas =
-      plan.strategy === 'tiled'
-        ? await this.renderTiledHiddenCanvas(plan)
-        : await this.renderFullFrameHiddenCanvas(width, height)
+    let outputCanvas: HTMLCanvasElement
+    try {
+      outputCanvas =
+        plan.strategy === 'tiled'
+          ? await this.renderTiledHiddenCanvas(plan)
+          : await this.renderFullFrameHiddenCanvas(width, height)
+    } catch (error) {
+      const renderTime = performance.now() - renderStart
+      this.lastExportStats = {
+        ...this.getTelemetrySnapshot(),
+        strategy: 'fail',
+        width: plan.width,
+        height: plan.height,
+        tileCount:
+          plan.strategy === 'tiled' ? createExportTiles(plan).length : 1,
+        planningTime,
+        renderTime,
+        totalTime: performance.now() - totalStart,
+        reason: 'render-failure',
+        failureCode: getExportFailureCode(error),
+        failureMessage: getExportFailureMessage(error),
+        retryable: false,
+      }
+      throw error
+    }
     const renderTime = performance.now() - renderStart
 
     this.lastExportStats = {

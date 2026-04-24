@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import type { WebGLCapabilities } from './context'
-import { selectProcessingTextureFormat } from './context'
+import {
+  getProcessingTextureFormatWarnings,
+  selectProcessingTextureFormat,
+} from './context'
 
 const BASE_CAPABILITIES: WebGLCapabilities = {
   webgl2: true,
@@ -45,5 +48,18 @@ describe('processing texture format selection', () => {
         },
       ],
     })
+  })
+
+  it('returns fresh low-precision warning objects for every request', () => {
+    const firstWarnings = getProcessingTextureFormatWarnings('rgba8')
+    firstWarnings[0]!.message = 'mutated warning'
+
+    expect(getProcessingTextureFormatWarnings('rgba8')).toEqual([
+      {
+        code: 'LOW_PRECISION_RENDER_TARGET',
+        message:
+          'High-quality GPU rendering is unavailable on this device; preview and export may show smoother tonal steps less accurately.',
+      },
+    ])
   })
 })

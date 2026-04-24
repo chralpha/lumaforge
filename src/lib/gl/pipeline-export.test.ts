@@ -79,14 +79,20 @@ const contextMock = vi.hoisted(() => {
       name === 'WEBGL_lose_context' ? { loseContext: vi.fn() } : null,
     ),
   }
+  const create3DTexture = vi.fn<() => WebGLTexture | null>(
+    () => ({}) as WebGLTexture,
+  )
 
   return {
     capabilities,
+    create3DTexture,
     gl,
     reset() {
       for (const value of Object.values(gl)) {
         if (vi.isMockFunction(value)) value.mockClear()
       }
+      create3DTexture.mockReset()
+      create3DTexture.mockReturnValue({} as WebGLTexture)
       capabilities.maxTextureSize = 4096
     },
   }
@@ -129,8 +135,12 @@ vi.mock('./context', () => ({
   createFullscreenQuad: vi.fn(() => ({ vao: {}, vbo: {} })),
   createTextureFromData: vi.fn(() => ({})),
   createRgb16UiTextureFromData: vi.fn(() => ({})),
-  create3DTexture: vi.fn(() => ({})),
-  createFramebuffer: vi.fn(() => ({ framebuffer: {}, texture: {} })),
+  create3DTexture: contextMock.create3DTexture,
+  createFramebuffer: vi.fn(() => ({
+    framebuffer: {},
+    texture: {},
+    textureFormat: { precision: 'rgba16f' },
+  })),
 }))
 
 function createRawInput(width: number, height: number): RawUploadInput {
@@ -246,6 +256,23 @@ describe('rawProcessingPipeline export rendering', () => {
     expect(stats.capabilityWarnings).toEqual([])
   })
 
+  it('fails LUT upload when the GPU texture cannot be created', async () => {
+    const pipeline = await createSourcePipeline(createRawInput(2, 2))
+    contextMock.create3DTexture.mockReturnValueOnce(null)
+
+    expect(() =>
+      pipeline.uploadLUT(createLUTData('sony-sgamut3cine-slog3')),
+    ).toThrow('Failed to create LUT texture')
+
+    pipeline.setParams({
+      intensity: 0.75,
+      viewMode: 'processed',
+      styleKind: 'custom',
+      builtinPreset: null,
+    })
+    expect(pipeline.render().transformPath).toBe('no-lut')
+  })
+
   it('disposes the hidden full-frame pipeline after export render', async () => {
     const pipeline = await createSourcePipeline(createRawInput(2, 2))
     const disposeSpy = vi.spyOn(RawProcessingPipeline.prototype, 'dispose')
@@ -270,6 +297,40 @@ describe('rawProcessingPipeline export rendering', () => {
 
     expect(renderSpy).toHaveBeenCalledTimes(1)
     expect(disposeSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('updates export telemetry for a failed hidden render attempt', async () => {
+    const pipeline = await createSourcePipeline(createRawInput(2, 2))
+
+    await pipeline.renderToHiddenCanvas({ width: 2, height: 2 })
+    expect(pipeline.getLastExportStats()).toMatchObject({
+      strategy: 'full-frame',
+      width: 2,
+      height: 2,
+    })
+
+    vi.spyOn(RawProcessingPipeline.prototype, 'render').mockImplementationOnce(
+      () => {
+        throw new Error('EXPORT_RENDER_FAILED')
+      },
+    )
+
+    await expect(
+      pipeline.renderToHiddenCanvas({ width: 2, height: 2 }),
+    ).rejects.toThrow('EXPORT_RENDER_FAILED')
+
+    expect(pipeline.getLastExportStats()).toMatchObject({
+      strategy: 'fail',
+      width: 2,
+      height: 2,
+      tileCount: 1,
+      reason: 'render-failure',
+      failureCode: 'EXPORT_RENDER_FAILED',
+      inputFormat: 'uint16-rgb',
+      transformPath: 'no-lut',
+    })
+    expect(pipeline.getLastExportStats()?.renderTime).toBeGreaterThanOrEqual(0)
+    expect(pipeline.getLastExportStats()?.totalTime).toBeGreaterThanOrEqual(0)
   })
 
   it('renders oversized exports in cropped tiles and stitches them into one output canvas', async () => {
