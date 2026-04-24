@@ -39,6 +39,13 @@ uniform float u_intensity;
 uniform int u_styleKind;
 uniform int u_builtinPreset;
 uniform int u_lutInputProfile;
+uniform mat3 u_inputToLutGamut;
+uniform mat3 u_lutOutputToDisplayGamut;
+uniform int u_lutInputTransfer;
+uniform int u_lutOutputTransfer;
+uniform int u_lutRole;
+uniform int u_lutInputRange;
+uniform int u_lutOutputRange;
 `
 
 const PROCESS_FRAGMENT_SHADER_BODY = /* glsl */ `
@@ -47,6 +54,30 @@ const int STYLE_BUILTIN = 1;
 const int STYLE_CUSTOM = 2;
 const int LUT_INPUT_DISPLAY_SRGB = 0;
 const int LUT_INPUT_V_LOG = 1;
+const int LUT_ROLE_DISPLAY_LOOK = 0;
+const int LUT_ROLE_SCENE_CREATIVE = 1;
+const int LUT_ROLE_COMBINED_LOOK_OUTPUT = 2;
+const int LUT_ROLE_TECHNICAL_OUTPUT = 3;
+const int LUT_RANGE_FULL = 0;
+const int LUT_RANGE_LEGAL = 1;
+const int LUT_RANGE_UNKNOWN = 2;
+const int TRANSFER_SRGB = 0;
+const int TRANSFER_GAMMA24 = 1;
+const int TRANSFER_S_LOG2 = 2;
+const int TRANSFER_S_LOG3 = 3;
+const int TRANSFER_CANON_LOG = 4;
+const int TRANSFER_CANON_LOG2 = 5;
+const int TRANSFER_CANON_LOG3 = 6;
+const int TRANSFER_N_LOG = 7;
+const int TRANSFER_F_LOG = 8;
+const int TRANSFER_F_LOG2 = 9;
+const int TRANSFER_F_LOG2C = 10;
+const int TRANSFER_V_LOG = 11;
+const int TRANSFER_LOGC3 = 12;
+const int TRANSFER_LOGC4 = 13;
+const int TRANSFER_LOG3G10 = 14;
+const int TRANSFER_ACESCC = 15;
+const int TRANSFER_ACESCCT = 16;
 
 vec3 clamp01(vec3 color) {
   return clamp(color, 0.0, 1.0);
@@ -128,12 +159,121 @@ vec3 applyBuiltinStyle(vec3 displayColor) {
   return linearToSrgb(color);
 }
 
-vec3 rec709LinearToVGamutLinear(vec3 color) {
-  return vec3(
-    dot(color, vec3(0.585196147, 0.322641622, 0.092162231)),
-    dot(color, vec3(0.078588567, 0.819627115, 0.101784318)),
-    dot(color, vec3(0.022794238, 0.114217024, 0.862988738))
-  );
+float encodeSLog2(float linearValue) {
+  float reflectedLinear = 0.9 * max(linearValue, 0.0);
+  return 0.432699 * (log(reflectedLinear + 0.037584) / log(10.0)) + 0.616596 + 0.03;
+}
+
+float decodeSLog2(float encodedValue) {
+  return (pow(10.0, (encodedValue - 0.03 - 0.616596) / 0.432699) - 0.037584) / 0.9;
+}
+
+float encodeSLog3(float linearValue) {
+  float value = max(linearValue, 0.0);
+  if (value >= 0.01125) {
+    return (420.0 + (log((value + 0.01) / 0.19) / log(10.0)) * 261.5) / 1023.0;
+  }
+  return ((value * (171.2102946929 - 95.0)) / 0.01125 + 95.0) / 1023.0;
+}
+
+float decodeSLog3(float encodedValue) {
+  float x = encodedValue * 1023.0;
+  if (x >= 171.2102946929) {
+    return pow(10.0, (x - 420.0) / 261.5) * 0.19 - 0.01;
+  }
+  return ((x - 95.0) * 0.01125) / (171.2102946929 - 95.0);
+}
+
+float encodeCanonLog(float linearValue) {
+  if (linearValue < 0.0) {
+    return -0.529136 * (log(-10.1596 * linearValue + 1.0) / log(10.0)) + 0.0730597;
+  }
+  return 0.529136 * (log(10.1596 * linearValue + 1.0) / log(10.0)) + 0.0730597;
+}
+
+float decodeCanonLog(float encodedValue) {
+  if (encodedValue < 0.0730597) {
+    return -(pow(10.0, (0.0730597 - encodedValue) / 0.529136) - 1.0) / 10.1596;
+  }
+  return (pow(10.0, (encodedValue - 0.0730597) / 0.529136) - 1.0) / 10.1596;
+}
+
+float encodeCanonLog2(float linearValue) {
+  if (linearValue < 0.0) {
+    return -0.24136077 * (log(1.0 - (87.099375 * linearValue) / 0.9) / log(10.0)) + 0.092864125;
+  }
+  return 0.24136077 * (log(1.0 + (87.099375 * linearValue) / 0.9) / log(10.0)) + 0.092864125;
+}
+
+float decodeCanonLog2(float encodedValue) {
+  if (encodedValue < 0.092864125) {
+    return (0.9 * (1.0 - pow(10.0, (0.092864125 - encodedValue) / 0.24136077))) / 87.099375;
+  }
+  return (0.9 * (pow(10.0, (encodedValue - 0.092864125) / 0.24136077) - 1.0)) / 87.099375;
+}
+
+float encodeCanonLog3(float linearValue) {
+  if (linearValue < -0.0126) {
+    return -0.36726845 * (log(1.0 - (14.98325 * linearValue) / 0.9) / log(10.0)) + 0.12783901;
+  }
+  if (linearValue <= 0.0126) {
+    return (linearValue * 1.9754798) / 0.9 + 0.12512219;
+  }
+  return 0.36726845 * (log(1.0 + (14.98325 * linearValue) / 0.9) / log(10.0)) + 0.12240537;
+}
+
+float decodeCanonLog3(float encodedValue) {
+  if (encodedValue < 0.097465473) {
+    return (0.9 * (1.0 - pow(10.0, (0.12783901 - encodedValue) / 0.36726845))) / 14.98325;
+  }
+  if (encodedValue <= 0.15277891) {
+    return (0.9 * (encodedValue - 0.12512219)) / 1.9754798;
+  }
+  return (0.9 * (pow(10.0, (encodedValue - 0.12240537) / 0.36726845) - 1.0)) / 14.98325;
+}
+
+float encodeNLog(float linearValue) {
+  float value = max(linearValue, 0.0);
+  if (value < 0.328) {
+    return pow(value, 1.0 / 3.0) * (650.0 / 1023.0) + 0.0075;
+  }
+  return log(value) * (150.0 / 1023.0) + (619.0 / 1023.0);
+}
+
+float decodeNLog(float encodedValue) {
+  float cut = pow(0.328, 1.0 / 3.0) * (650.0 / 1023.0) + 0.0075;
+  if (encodedValue < cut) {
+    return pow((encodedValue - 0.0075) / (650.0 / 1023.0), 3.0);
+  }
+  return exp((encodedValue - (619.0 / 1023.0)) / (150.0 / 1023.0));
+}
+
+float encodeFLog(float linearValue) {
+  if (linearValue < 0.00089) {
+    return 8.735631 * linearValue + 0.092864;
+  }
+  return 0.344676 * (log(0.555556 * linearValue + 0.009468) / log(10.0)) + 0.790453;
+}
+
+float decodeFLog(float encodedValue) {
+  if (encodedValue < 0.100537775223865) {
+    return (encodedValue - 0.092864) / 8.735631;
+  }
+  return (pow(10.0, (encodedValue - 0.790453) / 0.344676) - 0.009468) / 0.555556;
+}
+
+float encodeFLog2(float linearValue) {
+  if (linearValue < 0.000889) {
+    return 8.799461 * linearValue + 0.092864;
+  }
+  return 0.245281 * (log(5.555556 * linearValue + 0.064829) / log(10.0)) + 0.384316;
+}
+
+float decodeFLog2(float encodedValue) {
+  if (encodedValue < 0.100686685370811) {
+    return (encodedValue - 0.092864) / 8.799461;
+  }
+  return (pow(10.0, (encodedValue - 0.384316) / 0.245281) - 0.064829) / 5.555556;
 }
 
 float vLogEncodeChannel(float linearValue) {
@@ -144,22 +284,164 @@ float vLogEncodeChannel(float linearValue) {
   return 0.241514 * (log(value + 0.00873) / log(10.0)) + 0.598206;
 }
 
-vec3 encodeVLog(vec3 linearColor) {
+float vLogDecodeChannel(float encodedValue) {
+  if (encodedValue < 0.181) {
+    return (encodedValue - 0.125) / 5.6;
+  }
+  return pow(10.0, (encodedValue - 0.598206) / 0.241514) - 0.00873;
+}
+
+float encodeLogC3(float linearValue) {
+  if (linearValue > 0.010591) {
+    return 0.24719 * (log(5.555556 * linearValue + 0.052272) / log(10.0)) + 0.385537;
+  }
+  return 5.367655 * linearValue + 0.092809;
+}
+
+float decodeLogC3(float encodedValue) {
+  if (encodedValue > 0.1496) {
+    return (pow(10.0, (encodedValue - 0.385537) / 0.24719) - 0.052272) / 5.555556;
+  }
+  return (encodedValue - 0.092809) / 5.367655;
+}
+
+float encodeLogC4(float linearValue) {
+  float a = (262144.0 - 16.0) / 117.45;
+  float b = (1023.0 - 95.0) / 1023.0;
+  float c = 95.0 / 1023.0;
+  float s = (7.0 * log(2.0) * pow(2.0, 7.0 - (14.0 * c) / b)) / (a * b);
+  float t = (pow(2.0, 14.0 * (-c / b) + 6.0) - 64.0) / a;
+  if (linearValue < t) {
+    return (linearValue - t) / s;
+  }
+  return ((log2(a * linearValue + 64.0) - 6.0) / 14.0) * b + c;
+}
+
+float decodeLogC4(float encodedValue) {
+  float a = (262144.0 - 16.0) / 117.45;
+  float b = (1023.0 - 95.0) / 1023.0;
+  float c = 95.0 / 1023.0;
+  float s = (7.0 * log(2.0) * pow(2.0, 7.0 - (14.0 * c) / b)) / (a * b);
+  float t = (pow(2.0, 14.0 * (-c / b) + 6.0) - 64.0) / a;
+  if (encodedValue < 0.0) {
+    return encodedValue * s + t;
+  }
+  return (pow(2.0, (14.0 * (encodedValue - c)) / b + 6.0) - 64.0) / a;
+}
+
+float encodeLog3G10(float linearValue) {
+  float y = linearValue + 0.01;
+  if (y < 0.0) return y * 15.1927;
+  return 0.224282 * (log(155.975327 * y + 1.0) / log(10.0));
+}
+
+float decodeLog3G10(float encodedValue) {
+  if (encodedValue < 0.0) return encodedValue / 15.1927 - 0.01;
+  return (pow(10.0, encodedValue / 0.224282) - 1.0) / 155.975327 - 0.01;
+}
+
+float encodeACEScc(float linearValue) {
+  if (linearValue <= 0.0) {
+    return (-16.0 + 9.72) / 17.52;
+  }
+  if (linearValue < pow(2.0, -15.0)) {
+    return (log2(pow(2.0, -16.0) + linearValue * 0.5) + 9.72) / 17.52;
+  }
+  return (log2(linearValue) + 9.72) / 17.52;
+}
+
+float decodeACEScc(float encodedValue) {
+  float cut = (-15.0 + 9.72) / 17.52;
+  if (encodedValue <= cut) {
+    return (pow(2.0, encodedValue * 17.52 - 9.72) - pow(2.0, -16.0)) * 2.0;
+  }
+  return pow(2.0, encodedValue * 17.52 - 9.72);
+}
+
+float encodeACEScct(float linearValue) {
+  if (linearValue <= 0.0078125) {
+    return 10.5402377416545 * linearValue + 0.0729055341958355;
+  }
+  return (log2(linearValue) + 9.72) / 17.52;
+}
+
+float decodeACEScct(float encodedValue) {
+  if (encodedValue <= 0.155251141552511) {
+    return (encodedValue - 0.0729055341958355) / 10.5402377416545;
+  }
+  return pow(2.0, encodedValue * 17.52 - 9.72);
+}
+
+float encodeTransferChannel(float linearValue, int transfer) {
+  if (transfer == TRANSFER_SRGB) return linearToSrgb(vec3(linearValue)).r;
+  if (transfer == TRANSFER_GAMMA24) return pow(max(linearValue, 0.0), 1.0 / 2.4);
+  if (transfer == TRANSFER_S_LOG2) return encodeSLog2(linearValue);
+  if (transfer == TRANSFER_S_LOG3) return encodeSLog3(linearValue);
+  if (transfer == TRANSFER_CANON_LOG) return encodeCanonLog(linearValue);
+  if (transfer == TRANSFER_CANON_LOG2) return encodeCanonLog2(linearValue);
+  if (transfer == TRANSFER_CANON_LOG3) return encodeCanonLog3(linearValue);
+  if (transfer == TRANSFER_N_LOG) return encodeNLog(linearValue);
+  if (transfer == TRANSFER_F_LOG) return encodeFLog(linearValue);
+  if (transfer == TRANSFER_F_LOG2) return encodeFLog2(linearValue);
+  if (transfer == TRANSFER_F_LOG2C) return encodeFLog2(linearValue);
+  if (transfer == TRANSFER_V_LOG) return vLogEncodeChannel(linearValue);
+  if (transfer == TRANSFER_LOGC3) return encodeLogC3(linearValue);
+  if (transfer == TRANSFER_LOGC4) return encodeLogC4(linearValue);
+  if (transfer == TRANSFER_LOG3G10) return encodeLog3G10(linearValue);
+  if (transfer == TRANSFER_ACESCC) return encodeACEScc(linearValue);
+  if (transfer == TRANSFER_ACESCCT) return encodeACEScct(linearValue);
+  return linearValue;
+}
+
+float decodeTransferChannel(float encodedValue, int transfer) {
+  if (transfer == TRANSFER_SRGB) return srgbToLinear(vec3(encodedValue)).r;
+  if (transfer == TRANSFER_GAMMA24) return pow(max(encodedValue, 0.0), 2.4);
+  if (transfer == TRANSFER_S_LOG2) return decodeSLog2(encodedValue);
+  if (transfer == TRANSFER_S_LOG3) return decodeSLog3(encodedValue);
+  if (transfer == TRANSFER_CANON_LOG) return decodeCanonLog(encodedValue);
+  if (transfer == TRANSFER_CANON_LOG2) return decodeCanonLog2(encodedValue);
+  if (transfer == TRANSFER_CANON_LOG3) return decodeCanonLog3(encodedValue);
+  if (transfer == TRANSFER_N_LOG) return decodeNLog(encodedValue);
+  if (transfer == TRANSFER_F_LOG) return decodeFLog(encodedValue);
+  if (transfer == TRANSFER_F_LOG2) return decodeFLog2(encodedValue);
+  if (transfer == TRANSFER_F_LOG2C) return decodeFLog2(encodedValue);
+  if (transfer == TRANSFER_V_LOG) return vLogDecodeChannel(encodedValue);
+  if (transfer == TRANSFER_LOGC3) return decodeLogC3(encodedValue);
+  if (transfer == TRANSFER_LOGC4) return decodeLogC4(encodedValue);
+  if (transfer == TRANSFER_LOG3G10) return decodeLog3G10(encodedValue);
+  if (transfer == TRANSFER_ACESCC) return decodeACEScc(encodedValue);
+  if (transfer == TRANSFER_ACESCCT) return decodeACEScct(encodedValue);
+  return encodedValue;
+}
+
+vec3 encodeTransfer(vec3 linearColor, int transfer) {
   return clamp01(vec3(
-    vLogEncodeChannel(linearColor.r),
-    vLogEncodeChannel(linearColor.g),
-    vLogEncodeChannel(linearColor.b)
+    encodeTransferChannel(linearColor.r, transfer),
+    encodeTransferChannel(linearColor.g, transfer),
+    encodeTransferChannel(linearColor.b, transfer)
   ));
 }
 
-vec3 prepareLutInput(vec3 displayColor) {
-  if (u_lutInputProfile == LUT_INPUT_V_LOG) {
-    vec3 linearColor = srgbToLinear(displayColor);
-    vec3 vlogGamut = rec709LinearToVGamutLinear(linearColor);
-    return encodeVLog(vlogGamut);
-  }
+vec3 decodeTransfer(vec3 encodedColor, int transfer) {
+  return vec3(
+    decodeTransferChannel(encodedColor.r, transfer),
+    decodeTransferChannel(encodedColor.g, transfer),
+    decodeTransferChannel(encodedColor.b, transfer)
+  );
+}
 
-  return displayColor;
+vec3 applySignalRangeForLutInput(vec3 color, int range) {
+  if (range == LUT_RANGE_LEGAL) {
+    return color * ((940.0 - 64.0) / 1023.0) + vec3(64.0 / 1023.0);
+  }
+  return color;
+}
+
+vec3 removeSignalRangeFromLutOutput(vec3 color, int range) {
+  if (range == LUT_RANGE_LEGAL) {
+    return (color - vec3(64.0 / 1023.0)) * (1023.0 / (940.0 - 64.0));
+  }
+  return color;
 }
 
 vec3 applyLut(vec3 color) {
@@ -168,19 +450,47 @@ vec3 applyLut(vec3 color) {
   return texture(u_lutTexture, normalizedColor).rgb;
 }
 
+vec3 applyDisplayLut(vec3 sceneLinearProPhoto) {
+  vec3 displayColor = linearProPhotoToDisplaySrgb(sceneLinearProPhoto);
+  return clamp01(applyLut(displayColor));
+}
+
+vec3 applySceneLut(vec3 sceneLinearProPhoto) {
+  vec3 lutInputLinear = max(u_inputToLutGamut * sceneLinearProPhoto, vec3(0.0));
+  vec3 lutInputEncoded = applySignalRangeForLutInput(encodeTransfer(lutInputLinear, u_lutInputTransfer), u_lutInputRange);
+  vec3 lutOutputEncoded = removeSignalRangeFromLutOutput(applyLut(lutInputEncoded), u_lutOutputRange);
+  vec3 lutOutputLinear = max(decodeTransfer(lutOutputEncoded, u_lutOutputTransfer), vec3(0.0));
+  vec3 displayLinear = max(u_lutOutputToDisplayGamut * lutOutputLinear, vec3(0.0));
+  return linearToSrgb(displayLinear);
+}
+
+vec3 applyCombinedOutputLut(vec3 sceneLinearProPhoto) {
+  vec3 lutInputLinear = max(u_inputToLutGamut * sceneLinearProPhoto, vec3(0.0));
+  vec3 lutInputEncoded = applySignalRangeForLutInput(encodeTransfer(lutInputLinear, u_lutInputTransfer), u_lutInputRange);
+  vec3 lutOutputEncoded = removeSignalRangeFromLutOutput(applyLut(lutInputEncoded), u_lutOutputRange);
+  vec3 displayLinear = max(u_lutOutputToDisplayGamut * decodeTransfer(lutOutputEncoded, u_lutOutputTransfer), vec3(0.0));
+  return linearToSrgb(displayLinear);
+}
+
 void main() {
-  vec3 baseColor = clamp01(readInputColor(v_texCoord));
-  vec3 styledColor = baseColor;
+  vec3 baseSceneLinearProPhoto = max(readInputSceneLinearProPhoto(v_texCoord), vec3(0.0));
+  vec3 baseDisplayColor = linearProPhotoToDisplaySrgb(baseSceneLinearProPhoto);
+  vec3 styledColor = baseDisplayColor;
   float intensity = clamp(u_intensity, 0.0, 1.0);
 
   if (u_styleKind == STYLE_BUILTIN) {
-    styledColor = applyBuiltinStyle(baseColor);
+    styledColor = applyBuiltinStyle(baseDisplayColor);
   } else if (u_styleKind == STYLE_CUSTOM && u_useLut) {
-    vec3 lutInput = prepareLutInput(baseColor);
-    styledColor = clamp01(applyLut(lutInput));
+    if (u_lutRole == LUT_ROLE_SCENE_CREATIVE) {
+      styledColor = applySceneLut(baseSceneLinearProPhoto);
+    } else if (u_lutRole == LUT_ROLE_COMBINED_LOOK_OUTPUT || u_lutRole == LUT_ROLE_TECHNICAL_OUTPUT) {
+      styledColor = applyCombinedOutputLut(baseSceneLinearProPhoto);
+    } else {
+      styledColor = applyDisplayLut(baseSceneLinearProPhoto);
+    }
   }
 
-  fragColor = vec4(clamp01(mix(baseColor, styledColor, intensity)), 1.0);
+  fragColor = vec4(clamp01(mix(baseDisplayColor, styledColor, intensity)), 1.0);
 }
 `
 
@@ -190,8 +500,19 @@ ${PROCESS_FRAGMENT_SHADER_HEADER}
 
 uniform sampler2D u_inputTexture;
 
-vec3 readInputColor(vec2 uv) {
-  return texture(u_inputTexture, uv).rgb;
+vec3 srgbToLinear(vec3 color);
+vec3 linearToSrgb(vec3 color);
+
+vec3 linearProPhotoToLinearSrgb(vec3 color) {
+  return color;
+}
+
+vec3 linearProPhotoToDisplaySrgb(vec3 color) {
+  return linearToSrgb(color);
+}
+
+vec3 readInputSceneLinearProPhoto(vec2 uv) {
+  return srgbToLinear(texture(u_inputTexture, uv).rgb);
 }
 
 ${PROCESS_FRAGMENT_SHADER_BODY}
@@ -226,10 +547,10 @@ vec3 linearProPhotoToDisplaySrgb(vec3 color) {
   return linearSrgbToDisplaySrgb(linearProPhotoToLinearSrgb(color));
 }
 
-vec3 readInputColor(vec2 uv) {
+vec3 readInputSceneLinearProPhoto(vec2 uv) {
   highp uvec3 color = texture(u_inputTexture, uv).rgb;
   vec3 linearProPhoto = vec3(color) / 65535.0;
-  return linearProPhotoToDisplaySrgb(linearProPhoto);
+  return linearProPhoto;
 }
 
 ${PROCESS_FRAGMENT_SHADER_BODY}

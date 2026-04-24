@@ -3,7 +3,18 @@
  * Handles the complete flow from decoded RAW data to display/export.
  */
 
-import type { LUTColorProfile } from '~/lib/color/registry'
+import type { TransferFunctionId } from '~/lib/color/log-encoding'
+import {
+  getLinearProPhotoToGamutMatrix,
+  getLUTOutputToTargetMatrix,
+  mat3Identity,
+  mat3ToGLSL,
+} from '~/lib/color/matrix'
+import type {
+  LUTColorProfile,
+  LUTRole,
+  SignalRange,
+} from '~/lib/color/registry'
 
 import type { WebGLCapabilities } from './context'
 import {
@@ -134,6 +145,121 @@ const BUILTIN_PRESET_UNIFORMS: Record<BuiltinStylePreset, number> = {
 const LUT_INPUT_PROFILE_UNIFORMS: Record<LUTInputProfile, number> = {
   'display-srgb': 0,
   'v-log': 1,
+}
+
+export const LUT_ROLE_UNIFORMS: Record<LUTRole, number> = {
+  'display-look': 0,
+  'scene-creative': 1,
+  'combined-look-output': 2,
+  'technical-output': 3,
+}
+
+export const LUT_RANGE_UNIFORMS: Record<SignalRange, number> = {
+  full: 0,
+  legal: 1,
+  unknown: 2,
+}
+
+export const LUT_TRANSFER_UNIFORMS: Record<TransferFunctionId, number> = {
+  srgb: 0,
+  gamma24: 1,
+  's-log2': 2,
+  's-log3': 3,
+  'canon-log': 4,
+  'canon-log2': 5,
+  'canon-log3': 6,
+  'n-log': 7,
+  'f-log': 8,
+  'f-log2': 9,
+  'f-log2c': 10,
+  'v-log': 11,
+  logc3: 12,
+  logc4: 13,
+  log3g10: 14,
+  acescc: 15,
+  acescct: 16,
+  'l-log': 17,
+}
+
+export interface LUTPipelineProfileUniforms {
+  inputToLutGamut: Float32Array
+  lutOutputToDisplayGamut: Float32Array
+  lutInputTransfer: number
+  lutOutputTransfer: number
+  lutRole: number
+  lutInputRange: number
+  lutOutputRange: number
+}
+
+const DISPLAY_TARGET_GAMUT = 'srgb-rec709'
+
+const DISPLAY_PROFILE_UNIFORMS: LUTPipelineProfileUniforms = {
+  inputToLutGamut: mat3ToGLSL(mat3Identity()),
+  lutOutputToDisplayGamut: mat3ToGLSL(mat3Identity()),
+  lutInputTransfer: LUT_TRANSFER_UNIFORMS.srgb,
+  lutOutputTransfer: LUT_TRANSFER_UNIFORMS.srgb,
+  lutRole: LUT_ROLE_UNIFORMS['display-look'],
+  lutInputRange: LUT_RANGE_UNIFORMS.full,
+  lutOutputRange: LUT_RANGE_UNIFORMS.full,
+}
+
+function resolveLUTOutputTransfer(
+  profile: LUTColorProfile,
+): TransferFunctionId {
+  if (profile.outputTransfer) return profile.outputTransfer
+
+  if (profile.role === 'display-look') return 'srgb'
+
+  if (
+    profile.role === 'combined-look-output' &&
+    (profile.outputGamut ?? DISPLAY_TARGET_GAMUT) === DISPLAY_TARGET_GAMUT
+  ) {
+    return 'gamma24'
+  }
+
+  return profile.inputTransfer
+}
+
+export function resolveLUTPipelineProfileUniforms(
+  profileResolution?: LUTProfileResolution | null,
+): LUTPipelineProfileUniforms {
+  if (!profileResolution || profileResolution.kind !== 'resolved') {
+    return DISPLAY_PROFILE_UNIFORMS
+  }
+
+  const { profile } = profileResolution
+  if (profile.role === 'display-look') {
+    return {
+      ...DISPLAY_PROFILE_UNIFORMS,
+      lutInputTransfer:
+        LUT_TRANSFER_UNIFORMS[profile.inputTransfer] ??
+        DISPLAY_PROFILE_UNIFORMS.lutInputTransfer,
+      lutOutputTransfer:
+        LUT_TRANSFER_UNIFORMS[profile.outputTransfer ?? 'srgb'] ??
+        DISPLAY_PROFILE_UNIFORMS.lutOutputTransfer,
+      lutInputRange: LUT_RANGE_UNIFORMS[profile.inputRange],
+      lutOutputRange: LUT_RANGE_UNIFORMS[profile.outputRange ?? 'full'],
+    }
+  }
+
+  const outputGamut = profile.outputGamut ?? profile.inputGamut
+  const outputTransfer = resolveLUTOutputTransfer(profile)
+  const lutOutputToDisplayGamut =
+    outputGamut === DISPLAY_TARGET_GAMUT
+      ? mat3Identity()
+      : getLUTOutputToTargetMatrix(outputGamut, DISPLAY_TARGET_GAMUT)
+
+  return {
+    inputToLutGamut: mat3ToGLSL(
+      getLinearProPhotoToGamutMatrix(profile.inputGamut),
+    ),
+    lutOutputToDisplayGamut: mat3ToGLSL(lutOutputToDisplayGamut),
+    lutInputTransfer: LUT_TRANSFER_UNIFORMS[profile.inputTransfer],
+    lutOutputTransfer: LUT_TRANSFER_UNIFORMS[outputTransfer],
+    lutRole: LUT_ROLE_UNIFORMS[profile.role],
+    lutInputRange: LUT_RANGE_UNIFORMS[profile.inputRange],
+    lutOutputRange: LUT_RANGE_UNIFORMS[profile.outputRange ?? 'full'],
+  }
 }
 
 /**
@@ -275,6 +401,19 @@ export class RawProcessingPipeline {
       u_styleKind: gl.getUniformLocation(program, 'u_styleKind'),
       u_builtinPreset: gl.getUniformLocation(program, 'u_builtinPreset'),
       u_lutInputProfile: gl.getUniformLocation(program, 'u_lutInputProfile'),
+      u_inputToLutGamut: gl.getUniformLocation(program, 'u_inputToLutGamut'),
+      u_lutOutputToDisplayGamut: gl.getUniformLocation(
+        program,
+        'u_lutOutputToDisplayGamut',
+      ),
+      u_lutInputTransfer: gl.getUniformLocation(program, 'u_lutInputTransfer'),
+      u_lutOutputTransfer: gl.getUniformLocation(
+        program,
+        'u_lutOutputTransfer',
+      ),
+      u_lutRole: gl.getUniformLocation(program, 'u_lutRole'),
+      u_lutInputRange: gl.getUniformLocation(program, 'u_lutInputRange'),
+      u_lutOutputRange: gl.getUniformLocation(program, 'u_lutOutputRange'),
     }
   }
 
@@ -524,6 +663,36 @@ export class RawProcessingPipeline {
       lutData
         ? LUT_INPUT_PROFILE_UNIFORMS[lutData.inputProfile]
         : LUT_INPUT_PROFILE_UNIFORMS['display-srgb'],
+    )
+    const lutProfileUniforms = resolveLUTPipelineProfileUniforms(
+      lutData?.profileResolution,
+    )
+    gl.uniformMatrix3fv(
+      processUniforms.u_inputToLutGamut,
+      false,
+      lutProfileUniforms.inputToLutGamut,
+    )
+    gl.uniformMatrix3fv(
+      processUniforms.u_lutOutputToDisplayGamut,
+      false,
+      lutProfileUniforms.lutOutputToDisplayGamut,
+    )
+    gl.uniform1i(
+      processUniforms.u_lutInputTransfer,
+      lutProfileUniforms.lutInputTransfer,
+    )
+    gl.uniform1i(
+      processUniforms.u_lutOutputTransfer,
+      lutProfileUniforms.lutOutputTransfer,
+    )
+    gl.uniform1i(processUniforms.u_lutRole, lutProfileUniforms.lutRole)
+    gl.uniform1i(
+      processUniforms.u_lutInputRange,
+      lutProfileUniforms.lutInputRange,
+    )
+    gl.uniform1i(
+      processUniforms.u_lutOutputRange,
+      lutProfileUniforms.lutOutputRange,
     )
 
     // Draw
