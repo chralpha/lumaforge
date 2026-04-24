@@ -2,14 +2,16 @@
 
 Date: 2026-04-23
 
+> 2026-04-24 correction: This document is superseded for native runtime readiness by `docs/specs/2026-04-24-luma-raw-runtime-independent-build-design.md` and `docs/plans/2026-04-24-luma-raw-runtime-independent-build-implementation-plan.md`. The V2 measurements remain historical prototype evidence, but they do not prove an independent Luma runtime because the native build linked against local `LibRaw-Wasm` artifacts and CI did not rebuild wasm from pinned sources.
+
 ## Default Runtime And Dependency Removal
 
-Status: PASS as of 2026-04-24.
+Status: historical prototype PASS only; independent native runtime readiness is blocked until the 2026-04-24 source-build and CI gates pass.
 
 - The app RAW facade now always uses `@lumaforge/luma-raw-runtime`.
 - The npm `libraw-wasm` dependency has been removed from the root app, runtime package benchmark, and lockfile.
 - Legacy benchmark rows in this document are historical V2 baseline evidence only.
-- Live benchmark runs are Luma-only validation runs.
+- Live benchmark runs are Luma-only validation runs, but they must be repeated after the independent native build chain replaces the local `LibRaw-Wasm` baseline.
 
 ## Historical V2 Benchmark Commands
 
@@ -89,7 +91,7 @@ These commands were captured during the V2 benchmark run before the final fallba
 - Luma uses one runtime session per RAW file.
 - Quick output is capped to 2.5MP by default.
 - Heap telemetry is recorded per Luma stage.
-- V2 gate passed; the separate final migration has since made Luma the default runtime and removed the feature-flagged fallback.
+- V2 gate passed for the local prototype; independent runtime readiness must be re-measured after the source-build migration.
 
 ## Raw Benchmark Output
 

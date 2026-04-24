@@ -1,5 +1,7 @@
 # Luma RAW Runtime Performance Optimization Implementation Plan
 
+> 2026-04-24 correction: This document is superseded for native runtime readiness by `docs/specs/2026-04-24-luma-raw-runtime-independent-build-design.md` and `docs/plans/2026-04-24-luma-raw-runtime-independent-build-implementation-plan.md`. The V2 measurements remain historical prototype evidence, but they do not prove an independent Luma runtime because the native build linked against local `LibRaw-Wasm` artifacts and CI did not rebuild wasm from pinned sources.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Turn the current Luma RAW runtime from a functionally correct but slower replacement into a measured performance win by removing repeated file reads/transfers, replacing byte-by-byte JS-to-WASM copies, fixing embedded preview dimensions, capping quick output size, and adding rollout-grade telemetry.

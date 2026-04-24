@@ -1,7 +1,9 @@
 # LumaForge 专用 RAW Runtime 迁移设计
 
+> 2026-04-24 correction: This document is superseded for native runtime readiness by `docs/specs/2026-04-24-luma-raw-runtime-independent-build-design.md` and `docs/plans/2026-04-24-luma-raw-runtime-independent-build-implementation-plan.md`. The V2 measurements remain historical prototype evidence, but they do not prove an independent Luma runtime because the native build linked against local `LibRaw-Wasm` artifacts and CI did not rebuild wasm from pinned sources.
+
 - 日期：2026-04-23
-- 状态：Final migration complete
+- 状态：Superseded for independent native runtime readiness
 - 类型：Phase 1 后续迁移设计
 - 目标包：`packages/luma-raw-runtime`
 - 依赖文档：
@@ -9,7 +11,7 @@
   - `docs/plans/2026-04-22-phase1-browser-raw-mvp-implementation-plan.md`
   - `ACCEPTANCE.md`
 
-> 2026-04-24 update: V2 performance validation passed and the final migration removes the feature-flagged `libraw-wasm` fallback. The app default is now the custom Luma RAW runtime; `libraw-wasm` references below are retained only as historical migration baseline context.
+> 2026-04-24 update: The app integration and V2 performance validation are historical migration evidence. They are not sufficient release evidence for the self-owned runtime until the independent source-build and CI gates pass.
 
 ## 1. 定位
 
