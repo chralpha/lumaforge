@@ -1,6 +1,7 @@
 import type { LUTProfileResolution } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 
+import type { LUTProfileSelectionState } from '../model/session'
 import { BUILTIN_PRESETS } from './builtin-presets'
 
 export function mapIntensityLevel(
@@ -33,6 +34,27 @@ function describeLUTInput(profileResolution: LUTProfileResolution): string {
   }
 
   return 'an unresolved LUT profile'
+}
+
+export function buildLUTProfileSelectionState(
+  lut: ParsedLUT,
+): LUTProfileSelectionState {
+  if (lut.profileResolution.kind === 'needs-user-selection') {
+    return {
+      status: 'pending',
+      fingerprint: lut.fingerprint,
+      title: lut.title,
+      sourceName: lut.sourceName,
+      suggestions: lut.profileResolution.suggestions,
+    }
+  }
+
+  return {
+    status: 'resolved',
+    fingerprint: lut.fingerprint,
+    profileId: lut.profileResolution.profile.id,
+    confidence: lut.profileResolution.confidence,
+  }
 }
 
 export function toCustomStyle(lut: ParsedLUT) {

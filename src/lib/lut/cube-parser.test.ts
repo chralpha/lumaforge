@@ -102,6 +102,54 @@ describe('cube-parser input profiles', () => {
     expect(lut.inputProfile).toBe('display-srgb')
   })
 
+  it('annotates bare BT.709 and BT.1886 output phrases', () => {
+    const bt709 = parseCubeLUT(makeCube({ title: 'Sony technical LUT' }), {
+      sourceName: 'SLog3_SGamut3Cine_BT709.cube',
+    })
+    const bt1886 = parseCubeLUT(makeCube({ title: 'Sony technical LUT' }), {
+      sourceName: 'SLog3_SGamut3Cine_BT.1886.cube',
+    })
+
+    for (const lut of [bt709, bt1886]) {
+      expect(lut.profileResolution).toMatchObject({
+        kind: 'resolved',
+        profile: {
+          id: 'sony-sgamut3cine-slog3',
+          role: 'combined-look-output',
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'gamma24',
+          outputRange: 'full',
+        },
+      })
+    }
+  })
+
+  it('annotates to Linear and to Cineon output phrases conservatively', () => {
+    const linear = parseCubeLUT(makeCube({ title: 'Sony technical LUT' }), {
+      sourceName: 'SLog3_SGamut3Cine_to_Linear.cube',
+    })
+    const cineon = parseCubeLUT(makeCube({ title: 'Sony technical LUT' }), {
+      sourceName: 'SLog3_SGamut3Cine_to_Cineon.cube',
+    })
+
+    expect(linear.profileResolution).toMatchObject({
+      kind: 'resolved',
+      profile: {
+        id: 'sony-sgamut3cine-slog3',
+        role: 'technical-output',
+        outputRange: 'unknown',
+      },
+    })
+    expect(cineon.profileResolution).toMatchObject({
+      kind: 'resolved',
+      profile: {
+        id: 'sony-sgamut3cine-slog3',
+        role: 'combined-look-output',
+        outputRange: 'unknown',
+      },
+    })
+  })
+
   it('accepts scientific notation in LUT data values', () => {
     const lut = parseCubeLUT(`LUT_3D_SIZE 2
 0 0 0

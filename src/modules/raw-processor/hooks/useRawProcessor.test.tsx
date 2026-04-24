@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetToDefaults } from '~/atoms/raw-processor'
 import { jotaiStore } from '~/lib/jotai'
+import { getStoredLUTProfileSelection } from '~/lib/lut/cube-parser'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
 import { currentSessionAtom } from '../state/session.atoms'
@@ -64,6 +65,63 @@ function createDecodedImage(source: 'quick' | 'hq'): DecodedImage {
   }
 }
 
+function createCube(title: string, size = 17) {
+  const lines = [`TITLE "${title}"`, `LUT_3D_SIZE ${size}`, '']
+  const step = 1 / (size - 1)
+
+  for (let b = 0; b < size; b++) {
+    for (let g = 0; g < size; g++) {
+      for (let r = 0; r < size; r++) {
+        lines.push(`${r * step} ${g * step} ${b * step}`)
+      }
+    }
+  }
+
+  return lines.join('\n')
+}
+
+function createCubeFile(title: string, name: string) {
+  const content = createCube(title)
+  return Object.assign(new File([content], name), {
+    text: () => Promise.resolve(content),
+  })
+}
+
+function createTestSession() {
+  return {
+    id: 'session-lut-test',
+    createdAt: 1,
+    sourceFile: {
+      name: 'frame.ARW',
+      extension: 'arw',
+      sizeBytes: 12,
+      supportLevel: 'experimental' as const,
+    },
+    previewBundle: {
+      embeddedPreview: { status: 'idle' as const },
+      quickDecodePreview: { status: 'ready' as const, width: 800, height: 600 },
+      hqImage: { status: 'ready' as const, width: 800, height: 600 },
+      displaySource: 'hq' as const,
+      hqRequiredForExport: true as const,
+    },
+    activeStyle: null,
+    viewState: {
+      mode: 'processed' as const,
+      zoom: 1,
+      panX: 0,
+      panY: 0,
+      fitMode: 'screen' as const,
+    },
+    renderState: { status: 'ready' as const },
+    exportState: {
+      status: 'idle' as const,
+      qualityPreset: 'high' as const,
+      fidelityLevel: 'balanced' as const,
+      retryRecommended: false,
+    },
+  }
+}
+
 function wrapper({ children }: { children: ReactNode }) {
   return <Provider store={jotaiStore}>{children}</Provider>
 }
@@ -84,6 +142,7 @@ describe('useRawProcessor embedded preview state', () => {
     toastMock.success.mockReset()
     toastMock.error.mockReset()
     toastMock.info.mockReset()
+    localStorage.clear()
 
     vi.stubGlobal('URL', {
       createObjectURL: vi.fn(() => 'blob:embedded-preview'),
@@ -105,6 +164,81 @@ describe('useRawProcessor embedded preview state', () => {
       jotaiStore.set(currentSessionAtom, null)
     })
     vi.unstubAllGlobals()
+    localStorage.clear()
+  })
+
+  it('exposes pending LUT profile selection and applies a user-selected profile', async () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadLUT(
+        createCubeFile('Client Secret Sauce', 'unknown-look.cube'),
+      )
+    })
+
+    await waitFor(() => {
+      expect(result.current.lut?.profileResolution).toEqual({
+        kind: 'needs-user-selection',
+        suggestions: [],
+      })
+    })
+    const pendingSelection = {
+      status: 'pending',
+      fingerprint: result.current.lut?.fingerprint,
+      title: 'Client Secret Sauce',
+      sourceName: 'unknown-look.cube',
+      suggestions: [],
+    }
+    expect(result.current.lutProfileSelection).toEqual(pendingSelection)
+    expect(jotaiStore.get(currentSessionAtom)?.lutProfileSelection).toEqual(
+      pendingSelection,
+    )
+
+    act(() => {
+      result.current.selectLUTProfile('sony-sgamut3cine-slog3')
+    })
+
+    await waitFor(() => {
+      expect(result.current.lut?.profileResolution).toMatchObject({
+        kind: 'resolved',
+        confidence: 'user',
+        profile: { id: 'sony-sgamut3cine-slog3' },
+      })
+    })
+    await waitFor(() => {
+      expect(result.current.lutData?.profileResolution).toMatchObject({
+        kind: 'resolved',
+        profile: { id: 'sony-sgamut3cine-slog3' },
+      })
+    })
+    expect(
+      getStoredLUTProfileSelection(result.current.lut!.fingerprint)?.id,
+    ).toBe('sony-sgamut3cine-slog3')
+    expect(result.current.lutProfileSelection).toMatchObject({
+      status: 'resolved',
+      fingerprint: result.current.lut?.fingerprint,
+      profileId: 'sony-sgamut3cine-slog3',
+      confidence: 'user',
+    })
+    expect(jotaiStore.get(currentSessionAtom)).toMatchObject({
+      activeStyle: {
+        kind: 'custom',
+        lutAsset: {
+          profileResolution: {
+            kind: 'resolved',
+            profile: { id: 'sony-sgamut3cine-slog3' },
+          },
+        },
+      },
+      lutProfileSelection: {
+        status: 'resolved',
+        fingerprint: result.current.lut?.fingerprint,
+        profileId: 'sony-sgamut3cine-slog3',
+        confidence: 'user',
+      },
+    })
   })
 
   it('stores embedded object URLs, upgrades display source, and revokes on reset', async () => {

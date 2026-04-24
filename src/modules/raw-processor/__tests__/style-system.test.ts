@@ -4,6 +4,7 @@ import { parseCubeLUT } from '~/lib/lut/cube-parser'
 
 import {
   buildBuiltinStyle,
+  buildLUTProfileSelectionState,
   mapIntensityLevel,
   toCustomStyle,
 } from '../services/style-system'
@@ -70,6 +71,20 @@ describe('style-system', () => {
         kind: 'resolved',
         profile: { id: 'panasonic-vgamut-vlog' },
       },
+    })
+  })
+
+  it('builds a pending LUT profile selection state for unresolved LUTs', () => {
+    const lut = parseCubeLUT(makeCube('Client Secret Sauce'), {
+      sourceName: 'unknown-look.cube',
+    })
+
+    expect(buildLUTProfileSelectionState(lut)).toEqual({
+      status: 'pending',
+      fingerprint: lut.fingerprint,
+      title: 'Client Secret Sauce',
+      sourceName: 'unknown-look.cube',
+      suggestions: [],
     })
   })
 })

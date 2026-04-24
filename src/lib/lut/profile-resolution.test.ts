@@ -43,4 +43,25 @@ describe('lUT profile selection persistence', () => {
       profile: { id: 'sony-sgamut3cine-slog3' },
     })
   })
+
+  it('ignores malformed non-string stored profile IDs without throwing', () => {
+    localStorage.setItem(
+      'lumaforge.lutProfileSelections.v1',
+      JSON.stringify({
+        broken: 42,
+        valid: 'display-srgb',
+      }),
+    )
+
+    expect(getStoredLUTProfileSelection('broken')).toBeUndefined()
+    expect(getStoredLUTProfileSelection('valid')?.id).toBe('display-srgb')
+    expect(() =>
+      resolveLUTProfile({
+        title: 'Panasonic technical LUT',
+        sourceName: 'Panasonic_VLog.cube',
+        comments: [],
+        fingerprint: 'broken',
+      }),
+    ).not.toThrow()
+  })
 })

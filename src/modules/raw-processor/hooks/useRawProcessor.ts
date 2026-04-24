@@ -26,6 +26,7 @@ import type {
 } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import {
+  applyLUTProfileSelection,
   isSupportedLUT,
   parseCubeFile,
   toLUTData,
@@ -41,7 +42,7 @@ import {
   deriveCanExport,
   selectDisplaySource,
 } from '../model/derive-session'
-import type { StyleAsset } from '../model/session'
+import type { LUTProfileSelectionState, StyleAsset } from '../model/session'
 import { BUILTIN_PRESETS } from '../services/builtin-presets'
 import {
   buildExportFilename,
@@ -51,6 +52,7 @@ import {
 import { runPreviewPipeline } from '../services/preview-pipeline'
 import {
   buildBuiltinStyle,
+  buildLUTProfileSelectionState,
   mapIntensityLevel,
   toCustomStyle,
 } from '../services/style-system'
@@ -109,6 +111,7 @@ export interface UseRawProcessorReturn {
   hasImage: boolean
   canExport: boolean
   activeStyle: StyleAsset | null
+  lutProfileSelection: LUTProfileSelectionState | null
   activePresetId: (typeof BUILTIN_PRESETS)[number]['id'] | null
   activeIntensity: 'off' | 'light' | 'standard' | 'strong'
   viewMode: ProcessingParams['viewMode']
@@ -123,6 +126,7 @@ export interface UseRawProcessorReturn {
   // Actions
   loadFile: (file: File) => Promise<void>
   loadLUT: (file: File) => Promise<void>
+  selectLUTProfile: (profileId: string) => void
   selectBuiltinStyle: (id: (typeof BUILTIN_PRESETS)[number]['id']) => void
   selectIntensityLevel: (level: 'off' | 'light' | 'standard' | 'strong') => void
   setViewMode: (mode: ProcessingParams['viewMode']) => void
@@ -172,6 +176,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const hasImage = session ? deriveCanEdit(session) : false
   const canExport = session ? deriveCanExport(session) : false
   const activeStyle = session?.activeStyle || null
+  const lutProfileSelection = session?.lutProfileSelection || null
   const activePresetId =
     activeStyle?.kind === 'builtin'
       ? (BUILTIN_PRESETS.find((preset) => preset.name === activeStyle.name)
@@ -714,9 +719,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
           return
         }
 
-        setLut(parsed)
         const style = toCustomStyle(parsed)
-        setActiveStyle(style)
+        setLut(parsed)
+        setSession((prev) =>
+          prev
+            ? {
+                ...prev,
+                activeStyle: style,
+                lutProfileSelection: buildLUTProfileSelectionState(parsed),
+              }
+            : prev,
+        )
         setParams((prev) => ({
           ...prev,
           styleKind: 'custom',
@@ -747,7 +760,52 @@ export function useRawProcessor(): UseRawProcessorReturn {
         toast.error('Failed to load LUT', { description: message })
       }
     },
-    [setActiveStyle, setLut, setParams, setSession],
+    [setLut, setParams, setSession],
+  )
+
+  const selectLUTProfile = useCallback(
+    (profileId: string) => {
+      if (!lut) {
+        toast.error('No LUT loaded')
+        return
+      }
+
+      const updatedLut = applyLUTProfileSelection(lut, profileId)
+      if (!updatedLut) {
+        toast.error('Unknown LUT profile', {
+          description: profileId,
+        })
+        return
+      }
+
+      const baseStyle = toCustomStyle(updatedLut)
+      const currentIntensityLevel =
+        activeStyle?.kind === 'custom'
+          ? activeStyle.currentIntensityLevel
+          : baseStyle.currentIntensityLevel
+      const style = {
+        ...baseStyle,
+        currentIntensityLevel,
+      }
+
+      setLut(updatedLut)
+      setSession((prev) =>
+        prev
+          ? {
+              ...prev,
+              activeStyle: style,
+              lutProfileSelection: buildLUTProfileSelectionState(updatedLut),
+            }
+          : prev,
+      )
+      setParams((prev) => ({
+        ...prev,
+        styleKind: 'custom',
+        builtinPreset: null,
+        intensity: mapIntensityLevel(currentIntensityLevel),
+      }))
+    },
+    [activeStyle, lut, setLut, setParams, setSession],
   )
 
   const selectBuiltinStyle = useCallback(
@@ -756,6 +814,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
       setLut(null)
       setLutData(null)
       setActiveStyle(style)
+      setSession((prev) =>
+        prev
+          ? {
+              ...prev,
+              lutProfileSelection: undefined,
+            }
+          : prev,
+      )
       setParams((prev) => ({
         ...prev,
         styleKind: 'builtin',
@@ -763,7 +829,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         intensity: mapIntensityLevel(style.defaultIntensityLevel),
       }))
     },
-    [setActiveStyle, setLut, setParams],
+    [setActiveStyle, setLut, setParams, setSession],
   )
 
   const selectIntensityLevel = useCallback(
@@ -811,13 +877,21 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setLut(null)
     setLutData(null)
     setActiveStyle(null)
+    setSession((prev) =>
+      prev
+        ? {
+            ...prev,
+            lutProfileSelection: undefined,
+          }
+        : prev,
+    )
     setParams((prev) => ({
       ...prev,
       styleKind: 'none',
       builtinPreset: null,
     }))
     toast.info('LUT cleared')
-  }, [setActiveStyle, setLut, setParams])
+  }, [setActiveStyle, setLut, setParams, setSession])
 
   // Update params
   const handleSetParams = useCallback(
@@ -1005,6 +1079,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     hasImage,
     canExport,
     activeStyle,
+    lutProfileSelection,
     activePresetId,
     activeIntensity,
     viewMode,
@@ -1017,6 +1092,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     displaySource,
     loadFile,
     loadLUT,
+    selectLUTProfile,
     selectBuiltinStyle,
     selectIntensityLevel,
     setViewMode,

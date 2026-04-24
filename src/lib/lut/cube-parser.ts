@@ -108,7 +108,11 @@ function readStoredLUTProfileSelections(): Record<string, string> {
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       return {}
     }
-    return parsed as Record<string, string>
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string',
+      ),
+    )
   } catch {
     return {}
   }
@@ -148,6 +152,26 @@ export function storeLUTProfileSelection(
   })
 
   return profile
+}
+
+export function applyLUTProfileSelection(
+  lut: ParsedLUT,
+  profileId: string,
+): ParsedLUT | undefined {
+  const profile = storeLUTProfileSelection(lut.fingerprint, profileId)
+  if (!profile) return undefined
+
+  const profileResolution: LUTProfileResolution = {
+    kind: 'resolved',
+    confidence: 'user',
+    profile: annotateProfileOutput(profile, buildProfileSignature(lut)),
+  }
+
+  return {
+    ...lut,
+    profileResolution,
+    inputProfile: toCompatInputProfile(profileResolution),
+  }
 }
 
 function extractCubeComments(content: string): string[] {
@@ -259,10 +283,18 @@ function inferOutputAnnotation(
 
   if (
     /\b(?:to|for)\s+(?:rec\s*709|bt\s*709|bt\s*1886)\b/.test(normalized) ||
+    /\b(?:bt\s*709|bt\s*1886)\b/.test(normalized) ||
     /\b(?:lc\s*709|709\s+type\s+a|wide\s*dr)\b/.test(normalized) ||
-    ['torec709', 'tobt709', 'tobt1886', 'lc709', '709typea', 'widedr'].some(
-      (marker) => compact.includes(marker),
-    )
+    [
+      'torec709',
+      'tobt709',
+      'tobt1886',
+      'bt709',
+      'bt1886',
+      'lc709',
+      '709typea',
+      'widedr',
+    ].some((marker) => compact.includes(marker))
   ) {
     return {
       role: 'combined-look-output',

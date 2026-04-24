@@ -1,3 +1,4 @@
+import type { LUTColorProfile } from '~/lib/color/registry'
 import type { LUTInputProfile, LUTProfileResolution } from '~/lib/gl/pipeline'
 
 export type SupportLevel = 'official' | 'experimental' | 'unsupported'
@@ -5,6 +6,24 @@ export type PreviewStatus = 'idle' | 'loading' | 'ready' | 'failed'
 export type DisplaySource = 'embedded' | 'quick' | 'hq' | 'none'
 export type IntensityLevel = 'off' | 'light' | 'standard' | 'strong'
 export type ExportFidelity = 'safe' | 'balanced' | 'max'
+
+export type LUTProfileSelectionState =
+  | {
+      status: 'pending'
+      fingerprint: string
+      title: string
+      sourceName?: string
+      suggestions: LUTColorProfile[]
+    }
+  | {
+      status: 'resolved'
+      fingerprint: string
+      profileId: string
+      confidence: Extract<
+        LUTProfileResolution,
+        { kind: 'resolved' }
+      >['confidence']
+    }
 
 export type PreviewAsset = {
   status: PreviewStatus
@@ -62,6 +81,7 @@ export type ImageSession = {
   }
   previewBundle: PreviewBundle
   activeStyle: StyleAsset | null
+  lutProfileSelection?: LUTProfileSelectionState
   viewState: {
     mode: 'processed' | 'original'
     zoom: number
