@@ -106,6 +106,66 @@ size_t checkedMultiply(size_t left, size_t right, const std::string &label) {
   return left * right;
 }
 
+std::string cfaPatternName(LibRaw &processor) {
+  const int top_left = processor.COLOR(0, 0);
+  const int top_right = processor.COLOR(0, 1);
+  const int bottom_left = processor.COLOR(1, 0);
+  const int bottom_right = processor.COLOR(1, 1);
+
+  if (top_left == 0 && top_right == 1 && bottom_left == 1 &&
+      bottom_right == 2) {
+    return "rggb";
+  }
+  if (top_left == 2 && top_right == 1 && bottom_left == 1 &&
+      bottom_right == 0) {
+    return "bggr";
+  }
+  if (top_left == 1 && top_right == 0 && bottom_left == 2 &&
+      bottom_right == 1) {
+    return "grbg";
+  }
+  if (top_left == 1 && top_right == 2 && bottom_left == 0 &&
+      bottom_right == 1) {
+    return "gbrg";
+  }
+
+  return "unsupported";
+}
+
+bool hasBayerRawImage(const libraw_data_t &imgdata) {
+  return imgdata.rawdata.raw_image != nullptr && imgdata.idata.filters != 0;
+}
+
+val cfaObject(const std::string &pattern) {
+  val cfa = val::object();
+  cfa.set("pattern", pattern);
+  cfa.set("xPhase", 0);
+  cfa.set("yPhase", 0);
+  return cfa;
+}
+
+val unsupportedCapability(const libraw_data_t &imgdata,
+                          const std::string &reason) {
+  const libraw_image_sizes_t &sizes = imgdata.sizes;
+  const libraw_colordata_t &color = imgdata.color;
+
+  val reasons = val::array();
+  reasons.set(0, reason);
+
+  val capability = val::object();
+  capability.set("supported", false);
+  capability.set("width", sizes.width);
+  capability.set("height", sizes.height);
+  capability.set("rawWidth", sizes.raw_width);
+  capability.set("rawHeight", sizes.raw_height);
+  capability.set("cfa", cfaObject("unsupported"));
+  capability.set("blackLevel", color.black);
+  capability.set("whiteLevel", color.maximum);
+  capability.set("orientation", sizes.flip);
+  capability.set("reasons", reasons);
+  return capability;
+}
+
 OutputSize planOutputSize(int width, int height, int max_pixels) {
   if (max_pixels <= 0 || static_cast<double>(width) * height <= max_pixels) {
     return {width, height};
@@ -265,6 +325,88 @@ class LumaRawProcessor {
     return decodeImage(maxOutputPixelsFromOptions(options));
   }
 
+  val probeExportCapability() {
+    requireLibRawSuccess("LibRaw unpack", processor_.unpack());
+    const libraw_data_t &imgdata = processor_.imgdata;
+    const libraw_image_sizes_t &sizes = imgdata.sizes;
+    const libraw_colordata_t &color = imgdata.color;
+
+    if (sizes.width <= 0 || sizes.height <= 0 || sizes.raw_width <= 0 ||
+        sizes.raw_height <= 0) {
+      return unsupportedCapability(imgdata, "missing-dimensions");
+    }
+    if (color.maximum <= color.black) {
+      return unsupportedCapability(imgdata, "missing-levels");
+    }
+    if (!hasBayerRawImage(imgdata)) {
+      return unsupportedCapability(imgdata, "raw-window-unavailable");
+    }
+
+    const std::string pattern = cfaPatternName(processor_);
+    if (pattern == "unsupported") {
+      return unsupportedCapability(imgdata, "unsupported-cfa");
+    }
+
+    val reasons = val::array();
+    val capability = val::object();
+    capability.set("supported", true);
+    capability.set("width", sizes.width);
+    capability.set("height", sizes.height);
+    capability.set("rawWidth", sizes.raw_width);
+    capability.set("rawHeight", sizes.raw_height);
+    capability.set("cfa", cfaObject(pattern));
+    capability.set("blackLevel", color.black);
+    capability.set("whiteLevel", color.maximum);
+    capability.set("orientation", sizes.flip);
+    capability.set("reasons", reasons);
+    return capability;
+  }
+
+  val readRawWindow(val rect) {
+    requireLibRawSuccess("LibRaw unpack", processor_.unpack());
+    const libraw_data_t &imgdata = processor_.imgdata;
+    const libraw_image_sizes_t &sizes = imgdata.sizes;
+    const libraw_colordata_t &color = imgdata.color;
+
+    if (!hasBayerRawImage(imgdata)) {
+      throw std::runtime_error("LibRaw raw-window access is unavailable.");
+    }
+
+    const int x = rect["x"].as<int>();
+    const int y = rect["y"].as<int>();
+    const int width = rect["width"].as<int>();
+    const int height = rect["height"].as<int>();
+    if (x < 0 || y < 0 || width <= 0 || height <= 0 ||
+        x + width > sizes.raw_width || y + height > sizes.raw_height) {
+      throw std::runtime_error("RAW window rect is outside the RAW bounds.");
+    }
+
+    const uint16_t *source = imgdata.rawdata.raw_image;
+    std::vector<uint16_t> window(
+        checkedMultiply(static_cast<size_t>(width), static_cast<size_t>(height),
+                        "RAW window pixel count"));
+
+    for (int row = 0; row < height; ++row) {
+      const size_t src = static_cast<size_t>(y + row) * sizes.raw_width + x;
+      const size_t dst = static_cast<size_t>(row) * width;
+      std::copy(source + src, source + src + width, window.data() + dst);
+    }
+
+    val out_rect = val::object();
+    out_rect.set("x", x);
+    out_rect.set("y", y);
+    out_rect.set("width", width);
+    out_rect.set("height", height);
+
+    val output = val::object();
+    output.set("rect", out_rect);
+    output.set("cfa", cfaObject(cfaPatternName(processor_)));
+    output.set("data", copiedUint16Array(window.data(), window.size()));
+    output.set("blackLevel", color.black);
+    output.set("whiteLevel", color.maximum);
+    return output;
+  }
+
  private:
   void applySettings(val settings) {
     libraw_output_params_t &params = processor_.imgdata.params;
@@ -389,6 +531,9 @@ EMSCRIPTEN_BINDINGS(luma_raw_runtime) {
       .function("openBuffer", &LumaRawProcessor::openBuffer)
       .function("readMetadata", &LumaRawProcessor::readMetadata)
       .function("extractThumbnail", &LumaRawProcessor::extractThumbnail)
+      .function("probeExportCapability",
+                &LumaRawProcessor::probeExportCapability)
+      .function("readRawWindow", &LumaRawProcessor::readRawWindow)
       .function("decodePreview", &LumaRawProcessor::decodePreview)
       .function("decodeHq", &LumaRawProcessor::decodeHq);
 }

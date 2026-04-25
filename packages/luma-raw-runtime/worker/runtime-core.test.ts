@@ -504,6 +504,149 @@ describe('runtime-core', () => {
     expect(disposeCount).toBe(1)
   })
 
+  it('passes through native raw-window capability and window payloads', async () => {
+    const nativeCapability = {
+      supported: true,
+      width: 4,
+      height: 4,
+      rawWidth: 4,
+      rawHeight: 4,
+      cfa: { pattern: 'rggb' as const, xPhase: 0 as const, yPhase: 0 as const },
+      blackLevel: 64,
+      whiteLevel: 1023,
+      orientation: 1,
+      reasons: [],
+    }
+
+    const nativeWindow = {
+      rect: { x: 0, y: 0, width: 2, height: 2 },
+      cfa: nativeCapability.cfa,
+      data: new Uint16Array([100, 200, 300, 400]),
+      blackLevel: 64,
+      whiteLevel: 1023,
+    }
+
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+        return {
+          ...processor,
+          probeExportCapability() {
+            return nativeCapability
+          },
+          readRawWindow(rect) {
+            expect(rect).toEqual(nativeWindow.rect)
+            return nativeWindow
+          },
+        }
+      },
+    })
+
+    const open = await core.handleRequest({
+      id: 'job-window-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(open.ok && open.type === 'openSession').toBe(true)
+    if (!open.ok || open.type !== 'openSession') return
+
+    const sessionId = open.payload.sessionId
+    const capability = await core.handleRequest({
+      id: 'job-window-capability',
+      type: 'probeExportCapabilityFromSession',
+      payload: { sessionId },
+    })
+    const window = await core.handleRequest({
+      id: 'job-window-read',
+      type: 'readRawWindowFromSession',
+      payload: { sessionId, rect: nativeWindow.rect },
+    })
+
+    expect(capability).toMatchObject({
+      ok: true,
+      type: 'probeExportCapabilityFromSession',
+    })
+    expect(window).toMatchObject({
+      ok: true,
+      type: 'readRawWindowFromSession',
+    })
+    if (
+      !capability.ok ||
+      capability.type !== 'probeExportCapabilityFromSession' ||
+      !window.ok ||
+      window.type !== 'readRawWindowFromSession'
+    ) {
+      return
+    }
+
+    expect(capability.payload).toEqual(nativeCapability)
+    expect(window.payload).toEqual(nativeWindow)
+  })
+
+  it('falls back closed when native raw-window support is unavailable', async () => {
+    const core = createRuntimeCore(makeNativeFactory())
+
+    const open = await core.handleRequest({
+      id: 'job-window-unsupported-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+
+    expect(open.ok && open.type === 'openSession').toBe(true)
+    if (!open.ok || open.type !== 'openSession') return
+
+    const sessionId = open.payload.sessionId
+    const capability = await core.handleRequest({
+      id: 'job-window-unsupported-capability',
+      type: 'probeExportCapabilityFromSession',
+      payload: { sessionId },
+    })
+    const window = await core.handleRequest({
+      id: 'job-window-unsupported-read',
+      type: 'readRawWindowFromSession',
+      payload: {
+        sessionId,
+        rect: { x: 0, y: 0, width: 2, height: 2 },
+      },
+    })
+
+    expect(capability).toEqual({
+      id: 'job-window-unsupported-capability',
+      ok: true,
+      type: 'probeExportCapabilityFromSession',
+      payload: {
+        supported: false,
+        width: 0,
+        height: 0,
+        rawWidth: 0,
+        rawHeight: 0,
+        cfa: { pattern: 'unsupported', xPhase: 0, yPhase: 0 },
+        blackLevel: 0,
+        whiteLevel: 0,
+        orientation: 1,
+        reasons: ['raw-window-unavailable'],
+      },
+    })
+    expect(window).toEqual({
+      id: 'job-window-unsupported-read',
+      ok: false,
+      type: 'readRawWindowFromSession',
+      error: {
+        code: 'RAW_UNSUPPORTED_FORMAT',
+        message: 'RAW runtime raw-window access is unavailable for this source.',
+      },
+    })
+  })
+
   it('passes quick maxOutputPixels to native decodePreview', async () => {
     let receivedMaxOutputPixels: number | undefined
 
