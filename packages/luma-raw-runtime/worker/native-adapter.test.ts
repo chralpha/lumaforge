@@ -177,7 +177,13 @@ describe('native-adapter', () => {
         blackLevel: 512,
         whiteLevel: 16383,
         orientation: 3,
-        reasons: ['unsupported-cfa', 'unexpected-native-reason'],
+        reasons: [
+          'unsupported-cfa',
+          'compressed-raw-window-unavailable',
+          'missing-dimensions',
+          'missing-levels',
+          'unexpected-native-reason',
+        ],
       },
     })
 
@@ -191,7 +197,12 @@ describe('native-adapter', () => {
       blackLevel: 512,
       whiteLevel: 16383,
       orientation: 3,
-      reasons: ['unsupported-cfa'],
+      reasons: [
+        'unsupported-cfa',
+        'compressed-raw-window-unavailable',
+        'missing-dimensions',
+        'missing-levels',
+      ],
     })
   })
 
@@ -204,6 +215,7 @@ describe('native-adapter', () => {
         rawWidth: 6048,
         rawHeight: 4024,
         cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+        blackLevel: 512,
         whiteLevel: 16383,
       },
     })
@@ -231,7 +243,7 @@ describe('native-adapter', () => {
       blackLevel: 0,
       whiteLevel: 16383,
       orientation: 1,
-      reasons: ['unsupported-source'],
+      reasons: ['missing-dimensions'],
     })
     expect(invalidLevels.probeExportCapability?.()).toEqual({
       supported: false,
@@ -243,7 +255,7 @@ describe('native-adapter', () => {
       blackLevel: 0,
       whiteLevel: 16383,
       orientation: 1,
-      reasons: ['raw-window-unavailable', 'unsupported-source'],
+      reasons: ['raw-window-unavailable', 'missing-levels'],
     })
   })
 

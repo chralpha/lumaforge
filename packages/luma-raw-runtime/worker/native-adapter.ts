@@ -351,7 +351,9 @@ function normalizeUnsupportedReasons(
       reason === 'unsupported-source' ||
       reason === 'unsupported-cfa' ||
       reason === 'compressed-raw-window-unavailable' ||
-      reason === 'raw-window-unavailable',
+      reason === 'raw-window-unavailable' ||
+      reason === 'missing-dimensions' ||
+      reason === 'missing-levels',
   )
 
   return [...new Set(reasons)]
@@ -379,12 +381,15 @@ function normalizeExportCapability(value: unknown): LumaRawExportCapability {
     width <= 0 ||
     height <= 0 ||
     rawWidth <= 0 ||
-    rawHeight <= 0 ||
-    blackLevel === undefined ||
-    whiteLevel === undefined
+    rawHeight <= 0
   ) {
     supported = false
-    reasons.add('unsupported-source')
+    reasons.add('missing-dimensions')
+  }
+
+  if (blackLevel === undefined || whiteLevel === undefined) {
+    supported = false
+    reasons.add('missing-levels')
   }
 
   return {
