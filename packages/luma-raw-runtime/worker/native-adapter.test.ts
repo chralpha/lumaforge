@@ -177,11 +177,12 @@ describe('native-adapter', () => {
         blackLevel: 512,
         whiteLevel: 16383,
         orientation: 3,
+        reasons: ['unsupported-cfa', 'unexpected-native-reason'],
       },
     })
 
     expect(processor.probeExportCapability?.()).toEqual({
-      supported: true,
+      supported: false,
       width: 6000,
       height: 4000,
       rawWidth: 6048,
@@ -190,7 +191,59 @@ describe('native-adapter', () => {
       blackLevel: 512,
       whiteLevel: 16383,
       orientation: 3,
-      reasons: [],
+      reasons: ['unsupported-cfa'],
+    })
+  })
+
+  it('downgrades malformed supported export capability payloads to unsupported', () => {
+    const missingRequiredFields = createProcessor({
+      exportCapability: {
+        supported: true,
+        width: 0,
+        height: 4000,
+        rawWidth: 6048,
+        rawHeight: 4024,
+        cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+        whiteLevel: 16383,
+      },
+    })
+    const invalidLevels = createProcessor({
+      exportCapability: {
+        supported: true,
+        width: 6000,
+        height: 4000,
+        rawWidth: 6048,
+        rawHeight: 4024,
+        cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+        blackLevel: Number.NaN,
+        whiteLevel: 16383,
+        reasons: ['raw-window-unavailable', 'bogus'],
+      },
+    })
+
+    expect(missingRequiredFields.probeExportCapability?.()).toEqual({
+      supported: false,
+      width: 0,
+      height: 4000,
+      rawWidth: 6048,
+      rawHeight: 4024,
+      cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+      blackLevel: 0,
+      whiteLevel: 16383,
+      orientation: 1,
+      reasons: ['unsupported-source'],
+    })
+    expect(invalidLevels.probeExportCapability?.()).toEqual({
+      supported: false,
+      width: 6000,
+      height: 4000,
+      rawWidth: 6048,
+      rawHeight: 4024,
+      cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+      blackLevel: 0,
+      whiteLevel: 16383,
+      orientation: 1,
+      reasons: ['raw-window-unavailable', 'unsupported-source'],
     })
   })
 

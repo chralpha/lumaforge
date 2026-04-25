@@ -1,5 +1,6 @@
 import type {
   LumaRawExportCapability,
+  LumaRawExportUnsupportedReason,
   LumaRawWindow,
   LumaRawWindowRect,
 } from '../src/types'
@@ -92,6 +93,28 @@ function asFiniteNumber(value: unknown, label: string) {
   }
 
   return value
+}
+
+function asFiniteNumberOrUndefined(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function asNonNegativeIntegerOrUndefined(value: unknown) {
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    Number.isInteger(value) &&
+    value >= 0
+    ? value
+    : undefined
+}
+
+function asPositiveIntegerOrUndefined(value: unknown) {
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    Number.isInteger(value) &&
+    value > 0
+    ? value
+    : undefined
 }
 
 function asOptionalThumbnailDimension(value: unknown, label: string) {
@@ -316,41 +339,65 @@ function normalizeCfa(value: unknown) {
   } as const
 }
 
+function normalizeUnsupportedReasons(
+  value: unknown,
+): LumaRawExportUnsupportedReason[] {
+  if (!Array.isArray(value)) return []
+
+  const reasons = value.filter(
+    (
+      reason,
+    ): reason is LumaRawExportUnsupportedReason =>
+      reason === 'unsupported-source' ||
+      reason === 'unsupported-cfa' ||
+      reason === 'compressed-raw-window-unavailable' ||
+      reason === 'raw-window-unavailable',
+  )
+
+  return [...new Set(reasons)]
+}
+
 function normalizeExportCapability(value: unknown): LumaRawExportCapability {
   const raw = asRecord(value)
+  const width = asNonNegativeIntegerOrUndefined(raw.width) ?? 0
+  const height = asNonNegativeIntegerOrUndefined(raw.height) ?? 0
+  const rawWidth = asNonNegativeIntegerOrUndefined(raw.rawWidth) ?? 0
+  const rawHeight = asNonNegativeIntegerOrUndefined(raw.rawHeight) ?? 0
+  const cfa = normalizeCfa(raw.cfa)
+  const blackLevel = asFiniteNumberOrUndefined(raw.blackLevel)
+  const whiteLevel = asFiniteNumberOrUndefined(raw.whiteLevel)
+  const normalizedReasons = normalizeUnsupportedReasons(raw.reasons)
+  const reasons = new Set<LumaRawExportUnsupportedReason>(normalizedReasons)
+  let supported = raw.supported === true
+
+  if (cfa.pattern === 'unsupported') {
+    supported = false
+    reasons.add('unsupported-cfa')
+  }
+
+  if (
+    width <= 0 ||
+    height <= 0 ||
+    rawWidth <= 0 ||
+    rawHeight <= 0 ||
+    blackLevel === undefined ||
+    whiteLevel === undefined
+  ) {
+    supported = false
+    reasons.add('unsupported-source')
+  }
 
   return {
-    supported: raw.supported === true,
-    width:
-      raw.width === undefined ? 0 : asNonNegativeInteger(raw.width, 'width'),
-    height:
-      raw.height === undefined ? 0 : asNonNegativeInteger(raw.height, 'height'),
-    rawWidth:
-      raw.rawWidth === undefined
-        ? 0
-        : asNonNegativeInteger(raw.rawWidth, 'rawWidth'),
-    rawHeight:
-      raw.rawHeight === undefined
-        ? 0
-        : asNonNegativeInteger(raw.rawHeight, 'rawHeight'),
-    cfa: normalizeCfa(raw.cfa),
-    blackLevel:
-      raw.blackLevel === undefined
-        ? 0
-        : asFiniteNumber(raw.blackLevel, 'blackLevel'),
-    whiteLevel:
-      raw.whiteLevel === undefined
-        ? 0
-        : asFiniteNumber(raw.whiteLevel, 'whiteLevel'),
-    orientation:
-      raw.orientation === undefined
-        ? 1
-        : asPositiveInteger(raw.orientation, 'orientation'),
-    reasons:
-      Array.isArray(raw.reasons) &&
-      raw.reasons.every((reason) => typeof reason === 'string')
-        ? [...raw.reasons]
-        : [],
+    supported,
+    width,
+    height,
+    rawWidth,
+    rawHeight,
+    cfa,
+    blackLevel: blackLevel ?? 0,
+    whiteLevel: whiteLevel ?? 0,
+    orientation: asPositiveIntegerOrUndefined(raw.orientation) ?? 1,
+    reasons: [...reasons],
   }
 }
 
