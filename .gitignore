@@ -4,6 +4,9 @@ dist
 dist-ssr
 *.local
 
+.worktrees/
+worktrees/
+
 generated-routes.ts
 packages/luma-raw-runtime/native/.cache/
 packages/luma-raw-runtime/native/vendor/

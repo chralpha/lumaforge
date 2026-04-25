@@ -31,11 +31,26 @@ pnpm dev
 pnpm dev          # Start development server (localhost:5173)
 pnpm build        # Build for production (TypeScript check + Vite build)
 pnpm serve        # Preview production build
+pnpm worktree <branch-name> # Create a project-local worktree under .worktrees
 
 # Code Quality
 pnpm lint         # Run ESLint with auto-fix
 pnpm format       # Format TypeScript files with Prettier
 ```
+
+### Worktree Layout
+
+Use a local `.worktrees` directory for all feature branches to keep branches grouped in-repo and avoid global worktree sprawl.
+
+```bash
+# Create a new branch in a dedicated local worktree
+pnpm worktree feature/my-task
+
+# Enter the new worktree
+cd .worktrees/feature/my-task
+```
+
+`CLAUDE.md` in this repository declares `.worktrees` as the preferred worktree directory so Superpowers tooling can follow the same convention.
 
 ### Development Server Features
 
