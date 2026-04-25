@@ -1,4 +1,9 @@
 import type {
+  LumaRawExportCapability,
+  LumaRawWindow,
+  LumaRawWindowRect,
+} from '../src/types'
+import type {
   LumaRawNativeDecodeOptions,
   LumaRawNativeFactory,
   LumaRawNativeOpenSettings,
@@ -12,6 +17,8 @@ type EmbindProcessor = {
   openBuffer: (data: Uint8Array, settings: LumaRawNativeOpenSettings) => unknown
   readMetadata: () => unknown
   extractThumbnail: () => unknown
+  probeExportCapability?: () => unknown
+  readRawWindow?: (rect: LumaRawWindowRect) => unknown
   decodePreview: (options?: LumaRawNativeDecodeOptions) => unknown
   decodeHq: (options?: LumaRawNativeDecodeOptions) => unknown
   delete?: () => void
@@ -23,6 +30,13 @@ type EmbindModule = {
 }
 
 type NativeThumbnailFormat = 'jpeg' | 'bitmap' | 'unknown'
+type NativeCfaPattern =
+  | 'x-trans'
+  | 'rggb'
+  | 'bggr'
+  | 'grbg'
+  | 'gbrg'
+  | 'unsupported'
 
 const maxNativeOutputPixels = 2_147_483_647
 
@@ -54,6 +68,27 @@ function asPositiveInteger(value: unknown, label: string) {
     value <= 0
   ) {
     throw new TypeError(`Native RAW image returned invalid ${label}.`)
+  }
+
+  return value
+}
+
+function asNonNegativeInteger(value: unknown, label: string) {
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 0
+  ) {
+    throw new TypeError(`Native RAW ${label} returned invalid ${label}.`)
+  }
+
+  return value
+}
+
+function asFiniteNumber(value: unknown, label: string) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(`Native RAW ${label} returned invalid ${label}.`)
   }
 
   return value
@@ -255,6 +290,108 @@ function normalizeImage(value: unknown) {
   }
 }
 
+function clampPhase(value: unknown) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 0
+  }
+
+  return Math.max(0, Math.min(5, Math.trunc(value)))
+}
+
+function normalizeCfa(value: unknown) {
+  const raw = asRecord(value)
+  const pattern: NativeCfaPattern =
+    raw.pattern === 'x-trans' ||
+    raw.pattern === 'rggb' ||
+    raw.pattern === 'bggr' ||
+    raw.pattern === 'grbg' ||
+    raw.pattern === 'gbrg'
+      ? raw.pattern
+      : 'unsupported'
+
+  return {
+    pattern,
+    xPhase: clampPhase(raw.xPhase),
+    yPhase: clampPhase(raw.yPhase),
+  } as const
+}
+
+function normalizeExportCapability(value: unknown): LumaRawExportCapability {
+  const raw = asRecord(value)
+
+  return {
+    supported: raw.supported === true,
+    width:
+      raw.width === undefined ? 0 : asNonNegativeInteger(raw.width, 'width'),
+    height:
+      raw.height === undefined ? 0 : asNonNegativeInteger(raw.height, 'height'),
+    rawWidth:
+      raw.rawWidth === undefined
+        ? 0
+        : asNonNegativeInteger(raw.rawWidth, 'rawWidth'),
+    rawHeight:
+      raw.rawHeight === undefined
+        ? 0
+        : asNonNegativeInteger(raw.rawHeight, 'rawHeight'),
+    cfa: normalizeCfa(raw.cfa),
+    blackLevel:
+      raw.blackLevel === undefined
+        ? 0
+        : asFiniteNumber(raw.blackLevel, 'blackLevel'),
+    whiteLevel:
+      raw.whiteLevel === undefined
+        ? 0
+        : asFiniteNumber(raw.whiteLevel, 'whiteLevel'),
+    orientation:
+      raw.orientation === undefined
+        ? 1
+        : asPositiveInteger(raw.orientation, 'orientation'),
+    reasons:
+      Array.isArray(raw.reasons) &&
+      raw.reasons.every((reason) => typeof reason === 'string')
+        ? [...raw.reasons]
+        : [],
+  }
+}
+
+function normalizeWindowRect(value: unknown): LumaRawWindowRect {
+  const raw = asRecord(value)
+
+  return {
+    x: asNonNegativeInteger(raw.x, 'x'),
+    y: asNonNegativeInteger(raw.y, 'y'),
+    width: asPositiveInteger(raw.width, 'width'),
+    height: asPositiveInteger(raw.height, 'height'),
+  }
+}
+
+function normalizeRawWindow(value: unknown): LumaRawWindow {
+  const raw = asRecord(value)
+  const rect = normalizeWindowRect(raw.rect)
+
+  if (!(raw.data instanceof Uint16Array)) {
+    throw new TypeError('Native RAW raw-window did not return Uint16Array data.')
+  }
+
+  const expectedLength = rect.width * rect.height
+  if (!Number.isSafeInteger(expectedLength)) {
+    throw new TypeError('Native RAW raw-window dimensions are too large.')
+  }
+  if (raw.data.length !== expectedLength) {
+    throw new TypeError(
+      'Native RAW raw-window data length does not match rect dimensions.',
+    )
+  }
+
+  return {
+    rect,
+    cfa: normalizeCfa(raw.cfa),
+    data: normalizeUint16Output(raw.data, 'raw-window'),
+    blackLevel: asFiniteNumber(raw.blackLevel, 'blackLevel'),
+    whiteLevel: asFiniteNumber(raw.whiteLevel, 'whiteLevel'),
+  }
+}
+
 export function createNativeFactory(
   module: EmbindModule,
 ): LumaRawNativeFactory {
@@ -289,6 +426,31 @@ export function createNativeFactory(
         },
         extractThumbnail() {
           return normalizeThumbnail(processor.extractThumbnail())
+        },
+        probeExportCapability() {
+          if (!processor.probeExportCapability) {
+            return {
+              supported: false,
+              width: 0,
+              height: 0,
+              rawWidth: 0,
+              rawHeight: 0,
+              cfa: { pattern: 'unsupported', xPhase: 0, yPhase: 0 },
+              blackLevel: 0,
+              whiteLevel: 0,
+              orientation: 1,
+              reasons: ['raw-window-unavailable'],
+            }
+          }
+
+          return normalizeExportCapability(processor.probeExportCapability())
+        },
+        readRawWindow(rect) {
+          if (!processor.readRawWindow) {
+            throw new TypeError('Native RAW raw-window access is unavailable.')
+          }
+
+          return normalizeRawWindow(processor.readRawWindow(rect))
         },
         decodePreview(options) {
           return normalizeImage(

@@ -230,6 +230,22 @@ export function createLumaRawRuntime(
           stageSignal,
         )
       },
+      probeExportCapability(stageSignal?: AbortSignal) {
+        return client.request(
+          'probeExportCapabilityFromSession',
+          { sessionId: sessionInfo.sessionId },
+          [],
+          stageSignal,
+        )
+      },
+      readRawWindow(rect, stageSignal?: AbortSignal) {
+        return client.request(
+          'readRawWindowFromSession',
+          { sessionId: sessionInfo.sessionId, rect },
+          [],
+          stageSignal,
+        )
+      },
       decodeQuick(
         stageOptions: LumaRawQuickOptions = options,
         stageSignal?: AbortSignal,

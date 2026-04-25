@@ -251,11 +251,24 @@ class EchoWorker {
   constructor(
     private readonly handleRequest: (
       request: LumaRawWorkerRequest,
-    ) => LumaRawWorkerResponse,
+    ) => LumaRawWorkerResponse | LumaRawWorkerResponse['payload'],
   ) {}
 
   readonly postMessage = vi.fn((request: LumaRawWorkerRequest) => {
-    const response = this.handleRequest(request)
+    const handled = this.handleRequest(request)
+    const response =
+      handled &&
+      typeof handled === 'object' &&
+      'id' in handled &&
+      'ok' in handled &&
+      'type' in handled
+        ? (handled as LumaRawWorkerResponse)
+        : ({
+            id: request.id,
+            ok: true,
+            type: request.type,
+            payload: handled,
+          } as LumaRawWorkerResponse)
     queueMicrotask(() => {
       this.onmessage?.({
         data: response,
@@ -509,6 +522,76 @@ describe('createLumaRawRuntime', () => {
       'decodeHqFromSession',
       'closeSession',
     ])
+  })
+
+  it('forwards export capability and raw-window requests through the session', async () => {
+    const worker = new EchoWorker((request) => {
+      if (request.type === 'init') {
+        return {
+          runtime: 'luma',
+          version: '0.1.0',
+          simd: true,
+          pthreads: true,
+          crossOriginIsolated: true,
+          memoryTier: 'normal',
+          workerPoolSize: 1,
+        }
+      }
+      if (request.type === 'openSession') {
+        return {
+          sessionId: 's1',
+          probe: {
+            jobId: request.id,
+            supportLevel: 'experimental',
+            width: 4,
+            height: 4,
+            timings: { total: 1 },
+          },
+          timings: { total: 1 },
+        }
+      }
+      if (request.type === 'probeExportCapabilityFromSession') {
+        return {
+          supported: true,
+          width: 4,
+          height: 4,
+          rawWidth: 4,
+          rawHeight: 4,
+          cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+          blackLevel: 0,
+          whiteLevel: 65535,
+          orientation: 1,
+          reasons: [],
+        }
+      }
+      if (request.type === 'readRawWindowFromSession') {
+        return {
+          rect: request.payload.rect,
+          cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+          data: new Uint16Array(4),
+          blackLevel: 0,
+          whiteLevel: 65535,
+        }
+      }
+      if (request.type === 'closeSession') return { closed: true }
+      throw new Error(`Unexpected request: ${request.type}`)
+    })
+    const runtime = createLumaRawRuntime({
+      requireCrossOriginIsolation: false,
+      workerFactory: () => worker as unknown as Worker,
+    })
+
+    const session = await runtime.openSession(new File(['raw'], 'a.dng'))
+    await expect(session.probeExportCapability()).resolves.toMatchObject({
+      supported: true,
+      width: 4,
+      height: 4,
+    })
+    await expect(
+      session.readRawWindow({ x: 0, y: 0, width: 2, height: 2 }),
+    ).resolves.toMatchObject({
+      rect: { x: 0, y: 0, width: 2, height: 2 },
+    })
   })
 
   it('does not recreate a worker when disposing a session after runtime disposal', async () => {

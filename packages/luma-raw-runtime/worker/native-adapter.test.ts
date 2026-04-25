@@ -9,6 +9,8 @@ import type {
 type ProcessorValues = {
   openTimings?: unknown
   thumbnail?: unknown
+  exportCapability?: unknown
+  rawWindow?: unknown
   image?: unknown
   onDecodePreview?: (options?: LumaRawNativeDecodeOptions) => void
   onDecodeHq?: (options?: LumaRawNativeDecodeOptions) => void
@@ -50,6 +52,17 @@ function createProcessor(values: ProcessorValues) {
       }
       extractThumbnail() {
         return values.thumbnail
+      }
+      probeExportCapability() {
+        return values.exportCapability
+      }
+      readRawWindow(_rect: {
+        x: number
+        y: number
+        width: number
+        height: number
+      }) {
+        return values.rawWindow
       }
       decodePreview(options?: LumaRawNativeDecodeOptions) {
         values.onDecodePreview?.(options)
@@ -133,6 +146,96 @@ describe('native-adapter', () => {
     const processor = createProcessor({ thumbnail: undefined })
 
     expect(processor.extractThumbnail()).toBeUndefined()
+  })
+
+  it('falls back to an unsupported export capability when raw-window probing is unavailable', () => {
+    const processor = createFactoryWithHeap().createProcessor()
+
+    expect(processor.probeExportCapability?.()).toEqual({
+      supported: false,
+      width: 0,
+      height: 0,
+      rawWidth: 0,
+      rawHeight: 0,
+      cfa: { pattern: 'unsupported', xPhase: 0, yPhase: 0 },
+      blackLevel: 0,
+      whiteLevel: 0,
+      orientation: 1,
+      reasons: ['raw-window-unavailable'],
+    })
+  })
+
+  it('normalizes export capability CFA, reasons, and phases', () => {
+    const processor = createProcessor({
+      exportCapability: {
+        supported: true,
+        width: 6000,
+        height: 4000,
+        rawWidth: 6048,
+        rawHeight: 4024,
+        cfa: { pattern: 'invalid', xPhase: -1, yPhase: 9 },
+        blackLevel: 512,
+        whiteLevel: 16383,
+        orientation: 3,
+      },
+    })
+
+    expect(processor.probeExportCapability?.()).toEqual({
+      supported: true,
+      width: 6000,
+      height: 4000,
+      rawWidth: 6048,
+      rawHeight: 4024,
+      cfa: { pattern: 'unsupported', xPhase: 0, yPhase: 5 },
+      blackLevel: 512,
+      whiteLevel: 16383,
+      orientation: 3,
+      reasons: [],
+    })
+  })
+
+  it('normalizes valid raw-window output', () => {
+    const pooled = new Uint16Array([9, 1, 2, 3, 4, 8]).subarray(1, 5)
+    const processor = createProcessor({
+      rawWindow: {
+        rect: { x: 1, y: 2, width: 2, height: 2 },
+        cfa: { pattern: 'x-trans', xPhase: 6, yPhase: -1 },
+        data: pooled,
+        blackLevel: 64,
+        whiteLevel: 4095,
+      },
+    })
+
+    const window = processor.readRawWindow?.({ x: 1, y: 2, width: 2, height: 2 })
+
+    expect(window).toEqual({
+      rect: { x: 1, y: 2, width: 2, height: 2 },
+      cfa: { pattern: 'x-trans', xPhase: 5, yPhase: 0 },
+      data: new Uint16Array([1, 2, 3, 4]),
+      blackLevel: 64,
+      whiteLevel: 4095,
+    })
+    expect(window?.data).not.toBe(pooled)
+  })
+
+  it('throws when raw-window access is unavailable or malformed', () => {
+    const unavailable = createFactoryWithHeap().createProcessor()
+    const malformed = createProcessor({
+      rawWindow: {
+        rect: { x: 0, y: 0, width: 2, height: 2 },
+        cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+        data: new Uint16Array([1, 2, 3]),
+        blackLevel: 0,
+        whiteLevel: 1023,
+      },
+    })
+
+    expect(() =>
+      unavailable.readRawWindow?.({ x: 0, y: 0, width: 1, height: 1 }),
+    ).toThrow('Native RAW raw-window access is unavailable.')
+    expect(() =>
+      malformed.readRawWindow?.({ x: 0, y: 0, width: 2, height: 2 }),
+    ).toThrow('Native RAW raw-window data length does not match rect dimensions.')
   })
 
   it('normalizes JPEG thumbnail dimensions from metadata fallback fields', () => {

@@ -100,25 +100,22 @@ describe('lumaRawWorkerClient', () => {
     const response: LumaRawWorkerResponse = {
       id: request.id,
       ok: true,
-      type: 'probeExportCapabilityFromSession',
+      type: 'readRawWindowFromSession',
       payload: {
-        supported: true,
-        width: 6000,
-        height: 4000,
-        rawWidth: 6048,
-        rawHeight: 4024,
+        rect: { x: 1, y: 2, width: 3, height: 4 },
         cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+        data: new Uint16Array(12),
         blackLevel: 512,
         whiteLevel: 16383,
-        orientation: 1,
-        reasons: [],
       },
     }
 
     expect(request.payload.rect.width).toBe(3)
     expect(response.ok).toBe(true)
-    if (response.ok && response.type === 'probeExportCapabilityFromSession') {
+    if (response.ok && response.type === 'readRawWindowFromSession') {
       expect(response.payload.cfa.pattern).toBe('rggb')
+      expect(response.payload.data).toBeInstanceOf(Uint16Array)
+      expect(response.payload.rect.height).toBe(4)
     }
   })
 

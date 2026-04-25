@@ -296,6 +296,21 @@ function heapStats(
   }
 }
 
+function unsupportedRawWindowCapability() {
+  return {
+    supported: false,
+    width: 0,
+    height: 0,
+    rawWidth: 0,
+    rawHeight: 0,
+    cfa: { pattern: 'unsupported' as const, xPhase: 0, yPhase: 0 },
+    blackLevel: 0,
+    whiteLevel: 0,
+    orientation: 1,
+    reasons: ['raw-window-unavailable'],
+  }
+}
+
 export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
   const cancelledJobIds = new Set<string>()
   const cancelledJobQueue: string[] = []
@@ -688,6 +703,59 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
     return response
   }
 
+  function handleProbeExportCapabilityFromSession(
+    request: LumaRawWorkerRequest<'probeExportCapabilityFromSession'>,
+  ): LumaRawWorkerResponse {
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    const session = requireSession(request.payload.sessionId)
+    const response: LumaRawWorkerResponse = {
+      id: request.id,
+      ok: true,
+      type: request.type,
+      payload: session.processor.probeExportCapability
+        ? session.processor.probeExportCapability()
+        : unsupportedRawWindowCapability(),
+    }
+
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    return response
+  }
+
+  function handleReadRawWindowFromSession(
+    request: LumaRawWorkerRequest<'readRawWindowFromSession'>,
+  ): LumaRawWorkerResponse {
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    const session = requireSession(request.payload.sessionId)
+    if (!session.processor.readRawWindow) {
+      throw new LumaRawRuntimeError(
+        'RAW_UNSUPPORTED_FORMAT',
+        'RAW runtime raw-window access is unavailable for this source.',
+      )
+    }
+
+    const response: LumaRawWorkerResponse = {
+      id: request.id,
+      ok: true,
+      type: request.type,
+      payload: session.processor.readRawWindow(request.payload.rect),
+    }
+
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    return response
+  }
+
   return {
     async handleRequest(
       request: LumaRawWorkerRequest,
@@ -717,6 +785,10 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
             return handleCloseSession(request)
           case 'extractEmbeddedPreviewFromSession':
             return handleExtractEmbeddedPreviewFromSession(request)
+          case 'probeExportCapabilityFromSession':
+            return handleProbeExportCapabilityFromSession(request)
+          case 'readRawWindowFromSession':
+            return handleReadRawWindowFromSession(request)
           case 'decodeQuickFromSession':
           case 'decodeHqFromSession':
             return handleDecodeFromSession(request)

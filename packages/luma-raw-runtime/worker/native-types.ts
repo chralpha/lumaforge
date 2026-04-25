@@ -1,3 +1,9 @@
+import type {
+  LumaRawExportCapability,
+  LumaRawWindow,
+  LumaRawWindowRect,
+} from '../src/types'
+
 export type LumaRawNativeMetadata = {
   width?: number
   height?: number
@@ -65,6 +71,8 @@ export type LumaRawNativeProcessor = {
   ) => LumaRawNativeOpenTimings | undefined
   readMetadata: () => LumaRawNativeMetadata
   extractThumbnail: () => LumaRawNativeThumbnail | undefined
+  probeExportCapability?: () => LumaRawExportCapability
+  readRawWindow?: (rect: LumaRawWindowRect) => LumaRawWindow
   decodePreview: (options?: LumaRawNativeDecodeOptions) => LumaRawNativeImage
   decodeHq: (options?: LumaRawNativeDecodeOptions) => LumaRawNativeImage
   dispose: () => void
