@@ -368,7 +368,14 @@ class LumaRawProcessor {
     const libraw_image_sizes_t &sizes = imgdata.sizes;
     const libraw_colordata_t &color = imgdata.color;
 
-    if (!hasBayerRawImage(imgdata)) {
+    if (sizes.width <= 0 || sizes.height <= 0 || sizes.raw_width <= 0 ||
+        sizes.raw_height <= 0 || color.maximum <= color.black ||
+        !hasBayerRawImage(imgdata)) {
+      throw std::runtime_error("LibRaw raw-window access is unavailable.");
+    }
+
+    const std::string pattern = cfaPatternName(processor_);
+    if (pattern == "unsupported") {
       throw std::runtime_error("LibRaw raw-window access is unavailable.");
     }
 
@@ -377,7 +384,8 @@ class LumaRawProcessor {
     const int width = rect["width"].as<int>();
     const int height = rect["height"].as<int>();
     if (x < 0 || y < 0 || width <= 0 || height <= 0 ||
-        x + width > sizes.raw_width || y + height > sizes.raw_height) {
+        width > sizes.raw_width || height > sizes.raw_height ||
+        x > sizes.raw_width - width || y > sizes.raw_height - height) {
       throw std::runtime_error("RAW window rect is outside the RAW bounds.");
     }
 
@@ -400,7 +408,7 @@ class LumaRawProcessor {
 
     val output = val::object();
     output.set("rect", out_rect);
-    output.set("cfa", cfaObject(cfaPatternName(processor_)));
+    output.set("cfa", cfaObject(pattern));
     output.set("data", copiedUint16Array(window.data(), window.size()));
     output.set("blackLevel", color.black);
     output.set("whiteLevel", color.maximum);
