@@ -248,6 +248,31 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
+  it('defers LUT success toasts until after the state commit finishes', async () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadLUT(
+        createCubeFile('Client Secret Sauce', 'unknown-look.cube'),
+      )
+    })
+
+    expect(toastMock.success).not.toHaveBeenCalled()
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(toastMock.success).toHaveBeenCalledWith(
+      'Loaded LUT: Client Secret Sauce',
+      {
+        description: '17³ grid',
+      },
+    )
+  })
+
   it('stores embedded object URLs, upgrades display source, and revokes on reset', async () => {
     const embeddedPreview = deferred<{
       width: number

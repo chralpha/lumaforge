@@ -100,6 +100,10 @@ function copyToArrayBuffer(data: Uint8Array) {
   return buffer
 }
 
+function enqueuePostCommitTask(task: () => void) {
+  setTimeout(task, 0)
+}
+
 export interface UseRawProcessorReturn {
   // State
   params: ProcessingParams
@@ -198,6 +202,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const embeddedPreviewUrl =
     session?.previewBundle.embeddedPreview.objectUrl || null
   const displaySource = session?.previewBundle.displaySource || 'none'
+  const scheduleToast = useCallback((notify: () => void) => {
+    // Sonner uses flushSync internally; move RAW-workspace toasts out of the
+    // current commit so dev-only tooling does not crash on the same render pass.
+    enqueuePostCommitTask(() => {
+      if (!isMountedRef.current) {
+        return
+      }
+
+      notify()
+    })
+  }, [])
 
   const clearSessionEmbeddedPreviewUrl = useCallback(
     (sessionId?: string) => {
@@ -563,9 +578,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 updatePreviewState('hq', event, hqPreview)
                 setProgress(100)
                 if (hqPreview) {
-                  toast.success(`Loaded ${file.name}`, {
-                    description: `${hqPreview.width}×${hqPreview.height} • ${hqPreview.metadata.make || 'Unknown'} ${hqPreview.metadata.model || ''}`,
-                  })
+                  const description = `${hqPreview.width}×${hqPreview.height} • ${hqPreview.metadata.make || 'Unknown'} ${hqPreview.metadata.model || ''}`
+                  scheduleToast(() =>
+                    toast.success(`Loaded ${file.name}`, {
+                      description,
+                    }),
+                  )
                 }
                 break
               }
@@ -599,10 +617,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 })
                 setStatus('ready')
                 setProgress(100)
-                toast.error('HQ preview unavailable', {
-                  description:
-                    'The first preview stays visible, but export remains disabled until HQ decode succeeds.',
-                })
+                scheduleToast(() =>
+                  toast.error('HQ preview unavailable', {
+                    description:
+                      'The first preview stays visible, but export remains disabled until HQ decode succeeds.',
+                  }),
+                )
                 break
               }
             }
@@ -643,7 +663,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
             : prev,
         )
         setStatus('error')
-        toast.error('Failed to load RAW file', { description: message })
+        scheduleToast(() =>
+          toast.error('Failed to load RAW file', { description: message }),
+        )
       } finally {
         if (
           runtimeAbortController &&
@@ -664,6 +686,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       disposeRuntimeSession,
       replaceFile,
       revokeCurrentEmbeddedPreviewUrl,
+      scheduleToast,
       setError,
       setLoadedImage,
       setLut,
@@ -689,9 +712,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
               }
             : prev,
         )
-        toast.error('Unsupported LUT format', {
-          description: 'Only .cube files are supported',
-        })
+        scheduleToast(() =>
+          toast.error('Unsupported LUT format', {
+            description: 'Only .cube files are supported',
+          }),
+        )
         return
       }
 
@@ -710,9 +735,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 }
               : prev,
           )
-          toast.error('Failed to load LUT', {
-            description: validation.errors[0] || 'Invalid LUT',
-          })
+          scheduleToast(() =>
+            toast.error('Failed to load LUT', {
+              description: validation.errors[0] || 'Invalid LUT',
+            }),
+          )
           return
         }
 
@@ -733,9 +760,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
           builtinPreset: null,
           intensity: mapIntensityLevel(style.defaultIntensityLevel),
         }))
-        toast.success(`Loaded LUT: ${parsed.title}`, {
-          description: `${parsed.size}³ grid`,
-        })
+        scheduleToast(() =>
+          toast.success(`Loaded LUT: ${parsed.title}`, {
+            description: `${parsed.size}³ grid`,
+          }),
+        )
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Failed to parse LUT'
@@ -754,24 +783,28 @@ export function useRawProcessor(): UseRawProcessorReturn {
               }
             : prev,
         )
-        toast.error('Failed to load LUT', { description: message })
+        scheduleToast(() =>
+          toast.error('Failed to load LUT', { description: message }),
+        )
       }
     },
-    [setLut, setParams, setSession],
+    [scheduleToast, setLut, setParams, setSession],
   )
 
   const selectLUTProfile = useCallback(
     (profileId: string) => {
       if (!lut) {
-        toast.error('No LUT loaded')
+        scheduleToast(() => toast.error('No LUT loaded'))
         return
       }
 
       const updatedLut = applyLUTProfileSelection(lut, profileId)
       if (!updatedLut) {
-        toast.error('Unknown LUT profile', {
-          description: profileId,
-        })
+        scheduleToast(() =>
+          toast.error('Unknown LUT profile', {
+            description: profileId,
+          }),
+        )
         return
       }
 
@@ -802,7 +835,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         intensity: mapIntensityLevel(currentIntensityLevel),
       }))
     },
-    [activeStyle, lut, setLut, setParams, setSession],
+    [activeStyle, lut, scheduleToast, setLut, setParams, setSession],
   )
 
   const selectBuiltinStyle = useCallback(
@@ -887,8 +920,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
       styleKind: 'none',
       builtinPreset: null,
     }))
-    toast.info('LUT cleared')
-  }, [setActiveStyle, setLut, setParams, setSession])
+    scheduleToast(() => toast.info('LUT cleared'))
+  }, [scheduleToast, setActiveStyle, setLut, setParams, setSession])
 
   // Update params
   const handleSetParams = useCallback(
@@ -912,7 +945,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
         session.previewBundle.hqImage.status !== 'ready' ||
         !pipelineRef.current
       ) {
-        toast.error('High-quality preview is required before export')
+        scheduleToast(() =>
+          toast.error('High-quality preview is required before export'),
+        )
         return
       }
 
@@ -987,9 +1022,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
             : prev,
         )
         setStatus('ready')
-        toast.success('JPEG exported', {
-          description: result.filename,
-        })
+        scheduleToast(() =>
+          toast.success('JPEG exported', {
+            description: result.filename,
+          }),
+        )
       } catch (err) {
         const retryLevel = isExportRenderError(err)
           ? null
@@ -1017,14 +1054,16 @@ export function useRawProcessor(): UseRawProcessorReturn {
             : prev,
         )
         setStatus('ready')
-        toast.error('Export failed', {
-          description: retryLevel
-            ? `${message}. Retry with ${retryLevel} fidelity.`
-            : message,
-        })
+        scheduleToast(() =>
+          toast.error('Export failed', {
+            description: retryLevel
+              ? `${message}. Retry with ${retryLevel} fidelity.`
+              : message,
+          }),
+        )
       }
     },
-    [loadedImage.decoded, session, setSession, setStatus],
+    [loadedImage.decoded, scheduleToast, session, setSession, setStatus],
   )
 
   // Reset state
