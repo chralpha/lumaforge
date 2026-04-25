@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import { LumaRawRuntimeError, normalizeRawRuntimeError } from './errors'
-import type { LumaRawFrame, LumaRawRuntimeInfo, LumaRawTimings } from './types'
+import type {
+  LumaRawExportCapability,
+  LumaRawFrame,
+  LumaRawRuntimeInfo,
+  LumaRawTimings,
+  LumaRawWindow,
+  LumaRawWindowRect,
+} from './types'
 
 describe('luma raw runtime public contract', () => {
   it('describes RGB16 Linear ProPhoto frames', () => {
@@ -65,6 +72,45 @@ describe('luma raw runtime public contract', () => {
     expect(fallback.name).toBe('LumaRawRuntimeError')
     expect(fallback.code).toBe('RAW_RUNTIME_UNAVAILABLE')
     expect(fallback.message).toBe('RAW runtime request failed.')
+  })
+
+  it('types raw-window export capability payloads', () => {
+    const rect: LumaRawWindowRect = { x: 4, y: 6, width: 8, height: 10 }
+    const supported: LumaRawExportCapability = {
+      supported: true,
+      width: 6000,
+      height: 4000,
+      rawWidth: 6048,
+      rawHeight: 4024,
+      cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+      blackLevel: 512,
+      whiteLevel: 16383,
+      orientation: 1,
+      reasons: [],
+    }
+    const unsupported: LumaRawExportCapability = {
+      supported: false,
+      width: 0,
+      height: 0,
+      rawWidth: 0,
+      rawHeight: 0,
+      cfa: { pattern: 'unsupported', xPhase: 0, yPhase: 0 },
+      blackLevel: 0,
+      whiteLevel: 0,
+      orientation: 1,
+      reasons: ['unsupported-cfa'],
+    }
+    const rawWindow: LumaRawWindow = {
+      rect,
+      cfa: supported.cfa,
+      data: new Uint16Array(rect.width * rect.height),
+      blackLevel: supported.blackLevel,
+      whiteLevel: supported.whiteLevel,
+    }
+
+    expect(supported.supported).toBe(true)
+    expect(unsupported.supported).toBe(false)
+    expect(rawWindow.data.length).toBe(80)
   })
 
   it('reports runtime capabilities without app dependencies', () => {

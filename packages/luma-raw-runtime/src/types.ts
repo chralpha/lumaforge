@@ -28,6 +28,56 @@ export type LumaRawQuickOptions = {
   maxOutputPixels?: number
 }
 
+export type LumaRawCfaPattern =
+  | 'rggb'
+  | 'bggr'
+  | 'grbg'
+  | 'gbrg'
+  | 'x-trans'
+  | 'unsupported'
+
+export type LumaRawCfaInfo = {
+  pattern: LumaRawCfaPattern
+  xPhase: 0 | 1 | 2 | 3 | 4 | 5
+  yPhase: 0 | 1 | 2 | 3 | 4 | 5
+}
+
+export type LumaRawWindowRect = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type LumaRawExportUnsupportedReason =
+  | 'unsupported-source'
+  | 'unsupported-cfa'
+  | 'compressed-raw-window-unavailable'
+  | 'raw-window-unavailable'
+  | 'missing-dimensions'
+  | 'missing-levels'
+
+export type LumaRawExportCapability = {
+  supported: boolean
+  width: number
+  height: number
+  rawWidth: number
+  rawHeight: number
+  cfa: LumaRawCfaInfo
+  blackLevel: number
+  whiteLevel: number
+  orientation: number
+  reasons: LumaRawExportUnsupportedReason[]
+}
+
+export type LumaRawWindow = {
+  rect: LumaRawWindowRect
+  cfa: LumaRawCfaInfo
+  data: Uint16Array
+  blackLevel: number
+  whiteLevel: number
+}
+
 export type LumaRawMetadata = {
   width?: number
   height?: number
@@ -115,6 +165,13 @@ export type LumaRawDecodeSession = LumaRawSessionInfo & {
     signal?: AbortSignal,
   ) => Promise<LumaRawFrame>
   decodeHq: (signal?: AbortSignal) => Promise<LumaRawFrame>
+  probeExportCapability: (
+    signal?: AbortSignal,
+  ) => Promise<LumaRawExportCapability>
+  readRawWindow: (
+    rect: LumaRawWindowRect,
+    signal?: AbortSignal,
+  ) => Promise<LumaRawWindow>
   dispose: () => void
 }
 

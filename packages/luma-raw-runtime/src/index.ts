@@ -4,7 +4,11 @@ export type { LumaRawRuntimeOptions } from './runtime'
 export { createLumaRawRuntime } from './runtime'
 export type {
   LumaEmbeddedPreview,
+  LumaRawCfaInfo,
+  LumaRawCfaPattern,
   LumaRawDecodeSession,
+  LumaRawExportCapability,
+  LumaRawExportUnsupportedReason,
   LumaRawFrame,
   LumaRawHeapStats,
   LumaRawMemoryTier,
@@ -16,5 +20,7 @@ export type {
   LumaRawSessionInfo,
   LumaRawSupportLevel,
   LumaRawTimings,
+  LumaRawWindow,
+  LumaRawWindowRect,
 } from './types'
 export { LumaRawWorkerClient } from './worker-client'

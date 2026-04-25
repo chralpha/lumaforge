@@ -87,6 +87,41 @@ describe('lumaRawWorkerRequest typing', () => {
 })
 
 describe('lumaRawWorkerClient', () => {
+  it('types raw-window worker protocol requests and responses', () => {
+    const request: LumaRawWorkerRequest<'readRawWindowFromSession'> = {
+      id: 'raw-job-window',
+      type: 'readRawWindowFromSession',
+      payload: {
+        sessionId: 'session-1',
+        rect: { x: 1, y: 2, width: 3, height: 4 },
+      },
+    }
+
+    const response: LumaRawWorkerResponse = {
+      id: request.id,
+      ok: true,
+      type: 'probeExportCapabilityFromSession',
+      payload: {
+        supported: true,
+        width: 6000,
+        height: 4000,
+        rawWidth: 6048,
+        rawHeight: 4024,
+        cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+        blackLevel: 512,
+        whiteLevel: 16383,
+        orientation: 1,
+        reasons: [],
+      },
+    }
+
+    expect(request.payload.rect.width).toBe(3)
+    expect(response.ok).toBe(true)
+    if (response.ok && response.type === 'probeExportCapabilityFromSession') {
+      expect(response.payload.cfa.pattern).toBe('rggb')
+    }
+  })
+
   it('deduplicates transferables by backing buffer', () => {
     const buffer = new ArrayBuffer(16)
     const view = new Uint8Array(buffer)
