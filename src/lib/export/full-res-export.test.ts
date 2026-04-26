@@ -7,6 +7,7 @@ import { mat3Identity } from '~/lib/color/matrix'
 
 import { demosaicBilinearRgb } from './demosaic'
 import { runFullResolutionJpegExport } from './full-res-export'
+import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
 
 function makeCapability(
   overrides: Partial<LumaRawExportCapability> = {},
@@ -373,6 +374,31 @@ describe('runFullResolutionJpegExport', () => {
     ).rejects.toThrow('FULL_RES_EXPORT_RESOURCE_FAILURE')
 
     expect(writerFactory).toHaveBeenCalledTimes(3)
+    expect(readRawWindow).not.toHaveBeenCalled()
+  })
+
+  it('surfaces a browser-build error when JPEG runtime initialization fails', async () => {
+    const readRawWindow = vi.fn()
+
+    await expect(
+      runFullResolutionJpegExport({
+        capability: makeCapability(),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        },
+        readRawWindow,
+        jpegSink: createWasmJpegRowSink(() => {
+          throw new Error('JPEG_RUNTIME_UNAVAILABLE')
+        }),
+      }),
+    ).rejects.toThrow(
+      'Full-resolution JPEG export is not available in this browser build.',
+    )
+
     expect(readRawWindow).not.toHaveBeenCalled()
   })
 

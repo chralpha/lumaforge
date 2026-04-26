@@ -9,6 +9,7 @@ import type {
 import type { DecodedImage, ImageMetadata, ProgressCallback } from './decoder'
 import { QUICK_PREVIEW_MAX_PIXELS } from './decoder'
 import type { RawRuntimeSession } from './runtime-adapter'
+import type { JpegRuntimeAvailabilityProbe } from './runtime-adapter'
 
 let singletonRuntime: LumaRawRuntime | null = null
 let singletonRuntimePromise: Promise<LumaRawRuntime> | null = null
@@ -77,6 +78,71 @@ function normalizeRawAdapterError(
 
 function formatLumaShutter(shutter?: number) {
   return typeof shutter === 'number' ? `${shutter}s` : undefined
+}
+
+function getUnsupportedExportFactReasons(capability: LumaRawExportCapability) {
+  const reasons: string[] = []
+
+  if (!capability.visibleCrop) {
+    reasons.push('missing-raw-window-geometry')
+  }
+
+  const orientation = capability.orientation
+  if (
+    !orientation ||
+    (typeof orientation === 'object' && !orientation.supported)
+  ) {
+    reasons.push('unsupported-orientation')
+  }
+
+  if (capability.color?.workingSpace !== 'linear-prophoto-rgb') {
+    reasons.push('missing-color-transform')
+  }
+
+  return reasons
+}
+
+async function isJpegRuntimeAvailable(probe?: JpegRuntimeAvailabilityProbe) {
+  if (!probe) {
+    return true
+  }
+
+  try {
+    return await probe()
+  } catch {
+    return false
+  }
+}
+
+async function resolveExportCapability(
+  rawCapability: LumaRawExportCapability,
+  jpegRuntimeAvailabilityProbe?: JpegRuntimeAvailabilityProbe,
+): Promise<LumaRawExportCapability> {
+  if (!rawCapability.supported) {
+    return rawCapability
+  }
+
+  const unsupportedFactReasons = getUnsupportedExportFactReasons(rawCapability)
+  if (unsupportedFactReasons.length > 0) {
+    return {
+      ...rawCapability,
+      supported: false,
+      reasons: unsupportedFactReasons,
+    }
+  }
+
+  const jpegRuntimeAvailable = await isJpegRuntimeAvailable(
+    jpegRuntimeAvailabilityProbe,
+  )
+  if (!jpegRuntimeAvailable) {
+    return {
+      ...rawCapability,
+      supported: false,
+      reasons: ['jpeg-runtime-unavailable'],
+    }
+  }
+
+  return rawCapability
 }
 
 export function metadataToImageMetadata(frame: LumaRawFrame): ImageMetadata {
@@ -176,6 +242,7 @@ export async function openRawSessionWithLuma(
   file: File,
   runtimeFactory?: () => LumaRawRuntime,
   signal?: AbortSignal,
+  jpegRuntimeAvailabilityProbe?: JpegRuntimeAvailabilityProbe,
 ): Promise<RawRuntimeSession> {
   let session: Awaited<ReturnType<LumaRawRuntime['openSession']>>
   try {
@@ -203,7 +270,8 @@ export async function openRawSessionWithLuma(
     async probeExportCapability(
       signal?: AbortSignal,
     ): Promise<LumaRawExportCapability> {
-      return session.probeExportCapability(signal)
+      const rawCapability = await session.probeExportCapability(signal)
+      return resolveExportCapability(rawCapability, jpegRuntimeAvailabilityProbe)
     },
     async decodeQuickRaw(onProgress?: ProgressCallback, signal?: AbortSignal) {
       try {

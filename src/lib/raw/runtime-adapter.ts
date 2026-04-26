@@ -5,6 +5,7 @@ import type {
 } from '@lumaforge/luma-raw-runtime'
 
 import type { DecodedImage, ProgressCallback } from './decoder'
+import { isWasmJpegRuntimeAvailable } from '~/lib/export/jpeg/wasm-row-sink'
 import {
   decodeHqRawWithLuma,
   decodeQuickRawWithLuma,
@@ -43,14 +44,23 @@ export type RawRuntimeAdapter = {
   ) => Promise<DecodedImage>
 }
 
+export type JpegRuntimeAvailabilityProbe = () => boolean | Promise<boolean>
+
 export function createRawRuntimeAdapter({
   lumaRuntimeFactory,
+  jpegRuntimeAvailabilityProbe = isWasmJpegRuntimeAvailable,
 }: {
   lumaRuntimeFactory?: () => LumaRawRuntime
+  jpegRuntimeAvailabilityProbe?: JpegRuntimeAvailabilityProbe
 } = {}): RawRuntimeAdapter {
   return {
     openSession(file, signal) {
-      return openRawSessionWithLuma(file, lumaRuntimeFactory, signal)
+      return openRawSessionWithLuma(
+        file,
+        lumaRuntimeFactory,
+        signal,
+        jpegRuntimeAvailabilityProbe,
+      )
     },
     extractEmbeddedPreview(file) {
       return extractEmbeddedPreviewWithLuma(file, lumaRuntimeFactory)

@@ -70,10 +70,16 @@ function makeCapability(): LumaRawExportCapability {
     height: 4168,
     rawWidth: 6240,
     rawHeight: 4168,
+    visibleCrop: { x: 0, y: 0, width: 6240, height: 4168 },
     cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
     blackLevel: 0,
     whiteLevel: 16383,
-    orientation: 1,
+    orientation: { code: 1, supported: true },
+    color: {
+      whiteBalance: [1, 1, 1, 1],
+      cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+      workingSpace: 'linear-prophoto-rgb',
+    },
     reasons: [],
   }
 }
@@ -278,6 +284,92 @@ describe('raw runtime adapter', () => {
     expect(decodeHq).toHaveBeenCalledWith(stageSignal)
     expect(dispose).toHaveBeenCalledTimes(1)
   })
+
+  it('fails export capability closed when the JPEG runtime is unavailable', async () => {
+    const probeExportCapability = vi.fn().mockResolvedValue(makeCapability())
+    const jpegRuntimeAvailabilityProbe = vi.fn().mockReturnValue(false)
+    const { runtime } = makeLumaRuntime({
+      openSession: vi.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        probe: {
+          jobId: 'probe',
+          width: 6240,
+          height: 4168,
+          supportLevel: 'experimental',
+          timings: { total: 1 },
+        },
+        timings: { total: 1 },
+        extractEmbeddedPreview: vi.fn(),
+        probeExportCapability,
+        decodeQuick: vi.fn(),
+        decodeHq: vi.fn(),
+        dispose: vi.fn(),
+      }),
+    })
+    const adapter = createRawRuntimeAdapter({
+      lumaRuntimeFactory: () => runtime,
+      jpegRuntimeAvailabilityProbe,
+    })
+
+    const session = await adapter.openSession(new File(['raw'], 'sample.ARW'))
+
+    await expect(session.probeExportCapability?.()).resolves.toMatchObject({
+      supported: false,
+      reasons: ['jpeg-runtime-unavailable'],
+    })
+    expect(probeExportCapability).toHaveBeenCalledTimes(1)
+    expect(jpegRuntimeAvailabilityProbe).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    [
+      'missing-color-transform',
+      { color: undefined },
+      ['missing-color-transform'],
+    ],
+    [
+      'unsupported-orientation',
+      { orientation: { code: 6, supported: false } },
+      ['unsupported-orientation'],
+    ],
+  ] as Array<[string, Partial<LumaRawExportCapability>, string[]]>)(
+    'fails export capability closed for %s',
+    async (_name, overrides, reasons) => {
+      const jpegRuntimeAvailabilityProbe = vi.fn().mockReturnValue(true)
+      const { runtime } = makeLumaRuntime({
+        openSession: vi.fn().mockResolvedValue({
+          sessionId: 'session-1',
+          probe: {
+            jobId: 'probe',
+            width: 6240,
+            height: 4168,
+            supportLevel: 'experimental',
+            timings: { total: 1 },
+          },
+          timings: { total: 1 },
+          extractEmbeddedPreview: vi.fn(),
+          probeExportCapability: vi
+            .fn()
+            .mockResolvedValue({ ...makeCapability(), ...overrides }),
+          decodeQuick: vi.fn(),
+          decodeHq: vi.fn(),
+          dispose: vi.fn(),
+        }),
+      })
+      const adapter = createRawRuntimeAdapter({
+        lumaRuntimeFactory: () => runtime,
+        jpegRuntimeAvailabilityProbe,
+      })
+
+      const session = await adapter.openSession(new File(['raw'], 'sample.ARW'))
+
+      await expect(session.probeExportCapability?.()).resolves.toMatchObject({
+        supported: false,
+        reasons,
+      })
+      expect(jpegRuntimeAvailabilityProbe).not.toHaveBeenCalled()
+    },
+  )
 
   it('normalizes generic luma session open failures', async () => {
     const { runtime } = makeLumaRuntime({

@@ -5,12 +5,49 @@ import {
 
 import type { JpegRowSink } from './row-writer'
 
+const JPEG_RUNTIME_UNAVAILABLE_MESSAGE =
+  'Full-resolution JPEG export is not available in this browser build.'
+
+function createJpegRuntimeUnavailableError(error: unknown) {
+  const detail = error instanceof Error && error.message ? error.message : ''
+  return new Error(
+    detail
+      ? `${JPEG_RUNTIME_UNAVAILABLE_MESSAGE} ${detail}`
+      : JPEG_RUNTIME_UNAVAILABLE_MESSAGE,
+    { cause: error },
+  )
+}
+
+export function isWasmJpegRuntimeAvailable(
+  runtimeFactory: () => LumaJpegRuntime = createLumaJpegRuntime,
+) {
+  let runtime: LumaJpegRuntime | null = null
+  let encoder: ReturnType<LumaJpegRuntime['createEncoder']> | null = null
+
+  try {
+    runtime = runtimeFactory()
+    encoder = runtime.createEncoder({ width: 1, height: 1, quality: 0.92 })
+    encoder.abort()
+    return true
+  } catch {
+    return false
+  } finally {
+    runtime?.dispose()
+  }
+}
+
 export function createWasmJpegRowSink(
   runtimeFactory: () => LumaJpegRuntime = createLumaJpegRuntime,
 ): JpegRowSink {
   return {
     createSession({ width, height, quality }) {
-      const runtime = runtimeFactory()
+      let runtime: LumaJpegRuntime
+      try {
+        runtime = runtimeFactory()
+      } catch (error) {
+        throw createJpegRuntimeUnavailableError(error)
+      }
+
       let disposed = false
 
       function disposeRuntime() {
@@ -24,7 +61,7 @@ export function createWasmJpegRowSink(
         encoder = runtime.createEncoder({ width, height, quality })
       } catch (error) {
         disposeRuntime()
-        throw error
+        throw createJpegRuntimeUnavailableError(error)
       }
 
       let state: 'open' | 'closed' | 'aborted' = 'open'
