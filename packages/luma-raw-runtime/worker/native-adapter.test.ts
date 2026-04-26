@@ -248,12 +248,26 @@ describe('native-adapter', () => {
         },
       },
     })
+    const degenerateTransform = createProcessor({
+      exportCapability: {
+        ...baseCapability,
+        color: {
+          whiteBalance: [2.1, 1, 1.4, 1],
+          cameraToWorkingRgb: [1, 2, 3, 2, 4, 6, 0, 1, 0],
+          workingSpace: 'linear-prophoto-rgb',
+        },
+      },
+    })
 
     expect(missingColor.probeExportCapability?.()).toMatchObject({
       supported: false,
       reasons: expect.arrayContaining(['missing-color-transform']),
     })
     expect(unusableTransform.probeExportCapability?.()).toMatchObject({
+      supported: false,
+      reasons: expect.arrayContaining(['missing-color-transform']),
+    })
+    expect(degenerateTransform.probeExportCapability?.()).toMatchObject({
       supported: false,
       reasons: expect.arrayContaining(['missing-color-transform']),
     })

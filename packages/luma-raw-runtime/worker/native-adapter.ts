@@ -425,6 +425,15 @@ function normalizeFiniteTuple(value: unknown, length: number) {
     : undefined
 }
 
+function hasUsableMatrix3x3(values: number[]) {
+  const determinant =
+    values[0] * (values[4] * values[8] - values[5] * values[7]) -
+    values[1] * (values[3] * values[8] - values[5] * values[6]) +
+    values[2] * (values[3] * values[7] - values[4] * values[6])
+
+  return Math.abs(determinant) > 1e-12
+}
+
 function normalizeExportColorFacts(
   value: unknown,
 ): LumaRawExportColorFacts | undefined {
@@ -437,7 +446,7 @@ function normalizeExportColorFacts(
     !cameraToWorkingRgb ||
     raw.workingSpace !== 'linear-prophoto-rgb' ||
     whiteBalance.some((value) => value <= 0) ||
-    cameraToWorkingRgb.every((value) => value === 0)
+    !hasUsableMatrix3x3(cameraToWorkingRgb)
   ) {
     return undefined
   }
