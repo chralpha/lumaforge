@@ -14,6 +14,7 @@ import type {
   LumaRawWorkerRequest,
   LumaRawWorkerResponse,
 } from '../src/worker-protocol'
+import { normalizeExportCapability } from './native-adapter'
 import type {
   LumaRawNativeFactory,
   LumaRawNativeImage,
@@ -23,7 +24,6 @@ import type {
   LumaRawNativeProcessor,
   LumaRawNativeThumbnail,
 } from './native-types'
-import { normalizeExportCapability } from './native-adapter'
 
 const quickSettings = {
   halfSize: true,
@@ -717,11 +717,9 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
       id: request.id,
       ok: true,
       type: request.type,
-      payload: normalizeExportCapability(
-        session.processor.probeExportCapability
-          ? session.processor.probeExportCapability()
-          : unsupportedRawWindowCapability(),
-      ),
+      payload: session.processor.probeExportCapability
+        ? normalizeExportCapability(session.processor.probeExportCapability())
+        : unsupportedRawWindowCapability(),
     }
 
     if (consumeCancellation(request)) {

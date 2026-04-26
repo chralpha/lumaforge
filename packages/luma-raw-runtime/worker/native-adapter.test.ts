@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
@@ -213,7 +214,12 @@ describe('native-adapter', () => {
 
   it('does not allow native camera white balance to fall back to LibRaw pre_mul', () => {
     const wrapperSource = readFileSync(
-      join(process.cwd(), 'native', 'libraw_wrapper.cpp'),
+      resolve(
+        dirname(fileURLToPath(import.meta.url)),
+        '..',
+        'native',
+        'libraw_wrapper.cpp',
+      ),
       'utf8',
     )
     const cameraWhiteBalanceSelector = wrapperSource.match(
