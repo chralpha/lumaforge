@@ -5,6 +5,19 @@ export type ExportStrip = {
   input: LumaRawWindowRect
 }
 
+export const MAX_EXPORT_STRIP_ROWS = 4096
+
+export function normalizePreferredStripRows(
+  preferredRows: number,
+  maxRows = MAX_EXPORT_STRIP_ROWS,
+) {
+  if (!Number.isFinite(preferredRows) || preferredRows <= 0) {
+    throw new Error('FULL_RES_EXPORT_INVALID_PREFERRED_ROWS')
+  }
+
+  return Math.min(maxRows, Math.max(1, Math.floor(preferredRows)))
+}
+
 export function expandRectWithHalo(
   rect: LumaRawWindowRect,
   bounds: { width: number; height: number },
@@ -25,7 +38,10 @@ export function planExportStrips(input: {
   minRows: number
   halo: number
 }): ExportStrip[] {
-  const rows = Math.max(input.minRows, input.preferredRows)
+  const rows = Math.max(
+    input.minRows,
+    normalizePreferredStripRows(input.preferredRows),
+  )
   const strips: ExportStrip[] = []
 
   for (let y = 0; y < input.height; y += rows) {

@@ -22,7 +22,9 @@ class FakeWorker {
   readonly requests: FullResExportWorkerRequest[] = []
 
   emit(message: FullResExportWorkerResponse) {
-    this.onmessage?.({ data: message } as MessageEvent<FullResExportWorkerResponse>)
+    this.onmessage?.({
+      data: message,
+    } as MessageEvent<FullResExportWorkerResponse>)
   }
 
   emitError(message: string) {
@@ -58,10 +60,13 @@ const supportedGraph = {
   outputGamut: 'srgb-rec709' as const,
   outputTransfer: 'srgb' as const,
   lutProfile: null,
-  steps: [{ kind: 'input-linear-prophoto' as const }, { kind: 'output-srgb' as const }],
+  steps: [
+    { kind: 'input-linear-prophoto' as const },
+    { kind: 'output-srgb' as const },
+  ],
 }
 
-describe('FullResolutionExportWorkerClient', () => {
+describe('fullResolutionExportWorkerClient', () => {
   it('streams progress, resolves success, and the one-shot helper disposes its worker', async () => {
     const worker = new FakeWorker()
     const workerFactory = vi.fn(() => worker as unknown as Worker)
@@ -70,7 +75,7 @@ describe('FullResolutionExportWorkerClient', () => {
       {
         file: new File(['raw'], 'sample.ARW'),
         graph: supportedGraph,
-        onProgress: progress => {
+        onProgress: (progress) => {
           expect(progress.progress).toBe(50)
         },
       },
@@ -144,6 +149,23 @@ describe('FullResolutionExportWorkerClient', () => {
     expect(workerFactory).not.toHaveBeenCalled()
   })
 
+  it.each([Infinity, -Infinity, Number.NaN, 0, -1])(
+    'rejects invalid preferred row count %s without spawning a worker',
+    async (preferredRows) => {
+      const workerFactory = vi.fn(() => new FakeWorker() as unknown as Worker)
+      const client = new FullResolutionExportWorkerClient(workerFactory)
+
+      await expect(
+        client.run({
+          file: new File(['raw'], 'sample.ARW'),
+          graph: supportedGraph,
+          preferredRows,
+        }),
+      ).rejects.toThrow('FULL_RES_EXPORT_INVALID_PREFERRED_ROWS')
+      expect(workerFactory).not.toHaveBeenCalled()
+    },
+  )
+
   it('rejects pending requests, terminates the broken worker, and uses a fresh worker after onerror', async () => {
     const brokenWorker = new FakeWorker()
     const recoveredWorker = new FakeWorker()
@@ -178,7 +200,9 @@ describe('FullResolutionExportWorkerClient', () => {
       blob: new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
     })
 
-    await expect(recoveredPromise).resolves.toMatchObject({ type: 'image/jpeg' })
+    await expect(recoveredPromise).resolves.toMatchObject({
+      type: 'image/jpeg',
+    })
     expect(workerFactory).toHaveBeenCalledTimes(2)
   })
 

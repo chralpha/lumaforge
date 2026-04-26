@@ -197,6 +197,75 @@ describe('runFullResolutionJpegExport', () => {
     expect(progress.at(-1)).toBe(100)
   })
 
+  it.each([Infinity, -Infinity, Number.NaN, 0, -1])(
+    'fails closed for invalid preferred row count %s before reading raw windows',
+    async (preferredRows) => {
+      const readRawWindow = vi.fn()
+      const writer = {
+        writeRows: vi.fn(),
+        close: vi.fn(),
+        abort: vi.fn(async () => undefined),
+      }
+
+      await expect(
+        runFullResolutionJpegExport({
+          capability: makeCapability(),
+          graph: {
+            supported: true,
+            outputGamut: 'srgb-rec709',
+            outputTransfer: 'srgb',
+            lutProfile: null,
+            steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+          },
+          preferredRows,
+          readRawWindow,
+          writerFactory: () => writer,
+        }),
+      ).rejects.toThrow('FULL_RES_EXPORT_INVALID_PREFERRED_ROWS')
+
+      expect(readRawWindow).not.toHaveBeenCalled()
+      expect(writer.writeRows).not.toHaveBeenCalled()
+      expect(writer.abort).not.toHaveBeenCalled()
+    },
+  )
+
+  it('normalizes fractional preferred rows before scheduling raw windows', async () => {
+    const writtenRows: number[] = []
+    const readRawWindow = vi.fn((rect: LumaRawWindowRect) =>
+      Promise.resolve(makeWindow(rect)),
+    )
+    const writer = {
+      writeRows: vi.fn(async (_bytes: Uint8Array, rowCount: number) => {
+        writtenRows.push(rowCount)
+      }),
+      close: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await runFullResolutionJpegExport({
+      capability: makeCapability({
+        height: 130,
+        rawHeight: 130,
+        visibleCrop: { x: 0, y: 0, width: 4, height: 130 },
+      }),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+      },
+      preferredRows: 64.5,
+      readRawWindow,
+      writerFactory: () => writer,
+    })
+
+    expect(readRawWindow.mock.calls.map(([rect]) => rect.height)).toEqual([
+      66, 68, 4,
+    ])
+    expect(writtenRows).toEqual([64, 64, 2])
+  })
+
   it('maps full export strips to raw windows and writes requested output rows', async () => {
     const writtenRows: number[] = []
     const readRawWindow = vi.fn((rect: LumaRawWindowRect) =>

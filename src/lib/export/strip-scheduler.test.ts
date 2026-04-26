@@ -22,6 +22,38 @@ describe('planExportStrips', () => {
       { x: 0, y: 8, width: 10, height: 1 },
     ])
   })
+
+  it.each([Infinity, -Infinity, Number.NaN, 0, -1])(
+    'rejects invalid preferred row count %s',
+    (preferredRows) => {
+      expect(() =>
+        planExportStrips({
+          width: 10,
+          height: 9,
+          preferredRows,
+          minRows: 2,
+          halo: 2,
+        }),
+      ).toThrow('FULL_RES_EXPORT_INVALID_PREFERRED_ROWS')
+    },
+  )
+
+  it('normalizes fractional preferred rows before planning strip geometry', () => {
+    const strips = planExportStrips({
+      width: 10,
+      height: 7,
+      preferredRows: 2.9,
+      minRows: 1,
+      halo: 0,
+    })
+
+    expect(strips.map((strip) => strip.output)).toEqual([
+      { x: 0, y: 0, width: 10, height: 2 },
+      { x: 0, y: 2, width: 10, height: 2 },
+      { x: 0, y: 4, width: 10, height: 2 },
+      { x: 0, y: 6, width: 10, height: 1 },
+    ])
+  })
 })
 
 describe('expandRectWithHalo', () => {

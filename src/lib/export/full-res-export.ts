@@ -22,7 +22,11 @@ import {
   applyCameraToWorkingRgbInPlace,
   mapOutputRectToRawWindow,
 } from './raw-window-transform'
-import { planExportStrips, reduceStripRows } from './strip-scheduler'
+import {
+  normalizePreferredStripRows,
+  planExportStrips,
+  reduceStripRows,
+} from './strip-scheduler'
 
 export type FullResolutionExportProgress = {
   completedStrips: number
@@ -75,6 +79,7 @@ const LEGAL_RANGE_OFFSET = 64 / 1023
 const LEGAL_RANGE_INV_SCALE = 1023 / (940 - 64)
 const PROPHOTO_TO_SRGB_MATRIX = getProPhotoToTargetMatrix('srgb-rec709')
 const MIN_EXPORT_STRIP_ROWS = 64
+const DEFAULT_EXPORT_STRIP_ROWS = 512
 
 function applySignalRangeForLutInput(value: number, isLegalRange: boolean) {
   if (!isLegalRange) return value
@@ -432,7 +437,9 @@ export async function runFullResolutionJpegExport(
 
   const applyGraphToRgbRows = compileGraphApplier(input.graph)
 
-  let stripRows = input.preferredRows ?? 512
+  let stripRows = normalizePreferredStripRows(
+    input.preferredRows ?? DEFAULT_EXPORT_STRIP_ROWS,
+  )
 
   while (true) {
     const strips = planExportStrips({

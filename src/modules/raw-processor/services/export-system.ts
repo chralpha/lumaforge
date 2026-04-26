@@ -1,9 +1,7 @@
 import type { ExportColorGraphDescriptor } from '~/lib/export/color-graph'
 import type { FullResolutionExportProgress } from '~/lib/export/full-res-export'
-import type {RunFullResolutionJpegExportInWorkerInput} from '~/lib/export/full-res-export-client';
-import {
-  FullResolutionExportWorkerClient
-} from '~/lib/export/full-res-export-client'
+import type { RunFullResolutionJpegExportInWorkerInput } from '~/lib/export/full-res-export-client'
+import { FullResolutionExportWorkerClient } from '~/lib/export/full-res-export-client'
 import type { ExportFidelity } from '~/lib/gl/export'
 
 const PREFERRED_ROWS_BY_FIDELITY: Record<ExportFidelity, number> = {

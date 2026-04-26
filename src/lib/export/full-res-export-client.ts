@@ -1,5 +1,6 @@
 import type { ExportColorGraphDescriptor } from './color-graph'
 import type { FullResolutionExportProgress } from './full-res-export'
+import { normalizePreferredStripRows } from './strip-scheduler'
 
 export type FullResExportWorkerStartMessage = {
   kind: 'start'
@@ -70,8 +71,29 @@ function createWorkerFailedError() {
   return new Error('FULL_RES_EXPORT_WORKER_FAILED')
 }
 
+function createWorkerPostError(error: unknown) {
+  if (error instanceof Error) {
+    return error
+  }
+
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string' &&
+    error.message
+  ) {
+    return new Error(error.message)
+  }
+
+  return new Error('FULL_RES_EXPORT_WORKER_ERROR')
+}
+
 function createRequestId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
     return `full-res-export-${crypto.randomUUID()}`
   }
 
@@ -165,6 +187,16 @@ export class FullResolutionExportWorkerClient {
       return Promise.reject(createCancelledError())
     }
 
+    let preferredRows: number | undefined
+    try {
+      preferredRows =
+        input.preferredRows === undefined
+          ? undefined
+          : normalizePreferredStripRows(input.preferredRows)
+    } catch (error) {
+      return Promise.reject(createWorkerPostError(error))
+    }
+
     const requestId = createRequestId()
 
     return new Promise<Blob>((resolve, reject) => {
@@ -179,11 +211,7 @@ export class FullResolutionExportWorkerClient {
             requestId,
           } satisfies FullResExportWorkerCancelMessage)
         } catch (error) {
-          this.rejectPending(
-            error instanceof Error
-              ? error
-              : new Error('FULL_RES_EXPORT_WORKER_ERROR'),
-          )
+          this.rejectPending(createWorkerPostError(error))
           this.resetWorker()
           return
         }
@@ -213,17 +241,13 @@ export class FullResolutionExportWorkerClient {
           requestId,
           file: input.file,
           graph: input.graph,
-          preferredRows: input.preferredRows,
+          preferredRows,
           quality: input.quality,
         } satisfies FullResExportWorkerStartMessage)
       } catch (error) {
         this.pending.delete(requestId)
         cleanup()
-        reject(
-          error instanceof Error
-            ? error
-            : new Error('FULL_RES_EXPORT_WORKER_ERROR'),
-        )
+        reject(createWorkerPostError(error))
         this.resetWorker()
       }
     })
