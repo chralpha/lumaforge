@@ -33,10 +33,29 @@ type JpegWorkerErrorResponse = {
 
 type WorkerResponse = JpegWorkerResponse | JpegWorkerErrorResponse
 
+type RowTransfer = {
+  rows: Uint8Array
+  transfer: Transferable[]
+}
+
 const defaultWorkerFactory = () =>
   new Worker(new URL('../worker/runtime.worker.ts', import.meta.url), {
     type: 'module',
   })
+
+function createRowTransfer(rows: Uint8Array): RowTransfer {
+  if (
+    rows.buffer instanceof ArrayBuffer &&
+    rows.byteOffset === 0 &&
+    rows.byteLength === rows.buffer.byteLength
+  ) {
+    return { rows, transfer: [rows.buffer] }
+  }
+
+  const tightRows = new Uint8Array(rows.byteLength)
+  tightRows.set(rows)
+  return { rows: tightRows, transfer: [tightRows.buffer] }
+}
 
 export function createLumaJpegRuntime(
   options: LumaJpegRuntimeOptions = {},
@@ -51,6 +70,7 @@ export function createLumaJpegRuntime(
   >()
   let nextRequestId = 0
   let disposed = false
+  let encoderActive = false
 
   worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
     const response = event.data
@@ -77,7 +97,10 @@ export function createLumaJpegRuntime(
     pending.clear()
   }
 
-  function sendRequest(request: Omit<JpegWorkerRequest, 'id'>) {
+  function sendRequest(
+    request: Omit<JpegWorkerRequest, 'id'>,
+    transfer: Transferable[] = [],
+  ) {
     if (disposed) {
       return Promise.reject(new Error('JPEG_RUNTIME_DISPOSED'))
     }
@@ -88,7 +111,7 @@ export function createLumaJpegRuntime(
     return new Promise<JpegWorkerResponse>((resolve, reject) => {
       pending.set(id, { resolve, reject })
       try {
-        worker.postMessage(message)
+        worker.postMessage(message, transfer)
       } catch (error) {
         pending.delete(id)
         reject(error instanceof Error ? error : new Error(String(error)))
@@ -98,37 +121,49 @@ export function createLumaJpegRuntime(
 
   return {
     createEncoder(encoderOptions) {
+      if (encoderActive) {
+        throw new Error('JPEG_RUNTIME_ENCODER_ACTIVE')
+      }
+
       let state: 'open' | 'finished' | 'aborted' = 'open'
+      encoderActive = true
       const createPromise = sendRequest({
         type: 'create',
         payload: encoderOptions,
+      }).catch((error) => {
+        encoderActive = false
+        throw error
       })
+
+      function assertOpen() {
+        if (state === 'finished') {
+          throw new Error('JPEG_RUNTIME_FINISHED')
+        }
+        if (state === 'aborted') {
+          throw new Error('JPEG_RUNTIME_ABORTED')
+        }
+      }
 
       return {
         async writeRows(rows, rowCount) {
-          if (state === 'finished') {
-            throw new Error('JPEG_RUNTIME_FINISHED')
-          }
-          if (state === 'aborted') {
-            throw new Error('JPEG_RUNTIME_ABORTED')
-          }
+          assertOpen()
 
           await createPromise
+          assertOpen()
+
+          const rowTransfer = createRowTransfer(rows)
           await sendRequest({
             type: 'rows',
-            payload: { rows, rowCount },
-          })
+            payload: { rows: rowTransfer.rows, rowCount },
+          }, rowTransfer.transfer)
         },
 
         async finish() {
-          if (state === 'finished') {
-            throw new Error('JPEG_RUNTIME_FINISHED')
-          }
-          if (state === 'aborted') {
-            throw new Error('JPEG_RUNTIME_ABORTED')
-          }
+          assertOpen()
 
           await createPromise
+          assertOpen()
+
           const response = await sendRequest({
             type: 'finish',
             payload: {},
@@ -138,6 +173,7 @@ export function createLumaJpegRuntime(
           }
 
           state = 'finished'
+          encoderActive = false
           return response.payload.blob
         },
 
@@ -154,6 +190,9 @@ export function createLumaJpegRuntime(
                 payload: {},
               }),
             )
+            .finally(() => {
+              encoderActive = false
+            })
             .catch(() => {})
         },
       }

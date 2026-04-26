@@ -563,6 +563,9 @@ export function createJpegRuntimeCore(
   return {
     async handleRequest(request: JpegWorkerRequest): Promise<JpegWorkerResponse> {
       if (request.type === 'create') {
+        if (state === 'ready') {
+          throw new Error('JPEG_RUNTIME_ENCODER_ACTIVE')
+        }
         if (!isPositiveInteger(request.payload.width)) {
           throw new Error('JPEG_INVALID_WIDTH')
         }
@@ -600,7 +603,9 @@ export function createJpegRuntimeCore(
           throw new Error('JPEG_ROW_COUNT_EXCEEDED')
         }
 
-        await encoder.writeRows(request.payload.rows, request.payload.rowCount)
+        const activeEncoder = encoder
+        await activeEncoder.writeRows(request.payload.rows, request.payload.rowCount)
+        assertReady()
         writtenRows += request.payload.rowCount
 
         return {
@@ -618,8 +623,11 @@ export function createJpegRuntimeCore(
           throw new Error('JPEG_INCOMPLETE_IMAGE')
         }
 
-        const blob = await encoder.finish()
+        const activeEncoder = encoder
+        const blob = await activeEncoder.finish()
+        assertReady()
         state = 'finished'
+        encoder = undefined
 
         return {
           id: request.id,
@@ -633,6 +641,7 @@ export function createJpegRuntimeCore(
       encoder.abort()
       writtenRows = 0
       state = 'aborted'
+      encoder = undefined
 
       return {
         id: request.id,
