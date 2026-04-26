@@ -55,14 +55,16 @@ export function mapOutputRectToRawWindow(input: {
     throw new Error('Output rect must be fully contained within the visible raw crop.')
   }
 
-  const rawInputX = Math.max(0, rawOutput.x - input.halo)
-  const rawInputY = Math.max(0, rawOutput.y - input.halo)
+  const visibleCropRight = input.visibleCrop.x + input.visibleCrop.width
+  const visibleCropBottom = input.visibleCrop.y + input.visibleCrop.height
+  const rawInputX = Math.max(input.visibleCrop.x, rawOutput.x - input.halo)
+  const rawInputY = Math.max(input.visibleCrop.y, rawOutput.y - input.halo)
   const rawInputRight = Math.min(
-    input.rawWidth,
+    visibleCropRight,
     rawOutput.x + rawOutput.width + input.halo,
   )
   const rawInputBottom = Math.min(
-    input.rawHeight,
+    visibleCropBottom,
     rawOutput.y + rawOutput.height + input.halo,
   )
   const rawInput = {

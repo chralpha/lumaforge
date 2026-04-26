@@ -5,6 +5,7 @@ import type {
 } from '@lumaforge/luma-raw-runtime'
 import { mat3Identity } from '~/lib/color/matrix'
 
+import { demosaicBilinearRgb } from './demosaic'
 import { runFullResolutionJpegExport } from './full-res-export'
 
 function makeCapability(
@@ -51,6 +52,28 @@ function linearToSrgb(value: number) {
     ? clamped * 12.92
     : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055
 }
+
+describe('demosaicBilinearRgb', () => {
+  it('preserves legacy absolute output rectangles before local output resolution', () => {
+    const rect = { x: 2, y: 2, width: 20, height: 20 }
+    const data = new Uint16Array(rect.width * rect.height)
+    data[1 * rect.width + 1] = 100
+    data[3 * rect.width + 3] = 200
+
+    const tile = demosaicBilinearRgb({
+      rect,
+      cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+      data,
+      blackLevel: 0,
+      whiteLevel: 255,
+      output: { x: 3, y: 3, width: 1, height: 1 },
+    })
+
+    expect(tile.width).toBe(1)
+    expect(tile.height).toBe(1)
+    expect(tile.data[2]).toBeCloseTo(100 / 255)
+  })
+})
 
 describe('runFullResolutionJpegExport', () => {
   it('throws FULL_RES_EXPORT_UNSUPPORTED_SOURCE before opening writer or reading windows', async () => {
@@ -171,6 +194,46 @@ describe('runFullResolutionJpegExport', () => {
     expect(progress.at(-1)).toBe(100)
   })
 
+  it('maps full export strips to raw windows and writes requested output rows', async () => {
+    const writtenRows: number[] = []
+    const readRawWindow = vi.fn((rect: LumaRawWindowRect) =>
+      Promise.resolve(makeWindow(rect)),
+    )
+    const writer = {
+      writeRows: vi.fn(async (_bytes: Uint8Array, rowCount: number) => {
+        writtenRows.push(rowCount)
+      }),
+      close: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await runFullResolutionJpegExport({
+      capability: makeCapability({
+        width: 4,
+        height: 4,
+        rawWidth: 20,
+        rawHeight: 30,
+        visibleCrop: { x: 5, y: 7, width: 4, height: 4 },
+      }),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+      },
+      preferredRows: 2,
+      readRawWindow,
+      writerFactory: () => writer,
+    })
+
+    expect(readRawWindow.mock.calls.map(([rect]) => rect)).toEqual([
+      { x: 5, y: 7, width: 4, height: 4 },
+      { x: 5, y: 7, width: 4, height: 4 },
+    ])
+    expect(writtenRows).toEqual([2, 2])
+  })
+
   it('retries RESOURCE_ALLOCATION_FAILED with smaller strips and preserves JPEG dimensions', async () => {
     const writtenRows: Array<{ rowCount: number; bytes: Uint8Array }> = []
     let failedOnce = false
@@ -191,7 +254,11 @@ describe('runFullResolutionJpegExport', () => {
     }
 
     const blob = await runFullResolutionJpegExport({
-      capability: makeCapability({ height: 256, rawHeight: 256 }),
+      capability: makeCapability({
+        height: 256,
+        rawHeight: 256,
+        visibleCrop: { x: 0, y: 0, width: 4, height: 256 },
+      }),
       graph: {
         supported: true,
         outputGamut: 'srgb-rec709',
@@ -242,7 +309,11 @@ describe('runFullResolutionJpegExport', () => {
     })
 
     const blob = await runFullResolutionJpegExport({
-      capability: makeCapability({ height: 512, rawHeight: 512 }),
+      capability: makeCapability({
+        height: 512,
+        rawHeight: 512,
+        visibleCrop: { x: 0, y: 0, width: 4, height: 512 },
+      }),
       graph: {
         supported: true,
         outputGamut: 'srgb-rec709',
@@ -283,7 +354,11 @@ describe('runFullResolutionJpegExport', () => {
 
     await expect(
       runFullResolutionJpegExport({
-        capability: makeCapability({ height: 256, rawHeight: 256 }),
+        capability: makeCapability({
+          height: 256,
+          rawHeight: 256,
+          visibleCrop: { x: 0, y: 0, width: 4, height: 256 },
+        }),
         graph: {
           supported: true,
           outputGamut: 'srgb-rec709',
@@ -313,7 +388,11 @@ describe('runFullResolutionJpegExport', () => {
 
     await expect(
       runFullResolutionJpegExport({
-        capability: makeCapability({ height: 256, rawHeight: 256 }),
+        capability: makeCapability({
+          height: 256,
+          rawHeight: 256,
+          visibleCrop: { x: 0, y: 0, width: 4, height: 256 },
+        }),
         graph: {
           supported: true,
           outputGamut: 'srgb-rec709',

@@ -20,6 +20,48 @@ describe('mapOutputRectToRawWindow', () => {
       outputWithinWindow: { x: 0, y: 2, width: 4000, height: 64 },
     })
   })
+
+  it('clamps top-left halo expansion to the visible crop boundary', () => {
+    expect(
+      mapOutputRectToRawWindow({
+        output: { x: 0, y: 0, width: 100, height: 50 },
+        visibleCrop: { x: 10, y: 20, width: 400, height: 300 },
+        rawWidth: 500,
+        rawHeight: 400,
+        halo: 2,
+      }),
+    ).toEqual({
+      rawInput: { x: 10, y: 20, width: 102, height: 52 },
+      outputWithinWindow: { x: 0, y: 0, width: 100, height: 50 },
+    })
+  })
+
+  it('clamps bottom-right halo expansion to the visible crop boundary', () => {
+    expect(
+      mapOutputRectToRawWindow({
+        output: { x: 300, y: 250, width: 100, height: 50 },
+        visibleCrop: { x: 10, y: 20, width: 400, height: 300 },
+        rawWidth: 500,
+        rawHeight: 400,
+        halo: 2,
+      }),
+    ).toEqual({
+      rawInput: { x: 308, y: 268, width: 102, height: 52 },
+      outputWithinWindow: { x: 2, y: 2, width: 100, height: 50 },
+    })
+  })
+
+  it('rejects output rectangles outside the visible crop', () => {
+    expect(() =>
+      mapOutputRectToRawWindow({
+        output: { x: 399, y: 0, width: 2, height: 1 },
+        visibleCrop: { x: 10, y: 20, width: 400, height: 300 },
+        rawWidth: 500,
+        rawHeight: 400,
+        halo: 2,
+      }),
+    ).toThrow('Output rect must be fully contained within the visible raw crop.')
+  })
 })
 
 describe('applyCameraToWorkingRgbInPlace', () => {

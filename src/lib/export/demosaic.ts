@@ -98,6 +98,10 @@ function resolveOutputRect(input: LumaRawWindow & { output: LumaRawWindowRect })
     height: input.rect.height,
   }
 
+  if (containsRect(input.rect, input.output)) {
+    return input.output
+  }
+
   if (containsRect(localBounds, input.output)) {
     return {
       x: input.rect.x + input.output.x,
@@ -105,10 +109,6 @@ function resolveOutputRect(input: LumaRawWindow & { output: LumaRawWindowRect })
       width: input.output.width,
       height: input.output.height,
     }
-  }
-
-  if (containsRect(input.rect, input.output)) {
-    return input.output
   }
 
   throw new Error('Output rect must be fully contained within the raw window rect.')
