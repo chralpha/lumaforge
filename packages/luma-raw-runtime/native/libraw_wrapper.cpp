@@ -106,11 +106,32 @@ size_t checkedMultiply(size_t left, size_t right, const std::string &label) {
   return left * right;
 }
 
+int normalizedCfaColor(LibRaw &processor, int row, int col) {
+  const int color_index = processor.COLOR(row, col);
+  if (color_index < 0 || color_index >= 6) {
+    return -1;
+  }
+
+  switch (processor.imgdata.idata.cdesc[color_index]) {
+    case 'R':
+    case 'r':
+      return 0;
+    case 'G':
+    case 'g':
+      return 1;
+    case 'B':
+    case 'b':
+      return 2;
+    default:
+      return -1;
+  }
+}
+
 std::string cfaPatternName(LibRaw &processor) {
-  const int top_left = processor.COLOR(0, 0);
-  const int top_right = processor.COLOR(0, 1);
-  const int bottom_left = processor.COLOR(1, 0);
-  const int bottom_right = processor.COLOR(1, 1);
+  const int top_left = normalizedCfaColor(processor, 0, 0);
+  const int top_right = normalizedCfaColor(processor, 0, 1);
+  const int bottom_left = normalizedCfaColor(processor, 1, 0);
+  const int bottom_right = normalizedCfaColor(processor, 1, 1);
 
   if (top_left == 0 && top_right == 1 && bottom_left == 1 &&
       bottom_right == 2) {
@@ -385,6 +406,7 @@ class LumaRawProcessor {
     }
 
     processor_.recycle();
+    unpacked_ = false;
     processed_ = false;
 
     applySettings(settings);
@@ -484,7 +506,7 @@ class LumaRawProcessor {
   }
 
   val probeExportCapability() {
-    requireLibRawSuccess("LibRaw unpack", processor_.unpack());
+    ensureUnpacked();
     const libraw_data_t &imgdata = processor_.imgdata;
     const libraw_image_sizes_t &sizes = imgdata.sizes;
     const libraw_colordata_t &color = imgdata.color;
@@ -525,7 +547,7 @@ class LumaRawProcessor {
   }
 
   val readRawWindow(val rect) {
-    requireLibRawSuccess("LibRaw unpack", processor_.unpack());
+    ensureUnpacked();
     const libraw_data_t &imgdata = processor_.imgdata;
     const libraw_image_sizes_t &sizes = imgdata.sizes;
     const libraw_colordata_t &color = imgdata.color;
@@ -593,12 +615,21 @@ class LumaRawProcessor {
     }
   }
 
+  void ensureUnpacked() {
+    if (unpacked_) {
+      return;
+    }
+
+    requireLibRawSuccess("LibRaw unpack", processor_.unpack());
+    unpacked_ = true;
+  }
+
   void ensureProcessed() {
     if (processed_) {
       return;
     }
 
-    requireLibRawSuccess("LibRaw unpack", processor_.unpack());
+    ensureUnpacked();
     requireLibRawSuccess("LibRaw dcraw_process", processor_.dcraw_process());
     processed_ = true;
   }
@@ -688,6 +719,7 @@ class LumaRawProcessor {
 
   LibRaw processor_;
   std::vector<unsigned char> input_buffer_;
+  bool unpacked_ = false;
   bool processed_ = false;
 };
 

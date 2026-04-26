@@ -259,6 +259,54 @@ describe('native-adapter', () => {
     expect(cameraWhiteBalanceSelector).toContain('source[index] <= 0')
   })
 
+  it('normalizes LibRaw CFA color slots before matching Bayer patterns', () => {
+    const wrapperSource = readFileSync(
+      resolve(
+        dirname(fileURLToPath(import.meta.url)),
+        '..',
+        'native',
+        'libraw_wrapper.cpp',
+      ),
+      'utf8',
+    )
+    const cfaSelector = wrapperSource.match(
+      /int normalizedCfaColor[\s\S]*?\n\}\n\nstd::string cfaPatternName[\s\S]*?\n\}\n\nbool hasBayerRawImage/,
+    )?.[0]
+
+    expect(cfaSelector).toContain('processor.imgdata.idata.cdesc[color_index]')
+    expect(cfaSelector).toContain("case 'G':")
+    expect(cfaSelector).toContain(
+      'const int top_right = normalizedCfaColor(processor, 0, 1)',
+    )
+    expect(cfaSelector).not.toContain('const int top_right = processor.COLOR')
+  })
+
+  it('keeps native raw unpack idempotent across capability and window reads', () => {
+    const wrapperSource = readFileSync(
+      resolve(
+        dirname(fileURLToPath(import.meta.url)),
+        '..',
+        'native',
+        'libraw_wrapper.cpp',
+      ),
+      'utf8',
+    )
+    const probeCapability = wrapperSource.match(
+      /val probeExportCapability\(\)[\s\S]*?\n {2}\}\n\n {2}val readRawWindow/,
+    )?.[0]
+    const readRawWindow = wrapperSource.match(
+      /val readRawWindow\(val rect\)[\s\S]*?\n {2}\}\n\n private:/,
+    )?.[0]
+    const ensureProcessed = wrapperSource.match(
+      /void ensureProcessed\(\)[\s\S]*?\n {2}\}\n\n {2}val decodeImage/,
+    )?.[0]
+
+    expect(wrapperSource).toContain('bool unpacked_ = false;')
+    expect(probeCapability).toContain('ensureUnpacked();')
+    expect(readRawWindow).toContain('ensureUnpacked();')
+    expect(ensureProcessed).toContain('ensureUnpacked();')
+  })
+
   it('fails closed when export color facts are missing, unusable, or orientation is unsupported', () => {
     const baseCapability = {
       supported: true,
