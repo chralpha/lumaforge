@@ -25,6 +25,25 @@ describe('resolveExportColorGraph', () => {
     ])
   })
 
+  it('fails closed for built-in styles', () => {
+    const graph = resolveExportColorGraph({
+      styleKind: 'builtin',
+      intensity: 0.7,
+      builtinPreset: 'golden',
+      lut: null,
+    })
+
+    expect(graph.supported).toBe(false)
+    if (graph.supported) {
+      throw new Error('Expected unsupported graph')
+    }
+    expect(graph.reason).toBe('unsupported-pipeline')
+    expect(graph.message).toBe(
+      'Built-in styles are not supported by full-resolution JPEG export.',
+    )
+    expect(graph.steps).toEqual([])
+  })
+
   it('resolves scene creative LUTs with explicit input gamut and transfer', () => {
     const profile = getLUTColorProfile('sony-sgamut3cine-slog3')
     expect(profile).toBeDefined()
@@ -61,6 +80,10 @@ describe('resolveExportColorGraph', () => {
       'lut-output-to-srgb',
       'output-srgb',
     ])
+    expect(graph.steps[3]).toMatchObject({
+      kind: 'lut3d',
+      intensity: 0.7,
+    })
   })
 
   it('fails closed for unresolved LUT profiles', () => {

@@ -101,9 +101,47 @@ describe('runFullResolutionJpegExport', () => {
     expect(writtenRows).toHaveLength(2)
     expect(writtenRows[0]?.rowCount).toBe(2)
     expect(writtenRows[1]?.rowCount).toBe(2)
-    expect(writtenRows[0]?.bytes).toEqual(new Uint8Array(4 * 2 * 3).fill(128))
-    expect(writtenRows[1]?.bytes).toEqual(new Uint8Array(4 * 2 * 3).fill(128))
+    expect(writtenRows[0]?.bytes).toEqual(new Uint8Array(4 * 2 * 3).fill(188))
+    expect(writtenRows[1]?.bytes).toEqual(new Uint8Array(4 * 2 * 3).fill(188))
     expect(progress.at(-1)).toBe(100)
+  })
+
+  it('uses the color graph before writing JPEG rows', async () => {
+    const writtenRows: Array<{ rowCount: number; bytes: Uint8Array }> = []
+    const readRawWindow = vi.fn((rect: LumaRawWindowRect) =>
+      Promise.resolve({
+        rect,
+        cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+        data: new Uint16Array(rect.width * rect.height).fill(255),
+        blackLevel: 0,
+        whiteLevel: 255,
+      }),
+    )
+    const writer = {
+      writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
+        writtenRows.push({ rowCount, bytes: new Uint8Array(bytes) })
+      }),
+      close: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await runFullResolutionJpegExport({
+      capability: makeCapability(),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+      },
+      preferredRows: 2,
+      readRawWindow,
+      writer,
+    })
+
+    expect(writtenRows).toHaveLength(2)
+    expect(writtenRows[0]?.rowCount).toBe(2)
+    expect(writtenRows[0]?.bytes[0]).toBe(255)
   })
 
   it('aborts the writer if strip export fails after writer creation', async () => {

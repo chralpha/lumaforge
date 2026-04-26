@@ -10,7 +10,7 @@ export function read(
   b: number,
 ): [number, number, number] {
   const index = ((b * size + g) * size + r) * 3
-  return [data[index], data[index + 1], data[index + 2]]
+  return [data[index] ?? 0, data[index + 1] ?? 0, data[index + 2] ?? 0]
 }
 
 export function mix(a: number, b: number, t: number) {

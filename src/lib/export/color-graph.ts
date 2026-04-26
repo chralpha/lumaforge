@@ -53,6 +53,11 @@ export type ExportColorGraphDescriptor =
       steps: []
     }
 
+export type SupportedExportColorGraphDescriptor = Extract<
+  ExportColorGraphDescriptor,
+  { supported: true }
+>
+
 const OUTPUT_GAMUT = 'srgb-rec709'
 const OUTPUT_TRANSFER = 'srgb'
 
@@ -85,19 +90,11 @@ export function resolveExportColorGraph(input: {
 
   if (input.styleKind === 'builtin' && input.builtinPreset) {
     return {
-      supported: true,
-      outputGamut: OUTPUT_GAMUT,
-      outputTransfer: OUTPUT_TRANSFER,
-      lutProfile: null,
-      steps: [
-        ...base,
-        {
-          kind: 'builtin-style',
-          preset: input.builtinPreset,
-          intensity: input.intensity,
-        },
-        { kind: 'output-srgb' },
-      ],
+      supported: false,
+      reason: 'unsupported-pipeline',
+      message:
+        'Built-in styles are not supported by full-resolution JPEG export.',
+      steps: [],
     }
   }
 
