@@ -15,6 +15,7 @@ import type {
   LUTRole,
   SignalRange,
 } from '~/lib/color/registry'
+import { resolveExportColorGraph } from '~/lib/export/color-graph'
 
 import type {
   PipelineCapabilityWarning,
@@ -724,9 +725,14 @@ export class RawProcessingPipeline {
   }
 
   private getTelemetrySnapshot(): PipelineTelemetrySnapshot {
-    const profileResolution = this.lutData?.profileResolution
+    const exportGraph = resolveExportColorGraph({
+      styleKind: this.params.styleKind,
+      intensity: this.params.intensity,
+      builtinPreset: this.params.builtinPreset,
+      lut: this.lutData,
+    })
     const resolvedProfile =
-      profileResolution?.kind === 'resolved' ? profileResolution.profile : null
+      exportGraph.supported ? exportGraph.lutProfile : null
     const outputTransfer = resolvedProfile
       ? resolveLUTOutputTransfer(resolvedProfile)
       : null
