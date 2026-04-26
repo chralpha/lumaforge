@@ -91,31 +91,56 @@ function normalizeLutSample(
   return clamp01((value - domainMin) * inverseDomainSpan)
 }
 
-function compileGraphApplier(graph: SupportedExportColorGraphDescriptor) {
-  const isSimpleNoLutGraph =
+function isSimpleNoLutGraph(
+  graph: SupportedExportColorGraphDescriptor,
+): graph is SupportedExportColorGraphDescriptor & {
+  steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }]
+} {
+  return (
     graph.lutProfile === null &&
     graph.steps.length === 2 &&
     graph.steps[0]?.kind === 'input-linear-prophoto' &&
     graph.steps[1]?.kind === 'output-srgb'
+  )
+}
 
-  const encodeStep = graph.steps.find(
-    (step): step is Extract<typeof step, { kind: 'encode-lut-transfer' }> =>
-      step.kind === 'encode-lut-transfer',
+function isSupportedLutGraph(
+  graph: SupportedExportColorGraphDescriptor,
+): graph is SupportedExportColorGraphDescriptor & {
+  steps: [
+    { kind: 'input-linear-prophoto' },
+    Extract<
+      SupportedExportColorGraphDescriptor['steps'][number],
+      { kind: 'gamut-to-lut-input' }
+    >,
+    Extract<
+      SupportedExportColorGraphDescriptor['steps'][number],
+      { kind: 'encode-lut-transfer' }
+    >,
+    Extract<
+      SupportedExportColorGraphDescriptor['steps'][number],
+      { kind: 'lut3d' }
+    >,
+    Extract<
+      SupportedExportColorGraphDescriptor['steps'][number],
+      { kind: 'lut-output-to-srgb' }
+    >,
+    { kind: 'output-srgb' },
+  ]
+} {
+  return (
+    graph.steps.length === 6 &&
+    graph.steps[0]?.kind === 'input-linear-prophoto' &&
+    graph.steps[1]?.kind === 'gamut-to-lut-input' &&
+    graph.steps[2]?.kind === 'encode-lut-transfer' &&
+    graph.steps[3]?.kind === 'lut3d' &&
+    graph.steps[4]?.kind === 'lut-output-to-srgb' &&
+    graph.steps[5]?.kind === 'output-srgb'
   )
-  const lutStep = graph.steps.find(
-    (step): step is Extract<typeof step, { kind: 'lut3d' }> =>
-      step.kind === 'lut3d',
-  )
-  const outputStep = graph.steps.find(
-    (step): step is Extract<typeof step, { kind: 'lut-output-to-srgb' }> =>
-      step.kind === 'lut-output-to-srgb',
-  )
-  const inputMatrixStep = graph.steps.find(
-    (step): step is Extract<typeof step, { kind: 'gamut-to-lut-input' }> =>
-      step.kind === 'gamut-to-lut-input',
-  )
+}
 
-  if (isSimpleNoLutGraph) {
+function compileGraphApplier(graph: SupportedExportColorGraphDescriptor) {
+  if (isSimpleNoLutGraph(graph)) {
     return (linear: Float32Array) => {
       const bytes = new Uint8Array(linear.length)
       for (let index = 0; index < linear.length; index += 3) {
@@ -145,11 +170,14 @@ function compileGraphApplier(graph: SupportedExportColorGraphDescriptor) {
     }
   }
 
-  if (!lutStep || !encodeStep || !outputStep) {
+  if (!isSupportedLutGraph(graph)) {
     throw new Error('FULL_RES_EXPORT_UNSUPPORTED_PIPELINE')
   }
 
-  const inputMatrix = inputMatrixStep?.matrix
+  const inputMatrix = graph.steps[1].matrix
+  const encodeStep = graph.steps[2]
+  const lutStep = graph.steps[3]
+  const outputStep = graph.steps[4]
   const outputMatrix = outputStep.matrix
   const encodeTransfer = getTransferFunction(encodeStep.transfer)
   const decodeTransfer = getTransferFunction(outputStep.transfer)
@@ -161,9 +189,6 @@ function compileGraphApplier(graph: SupportedExportColorGraphDescriptor) {
   const outputIsLegalRange = outputStep.range === 'legal'
   const role = outputStep.role
   const intensity = outputStep.intensity
-  if (role !== 'display-look' && !inputMatrix) {
-    throw new Error('FULL_RES_EXPORT_UNSUPPORTED_PIPELINE')
-  }
   const domainMin = lutStep.domainMin
   const inverseDomainSpanR =
     lutStep.domainMax[0] === domainMin[0]

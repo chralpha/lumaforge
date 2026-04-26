@@ -311,6 +311,65 @@ describe('runFullResolutionJpegExport', () => {
     ).rejects.toThrow('FULL_RES_EXPORT_UNSUPPORTED_PIPELINE')
 
     expect(writer.writeRows).not.toHaveBeenCalled()
-    expect(writer.abort).toHaveBeenCalledTimes(1)
+    expect(writer.abort).not.toHaveBeenCalled()
+  })
+
+  it('fails closed for malformed but complete supported graphs with duplicate steps', async () => {
+    const writer = {
+      writeRows: vi.fn(),
+      close: vi.fn(),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await expect(
+      runFullResolutionJpegExport({
+        capability: makeCapability(),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [
+            { kind: 'input-linear-prophoto' },
+            {
+              kind: 'gamut-to-lut-input',
+              matrix: mat3Identity(),
+              gamut: 'prophoto-rgb',
+            },
+            {
+              kind: 'encode-lut-transfer',
+              transfer: 'srgb',
+              range: 'full',
+            },
+            {
+              kind: 'encode-lut-transfer',
+              transfer: 'srgb',
+              range: 'full',
+            },
+            {
+              kind: 'lut3d',
+              size: 2,
+              data: new Float32Array(24),
+              domainMin: [0, 0, 0],
+              domainMax: [1, 1, 1],
+            },
+            {
+              kind: 'lut-output-to-srgb',
+              matrix: mat3Identity(),
+              transfer: 'srgb',
+              range: 'full',
+              role: 'scene-creative',
+              intensity: 0.5,
+            },
+            { kind: 'output-srgb' },
+          ],
+        },
+        readRawWindow: vi.fn(),
+        writer,
+      }),
+    ).rejects.toThrow('FULL_RES_EXPORT_UNSUPPORTED_PIPELINE')
+
+    expect(writer.writeRows).not.toHaveBeenCalled()
+    expect(writer.abort).not.toHaveBeenCalled()
   })
 })
