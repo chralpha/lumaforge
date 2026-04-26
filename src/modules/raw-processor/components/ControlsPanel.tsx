@@ -352,6 +352,8 @@ export function ControlsPanel({
   className,
 }: ControlsPanelProps) {
   const exportDisabledReason = useAtomValue(exportDisabledReasonAtom)
+  const resolvedExportDisabledReason =
+    exportDisabledReason ?? 'Full-resolution export source is still loading.'
 
   return (
     <m.div
@@ -457,7 +459,7 @@ export function ControlsPanel({
           <p className="text-xs text-text-tertiary">
             {canExport
               ? 'Exports from the raw-window path, not the visible preview.'
-              : exportDisabledReason ??
+              : resolvedExportDisabledReason ??
                 'Full-resolution export stays locked until raw-window support is confirmed.'}
           </p>
         </section>

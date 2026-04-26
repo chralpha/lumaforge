@@ -18,7 +18,7 @@ export function recommendRetryLevel(
   return null
 }
 
-export async function runExportJob({
+export async function runPreviewExportJob({
   renderToCanvas,
   filename,
   quality,

@@ -40,10 +40,13 @@ import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
 import {
   deriveCanEdit,
-  deriveCanExport,
   selectDisplaySource,
 } from '../model/derive-session'
-import type { LUTProfileSelectionState, StyleAsset } from '../model/session'
+import type {
+  ImageSession,
+  LUTProfileSelectionState,
+  StyleAsset,
+} from '../model/session'
 import { BUILTIN_PRESETS } from '../services/builtin-presets'
 import {
   buildExportFilename,
@@ -98,6 +101,18 @@ function copyToArrayBuffer(data: Uint8Array) {
 
 function enqueuePostCommitTask(task: () => void) {
   setTimeout(task, 0)
+}
+
+function isFullResExportRunnable(input: {
+  hasSourceFile: boolean
+  session: ImageSession
+}) {
+  return (
+    input.hasSourceFile &&
+    input.session.exportState.fullResCapability.status === 'supported' &&
+    input.session.renderState.status !== 'failed' &&
+    input.session.exportState.status !== 'exporting'
+  )
 }
 
 export interface UseRawProcessorReturn {
@@ -176,7 +191,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
   )
   const [lutData, setLutData] = useState<LUTData | null>(null)
   const hasImage = session ? deriveCanEdit(session) : false
-  const canExport = session ? deriveCanExport(session) : false
+  const canExport = session
+    ? isFullResExportRunnable({
+        hasSourceFile: Boolean(loadedImage.file),
+        session,
+      })
+    : false
   const activeStyle = session?.activeStyle || null
   const lutProfileSelection = session?.lutProfileSelection || null
   const activePresetId =
@@ -1022,7 +1042,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
       quality: 'standard' | 'high'
       fidelity: 'safe' | 'balanced' | 'max'
     }) => {
-      if (!session || !loadedImage.file) {
+      if (
+        !session ||
+        !isFullResExportRunnable({
+          hasSourceFile: Boolean(loadedImage.file),
+          session,
+        }) ||
+        !loadedImage.file
+      ) {
         scheduleToast(() =>
           toast.error('Full-resolution export is not ready'),
         )
@@ -1097,7 +1124,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         const result = await runFullResolutionExportJob({
           file: loadedImage.file,
           filename,
-          quality: quality === 'high' ? 0.95 : 0.85,
+          quality: quality === 'high' ? 0.92 : 0.86,
           graph,
           onProgress: (entry) => {
             if (!isMountedRef.current || sessionRef.current?.id !== session.id) {

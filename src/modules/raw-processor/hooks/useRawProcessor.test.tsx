@@ -463,6 +463,14 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
+  it('keeps full-resolution export disabled until the source file is actually loaded', () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    expect(result.current.canExport).toBe(false)
+  })
+
   it('fails closed when the current style pipeline is unsupported for full-resolution export', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
 
@@ -557,7 +565,7 @@ describe('useRawProcessor embedded preview state', () => {
       expect.objectContaining({
         file: expect.any(File),
         filename: 'frame_neutral_fullres.jpg',
-        quality: 0.95,
+        quality: 0.92,
       }),
     )
     expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({

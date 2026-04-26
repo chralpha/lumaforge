@@ -22,7 +22,9 @@ export function WorkspaceHeader({
 }) {
   const sessionDisabledReason = useAtomValue(exportDisabledReasonAtom)
   const exportDisabledReason = !canExport
-    ? disabledReason ?? sessionDisabledReason
+    ? disabledReason ??
+      sessionDisabledReason ??
+      'Full-resolution export source is still loading.'
     : undefined
 
   return (

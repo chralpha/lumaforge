@@ -38,7 +38,7 @@ describe('export-system', () => {
         lutProfile: null,
         steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
       },
-      quality: 0.95,
+      quality: 0.92,
       clientFactory: () =>
         ({
           run,
@@ -56,7 +56,7 @@ describe('export-system', () => {
         steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
       },
       onProgress: undefined,
-      quality: 0.95,
+      quality: 0.92,
       signal: undefined,
     })
     expect(dispose).toHaveBeenCalledTimes(1)
