@@ -193,7 +193,7 @@ bool selectCameraWhiteBalance(const libraw_colordata_t &color,
                               double *white_balance) {
   const float *source = color.cam_mul;
   double raw_multipliers[4] = {0, 0, 0, 0};
-  double min_multiplier = std::numeric_limits<double>::infinity();
+  double min_multiplier = 0.0;
   double max_multiplier = 0.0;
 
   for (int index = 0; index < 4; ++index) {
@@ -202,8 +202,13 @@ bool selectCameraWhiteBalance(const libraw_colordata_t &color,
     }
 
     raw_multipliers[index] = source[index];
-    min_multiplier = std::min(min_multiplier, raw_multipliers[index]);
-    max_multiplier = std::max(max_multiplier, raw_multipliers[index]);
+    if (index == 0) {
+      min_multiplier = raw_multipliers[index];
+      max_multiplier = raw_multipliers[index];
+    } else {
+      min_multiplier = std::min(min_multiplier, raw_multipliers[index]);
+      max_multiplier = std::max(max_multiplier, raw_multipliers[index]);
+    }
   }
 
   if (max_multiplier <= min_multiplier) {

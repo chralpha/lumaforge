@@ -250,6 +250,9 @@ describe('native-adapter', () => {
     expect(cameraWhiteBalanceSelector).toContain(
       'white_balance[index] = raw_multipliers[index] / normalization_scale',
     )
+    expect(cameraWhiteBalanceSelector).not.toContain(
+      'std::numeric_limits<double>::infinity()',
+    )
     expect(cameraWhiteBalanceSelector).toContain(
       'max_multiplier <= min_multiplier',
     )
