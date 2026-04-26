@@ -272,8 +272,8 @@ class BaselineSequentialJpegEncoder implements InternalJpegEncoder {
     CHROMA_AC_BITS,
     CHROMA_AC_VALUES,
   )
-  private readonly block = Array.from({length: 64}).fill(0)
-  private readonly coefficients = Array.from({length: 64}).fill(0)
+  private readonly block = Array.from({ length: 64 }, () => 0)
+  private readonly coefficients = Array.from({ length: 64 }, () => 0)
   private bandRows = 0
   private previousDc = [0, 0, 0]
   private finished = false
