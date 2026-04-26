@@ -1,6 +1,7 @@
 import { LumaRawRuntimeError, normalizeRawRuntimeError } from '../src/errors'
 import type {
   LumaEmbeddedPreview,
+  LumaRawExportCapability,
   LumaRawFrame,
   LumaRawHeapStats,
   LumaRawMetadata,
@@ -296,7 +297,7 @@ function heapStats(
   }
 }
 
-function unsupportedRawWindowCapability() {
+function unsupportedRawWindowCapability(): LumaRawExportCapability {
   return {
     supported: false,
     width: 0,
@@ -306,7 +307,7 @@ function unsupportedRawWindowCapability() {
     cfa: { pattern: 'unsupported' as const, xPhase: 0, yPhase: 0 },
     blackLevel: 0,
     whiteLevel: 0,
-    orientation: 1,
+    orientation: { code: 1, supported: true },
     reasons: ['raw-window-unavailable'],
   }
 }

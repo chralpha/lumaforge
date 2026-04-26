@@ -160,8 +160,92 @@ describe('native-adapter', () => {
       cfa: { pattern: 'unsupported', xPhase: 0, yPhase: 0 },
       blackLevel: 0,
       whiteLevel: 0,
-      orientation: 1,
+      orientation: { code: 1, supported: true },
       reasons: ['raw-window-unavailable'],
+    })
+  })
+
+  it('requires supported export capabilities to include export color and geometry facts', () => {
+    const processor = createProcessor({
+      exportCapability: {
+        supported: true,
+        width: 4000,
+        height: 3000,
+        rawWidth: 4048,
+        rawHeight: 3040,
+        visibleCrop: { x: 24, y: 20, width: 4000, height: 3000 },
+        cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+        blackLevel: 512,
+        whiteLevel: 16383,
+        orientation: { code: 1, supported: true },
+        color: {
+          whiteBalance: [2.1, 1, 1.4, 1],
+          cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+          workingSpace: 'linear-prophoto-rgb',
+        },
+        reasons: [],
+      },
+    })
+
+    const capability = processor.probeExportCapability?.()
+
+    expect(capability).toMatchObject({
+      supported: true,
+      width: 4000,
+      height: 3000,
+      rawWidth: 4048,
+      rawHeight: 3040,
+      visibleCrop: { x: 24, y: 20, width: 4000, height: 3000 },
+      orientation: { code: 1, supported: true },
+      color: {
+        whiteBalance: expect.any(Array),
+        cameraToWorkingRgb: expect.any(Array),
+        workingSpace: 'linear-prophoto-rgb',
+      },
+    })
+    expect(capability?.color?.whiteBalance).toHaveLength(4)
+    expect(capability?.color?.cameraToWorkingRgb).toHaveLength(9)
+  })
+
+  it('fails closed when export color facts are missing or orientation is unsupported', () => {
+    const baseCapability = {
+      supported: true,
+      width: 4000,
+      height: 3000,
+      rawWidth: 4048,
+      rawHeight: 3040,
+      visibleCrop: { x: 24, y: 20, width: 4000, height: 3000 },
+      cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+      blackLevel: 512,
+      whiteLevel: 16383,
+      orientation: { code: 1, supported: true },
+      color: {
+        whiteBalance: [2.1, 1, 1.4, 1],
+        cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+        workingSpace: 'linear-prophoto-rgb',
+      },
+      reasons: [],
+    }
+    const missingColor = createProcessor({
+      exportCapability: {
+        ...baseCapability,
+        color: undefined,
+      },
+    })
+    const rotatedUnsupported = createProcessor({
+      exportCapability: {
+        ...baseCapability,
+        orientation: { code: 6, supported: false },
+      },
+    })
+
+    expect(missingColor.probeExportCapability?.()).toMatchObject({
+      supported: false,
+      reasons: expect.arrayContaining(['missing-color-transform']),
+    })
+    expect(rotatedUnsupported.probeExportCapability?.()).toMatchObject({
+      supported: false,
+      reasons: expect.arrayContaining(['unsupported-orientation']),
     })
   })
 
@@ -173,10 +257,16 @@ describe('native-adapter', () => {
         height: 4000,
         rawWidth: 6048,
         rawHeight: 4024,
+        visibleCrop: { x: 24, y: 20, width: 6000, height: 4000 },
         cfa: { pattern: 'invalid', xPhase: -1, yPhase: 9 },
         blackLevel: 512,
         whiteLevel: 16383,
-        orientation: 3,
+        orientation: { code: 1, supported: true },
+        color: {
+          whiteBalance: [2, 1, 1.5, 1],
+          cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+          workingSpace: 'linear-prophoto-rgb',
+        },
         reasons: [
           'unsupported-cfa',
           'compressed-raw-window-unavailable',
@@ -193,10 +283,16 @@ describe('native-adapter', () => {
       height: 4000,
       rawWidth: 6048,
       rawHeight: 4024,
+      visibleCrop: { x: 24, y: 20, width: 6000, height: 4000 },
       cfa: { pattern: 'unsupported', xPhase: 0, yPhase: 5 },
       blackLevel: 512,
       whiteLevel: 16383,
-      orientation: 3,
+      orientation: { code: 1, supported: true },
+      color: {
+        whiteBalance: [2, 1, 1.5, 1],
+        cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+        workingSpace: 'linear-prophoto-rgb',
+      },
       reasons: [
         'unsupported-cfa',
         'compressed-raw-window-unavailable',
@@ -226,14 +322,21 @@ describe('native-adapter', () => {
         height: 4000,
         rawWidth: 6048,
         rawHeight: 4024,
+        visibleCrop: { x: 24, y: 20, width: 6000, height: 4000 },
         cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
         blackLevel: Number.NaN,
         whiteLevel: 16383,
+        orientation: { code: 1, supported: true },
+        color: {
+          whiteBalance: [2, 1, 1.5, 1],
+          cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+          workingSpace: 'linear-prophoto-rgb',
+        },
         reasons: ['raw-window-unavailable', 'bogus'],
       },
     })
 
-    expect(missingRequiredFields.probeExportCapability?.()).toEqual({
+    expect(missingRequiredFields.probeExportCapability?.()).toMatchObject({
       supported: false,
       width: 0,
       height: 4000,
@@ -242,8 +345,12 @@ describe('native-adapter', () => {
       cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
       blackLevel: 0,
       whiteLevel: 16383,
-      orientation: 1,
-      reasons: ['missing-dimensions'],
+      orientation: { code: 1, supported: true },
+      reasons: expect.arrayContaining([
+        'missing-dimensions',
+        'missing-visible-crop',
+        'missing-color-transform',
+      ]),
     })
     expect(invalidLevels.probeExportCapability?.()).toEqual({
       supported: false,
@@ -251,10 +358,16 @@ describe('native-adapter', () => {
       height: 4000,
       rawWidth: 6048,
       rawHeight: 4024,
+      visibleCrop: { x: 24, y: 20, width: 6000, height: 4000 },
       cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
       blackLevel: 0,
       whiteLevel: 16383,
-      orientation: 1,
+      orientation: { code: 1, supported: true },
+      color: {
+        whiteBalance: [2, 1, 1.5, 1],
+        cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+        workingSpace: 'linear-prophoto-rgb',
+      },
       reasons: ['raw-window-unavailable', 'missing-levels'],
     })
   })

@@ -1,6 +1,9 @@
 import type {
+  LumaRawExportColorFacts,
   LumaRawExportCapability,
+  LumaRawExportOrientation,
   LumaRawExportUnsupportedReason,
+  LumaRawVisibleCrop,
   LumaRawWindow,
   LumaRawWindowRect,
 } from '../src/types'
@@ -353,10 +356,93 @@ function normalizeUnsupportedReasons(
       reason === 'compressed-raw-window-unavailable' ||
       reason === 'raw-window-unavailable' ||
       reason === 'missing-dimensions' ||
-      reason === 'missing-levels',
+      reason === 'missing-levels' ||
+      reason === 'missing-visible-crop' ||
+      reason === 'unsupported-orientation' ||
+      reason === 'missing-color-transform' ||
+      reason === 'missing-export-facts',
   )
 
   return [...new Set(reasons)]
+}
+
+function normalizeVisibleCrop(value: unknown): LumaRawVisibleCrop | undefined {
+  const raw = asRecord(value)
+  const x = asNonNegativeIntegerOrUndefined(raw.x)
+  const y = asNonNegativeIntegerOrUndefined(raw.y)
+  const width = asPositiveIntegerOrUndefined(raw.width)
+  const height = asPositiveIntegerOrUndefined(raw.height)
+
+  if (
+    x === undefined ||
+    y === undefined ||
+    width === undefined ||
+    height === undefined
+  ) {
+    return undefined
+  }
+
+  return { x, y, width, height }
+}
+
+function normalizeExportOrientation(
+  value: unknown,
+): LumaRawExportOrientation | undefined {
+  if (typeof value === 'number') {
+    const code = asPositiveIntegerOrUndefined(value)
+    if (code === undefined) return undefined
+    return { code, supported: code === 1 }
+  }
+
+  const raw = asRecord(value)
+  const code = asPositiveIntegerOrUndefined(raw.code)
+  if (code === undefined) return undefined
+
+  return {
+    code,
+    supported: raw.supported === true && code === 1,
+  }
+}
+
+function normalizeFiniteTuple(value: unknown, length: number) {
+  if (!Array.isArray(value) || value.length !== length) return undefined
+
+  const numbers = value.map(asFiniteNumberOrUndefined)
+  return numbers.every((number) => number !== undefined)
+    ? (numbers as number[])
+    : undefined
+}
+
+function normalizeExportColorFacts(
+  value: unknown,
+): LumaRawExportColorFacts | undefined {
+  const raw = asRecord(value)
+  const whiteBalance = normalizeFiniteTuple(raw.whiteBalance, 4)
+  const cameraToWorkingRgb = normalizeFiniteTuple(raw.cameraToWorkingRgb, 9)
+
+  if (
+    !whiteBalance ||
+    !cameraToWorkingRgb ||
+    raw.workingSpace !== 'linear-prophoto-rgb'
+  ) {
+    return undefined
+  }
+
+  return {
+    whiteBalance: whiteBalance as [number, number, number, number],
+    cameraToWorkingRgb: cameraToWorkingRgb as [
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+    ],
+    workingSpace: 'linear-prophoto-rgb',
+  }
 }
 
 function normalizeExportCapability(value: unknown): LumaRawExportCapability {
@@ -365,12 +451,16 @@ function normalizeExportCapability(value: unknown): LumaRawExportCapability {
   const height = asNonNegativeIntegerOrUndefined(raw.height) ?? 0
   const rawWidth = asNonNegativeIntegerOrUndefined(raw.rawWidth) ?? 0
   const rawHeight = asNonNegativeIntegerOrUndefined(raw.rawHeight) ?? 0
+  const visibleCrop = normalizeVisibleCrop(raw.visibleCrop)
   const cfa = normalizeCfa(raw.cfa)
   const blackLevel = asFiniteNumberOrUndefined(raw.blackLevel)
   const whiteLevel = asFiniteNumberOrUndefined(raw.whiteLevel)
+  const orientation = normalizeExportOrientation(raw.orientation)
+  const color = normalizeExportColorFacts(raw.color)
   const normalizedReasons = normalizeUnsupportedReasons(raw.reasons)
   const reasons = new Set<LumaRawExportUnsupportedReason>(normalizedReasons)
   let supported = raw.supported === true
+  let missingFactCount = 0
 
   if (cfa.pattern === 'unsupported') {
     supported = false
@@ -392,7 +482,28 @@ function normalizeExportCapability(value: unknown): LumaRawExportCapability {
     reasons.add('missing-levels')
   }
 
-  return {
+  if (raw.supported === true) {
+    if (!visibleCrop) {
+      missingFactCount += 1
+      reasons.add('missing-visible-crop')
+    }
+    if (!orientation?.supported) {
+      reasons.add('unsupported-orientation')
+    }
+    if (!color) {
+      missingFactCount += 1
+      reasons.add('missing-color-transform')
+    }
+    if (missingFactCount > 1) {
+      reasons.add('missing-export-facts')
+    }
+  }
+
+  if (reasons.size > 0) {
+    supported = false
+  }
+
+  const capability: LumaRawExportCapability = {
     supported,
     width,
     height,
@@ -401,9 +512,14 @@ function normalizeExportCapability(value: unknown): LumaRawExportCapability {
     cfa,
     blackLevel: blackLevel ?? 0,
     whiteLevel: whiteLevel ?? 0,
-    orientation: asPositiveIntegerOrUndefined(raw.orientation) ?? 1,
     reasons: [...reasons],
   }
+
+  if (visibleCrop) capability.visibleCrop = visibleCrop
+  if (orientation) capability.orientation = orientation
+  if (color) capability.color = color
+
+  return capability
 }
 
 function normalizeWindowRect(value: unknown): LumaRawWindowRect {
@@ -490,7 +606,7 @@ export function createNativeFactory(
               cfa: { pattern: 'unsupported', xPhase: 0, yPhase: 0 },
               blackLevel: 0,
               whiteLevel: 0,
-              orientation: 1,
+              orientation: { code: 1, supported: true },
               reasons: ['raw-window-unavailable'],
             }
           }

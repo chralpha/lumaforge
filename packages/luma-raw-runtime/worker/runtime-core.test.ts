@@ -511,10 +511,16 @@ describe('runtime-core', () => {
       height: 4,
       rawWidth: 4,
       rawHeight: 4,
+      visibleCrop: { x: 0, y: 0, width: 4, height: 4 },
       cfa: { pattern: 'rggb' as const, xPhase: 0 as const, yPhase: 0 as const },
       blackLevel: 64,
       whiteLevel: 1023,
-      orientation: 1,
+      orientation: { code: 1, supported: true },
+      color: {
+        whiteBalance: [2, 1, 1.5, 1],
+        cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+        workingSpace: 'linear-prophoto-rgb' as const,
+      },
       reasons: [],
     }
 
@@ -632,7 +638,7 @@ describe('runtime-core', () => {
         cfa: { pattern: 'unsupported', xPhase: 0, yPhase: 0 },
         blackLevel: 0,
         whiteLevel: 0,
-        orientation: 1,
+        orientation: { code: 1, supported: true },
         reasons: ['raw-window-unavailable'],
       },
     })

@@ -144,6 +144,47 @@ val cfaObject(const std::string &pattern) {
   return cfa;
 }
 
+double finiteOrZero(double value) { return std::isfinite(value) ? value : 0.0; }
+
+val visibleCropObject(int x, int y, int width, int height) {
+  val crop = val::object();
+  crop.set("x", x);
+  crop.set("y", y);
+  crop.set("width", width);
+  crop.set("height", height);
+  return crop;
+}
+
+val orientationObject(int code) {
+  const int normalized_code = code == 0 ? 1 : code;
+
+  val orientation = val::object();
+  orientation.set("code", normalized_code);
+  orientation.set("supported", normalized_code == 1);
+  return orientation;
+}
+
+val exportColorFactsObject(const libraw_colordata_t &color) {
+  val white_balance = val::array();
+  for (int i = 0; i < 4; ++i) {
+    white_balance.set(i, finiteOrZero(color.cam_mul[i]));
+  }
+
+  val camera_to_working_rgb = val::array();
+  for (int row = 0; row < 3; ++row) {
+    for (int column = 0; column < 3; ++column) {
+      camera_to_working_rgb.set(row * 3 + column,
+                                finiteOrZero(color.rgb_cam[row][column]));
+    }
+  }
+
+  val facts = val::object();
+  facts.set("whiteBalance", white_balance);
+  facts.set("cameraToWorkingRgb", camera_to_working_rgb);
+  facts.set("workingSpace", std::string("linear-prophoto-rgb"));
+  return facts;
+}
+
 val unsupportedCapability(const libraw_data_t &imgdata,
                           const std::string &reason) {
   const libraw_image_sizes_t &sizes = imgdata.sizes;
@@ -158,10 +199,15 @@ val unsupportedCapability(const libraw_data_t &imgdata,
   capability.set("height", sizes.height);
   capability.set("rawWidth", sizes.raw_width);
   capability.set("rawHeight", sizes.raw_height);
+  capability.set("visibleCrop", visibleCropObject(sizes.left_margin,
+                                                   sizes.top_margin,
+                                                   sizes.width,
+                                                   sizes.height));
   capability.set("cfa", cfaObject("unsupported"));
   capability.set("blackLevel", color.black);
   capability.set("whiteLevel", color.maximum);
-  capability.set("orientation", sizes.flip);
+  capability.set("orientation", orientationObject(sizes.flip));
+  capability.set("color", exportColorFactsObject(color));
   capability.set("reasons", reasons);
   return capability;
 }
@@ -354,10 +400,15 @@ class LumaRawProcessor {
     capability.set("height", sizes.height);
     capability.set("rawWidth", sizes.raw_width);
     capability.set("rawHeight", sizes.raw_height);
+    capability.set("visibleCrop", visibleCropObject(sizes.left_margin,
+                                                     sizes.top_margin,
+                                                     sizes.width,
+                                                     sizes.height));
     capability.set("cfa", cfaObject(pattern));
     capability.set("blackLevel", color.black);
     capability.set("whiteLevel", color.maximum);
-    capability.set("orientation", sizes.flip);
+    capability.set("orientation", orientationObject(sizes.flip));
+    capability.set("color", exportColorFactsObject(color));
     capability.set("reasons", reasons);
     return capability;
   }

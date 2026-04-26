@@ -557,10 +557,16 @@ describe('createLumaRawRuntime', () => {
           height: 4,
           rawWidth: 4,
           rawHeight: 4,
+          visibleCrop: { x: 0, y: 0, width: 4, height: 4 },
           cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
           blackLevel: 0,
           whiteLevel: 65535,
-          orientation: 1,
+          orientation: { code: 1, supported: true },
+          color: {
+            whiteBalance: [2, 1, 1.5, 1],
+            cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+            workingSpace: 'linear-prophoto-rgb',
+          },
           reasons: [],
         }
       }
@@ -586,6 +592,13 @@ describe('createLumaRawRuntime', () => {
       supported: true,
       width: 4,
       height: 4,
+      visibleCrop: { x: 0, y: 0, width: 4, height: 4 },
+      orientation: { code: 1, supported: true },
+      color: {
+        whiteBalance: expect.any(Array),
+        cameraToWorkingRgb: expect.any(Array),
+        workingSpace: 'linear-prophoto-rgb',
+      },
     })
     await expect(
       session.readRawWindow({ x: 0, y: 0, width: 2, height: 2 }),

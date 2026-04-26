@@ -56,6 +56,38 @@ export type LumaRawExportUnsupportedReason =
   | 'raw-window-unavailable'
   | 'missing-dimensions'
   | 'missing-levels'
+  | 'missing-visible-crop'
+  | 'unsupported-orientation'
+  | 'missing-color-transform'
+  | 'missing-export-facts'
+
+export type LumaRawVisibleCrop = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type LumaRawExportOrientation = {
+  code: number
+  supported: boolean
+}
+
+export type LumaRawExportColorFacts = {
+  whiteBalance: [number, number, number, number]
+  cameraToWorkingRgb: [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ]
+  workingSpace: 'linear-prophoto-rgb'
+}
 
 export type LumaRawExportCapability = {
   supported: boolean
@@ -63,10 +95,12 @@ export type LumaRawExportCapability = {
   height: number
   rawWidth: number
   rawHeight: number
+  visibleCrop?: LumaRawVisibleCrop
   cfa: LumaRawCfaInfo
   blackLevel: number
   whiteLevel: number
-  orientation: number
+  orientation?: LumaRawExportOrientation
+  color?: LumaRawExportColorFacts
   reasons: LumaRawExportUnsupportedReason[]
 }
 

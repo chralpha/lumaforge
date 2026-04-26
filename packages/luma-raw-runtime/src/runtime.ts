@@ -2,6 +2,7 @@ import { LumaRawRuntimeError } from './errors'
 import type {
   LumaEmbeddedPreview,
   LumaRawDecodeSession,
+  LumaRawExportCapability,
   LumaRawFrame,
   LumaRawProbe,
   LumaRawQuickOptions,
@@ -230,7 +231,9 @@ export function createLumaRawRuntime(
           stageSignal,
         )
       },
-      probeExportCapability(stageSignal?: AbortSignal) {
+      probeExportCapability(
+        stageSignal?: AbortSignal,
+      ): Promise<LumaRawExportCapability> {
         return client.request(
           'probeExportCapabilityFromSession',
           { sessionId: sessionInfo.sessionId },

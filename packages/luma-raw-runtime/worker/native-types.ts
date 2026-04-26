@@ -60,6 +60,8 @@ export type LumaRawNativeDecodeOptions = {
   maxOutputPixels?: number
 }
 
+export type LumaRawNativeExportCapability = LumaRawExportCapability
+
 export type LumaRawNativeProcessor = {
   loadBuffer: (data: Uint8Array) => Pick<LumaRawNativeOpenTimings, 'copyToWasm'>
   openWithSettings: (
@@ -71,7 +73,7 @@ export type LumaRawNativeProcessor = {
   ) => LumaRawNativeOpenTimings | undefined
   readMetadata: () => LumaRawNativeMetadata
   extractThumbnail: () => LumaRawNativeThumbnail | undefined
-  probeExportCapability?: () => LumaRawExportCapability
+  probeExportCapability?: () => LumaRawNativeExportCapability
   readRawWindow?: (rect: LumaRawWindowRect) => LumaRawWindow
   decodePreview: (options?: LumaRawNativeDecodeOptions) => LumaRawNativeImage
   decodeHq: (options?: LumaRawNativeDecodeOptions) => LumaRawNativeImage
