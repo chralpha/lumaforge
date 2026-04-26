@@ -82,6 +82,14 @@ describe('resolveExportColorGraph', () => {
     ])
     expect(graph.steps[3]).toMatchObject({
       kind: 'lut3d',
+      domainMin: [0, 0, 0],
+      domainMax: [1, 1, 1],
+    })
+    expect(graph.steps[4]).toMatchObject({
+      kind: 'lut-output-to-srgb',
+      transfer: 's-log3',
+      range: 'full',
+      role: 'scene-creative',
       intensity: 0.7,
     })
   })

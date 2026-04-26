@@ -27,15 +27,20 @@ export type ExportColorGraphStep =
       data: Float32Array
       domainMin: [number, number, number]
       domainMax: [number, number, number]
-      role: LUTRole
-      intensity: number
     }
   | {
       kind: 'builtin-style'
       preset: NonNullable<ProcessingParams['builtinPreset']>
       intensity: number
     }
-  | { kind: 'lut-output-to-srgb'; matrix: Mat3 }
+  | {
+      kind: 'lut-output-to-srgb'
+      matrix: Mat3
+      transfer: TransferFunctionId
+      range: SignalRange
+      role: LUTRole
+      intensity: number
+    }
   | { kind: 'output-srgb' }
 
 export type ExportColorGraphDescriptor =
@@ -61,7 +66,7 @@ export type SupportedExportColorGraphDescriptor = Extract<
 const OUTPUT_GAMUT = 'srgb-rec709'
 const OUTPUT_TRANSFER = 'srgb'
 
-function resolveEffectiveLUTOutputTransfer(
+export function resolveEffectiveLUTOutputTransfer(
   profile: LUTColorProfile,
 ): TransferFunctionId {
   if (profile.outputTransfer) return profile.outputTransfer
@@ -163,12 +168,14 @@ export function resolveExportColorGraph(input: {
         data: input.lut.data,
         domainMin: input.lut.domainMin,
         domainMax: input.lut.domainMax,
-        role: profile.role,
-        intensity: input.intensity,
       },
       {
         kind: 'lut-output-to-srgb',
         matrix: outputMatrix,
+        transfer: effectiveOutputTransfer,
+        range: profile.outputRange ?? 'full',
+        role: profile.role,
+        intensity: input.intensity,
       },
       { kind: 'output-srgb' },
     ],

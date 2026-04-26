@@ -3,6 +3,7 @@ import type {
   LumaRawWindow,
   LumaRawWindowRect,
 } from '@lumaforge/luma-raw-runtime'
+import { mat3Identity } from '~/lib/color/matrix'
 
 import { runFullResolutionJpegExport } from './full-res-export'
 
@@ -32,6 +33,17 @@ function makeWindow(rect: LumaRawWindowRect): LumaRawWindow {
     blackLevel: 0,
     whiteLevel: 255,
   }
+}
+
+function clamp01(value: number) {
+  return Math.min(1, Math.max(0, value))
+}
+
+function linearToSrgb(value: number) {
+  const clamped = Math.max(0, value)
+  return clamped <= 0.0031308
+    ? clamped * 12.92
+    : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055
 }
 
 describe('runFullResolutionJpegExport', () => {
@@ -142,6 +154,102 @@ describe('runFullResolutionJpegExport', () => {
     expect(writtenRows).toHaveLength(2)
     expect(writtenRows[0]?.rowCount).toBe(2)
     expect(writtenRows[0]?.bytes[0]).toBe(255)
+  })
+
+  it('matches scene-referred LUT domain, range, decode, and intensity semantics', async () => {
+    const writtenRows: Array<{ rowCount: number; bytes: Uint8Array }> = []
+    const legalScale = (940 - 64) / 1023
+    const legalOffset = 64 / 1023
+    const domainMin = 0.25
+    const domainMax = 0.75
+    const intensity = 0.25
+    const lut = new Float32Array(2 * 2 * 2 * 3)
+
+    for (let blue = 0; blue < 2; blue += 1) {
+      for (let green = 0; green < 2; green += 1) {
+        for (let red = 0; red < 2; red += 1) {
+          const value = red
+          const index = ((blue * 2 + green) * 2 + red) * 3
+          lut[index] = value
+          lut[index + 1] = value
+          lut[index + 2] = value
+        }
+      }
+    }
+
+    const writer = {
+      writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
+        writtenRows.push({ rowCount, bytes: new Uint8Array(bytes) })
+      }),
+      close: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await runFullResolutionJpegExport({
+      capability: makeCapability(),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          {
+            kind: 'gamut-to-lut-input',
+            matrix: mat3Identity(),
+            gamut: 'prophoto-rgb',
+          },
+          {
+            kind: 'encode-lut-transfer',
+            transfer: 'gamma24',
+            range: 'legal',
+          },
+          {
+            kind: 'lut3d',
+            size: 2,
+            data: lut,
+            domainMin: [domainMin, domainMin, domainMin],
+            domainMax: [domainMax, domainMax, domainMax],
+          },
+          {
+            kind: 'lut-output-to-srgb',
+            matrix: mat3Identity(),
+            transfer: 'gamma24',
+            range: 'legal',
+            role: 'scene-creative',
+            intensity,
+          },
+          { kind: 'output-srgb' },
+        ],
+      },
+      preferredRows: 2,
+      readRawWindow: vi.fn((rect: LumaRawWindowRect) =>
+        Promise.resolve({
+          rect,
+          cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+          data: new Uint16Array(rect.width * rect.height).fill(128),
+          blackLevel: 0,
+          whiteLevel: 255,
+        }),
+      ),
+      writer,
+    })
+
+    const baseLinear = 128 / 255
+    const lutInputEncoded =
+      clamp01(Math.pow(baseLinear, 1 / 2.4)) * legalScale + legalOffset
+    const normalized = clamp01((lutInputEncoded - domainMin) / (domainMax - domainMin))
+    const lutOutputLinear = Math.max(
+      Math.pow((normalized - legalOffset) / legalScale, 2.4),
+      0,
+    )
+    const mixedLinear =
+      baseLinear + (lutOutputLinear - baseLinear) * intensity
+    const expectedByte = Math.round(clamp01(linearToSrgb(mixedLinear)) * 255)
+
+    expect(writtenRows).toHaveLength(2)
+    expect(writtenRows[0]?.bytes[0]).toBe(expectedByte)
+    expect(writtenRows[0]?.bytes[0]).not.toBe(188)
   })
 
   it('aborts the writer if strip export fails after writer creation', async () => {

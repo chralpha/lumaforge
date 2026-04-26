@@ -23,6 +23,7 @@ export function sampleLutTrilinear(
   r: number,
   g: number,
   b: number,
+  output: [number, number, number] = [0, 0, 0],
 ): [number, number, number] {
   const maxIndex = Math.max(0, size - 1)
   const x = clamp01(r) * maxIndex
@@ -48,8 +49,6 @@ export function sampleLutTrilinear(
   const c101 = read(data, size, x1, y0, z1)
   const c011 = read(data, size, x0, y1, z1)
   const c111 = read(data, size, x1, y1, z1)
-
-  const output: [number, number, number] = [0, 0, 0]
 
   for (let channel = 0; channel < 3; channel += 1) {
     const c00 = mix(c000[channel], c100[channel], tx)
