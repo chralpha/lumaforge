@@ -40,6 +40,7 @@ import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
 import {
   deriveCanEdit,
+  deriveExportDisabledReason,
   selectDisplaySource,
 } from '../model/derive-session'
 import type {
@@ -186,6 +187,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const activeSessionIdRef = useRef<string | null>(null)
   const runtimeSessionRef = useRef<RawRuntimeSession | null>(null)
   const runtimeAbortControllerRef = useRef<AbortController | null>(null)
+  const exportAbortControllerRef = useRef<AbortController | null>(null)
   const disposedRuntimeSessionsRef = useRef<WeakSet<RawRuntimeSession>>(
     new WeakSet(),
   )
@@ -302,6 +304,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
     disposeRuntimeSession()
   }, [disposeRuntimeSession])
 
+  const abortExportWork = useCallback(() => {
+    const controller = exportAbortControllerRef.current
+    if (controller && !controller.signal.aborted) {
+      controller.abort()
+    }
+    exportAbortControllerRef.current = null
+  }, [])
+
   useEffect(() => {
     sessionRef.current = session
   }, [session])
@@ -313,6 +323,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       const activeSessionId = activeSessionIdRef.current
       isMountedRef.current = false
       activeSessionIdRef.current = null
+      abortExportWork()
       abortRuntimeWork()
       revokeCurrentEmbeddedPreviewUrl()
       if (activeSessionId) {
@@ -326,6 +337,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       sessionRef.current = null
     }
   }, [
+    abortExportWork,
     revokeCurrentEmbeddedPreviewUrl,
     abortRuntimeWork,
     setError,
@@ -360,6 +372,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
       try {
         activeSessionIdRef.current = null
+        abortExportWork()
         abortRuntimeWork()
         revokeCurrentEmbeddedPreviewUrl()
         runtimeAbortController = new AbortController()
@@ -784,6 +797,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
     },
     [
+      abortExportWork,
       abortRuntimeWork,
       disposeRuntimeSession,
       replaceFile,
@@ -1050,8 +1064,15 @@ export function useRawProcessor(): UseRawProcessorReturn {
         }) ||
         !loadedImage.file
       ) {
+        const description =
+          !loadedImage.file || !session
+            ? 'Full-resolution export source is still loading.'
+            : deriveExportDisabledReason(session)
         scheduleToast(() =>
-          toast.error('Full-resolution export is not ready'),
+          toast.error(
+            'Full-resolution export is not ready',
+            description ? { description } : undefined,
+          ),
         )
         return
       }
@@ -1094,6 +1115,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
         return
       }
 
+      const exportSessionId = session.id
+      const exportAbortController = new AbortController()
+      exportAbortControllerRef.current = exportAbortController
+
       try {
         setStatus('exporting')
         setProgress(0)
@@ -1127,13 +1152,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
           quality: quality === 'high' ? 0.92 : 0.86,
           graph,
           onProgress: (entry) => {
-            if (!isMountedRef.current || sessionRef.current?.id !== session.id) {
+            if (
+              !isMountedRef.current ||
+              exportAbortController.signal.aborted ||
+              sessionRef.current?.id !== exportSessionId
+            ) {
               return
             }
 
             setProgress(entry.progress)
             setSession((prev) =>
-              prev && prev.id === session.id
+              prev && prev.id === exportSessionId
                 ? {
                     ...prev,
                     exportState: {
@@ -1147,7 +1176,19 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 : prev,
             )
           },
+          signal: exportAbortController.signal,
         })
+
+        const activeSession = sessionRef.current
+        if (
+          !isMountedRef.current ||
+          exportAbortController.signal.aborted ||
+          !activeSession ||
+          activeSession.id !== exportSessionId ||
+          activeSession.exportState.fullResCapability.status !== 'supported'
+        ) {
+          return
+        }
 
         const url = URL.createObjectURL(result.blob)
         const link = document.createElement('a')
@@ -1159,7 +1200,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         URL.revokeObjectURL(url)
 
         setSession((prev) =>
-          prev
+          prev && prev.id === exportSessionId
             ? {
                 ...prev,
                 exportState: {
@@ -1167,8 +1208,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
                   status: 'done',
                   retryRecommended: false,
                   lastSuccessfulSize: {
-                    width: session.exportState.fullResCapability.width,
-                    height: session.exportState.fullResCapability.height,
+                    width: activeSession.exportState.fullResCapability.width,
+                    height: activeSession.exportState.fullResCapability.height,
                   },
                 },
               }
@@ -1181,11 +1222,19 @@ export function useRawProcessor(): UseRawProcessorReturn {
           }),
         )
       } catch (err) {
+        if (
+          exportAbortController.signal.aborted ||
+          !isMountedRef.current ||
+          sessionRef.current?.id !== exportSessionId
+        ) {
+          return
+        }
+
         const message = err instanceof Error ? err.message : 'Export failed'
         const errorCode = toUserFacingErrorCode(getStableErrorCode(err) ?? message)
 
         setSession((prev) =>
-          prev
+          prev && prev.id === exportSessionId
             ? {
                 ...prev,
                 exportState: {
@@ -1207,6 +1256,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
             description: message,
           }),
         )
+      } finally {
+        if (exportAbortControllerRef.current === exportAbortController) {
+          exportAbortControllerRef.current = null
+        }
       }
     },
     [
@@ -1227,6 +1280,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   // Reset state
   const reset = useCallback(() => {
     activeSessionIdRef.current = null
+    abortExportWork()
     abortRuntimeWork()
     revokeCurrentEmbeddedPreviewUrl()
     setLoadedImage({ file: null, decoded: null, metadata: null })
@@ -1237,6 +1291,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     resetSession()
     sessionRef.current = null
   }, [
+    abortExportWork,
     resetSession,
     abortRuntimeWork,
     revokeCurrentEmbeddedPreviewUrl,

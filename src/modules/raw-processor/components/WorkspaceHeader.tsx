@@ -1,6 +1,9 @@
 import { useAtomValue } from 'jotai'
 
-import { exportDisabledReasonAtom } from '../state/session.atoms'
+import {
+  currentSessionAtom,
+  exportDisabledReasonAtom,
+} from '../state/session.atoms'
 import { SupportBadge } from './SupportBadge'
 
 export function WorkspaceHeader({
@@ -20,7 +23,9 @@ export function WorkspaceHeader({
   onResetSession: () => void
   onOpenExport: () => void
 }) {
+  const session = useAtomValue(currentSessionAtom)
   const sessionDisabledReason = useAtomValue(exportDisabledReasonAtom)
+  const isExporting = session?.exportState.status === 'exporting'
   const exportDisabledReason = !canExport
     ? disabledReason ??
       sessionDisabledReason ??
@@ -50,14 +55,16 @@ export function WorkspaceHeader({
         <button
           type="button"
           onClick={onReplaceFile}
-          className="rounded-lg bg-fill px-3 py-2 text-sm text-text"
+          disabled={isExporting}
+          className="rounded-lg bg-fill px-3 py-2 text-sm text-text disabled:cursor-not-allowed disabled:opacity-50"
         >
           Replace file
         </button>
         <button
           type="button"
           onClick={onResetSession}
-          className="rounded-lg bg-fill px-3 py-2 text-sm text-text"
+          disabled={isExporting}
+          className="rounded-lg bg-fill px-3 py-2 text-sm text-text disabled:cursor-not-allowed disabled:opacity-50"
         >
           Reset
         </button>

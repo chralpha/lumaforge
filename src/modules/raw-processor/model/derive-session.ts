@@ -13,11 +13,36 @@ export function deriveCanEdit(session: ImageSession): boolean {
   return selectDisplaySource(session.previewBundle) !== 'none'
 }
 
+function deriveUnsupportedExportPipelineReason(
+  session: ImageSession,
+): string | undefined {
+  const activeStyle = session.activeStyle
+  if (!activeStyle) {
+    return undefined
+  }
+
+  if (activeStyle.kind === 'builtin') {
+    return 'Built-in styles are not supported by full-resolution JPEG export.'
+  }
+
+  const profileResolution = activeStyle.lutAsset?.profileResolution
+  if (!profileResolution || profileResolution.kind === 'resolved') {
+    return undefined
+  }
+
+  if (profileResolution.reason === 'unsupported-output') {
+    return 'This LUT output transfer is not supported by full-resolution JPEG export.'
+  }
+
+  return 'Choose a LUT input profile before full-resolution export.'
+}
+
 export function deriveCanExport(session: ImageSession): boolean {
   return (
     session.exportState.fullResCapability.status === 'supported' &&
     session.renderState.status !== 'failed' &&
-    session.exportState.status !== 'exporting'
+    session.exportState.status !== 'exporting' &&
+    !deriveUnsupportedExportPipelineReason(session)
   )
 }
 
@@ -40,6 +65,6 @@ export function deriveExportDisabledReason(
     case 'unsupported':
       return session.exportState.fullResCapability.reason
     case 'supported':
-      return undefined
+      return deriveUnsupportedExportPipelineReason(session)
   }
 }

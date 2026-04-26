@@ -1,6 +1,7 @@
 import {
   deriveCanEdit,
   deriveCanExport,
+  deriveExportDisabledReason,
   selectDisplaySource,
 } from '../model/derive-session'
 import type { ImageSession } from '../model/session'
@@ -72,5 +73,58 @@ describe('session derivation', () => {
     }
 
     expect(deriveCanExport(session)).toBe(true)
+  })
+
+  it('disables export for builtin styles before the export button becomes available', () => {
+    const session: ImageSession = {
+      ...baseSession,
+      renderState: { status: 'ready' as const },
+      exportState: {
+        ...baseSession.exportState,
+        fullResCapability: { status: 'supported', width: 4000, height: 3000 },
+      },
+      activeStyle: {
+        kind: 'builtin',
+        name: 'Neutral',
+        defaultIntensityLevel: 'standard',
+        currentIntensityLevel: 'standard',
+      },
+    }
+
+    expect(deriveCanExport(session)).toBe(false)
+    expect(deriveExportDisabledReason(session)).toBe(
+      'Built-in styles are not supported by full-resolution JPEG export.',
+    )
+  })
+
+  it('surfaces unsupported LUT output before export is triggered', () => {
+    const session: ImageSession = {
+      ...baseSession,
+      renderState: { status: 'ready' as const },
+      exportState: {
+        ...baseSession.exportState,
+        fullResCapability: { status: 'supported', width: 4000, height: 3000 },
+      },
+      activeStyle: {
+        kind: 'custom',
+        name: 'Display LUT',
+        defaultIntensityLevel: 'standard',
+        currentIntensityLevel: 'standard',
+        lutAsset: {
+          format: 'cube',
+          dimension: 33,
+          profileResolution: {
+            kind: 'needs-user-selection',
+            suggestions: [],
+            reason: 'unsupported-output',
+          },
+        },
+      },
+    }
+
+    expect(deriveCanExport(session)).toBe(false)
+    expect(deriveExportDisabledReason(session)).toBe(
+      'This LUT output transfer is not supported by full-resolution JPEG export.',
+    )
   })
 })

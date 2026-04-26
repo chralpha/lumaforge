@@ -480,19 +480,16 @@ describe('useRawProcessor embedded preview state', () => {
       result.current.selectBuiltinStyle(result.current.presetOptions[0]!.id)
     })
 
+    expect(result.current.canExport).toBe(false)
+
     await act(async () => {
       await result.current.exportImage({ quality: 'high', fidelity: 'max' })
     })
 
     expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
-    expect(result.current.error).toBe(
-      'Built-in styles are not supported by full-resolution JPEG export.',
-    )
+    expect(result.current.error).toBeNull()
     expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({
-      status: 'failed',
-      lastErrorCode: 'EXPORT_UNSUPPORTED_PIPELINE',
-      retryRecommended: false,
-      recommendedRetryLevel: undefined,
+      status: 'idle',
     })
   })
 
@@ -646,6 +643,90 @@ describe('useRawProcessor embedded preview state', () => {
     })
 
     expect(staleSession.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('aborts in-flight export when a replacement file starts and ignores stale completion', async () => {
+    const staleExport = deferred<{
+      filename: string
+      blob: Blob
+    }>()
+    let staleExportSignal: AbortSignal | undefined
+    const click = vi.fn()
+    const remove = vi.fn()
+    const append = vi.fn()
+    const originalCreateElement = document.createElement.bind(document)
+
+    exportSystemMock.runFullResolutionExportJob.mockImplementation(
+      ({
+        signal,
+      }: {
+        signal?: AbortSignal
+      }) => {
+        staleExportSignal = signal
+        return staleExport.promise
+      },
+    )
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(createDecodedImage('hq'))
+
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:stale-export'),
+      revokeObjectURL: vi.fn(),
+    })
+    vi.spyOn(document.body, 'append').mockImplementation(append)
+    vi.spyOn(document, 'createElement').mockImplementation(
+      ((tagName: string) => {
+        if (tagName === 'a') {
+          return {
+            href: '',
+            download: '',
+            click,
+            remove,
+          }
+        }
+        return originalCreateElement(tagName)
+      }) as typeof document.createElement,
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    let staleExportPromise!: Promise<void>
+
+    await act(async () => {
+      await result.current.loadFile(new File(['stale'], 'stale.ARW'))
+    })
+
+    await act(async () => {
+      staleExportPromise = result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+      await Promise.resolve()
+    })
+
+    expect(staleExportSignal).toBeInstanceOf(AbortSignal)
+
+    await act(async () => {
+      await result.current.loadFile(new File(['current'], 'current.ARW'))
+    })
+
+    expect(staleExportSignal?.aborted).toBe(true)
+
+    await act(async () => {
+      staleExport.resolve({
+        filename: 'stale_neutral_fullres.jpg',
+        blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+      })
+      await staleExportPromise
+    })
+
+    expect(click).not.toHaveBeenCalled()
+    expect(remove).not.toHaveBeenCalled()
+    expect(append).not.toHaveBeenCalled()
+    expect(result.current.sourceFileName).toBe('current.ARW')
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.status).toBe('idle')
   })
 
   it('aborts and disposes runtime session on reset', async () => {

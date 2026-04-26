@@ -27,6 +27,7 @@ describe('export-system', () => {
     const blob = new Blob(['jpeg'], { type: 'image/jpeg' })
     const run = vi.fn().mockResolvedValue(blob)
     const dispose = vi.fn()
+    const controller = new AbortController()
 
     const result = await runFullResolutionExportJob({
       file,
@@ -39,6 +40,7 @@ describe('export-system', () => {
         steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
       },
       quality: 0.92,
+      signal: controller.signal,
       clientFactory: () =>
         ({
           run,
@@ -57,7 +59,7 @@ describe('export-system', () => {
       },
       onProgress: undefined,
       quality: 0.92,
-      signal: undefined,
+      signal: controller.signal,
     })
     expect(dispose).toHaveBeenCalledTimes(1)
     expect(result).toEqual({
