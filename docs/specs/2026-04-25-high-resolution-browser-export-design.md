@@ -149,7 +149,9 @@ The full-resolution export path is forbidden from creating:
 - full-image ImageData
 - full-image RGB or float intermediate buffers
 - full-image GPU textures
-- full-image JPEG assembly buffers
+- full-image contiguous JPEG byte assembly buffers
+
+The first browser-local JPEG target may retain encoded JPEG chunks as `Blob` parts until `finish()` returns the final download `Blob`. This is the final compressed output object, not an intermediate pixel staging surface, and it must not be assembled into one contiguous full-image `Uint8Array` before `Blob` creation. A future streaming or file-backed sink can reduce the final compressed-output footprint, but it is not required for the first production browser path.
 
 ## Compatibility and fail-closed behavior
 
