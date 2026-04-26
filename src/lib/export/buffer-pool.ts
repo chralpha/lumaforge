@@ -1,5 +1,5 @@
 export class TypedBufferPool<T extends ArrayBufferView> {
-  private readonly free: T[] = []
+  readonly free: T[] = []
 
   constructor(
     private readonly create: () => T,
