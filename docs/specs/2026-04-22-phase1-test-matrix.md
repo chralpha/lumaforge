@@ -108,11 +108,11 @@ Status refreshed 2026-04-26.
 
 | Fixture                       | Browser        | Expected                                                                                          | Result                          | Evidence                                                                                                                   |
 | ----------------------------- | -------------- | ------------------------------------------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| 61MP RAW fixture              | Chrome desktop | Full-resolution JPEG export completes with exported dimensions equal to runtime output dimensions | PENDING MANUAL                  | Native asset and dev-server blockers are cleared; run the fixture export in desktop Chrome to record final pass/fail       |
-| 61MP RAW fixture              | Safari desktop | Full-resolution JPEG export completes or fails closed without renderer crash                      | PENDING MANUAL                  | Native asset blocker is cleared; Safari host acceptance still needs to run                                                 |
-| 100MP RAW fixture             | Chrome desktop | Full-resolution JPEG export completes or fails closed without renderer crash                      | PENDING MANUAL                  | Native asset and dev-server blockers are cleared; run the 100MP fixture export in desktop Chrome to record final pass/fail |
-| Unsupported RAW-window source | Chrome desktop | Full-resolution export disabled with unsupported-source reason                                    | AUTOMATED PASS / PENDING MANUAL | Automated raw-runtime/export readiness coverage passed; manual Chrome confirmation remains pending                         |
-| Unknown LUT profile           | Chrome desktop | Full-resolution export disabled until user selects LUT input                                      | AUTOMATED PASS / PENDING MANUAL | Automated LUT readiness coverage passed; manual Chrome confirmation remains pending                                        |
+| 61MP RAW fixture              | Chrome desktop | Full-resolution JPEG export completes with exported dimensions equal to runtime output dimensions | PASS                            | Production preview Chrome exported `SGL00940_neutral_fullres.jpg`; captured JPEG blob was `28,991,385` bytes and browser-decoded to `9566×6374`, matching the runtime output dimensions. |
+| 61MP RAW fixture              | Safari desktop | Full-resolution JPEG export completes or fails closed without renderer crash                      | PENDING MANUAL                  | Native and Chrome blockers are cleared; Safari host acceptance still needs to run on desktop Safari.                       |
+| 100MP RAW fixture             | Chrome desktop | Full-resolution JPEG export completes or fails closed without renderer crash                      | PASS                            | Production preview Chrome loaded `GFX100RF.RAF` without renderer crash and fail-closed with export disabled: `missing-color-transform, unsupported-cfa`. |
+| Unsupported RAW-window source | Chrome desktop | Full-resolution export disabled with an unsupported raw-window reason                             | PASS                            | Production preview Chrome loaded `COOLSCAN.nef` and disabled export with `raw-window-unavailable, unsupported-cfa`.         |
+| Unknown LUT profile           | Chrome desktop | Full-resolution export disabled until user selects LUT input                                      | PASS                            | Production preview Chrome loaded `phase1-legal-33.cube` on `SGL00940.ARW`; export disabled with `Choose a LUT input profile before full-resolution export.` |
 
 Task 15 command evidence:
 
@@ -121,9 +121,11 @@ Task 15 command evidence:
 - PASS: `pnpm --filter @lumaforge/luma-raw-runtime native:verify`.
 - PASS: `pnpm --filter @lumaforge/luma-raw-runtime fixtures:fetch-public` followed by `pnpm --filter @lumaforge/luma-raw-runtime test:native-smoke` (`1` test).
 - PASS: `pnpm --filter @lumaforge/luma-raw-runtime test` (`5` files, `81` tests).
+- PASS: `pnpm --dir packages/luma-raw-runtime exec vitest run worker/native-adapter.test.ts` (`31` tests), including LibRaw CFA green-slot normalization and idempotent native unpack coverage.
+- PASS: Direct native probe/read smoke for `SGL00940.ARW` after capability probing: supported `9566×6374`, CFA `rggb`, and RAW windows `16×16` plus `9566×516` both read successfully.
 - PASS: `pnpm --filter @lumaforge/luma-jpeg-runtime test` (`2` files, `17` tests).
 - PASS: `pnpm --filter @lumaforge/luma-jpeg-runtime build`.
 - PASS: `pnpm --filter @lumaforge/luma-raw-runtime build`.
 - PASS: `pnpm build`; existing route-builder undefined `loader`/`handle` and chunk-size warnings remain non-fatal.
-- PASS: `pnpm dev --host 0.0.0.0 --port 5173` started successfully, and Chromium DevTools loaded `/raw` with the upload shell visible.
-- PENDING: desktop Chrome/Safari full-resolution fixture export acceptance still needs to be run now that native assets and the dev server are unblocked.
+- PASS: Production preview on desktop Chrome loaded `/raw`, exported the 61MP fixture, and confirmed fail-closed gating for the 100MP, unsupported RAW-window, and unknown LUT profile cases above.
+- PENDING: desktop Safari full-resolution fixture acceptance still needs to run on a Safari host.

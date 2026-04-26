@@ -274,5 +274,7 @@ Task 15 verification status recorded 2026-04-26:
 
 - Automated runtime/export/readiness coverage passed for the full Task 15 targeted test list plus preview-pipeline coverage (`19` files, `208` tests).
 - Package checks passed for `@lumaforge/luma-raw-runtime` tests and `@lumaforge/luma-jpeg-runtime` tests/build.
-- Native asset build is environment-blocked because `emcc` is not installed in the worktree environment; `build:native` fetched LibRaw and lcms2, then failed before native compilation.
-- App build and dev server startup are blocked by the missing native assets (`luma_raw.js`, `luma_raw.wasm`), so Chrome/Safari desktop browser acceptance remains pending until the Emscripten toolchain is available.
+- Native asset build is unblocked when the cached Emscripten SDK is activated with `. "$HOME/.cache/lumaforge-emsdk/emsdk_env.sh"`; `build:native` writes and verifies `luma_raw.js`, `luma_raw.wasm`, and `provenance.json`.
+- Chrome production-preview browser acceptance passed for the supported 61MP Sony fixture: `SGL00940_neutral_fullres.jpg` was captured as an `image/jpeg` blob and browser-decoded to `9566×6374`, matching runtime output dimensions.
+- Chrome production-preview fail-closed acceptance passed for the 100MP-class GFX fixture, an unsupported RAW-window scanner NEF, and an unknown LUT input profile.
+- Desktop Safari acceptance remains pending until a Safari host is available.

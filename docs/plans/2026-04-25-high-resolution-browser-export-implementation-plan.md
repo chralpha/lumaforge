@@ -3007,6 +3007,12 @@ Expected: all commands complete successfully.
 
 - [ ] **Step 3: Run manual browser acceptance**
 
+Status 2026-04-26: Chrome production-preview acceptance is recorded in
+`docs/specs/2026-04-22-phase1-test-matrix.md` for the 61MP supported export,
+100MP-class fail-closed behavior, unsupported RAW-window gating, and unknown LUT
+profile gating. Desktop Safari remains pending because this worktree
+environment does not provide a Safari host.
+
 Run:
 
 ```bash
