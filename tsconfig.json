@@ -8,6 +8,9 @@
     "paths": {
       "~/*": ["./src/*"],
       "@pkg": ["./package.json"],
+      "@lumaforge/luma-jpeg-runtime": [
+        "./packages/luma-jpeg-runtime/src/index.ts"
+      ],
       "@lumaforge/luma-raw-runtime": [
         "./packages/luma-raw-runtime/src/index.ts"
       ]

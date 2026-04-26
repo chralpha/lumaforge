@@ -6,15 +6,17 @@ import { createJpegRuntimeCore } from './runtime-core'
 
 let core: ReturnType<typeof createJpegRuntimeCore> | undefined
 
-function failureResponse(
-  request: JpegWorkerRequest,
-  error: unknown,
-): {
+type JpegWorkerErrorResponse = {
   id: string
   ok: false
   type: JpegWorkerRequest['type']
   error: { message: string }
-} {
+}
+
+function failureResponse(
+  request: JpegWorkerRequest,
+  error: unknown,
+): JpegWorkerErrorResponse {
   return {
     id: request.id,
     ok: false,

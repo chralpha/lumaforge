@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@headlessui/react": "2.2.10",
+    "@lumaforge/luma-jpeg-runtime": "workspace:*",
     "@lumaforge/luma-raw-runtime": "workspace:*",
     "@pastel-palette/tailwindcss": "1.0.0-canary.3",
     "@radix-ui/react-accordion": "1.2.12",

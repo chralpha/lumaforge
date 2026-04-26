@@ -1,16 +1,21 @@
+export type JpegRowSinkSession = {
+  writeRows: (rgbRows: Uint8Array, rowCount: number) => Promise<void>
+  close: () => Promise<Blob>
+  abort: () => Promise<void> | void
+}
+
 export type JpegRowSink = {
-  encode: (input: {
+  createSession: (input: {
     width: number
     height: number
     quality: number
-    rows: Uint8Array[]
-  }) => Promise<Blob>
+  }) => JpegRowSinkSession
 }
 
 export type JpegRowWriter = {
-  writeRows: (rgbRows: Uint8Array, rowCount: number) => void
+  writeRows: (rgbRows: Uint8Array, rowCount: number) => Promise<void>
   close: () => Promise<Blob>
-  abort: () => void
+  abort: () => Promise<void>
 }
 
 export function createJpegRowWriter(input: {
@@ -19,13 +24,37 @@ export function createJpegRowWriter(input: {
   quality: number
   sink: JpegRowSink
 }): JpegRowWriter {
-  const rows: Uint8Array[] = []
+  const session = input.sink.createSession({
+    width: input.width,
+    height: input.height,
+    quality: input.quality,
+  })
+
   let writtenRows = 0
-  let aborted = false
+  let state: 'open' | 'closed' | 'aborted' = 'open'
+
+  async function abortSession() {
+    if (state === 'aborted' || state === 'closed') {
+      return
+    }
+
+    state = 'aborted'
+    await session.abort()
+  }
+
+  function assertOpen() {
+    if (state === 'aborted') {
+      throw new Error('JPEG_WRITER_ABORTED')
+    }
+    if (state === 'closed') {
+      throw new Error('JPEG_WRITER_CLOSED')
+    }
+  }
 
   return {
-    writeRows(rgbRows, rowCount) {
-      if (aborted) throw new Error('JPEG_WRITER_ABORTED')
+    async writeRows(rgbRows, rowCount) {
+      assertOpen()
+
       if (rowCount <= 0 || !Number.isInteger(rowCount)) {
         throw new Error('JPEG_INVALID_ROW_COUNT')
       }
@@ -35,24 +64,46 @@ export function createJpegRowWriter(input: {
       if (writtenRows + rowCount > input.height) {
         throw new Error('JPEG_ROW_COUNT_EXCEEDED')
       }
-      rows.push(new Uint8Array(rgbRows))
-      writtenRows += rowCount
+
+      try {
+        await session.writeRows(new Uint8Array(rgbRows), rowCount)
+        writtenRows += rowCount
+      } catch (error) {
+        try {
+          await abortSession()
+        } catch {
+          // Preserve the original streaming failure.
+        }
+        throw error
+      }
     },
     async close() {
-      if (aborted) throw new Error('JPEG_WRITER_ABORTED')
+      assertOpen()
+
       if (writtenRows !== input.height) {
+        try {
+          await abortSession()
+        } catch {
+          // Preserve the fail-closed incomplete image error.
+        }
         throw new Error('JPEG_INCOMPLETE_IMAGE')
       }
-      return input.sink.encode({
-        width: input.width,
-        height: input.height,
-        quality: input.quality,
-        rows,
-      })
+
+      try {
+        const blob = await session.close()
+        state = 'closed'
+        return blob
+      } catch (error) {
+        try {
+          await abortSession()
+        } catch {
+          // Preserve the original close failure.
+        }
+        throw error
+      }
     },
-    abort() {
-      aborted = true
-      rows.length = 0
+    async abort() {
+      await abortSession()
     },
   }
 }

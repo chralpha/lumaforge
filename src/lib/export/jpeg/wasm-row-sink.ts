@@ -6,20 +6,78 @@ import {
 import type { JpegRowSink } from './row-writer'
 
 export function createWasmJpegRowSink(
-  runtime: LumaJpegRuntime = createLumaJpegRuntime(),
+  runtimeFactory: () => LumaJpegRuntime = createLumaJpegRuntime,
 ): JpegRowSink {
   return {
-    async encode({ width, height, quality, rows }) {
+    createSession({ width, height, quality }) {
+      const runtime = runtimeFactory()
       const encoder = runtime.createEncoder({ width, height, quality })
+      let disposed = false
+      let state: 'open' | 'closed' | 'aborted' = 'open'
 
-      try {
-        for (const rowChunk of rows) {
-          await encoder.writeRows(rowChunk, rowChunk.length / (width * 3))
+      function ensureOpen() {
+        if (state === 'aborted') {
+          throw new Error('JPEG_WRITER_ABORTED')
+        }
+        if (state === 'closed') {
+          throw new Error('JPEG_WRITER_CLOSED')
+        }
+      }
+
+      function disposeRuntime() {
+        if (disposed) return
+        disposed = true
+        runtime.dispose()
+      }
+
+      async function abortEncoder() {
+        if (state === 'aborted' || state === 'closed') {
+          return
         }
 
-        return await encoder.finish()
-      } finally {
-        runtime.dispose()
+        state = 'aborted'
+        try {
+          encoder.abort()
+        } finally {
+          disposeRuntime()
+        }
+      }
+
+      return {
+        async writeRows(rows, rowCount) {
+          ensureOpen()
+
+          try {
+            await encoder.writeRows(rows, rowCount)
+          } catch (error) {
+            try {
+              await abortEncoder()
+            } catch {
+              // Preserve the original encoder failure.
+            }
+            throw error
+          }
+        },
+        async close() {
+          ensureOpen()
+
+          try {
+            const blob = await encoder.finish()
+            state = 'closed'
+            disposeRuntime()
+            return blob
+          } catch (error) {
+            try {
+              await abortEncoder()
+            } catch {
+              // Preserve the original finish failure.
+            }
+            throw error
+          }
+        },
+        async abort() {
+          await abortEncoder()
+        },
       }
     },
   }

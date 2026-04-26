@@ -11,8 +11,9 @@
     "declaration": true,
     "declarationMap": true,
     "emitDeclarationOnly": false,
-    "noEmit": true,
+    "noEmit": false,
     "outDir": "dist"
   },
-  "include": ["src/**/*", "worker/**/*"]
+  "include": ["src/**/*", "worker/**/*"],
+  "exclude": ["src/**/*.test.ts", "worker/**/*.test.ts"]
 }

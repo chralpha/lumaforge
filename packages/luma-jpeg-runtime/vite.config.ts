@@ -9,6 +9,7 @@ export default defineConfig({
   base: './',
   build: {
     outDir: 'dist',
+    emptyOutDir: true,
     lib: {
       entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
       formats: ['es'],

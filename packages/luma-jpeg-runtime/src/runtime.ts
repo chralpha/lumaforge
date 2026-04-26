@@ -15,6 +15,18 @@ export type LumaJpegRuntime = {
   dispose: () => void
 }
 
-export function createLumaJpegRuntime(): LumaJpegRuntime {
+export type LumaJpegRuntimeOptions = {
+  workerFactory?: () => Worker
+}
+
+const defaultWorkerFactory = () =>
+  new Worker(new URL('../worker/runtime.worker.ts', import.meta.url), {
+    type: 'module',
+  })
+
+export function createLumaJpegRuntime(
+  options: LumaJpegRuntimeOptions = {},
+): LumaJpegRuntime {
+  void (options.workerFactory ?? defaultWorkerFactory)
   throw new Error('JPEG_RUNTIME_UNAVAILABLE')
 }
