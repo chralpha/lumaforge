@@ -55,16 +55,6 @@ function applyMatrix(matrix: Float32Array, r: number, g: number, b: number) {
   ] as const
 }
 
-function normalizeLutInput(
-  value: number,
-  domainMin: number,
-  domainMax: number,
-) {
-  const domain = domainMax - domainMin
-  if (domain <= 0) return 0
-  return (value - domainMin) / domain
-}
-
 function toSrgbByte(linear: number) {
   const clamped = clamp01(linear)
   const encoded =
@@ -105,13 +95,7 @@ function applyGraphToRgbRows(
           break
         }
         case 'lut3d': {
-          const sample = sampleLutTrilinear(
-            step.data,
-            step.size,
-            normalizeLutInput(r, step.domainMin[0], step.domainMax[0]),
-            normalizeLutInput(g, step.domainMin[1], step.domainMax[1]),
-            normalizeLutInput(b, step.domainMin[2], step.domainMax[2]),
-          )
+          const sample = sampleLutTrilinear(step.data, step.size, r, g, b)
           r = mix(r, sample[0], step.intensity)
           g = mix(g, sample[1], step.intensity)
           b = mix(b, sample[2], step.intensity)
