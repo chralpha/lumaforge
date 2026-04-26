@@ -19,7 +19,7 @@ import {
 } from './jpeg/row-writer'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
 import { mix, sampleLutTrilinear } from './lut3d'
-import { planExportStrips } from './strip-scheduler'
+import { planExportStrips, reduceStripRows } from './strip-scheduler'
 
 export type FullResolutionExportProgress = {
   completedStrips: number
@@ -71,6 +71,7 @@ const LEGAL_RANGE_SCALE = (940 - 64) / 1023
 const LEGAL_RANGE_OFFSET = 64 / 1023
 const LEGAL_RANGE_INV_SCALE = 1023 / (940 - 64)
 const PROPHOTO_TO_SRGB_MATRIX = getProPhotoToTargetMatrix('srgb-rec709')
+const MIN_EXPORT_STRIP_ROWS = 64
 
 function applySignalRangeForLutInput(value: number, isLegalRange: boolean) {
   if (!isLegalRange) return value
@@ -370,6 +371,35 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
+function looksLikeResourceExhaustion(error: unknown) {
+  const tokens: string[] = []
+
+  if (error instanceof Error) {
+    tokens.push(error.name, error.message)
+  }
+
+  if (typeof error === 'object' && error && 'code' in error) {
+    const code = (error as { code?: unknown }).code
+    if (typeof code === 'string') {
+      tokens.push(code)
+    }
+  }
+
+  if (typeof error === 'string') {
+    tokens.push(error)
+  }
+
+  const haystack = tokens.join(' ').toUpperCase()
+
+  return (
+    haystack.includes('RESOURCE_ALLOCATION_FAILED') ||
+    haystack.includes('FULL_RES_EXPORT_RESOURCE_FAILURE') ||
+    haystack.includes('OUT_OF_MEMORY') ||
+    haystack.includes('MEMORY') ||
+    haystack.includes('ALLOCATION')
+  )
+}
+
 export async function runFullResolutionJpegExport(
   input: RunFullResolutionJpegExportInput,
 ) {
@@ -383,47 +413,67 @@ export async function runFullResolutionJpegExport(
 
   const applyGraphToRgbRows = compileGraphApplier(input.graph)
 
-  const strips = planExportStrips({
-    width: input.capability.width,
-    height: input.capability.height,
-    preferredRows: input.preferredRows ?? 512,
-    minRows: 64,
-    halo: 2,
-  })
-  const writer = createWriter(input)
-  let closed = false
+  let stripRows = Math.max(MIN_EXPORT_STRIP_ROWS, input.preferredRows ?? 512)
 
-  try {
-    for (let index = 0; index < strips.length; index += 1) {
+  while (true) {
+    const strips = planExportStrips({
+      width: input.capability.width,
+      height: input.capability.height,
+      preferredRows: stripRows,
+      minRows: MIN_EXPORT_STRIP_ROWS,
+      halo: 2,
+    })
+    const writer = createWriter(input)
+    let closed = false
+
+    try {
+      for (let index = 0; index < strips.length; index += 1) {
+        throwIfAborted(input.signal)
+
+        const strip = strips[index]
+        const rawWindow = await input.readRawWindow(strip.input, input.signal)
+        const tile = demosaicBilinearRgb({
+          ...rawWindow,
+          output: strip.output,
+        })
+        const rows = applyGraphToRgbRows(tile.data)
+        await writer.writeRows(rows, tile.height)
+
+        input.onProgress?.({
+          completedStrips: index + 1,
+          totalStrips: strips.length,
+          progress: Math.round(((index + 1) / strips.length) * 100),
+        })
+      }
+
+      const blob = await writer.close()
+      closed = true
+      return blob
+    } catch (error) {
+      if (!closed) {
+        try {
+          await writer.abort()
+        } catch {
+          // Preserve the original orchestration failure.
+        }
+      }
+
       throwIfAborted(input.signal)
 
-      const strip = strips[index]
-      const rawWindow = await input.readRawWindow(strip.input, input.signal)
-      const tile = demosaicBilinearRgb({
-        ...rawWindow,
-        output: strip.output,
-      })
-      const rows = applyGraphToRgbRows(tile.data)
-      await writer.writeRows(rows, tile.height)
-
-      input.onProgress?.({
-        completedStrips: index + 1,
-        totalStrips: strips.length,
-        progress: Math.round(((index + 1) / strips.length) * 100),
-      })
-    }
-
-    const blob = await writer.close()
-    closed = true
-    return blob
-  } catch (error) {
-    if (!closed) {
-      try {
-        await writer.abort()
-      } catch {
-        // Preserve the original orchestration failure.
+      if (!looksLikeResourceExhaustion(error)) {
+        throw error
       }
+
+      const nextStripRows = reduceStripRows(
+        stripRows,
+        MIN_EXPORT_STRIP_ROWS,
+      )
+
+      if (nextStripRows >= stripRows) {
+        throw new Error('FULL_RES_EXPORT_RESOURCE_FAILURE')
+      }
+
+      stripRows = nextStripRows
     }
-    throw error
   }
 }

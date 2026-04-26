@@ -118,6 +118,85 @@ describe('runFullResolutionJpegExport', () => {
     expect(progress.at(-1)).toBe(100)
   })
 
+  it('retries RESOURCE_ALLOCATION_FAILED with smaller strips and preserves JPEG dimensions', async () => {
+    const writtenRows: Array<{ rowCount: number; bytes: Uint8Array }> = []
+    let failedOnce = false
+    const readRawWindow = vi.fn((rect: LumaRawWindowRect) => {
+      if (!failedOnce) {
+        failedOnce = true
+        return Promise.reject(new Error('RESOURCE_ALLOCATION_FAILED'))
+      }
+
+      return Promise.resolve(makeWindow(rect))
+    })
+    const writer = {
+      writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
+        writtenRows.push({ rowCount, bytes: new Uint8Array(bytes) })
+      }),
+      close: vi.fn(async () => new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' })),
+      abort: vi.fn(async () => undefined),
+    }
+
+    const blob = await runFullResolutionJpegExport({
+      capability: makeCapability({ height: 256, rawHeight: 256 }),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+      },
+      preferredRows: 256,
+      readRawWindow,
+      writer,
+    })
+
+    expect(blob.type).toBe('image/jpeg')
+    expect(writer.abort).toHaveBeenCalledTimes(1)
+    expect(readRawWindow).toHaveBeenCalledTimes(3)
+    expect(readRawWindow.mock.calls.map(([rect]) => rect.height)).toEqual([
+      256, 130, 130,
+    ])
+    expect(writtenRows.map((entry) => entry.rowCount)).toEqual([128, 128])
+    expect(
+      writtenRows.reduce((total, entry) => total + entry.rowCount, 0),
+    ).toBe(256)
+    expect(
+      writtenRows.map((entry) => entry.bytes.length / (entry.rowCount * 3)),
+    ).toEqual([4, 4])
+  })
+
+  it('throws FULL_RES_EXPORT_RESOURCE_FAILURE after exhausting strip retries', async () => {
+    const writer = {
+      writeRows: vi.fn(),
+      close: vi.fn(),
+      abort: vi.fn(async () => undefined),
+    }
+    const readRawWindow = vi.fn(() =>
+      Promise.reject(new Error('RESOURCE_ALLOCATION_FAILED')),
+    )
+
+    await expect(
+      runFullResolutionJpegExport({
+        capability: makeCapability({ height: 256, rawHeight: 256 }),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        },
+        preferredRows: 256,
+        readRawWindow,
+        writer,
+      }),
+    ).rejects.toThrow('FULL_RES_EXPORT_RESOURCE_FAILURE')
+
+    expect(readRawWindow).toHaveBeenCalledTimes(3)
+    expect(writer.writeRows).not.toHaveBeenCalled()
+    expect(writer.abort).toHaveBeenCalledTimes(3)
+  })
+
   it('uses the color graph before writing JPEG rows', async () => {
     const writtenRows: Array<{ rowCount: number; bytes: Uint8Array }> = []
     const readRawWindow = vi.fn((rect: LumaRawWindowRect) =>

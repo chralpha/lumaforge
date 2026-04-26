@@ -52,6 +52,7 @@ import type {
 import { BUILTIN_PRESETS } from '../services/builtin-presets'
 import {
   buildExportFilename,
+  recommendRetryLevel,
   runFullResolutionExportJob,
 } from '../services/export-system'
 import { runPreviewPipeline } from '../services/preview-pipeline'
@@ -67,6 +68,9 @@ import { useImageSession } from './useImageSession'
 function toUserFacingErrorCode(code: unknown) {
   if (typeof code === 'string' && code.startsWith('LUT_')) return code
   if (typeof code === 'string' && code.startsWith('EXPORT_')) return code
+  if (typeof code === 'string' && code.startsWith('FULL_RES_EXPORT_')) {
+    return code
+  }
   if (typeof code === 'string' && code.startsWith('RAW_')) return code
   return 'RAW_UNKNOWN'
 }
@@ -93,6 +97,24 @@ function getProgressRecoveryHint(status: ProcessingStatus) {
   }
 
   return undefined
+}
+
+function isRetryableFullResExportFailure(code: string) {
+  return (
+    code === 'FULL_RES_EXPORT_RESOURCE_FAILURE' ||
+    code === 'FULL_RES_EXPORT_WORKER_FAILED'
+  )
+}
+
+function buildExportFailureDescription(
+  message: string,
+  retryLevel: 'safe' | 'balanced' | null,
+) {
+  if (!retryLevel) {
+    return message
+  }
+
+  return `${message}. Retry with ${retryLevel} fidelity.`
 }
 
 function copyToArrayBuffer(data: Uint8Array) {
@@ -1227,7 +1249,16 @@ export function useRawProcessor(): UseRawProcessorReturn {
         }
 
         const message = err instanceof Error ? err.message : 'Export failed'
-        const errorCode = toUserFacingErrorCode(getStableErrorCode(err) ?? message)
+        const rawErrorCode = toUserFacingErrorCode(
+          getStableErrorCode(err) ?? message,
+        )
+        const errorCode =
+          rawErrorCode === 'RAW_UNKNOWN'
+            ? 'EXPORT_RENDER_FAILED'
+            : rawErrorCode
+        const retryLevel = isRetryableFullResExportFailure(errorCode)
+          ? recommendRetryLevel(fidelity)
+          : null
 
         setSession((prev) =>
           prev && prev.id === exportSessionId
@@ -1236,12 +1267,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 exportState: {
                   ...prev.exportState,
                   status: 'failed',
-                  lastErrorCode:
-                    errorCode === 'RAW_UNKNOWN'
-                      ? 'EXPORT_RENDER_FAILED'
-                      : errorCode,
-                  retryRecommended: false,
-                  recommendedRetryLevel: undefined,
+                  lastErrorCode: errorCode,
+                  retryRecommended: Boolean(retryLevel),
+                  recommendedRetryLevel: retryLevel ?? undefined,
                 },
               }
             : prev,
@@ -1249,7 +1277,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         setStatus('ready')
         scheduleToast(() =>
           toast.error('Export failed', {
-            description: message,
+            description: buildExportFailureDescription(message, retryLevel),
           }),
         )
       } finally {

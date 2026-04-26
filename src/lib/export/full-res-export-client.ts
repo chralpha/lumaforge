@@ -66,6 +66,10 @@ function createCancelledError() {
   return new Error('FULL_RES_EXPORT_CANCELLED')
 }
 
+function createWorkerFailedError() {
+  return new Error('FULL_RES_EXPORT_WORKER_FAILED')
+}
+
 function createRequestId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return `full-res-export-${crypto.randomUUID()}`
@@ -99,6 +103,11 @@ export class FullResolutionExportWorkerClient {
     }
 
     const worker = this.workerFactory()
+    const handleWorkerFailure = () => {
+      this.rejectPending(createWorkerFailedError())
+      this.resetWorker()
+    }
+
     worker.onmessage = (event: MessageEvent<FullResExportWorkerResponse>) => {
       const response = event.data
       const pending = this.pending.get(response.requestId)
@@ -120,11 +129,8 @@ export class FullResolutionExportWorkerClient {
       pending.reject(new Error(response.message))
     }
 
-    worker.onerror = (event: ErrorEvent) => {
-      const message = event.message || 'FULL_RES_EXPORT_WORKER_ERROR'
-      this.rejectPending(new Error(message))
-      this.resetWorker()
-    }
+    worker.onerror = () => handleWorkerFailure()
+    worker.onmessageerror = () => handleWorkerFailure()
 
     this.worker = worker
     return worker
@@ -145,6 +151,7 @@ export class FullResolutionExportWorkerClient {
 
     this.worker.onmessage = null
     this.worker.onerror = null
+    this.worker.onmessageerror = null
     this.worker.terminate()
     this.worker = null
   }

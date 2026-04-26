@@ -12,6 +12,7 @@ class FakeWorker {
     | ((event: MessageEvent<FullResExportWorkerResponse>) => void)
     | null = null
   onerror: ((event: ErrorEvent) => void) | null = null
+  onmessageerror: ((event: MessageEvent) => void) | null = null
   readonly postMessage = vi.fn(
     (message: FullResExportWorkerRequest, _transfer?: Transferable[]) => {
       this.requests.push(message)
@@ -26,6 +27,10 @@ class FakeWorker {
 
   emitError(message: string) {
     this.onerror?.({ message } as ErrorEvent)
+  }
+
+  emitMessageError() {
+    this.onmessageerror?.({} as MessageEvent)
   }
 }
 
@@ -154,7 +159,7 @@ describe('FullResolutionExportWorkerClient', () => {
     })
     brokenWorker.emitError('worker failed')
 
-    await expect(brokenPromise).rejects.toThrow('worker failed')
+    await expect(brokenPromise).rejects.toThrow('FULL_RES_EXPORT_WORKER_FAILED')
     expect(brokenWorker.terminate).toHaveBeenCalledTimes(1)
 
     const recoveredPromise = client.run({
@@ -175,6 +180,22 @@ describe('FullResolutionExportWorkerClient', () => {
 
     await expect(recoveredPromise).resolves.toMatchObject({ type: 'image/jpeg' })
     expect(workerFactory).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects pending requests and terminates the worker after onmessageerror', async () => {
+    const worker = new FakeWorker()
+    const client = new FullResolutionExportWorkerClient(
+      () => worker as unknown as Worker,
+    )
+
+    const promise = client.run({
+      file: new File(['raw'], 'sample.ARW'),
+      graph: supportedGraph,
+    })
+    worker.emitMessageError()
+
+    await expect(promise).rejects.toThrow('FULL_RES_EXPORT_WORKER_FAILED')
+    expect(worker.terminate).toHaveBeenCalledTimes(1)
   })
 
   it('posts cancel and rejects when the abort signal fires', async () => {
