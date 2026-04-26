@@ -104,10 +104,10 @@ After each fixture passes the checklist, record the observed `cameraBrand`, `cam
 
 ## High-resolution full-res export acceptance
 
-| Case | Expected result |
-| --- | --- |
-| 61MP Chrome desktop | Full-resolution JPEG export completes or fails closed without renderer crash |
-| 61MP Safari desktop | Full-resolution JPEG export completes or fails closed without renderer crash |
-| 100MP Chrome desktop | Full-resolution JPEG export completes or fails closed without renderer crash |
-| Unsupported RAW-window source | Full-resolution export is disabled with reason |
-| Unknown LUT profile | Full-resolution export is disabled with reason |
+| Fixture | Browser | Expected |
+| --- | --- | --- |
+| 61MP RAW fixture | Chrome desktop | Full-resolution JPEG export completes or fails closed without renderer crash |
+| 61MP RAW fixture | Safari desktop | Full-resolution JPEG export completes or fails closed without renderer crash |
+| 100MP RAW fixture | Chrome desktop | Full-resolution JPEG export completes or fails closed without renderer crash |
+| Unsupported RAW-window source | Chrome desktop | Full-resolution export is disabled with reason |
+| Unknown LUT profile | Chrome desktop | Full-resolution export is disabled with reason |
