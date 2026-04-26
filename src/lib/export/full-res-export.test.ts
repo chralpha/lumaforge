@@ -102,7 +102,7 @@ describe('runFullResolutionJpegExport', () => {
       },
       preferredRows: 2,
       readRawWindow,
-      writer,
+      writerFactory: () => writer,
       onProgress(entry) {
         progress.push(entry.progress)
       },
@@ -148,7 +148,7 @@ describe('runFullResolutionJpegExport', () => {
       },
       preferredRows: 256,
       readRawWindow,
-      writer,
+      writerFactory: () => writer,
     })
 
     expect(blob.type).toBe('image/jpeg')
@@ -164,6 +164,88 @@ describe('runFullResolutionJpegExport', () => {
     expect(
       writtenRows.map((entry) => entry.bytes.length / (entry.rowCount * 3)),
     ).toEqual([4, 4])
+  })
+
+  it('retries with a fresh writer after a resource failure following partial writes', async () => {
+    const firstWriter = {
+      writeRows: vi.fn(async () => undefined),
+      close: vi.fn(),
+      abort: vi.fn(async () => undefined),
+    }
+    const secondWriter = {
+      writeRows: vi.fn(async () => undefined),
+      close: vi.fn(async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' })),
+      abort: vi.fn(async () => undefined),
+    }
+    const attemptWriters = [firstWriter, secondWriter]
+    let callCount = 0
+    const readRawWindow = vi.fn((rect: LumaRawWindowRect) => {
+      callCount += 1
+      if (callCount === 2) {
+        return Promise.reject(new Error('RESOURCE_ALLOCATION_FAILED'))
+      }
+
+      return Promise.resolve(makeWindow(rect))
+    })
+
+    const blob = await runFullResolutionJpegExport({
+      capability: makeCapability({ height: 512, rawHeight: 512 }),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+      },
+      preferredRows: 256,
+      readRawWindow,
+      writerFactory: () => {
+        const writer = attemptWriters.shift()
+        if (!writer) {
+          throw new Error('unexpected writer request')
+        }
+        return writer
+      },
+    })
+
+    expect(blob.type).toBe('image/jpeg')
+    expect(attemptWriters).toHaveLength(0)
+    expect(readRawWindow).toHaveBeenCalledTimes(6)
+    expect(readRawWindow.mock.calls[0]?.[0].height).toBe(258)
+    expect(readRawWindow.mock.calls[2]?.[0].height).toBe(130)
+    expect(readRawWindow.mock.calls[5]?.[0].height).toBe(130)
+    expect(firstWriter.writeRows).toHaveBeenCalledTimes(1)
+    expect(firstWriter.abort).toHaveBeenCalledTimes(1)
+    expect(firstWriter.close).not.toHaveBeenCalled()
+    expect(secondWriter.writeRows).toHaveBeenCalledTimes(4)
+    expect(secondWriter.close).toHaveBeenCalledTimes(1)
+    expect(secondWriter.abort).not.toHaveBeenCalled()
+  })
+
+  it('retries writer allocation failures and throws FULL_RES_EXPORT_RESOURCE_FAILURE after exhaustion', async () => {
+    const readRawWindow = vi.fn()
+    const writerFactory = vi.fn(() => {
+      throw new Error('RESOURCE_ALLOCATION_FAILED')
+    })
+
+    await expect(
+      runFullResolutionJpegExport({
+        capability: makeCapability({ height: 256, rawHeight: 256 }),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        },
+        preferredRows: 256,
+        readRawWindow,
+        writerFactory,
+      }),
+    ).rejects.toThrow('FULL_RES_EXPORT_RESOURCE_FAILURE')
+
+    expect(writerFactory).toHaveBeenCalledTimes(3)
+    expect(readRawWindow).not.toHaveBeenCalled()
   })
 
   it('throws FULL_RES_EXPORT_RESOURCE_FAILURE after exhausting strip retries', async () => {
@@ -188,7 +270,7 @@ describe('runFullResolutionJpegExport', () => {
         },
         preferredRows: 256,
         readRawWindow,
-        writer,
+        writerFactory: () => writer,
       }),
     ).rejects.toThrow('FULL_RES_EXPORT_RESOURCE_FAILURE')
 
@@ -227,7 +309,7 @@ describe('runFullResolutionJpegExport', () => {
       },
       preferredRows: 2,
       readRawWindow,
-      writer,
+      writerFactory: () => writer,
     })
 
     expect(writtenRows).toHaveLength(2)
@@ -311,7 +393,7 @@ describe('runFullResolutionJpegExport', () => {
           whiteLevel: 255,
         }),
       ),
-      writer,
+      writerFactory: () => writer,
     })
 
     const baseLinear = 128 / 255
@@ -349,7 +431,7 @@ describe('runFullResolutionJpegExport', () => {
           steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
         },
         readRawWindow: vi.fn().mockRejectedValue(new Error('read failed')),
-        writer,
+        writerFactory: () => writer,
       }),
     ).rejects.toThrow('read failed')
 
@@ -385,7 +467,7 @@ describe('runFullResolutionJpegExport', () => {
           ],
         },
         readRawWindow: vi.fn(),
-        writer,
+        writerFactory: () => writer,
       }),
     ).rejects.toThrow('FULL_RES_EXPORT_UNSUPPORTED_PIPELINE')
 
@@ -444,7 +526,7 @@ describe('runFullResolutionJpegExport', () => {
           ],
         },
         readRawWindow: vi.fn(),
-        writer,
+        writerFactory: () => writer,
       }),
     ).rejects.toThrow('FULL_RES_EXPORT_UNSUPPORTED_PIPELINE')
 

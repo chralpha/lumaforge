@@ -39,7 +39,7 @@ export type RunFullResolutionJpegExportInput = {
   preferredRows?: number
   quality?: number
   jpegSink?: JpegRowSink
-  writer?: JpegRowWriter
+  writerFactory?: () => JpegRowWriter
 }
 
 function clamp01(value: number) {
@@ -353,8 +353,8 @@ function compileGraphApplier(graph: SupportedExportColorGraphDescriptor) {
 }
 
 function createWriter(input: RunFullResolutionJpegExportInput) {
-  if (input.writer) {
-    return input.writer
+  if (input.writerFactory) {
+    return input.writerFactory()
   }
 
   return createJpegRowWriter({
@@ -423,10 +423,12 @@ export async function runFullResolutionJpegExport(
       minRows: MIN_EXPORT_STRIP_ROWS,
       halo: 2,
     })
-    const writer = createWriter(input)
+    let writer: JpegRowWriter | null = null
     let closed = false
 
     try {
+      writer = createWriter(input)
+
       for (let index = 0; index < strips.length; index += 1) {
         throwIfAborted(input.signal)
 
@@ -450,7 +452,7 @@ export async function runFullResolutionJpegExport(
       closed = true
       return blob
     } catch (error) {
-      if (!closed) {
+      if (writer && !closed) {
         try {
           await writer.abort()
         } catch {
