@@ -2537,3 +2537,508 @@ Known implementation risk:
 
 - The native raw-window prototype supports unpacked Bayer `raw_image` sources first. Compressed RAW formats or non-Bayer CFA must return unsupported capability until explicit runtime support exists.
 - The row-writer boundary is intentionally isolated so the real JPEG sink can be swapped without changing strip processing or UI state.
+
+---
+
+## Supplemental plan after final integration review
+
+Tasks 1-10 build the browser-local strip export scaffold, worker orchestration, color graph plumbing, UI gating, resource retry handling, and fail-closed behavior. Final integration review found three remaining blockers that prevent the branch from being called a complete high-resolution export implementation:
+
+- `packages/luma-jpeg-runtime` still contains a validation shell and throws `JPEG_RUNTIME_UNAVAILABLE` instead of producing a JPEG.
+- the raw-window export path reads Bayer sensor samples but does not receive the camera white balance, camera-to-working-space transform, or processed scene-linear RGB data needed to match preview color.
+- visible output strip coordinates are passed directly to raw-space reads, without visible-crop mapping or supported orientation handling.
+
+The following tasks append the missing production-completion work. They supersede the earlier self-review claim that JPEG-only sRGB output is fully covered by Tasks 6, 7, and 8.
+
+### Task 11: Expand the raw runtime export fact contract
+
+**Files:**
+
+- Modify: `packages/luma-raw-runtime/src/types.ts`
+- Modify: `packages/luma-raw-runtime/worker/native-types.ts`
+- Modify: `packages/luma-raw-runtime/worker/native-adapter.ts`
+- Modify: `packages/luma-raw-runtime/worker/runtime-core.ts`
+- Modify: `packages/luma-raw-runtime/src/runtime.ts`
+- Modify: `packages/luma-raw-runtime/native/libraw_wrapper.cpp`
+- Modify: `packages/luma-raw-runtime/worker/native-adapter.test.ts`
+- Modify: `packages/luma-raw-runtime/worker/runtime-core.test.ts`
+- Modify: `packages/luma-raw-runtime/src/runtime.test.ts`
+
+- [ ] **Step 1: Add runtime contract tests**
+
+Add tests that require supported export capabilities to include visible geometry and color facts:
+
+```ts
+expect(capability).toMatchObject({
+  supported: true,
+  width: 4000,
+  height: 3000,
+  rawWidth: 4048,
+  rawHeight: 3040,
+  visibleCrop: { x: 24, y: 20, width: 4000, height: 3000 },
+  orientation: { code: 1, supported: true },
+  color: {
+    whiteBalance: expect.any(Array),
+    cameraToWorkingRgb: expect.any(Array),
+    workingSpace: 'linear-prophoto-rgb',
+  },
+})
+expect(capability.color.whiteBalance).toHaveLength(4)
+expect(capability.color.cameraToWorkingRgb).toHaveLength(9)
+```
+
+Add unsupported tests for missing color transform and unsupported orientation:
+
+```ts
+expect(missingColor.probeExportCapability?.()).toMatchObject({
+  supported: false,
+  reasons: expect.arrayContaining(['missing-color-transform']),
+})
+expect(rotatedUnsupported.probeExportCapability?.()).toMatchObject({
+  supported: false,
+  reasons: expect.arrayContaining(['unsupported-orientation']),
+})
+```
+
+- [ ] **Step 2: Add explicit types**
+
+Extend `packages/luma-raw-runtime/src/types.ts`:
+
+```ts
+export type LumaRawVisibleCrop = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type LumaRawExportOrientation = {
+  code: number
+  supported: boolean
+}
+
+export type LumaRawExportColorFacts = {
+  whiteBalance: [number, number, number, number]
+  cameraToWorkingRgb: [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ]
+  workingSpace: 'linear-prophoto-rgb'
+}
+```
+
+Add these fields to `LumaRawExportCapability`:
+
+```ts
+visibleCrop?: LumaRawVisibleCrop
+orientation?: LumaRawExportOrientation
+color?: LumaRawExportColorFacts
+```
+
+- [ ] **Step 3: Normalize and validate the native payload**
+
+Update `native-adapter.ts` normalization so a capability is supported only when:
+
+```ts
+capability.supported === true &&
+isValidVisibleCrop(capability.visibleCrop) &&
+isSupportedExportOrientation(capability.orientation) &&
+isValidExportColorFacts(capability.color)
+```
+
+If any required field is missing, return:
+
+```ts
+{
+  supported: false,
+  reasons: ['missing-export-facts'],
+}
+```
+
+Use specific reasons where possible:
+
+```ts
+'missing-visible-crop'
+'unsupported-orientation'
+'missing-color-transform'
+```
+
+- [ ] **Step 4: Emit facts from the native LibRaw wrapper**
+
+Update `libraw_wrapper.cpp` capability creation to set:
+
+```cpp
+capability.set("visibleCrop", visibleCropObject(
+    sizes.left_margin,
+    sizes.top_margin,
+    sizes.width,
+    sizes.height));
+capability.set("orientation", orientationObject(sizes.flip));
+capability.set("color", exportColorFactsObject(color));
+```
+
+The first milestone must set `orientation.supported` to `true` only for identity output orientation. Non-identity orientation should return unsupported with `unsupported-orientation` until Task 12 implements the transform.
+
+- [ ] **Step 5: Thread the fields through the worker and runtime client**
+
+Update `runtime-core.ts` and `runtime.ts` so `probeExportCapabilityFromSession` returns the new capability shape unchanged after validation.
+
+Run:
+
+```bash
+pnpm test:run packages/luma-raw-runtime/worker/native-adapter.test.ts packages/luma-raw-runtime/worker/runtime-core.test.ts packages/luma-raw-runtime/src/runtime.test.ts
+```
+
+Expected: PASS.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add packages/luma-raw-runtime/src/types.ts packages/luma-raw-runtime/worker/native-types.ts packages/luma-raw-runtime/worker/native-adapter.ts packages/luma-raw-runtime/worker/runtime-core.ts packages/luma-raw-runtime/src/runtime.ts packages/luma-raw-runtime/native/libraw_wrapper.cpp packages/luma-raw-runtime/worker/native-adapter.test.ts packages/luma-raw-runtime/worker/runtime-core.test.ts packages/luma-raw-runtime/src/runtime.test.ts
+git commit -m "feat(raw-runtime): expose export color and geometry facts"
+```
+
+### Task 12: Consume raw-window color and geometry facts in CPU export
+
+**Files:**
+
+- Modify: `src/lib/export/full-res-export.ts`
+- Modify: `src/lib/export/demosaic.ts`
+- Create: `src/lib/export/raw-window-transform.ts`
+- Create: `src/lib/export/raw-window-transform.test.ts`
+- Modify: `src/lib/export/full-res-export.test.ts`
+
+- [ ] **Step 1: Add geometry mapping tests**
+
+Create `raw-window-transform.test.ts`:
+
+```ts
+it('maps output strips into raw-space windows with visible crop offset and halo', () => {
+  expect(
+    mapOutputRectToRawWindow({
+      output: { x: 0, y: 64, width: 4000, height: 64 },
+      visibleCrop: { x: 24, y: 20, width: 4000, height: 3000 },
+      rawWidth: 4048,
+      rawHeight: 3040,
+      halo: 2,
+    }),
+  ).toEqual({
+    rawInput: { x: 24, y: 82, width: 4000, height: 68 },
+    outputWithinWindow: { x: 0, y: 2, width: 4000, height: 64 },
+  })
+})
+```
+
+- [ ] **Step 2: Add color transform tests**
+
+Add a synthetic test that proves white balance and camera-to-working RGB are applied before the export graph:
+
+```ts
+it('converts demosaiced camera RGB into linear ProPhoto working RGB', () => {
+  const rgb = new Float32Array([0.25, 0.5, 1])
+  applyCameraToWorkingRgbInPlace(rgb, {
+    whiteBalance: [2, 1, 1, 1],
+    cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+    workingSpace: 'linear-prophoto-rgb',
+  })
+  expect(Array.from(rgb)).toEqual([0.5, 0.5, 1])
+})
+```
+
+- [ ] **Step 3: Implement `raw-window-transform.ts`**
+
+Implement:
+
+```ts
+export function mapOutputRectToRawWindow(input: {
+  output: LumaRawWindowRect
+  visibleCrop: LumaRawVisibleCrop
+  rawWidth: number
+  rawHeight: number
+  halo: number
+}): {
+  rawInput: LumaRawWindowRect
+  outputWithinWindow: LumaRawWindowRect
+}
+
+export function applyCameraToWorkingRgbInPlace(
+  rgb: Float32Array,
+  color: LumaRawExportColorFacts,
+): void
+```
+
+The mapper must clamp halo expansion at raw boundaries while preserving the requested output rectangle. It must never reduce final output width or height.
+
+- [ ] **Step 4: Apply the facts in `full-res-export.ts`**
+
+Before planning strips, fail closed unless:
+
+```ts
+input.capability.visibleCrop &&
+input.capability.orientation?.supported &&
+input.capability.color?.workingSpace === 'linear-prophoto-rgb'
+```
+
+For each strip:
+
+```text
+visible output strip
+-> map to raw input rect using visibleCrop + halo
+-> readRawWindow(rawInput)
+-> demosaic outputWithinWindow
+-> applyCameraToWorkingRgbInPlace()
+-> apply compiled export color graph
+-> writer.writeRows()
+```
+
+Unsupported facts must throw:
+
+```ts
+new Error('FULL_RES_EXPORT_UNSUPPORTED_SOURCE')
+```
+
+- [ ] **Step 5: Verify targeted export tests**
+
+Run:
+
+```bash
+pnpm test:run src/lib/export/raw-window-transform.test.ts src/lib/export/full-res-export.test.ts
+```
+
+Expected: PASS.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/lib/export/full-res-export.ts src/lib/export/demosaic.ts src/lib/export/raw-window-transform.ts src/lib/export/raw-window-transform.test.ts src/lib/export/full-res-export.test.ts
+git commit -m "feat(export): apply raw-window color and geometry facts"
+```
+
+### Task 13: Replace the JPEG runtime placeholder with a real bounded encoder
+
+**Files:**
+
+- Modify: `packages/luma-jpeg-runtime/src/runtime.ts`
+- Modify: `packages/luma-jpeg-runtime/src/runtime.test.ts`
+- Modify: `packages/luma-jpeg-runtime/worker/runtime-core.ts`
+- Modify: `packages/luma-jpeg-runtime/worker/runtime-core.test.ts`
+- Modify: `packages/luma-jpeg-runtime/worker/runtime.worker.ts`
+- Modify: `packages/luma-jpeg-runtime/package.json`
+- Modify: `pnpm-lock.yaml`
+
+- [ ] **Step 1: Replace fail-closed placeholder tests**
+
+Replace tests that expect `JPEG_RUNTIME_UNAVAILABLE` on normal `finish` with tests that require:
+
+```ts
+expect(blob.type).toBe('image/jpeg')
+expect(blob.size).toBeGreaterThan(0)
+```
+
+Keep a failure test for missing backend initialization:
+
+```ts
+await expect(core.handleRequest(finishRequestWithoutCreate)).rejects.toThrow(
+  'JPEG_RUNTIME_NOT_CREATED',
+)
+```
+
+- [ ] **Step 2: Add a browser-worker encoder backend**
+
+Add one real row-capable JPEG backend to `@lumaforge/luma-jpeg-runtime`. The backend must support this runtime contract:
+
+```ts
+type InternalJpegEncoder = {
+  writeRows: (rows: Uint8Array, rowCount: number) => Promise<void>
+  finish: () => Promise<Blob>
+  abort: () => void
+}
+```
+
+The backend must not require a full-image Canvas, ImageData, GPU texture, or RGBA staging surface. If the selected third-party backend only supports full-frame input, reject it and choose an encoder with streaming or row-batch input.
+
+- [ ] **Step 3: Implement worker-core state around the backend**
+
+`runtime-core.ts` should transition:
+
+```text
+idle -> ready -> finished
+idle -> ready -> aborted
+```
+
+On `rows`, pass ordered RGB rows to the backend and reject row-count mismatch before writing. On `finish`, require `writtenRows === height` and return:
+
+```ts
+{
+  id: request.id,
+  ok: true,
+  type: 'finish',
+  payload: { blob },
+}
+```
+
+- [ ] **Step 4: Implement the public runtime wrapper**
+
+`createLumaJpegRuntime()` must create the worker-backed encoder and return:
+
+```ts
+{
+  createEncoder(options) {
+    return {
+      writeRows(rows, rowCount) {},
+      finish() {},
+      abort() {},
+    }
+  },
+  dispose() {},
+}
+```
+
+`finish()` must resolve to an `image/jpeg` `Blob`.
+
+- [ ] **Step 5: Verify package tests**
+
+Run:
+
+```bash
+pnpm --filter @lumaforge/luma-jpeg-runtime test
+pnpm --filter @lumaforge/luma-jpeg-runtime build
+```
+
+Expected: PASS.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add packages/luma-jpeg-runtime/src/runtime.ts packages/luma-jpeg-runtime/src/runtime.test.ts packages/luma-jpeg-runtime/worker/runtime-core.ts packages/luma-jpeg-runtime/worker/runtime-core.test.ts packages/luma-jpeg-runtime/worker/runtime.worker.ts packages/luma-jpeg-runtime/package.json pnpm-lock.yaml
+git commit -m "feat(jpeg-runtime): encode bounded RGB rows"
+```
+
+### Task 14: Reconnect final export capability to real runtime readiness
+
+**Files:**
+
+- Modify: `src/lib/raw/luma-runtime-adapter.ts`
+- Modify: `src/lib/raw/runtime-adapter.ts`
+- Modify: `src/lib/raw/runtime-adapter.test.ts`
+- Modify: `src/lib/export/jpeg/wasm-row-sink.ts`
+- Modify: `src/lib/export/full-res-export.test.ts`
+- Modify: `src/modules/raw-processor/hooks/useRawProcessor.test.tsx`
+
+- [ ] **Step 1: Add fail-closed tests for missing encoder and missing export facts**
+
+Add tests that verify full-resolution export is disabled when:
+
+```ts
+{ supported: false, reasons: ['jpeg-runtime-unavailable'] }
+{ supported: false, reasons: ['missing-color-transform'] }
+{ supported: false, reasons: ['unsupported-orientation'] }
+```
+
+- [ ] **Step 2: Ensure capability probing reflects runtime readiness**
+
+The UI-facing capability state must be `supported` only when:
+
+```ts
+rawCapability.supported === true &&
+jpegRuntimeAvailable === true
+```
+
+If JPEG initialization fails, surface:
+
+```ts
+'Full-resolution JPEG export is not available in this browser build.'
+```
+
+- [ ] **Step 3: Verify hook and export tests**
+
+Run:
+
+```bash
+pnpm test:run src/lib/raw/runtime-adapter.test.ts src/lib/export/full-res-export.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx
+```
+
+Expected: PASS.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/lib/raw/luma-runtime-adapter.ts src/lib/raw/runtime-adapter.ts src/lib/raw/runtime-adapter.test.ts src/lib/export/jpeg/wasm-row-sink.ts src/lib/export/full-res-export.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx
+git commit -m "fix(export): require real runtime readiness"
+```
+
+### Task 15: Full integration verification and acceptance
+
+**Files:**
+
+- Modify: `docs/specs/2026-04-22-phase1-test-matrix.md`
+- Modify: `docs/specs/2026-04-25-high-resolution-browser-export-design.md`
+
+- [ ] **Step 1: Run final automated checks**
+
+Run:
+
+```bash
+pnpm test:run packages/luma-raw-runtime/src/runtime.test.ts packages/luma-raw-runtime/worker/native-adapter.test.ts packages/luma-raw-runtime/worker/runtime-core.test.ts packages/luma-jpeg-runtime/src/runtime.test.ts packages/luma-jpeg-runtime/worker/runtime-core.test.ts src/lib/export/color-graph.test.ts src/lib/export/strip-scheduler.test.ts src/lib/export/buffer-pool.test.ts src/lib/export/demosaic.test.ts src/lib/export/lut3d.test.ts src/lib/export/raw-window-transform.test.ts src/lib/export/jpeg/row-writer.test.ts src/lib/export/full-res-export.test.ts src/lib/export/full-res-export-client.test.ts src/lib/raw/runtime-adapter.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx
+```
+
+Expected: PASS.
+
+- [ ] **Step 2: Run package and app builds**
+
+Run:
+
+```bash
+pnpm --filter @lumaforge/luma-raw-runtime build:native
+pnpm --filter @lumaforge/luma-raw-runtime test
+pnpm --filter @lumaforge/luma-jpeg-runtime test
+pnpm --filter @lumaforge/luma-jpeg-runtime build
+pnpm build
+```
+
+Expected: all commands complete successfully.
+
+- [ ] **Step 3: Run manual browser acceptance**
+
+Run:
+
+```bash
+pnpm dev --host 0.0.0.0
+```
+
+Record results in `docs/specs/2026-04-22-phase1-test-matrix.md` for:
+
+```md
+| 61MP RAW fixture | Chrome desktop | Full-resolution JPEG completes with exported dimensions equal to runtime output dimensions |
+| 61MP RAW fixture | Safari desktop | Full-resolution JPEG completes or fails closed without renderer crash |
+| 100MP RAW fixture | Chrome desktop | Full-resolution JPEG completes or fails closed without renderer crash |
+| Unsupported RAW-window source | Chrome desktop | Full-resolution export disabled with unsupported-source reason |
+| Unknown LUT profile | Chrome desktop | Full-resolution export disabled until user selects LUT input |
+```
+
+- [ ] **Step 4: Final code review**
+
+Request a whole-branch review from merge-base to HEAD. The review must explicitly re-check:
+
+```text
+real JPEG output path
+raw-window color transform parity with preview working space
+visible crop and orientation handling
+resource retry behavior
+full-resolution export gating
+no full-image Canvas/ImageData/RGB staging surfaces
+```
+
+- [ ] **Step 5: Commit acceptance docs**
+
+```bash
+git add docs/specs/2026-04-22-phase1-test-matrix.md docs/specs/2026-04-25-high-resolution-browser-export-design.md
+git commit -m "docs(export): record full-res acceptance completion"
+```

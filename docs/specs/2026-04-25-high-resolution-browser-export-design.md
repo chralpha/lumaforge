@@ -202,6 +202,35 @@ The returned raw window must carry enough facts for the export worker to avoid g
 
 Product color, LUT handling, JPEG quality, retry policy, and output-stream decisions stay outside the raw runtime.
 
+## Completion clarification after integration review
+
+The first production target is not satisfied by a placeholder JPEG runtime or by treating raw Bayer samples as if they were already scene-linear working RGB. A high-resolution export implementation is complete only when the runtime and export worker can either produce the same scene-linear working input as preview or fail closed before the export action is enabled.
+
+The raw-window contract must provide one of these two paths:
+
+- processed scene-linear working RGB windows with visible-output coordinates already applied
+- raw mosaic windows plus all facts required to reproduce preview-equivalent scene-linear RGB in the export worker
+
+For the raw mosaic path, capability probing must report `unsupported` unless these facts are present:
+
+- visible crop origin and size, including raw-space to visible-output mapping
+- orientation handling status for the exported output frame
+- CFA phase for each returned window after crop and halo expansion
+- black and white levels
+- camera white balance multipliers
+- camera-to-working-space color transform, targeting the same linear ProPhoto working space used by preview
+
+For the first production milestone, non-identity orientation may fail closed with an explicit unsupported-source reason until rotation and flip transforms are implemented in the strip pipeline. Silent geometry guessing is not allowed.
+
+The JPEG runtime must contain a real encoder backend that accepts ordered RGB8 rows or bounded row batches and returns an `image/jpeg` `Blob`. A validation shell that accepts rows but throws `JPEG_RUNTIME_UNAVAILABLE` on finish is only a scaffold and must keep full-resolution export disabled or fail closed with a resource/runtime reason.
+
+The implementation plan must treat these as required follow-up work, not residual risk:
+
+- expose runtime color and geometry facts
+- consume those facts in the CPU export path before the color graph runs
+- replace the JPEG runtime placeholder with a real bounded encoder backend
+- rerun final review and browser acceptance before claiming production completion
+
 ## Testing and acceptance
 
 Runtime contract tests:
