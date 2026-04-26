@@ -726,6 +726,100 @@ describe('native-adapter', () => {
     expect(ensureProcessed).toContain('ensureUnpacked();')
   })
 
+  it('documents the processed-window orientation support boundary', () => {
+    const wrapperSource = readFileSync(
+      resolve(
+        dirname(fileURLToPath(import.meta.url)),
+        '..',
+        'native',
+        'libraw_wrapper.cpp',
+      ),
+      'utf8',
+    )
+    const orientationSupport = wrapperSource.match(
+      /bool supportsProcessedWindowOrientation\(int code\) \{[\s\S]*?\n\}/,
+    )?.[0]
+    const orientationObject = wrapperSource.match(
+      /val orientationObject\(const libraw_image_sizes_t &sizes\) \{[\s\S]*?\n\}/,
+    )?.[0]
+
+    expect(orientationSupport).toContain('normalizedOrientationCode(code)')
+    for (const code of ['1', '3', '5', '6', '8']) {
+      expect(orientationSupport).toContain(`case ${code}:`)
+    }
+    expect(orientationSupport).toContain('return false;')
+    expect(orientationObject).toContain(
+      'supportsProcessedWindowOrientation(normalized_code)',
+    )
+    expect(orientationObject).not.toContain(
+      'orientation.set("supported", true)',
+    )
+  })
+
+  it('requires processed-window support to include orientation support', () => {
+    const wrapperSource = readFileSync(
+      resolve(
+        dirname(fileURLToPath(import.meta.url)),
+        '..',
+        'native',
+        'libraw_wrapper.cpp',
+      ),
+      'utf8',
+    )
+    const processedWindowSupport = wrapperSource.match(
+      /bool supportsProcessedWindow\(const libraw_data_t &imgdata\) \{[\s\S]*?\n\}/,
+    )?.[0]
+    const probeCapability = wrapperSource.match(
+      /val probeExportCapability\(\)[\s\S]*?\n {2}\}\n\n {2}val readRawWindow/,
+    )?.[0]
+
+    expect(processedWindowSupport).toContain(
+      'supportsProcessedWindowOrientation(imgdata.sizes.flip)',
+    )
+    expect(probeCapability).toContain(
+      'if (!supportsProcessedWindowOrientation(sizes.flip))',
+    )
+    expect(probeCapability).toContain(
+      'return unsupportedCapability(imgdata, "unsupported-orientation",',
+    )
+  })
+
+  it('reports supported capability dimensions in processed output coordinates', () => {
+    const wrapperSource = readFileSync(
+      resolve(
+        dirname(fileURLToPath(import.meta.url)),
+        '..',
+        'native',
+        'libraw_wrapper.cpp',
+      ),
+      'utf8',
+    )
+    const supportedCapability = wrapperSource.match(
+      /val supportedExportCapability\(const libraw_data_t &imgdata,[\s\S]*?\n\}/,
+    )?.[0]
+
+    expect(wrapperSource).toContain('int processedOutputWidth(')
+    expect(wrapperSource).toContain('int processedOutputHeight(')
+    expect(supportedCapability).toContain(
+      'const int output_width = processedOutputWidth(sizes);',
+    )
+    expect(supportedCapability).toContain(
+      'const int output_height = processedOutputHeight(sizes);',
+    )
+    expect(supportedCapability).toContain(
+      'capability.set("width", output_width)',
+    )
+    expect(supportedCapability).toContain(
+      'capability.set("height", output_height)',
+    )
+    expect(supportedCapability).not.toContain(
+      'capability.set("width", sizes.width)',
+    )
+    expect(supportedCapability).not.toContain(
+      'capability.set("height", sizes.height)',
+    )
+  })
+
   it('exposes native capability v2 source facts without rejecting runtime-applied orientation', () => {
     const wrapperSource = readFileSync(
       resolve(
@@ -775,7 +869,9 @@ describe('native-adapter', () => {
     expect(probeCapability).toContain(
       'return unsupportedCapability(imgdata, "processed-window-unavailable",',
     )
-    expect(probeCapability).not.toContain('unsupported-orientation')
+    expect(probeCapability).toContain(
+      'return unsupportedCapability(imgdata, "unsupported-orientation",',
+    )
   })
 
   it('documents native LibRaw cropbox processed-window primitives', () => {

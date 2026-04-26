@@ -2,7 +2,7 @@
 
 import { existsSync } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
-import { basename, join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -23,7 +23,7 @@ type NativeModuleFactory = (options?: {
   locateFile?: (path: string) => string
 }) => Promise<unknown>
 
-const packageDir = process.cwd()
+const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const nativeJsPath = join(packageDir, 'dist', 'native', 'luma_raw.js')
 const nativeWasmPath = join(packageDir, 'dist', 'native', 'luma_raw.wasm')
 const publicRawFixturePath = join(
@@ -344,6 +344,10 @@ describe('native RAW runtime smoke test', () => {
                 : undefined
             const outputWidth = orientation?.outputWidth ?? capability.width
             const outputHeight = orientation?.outputHeight ?? capability.height
+            if (orientation) {
+              expect(capability.width).toBe(outputWidth)
+              expect(capability.height).toBe(outputHeight)
+            }
             const width = Math.min(64, outputWidth)
             const height = Math.min(64, outputHeight)
             const window = await session.readProcessedWindow({

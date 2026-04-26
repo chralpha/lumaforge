@@ -17,18 +17,18 @@ Promote a camera to `official` only after it passes the full checklist below on 
 
 ## Current local fixtures
 
-| Fixture | Intended role | rawFormat | Support status | Validation status |
-| --- | --- | --- | --- | --- |
-| `/workspaces/LumaForge/test-images/SGL00940.ARW` | Official-candidate Sony fixture | `arw` | `experimental` | Upload, preview, safe HQ readiness, builtin style, legal/illegal LUT, compare, and export-fallback pass in host DevTools |
-| `/workspaces/LumaForge/test-images/SGL_1998.NEF` | Official-candidate Nikon fixture | `nef` | `experimental` | Upload, preview, safe HQ readiness, JPEG export, builtin style, custom LUT, and compare pass in host DevTools |
+| Fixture                                          | Intended role                    | rawFormat | Support status | Validation status                                                                                                        |
+| ------------------------------------------------ | -------------------------------- | --------- | -------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `/workspaces/LumaForge/test-images/SGL00940.ARW` | Official-candidate Sony fixture  | `arw`     | `experimental` | Upload, preview, safe HQ readiness, builtin style, legal/illegal LUT, compare, and export-fallback pass in host DevTools |
+| `/workspaces/LumaForge/test-images/SGL_1998.NEF` | Official-candidate Nikon fixture | `nef`     | `experimental` | Upload, preview, safe HQ readiness, JPEG export, builtin style, custom LUT, and compare pass in host DevTools            |
 
 ## Additional manual cases queued for T9
 
-| Case | Status | Notes |
-| --- | --- | --- |
-| Legal `.cube` LUT | PASS | `/workspaces/LumaForge/test-images/phase1-legal-33.cube` loads as a 33³ custom LUT |
-| Illegal `.cube` LUT | PASS | `/workspaces/LumaForge/test-images/phase1-illegal-29.cube` is rejected with an unsupported-size message |
-| Export fallback scenario | PASS | Simulated JPEG `toBlob` failure preserves the session and recommends `safe` fidelity |
+| Case                     | Status | Notes                                                                                                   |
+| ------------------------ | ------ | ------------------------------------------------------------------------------------------------------- |
+| Legal `.cube` LUT        | PASS   | `/workspaces/LumaForge/test-images/phase1-legal-33.cube` loads as a 33³ custom LUT                      |
+| Illegal `.cube` LUT      | PASS   | `/workspaces/LumaForge/test-images/phase1-illegal-29.cube` is rejected with an unsupported-size message |
+| Export fallback scenario | PASS   | Simulated JPEG `toBlob` failure preserves the session and recommends `safe` fidelity                    |
 
 ## Validation Results
 
@@ -87,32 +87,35 @@ After each fixture passes the checklist, record the observed `cameraBrand`, `cam
 
 ## Post Phase 1.5 RAW Runtime Migration Checks
 
-| Case | Runtime | Expected |
-| --- | --- | --- |
-| Open supported RAW with the default runtime | luma | Embedded preview appears first when available, quick preview upgrades into the styled canvas, and HQ replaces quick without resetting style |
-| Open second RAW in the same tab with the default runtime | luma | Camera metadata and preview dimensions come from the second file, and the session state is rebuilt from the second file instead of the first |
-| Disable cross-origin isolation | luma | RAW route shows unsupported-state copy explaining that cross-origin isolation is required for pthread RAW decode |
-| Run package/source dependency scan | repo | `! rg "libraw-wasm" package.json pnpm-lock.yaml src packages` exits successfully, proving there are no active package or source references |
+| Case                                                     | Runtime | Expected                                                                                                                                     |
+| -------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Open supported RAW with the default runtime              | luma    | Embedded preview appears first when available, quick preview upgrades into the styled canvas, and HQ replaces quick without resetting style  |
+| Open second RAW in the same tab with the default runtime | luma    | Camera metadata and preview dimensions come from the second file, and the session state is rebuilt from the second file instead of the first |
+| Disable cross-origin isolation                           | luma    | RAW route shows unsupported-state copy explaining that cross-origin isolation is required for pthread RAW decode                             |
+| Run package/source dependency scan                       | repo    | `! rg "libraw-wasm" package.json pnpm-lock.yaml src packages` exits successfully, proving there are no active package or source references   |
 
 ## Post Phase 1.5 Runtime Performance Validation
 
-| Fixture | Runtime | Embedded | Quick | HQ | Heap telemetry | Result |
-| --- | --- | --- | --- | --- | --- | --- |
-| example-sony.ARW | luma session | 10ms | 456ms at 2.50MP | 955ms at 26.01MP | Recorded | Independent source-built benchmark PASS; 24MP-class hard gate met; GitHub Actions clean-checkout gate PASS |
-| SGL00940.ARW | luma session | 18ms | 1,394ms at 2.50MP | 2,595ms at 60.97MP | Recorded | Independent source-built benchmark PASS; 60MP HQ retained as directional evidence; GitHub Actions clean-checkout gate PASS |
-| SGL_1998.NEF | luma session | 8ms | 1,424ms at 2.50MP | 2,107ms at 45.75MP | Recorded | Independent source-built benchmark PASS; 45MP HQ retained as directional evidence; GitHub Actions clean-checkout gate PASS |
+| Fixture          | Runtime      | Embedded | Quick             | HQ                 | Heap telemetry | Result                                                                                                                     |
+| ---------------- | ------------ | -------- | ----------------- | ------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| example-sony.ARW | luma session | 10ms     | 456ms at 2.50MP   | 955ms at 26.01MP   | Recorded       | Independent source-built benchmark PASS; 24MP-class hard gate met; GitHub Actions clean-checkout gate PASS                 |
+| SGL00940.ARW     | luma session | 18ms     | 1,394ms at 2.50MP | 2,595ms at 60.97MP | Recorded       | Independent source-built benchmark PASS; 60MP HQ retained as directional evidence; GitHub Actions clean-checkout gate PASS |
+| SGL_1998.NEF     | luma session | 8ms      | 1,424ms at 2.50MP | 2,107ms at 45.75MP | Recorded       | Independent source-built benchmark PASS; 45MP HQ retained as directional evidence; GitHub Actions clean-checkout gate PASS |
 
-## High-resolution full-res export acceptance
+## Historical high-resolution full-res export acceptance
 
-Status refreshed 2026-04-26.
+Status refreshed 2026-04-26. Historical evidence below was captured before
+the LibRaw processed-window export path replaced the earlier RAW-window export
+contract; do not read these rows as current processed-window browser JPEG
+acceptance for this branch.
 
-| Fixture                       | Browser        | Expected                                                                                          | Result                          | Evidence                                                                                                                   |
-| ----------------------------- | -------------- | ------------------------------------------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| 61MP RAW fixture              | Chrome desktop | Full-resolution JPEG export completes with exported dimensions equal to runtime output dimensions | PASS                            | Production preview Chrome exported `SGL00940_neutral_fullres.jpg`; captured JPEG blob was `28,991,385` bytes and browser-decoded to `9566×6374`, matching the runtime output dimensions. |
-| 61MP RAW fixture              | Safari desktop | Full-resolution JPEG export completes or fails closed without renderer crash                      | PENDING MANUAL                  | Native and Chrome blockers are cleared; Safari host acceptance still needs to run on desktop Safari.                       |
-| 100MP RAW fixture             | Chrome desktop | Full-resolution JPEG export completes or fails closed without renderer crash                      | PASS                            | Production preview Chrome loaded `GFX100RF.RAF` without renderer crash and fail-closed with export disabled: `missing-color-transform, unsupported-cfa`. |
-| Unsupported RAW-window source | Chrome desktop | Full-resolution export disabled with an unsupported raw-window reason                             | PASS                            | Production preview Chrome loaded `COOLSCAN.nef` and disabled export with `raw-window-unavailable, unsupported-cfa`.         |
-| Unknown LUT profile           | Chrome desktop | Full-resolution export disabled until user selects LUT input                                      | PASS                            | Production preview Chrome loaded `phase1-legal-33.cube` on `SGL00940.ARW`; export disabled with `Choose a LUT input profile before full-resolution export.` |
+| Fixture                                 | Browser        | Expected                                                                                          | Result             | Evidence                                                                                                                                                                                                                  |
+| --------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 61MP RAW fixture                        | Chrome desktop | Full-resolution JPEG export completes with exported dimensions equal to runtime output dimensions | HISTORICAL PASS    | Production preview Chrome exported `SGL00940_neutral_fullres.jpg`; captured JPEG blob was `28,991,385` bytes and browser-decoded to `9566×6374`, matching the runtime output dimensions before the processed-window path. |
+| 61MP RAW fixture                        | Safari desktop | Full-resolution JPEG export completes or fails closed without renderer crash                      | HISTORICAL PENDING | Safari host acceptance was still pending for the earlier RAW-window path.                                                                                                                                                 |
+| 100MP RAW fixture                       | Chrome desktop | Full-resolution JPEG export completes or fails closed without renderer crash                      | HISTORICAL PASS    | Production preview Chrome loaded `GFX100RF.RAF` without renderer crash and fail-closed with export disabled before the processed-window path: `missing-color-transform, unsupported-cfa`.                                 |
+| Unsupported pre-processed-window source | Chrome desktop | Full-resolution export disabled with an unsupported raw-window reason                             | HISTORICAL PASS    | Production preview Chrome loaded `COOLSCAN.nef` and disabled export with `raw-window-unavailable, unsupported-cfa` before the processed-window path.                                                                      |
+| Unknown LUT profile                     | Chrome desktop | Full-resolution export disabled until user selects LUT input                                      | HISTORICAL PASS    | Production preview Chrome loaded `phase1-legal-33.cube` on `SGL00940.ARW`; export disabled before the processed-window path with `Choose a LUT input profile before full-resolution export.`                              |
 
 Task 15 command evidence:
 
@@ -127,13 +130,13 @@ Task 15 command evidence:
 - PASS: `pnpm --filter @lumaforge/luma-jpeg-runtime build`.
 - PASS: `pnpm --filter @lumaforge/luma-raw-runtime build`.
 - PASS: `pnpm build`; existing route-builder undefined `loader`/`handle` and chunk-size warnings remain non-fatal.
-- PASS: Production preview on desktop Chrome loaded `/raw`, exported the 61MP fixture, and confirmed fail-closed gating for the 100MP, unsupported RAW-window, and unknown LUT profile cases above.
+- HISTORICAL PASS: Production preview on desktop Chrome loaded `/raw`, exported the 61MP fixture, and confirmed fail-closed gating for the 100MP, unsupported RAW-window, and unknown LUT profile cases above before the processed-window path. Browser full JPEG export has not been rerun for the current processed-window branch.
 - PENDING: desktop Safari full-resolution fixture acceptance still needs to run on a Safari host.
 
 ## Full-resolution LibRaw processed-window RAW export
 
-| Fixture                                                                                       | Expected result                                                                                           | Status                      |
-| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `/workspaces/LumaForge/test-images/SGL00940.ARW`                                              | Full-resolution export uses `libraw-processed-window` and succeeds.                                       | NATIVE SMOKE PASS during Task 7: `pnpm --filter @lumaforge/luma-raw-runtime test:native-smoke` processed a bounded LibRaw cropbox window for Sony ARW. Browser full JPEG export was not rerun in Task 7. |
-| `/workspaces/LumaForge/test-images/SGL_1998.NEF`                                              | Full-resolution export uses `libraw-processed-window`; non-identity orientation is not a support blocker. | NATIVE SMOKE PASS during Task 7: `pnpm --filter @lumaforge/luma-raw-runtime test:native-smoke` processed a bounded LibRaw cropbox window for Nikon NEF. Browser full JPEG export was not rerun in Task 7. |
+| Fixture                                                                                       | Expected result                                                                                           | Status                                                                                                                                                                                                           |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/workspaces/LumaForge/test-images/SGL00940.ARW`                                              | Full-resolution export uses `libraw-processed-window` and succeeds.                                       | NATIVE SMOKE PASS during Task 7: `pnpm --filter @lumaforge/luma-raw-runtime test:native-smoke` processed a bounded LibRaw cropbox window for Sony ARW. Browser full JPEG export was not rerun in Task 7.         |
+| `/workspaces/LumaForge/test-images/SGL_1998.NEF`                                              | Full-resolution export uses `libraw-processed-window`; non-identity orientation is not a support blocker. | NATIVE SMOKE PASS during Task 7: `pnpm --filter @lumaforge/luma-raw-runtime test:native-smoke` processed a bounded LibRaw cropbox window for Nikon NEF. Browser full JPEG export was not rerun in Task 7.        |
 | `/workspaces/LumaForge/test-images/Fujifilm - GFX100RF - 16bit lossless compressed (4_3).RAF` | Full-resolution export uses `libraw-processed-window` when LibRaw reports a processable source.           | NATIVE SMOKE PASS during Task 7: `pnpm --filter @lumaforge/luma-raw-runtime test:native-smoke` processed a bounded LibRaw cropbox window for Fujifilm GFX RAF. Browser full JPEG export was not rerun in Task 7. |

@@ -330,6 +330,27 @@ bool orientationSwapsAxes(int code) {
          normalized_code == 8;
 }
 
+bool supportsProcessedWindowOrientation(int code) {
+  switch (normalizedOrientationCode(code)) {
+    case 1:
+    case 3:
+    case 5:
+    case 6:
+    case 8:
+      return true;
+    default:
+      return false;
+  }
+}
+
+int processedOutputWidth(const libraw_image_sizes_t &sizes) {
+  return orientationSwapsAxes(sizes.flip) ? sizes.height : sizes.width;
+}
+
+int processedOutputHeight(const libraw_image_sizes_t &sizes) {
+  return orientationSwapsAxes(sizes.flip) ? sizes.width : sizes.height;
+}
+
 bool supportsRepeatableCropProcess(const libraw_data_t &imgdata) {
   return hasPositiveImageDimensions(imgdata.sizes) &&
          hasValidLevels(imgdata.color) && hasVisibleCropWithinRaw(imgdata.sizes) &&
@@ -338,6 +359,7 @@ bool supportsRepeatableCropProcess(const libraw_data_t &imgdata) {
 
 bool supportsProcessedWindow(const libraw_data_t &imgdata) {
   return supportsRepeatableCropProcess(imgdata) &&
+         supportsProcessedWindowOrientation(imgdata.sizes.flip) &&
          usesFixedExportPolicy(imgdata.params);
 }
 
@@ -367,13 +389,13 @@ val diagnosticsObject(const libraw_data_t &imgdata) {
 
 val orientationObject(const libraw_image_sizes_t &sizes) {
   const int normalized_code = normalizedOrientationCode(sizes.flip);
-  const bool rotated = orientationSwapsAxes(normalized_code);
 
   val orientation = val::object();
   orientation.set("code", normalized_code);
-  orientation.set("supported", true);
-  orientation.set("outputWidth", rotated ? sizes.height : sizes.width);
-  orientation.set("outputHeight", rotated ? sizes.width : sizes.height);
+  orientation.set("supported",
+                  supportsProcessedWindowOrientation(normalized_code));
+  orientation.set("outputWidth", processedOutputWidth(sizes));
+  orientation.set("outputHeight", processedOutputHeight(sizes));
   return orientation;
 }
 
@@ -701,6 +723,8 @@ val supportedExportCapability(const libraw_data_t &imgdata,
                               const double *camera_to_working_rgb) {
   const libraw_image_sizes_t &sizes = imgdata.sizes;
   const libraw_colordata_t &color = imgdata.color;
+  const int output_width = processedOutputWidth(sizes);
+  const int output_height = processedOutputHeight(sizes);
 
   val color_facts = val::object();
   color_facts.set("whiteBalance", numberArray(camera_white_balance, 4));
@@ -715,8 +739,8 @@ val supportedExportCapability(const libraw_data_t &imgdata,
   val capability = val::object();
   capability.set("supported", true);
   capability.set("strategy", std::string("libraw-processed-window"));
-  capability.set("width", sizes.width);
-  capability.set("height", sizes.height);
+  capability.set("width", output_width);
+  capability.set("height", output_height);
   capability.set("rawWidth", sizes.raw_width);
   capability.set("rawHeight", sizes.raw_height);
   capability.set("visibleCrop", visibleCropObject(sizes.left_margin,
@@ -937,6 +961,11 @@ class LumaRawProcessor {
     if (!hasVisibleCropWithinRaw(sizes)) {
       return unsupportedCapability(imgdata, "missing-visible-crop");
     }
+    if (!supportsProcessedWindowOrientation(sizes.flip)) {
+      return unsupportedCapability(imgdata, "unsupported-orientation",
+                                   camera_white_balance,
+                                   camera_to_working_rgb);
+    }
     if (!supportsProcessedWindow(imgdata)) {
       return unsupportedCapability(imgdata, "processed-window-unavailable",
                                    camera_white_balance,
@@ -1013,10 +1042,12 @@ class LumaRawProcessor {
     const WindowRect output_rect = parseOutputRect(request);
     const WindowHalo halo = parseWindowHalo(request);
     const int orientation = normalizedOrientationCode(sizes.flip);
-    const int output_width = orientationSwapsAxes(orientation) ? sizes.height
-                                                              : sizes.width;
-    const int output_height = orientationSwapsAxes(orientation) ? sizes.width
-                                                               : sizes.height;
+    if (!supportsProcessedWindowOrientation(orientation)) {
+      throw std::runtime_error(
+          "LibRaw processed-window orientation is unsupported.");
+    }
+    const int output_width = processedOutputWidth(sizes);
+    const int output_height = processedOutputHeight(sizes);
     const WindowRect expanded_output_rect =
         expandOutputRect(output_rect, halo, output_width, output_height);
     const WindowRect source_crop = sourceCropForOutputRect(
