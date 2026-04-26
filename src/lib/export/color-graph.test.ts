@@ -91,4 +91,77 @@ describe('resolveExportColorGraph', () => {
     )
     expect(graph.steps).toEqual([])
   })
+
+  it('fails closed for technical output LUTs when omitted output transfer resolves to linear', () => {
+    const profile = getLUTColorProfile('sony-sgamut3cine-slog3')
+    expect(profile).toBeDefined()
+
+    const graph = resolveExportColorGraph({
+      styleKind: 'custom',
+      intensity: 0.7,
+      builtinPreset: null,
+      lut: {
+        size: 2,
+        data: new Float32Array(24),
+        domainMin: [0, 0, 0],
+        domainMax: [1, 1, 1],
+        inputProfile: 'display-srgb',
+        profileResolution: {
+          kind: 'resolved',
+          confidence: 'explicit',
+          profile: {
+            ...profile!,
+            role: 'technical-output',
+            outputTransfer: undefined,
+          },
+        },
+      },
+    })
+
+    expect(graph.supported).toBe(false)
+    if (graph.supported) {
+      throw new Error('Expected unsupported graph')
+    }
+    expect(graph.reason).toBe('unsupported-pipeline')
+    expect(graph.message).toBe(
+      'This LUT output transfer is not supported by full-resolution JPEG export.',
+    )
+  })
+
+  it('fails closed for combined output LUTs when omitted output transfer resolves to linear', () => {
+    const profile = getLUTColorProfile('sony-sgamut3cine-slog3')
+    expect(profile).toBeDefined()
+
+    const graph = resolveExportColorGraph({
+      styleKind: 'custom',
+      intensity: 0.7,
+      builtinPreset: null,
+      lut: {
+        size: 2,
+        data: new Float32Array(24),
+        domainMin: [0, 0, 0],
+        domainMax: [1, 1, 1],
+        inputProfile: 'display-srgb',
+        profileResolution: {
+          kind: 'resolved',
+          confidence: 'explicit',
+          profile: {
+            ...profile!,
+            role: 'combined-look-output',
+            outputGamut: undefined,
+            outputTransfer: undefined,
+          },
+        },
+      },
+    })
+
+    expect(graph.supported).toBe(false)
+    if (graph.supported) {
+      throw new Error('Expected unsupported graph')
+    }
+    expect(graph.reason).toBe('unsupported-pipeline')
+    expect(graph.message).toBe(
+      'This LUT output transfer is not supported by full-resolution JPEG export.',
+    )
+  })
 })

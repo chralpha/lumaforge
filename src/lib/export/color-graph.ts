@@ -56,6 +56,25 @@ export type ExportColorGraphDescriptor =
 const OUTPUT_GAMUT = 'srgb-rec709'
 const OUTPUT_TRANSFER = 'srgb'
 
+function resolveEffectiveLUTOutputTransfer(
+  profile: LUTColorProfile,
+): TransferFunctionId {
+  if (profile.outputTransfer) return profile.outputTransfer
+
+  if (profile.role === 'display-look') return 'srgb'
+
+  if (profile.role === 'scene-creative') return profile.inputTransfer
+
+  if (
+    profile.role === 'combined-look-output' &&
+    profile.outputGamut === OUTPUT_GAMUT
+  ) {
+    return 'gamma24'
+  }
+
+  return 'linear'
+}
+
 export function resolveExportColorGraph(input: {
   styleKind: ProcessingParams['styleKind']
   intensity: number
@@ -102,10 +121,10 @@ export function resolveExportColorGraph(input: {
   }
 
   const profile = input.lut.profileResolution.profile
+  const effectiveOutputTransfer = resolveEffectiveLUTOutputTransfer(profile)
   if (
-    profile.outputTransfer &&
-    profile.outputTransfer !== 'srgb' &&
-    profile.outputTransfer !== 'gamma24'
+    effectiveOutputTransfer !== 'srgb' &&
+    effectiveOutputTransfer !== 'gamma24'
   ) {
     return {
       supported: false,
