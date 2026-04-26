@@ -1,0 +1,50 @@
+import type { LumaRawWindowRect } from '@lumaforge/luma-raw-runtime'
+
+export type ExportStrip = {
+  output: LumaRawWindowRect
+  input: LumaRawWindowRect
+}
+
+export function expandRectWithHalo(
+  rect: LumaRawWindowRect,
+  bounds: { width: number; height: number },
+  halo: number,
+): LumaRawWindowRect {
+  const x = Math.max(0, rect.x - halo)
+  const y = Math.max(0, rect.y - halo)
+  const right = Math.min(bounds.width, rect.x + rect.width + halo)
+  const bottom = Math.min(bounds.height, rect.y + rect.height + halo)
+
+  return { x, y, width: right - x, height: bottom - y }
+}
+
+export function planExportStrips(input: {
+  width: number
+  height: number
+  preferredRows: number
+  minRows: number
+  halo: number
+}): ExportStrip[] {
+  const rows = Math.max(input.minRows, input.preferredRows)
+  const strips: ExportStrip[] = []
+
+  for (let y = 0; y < input.height; y += rows) {
+    const output = {
+      x: 0,
+      y,
+      width: input.width,
+      height: Math.min(rows, input.height - y),
+    }
+
+    strips.push({
+      output,
+      input: expandRectWithHalo(output, input, input.halo),
+    })
+  }
+
+  return strips
+}
+
+export function reduceStripRows(currentRows: number, minRows: number) {
+  return Math.max(minRows, Math.floor(currentRows / 2))
+}

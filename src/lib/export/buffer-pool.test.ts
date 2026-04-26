@@ -1,0 +1,28 @@
+import { describe, expect, it } from 'vitest'
+
+import { TypedBufferPool } from './buffer-pool'
+
+describe('TypedBufferPool', () => {
+  it('reuses released Uint16 buffers by length', () => {
+    const pool = new TypedBufferPool(() => new Uint16Array(4), 2)
+
+    const first = pool.acquire()
+    pool.release(first)
+    const reused = pool.acquire()
+
+    expect(reused).toBe(first)
+    expect(reused.length).toBe(4)
+  })
+
+  it('rejects releases above capacity', () => {
+    const pool = new TypedBufferPool(() => new Uint16Array(2), 1)
+    const first = new Uint16Array(2)
+    const second = new Uint16Array(2)
+
+    pool.release(first)
+    pool.release(second)
+
+    expect(pool.size).toBe(1)
+    expect(pool.acquire()).toBe(first)
+  })
+})
