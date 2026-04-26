@@ -1,7 +1,8 @@
 /// <reference types="node" />
 
+import { existsSync } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -32,6 +33,20 @@ const publicRawFixturePath = join(
   'public',
   'raw-pixls-iphone-se.dng',
 )
+const localCompatibilityFixtures = [
+  {
+    label: 'Sony ARW',
+    path: '/workspaces/LumaForge/test-images/SGL00940.ARW',
+  },
+  {
+    label: 'Nikon NEF',
+    path: '/workspaces/LumaForge/test-images/SGL_1998.NEF',
+  },
+  {
+    label: 'Fujifilm GFX RAF',
+    path: '/workspaces/LumaForge/test-images/Fujifilm - GFX100RF - 16bit lossless compressed (4_3).RAF',
+  },
+] as const
 const artifactHint =
   'Run `pnpm --filter @lumaforge/luma-raw-runtime build:native` before `pnpm --filter @lumaforge/luma-raw-runtime test:native-smoke`.'
 const fixtureHint =
@@ -191,6 +206,13 @@ async function createRawFixtureFile() {
   })
 }
 
+async function createLocalRawFixtureFile(absolutePath: string) {
+  const bytes = await readFile(absolutePath)
+  return new File([new Uint8Array(bytes)], basename(absolutePath), {
+    type: 'image/x-raw',
+  })
+}
+
 function expectPositiveDimension(value: unknown, label: string) {
   expect(value, label).toEqual(expect.any(Number))
   expect(value as number, label).toBeGreaterThan(0)
@@ -290,4 +312,60 @@ describe('native RAW runtime smoke test', () => {
     },
     smokeTimeoutMs,
   )
+
+  for (const fixture of localCompatibilityFixtures) {
+    it.skipIf(!existsSync(fixture.path))(
+      `processes a bounded LibRaw cropbox window for ${fixture.label}`,
+      async () => {
+        const runtime = createLumaRawRuntime({
+          workerFactory: () => new NativeSmokeWorker() as unknown as Worker,
+        })
+
+        try {
+          await runtime.init()
+          const session = await runtime.openSession(
+            await createLocalRawFixtureFile(fixture.path),
+            {
+              maxOutputPixels: quickDecodeMaxOutputPixels,
+            },
+          )
+
+          try {
+            const capability = await session.probeExportCapability()
+            expect(
+              capability.supported,
+              JSON.stringify(capability, null, 2),
+            ).toBe(true)
+            expect(capability.strategy).toBe('libraw-processed-window')
+
+            const orientation =
+              typeof capability.orientation === 'object'
+                ? capability.orientation
+                : undefined
+            const outputWidth = orientation?.outputWidth ?? capability.width
+            const outputHeight = orientation?.outputHeight ?? capability.height
+            const width = Math.min(64, outputWidth)
+            const height = Math.min(64, outputHeight)
+            const window = await session.readProcessedWindow({
+              outputRect: { x: 0, y: 0, width, height },
+              halo: { left: 0, top: 0, right: 0, bottom: 0 },
+            })
+
+            expect(window.rect).toEqual({ x: 0, y: 0, width, height })
+            expect(window.width).toBe(width)
+            expect(window.height).toBe(height)
+            expect(window.stride).toBe(width * 3)
+            expect(window.workingSpace).toBe('linear-prophoto-rgb')
+            expect(window.data).toBeInstanceOf(Uint16Array)
+            expect(window.data.length).toBe(width * height * 3)
+          } finally {
+            session.dispose()
+          }
+        } finally {
+          runtime.dispose()
+        }
+      },
+      smokeTimeoutMs,
+    )
+  }
 })

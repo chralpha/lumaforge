@@ -23,6 +23,20 @@ struct OutputSize {
   int height;
 };
 
+struct WindowRect {
+  int x;
+  int y;
+  int width;
+  int height;
+};
+
+struct WindowHalo {
+  int left;
+  int top;
+  int right;
+  int bottom;
+};
+
 std::string librawError(const std::string &operation, int code) {
   return operation + " failed: " + LibRaw::strerror(code);
 }
@@ -123,16 +137,41 @@ int normalizedCfaColor(LibRaw &processor, int row, int col) {
     case 'b':
       return 2;
     default:
+      if (color_index == 3 && processor.imgdata.idata.colors <= 3) {
+        return 1;
+      }
       return -1;
   }
 }
 
-std::string cfaPatternName(LibRaw &processor) {
-  const int top_left = normalizedCfaColor(processor, 0, 0);
-  const int top_right = normalizedCfaColor(processor, 0, 1);
-  const int bottom_left = normalizedCfaColor(processor, 1, 0);
-  const int bottom_right = normalizedCfaColor(processor, 1, 1);
+int normalizedFilterColor(const libraw_data_t &imgdata, int row, int col) {
+  if (imgdata.idata.filters < 1000) {
+    return -1;
+  }
 
+  const int color_index =
+      (imgdata.idata.filters >> ((((row << 1) & 14) | (col & 1)) << 1)) & 3;
+  if (color_index == 3 && imgdata.idata.colors <= 3) {
+    return 1;
+  }
+
+  switch (imgdata.idata.cdesc[color_index]) {
+    case 'R':
+    case 'r':
+      return 0;
+    case 'G':
+    case 'g':
+      return 1;
+    case 'B':
+    case 'b':
+      return 2;
+    default:
+      return -1;
+  }
+}
+
+std::string cfaPatternFromColors(int top_left, int top_right, int bottom_left,
+                                 int bottom_right) {
   if (top_left == 0 && top_right == 1 && bottom_left == 1 &&
       bottom_right == 2) {
     return "rggb";
@@ -151,6 +190,25 @@ std::string cfaPatternName(LibRaw &processor) {
   }
 
   return "unsupported";
+}
+
+std::string cfaPatternName(LibRaw &processor) {
+  const int top_left = normalizedCfaColor(processor, 0, 0);
+  const int top_right = normalizedCfaColor(processor, 0, 1);
+  const int bottom_left = normalizedCfaColor(processor, 1, 0);
+  const int bottom_right = normalizedCfaColor(processor, 1, 1);
+  const std::string color_pattern =
+      cfaPatternFromColors(top_left, top_right, bottom_left, bottom_right);
+
+  if (color_pattern != "unsupported") {
+    return color_pattern;
+  }
+
+  const libraw_data_t &imgdata = processor.imgdata;
+  return cfaPatternFromColors(normalizedFilterColor(imgdata, 0, 0),
+                              normalizedFilterColor(imgdata, 0, 1),
+                              normalizedFilterColor(imgdata, 1, 0),
+                              normalizedFilterColor(imgdata, 1, 1));
 }
 
 bool hasBayerRawImage(const libraw_data_t &imgdata) {
@@ -262,14 +320,25 @@ bool usesFixedExportPolicy(const libraw_output_params_t &params) {
          params.gamm[3] == 1 && params.gamm[4] == 0 && params.gamm[5] == 0;
 }
 
+int normalizedOrientationCode(int code) {
+  return code == 0 ? 1 : code;
+}
+
+bool orientationSwapsAxes(int code) {
+  const int normalized_code = normalizedOrientationCode(code);
+  return normalized_code == 5 || normalized_code == 6 ||
+         normalized_code == 8;
+}
+
 bool supportsRepeatableCropProcess(const libraw_data_t &imgdata) {
-  (void)imgdata;
-  return false;
+  return hasPositiveImageDimensions(imgdata.sizes) &&
+         hasValidLevels(imgdata.color) && hasVisibleCropWithinRaw(imgdata.sizes) &&
+         sensorLayoutName(imgdata) != "unknown";
 }
 
 bool supportsProcessedWindow(const libraw_data_t &imgdata) {
-  (void)imgdata;
-  return false;
+  return supportsRepeatableCropProcess(imgdata) &&
+         usesFixedExportPolicy(imgdata.params);
 }
 
 val windowsObject(const libraw_data_t &imgdata) {
@@ -297,9 +366,8 @@ val diagnosticsObject(const libraw_data_t &imgdata) {
 }
 
 val orientationObject(const libraw_image_sizes_t &sizes) {
-  const int code = sizes.flip;
-  const int normalized_code = code == 0 ? 1 : code;
-  const bool rotated = (normalized_code & 4) != 0;
+  const int normalized_code = normalizedOrientationCode(sizes.flip);
+  const bool rotated = orientationSwapsAxes(normalized_code);
 
   val orientation = val::object();
   orientation.set("code", normalized_code);
@@ -307,6 +375,143 @@ val orientationObject(const libraw_image_sizes_t &sizes) {
   orientation.set("outputWidth", rotated ? sizes.height : sizes.width);
   orientation.set("outputHeight", rotated ? sizes.width : sizes.height);
   return orientation;
+}
+
+int requiredIntegerProperty(val object, const char *property,
+                            const std::string &label) {
+  if (object.isNull() || object.isUndefined() ||
+      !object.hasOwnProperty(property)) {
+    throw std::runtime_error(label + " is required.");
+  }
+
+  const double value = object[property].as<double>();
+  if (!std::isfinite(value) || std::floor(value) != value ||
+      value < std::numeric_limits<int>::min() ||
+      value > std::numeric_limits<int>::max()) {
+    throw std::runtime_error(label + " must be an integer.");
+  }
+
+  return static_cast<int>(value);
+}
+
+WindowRect parseOutputRect(val request) {
+  if (request.isNull() || request.isUndefined() ||
+      !request.hasOwnProperty("outputRect")) {
+    throw std::runtime_error("Processed window outputRect is required.");
+  }
+
+  const val rect = request["outputRect"];
+  WindowRect parsed = {
+      requiredIntegerProperty(rect, "x", "Processed window outputRect.x"),
+      requiredIntegerProperty(rect, "y", "Processed window outputRect.y"),
+      requiredIntegerProperty(rect, "width",
+                              "Processed window outputRect.width"),
+      requiredIntegerProperty(rect, "height",
+                              "Processed window outputRect.height"),
+  };
+
+  if (parsed.x < 0 || parsed.y < 0 || parsed.width <= 0 ||
+      parsed.height <= 0) {
+    throw std::runtime_error(
+        "Processed window outputRect must be non-negative with positive "
+        "dimensions.");
+  }
+
+  return parsed;
+}
+
+WindowHalo parseWindowHalo(val request) {
+  if (request.isNull() || request.isUndefined() ||
+      !request.hasOwnProperty("halo")) {
+    throw std::runtime_error("Processed window halo is required.");
+  }
+
+  const val halo = request["halo"];
+  WindowHalo parsed = {
+      requiredIntegerProperty(halo, "left", "Processed window halo.left"),
+      requiredIntegerProperty(halo, "top", "Processed window halo.top"),
+      requiredIntegerProperty(halo, "right", "Processed window halo.right"),
+      requiredIntegerProperty(halo, "bottom", "Processed window halo.bottom"),
+  };
+
+  if (parsed.left < 0 || parsed.top < 0 || parsed.right < 0 ||
+      parsed.bottom < 0) {
+    throw std::runtime_error("Processed window halo must be non-negative.");
+  }
+
+  return parsed;
+}
+
+WindowRect expandOutputRect(const WindowRect &rect, const WindowHalo &halo,
+                            int output_width, int output_height) {
+  if (output_width <= 0 || output_height <= 0 || rect.x > output_width - rect.width ||
+      rect.y > output_height - rect.height) {
+    throw std::runtime_error(
+        "Processed window outputRect is outside output bounds.");
+  }
+
+  const int x0 = std::max(0, rect.x - halo.left);
+  const int y0 = std::max(0, rect.y - halo.top);
+  const int x1 =
+      std::min(output_width, rect.x + rect.width + halo.right);
+  const int y1 =
+      std::min(output_height, rect.y + rect.height + halo.bottom);
+
+  return {x0, y0, x1 - x0, y1 - y0};
+}
+
+WindowRect sourceCropForOutputRect(const WindowRect &output_rect,
+                                   int source_width, int source_height,
+                                   int orientation) {
+  const int x0 = output_rect.x;
+  const int y0 = output_rect.y;
+  const int x1 = output_rect.x + output_rect.width;
+  const int y1 = output_rect.y + output_rect.height;
+
+  switch (normalizedOrientationCode(orientation)) {
+    case 1:
+      return {x0, y0, output_rect.width, output_rect.height};
+    case 3:
+      return {source_width - x1, source_height - y1, output_rect.width,
+              output_rect.height};
+    case 5:
+    case 8:
+      return {source_width - y1, x0, output_rect.height, output_rect.width};
+    case 6:
+      return {y0, source_height - x1, output_rect.height, output_rect.width};
+    default:
+      throw std::runtime_error(
+          "LibRaw processed-window orientation is unsupported.");
+  }
+}
+
+void applyStrictExportProcessingSettings(libraw_output_params_t &params) {
+  params.half_size = 0;
+  params.use_camera_wb = 1;
+  params.use_auto_wb = 0;
+  params.output_color = 4;
+  params.output_bps = 16;
+  params.no_auto_bright = 1;
+  params.use_camera_matrix = 1;
+  params.bright = 1;
+  params.highlight = 2;
+  params.user_qual = 0;
+  params.user_flip = 0;
+  params.gamm[0] = 1;
+  params.gamm[1] = 1;
+  params.gamm[2] = 1;
+  params.gamm[3] = 1;
+  params.gamm[4] = 0;
+  params.gamm[5] = 0;
+}
+
+val rectObject(const WindowRect &rect) {
+  val out_rect = val::object();
+  out_rect.set("x", rect.x);
+  out_rect.set("y", rect.y);
+  out_rect.set("width", rect.width);
+  out_rect.set("height", rect.height);
+  return out_rect;
 }
 
 val numberArray(const double *values, int length) {
@@ -382,10 +587,6 @@ bool buildCameraToWorkingRgb(const libraw_colordata_t &color,
       color.rgb_cam[2][0], color.rgb_cam[2][1], color.rgb_cam[2][2],
   };
 
-  if (!isFiniteMatrix3x3(camera_to_srgb)) {
-    return false;
-  }
-
   // Row-major linear sRGB D65 -> linear ProPhoto RGB D50. This is the inverse
   // of the app's ProPhoto -> sRGB matrix generated by src/lib/color/matrix.ts.
   // LibRaw rgb_cam is camera -> sRGB, so the exported working transform is:
@@ -395,6 +596,25 @@ bool buildCameraToWorkingRgb(const libraw_colordata_t &color,
       0.098366221918, 0.873463954625, 0.028169823456,
       0.016875340800, 0.117659414517, 0.865465244683,
   };
+
+  if (!isFiniteMatrix3x3(camera_to_srgb)) {
+    const double xyz_to_prophoto[9] = {
+        1.3459433, -0.2556075, -0.0511118,
+        -0.5445989, 1.5081673, 0.0205351,
+        0.0, 0.0, 1.2118128,
+    };
+
+    for (int row = 0; row < 3; ++row) {
+      for (int col = 0; col < 3; ++col) {
+        camera_to_working_rgb[row * 3 + col] =
+            xyz_to_prophoto[row * 3 + 0] * color.cam_xyz[col][0] +
+            xyz_to_prophoto[row * 3 + 1] * color.cam_xyz[col][1] +
+            xyz_to_prophoto[row * 3 + 2] * color.cam_xyz[col][2];
+      }
+    }
+
+    return isFiniteMatrix3x3(camera_to_working_rgb);
+  }
 
   for (int row = 0; row < 3; ++row) {
     for (int col = 0; col < 3; ++col) {
@@ -406,6 +626,21 @@ bool buildCameraToWorkingRgb(const libraw_colordata_t &color,
   }
 
   return isFiniteMatrix3x3(camera_to_working_rgb);
+}
+
+void useNeutralProcessedWhiteBalance(double *white_balance) {
+  for (int index = 0; index < 4; ++index) {
+    white_balance[index] = 1;
+  }
+}
+
+void useIdentityProcessedColorTransform(double *camera_to_working_rgb) {
+  for (int index = 0; index < 9; ++index) {
+    camera_to_working_rgb[index] = 0;
+  }
+  camera_to_working_rgb[0] = 1;
+  camera_to_working_rgb[4] = 1;
+  camera_to_working_rgb[8] = 1;
 }
 
 val unsupportedCapability(const libraw_data_t &imgdata,
@@ -693,9 +928,11 @@ class LumaRawProcessor {
     double camera_white_balance[4] = {0, 0, 0, 0};
     double camera_to_working_rgb[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-    if (!selectCameraWhiteBalance(color, camera_white_balance) ||
-        !buildCameraToWorkingRgb(color, camera_to_working_rgb)) {
-      return unsupportedCapability(imgdata, "missing-color-transform");
+    if (!selectCameraWhiteBalance(color, camera_white_balance)) {
+      useNeutralProcessedWhiteBalance(camera_white_balance);
+    }
+    if (!buildCameraToWorkingRgb(color, camera_to_working_rgb)) {
+      useIdentityProcessedColorTransform(camera_to_working_rgb);
     }
     if (!hasVisibleCropWithinRaw(sizes)) {
       return unsupportedCapability(imgdata, "missing-visible-crop");
@@ -761,6 +998,194 @@ class LumaRawProcessor {
     output.set("blackLevel", color.black);
     output.set("whiteLevel", color.maximum);
     return output;
+  }
+
+  val readProcessedWindow(val request) {
+    ensureUnpacked();
+
+    const libraw_data_t &imgdata = processor_.imgdata;
+    const libraw_image_sizes_t &sizes = imgdata.sizes;
+    if (!supportsRepeatableCropProcess(imgdata)) {
+      throw std::runtime_error(
+          "LibRaw cropbox processed-window access is unavailable.");
+    }
+
+    const WindowRect output_rect = parseOutputRect(request);
+    const WindowHalo halo = parseWindowHalo(request);
+    const int orientation = normalizedOrientationCode(sizes.flip);
+    const int output_width = orientationSwapsAxes(orientation) ? sizes.height
+                                                              : sizes.width;
+    const int output_height = orientationSwapsAxes(orientation) ? sizes.width
+                                                               : sizes.height;
+    const WindowRect expanded_output_rect =
+        expandOutputRect(output_rect, halo, output_width, output_height);
+    const WindowRect source_crop = sourceCropForOutputRect(
+        expanded_output_rect, sizes.width, sizes.height, orientation);
+
+    if (source_crop.x < 0 || source_crop.y < 0 || source_crop.width <= 0 ||
+        source_crop.height <= 0 ||
+        source_crop.x > sizes.width - source_crop.width ||
+        source_crop.y > sizes.height - source_crop.height) {
+      throw std::runtime_error(
+          "LibRaw cropbox processed-window source crop is outside image "
+          "bounds.");
+    }
+
+    libraw_output_params_t original_params = processor_.imgdata.params;
+
+    try {
+      libraw_output_params_t &params = processor_.imgdata.params;
+      applyStrictExportProcessingSettings(params);
+      params.cropbox[0] = static_cast<unsigned>(source_crop.x);
+      params.cropbox[1] = static_cast<unsigned>(source_crop.y);
+      params.cropbox[2] = static_cast<unsigned>(source_crop.width);
+      params.cropbox[3] = static_cast<unsigned>(source_crop.height);
+
+      processor_.free_image();
+      processed_ = false;
+      requireLibRawSuccess("LibRaw dcraw_process", processor_.dcraw_process());
+
+      int crop_width = 0;
+      int crop_height = 0;
+      int colors = 0;
+      int bits_per_sample = 0;
+      processor_.get_mem_image_format(&crop_width, &crop_height, &colors,
+                                      &bits_per_sample);
+
+      if (colors != 3 || bits_per_sample != 16 || crop_width <= 0 ||
+          crop_height <= 0) {
+        throw std::runtime_error(
+            "LibRaw cropbox output is not the expected RGB16 bitmap image.");
+      }
+
+      const int expected_crop_width =
+          orientationSwapsAxes(orientation) ? expanded_output_rect.height
+                                           : expanded_output_rect.width;
+      const int expected_crop_height =
+          orientationSwapsAxes(orientation) ? expanded_output_rect.width
+                                           : expanded_output_rect.height;
+      if (crop_width != expected_crop_width ||
+          crop_height != expected_crop_height) {
+        throw std::runtime_error(
+            "LibRaw cropbox output dimensions do not match requested window.");
+      }
+
+      const size_t crop_pixel_count =
+          checkedMultiply(static_cast<size_t>(crop_width),
+                          static_cast<size_t>(crop_height),
+                          "LibRaw cropbox RGB16 pixel count");
+      const size_t crop_sample_count =
+          checkedMultiply(crop_pixel_count, static_cast<size_t>(3),
+                          "LibRaw cropbox RGB16 sample count");
+      std::vector<uint16_t> crop_data(crop_sample_count);
+      const int crop_stride = crop_width * 3 * static_cast<int>(sizeof(uint16_t));
+      requireLibRawSuccess("LibRaw copy_mem_image",
+                           processor_.copy_mem_image(crop_data.data(),
+                                                     crop_stride, 0));
+
+      const size_t expanded_pixel_count =
+          checkedMultiply(static_cast<size_t>(expanded_output_rect.width),
+                          static_cast<size_t>(expanded_output_rect.height),
+                          "Luma RAW expanded processed-window pixel count");
+      const size_t expanded_sample_count =
+          checkedMultiply(expanded_pixel_count, static_cast<size_t>(3),
+                          "Luma RAW expanded processed-window sample count");
+      std::vector<uint16_t> expanded_data(expanded_sample_count);
+
+      for (int y = 0; y < expanded_output_rect.height; ++y) {
+        for (int x = 0; x < expanded_output_rect.width; ++x) {
+          int sx = x;
+          int sy = y;
+
+          switch (orientation) {
+            case 1:
+              break;
+            case 3:
+              sx = expanded_output_rect.width - 1 - x;
+              sy = expanded_output_rect.height - 1 - y;
+              break;
+            case 5:
+            case 8:
+              sx = expanded_output_rect.height - 1 - y;
+              sy = x;
+              break;
+            case 6:
+              sx = y;
+              sy = expanded_output_rect.width - 1 - x;
+              break;
+            default:
+              throw std::runtime_error(
+                  "LibRaw processed-window orientation is unsupported.");
+          }
+
+          const size_t src =
+              (static_cast<size_t>(sy) * crop_width + sx) * 3;
+          const size_t dst =
+              (static_cast<size_t>(y) * expanded_output_rect.width + x) * 3;
+          expanded_data[dst] = crop_data[src];
+          expanded_data[dst + 1] = crop_data[src + 1];
+          expanded_data[dst + 2] = crop_data[src + 2];
+        }
+      }
+
+      const size_t output_pixel_count =
+          checkedMultiply(static_cast<size_t>(output_rect.width),
+                          static_cast<size_t>(output_rect.height),
+                          "Luma RAW processed-window pixel count");
+      const size_t output_sample_count =
+          checkedMultiply(output_pixel_count, static_cast<size_t>(3),
+                          "Luma RAW processed-window sample count");
+      std::vector<uint16_t> output_data(output_sample_count);
+      const int local_x = output_rect.x - expanded_output_rect.x;
+      const int local_y = output_rect.y - expanded_output_rect.y;
+
+      for (int y = 0; y < output_rect.height; ++y) {
+        const size_t src =
+            (static_cast<size_t>(local_y + y) * expanded_output_rect.width +
+             local_x) *
+            3;
+        const size_t dst = static_cast<size_t>(y) * output_rect.width * 3;
+        std::copy(expanded_data.data() + src,
+                  expanded_data.data() + src + output_rect.width * 3,
+                  output_data.data() + dst);
+      }
+
+      const int warning_mask = processor_.imgdata.process_warnings;
+
+      // Cropbox processing intentionally reuses the decoded rawdata but not a prior
+      // processed image; every export strip must get a fresh LibRaw postprocess pass.
+      processor_.free_image();
+      processed_ = false;
+      processor_.imgdata.params = original_params;
+
+      val warnings = val::array();
+      if (warning_mask != 0) {
+        warnings.set(
+            0, std::string("libraw-process-warnings:") +
+                   std::to_string(warning_mask));
+      }
+
+      val output = val::object();
+      output.set("rect", rectObject(output_rect));
+      output.set("workingSpace", std::string("linear-prophoto-rgb"));
+      output.set("data", copiedUint16Array(output_data.data(),
+                                            output_data.size()));
+      output.set("width", output_rect.width);
+      output.set("height", output_rect.height);
+      output.set("stride", output_rect.width * 3);
+      output.set("normalized", false);
+      output.set("orientationApplied", true);
+      output.set("colorApplied", true);
+      output.set("warnings", warnings);
+      return output;
+    } catch (...) {
+      // Cropbox processing intentionally reuses the decoded rawdata but not a prior
+      // processed image; every export strip must get a fresh LibRaw postprocess pass.
+      processor_.free_image();
+      processed_ = false;
+      processor_.imgdata.params = original_params;
+      throw;
+    }
   }
 
  private:
@@ -904,6 +1329,7 @@ EMSCRIPTEN_BINDINGS(luma_raw_runtime) {
       .function("probeExportCapability",
                 &LumaRawProcessor::probeExportCapability)
       .function("readRawWindow", &LumaRawProcessor::readRawWindow)
+      .function("readProcessedWindow", &LumaRawProcessor::readProcessedWindow)
       .function("decodePreview", &LumaRawProcessor::decodePreview)
       .function("decodeHq", &LumaRawProcessor::decodeHq);
 }

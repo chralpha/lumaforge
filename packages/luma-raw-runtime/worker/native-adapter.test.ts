@@ -688,11 +688,12 @@ describe('native-adapter', () => {
       'utf8',
     )
     const cfaSelector = wrapperSource.match(
-      /int normalizedCfaColor[\s\S]*?\n\}\n\nstd::string cfaPatternName[\s\S]*?\n\}\n\nbool hasBayerRawImage/,
+      /int normalizedCfaColor[\s\S]*?\n\}\n\nbool hasBayerRawImage/,
     )?.[0]
 
     expect(cfaSelector).toContain('processor.imgdata.idata.cdesc[color_index]')
     expect(cfaSelector).toContain("case 'G':")
+    expect(cfaSelector).toContain('normalizedFilterColor')
     expect(cfaSelector).toContain(
       'const int top_right = normalizedCfaColor(processor, 0, 1)',
     )
@@ -760,14 +761,13 @@ describe('native-adapter', () => {
     expect(wrapperSource).toContain(
       'diagnostics.set("canRepeatCropProcess", supportsRepeatableCropProcess(imgdata));',
     )
-    expect(processedWindowSupport).toContain('return false;')
-    expect(repeatableCropSupport).toContain('return false;')
+    expect(processedWindowSupport).toContain(
+      'return supportsRepeatableCropProcess(imgdata) &&',
+    )
+    expect(repeatableCropSupport).not.toContain('return false;')
     expect(wrapperSource).not.toContain('windows.set("librawProcessed", true)')
     expect(wrapperSource).not.toContain(
       'diagnostics.set("canRepeatCropProcess", true)',
-    )
-    expect(wrapperSource).not.toContain(
-      'return supportsRepeatableCropProcess(imgdata);',
     )
     expect(colorFactsPosition).toBeGreaterThan(-1)
     expect(processedWindowFailurePosition).toBeGreaterThan(-1)
@@ -776,6 +776,32 @@ describe('native-adapter', () => {
       'return unsupportedCapability(imgdata, "processed-window-unavailable",',
     )
     expect(probeCapability).not.toContain('unsupported-orientation')
+  })
+
+  it('documents native LibRaw cropbox processed-window primitives', () => {
+    const wrapperSource = readFileSync(
+      resolve(
+        dirname(fileURLToPath(import.meta.url)),
+        '..',
+        'native',
+        'libraw_wrapper.cpp',
+      ),
+      'utf8',
+    )
+    const readProcessedWindow = wrapperSource.match(
+      /val readProcessedWindow\(val request\)[\s\S]*?\n {2}\}\n\n private:/,
+    )?.[0]
+
+    expect(readProcessedWindow).toContain('params.cropbox')
+    expect(readProcessedWindow).toContain('processor_.free_image()')
+    expect(readProcessedWindow).toContain('processor_.dcraw_process()')
+    expect(readProcessedWindow).toContain('processor_.copy_mem_image')
+    expect(readProcessedWindow).not.toContain(
+      'dcraw_make_mem_image(&image_error)',
+    )
+    expect(wrapperSource).toContain(
+      '.function("readProcessedWindow", &LumaRawProcessor::readProcessedWindow)',
+    )
   })
 
   it('fails closed when export color facts are missing, unusable, or orientation is unsupported', () => {
