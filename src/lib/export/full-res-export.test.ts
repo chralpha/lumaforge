@@ -37,11 +37,13 @@ function makeWindow(rect: LumaRawWindowRect): LumaRawWindow {
 describe('runFullResolutionJpegExport', () => {
   it('throws FULL_RES_EXPORT_UNSUPPORTED_SOURCE before opening writer or reading windows', async () => {
     const readRawWindow = vi.fn()
-    const close = vi.fn()
-    const writer = {
+    const createSession = vi.fn(() => ({
       writeRows: vi.fn(),
-      close,
+      close: vi.fn(),
       abort: vi.fn(),
+    }))
+    const jpegSink = {
+      createSession,
     }
 
     await expect(
@@ -55,13 +57,12 @@ describe('runFullResolutionJpegExport', () => {
           steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
         },
         readRawWindow,
-        writer,
+        jpegSink,
       }),
     ).rejects.toThrow('FULL_RES_EXPORT_UNSUPPORTED_SOURCE')
 
     expect(readRawWindow).not.toHaveBeenCalled()
-    expect(writer.writeRows).not.toHaveBeenCalled()
-    expect(close).not.toHaveBeenCalled()
+    expect(createSession).not.toHaveBeenCalled()
   })
 
   it('reports strip progress and returns the JPEG blob', async () => {
