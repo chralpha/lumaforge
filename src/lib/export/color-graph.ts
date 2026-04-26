@@ -71,7 +71,7 @@ function resolveEffectiveLUTOutputTransfer(
 ): TransferFunctionId {
   if (profile.outputTransfer) return profile.outputTransfer
 
-  if (profile.role === 'display-look') return 'srgb'
+  if (profile.role === 'display-look') return profile.inputTransfer
 
   if (profile.role === 'scene-creative') return profile.inputTransfer
 

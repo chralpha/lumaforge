@@ -94,6 +94,44 @@ describe('resolveExportColorGraph', () => {
     })
   })
 
+  it('resolves omitted display-look output transfer from the LUT input transfer', () => {
+    const profile = getLUTColorProfile('rec709-gamma24')
+    expect(profile).toBeDefined()
+    expect(profile?.role).toBe('display-look')
+    expect(profile?.inputTransfer).toBe('gamma24')
+    expect(profile?.outputTransfer).toBeUndefined()
+
+    const graph = resolveExportColorGraph({
+      styleKind: 'custom',
+      intensity: 1,
+      builtinPreset: null,
+      lut: {
+        size: 2,
+        data: new Float32Array(24),
+        domainMin: [0, 0, 0],
+        domainMax: [1, 1, 1],
+        inputProfile: 'display-srgb',
+        profileResolution: {
+          kind: 'resolved',
+          confidence: 'user',
+          profile: profile!,
+        },
+      },
+    })
+
+    expect(graph.supported).toBe(true)
+    if (!graph.supported) {
+      throw new Error('Expected supported graph')
+    }
+    expect(graph.steps[4]).toMatchObject({
+      kind: 'lut-output-to-srgb',
+      transfer: 'gamma24',
+      range: 'full',
+      role: 'display-look',
+      intensity: 1,
+    })
+  })
+
   it('fails closed for unresolved LUT profiles', () => {
     const graph = resolveExportColorGraph({
       styleKind: 'custom',

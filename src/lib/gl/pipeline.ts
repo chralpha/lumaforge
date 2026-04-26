@@ -304,7 +304,7 @@ function resolveLUTOutputTransfer(
 ): TransferFunctionId {
   if (profile.outputTransfer) return profile.outputTransfer
 
-  if (profile.role === 'display-look') return 'srgb'
+  if (profile.role === 'display-look') return profile.inputTransfer
 
   if (profile.role === 'scene-creative') return profile.inputTransfer
 
@@ -731,8 +731,9 @@ export class RawProcessingPipeline {
       builtinPreset: this.params.builtinPreset,
       lut: this.lutData,
     })
-    const resolvedProfile =
-      exportGraph.supported ? exportGraph.lutProfile : null
+    const resolvedProfile = exportGraph.supported
+      ? exportGraph.lutProfile
+      : null
     const outputTransfer = resolvedProfile
       ? resolveLUTOutputTransfer(resolvedProfile)
       : null
