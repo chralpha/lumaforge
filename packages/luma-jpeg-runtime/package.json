@@ -1,0 +1,23 @@
+{
+  "name": "@lumaforge/luma-jpeg-runtime",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bounded row-oriented JPEG encoder runtime for LumaForge.",
+  "sideEffects": [
+    "./dist/*.worker.js"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "vite build --config vite.config.ts && tsc -p tsconfig.json --emitDeclarationOnly",
+    "test": "vitest run src worker",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}
