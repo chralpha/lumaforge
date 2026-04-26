@@ -82,4 +82,10 @@ describe('isRawExportSession', () => {
 
     expect(isRawExportSession(session)).toBe(false)
   })
+
+  it('returns false for non-object values', () => {
+    expect(isRawExportSession(null)).toBe(false)
+    expect(isRawExportSession(undefined)).toBe(false)
+    expect(isRawExportSession('session')).toBe(false)
+  })
 })

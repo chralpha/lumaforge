@@ -31,8 +31,12 @@ export function createRawExportSession(
 }
 
 export function isRawExportSession(
-  value: RawRuntimeSession,
+  value: unknown,
 ): value is RawRuntimeSession & RawExportSession {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
   return (
     typeof (value as Partial<RawExportSession>).probeExportCapability ===
       'function' &&

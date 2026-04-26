@@ -58,6 +58,10 @@ type PendingRequest = {
   cleanup: () => void
 }
 
+function createDisposedError() {
+  return new Error('FULL_RES_EXPORT_WORKER_DISPOSED')
+}
+
 function createCancelledError() {
   return new Error('FULL_RES_EXPORT_CANCELLED')
 }
@@ -71,8 +75,10 @@ function createRequestId() {
 }
 
 export class FullResolutionExportWorkerClient {
-  private readonly worker: Worker
+  private readonly workerFactory: () => Worker
+  private worker: Worker | null = null
   private readonly pending = new Map<string, PendingRequest>()
+  private disposed = false
 
   constructor(
     workerFactory: () => Worker = () =>
@@ -80,8 +86,20 @@ export class FullResolutionExportWorkerClient {
         type: 'module',
       }),
   ) {
-    this.worker = workerFactory()
-    this.worker.onmessage = (event: MessageEvent<FullResExportWorkerResponse>) => {
+    this.workerFactory = workerFactory
+  }
+
+  private ensureWorker() {
+    if (this.disposed) {
+      throw createDisposedError()
+    }
+
+    if (this.worker) {
+      return this.worker
+    }
+
+    const worker = this.workerFactory()
+    worker.onmessage = (event: MessageEvent<FullResExportWorkerResponse>) => {
       const response = event.data
       const pending = this.pending.get(response.requestId)
       if (!pending) return
@@ -102,17 +120,40 @@ export class FullResolutionExportWorkerClient {
       pending.reject(new Error(response.message))
     }
 
-    this.worker.onerror = (event: ErrorEvent) => {
+    worker.onerror = (event: ErrorEvent) => {
       const message = event.message || 'FULL_RES_EXPORT_WORKER_ERROR'
-      for (const [requestId, pending] of this.pending) {
-        this.pending.delete(requestId)
-        pending.cleanup()
-        pending.reject(new Error(message))
-      }
+      this.rejectPending(new Error(message))
+      this.resetWorker()
+    }
+
+    this.worker = worker
+    return worker
+  }
+
+  private rejectPending(error: Error) {
+    for (const [requestId, pending] of this.pending) {
+      this.pending.delete(requestId)
+      pending.cleanup()
+      pending.reject(error)
     }
   }
 
+  private resetWorker() {
+    if (!this.worker) {
+      return
+    }
+
+    this.worker.onmessage = null
+    this.worker.onerror = null
+    this.worker.terminate()
+    this.worker = null
+  }
+
   run(input: RunFullResolutionJpegExportInWorkerInput) {
+    if (this.disposed) {
+      return Promise.reject(createDisposedError())
+    }
+
     if (input.signal?.aborted) {
       return Promise.reject(createCancelledError())
     }
@@ -120,13 +161,26 @@ export class FullResolutionExportWorkerClient {
     const requestId = createRequestId()
 
     return new Promise<Blob>((resolve, reject) => {
+      let worker: Worker
+
       const onAbort = () => {
         if (!this.pending.has(requestId)) return
 
-        this.worker.postMessage({
-          kind: 'cancel',
-          requestId,
-        } satisfies FullResExportWorkerCancelMessage)
+        try {
+          worker.postMessage({
+            kind: 'cancel',
+            requestId,
+          } satisfies FullResExportWorkerCancelMessage)
+        } catch (error) {
+          this.rejectPending(
+            error instanceof Error
+              ? error
+              : new Error('FULL_RES_EXPORT_WORKER_ERROR'),
+          )
+          this.resetWorker()
+          return
+        }
+
         this.pending.delete(requestId)
         cleanup()
         reject(createCancelledError())
@@ -145,30 +199,47 @@ export class FullResolutionExportWorkerClient {
 
       input.signal?.addEventListener('abort', onAbort, { once: true })
 
-      this.worker.postMessage({
-        kind: 'start',
-        requestId,
-        file: input.file,
-        graph: input.graph,
-        preferredRows: input.preferredRows,
-        quality: input.quality,
-      } satisfies FullResExportWorkerStartMessage)
+      try {
+        worker = this.ensureWorker()
+        worker.postMessage({
+          kind: 'start',
+          requestId,
+          file: input.file,
+          graph: input.graph,
+          preferredRows: input.preferredRows,
+          quality: input.quality,
+        } satisfies FullResExportWorkerStartMessage)
+      } catch (error) {
+        this.pending.delete(requestId)
+        cleanup()
+        reject(
+          error instanceof Error
+            ? error
+            : new Error('FULL_RES_EXPORT_WORKER_ERROR'),
+        )
+        this.resetWorker()
+      }
     })
   }
 
   dispose() {
-    for (const [requestId, pending] of this.pending) {
-      this.pending.delete(requestId)
-      pending.cleanup()
-      pending.reject(new Error('FULL_RES_EXPORT_WORKER_DISPOSED'))
+    if (this.disposed) {
+      return
     }
-    this.worker.terminate()
+
+    this.disposed = true
+    this.rejectPending(createDisposedError())
+    this.resetWorker()
   }
 }
 
 export function runFullResolutionJpegExportInWorker(
   input: RunFullResolutionJpegExportInWorkerInput,
-  client = new FullResolutionExportWorkerClient(),
+  clientFactory: () => FullResolutionExportWorkerClient = () =>
+    new FullResolutionExportWorkerClient(),
 ) {
-  return client.run(input)
+  const client = clientFactory()
+  return client.run(input).finally(() => {
+    client.dispose()
+  })
 }

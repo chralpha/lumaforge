@@ -105,4 +105,29 @@ describe('runFullResolutionJpegExport', () => {
     expect(writtenRows[1]?.bytes).toEqual(new Uint8Array(4 * 2 * 3).fill(128))
     expect(progress.at(-1)).toBe(100)
   })
+
+  it('aborts the writer if strip export fails after writer creation', async () => {
+    const writer = {
+      writeRows: vi.fn(),
+      close: vi.fn(),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await expect(
+      runFullResolutionJpegExport({
+        capability: makeCapability(),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        },
+        readRawWindow: vi.fn().mockRejectedValue(new Error('read failed')),
+        writer,
+      }),
+    ).rejects.toThrow('read failed')
+
+    expect(writer.abort).toHaveBeenCalledTimes(1)
+  })
 })
