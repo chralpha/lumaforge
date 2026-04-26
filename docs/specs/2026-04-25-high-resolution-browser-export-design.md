@@ -267,3 +267,10 @@ Product acceptance:
 - Supported exports produce JPEG dimensions equal to the RAW output dimensions.
 - Unsupported files and unsupported LUT pipelines are clearly disabled or fail with actionable messaging.
 - Preview export and full-resolution export are labeled as separate actions.
+
+Task 15 verification status recorded 2026-04-26:
+
+- Automated runtime/export/readiness coverage passed for the full Task 15 targeted test list (`18` files, `198` tests).
+- Package checks passed for `@lumaforge/luma-raw-runtime` tests and `@lumaforge/luma-jpeg-runtime` tests/build.
+- Native asset build is environment-blocked because `emcc` is not installed in the worktree environment; `build:native` fetched LibRaw and lcms2, then failed before native compilation.
+- App build and dev server startup are blocked by the missing native assets (`luma_raw.js`, `luma_raw.wasm`), so Chrome/Safari desktop browser acceptance remains pending until the Emscripten toolchain is available.
