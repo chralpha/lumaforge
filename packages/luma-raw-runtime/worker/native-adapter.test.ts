@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import { createNativeFactory } from './native-adapter'
@@ -206,6 +209,19 @@ describe('native-adapter', () => {
     expect(capability?.color?.whiteBalance).toHaveLength(4)
     expect(capability?.color?.whiteBalance).toEqual([2.1, 1, 1.4, 1])
     expect(capability?.color?.cameraToWorkingRgb).toHaveLength(9)
+  })
+
+  it('does not allow native camera white balance to fall back to LibRaw pre_mul', () => {
+    const wrapperSource = readFileSync(
+      join(process.cwd(), 'native', 'libraw_wrapper.cpp'),
+      'utf8',
+    )
+    const cameraWhiteBalanceSelector = wrapperSource.match(
+      /bool selectCameraWhiteBalance[\s\S]*?\n\}\n\nbool buildCameraToWorkingRgb/,
+    )?.[0]
+
+    expect(cameraWhiteBalanceSelector).toContain('color.cam_mul')
+    expect(cameraWhiteBalanceSelector).not.toContain('color.pre_mul')
   })
 
   it('fails closed when export color facts are missing, unusable, or orientation is unsupported', () => {

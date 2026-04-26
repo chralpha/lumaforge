@@ -192,26 +192,23 @@ bool isFiniteMatrix3x3(const double *m) {
 bool selectCameraWhiteBalance(const libraw_colordata_t &color,
                               double *white_balance) {
   const float *source = color.cam_mul;
-  bool has_camera_wb = std::isfinite(source[0]) && source[0] > 0 &&
-                       std::isfinite(source[1]) && source[1] > 0 &&
-                       std::isfinite(source[2]) && source[2] > 0;
+  double min_multiplier = std::numeric_limits<double>::infinity();
+  double max_multiplier = 0.0;
 
-  if (!has_camera_wb) {
-    source = color.pre_mul;
-    has_camera_wb = std::isfinite(source[0]) && source[0] > 0 &&
-                    std::isfinite(source[1]) && source[1] > 0 &&
-                    std::isfinite(source[2]) && source[2] > 0;
+  for (int index = 0; index < 4; ++index) {
+    if (!std::isfinite(source[index]) || source[index] <= 0) {
+      return false;
+    }
+
+    white_balance[index] = source[index];
+    min_multiplier = std::min(min_multiplier, white_balance[index]);
+    max_multiplier = std::max(max_multiplier, white_balance[index]);
   }
 
-  if (!has_camera_wb) {
+  if (max_multiplier <= min_multiplier) {
     return false;
   }
 
-  white_balance[0] = source[0];
-  white_balance[1] = source[1];
-  white_balance[2] = source[2];
-  white_balance[3] =
-      std::isfinite(source[3]) && source[3] > 0 ? source[3] : source[1];
   return true;
 }
 
