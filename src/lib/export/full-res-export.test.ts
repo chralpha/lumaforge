@@ -16,10 +16,16 @@ function makeCapability(
     height: 4,
     rawWidth: 4,
     rawHeight: 4,
+    visibleCrop: { x: 0, y: 0, width: 4, height: 4 },
     cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
     blackLevel: 0,
     whiteLevel: 255,
-    orientation: 1,
+    orientation: { code: 1, supported: true },
+    color: {
+      whiteBalance: [1, 1, 1, 1],
+      cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+      workingSpace: 'linear-prophoto-rgb',
+    },
     reasons: [],
     ...overrides,
   }
@@ -76,6 +82,53 @@ describe('runFullResolutionJpegExport', () => {
     expect(readRawWindow).not.toHaveBeenCalled()
     expect(createSession).not.toHaveBeenCalled()
   })
+
+  it.each([
+    ['missing visible crop', { visibleCrop: undefined }],
+    ['unsupported orientation', { orientation: { code: 6, supported: false } }],
+    ['missing orientation', { orientation: undefined }],
+    ['missing color facts', { color: undefined }],
+    [
+      'unsupported working space',
+      {
+        color: {
+          whiteBalance: [1, 1, 1, 1],
+          cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+          workingSpace: 'display-srgb-preview',
+        },
+      },
+    ],
+  ] as Array<[string, Partial<LumaRawExportCapability>]>)(
+    'fails closed before scheduling for %s',
+    async (_name, overrides) => {
+      const readRawWindow = vi.fn()
+      const createSession = vi.fn(() => ({
+        writeRows: vi.fn(),
+        close: vi.fn(),
+        abort: vi.fn(),
+      }))
+
+      await expect(
+        runFullResolutionJpegExport({
+          capability: makeCapability(overrides),
+          graph: {
+            supported: true,
+            outputGamut: 'srgb-rec709',
+            outputTransfer: 'srgb',
+            lutProfile: null,
+            steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+          },
+          readRawWindow,
+          jpegSink: {
+            createSession,
+          },
+        }),
+      ).rejects.toThrow('FULL_RES_EXPORT_UNSUPPORTED_SOURCE')
+
+      expect(readRawWindow).not.toHaveBeenCalled()
+      expect(createSession).not.toHaveBeenCalled()
+    },
+  )
 
   it('reports strip progress and returns the JPEG blob', async () => {
     const progress: number[] = []

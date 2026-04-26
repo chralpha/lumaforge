@@ -19,6 +19,10 @@ import {
 } from './jpeg/row-writer'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
 import { mix, sampleLutTrilinear } from './lut3d'
+import {
+  applyCameraToWorkingRgbInPlace,
+  mapOutputRectToRawWindow,
+} from './raw-window-transform'
 import { planExportStrips, reduceStripRows } from './strip-scheduler'
 
 export type FullResolutionExportProgress = {
@@ -403,7 +407,12 @@ function looksLikeResourceExhaustion(error: unknown) {
 export async function runFullResolutionJpegExport(
   input: RunFullResolutionJpegExportInput,
 ) {
-  if (!input.capability.supported) {
+  if (
+    !input.capability.supported ||
+    !input.capability.visibleCrop ||
+    !input.capability.orientation?.supported ||
+    input.capability.color?.workingSpace !== 'linear-prophoto-rgb'
+  ) {
     throw new Error('FULL_RES_EXPORT_UNSUPPORTED_SOURCE')
   }
 
@@ -413,7 +422,7 @@ export async function runFullResolutionJpegExport(
 
   const applyGraphToRgbRows = compileGraphApplier(input.graph)
 
-  let stripRows = Math.max(MIN_EXPORT_STRIP_ROWS, input.preferredRows ?? 512)
+  let stripRows = input.preferredRows ?? 512
 
   while (true) {
     const strips = planExportStrips({
@@ -433,11 +442,22 @@ export async function runFullResolutionJpegExport(
         throwIfAborted(input.signal)
 
         const strip = strips[index]
-        const rawWindow = await input.readRawWindow(strip.input, input.signal)
+        const rawWindowMapping = mapOutputRectToRawWindow({
+          output: strip.output,
+          visibleCrop: input.capability.visibleCrop,
+          rawWidth: input.capability.rawWidth,
+          rawHeight: input.capability.rawHeight,
+          halo: 2,
+        })
+        const rawWindow = await input.readRawWindow(
+          rawWindowMapping.rawInput,
+          input.signal,
+        )
         const tile = demosaicBilinearRgb({
           ...rawWindow,
-          output: strip.output,
+          output: rawWindowMapping.outputWithinWindow,
         })
+        applyCameraToWorkingRgbInPlace(tile.data, input.capability.color)
         const rows = applyGraphToRgbRows(tile.data)
         await writer.writeRows(rows, tile.height)
 

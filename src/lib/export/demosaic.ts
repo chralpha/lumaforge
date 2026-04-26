@@ -90,6 +90,30 @@ function containsRect(bounds: LumaRawWindowRect, rect: LumaRawWindowRect) {
   )
 }
 
+function resolveOutputRect(input: LumaRawWindow & { output: LumaRawWindowRect }) {
+  const localBounds = {
+    x: 0,
+    y: 0,
+    width: input.rect.width,
+    height: input.rect.height,
+  }
+
+  if (containsRect(localBounds, input.output)) {
+    return {
+      x: input.rect.x + input.output.x,
+      y: input.rect.y + input.output.y,
+      width: input.output.width,
+      height: input.output.height,
+    }
+  }
+
+  if (containsRect(input.rect, input.output)) {
+    return input.output
+  }
+
+  throw new Error('Output rect must be fully contained within the raw window rect.')
+}
+
 function resolveChannel(
   window: LumaRawWindow,
   x: number,
@@ -137,17 +161,15 @@ function resolveChannel(
 export function demosaicBilinearRgb(
   input: LumaRawWindow & { output: LumaRawWindowRect },
 ): LinearRgbTile {
-  if (!containsRect(input.rect, input.output)) {
-    throw new Error('Output rect must be fully contained within the raw window rect.')
-  }
+  const output = resolveOutputRect(input)
 
-  const data = new Float32Array(input.output.width * input.output.height * 3)
+  const data = new Float32Array(output.width * output.height * 3)
   let index = 0
 
-  for (let y = input.output.y; y < input.output.y + input.output.height; y += 1) {
+  for (let y = output.y; y < output.y + output.height; y += 1) {
     for (
-      let x = input.output.x;
-      x < input.output.x + input.output.width;
+      let x = output.x;
+      x < output.x + output.width;
       x += 1
     ) {
       data[index] = resolveChannel(input, x, y, 'r')
@@ -158,8 +180,8 @@ export function demosaicBilinearRgb(
   }
 
   return {
-    width: input.output.width,
-    height: input.output.height,
+    width: output.width,
+    height: output.height,
     data,
   }
 }
