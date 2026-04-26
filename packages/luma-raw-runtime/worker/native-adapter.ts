@@ -631,8 +631,14 @@ export function normalizeExportCapability(
   const rawHeight = asNonNegativeIntegerOrUndefined(raw.rawHeight) ?? 0
   const visibleCrop = normalizeVisibleCrop(raw.visibleCrop, rawWidth, rawHeight)
   const cfa = normalizeCfa(raw.cfa)
-  const blackLevel = asFiniteNumberOrUndefined(raw.blackLevel)
-  const whiteLevel = asFiniteNumberOrUndefined(raw.whiteLevel)
+  const sensor = normalizeExportSensorFacts(raw.sensor, cfa)
+  const rawLevels = asRecord(raw.levels)
+  const blackLevel =
+    asFiniteNumberOrUndefined(raw.blackLevel) ??
+    asFiniteNumberOrUndefined(rawLevels.black)
+  const whiteLevel =
+    asFiniteNumberOrUndefined(raw.whiteLevel) ??
+    asFiniteNumberOrUndefined(rawLevels.white)
   const rawWindows = asRecord(raw.windows)
   const librawProcessed = rawWindows.librawProcessed === true
   const orientation = normalizeExportOrientation(raw.orientation, {
@@ -645,7 +651,12 @@ export function normalizeExportCapability(
   let supported = raw.supported === true
   let missingFactCount = 0
 
-  if (cfa.pattern === 'unsupported') {
+  if (
+    cfa.pattern === 'unsupported' &&
+    sensor.layout !== 'foveon' &&
+    sensor.layout !== 'monochrome' &&
+    sensor.layout !== 'rgb-like'
+  ) {
     supported = false
     reasons.add('unsupported-cfa')
   }
@@ -661,6 +672,9 @@ export function normalizeExportCapability(
   }
 
   if (raw.supported === true) {
+    if (!librawProcessed) {
+      reasons.add('processed-window-unavailable')
+    }
     if (!visibleCrop) {
       missingFactCount += 1
       reasons.add('missing-visible-crop')
@@ -690,7 +704,7 @@ export function normalizeExportCapability(
     cfa,
     blackLevel: blackLevel ?? 0,
     whiteLevel: whiteLevel ?? 0,
-    sensor: normalizeExportSensorFacts(raw.sensor, cfa),
+    sensor,
     windows: {
       librawProcessed,
       rawMosaic:
@@ -712,7 +726,6 @@ export function normalizeExportCapability(
   if (orientation) capability.orientation = orientation
   if (color) capability.color = color
   if (blackLevel !== undefined && whiteLevel !== undefined) {
-    const rawLevels = asRecord(raw.levels)
     const perChannelBlack = normalizeFiniteTuple(rawLevels.perChannelBlack, 4)
     capability.levels = { black: blackLevel, white: whiteLevel }
     if (perChannelBlack) {

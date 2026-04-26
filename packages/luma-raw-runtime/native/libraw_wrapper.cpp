@@ -157,6 +157,47 @@ bool hasBayerRawImage(const libraw_data_t &imgdata) {
   return imgdata.rawdata.raw_image != nullptr && imgdata.idata.filters != 0;
 }
 
+bool hasColor3Image(const libraw_data_t &imgdata) {
+  return imgdata.rawdata.color3_image != nullptr;
+}
+
+bool hasColor4Image(const libraw_data_t &imgdata) {
+  return imgdata.rawdata.color4_image != nullptr;
+}
+
+bool hasXTransTable(const libraw_data_t &imgdata) {
+  for (int row = 0; row < 6; ++row) {
+    for (int col = 0; col < 6; ++col) {
+      if (imgdata.idata.xtrans[row][col] != 0 ||
+          imgdata.idata.xtrans_abs[row][col] != 0) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+std::string sensorLayoutName(const libraw_data_t &imgdata) {
+  if (imgdata.idata.is_foveon != 0) {
+    return "foveon";
+  }
+  if (hasXTransTable(imgdata)) {
+    return "x-trans";
+  }
+  if (hasBayerRawImage(imgdata)) {
+    return "bayer";
+  }
+  if (hasColor3Image(imgdata) || hasColor4Image(imgdata)) {
+    return "rgb-like";
+  }
+  if (imgdata.idata.colors == 1) {
+    return "monochrome";
+  }
+
+  return "unknown";
+}
+
 val cfaObject(const std::string &pattern) {
   val cfa = val::object();
   cfa.set("pattern", pattern);
@@ -174,16 +215,97 @@ val visibleCropObject(int x, int y, int width, int height) {
   return crop;
 }
 
-int normalizedOrientationCode(int code) {
-  return code == 0 ? 1 : code;
+val sensorLayoutObject(const libraw_data_t &imgdata,
+                       const std::string &pattern) {
+  val sensor = val::object();
+  sensor.set("layout", sensorLayoutName(imgdata));
+  sensor.set("colorCount", imgdata.idata.colors > 0 ? imgdata.idata.colors : 3);
+  sensor.set("cfa", cfaObject(pattern));
+  sensor.set("phaseIsWindowLocal", false);
+  return sensor;
 }
 
-val orientationObject(int code) {
+val levelsObject(const libraw_colordata_t &color) {
+  val per_channel_black = val::array();
+  for (int index = 0; index < 4; ++index) {
+    per_channel_black.set(index, color.cblack[index]);
+  }
+
+  val levels = val::object();
+  levels.set("black", color.black);
+  levels.set("white", color.maximum);
+  levels.set("perChannelBlack", per_channel_black);
+  return levels;
+}
+
+bool hasPositiveImageDimensions(const libraw_image_sizes_t &sizes) {
+  return sizes.width > 0 && sizes.height > 0 && sizes.raw_width > 0 &&
+         sizes.raw_height > 0;
+}
+
+bool hasValidLevels(const libraw_colordata_t &color) {
+  return color.maximum > color.black;
+}
+
+bool hasVisibleCropWithinRaw(const libraw_image_sizes_t &sizes) {
+  return hasPositiveImageDimensions(sizes) &&
+         sizes.left_margin <= sizes.raw_width - sizes.width &&
+         sizes.top_margin <= sizes.raw_height - sizes.height;
+}
+
+bool usesFixedExportPolicy(const libraw_output_params_t &params) {
+  return params.output_color == 4 && params.output_bps == 16 &&
+         params.no_auto_bright == 1 && params.use_auto_wb == 0 &&
+         params.use_camera_wb == 1 && params.use_camera_matrix == 1 &&
+         params.bright == 1 && params.highlight == 2 && params.user_qual >= 0 &&
+         params.gamm[0] == 1 && params.gamm[1] == 1 && params.gamm[2] == 1 &&
+         params.gamm[3] == 1 && params.gamm[4] == 0 && params.gamm[5] == 0;
+}
+
+bool supportsRepeatableCropProcess(const libraw_data_t &imgdata) {
+  (void)imgdata;
+  return false;
+}
+
+bool supportsProcessedWindow(const libraw_data_t &imgdata) {
+  (void)imgdata;
+  return false;
+}
+
+val windowsObject(const libraw_data_t &imgdata) {
+  val windows = val::object();
+  windows.set("librawProcessed", supportsProcessedWindow(imgdata));
+  windows.set("rawMosaic", hasBayerRawImage(imgdata));
+  return windows;
+}
+
+val diagnosticsObject(const libraw_data_t &imgdata) {
+  val diagnostics = val::object();
+  diagnostics.set("make", safeString(imgdata.idata.make));
+  diagnostics.set("model", safeString(imgdata.idata.model));
+  diagnostics.set("normalizedMake", safeString(imgdata.idata.normalized_make));
+  diagnostics.set("normalizedModel",
+                  safeString(imgdata.idata.normalized_model));
+  diagnostics.set("librawFilterCode", imgdata.idata.filters);
+  diagnostics.set("hasRawImage", imgdata.rawdata.raw_image != nullptr);
+  diagnostics.set("hasColor3Image", hasColor3Image(imgdata));
+  diagnostics.set("hasColor4Image", hasColor4Image(imgdata));
+  diagnostics.set("hasXTransTable", hasXTransTable(imgdata));
+  diagnostics.set("canRepeatCropProcess", supportsRepeatableCropProcess(imgdata));
+  diagnostics.set("lastLibRawWarningMask", imgdata.process_warnings);
+  return diagnostics;
+}
+
+val orientationObject(const libraw_image_sizes_t &sizes) {
+  const int code = sizes.flip;
   const int normalized_code = code == 0 ? 1 : code;
+  const bool rotated = (normalized_code & 4) != 0;
 
   val orientation = val::object();
   orientation.set("code", normalized_code);
-  orientation.set("supported", normalized_code == 1);
+  orientation.set("supported", true);
+  orientation.set("outputWidth", rotated ? sizes.height : sizes.width);
+  orientation.set("outputHeight", rotated ? sizes.width : sizes.height);
   return orientation;
 }
 
@@ -290,6 +412,8 @@ val unsupportedCapability(const libraw_data_t &imgdata,
                           const std::string &reason) {
   const libraw_image_sizes_t &sizes = imgdata.sizes;
   const libraw_colordata_t &color = imgdata.color;
+  const std::string pattern =
+      sensorLayoutName(imgdata) == "x-trans" ? "x-trans" : "unsupported";
 
   val reasons = val::array();
   reasons.set(0, reason);
@@ -307,8 +431,32 @@ val unsupportedCapability(const libraw_data_t &imgdata,
   capability.set("cfa", cfaObject("unsupported"));
   capability.set("blackLevel", color.black);
   capability.set("whiteLevel", color.maximum);
-  capability.set("orientation", orientationObject(sizes.flip));
+  capability.set("orientation", orientationObject(sizes));
+  capability.set("sensor", sensorLayoutObject(imgdata, pattern));
+  capability.set("levels", levelsObject(color));
+  capability.set("windows", windowsObject(imgdata));
+  capability.set("diagnostics", diagnosticsObject(imgdata));
   capability.set("reasons", reasons);
+  return capability;
+}
+
+val unsupportedCapability(const libraw_data_t &imgdata,
+                          const std::string &reason,
+                          const double *camera_white_balance,
+                          const double *camera_to_working_rgb) {
+  val capability = unsupportedCapability(imgdata, reason);
+
+  val color_facts = val::object();
+  color_facts.set("whiteBalance", numberArray(camera_white_balance, 4));
+  color_facts.set("cameraToWorkingRgb",
+                  numberArray(camera_to_working_rgb, 9));
+  color_facts.set("workingSpace", std::string("linear-prophoto-rgb"));
+  color_facts.set("librawOutputColor", std::string("prophoto"));
+  color_facts.set("gamma", std::string("linear"));
+  color_facts.set("cameraWhiteBalanceAppliedByRuntime", true);
+  color_facts.set("cameraMatrixAppliedByRuntime", true);
+  capability.set("color", color_facts);
+
   return capability;
 }
 
@@ -320,14 +468,18 @@ val supportedExportCapability(const libraw_data_t &imgdata,
   const libraw_colordata_t &color = imgdata.color;
 
   val color_facts = val::object();
-  color_facts.set("cameraWhiteBalance",
-                  numberArray(camera_white_balance, 4));
+  color_facts.set("whiteBalance", numberArray(camera_white_balance, 4));
   color_facts.set("cameraToWorkingRgb",
                   numberArray(camera_to_working_rgb, 9));
-  color_facts.set("workingSpace", std::string("prophoto-linear"));
+  color_facts.set("workingSpace", std::string("linear-prophoto-rgb"));
+  color_facts.set("librawOutputColor", std::string("prophoto"));
+  color_facts.set("gamma", std::string("linear"));
+  color_facts.set("cameraWhiteBalanceAppliedByRuntime", true);
+  color_facts.set("cameraMatrixAppliedByRuntime", true);
 
   val capability = val::object();
   capability.set("supported", true);
+  capability.set("strategy", std::string("libraw-processed-window"));
   capability.set("width", sizes.width);
   capability.set("height", sizes.height);
   capability.set("rawWidth", sizes.raw_width);
@@ -339,7 +491,11 @@ val supportedExportCapability(const libraw_data_t &imgdata,
   capability.set("cfa", cfaObject(pattern));
   capability.set("blackLevel", color.black);
   capability.set("whiteLevel", color.maximum);
-  capability.set("orientation", orientationObject(sizes.flip));
+  capability.set("orientation", orientationObject(sizes));
+  capability.set("sensor", sensorLayoutObject(imgdata, pattern));
+  capability.set("levels", levelsObject(color));
+  capability.set("windows", windowsObject(imgdata));
+  capability.set("diagnostics", diagnosticsObject(imgdata));
   capability.set("color", color_facts);
   capability.set("reasons", val::array());
   return capability;
@@ -511,27 +667,27 @@ class LumaRawProcessor {
     const libraw_image_sizes_t &sizes = imgdata.sizes;
     const libraw_colordata_t &color = imgdata.color;
 
-    if (sizes.width <= 0 || sizes.height <= 0 || sizes.raw_width <= 0 ||
-        sizes.raw_height <= 0) {
+    if (!hasPositiveImageDimensions(sizes)) {
       return unsupportedCapability(imgdata, "missing-dimensions");
     }
-    if (color.maximum <= color.black) {
+    if (!hasValidLevels(color)) {
       return unsupportedCapability(imgdata, "missing-levels");
     }
-    if (!hasBayerRawImage(imgdata)) {
-      return unsupportedCapability(imgdata, "raw-window-unavailable");
+
+    const std::string layout = sensorLayoutName(imgdata);
+    if (layout == "unknown") {
+      return unsupportedCapability(imgdata, "unsupported-sensor-layout");
     }
 
-    const std::string pattern = cfaPatternName(processor_);
-    if (pattern == "unsupported") {
-      return unsupportedCapability(imgdata, "unsupported-cfa");
+    if (!usesFixedExportPolicy(imgdata.params)) {
+      return unsupportedCapability(imgdata, "missing-color-transform");
     }
-    if (normalizedOrientationCode(sizes.flip) != 1) {
-      return unsupportedCapability(imgdata, "unsupported-orientation");
-    }
-    if (sizes.left_margin > sizes.raw_width - sizes.width ||
-        sizes.top_margin > sizes.raw_height - sizes.height) {
-      return unsupportedCapability(imgdata, "missing-visible-crop");
+
+    std::string pattern = "unsupported";
+    if (layout == "bayer") {
+      pattern = cfaPatternName(processor_);
+    } else if (layout == "x-trans") {
+      pattern = "x-trans";
     }
 
     double camera_white_balance[4] = {0, 0, 0, 0};
@@ -540,6 +696,14 @@ class LumaRawProcessor {
     if (!selectCameraWhiteBalance(color, camera_white_balance) ||
         !buildCameraToWorkingRgb(color, camera_to_working_rgb)) {
       return unsupportedCapability(imgdata, "missing-color-transform");
+    }
+    if (!hasVisibleCropWithinRaw(sizes)) {
+      return unsupportedCapability(imgdata, "missing-visible-crop");
+    }
+    if (!supportsProcessedWindow(imgdata)) {
+      return unsupportedCapability(imgdata, "processed-window-unavailable",
+                                   camera_white_balance,
+                                   camera_to_working_rgb);
     }
 
     return supportedExportCapability(imgdata, pattern, camera_white_balance,
@@ -607,6 +771,10 @@ class LumaRawProcessor {
     params.output_color = settings["outputColor"].as<int>();
     params.output_bps = settings["outputBps"].as<int>();
     params.no_auto_bright = settings["noAutoBright"].as<bool>() ? 1 : 0;
+    params.use_auto_wb = settings["useAutoWb"].as<bool>() ? 1 : 0;
+    params.use_camera_matrix = settings["useCameraMatrix"].as<int>();
+    params.bright = settings["bright"].as<float>();
+    params.highlight = settings["highlight"].as<int>();
     params.user_qual = settings["userQual"].as<int>();
 
     val gamma = settings["gamm"];

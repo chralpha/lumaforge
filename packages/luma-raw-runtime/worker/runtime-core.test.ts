@@ -531,7 +531,7 @@ describe('runtime-core', () => {
         },
         phaseIsWindowLocal: false,
       },
-      windows: { librawProcessed: false, rawMosaic: true },
+      windows: { librawProcessed: true, rawMosaic: true },
       diagnostics: {
         hasRawImage: true,
         hasColor3Image: false,
@@ -948,7 +948,7 @@ describe('runtime-core', () => {
                 cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
                 phaseIsWindowLocal: false,
               },
-              windows: { librawProcessed: false, rawMosaic: true },
+              windows: { librawProcessed: true, rawMosaic: true },
               diagnostics: {
                 hasRawImage: true,
                 hasColor3Image: false,
