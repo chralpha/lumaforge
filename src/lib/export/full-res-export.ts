@@ -12,10 +12,9 @@ import type {
   SupportedExportColorGraphDescriptor,
 } from './color-graph'
 import { demosaicBilinearRgb } from './demosaic'
+import type {JpegRowSink, JpegRowWriter} from './jpeg/row-writer';
 import {
-  createJpegRowWriter,
-  type JpegRowSink,
-  type JpegRowWriter,
+  createJpegRowWriter
 } from './jpeg/row-writer'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
 import { mix, sampleLutTrilinear } from './lut3d'
@@ -271,21 +270,9 @@ function compileGraphApplier(graph: SupportedExportColorGraphDescriptor) {
       sampleLutTrilinear(
         lutStep.data,
         lutStep.size,
-        normalizeLutSample(
-          lutInputEncodedR,
-          domainMin[0],
-          inverseDomainSpanR,
-        ),
-        normalizeLutSample(
-          lutInputEncodedG,
-          domainMin[1],
-          inverseDomainSpanG,
-        ),
-        normalizeLutSample(
-          lutInputEncodedB,
-          domainMin[2],
-          inverseDomainSpanB,
-        ),
+        normalizeLutSample(lutInputEncodedR, domainMin[0], inverseDomainSpanR),
+        normalizeLutSample(lutInputEncodedG, domainMin[1], inverseDomainSpanG),
+        normalizeLutSample(lutInputEncodedB, domainMin[2], inverseDomainSpanB),
         lutSample,
       )
 
@@ -375,7 +362,7 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
-function looksLikeResourceExhaustion(error: unknown) {
+function currentErrorLooksLikeResourceExhaustion(error: unknown) {
   const tokens: string[] = []
 
   if (error instanceof Error) {
@@ -402,6 +389,29 @@ function looksLikeResourceExhaustion(error: unknown) {
     haystack.includes('MEMORY') ||
     haystack.includes('ALLOCATION')
   )
+}
+
+function getErrorCause(error: unknown) {
+  if (typeof error === 'object' && error && 'cause' in error) {
+    return (error as { cause?: unknown }).cause
+  }
+
+  return undefined
+}
+
+function looksLikeResourceExhaustion(error: unknown) {
+  let current: unknown = error
+  const seen = new Set<unknown>()
+
+  while (current !== undefined && !seen.has(current)) {
+    seen.add(current)
+    if (currentErrorLooksLikeResourceExhaustion(current)) {
+      return true
+    }
+    current = getErrorCause(current)
+  }
+
+  return false
 }
 
 export async function runFullResolutionJpegExport(
@@ -486,10 +496,7 @@ export async function runFullResolutionJpegExport(
         throw error
       }
 
-      const nextStripRows = reduceStripRows(
-        stripRows,
-        MIN_EXPORT_STRIP_ROWS,
-      )
+      const nextStripRows = reduceStripRows(stripRows, MIN_EXPORT_STRIP_ROWS)
 
       if (nextStripRows >= stripRows) {
         throw new Error('FULL_RES_EXPORT_RESOURCE_FAILURE')

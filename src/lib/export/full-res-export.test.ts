@@ -3,6 +3,7 @@ import type {
   LumaRawWindow,
   LumaRawWindowRect,
 } from '@lumaforge/luma-raw-runtime'
+
 import { mat3Identity } from '~/lib/color/matrix'
 
 import { demosaicBilinearRgb } from './demosaic'
@@ -164,7 +165,10 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
         writtenRows.push({ rowCount, bytes: new Uint8Array(bytes) })
       }),
-      close: vi.fn(async () => new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' })),
+      close: vi.fn(
+        async () =>
+          new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }),
+      ),
       abort: vi.fn(async () => undefined),
     }
 
@@ -186,12 +190,10 @@ describe('runFullResolutionJpegExport', () => {
     })
 
     expect(blob.type).toBe('image/jpeg')
-    expect(readRawWindow).toHaveBeenCalledTimes(2)
-    expect(writtenRows).toHaveLength(2)
-    expect(writtenRows[0]?.rowCount).toBe(2)
-    expect(writtenRows[1]?.rowCount).toBe(2)
-    expect(writtenRows[0]?.bytes).toEqual(new Uint8Array(4 * 2 * 3).fill(188))
-    expect(writtenRows[1]?.bytes).toEqual(new Uint8Array(4 * 2 * 3).fill(188))
+    expect(readRawWindow).toHaveBeenCalledTimes(1)
+    expect(writtenRows).toHaveLength(1)
+    expect(writtenRows[0]?.rowCount).toBe(4)
+    expect(writtenRows[0]?.bytes).toEqual(new Uint8Array(4 * 4 * 3).fill(188))
     expect(progress.at(-1)).toBe(100)
   })
 
@@ -230,9 +232,8 @@ describe('runFullResolutionJpegExport', () => {
 
     expect(readRawWindow.mock.calls.map(([rect]) => rect)).toEqual([
       { x: 5, y: 7, width: 4, height: 4 },
-      { x: 5, y: 7, width: 4, height: 4 },
     ])
-    expect(writtenRows).toEqual([2, 2])
+    expect(writtenRows).toEqual([4])
   })
 
   it('retries RESOURCE_ALLOCATION_FAILED with smaller strips and preserves JPEG dimensions', async () => {
@@ -250,7 +251,10 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
         writtenRows.push({ rowCount, bytes: new Uint8Array(bytes) })
       }),
-      close: vi.fn(async () => new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' })),
+      close: vi.fn(
+        async () =>
+          new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }),
+      ),
       abort: vi.fn(async () => undefined),
     }
 
@@ -295,7 +299,9 @@ describe('runFullResolutionJpegExport', () => {
     }
     const secondWriter = {
       writeRows: vi.fn(async () => undefined),
-      close: vi.fn(async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' })),
+      close: vi.fn(
+        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      ),
       abort: vi.fn(async () => undefined),
     }
     const attemptWriters = [firstWriter, secondWriter]
@@ -403,6 +409,57 @@ describe('runFullResolutionJpegExport', () => {
     expect(readRawWindow).not.toHaveBeenCalled()
   })
 
+  it('retries wrapped JPEG encoder resource failures with smaller strips', async () => {
+    const writtenRows: number[] = []
+    let failedOnce = false
+    let sessionCount = 0
+    const jpegSink = createWasmJpegRowSink(() => ({
+      createEncoder() {
+        sessionCount += 1
+        return {
+          async writeRows(_bytes: Uint8Array, rowCount: number) {
+            if (!failedOnce) {
+              failedOnce = true
+              throw new Error('RESOURCE_ALLOCATION_FAILED')
+            }
+            writtenRows.push(rowCount)
+          },
+          async finish() {
+            return new Blob([new Uint8Array([1, 2, 3])], {
+              type: 'image/jpeg',
+            })
+          },
+          abort: vi.fn(),
+        }
+      },
+      dispose: vi.fn(),
+    }))
+
+    const blob = await runFullResolutionJpegExport({
+      capability: makeCapability({
+        height: 256,
+        rawHeight: 256,
+        visibleCrop: { x: 0, y: 0, width: 4, height: 256 },
+      }),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+      },
+      preferredRows: 256,
+      readRawWindow: vi.fn((rect: LumaRawWindowRect) =>
+        Promise.resolve(makeWindow(rect)),
+      ),
+      jpegSink,
+    })
+
+    expect(blob.type).toBe('image/jpeg')
+    expect(sessionCount).toBe(2)
+    expect(writtenRows).toEqual([128, 128])
+  })
+
   it('throws FULL_RES_EXPORT_RESOURCE_FAILURE after exhausting strip retries', async () => {
     const writer = {
       writeRows: vi.fn(),
@@ -471,8 +528,8 @@ describe('runFullResolutionJpegExport', () => {
       writerFactory: () => writer,
     })
 
-    expect(writtenRows).toHaveLength(2)
-    expect(writtenRows[0]?.rowCount).toBe(2)
+    expect(writtenRows).toHaveLength(1)
+    expect(writtenRows[0]?.rowCount).toBe(4)
     expect(writtenRows[0]?.bytes[0]).toBe(255)
   })
 
@@ -558,16 +615,17 @@ describe('runFullResolutionJpegExport', () => {
     const baseLinear = 128 / 255
     const lutInputEncoded =
       clamp01(Math.pow(baseLinear, 1 / 2.4)) * legalScale + legalOffset
-    const normalized = clamp01((lutInputEncoded - domainMin) / (domainMax - domainMin))
+    const normalized = clamp01(
+      (lutInputEncoded - domainMin) / (domainMax - domainMin),
+    )
     const lutOutputLinear = Math.max(
       Math.pow((normalized - legalOffset) / legalScale, 2.4),
       0,
     )
-    const mixedLinear =
-      baseLinear + (lutOutputLinear - baseLinear) * intensity
+    const mixedLinear = baseLinear + (lutOutputLinear - baseLinear) * intensity
     const expectedByte = Math.round(clamp01(linearToSrgb(mixedLinear)) * 255)
 
-    expect(writtenRows).toHaveLength(2)
+    expect(writtenRows).toHaveLength(1)
     expect(writtenRows[0]?.bytes[0]).toBe(expectedByte)
     expect(writtenRows[0]?.bytes[0]).not.toBe(188)
   })

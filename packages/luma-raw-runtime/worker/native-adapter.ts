@@ -1,6 +1,6 @@
 import type {
-  LumaRawExportColorFacts,
   LumaRawExportCapability,
+  LumaRawExportColorFacts,
   LumaRawExportOrientation,
   LumaRawExportUnsupportedReason,
   LumaRawVisibleCrop,
@@ -348,9 +348,7 @@ function normalizeUnsupportedReasons(
   if (!Array.isArray(value)) return []
 
   const reasons = value.filter(
-    (
-      reason,
-    ): reason is LumaRawExportUnsupportedReason =>
+    (reason): reason is LumaRawExportUnsupportedReason =>
       reason === 'unsupported-source' ||
       reason === 'unsupported-cfa' ||
       reason === 'compressed-raw-window-unavailable' ||
@@ -438,13 +436,20 @@ function normalizeExportColorFacts(
   value: unknown,
 ): LumaRawExportColorFacts | undefined {
   const raw = asRecord(value)
-  const whiteBalance = normalizeFiniteTuple(raw.whiteBalance, 4)
+  const whiteBalance = normalizeFiniteTuple(
+    raw.whiteBalance ?? raw.cameraWhiteBalance,
+    4,
+  )
   const cameraToWorkingRgb = normalizeFiniteTuple(raw.cameraToWorkingRgb, 9)
+  const workingSpace =
+    raw.workingSpace === 'prophoto-linear'
+      ? 'linear-prophoto-rgb'
+      : raw.workingSpace
 
   if (
     !whiteBalance ||
     !cameraToWorkingRgb ||
-    raw.workingSpace !== 'linear-prophoto-rgb' ||
+    workingSpace !== 'linear-prophoto-rgb' ||
     whiteBalance.some((value) => value <= 0) ||
     !hasUsableMatrix3x3(cameraToWorkingRgb)
   ) {
@@ -492,12 +497,7 @@ export function normalizeExportCapability(
     reasons.add('unsupported-cfa')
   }
 
-  if (
-    width <= 0 ||
-    height <= 0 ||
-    rawWidth <= 0 ||
-    rawHeight <= 0
-  ) {
+  if (width <= 0 || height <= 0 || rawWidth <= 0 || rawHeight <= 0) {
     supported = false
     reasons.add('missing-dimensions')
   }
@@ -563,7 +563,9 @@ function normalizeRawWindow(value: unknown): LumaRawWindow {
   const rect = normalizeWindowRect(raw.rect)
 
   if (!(raw.data instanceof Uint16Array)) {
-    throw new TypeError('Native RAW raw-window did not return Uint16Array data.')
+    throw new TypeError(
+      'Native RAW raw-window did not return Uint16Array data.',
+    )
   }
 
   const expectedLength = rect.width * rect.height

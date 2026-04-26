@@ -11,6 +11,9 @@ importers:
       '@headlessui/react':
         specifier: 2.2.10
         version: 2.2.10(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@lumaforge/luma-jpeg-runtime':
+        specifier: workspace:*
+        version: link:packages/luma-jpeg-runtime
       '@lumaforge/luma-raw-runtime':
         specifier: workspace:*
         version: link:packages/luma-raw-runtime
@@ -219,6 +222,8 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.13)(@types/node@25.6.0)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.32.0)(tsx@4.19.4)(yaml@2.8.3)
+
+  packages/luma-jpeg-runtime: {}
 
   packages/luma-raw-runtime: {}
 

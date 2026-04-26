@@ -179,9 +179,9 @@ describe('native-adapter', () => {
         whiteLevel: 16383,
         orientation: { code: 1, supported: true },
         color: {
-          whiteBalance: [2.1, 1, 1.4, 1],
+          cameraWhiteBalance: [2.1, 1, 1.4, 1],
           cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-          workingSpace: 'linear-prophoto-rgb',
+          workingSpace: 'prophoto-linear',
         },
         reasons: [],
       },
@@ -204,6 +204,7 @@ describe('native-adapter', () => {
       },
     })
     expect(capability?.color?.whiteBalance).toHaveLength(4)
+    expect(capability?.color?.whiteBalance).toEqual([2.1, 1, 1.4, 1])
     expect(capability?.color?.cameraToWorkingRgb).toHaveLength(9)
   })
 
@@ -399,9 +400,8 @@ describe('native-adapter', () => {
       rawWidth: 6048,
       rawHeight: 4024,
       cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
-      blackLevel: 0,
+      blackLevel: 512,
       whiteLevel: 16383,
-      orientation: { code: 1, supported: true },
       reasons: expect.arrayContaining([
         'missing-dimensions',
         'missing-visible-crop',
@@ -440,7 +440,12 @@ describe('native-adapter', () => {
       },
     })
 
-    const window = processor.readRawWindow?.({ x: 1, y: 2, width: 2, height: 2 })
+    const window = processor.readRawWindow?.({
+      x: 1,
+      y: 2,
+      width: 2,
+      height: 2,
+    })
 
     expect(window).toEqual({
       rect: { x: 1, y: 2, width: 2, height: 2 },
@@ -469,7 +474,9 @@ describe('native-adapter', () => {
     ).toThrow('Native RAW raw-window access is unavailable.')
     expect(() =>
       malformed.readRawWindow?.({ x: 0, y: 0, width: 2, height: 2 }),
-    ).toThrow('Native RAW raw-window data length does not match rect dimensions.')
+    ).toThrow(
+      'Native RAW raw-window data length does not match rect dimensions.',
+    )
   })
 
   it('normalizes JPEG thumbnail dimensions from metadata fallback fields', () => {
