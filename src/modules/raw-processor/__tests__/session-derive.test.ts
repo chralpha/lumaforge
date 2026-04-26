@@ -1,3 +1,5 @@
+import { getLUTColorProfile } from '~/lib/color/registry'
+
 import {
   deriveCanEdit,
   deriveCanExport,
@@ -125,6 +127,85 @@ describe('session derivation', () => {
     expect(deriveCanExport(session)).toBe(false)
     expect(deriveExportDisabledReason(session)).toBe(
       'This LUT output transfer is not supported by full-resolution JPEG export.',
+    )
+  })
+
+  it('disables export for resolved technical-output LUTs with linear output transfer', () => {
+    const profile = getLUTColorProfile('panasonic-vgamut-vlog')
+    expect(profile).toBeDefined()
+
+    const session: ImageSession = {
+      ...baseSession,
+      renderState: { status: 'ready' as const },
+      exportState: {
+        ...baseSession.exportState,
+        fullResCapability: { status: 'supported', width: 4000, height: 3000 },
+      },
+      activeStyle: {
+        kind: 'custom',
+        name: 'Technical LUT',
+        defaultIntensityLevel: 'standard',
+        currentIntensityLevel: 'standard',
+        lutAsset: {
+          format: 'cube',
+          dimension: 33,
+          profileResolution: {
+            kind: 'resolved',
+            confidence: 'explicit',
+            profile: {
+              ...profile!,
+              role: 'technical-output',
+              outputTransfer: 'linear',
+              outputRange: 'full',
+            },
+          },
+        },
+      },
+    }
+
+    expect(deriveCanExport(session)).toBe(false)
+    expect(deriveExportDisabledReason(session)).toBe(
+      'This LUT output transfer is not supported by full-resolution JPEG export.',
+    )
+  })
+
+  it('disables export for resolved technical-output LUTs with unknown output range', () => {
+    const profile = getLUTColorProfile('panasonic-vgamut-vlog')
+    expect(profile).toBeDefined()
+
+    const session: ImageSession = {
+      ...baseSession,
+      renderState: { status: 'ready' as const },
+      exportState: {
+        ...baseSession.exportState,
+        fullResCapability: { status: 'supported', width: 4000, height: 3000 },
+      },
+      activeStyle: {
+        kind: 'custom',
+        name: 'Technical LUT',
+        defaultIntensityLevel: 'standard',
+        currentIntensityLevel: 'standard',
+        lutAsset: {
+          format: 'cube',
+          dimension: 33,
+          profileResolution: {
+            kind: 'resolved',
+            confidence: 'explicit',
+            profile: {
+              ...profile!,
+              role: 'technical-output',
+              outputGamut: 'v-gamut',
+              outputTransfer: 'v-log',
+              outputRange: 'unknown',
+            },
+          },
+        },
+      },
+    }
+
+    expect(deriveCanExport(session)).toBe(false)
+    expect(deriveExportDisabledReason(session)).toBe(
+      'This LUT output range must be explicit before full-resolution JPEG export.',
     )
   })
 })

@@ -159,6 +159,81 @@ describe('resolveExportColorGraph', () => {
     )
   })
 
+  it('fails closed for resolved technical output LUTs with explicit linear output transfer', () => {
+    const profile = getLUTColorProfile('panasonic-vgamut-vlog')
+    expect(profile).toBeDefined()
+
+    const graph = resolveExportColorGraph({
+      styleKind: 'custom',
+      intensity: 0.7,
+      builtinPreset: null,
+      lut: {
+        size: 2,
+        data: new Float32Array(24),
+        domainMin: [0, 0, 0],
+        domainMax: [1, 1, 1],
+        inputProfile: 'v-log',
+        profileResolution: {
+          kind: 'resolved',
+          confidence: 'explicit',
+          profile: {
+            ...profile!,
+            role: 'technical-output',
+            outputTransfer: 'linear',
+            outputRange: 'full',
+          },
+        },
+      },
+    })
+
+    expect(graph.supported).toBe(false)
+    if (graph.supported) {
+      throw new Error('Expected unsupported graph')
+    }
+    expect(graph.reason).toBe('unsupported-pipeline')
+    expect(graph.message).toBe(
+      'This LUT output transfer is not supported by full-resolution JPEG export.',
+    )
+  })
+
+  it('fails closed for resolved technical output LUTs with unknown output range', () => {
+    const profile = getLUTColorProfile('panasonic-vgamut-vlog')
+    expect(profile).toBeDefined()
+
+    const graph = resolveExportColorGraph({
+      styleKind: 'custom',
+      intensity: 0.7,
+      builtinPreset: null,
+      lut: {
+        size: 2,
+        data: new Float32Array(24),
+        domainMin: [0, 0, 0],
+        domainMax: [1, 1, 1],
+        inputProfile: 'v-log',
+        profileResolution: {
+          kind: 'resolved',
+          confidence: 'explicit',
+          profile: {
+            ...profile!,
+            role: 'technical-output',
+            outputGamut: 'v-gamut',
+            outputTransfer: 'v-log',
+            outputRange: 'unknown',
+          },
+        },
+      },
+    })
+
+    expect(graph.supported).toBe(false)
+    if (graph.supported) {
+      throw new Error('Expected unsupported graph')
+    }
+    expect(graph.reason).toBe('unsupported-pipeline')
+    expect(graph.message).toBe(
+      'This LUT output range must be explicit before full-resolution JPEG export.',
+    )
+  })
+
   it('fails closed for combined output LUTs when omitted output transfer resolves to linear', () => {
     const profile = getLUTColorProfile('sony-sgamut3cine-slog3')
     expect(profile).toBeDefined()

@@ -1,3 +1,5 @@
+import { resolveUnsupportedLUTOutputReason } from '~/lib/export/color-graph'
+
 import type { ImageSession, PreviewBundle } from './session'
 
 export function selectDisplaySource(
@@ -26,8 +28,12 @@ function deriveUnsupportedExportPipelineReason(
   }
 
   const profileResolution = activeStyle.lutAsset?.profileResolution
-  if (!profileResolution || profileResolution.kind === 'resolved') {
+  if (!profileResolution) {
     return undefined
+  }
+
+  if (profileResolution.kind === 'resolved') {
+    return resolveUnsupportedLUTOutputReason(profileResolution.profile)
   }
 
   if (profileResolution.reason === 'unsupported-output') {

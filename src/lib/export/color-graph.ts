@@ -1,10 +1,10 @@
 import type { ColorGamutId } from '~/lib/color/constants'
 import type { TransferFunctionId } from '~/lib/color/log-encoding'
-import type {Mat3} from '~/lib/color/matrix';
+import type { Mat3 } from '~/lib/color/matrix'
 import {
   getLinearProPhotoToGamutMatrix,
   getLUTOutputToTargetMatrix,
-  mat3Identity
+  mat3Identity,
 } from '~/lib/color/matrix'
 import type {
   LUTColorProfile,
@@ -85,6 +85,21 @@ function resolveEffectiveLUTOutputTransfer(
   return 'linear'
 }
 
+export function resolveUnsupportedLUTOutputReason(
+  profile: LUTColorProfile,
+): string | undefined {
+  const effectiveOutputTransfer = resolveEffectiveLUTOutputTransfer(profile)
+  if (effectiveOutputTransfer === 'linear') {
+    return 'This LUT output transfer is not supported by full-resolution JPEG export.'
+  }
+
+  if (profile.outputRange === 'unknown') {
+    return 'This LUT output range must be explicit before full-resolution JPEG export.'
+  }
+
+  return undefined
+}
+
 export function resolveExportColorGraph(input: {
   styleKind: ProcessingParams['styleKind']
   intensity: number
@@ -124,12 +139,12 @@ export function resolveExportColorGraph(input: {
 
   const profile = input.lut.profileResolution.profile
   const effectiveOutputTransfer = resolveEffectiveLUTOutputTransfer(profile)
-  if (effectiveOutputTransfer === 'linear') {
+  const unsupportedOutputReason = resolveUnsupportedLUTOutputReason(profile)
+  if (unsupportedOutputReason) {
     return {
       supported: false,
       reason: 'unsupported-pipeline',
-      message:
-        'This LUT output transfer is not supported by full-resolution JPEG export.',
+      message: unsupportedOutputReason,
       steps: [],
     }
   }

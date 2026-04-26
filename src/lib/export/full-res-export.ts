@@ -12,10 +12,8 @@ import type {
   SupportedExportColorGraphDescriptor,
 } from './color-graph'
 import { demosaicBilinearRgb } from './demosaic'
-import type {JpegRowSink, JpegRowWriter} from './jpeg/row-writer';
-import {
-  createJpegRowWriter
-} from './jpeg/row-writer'
+import type { JpegRowSink, JpegRowWriter } from './jpeg/row-writer'
+import { createJpegRowWriter } from './jpeg/row-writer'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
 import { mix, sampleLutTrilinear } from './lut3d'
 import {
