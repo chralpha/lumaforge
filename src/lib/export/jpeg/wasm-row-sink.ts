@@ -11,8 +11,22 @@ export function createWasmJpegRowSink(
   return {
     createSession({ width, height, quality }) {
       const runtime = runtimeFactory()
-      const encoder = runtime.createEncoder({ width, height, quality })
       let disposed = false
+
+      function disposeRuntime() {
+        if (disposed) return
+        disposed = true
+        runtime.dispose()
+      }
+
+      let encoder
+      try {
+        encoder = runtime.createEncoder({ width, height, quality })
+      } catch (error) {
+        disposeRuntime()
+        throw error
+      }
+
       let state: 'open' | 'closed' | 'aborted' = 'open'
 
       function ensureOpen() {
@@ -22,12 +36,6 @@ export function createWasmJpegRowSink(
         if (state === 'closed') {
           throw new Error('JPEG_WRITER_CLOSED')
         }
-      }
-
-      function disposeRuntime() {
-        if (disposed) return
-        disposed = true
-        runtime.dispose()
       }
 
       async function abortEncoder() {

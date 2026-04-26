@@ -100,4 +100,19 @@ describe('createJpegRowWriter', () => {
     await expect(writer.close()).rejects.toThrow('JPEG_INCOMPLETE_IMAGE')
     expect(calls).toEqual(['rows', 'abort'])
   })
+
+  it('rejects invalid JPEG quality before opening a sink session', () => {
+    expect(() =>
+      createJpegRowWriter({
+        width: 1,
+        height: 1,
+        quality: 0,
+        sink: {
+          createSession() {
+            throw new Error('should not be called')
+          },
+        },
+      }),
+    ).toThrow('JPEG_INVALID_QUALITY')
+  })
 })

@@ -18,12 +18,20 @@ export type JpegRowWriter = {
   abort: () => Promise<void>
 }
 
+function isValidJpegQuality(value: number) {
+  return Number.isFinite(value) && value > 0 && value <= 1
+}
+
 export function createJpegRowWriter(input: {
   width: number
   height: number
   quality: number
   sink: JpegRowSink
 }): JpegRowWriter {
+  if (!isValidJpegQuality(input.quality)) {
+    throw new Error('JPEG_INVALID_QUALITY')
+  }
+
   const session = input.sink.createSession({
     width: input.width,
     height: input.height,

@@ -119,4 +119,16 @@ describe('createJpegRuntimeCore', () => {
       }),
     ).rejects.toThrow('JPEG_RUNTIME_ABORTED')
   })
+
+  it('rejects invalid JPEG quality at create time', async () => {
+    const core = createJpegRuntimeCore()
+
+    await expect(
+      core.handleRequest({
+        id: 'create-invalid-quality',
+        type: 'create',
+        payload: { width: 1, height: 1, quality: 0 },
+      }),
+    ).rejects.toThrow('JPEG_INVALID_QUALITY')
+  })
 })

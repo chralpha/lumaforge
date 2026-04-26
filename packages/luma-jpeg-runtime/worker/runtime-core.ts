@@ -36,6 +36,10 @@ function isPositiveInteger(value: number) {
   return Number.isInteger(value) && value > 0
 }
 
+function isValidJpegQuality(value: number) {
+  return Number.isFinite(value) && value > 0 && value <= 1
+}
+
 export function createJpegRuntimeCore() {
   let width = 0
   let height = 0
@@ -62,6 +66,9 @@ export function createJpegRuntimeCore() {
         }
         if (!isPositiveInteger(request.payload.height)) {
           throw new Error('JPEG_INVALID_HEIGHT')
+        }
+        if (!isValidJpegQuality(request.payload.quality)) {
+          throw new Error('JPEG_INVALID_QUALITY')
         }
 
         width = request.payload.width

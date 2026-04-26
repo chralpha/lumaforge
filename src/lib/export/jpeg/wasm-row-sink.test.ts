@@ -76,4 +76,22 @@ describe('createWasmJpegRowSink', () => {
     expect(runtimeCount).toBe(2)
     expect(calls).toEqual(['rows:1', 'abort:1', 'dispose:1', 'abort:2', 'dispose:2'])
   })
+
+  it('disposes the runtime if encoder creation fails during session construction', () => {
+    const calls: string[] = []
+    const sink = createWasmJpegRowSink(() => ({
+      createEncoder() {
+        calls.push('createEncoder')
+        throw new Error('JPEG_RUNTIME_UNAVAILABLE')
+      },
+      dispose() {
+        calls.push('dispose')
+      },
+    }))
+
+    expect(() =>
+      sink.createSession({ width: 1, height: 1, quality: 0.9 }),
+    ).toThrow('JPEG_RUNTIME_UNAVAILABLE')
+    expect(calls).toEqual(['createEncoder', 'dispose'])
+  })
 })
