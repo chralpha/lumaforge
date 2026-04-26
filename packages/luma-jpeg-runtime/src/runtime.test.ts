@@ -65,7 +65,7 @@ class ManualWorker {
       response?.payload ??
       (request.type === 'finish'
         ? {
-            blob: new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], {
+            blob: new Blob([new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9])], {
               type: 'image/jpeg',
             }),
           }
@@ -94,32 +94,50 @@ function readWord(bytes: Uint8Array, offset: number) {
   return (bytes[offset] << 8) | bytes[offset + 1]
 }
 
+function readBlobBytes(blob: Blob) {
+  if (typeof blob.arrayBuffer === 'function') {
+    return blob.arrayBuffer()
+  }
+
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as ArrayBuffer)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsArrayBuffer(blob)
+  })
+}
+
+async function drainMicrotasks() {
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 async function expectBaselineJpeg(
   blob: Blob,
   dimensions: { width: number; height: number },
 ) {
-  const bytes = new Uint8Array(await blob.arrayBuffer())
+  const bytes = new Uint8Array(await readBlobBytes(blob))
   const markers = new Set<number>()
   let sof0: { width: number; height: number } | undefined
   let offset = 2
 
-  expect(readWord(bytes, 0)).toBe(0xffd8)
-  expect(readWord(bytes, bytes.length - 2)).toBe(0xffd9)
+  expect(readWord(bytes, 0)).toBe(0xFFD8)
+  expect(readWord(bytes, bytes.length - 2)).toBe(0xFFD9)
 
   while (offset < bytes.length - 2) {
-    if (bytes[offset] !== 0xff) {
+    if (bytes[offset] !== 0xFF) {
       offset += 1
       continue
     }
 
     const marker = bytes[offset + 1]
     markers.add(marker)
-    if (marker === 0xda) {
+    if (marker === 0xDA) {
       break
     }
 
     const segmentLength = readWord(bytes, offset + 2)
-    if (marker === 0xc0) {
+    if (marker === 0xC0) {
       sof0 = {
         height: readWord(bytes, offset + 5),
         width: readWord(bytes, offset + 7),
@@ -128,10 +146,10 @@ async function expectBaselineJpeg(
     offset += 2 + segmentLength
   }
 
-  expect(markers.has(0xdb)).toBe(true)
-  expect(markers.has(0xc0)).toBe(true)
-  expect(markers.has(0xc4)).toBe(true)
-  expect(markers.has(0xda)).toBe(true)
+  expect(markers.has(0xDB)).toBe(true)
+  expect(markers.has(0xC0)).toBe(true)
+  expect(markers.has(0xC4)).toBe(true)
+  expect(markers.has(0xDA)).toBe(true)
   expect(sof0).toEqual(dimensions)
 }
 
@@ -144,16 +162,15 @@ describe('createLumaJpegRuntime', () => {
 
     await encoder.writeRows(
       new Uint8Array([
-        255, 255, 255, 0, 0, 0, 255, 0, 0,
-        0, 255, 0, 0, 0, 255, 255, 255, 0,
+        255, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 0,
         255, 0, 255, 0, 255, 255, 64, 64, 64,
       ]),
       3,
     )
     await encoder.writeRows(
       new Uint8Array([
-        128, 0, 0, 0, 128, 0, 0, 0, 128,
-        255, 128, 0, 0, 128, 255, 128, 128, 128,
+        128, 0, 0, 0, 128, 0, 0, 0, 128, 255, 128, 0, 0, 128, 255, 128, 128,
+        128,
       ]),
       2,
     )
@@ -177,9 +194,10 @@ describe('createLumaJpegRuntime', () => {
     runtime.dispose()
   })
 
-  it('rejects a second public encoder while one is active', () => {
+  it('rejects a second public encoder while one is active', async () => {
+    const worker = new ManualWorker()
     const runtime = createLumaJpegRuntime({
-      workerFactory: () => new CoreBackedWorker() as unknown as Worker,
+      workerFactory: () => worker as unknown as Worker,
     })
 
     runtime.createEncoder({ width: 1, height: 1, quality: 0.9 })
@@ -187,6 +205,8 @@ describe('createLumaJpegRuntime', () => {
     expect(() =>
       runtime.createEncoder({ width: 1, height: 1, quality: 0.9 }),
     ).toThrow('JPEG_RUNTIME_ENCODER_ACTIVE')
+    worker.respond(worker.posts[0].request)
+    await drainMicrotasks()
     runtime.dispose()
   })
 
@@ -202,7 +222,12 @@ describe('createLumaJpegRuntime', () => {
     worker.respond(worker.posts[0].request)
 
     await expect(writePromise).rejects.toThrow('JPEG_RUNTIME_ABORTED')
-    expect(worker.posts.map((post) => post.request.type)).toEqual(['create', 'abort'])
+    expect(worker.posts.map((post) => post.request.type)).toEqual([
+      'create',
+      'abort',
+    ])
+    worker.respond(worker.posts[1].request)
+    await drainMicrotasks()
     runtime.dispose()
   })
 
@@ -218,7 +243,12 @@ describe('createLumaJpegRuntime', () => {
     worker.respond(worker.posts[0].request)
 
     await expect(finishPromise).rejects.toThrow('JPEG_RUNTIME_ABORTED')
-    expect(worker.posts.map((post) => post.request.type)).toEqual(['create', 'abort'])
+    expect(worker.posts.map((post) => post.request.type)).toEqual([
+      'create',
+      'abort',
+    ])
+    worker.respond(worker.posts[1].request)
+    await drainMicrotasks()
     runtime.dispose()
   })
 
@@ -232,14 +262,14 @@ describe('createLumaJpegRuntime', () => {
 
     const tightRows = new Uint8Array([255, 255, 255])
     const tightWrite = encoder.writeRows(tightRows, 1)
-    await Promise.resolve()
+    await drainMicrotasks()
     worker.respond(worker.posts[1].request)
     await tightWrite
 
     const backingRows = new Uint8Array([0, 99, 99, 99, 0])
     const slicedRows = backingRows.subarray(1, 4)
     const slicedWrite = encoder.writeRows(slicedRows, 1)
-    await Promise.resolve()
+    await drainMicrotasks()
     worker.respond(worker.posts[2].request)
     await slicedWrite
 
@@ -257,13 +287,17 @@ describe('createLumaJpegRuntime', () => {
     if (slicedPost.request.type !== 'rows') {
       throw new Error('expected rows request')
     }
-    expect(slicedPost.request.payload.rows).toEqual(new Uint8Array([99, 99, 99]))
+    expect(slicedPost.request.payload.rows).toEqual(
+      new Uint8Array([99, 99, 99]),
+    )
     expect(slicedPost.request.payload.rows.buffer).not.toBe(backingRows.buffer)
     expect(slicedPost.request.payload.rows.byteOffset).toBe(0)
     expect(slicedPost.request.payload.rows.byteLength).toBe(
       slicedPost.request.payload.rows.buffer.byteLength,
     )
-    expect(slicedPost.transfer).toEqual([slicedPost.request.payload.rows.buffer])
+    expect(slicedPost.transfer).toEqual([
+      slicedPost.request.payload.rows.buffer,
+    ])
     runtime.dispose()
   })
 })

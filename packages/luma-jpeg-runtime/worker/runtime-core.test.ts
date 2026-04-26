@@ -4,32 +4,45 @@ function readWord(bytes: Uint8Array, offset: number) {
   return (bytes[offset] << 8) | bytes[offset + 1]
 }
 
+function readBlobBytes(blob: Blob) {
+  if (typeof blob.arrayBuffer === 'function') {
+    return blob.arrayBuffer()
+  }
+
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as ArrayBuffer)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsArrayBuffer(blob)
+  })
+}
+
 async function expectBaselineJpeg(
   blob: Blob,
   dimensions: { width: number; height: number },
 ) {
-  const bytes = new Uint8Array(await blob.arrayBuffer())
+  const bytes = new Uint8Array(await readBlobBytes(blob))
   const markers = new Set<number>()
   let sof0: { width: number; height: number } | undefined
   let offset = 2
 
-  expect(readWord(bytes, 0)).toBe(0xffd8)
-  expect(readWord(bytes, bytes.length - 2)).toBe(0xffd9)
+  expect(readWord(bytes, 0)).toBe(0xFFD8)
+  expect(readWord(bytes, bytes.length - 2)).toBe(0xFFD9)
 
   while (offset < bytes.length - 2) {
-    if (bytes[offset] !== 0xff) {
+    if (bytes[offset] !== 0xFF) {
       offset += 1
       continue
     }
 
     const marker = bytes[offset + 1]
     markers.add(marker)
-    if (marker === 0xda) {
+    if (marker === 0xDA) {
       break
     }
 
     const segmentLength = readWord(bytes, offset + 2)
-    if (marker === 0xc0) {
+    if (marker === 0xC0) {
       sof0 = {
         height: readWord(bytes, offset + 5),
         width: readWord(bytes, offset + 7),
@@ -38,10 +51,10 @@ async function expectBaselineJpeg(
     offset += 2 + segmentLength
   }
 
-  expect(markers.has(0xdb)).toBe(true)
-  expect(markers.has(0xc0)).toBe(true)
-  expect(markers.has(0xc4)).toBe(true)
-  expect(markers.has(0xda)).toBe(true)
+  expect(markers.has(0xDB)).toBe(true)
+  expect(markers.has(0xC0)).toBe(true)
+  expect(markers.has(0xC4)).toBe(true)
+  expect(markers.has(0xDA)).toBe(true)
   expect(sof0).toEqual(dimensions)
 }
 
@@ -90,8 +103,7 @@ describe('createJpegRuntimeCore', () => {
       type: 'rows',
       payload: {
         rows: new Uint8Array([
-          255, 255, 255, 0, 0, 0, 255, 0, 0,
-          0, 255, 0, 0, 0, 255, 255, 255, 0,
+          255, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 0,
           255, 0, 255, 0, 255, 255, 64, 64, 64,
         ]),
         rowCount: 3,
@@ -102,8 +114,8 @@ describe('createJpegRuntimeCore', () => {
       type: 'rows',
       payload: {
         rows: new Uint8Array([
-          128, 0, 0, 0, 128, 0, 0, 0, 128,
-          255, 128, 0, 0, 128, 255, 128, 128, 128,
+          128, 0, 0, 0, 128, 0, 0, 0, 128, 255, 128, 0, 0, 128, 255, 128, 128,
+          128,
         ]),
         rowCount: 2,
       },
