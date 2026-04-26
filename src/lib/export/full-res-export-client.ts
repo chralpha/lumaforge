@@ -245,9 +245,7 @@ export class FullResolutionExportWorkerClient {
           quality: input.quality,
         } satisfies FullResExportWorkerStartMessage)
       } catch (error) {
-        this.pending.delete(requestId)
-        cleanup()
-        reject(createWorkerPostError(error))
+        this.rejectPending(createWorkerPostError(error))
         this.resetWorker()
       }
     })

@@ -55,6 +55,17 @@ class ThrowingCancelWorker extends FakeWorker {
   )
 }
 
+class ThrowingSecondStartWorker extends FakeWorker {
+  override readonly postMessage = vi.fn(
+    (message: FullResExportWorkerRequest, _transfer?: Transferable[]) => {
+      this.requests.push(message)
+      if (message.kind === 'start' && this.requests.length === 2) {
+        throw new DOMException('failed to post start message')
+      }
+    },
+  )
+}
+
 const supportedGraph = {
   supported: true as const,
   outputGamut: 'srgb-rec709' as const,
@@ -260,6 +271,26 @@ describe('fullResolutionExportWorkerClient', () => {
         graph: supportedGraph,
       }),
     ).rejects.toThrow('failed to post start message')
+    expect(worker.terminate).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects earlier pending requests when a later start postMessage throws', async () => {
+    const worker = new ThrowingSecondStartWorker()
+    const client = new FullResolutionExportWorkerClient(
+      () => worker as unknown as Worker,
+    )
+
+    const earlierPromise = client.run({
+      file: new File(['raw'], 'first.ARW'),
+      graph: supportedGraph,
+    })
+    const laterPromise = client.run({
+      file: new File(['raw'], 'second.ARW'),
+      graph: supportedGraph,
+    })
+
+    await expect(laterPromise).rejects.toThrow('failed to post start message')
+    await expect(earlierPromise).rejects.toThrow('failed to post start message')
     expect(worker.terminate).toHaveBeenCalledTimes(1)
   })
 
