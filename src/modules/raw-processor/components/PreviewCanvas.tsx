@@ -3,7 +3,7 @@
  */
 
 import { m } from 'motion/react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { clsxm } from '~/lib/cn'
 import type {
@@ -13,16 +13,15 @@ import type {
   RawUploadInput,
 } from '~/lib/gl/pipeline'
 import { RawProcessingPipeline } from '~/lib/gl/pipeline'
+import type { DecodedImage } from '~/lib/raw/decoder'
 import { Spring } from '~/lib/spring'
 
 export interface PreviewCanvasProps {
-  imageData: Float32Array | Uint16Array | null
-  imageLayout: RawUploadInput['layout'] | null
-  imageColorSpace: RawUploadInput['colorSpace'] | null
-  imageWidth: number
-  imageHeight: number
+  imageRef: React.RefObject<DecodedImage | null>
+  imageVersion: number
   params: ProcessingParams
-  lutData: LUTData | null
+  lutDataRef: React.RefObject<LUTData | null>
+  lutDataVersion: number
   embeddedPreviewUrl?: string | null
   displaySource?: 'embedded' | 'quick' | 'hq' | 'none'
   onStatsUpdate?: (stats: PipelineStats) => void
@@ -108,13 +107,11 @@ export function syncRawUploadInput({
 }
 
 export function PreviewCanvas({
-  imageData,
-  imageLayout,
-  imageColorSpace,
-  imageWidth,
-  imageHeight,
+  imageRef,
+  imageVersion,
   params,
-  lutData,
+  lutDataRef,
+  lutDataVersion,
   embeddedPreviewUrl,
   displaySource = 'none',
   onStatsUpdate,
@@ -128,17 +125,10 @@ export function PreviewCanvas({
   const [error, setError] = useState<string | null>(null)
   const showEmbeddedPreview =
     displaySource === 'embedded' && Boolean(embeddedPreviewUrl)
-  const uploadInput = useMemo(
-    () =>
-      createRawUploadInput({
-        data: imageData,
-        layout: imageLayout,
-        colorSpace: imageColorSpace,
-        width: imageWidth,
-        height: imageHeight,
-      }),
-    [imageData, imageLayout, imageColorSpace, imageWidth, imageHeight],
-  )
+  const image = imageRef.current
+  const imageWidth = image?.width ?? 0
+  const imageHeight = image?.height ?? 0
+  const hasImageData = Boolean(image?.data)
 
   // Initialize pipeline
   useEffect(() => {
@@ -236,7 +226,7 @@ export function PreviewCanvas({
         const pipeline = pipelineRef.current
         if (pipeline) {
           pipeline.resize(canvas.width, canvas.height)
-          if (isInitialized && uploadInput) {
+          if (isInitialized && imageRef.current) {
             const stats = pipeline.render()
             onStatsUpdate?.(stats)
           }
@@ -249,37 +239,62 @@ export function PreviewCanvas({
     return () => {
       resizeObserver.disconnect()
     }
-  }, [imageWidth, imageHeight, uploadInput, isInitialized, onStatsUpdate])
+  }, [
+    imageRef,
+    imageVersion,
+    imageWidth,
+    imageHeight,
+    isInitialized,
+    onStatsUpdate,
+  ])
 
   // Upload image data when it changes
   useEffect(() => {
     const pipeline = pipelineRef.current
     if (!pipeline || !isInitialized) return
+    const image = imageRef.current
+    const uploadInput = createRawUploadInput({
+      data: image?.data ?? null,
+      layout: image?.layout ?? null,
+      colorSpace: image?.colorSpace ?? null,
+      width: image?.width ?? 0,
+      height: image?.height ?? 0,
+    })
 
     syncRawUploadInput({
       pipeline,
-      imageData,
+      imageData: image?.data ?? null,
       uploadInput,
       setError,
     })
-  }, [imageData, uploadInput, isInitialized])
+  }, [imageRef, imageVersion, isInitialized])
 
   // Upload LUT when it changes
   useEffect(() => {
     const pipeline = pipelineRef.current
     if (!pipeline || !isInitialized) return
+    const lutData = lutDataRef.current
 
     if (lutData) {
       pipeline.uploadLUT(lutData)
     } else {
       pipeline.clearLUT()
     }
-  }, [lutData, isInitialized])
+  }, [lutDataRef, lutDataVersion, isInitialized])
 
   // Update params and render
   useEffect(() => {
     const pipeline = pipelineRef.current
-    if (!pipeline || !isInitialized || !uploadInput) return
+    if (!pipeline || !isInitialized) return
+    const image = imageRef.current
+    const uploadInput = createRawUploadInput({
+      data: image?.data ?? null,
+      layout: image?.layout ?? null,
+      colorSpace: image?.colorSpace ?? null,
+      width: image?.width ?? 0,
+      height: image?.height ?? 0,
+    })
+    if (!uploadInput) return
 
     pipeline.setParams({
       ...params,
@@ -287,16 +302,32 @@ export function PreviewCanvas({
     })
     const stats = pipeline.render()
     onStatsUpdate?.(stats)
-  }, [params, isInitialized, uploadInput, onStatsUpdate])
+  }, [params, imageRef, imageVersion, isInitialized, onStatsUpdate])
 
   // Re-render when LUT changes
   useEffect(() => {
     const pipeline = pipelineRef.current
-    if (!pipeline || !isInitialized || !uploadInput) return
+    if (!pipeline || !isInitialized) return
+    const image = imageRef.current
+    const uploadInput = createRawUploadInput({
+      data: image?.data ?? null,
+      layout: image?.layout ?? null,
+      colorSpace: image?.colorSpace ?? null,
+      width: image?.width ?? 0,
+      height: image?.height ?? 0,
+    })
+    if (!uploadInput) return
 
     const stats = pipeline.render()
     onStatsUpdate?.(stats)
-  }, [lutData, isInitialized, uploadInput, onStatsUpdate])
+  }, [
+    imageRef,
+    imageVersion,
+    lutDataRef,
+    lutDataVersion,
+    isInitialized,
+    onStatsUpdate,
+  ])
 
   return (
     <div
@@ -341,7 +372,7 @@ export function PreviewCanvas({
         </m.div>
       )}
 
-      {!imageData && !error && !showEmbeddedPreview && (
+      {!hasImageData && !error && !showEmbeddedPreview && (
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-text-tertiary text-sm">No image loaded</span>
         </div>

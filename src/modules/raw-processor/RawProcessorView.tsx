@@ -35,7 +35,10 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     status,
     error,
     progress,
-    lutData,
+    decodedImageRef,
+    decodedImageVersion,
+    lutDataRef,
+    lutDataVersion,
     stats,
     hasImage,
     canExport,
@@ -179,13 +182,11 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
               {/* Canvas */}
               <div className="flex-1 relative">
                 <PreviewCanvas
-                  imageData={loadedImage.decoded?.data || null}
-                  imageLayout={loadedImage.decoded?.layout || null}
-                  imageColorSpace={loadedImage.decoded?.colorSpace || null}
-                  imageWidth={loadedImage.decoded?.width || 0}
-                  imageHeight={loadedImage.decoded?.height || 0}
+                  imageRef={decodedImageRef}
+                  imageVersion={decodedImageVersion}
                   params={params}
-                  lutData={lutData}
+                  lutDataRef={lutDataRef}
+                  lutDataVersion={lutDataVersion}
                   embeddedPreviewUrl={embeddedPreviewUrl}
                   displaySource={displaySource}
                   onStatsUpdate={handleStatsUpdate}
@@ -211,12 +212,16 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
 
               {/* Bottom bar with metadata and stats */}
               <div className="px-4 py-3 border-t border-border flex items-center justify-between gap-4">
-                {loadedImage.decoded?.metadata && (
+                {loadedImage.metadata && (
                   <MetadataPanel
                     metadata={{
-                      ...loadedImage.decoded.metadata,
-                      width: loadedImage.decoded.width,
-                      height: loadedImage.decoded.height,
+                      ...loadedImage.metadata,
+                      width:
+                        decodedImageRef.current?.width ??
+                        loadedImage.metadata.width,
+                      height:
+                        decodedImageRef.current?.height ??
+                        loadedImage.metadata.height,
                     }}
                   />
                 )}

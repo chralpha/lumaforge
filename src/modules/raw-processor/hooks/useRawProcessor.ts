@@ -33,7 +33,7 @@ import {
   validateLUT,
 } from '~/lib/lut/cube-parser'
 import { applyLUTProfileSelection } from '~/lib/lut/profile-resolution'
-import type { DecodedImage } from '~/lib/raw/decoder'
+import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
 import { isSupportedRaw } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
 import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
@@ -138,12 +138,16 @@ function isFullResExportRunnable(input: {
 export interface UseRawProcessorReturn {
   // State
   params: ProcessingParams
-  loadedImage: { file: File | null; decoded: DecodedImage | null }
+  loadedImage: { file: File | null; metadata: ImageMetadata | null }
+  decodedImageRef: React.RefObject<DecodedImage | null>
+  decodedImageVersion: number
   status: ProcessingStatus
   error: string | null
   progress: number
   lut: ParsedLUT | null
   lutData: LUTData | null
+  lutDataRef: React.RefObject<LUTData | null>
+  lutDataVersion: number
   stats: PipelineStats | null
   hasImage: boolean
   canExport: boolean
@@ -210,7 +214,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const disposedRuntimeSessionsRef = useRef<WeakSet<RawRuntimeSession>>(
     new WeakSet(),
   )
-  const [lutData, setLutData] = useState<LUTData | null>(null)
+  const decodedImageRef = useRef<DecodedImage | null>(null)
+  const [decodedImageVersion, setDecodedImageVersion] = useState(0)
+  const lutDataRef = useRef<LUTData | null>(null)
+  const [lutDataVersion, setLutDataVersion] = useState(0)
   const hasImage = session ? deriveCanEdit(session) : false
   const canExport = session
     ? isFullResExportRunnable({
@@ -249,6 +256,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
       notify()
     })
+  }, [])
+  const setDecodedImageRef = useCallback((nextDecoded: DecodedImage | null) => {
+    decodedImageRef.current = nextDecoded
+    setDecodedImageVersion((version) => version + 1)
+  }, [])
+  const setLutDataRef = useCallback((nextLutData: LUTData | null) => {
+    lutDataRef.current = nextLutData
+    setLutDataVersion((version) => version + 1)
   }, [])
 
   const clearSessionEmbeddedPreviewUrl = useCallback(
@@ -346,6 +361,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       abortRuntimeWork()
       revokeCurrentEmbeddedPreviewUrl()
       if (activeSessionId) {
+        decodedImageRef.current = null
         setLoadedImage({ file: null, decoded: null, metadata: null })
         setStatus('idle')
         setError(null)
@@ -370,11 +386,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
   // Convert LUT to pipeline format when it changes
   useEffect(() => {
     if (lut) {
-      setLutData(toLUTData(lut))
+      setLutDataRef(toLUTData(lut))
     } else {
-      setLutData(null)
+      setLutDataRef(null)
     }
-  }, [lut])
+  }, [lut, setLutDataRef])
 
   // Load RAW file
   const loadFile = useCallback(
@@ -405,12 +421,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
         sessionRef.current = nextSession
         activeSessionIdRef.current = nextSession.id
+        setDecodedImageRef(null)
         setLoadedImage({ file, decoded: null, metadata: null })
         setStatus('loading')
         setProgress(0)
         setError(null)
         setLut(null)
-        setLutData(null)
+        setLutDataRef(null)
         setParams((prev) => ({
           ...prev,
           intensity: 0.7,
@@ -537,9 +554,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
           })
 
           if (decoded) {
+            setDecodedImageRef(decoded)
             setLoadedImage({
               file,
-              decoded,
+              decoded: null,
               metadata: decoded.metadata,
             })
             setStatus('ready')
@@ -866,9 +884,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
       replaceFile,
       revokeCurrentEmbeddedPreviewUrl,
       scheduleToast,
+      setDecodedImageRef,
       setError,
       setLoadedImage,
       setLut,
+      setLutDataRef,
       setParams,
       setProgress,
       setSession,
@@ -1021,7 +1041,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     (id: (typeof BUILTIN_PRESETS)[number]['id']) => {
       const style = buildBuiltinStyle(id)
       setLut(null)
-      setLutData(null)
+      setLutDataRef(null)
       setActiveStyle(style)
       setSession((prev) =>
         prev
@@ -1038,7 +1058,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         intensity: mapIntensityLevel(style.defaultIntensityLevel),
       }))
     },
-    [setActiveStyle, setLut, setParams, setSession],
+    [setActiveStyle, setLut, setLutDataRef, setParams, setSession],
   )
 
   const selectIntensityLevel = useCallback(
@@ -1084,7 +1104,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   // Clear LUT
   const clearLUT = useCallback(() => {
     setLut(null)
-    setLutData(null)
+    setLutDataRef(null)
     setActiveStyle(null)
     setSession((prev) =>
       prev
@@ -1100,7 +1120,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
       builtinPreset: null,
     }))
     scheduleToast(() => toast.info('LUT cleared'))
-  }, [scheduleToast, setActiveStyle, setLut, setParams, setSession])
+  }, [
+    scheduleToast,
+    setActiveStyle,
+    setLut,
+    setLutDataRef,
+    setParams,
+    setSession,
+  ])
 
   // Update params
   const handleSetParams = useCallback(
@@ -1155,7 +1182,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         styleKind: params.styleKind,
         intensity: params.intensity,
         builtinPreset: params.builtinPreset,
-        lut: lutData,
+        lut: lutDataRef.current,
       })
 
       if (!graph.supported) {
@@ -1333,7 +1360,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     },
     [
       loadedImage.file,
-      lutData,
       params.builtinPreset,
       params.intensity,
       params.styleKind,
@@ -1352,6 +1378,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     abortExportWork()
     abortRuntimeWork()
     revokeCurrentEmbeddedPreviewUrl()
+    setDecodedImageRef(null)
     setLoadedImage({ file: null, decoded: null, metadata: null })
     setStatus('idle')
     setError(null)
@@ -1364,6 +1391,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     resetSession,
     abortRuntimeWork,
     revokeCurrentEmbeddedPreviewUrl,
+    setDecodedImageRef,
     setError,
     setLoadedImage,
     setProgress,
@@ -1391,13 +1419,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
     params,
     loadedImage: {
       file: loadedImage.file,
-      decoded: loadedImage.decoded,
+      metadata: loadedImage.metadata,
     },
+    decodedImageRef,
+    decodedImageVersion,
     status,
     error,
     progress,
     lut,
-    lutData,
+    lutData: lutDataRef.current,
+    lutDataRef,
+    lutDataVersion,
     stats,
     hasImage,
     canExport,

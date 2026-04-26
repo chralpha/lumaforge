@@ -226,13 +226,11 @@ describe('preview canvas upload descriptor', () => {
 
     const { unmount } = render(
       createElement(PreviewCanvas, {
-        imageData: null,
-        imageLayout: null,
-        imageColorSpace: null,
-        imageWidth: 0,
-        imageHeight: 0,
+        imageRef: { current: null },
+        imageVersion: 0,
         params: defaultParams,
-        lutData: null,
+        lutDataRef: { current: null },
+        lutDataVersion: 0,
         onPipelineChange,
       }),
     )

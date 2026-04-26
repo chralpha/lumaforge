@@ -330,18 +330,16 @@ describe('controlsPanel', () => {
     await act(async () => {
       render(
         <PreviewCanvas
-          imageData={null}
-          imageLayout={null}
-          imageColorSpace={null}
-          imageWidth={0}
-          imageHeight={0}
+          imageRef={{ current: null }}
+          imageVersion={0}
           params={{
             intensity: 0.7,
             viewMode: 'processed',
             styleKind: 'none',
             builtinPreset: null,
           }}
-          lutData={null}
+          lutDataRef={{ current: null }}
+          lutDataVersion={0}
           embeddedPreviewUrl="blob:embedded-preview"
           displaySource="embedded"
         />,

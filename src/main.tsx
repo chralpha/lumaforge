@@ -8,7 +8,12 @@ import { router } from './router'
 
 const $container = document.querySelector('#root') as HTMLElement
 
-if (import.meta.env.DEV) {
+const enableReactScan =
+  import.meta.env.DEV &&
+  (new URLSearchParams(window.location.search).has('reactScan') ||
+    window.localStorage.getItem('lumaforge:react-scan') === '1')
+
+if (enableReactScan) {
   const { start } = await import('react-scan')
   start()
 }
