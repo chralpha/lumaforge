@@ -32,30 +32,51 @@ describe('createJpegRuntimeCore', () => {
     })
   })
 
-  it('fails closed on finish until a runtime exists', async () => {
+  it('returns an image/jpeg blob on finish', async () => {
     const core = createJpegRuntimeCore()
 
     await core.handleRequest({
       id: 'create-2',
       type: 'create',
-      payload: { width: 1, height: 1, quality: 0.9 },
+      payload: { width: 2, height: 2, quality: 0.9 },
     })
     await core.handleRequest({
       id: 'rows-2',
       type: 'rows',
       payload: {
-        rows: new Uint8Array([255, 255, 255]),
-        rowCount: 1,
+        rows: new Uint8Array([
+          255, 255, 255, 0, 0, 0,
+          255, 0, 0, 0, 255, 0,
+        ]),
+        rowCount: 2,
       },
     })
 
+    const response = await core.handleRequest({
+      id: 'finish-1',
+      type: 'finish',
+      payload: {},
+    })
+
+    expect(response.ok).toBe(true)
+    expect(response.type).toBe('finish')
+    if (response.type !== 'finish') {
+      throw new Error('expected finish response')
+    }
+    expect(response.payload.blob.type).toBe('image/jpeg')
+    expect(response.payload.blob.size).toBeGreaterThan(0)
+  })
+
+  it('rejects finish before create', async () => {
+    const core = createJpegRuntimeCore()
+
     await expect(
       core.handleRequest({
-        id: 'finish-1',
+        id: 'finish-before-create',
         type: 'finish',
         payload: {},
       }),
-    ).rejects.toThrow('JPEG_RUNTIME_UNAVAILABLE')
+    ).rejects.toThrow('JPEG_RUNTIME_NOT_CREATED')
   })
 
   it('rejects rows before create', async () => {
@@ -92,6 +113,37 @@ describe('createJpegRuntimeCore', () => {
         },
       }),
     ).rejects.toThrow('JPEG_INVALID_ROW_COUNT')
+  })
+
+  it('rejects row length mismatches before writing to the backend', async () => {
+    let wroteRows = false
+    const core = createJpegRuntimeCore(() => ({
+      async writeRows() {
+        wroteRows = true
+      },
+      async finish() {
+        return new Blob([], { type: 'image/jpeg' })
+      },
+      abort() {},
+    }))
+
+    await core.handleRequest({
+      id: 'create-length-mismatch',
+      type: 'create',
+      payload: { width: 2, height: 1, quality: 0.9 },
+    })
+
+    await expect(
+      core.handleRequest({
+        id: 'rows-length-mismatch',
+        type: 'rows',
+        payload: {
+          rows: new Uint8Array([255, 255, 255]),
+          rowCount: 1,
+        },
+      }),
+    ).rejects.toThrow('JPEG_ROW_LENGTH_MISMATCH')
+    expect(wroteRows).toBe(false)
   })
 
   it('rejects rows after abort', async () => {

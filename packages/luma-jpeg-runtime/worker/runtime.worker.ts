@@ -13,6 +13,16 @@ type JpegWorkerErrorResponse = {
   error: { message: string }
 }
 
+function errorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message
+  }
+  if (typeof error === 'string') {
+    return error
+  }
+  return 'JPEG_RUNTIME_WORKER_ERROR'
+}
+
 function failureResponse(
   request: JpegWorkerRequest,
   error: unknown,
@@ -22,8 +32,7 @@ function failureResponse(
     ok: false,
     type: request.type,
     error: {
-      message:
-        error instanceof Error ? error.message : 'JPEG_RUNTIME_UNAVAILABLE',
+      message: errorMessage(error),
     },
   }
 }
