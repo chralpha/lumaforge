@@ -573,7 +573,7 @@ describe('runFullResolutionJpegExport', () => {
         data: new Uint16Array(rect.width * rect.height).fill(255),
         blackLevel: 0,
         whiteLevel: 255,
-      }),
+      } satisfies LumaRawWindow),
     )
     const writer = {
       writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
@@ -676,7 +676,7 @@ describe('runFullResolutionJpegExport', () => {
           data: new Uint16Array(rect.width * rect.height).fill(128),
           blackLevel: 0,
           whiteLevel: 255,
-        }),
+        } satisfies LumaRawWindow),
       ),
       writerFactory: () => writer,
     })

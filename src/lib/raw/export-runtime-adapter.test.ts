@@ -19,7 +19,7 @@ function makeCapability(): LumaRawExportCapability {
     cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
     blackLevel: 0,
     whiteLevel: 255,
-    orientation: 1,
+    orientation: { code: 1, supported: true },
     reasons: [],
   }
 }
@@ -50,7 +50,9 @@ describe('createRawExportSession', () => {
     await expect(exportSession.probeExportCapability(signal)).resolves.toBe(
       capability,
     )
-    await expect(exportSession.readRawWindow(rect, signal)).resolves.toBe(window)
+    await expect(exportSession.readRawWindow(rect, signal)).resolves.toBe(
+      window,
+    )
     expect(session.probeExportCapability).toHaveBeenCalledWith(signal)
     expect(session.readRawWindow).toHaveBeenCalledWith(rect, signal)
   })

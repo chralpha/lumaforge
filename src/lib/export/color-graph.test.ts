@@ -29,7 +29,7 @@ describe('resolveExportColorGraph', () => {
     const graph = resolveExportColorGraph({
       styleKind: 'builtin',
       intensity: 0.7,
-      builtinPreset: 'golden',
+      builtinPreset: 'warm',
       lut: null,
     })
 

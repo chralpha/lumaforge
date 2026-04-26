@@ -1253,6 +1253,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         ) {
           return
         }
+        const completedCapability = activeSession.exportState.fullResCapability
 
         const url = URL.createObjectURL(result.blob)
         const link = document.createElement('a')
@@ -1272,8 +1273,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
                   status: 'done',
                   retryRecommended: false,
                   lastSuccessfulSize: {
-                    width: activeSession.exportState.fullResCapability.width,
-                    height: activeSession.exportState.fullResCapability.height,
+                    width: completedCapability.width,
+                    height: completedCapability.height,
                   },
                 },
               }

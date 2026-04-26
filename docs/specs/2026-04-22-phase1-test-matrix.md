@@ -104,22 +104,26 @@ After each fixture passes the checklist, record the observed `cameraBrand`, `cam
 
 ## High-resolution full-res export acceptance
 
-Status recorded 2026-04-26.
+Status refreshed 2026-04-26.
 
-| Fixture | Browser | Expected | Result | Evidence |
-| --- | --- | --- | --- | --- |
-| 61MP RAW fixture | Chrome desktop | Full-resolution JPEG export completes with exported dimensions equal to runtime output dimensions | BLOCKED | `pnpm dev --host 0.0.0.0` cannot start because native assets `luma_raw.js` and `luma_raw.wasm` are missing; `build:native` is blocked by missing `emcc` |
-| 61MP RAW fixture | Safari desktop | Full-resolution JPEG export completes or fails closed without renderer crash | BLOCKED | Desktop browser acceptance cannot run until native assets are built |
-| 100MP RAW fixture | Chrome desktop | Full-resolution JPEG export completes or fails closed without renderer crash | BLOCKED | Desktop browser acceptance cannot run until native assets are built |
-| Unsupported RAW-window source | Chrome desktop | Full-resolution export disabled with unsupported-source reason | BLOCKED | Manual Chrome acceptance blocked by missing native assets; automated raw-runtime/export readiness coverage passed in Task 15 |
-| Unknown LUT profile | Chrome desktop | Full-resolution export disabled until user selects LUT input | BLOCKED | Manual Chrome acceptance blocked by missing native assets; automated LUT readiness coverage passed in Task 15 |
+| Fixture                       | Browser        | Expected                                                                                          | Result                          | Evidence                                                                                                                   |
+| ----------------------------- | -------------- | ------------------------------------------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| 61MP RAW fixture              | Chrome desktop | Full-resolution JPEG export completes with exported dimensions equal to runtime output dimensions | PENDING MANUAL                  | Native asset and dev-server blockers are cleared; run the fixture export in desktop Chrome to record final pass/fail       |
+| 61MP RAW fixture              | Safari desktop | Full-resolution JPEG export completes or fails closed without renderer crash                      | PENDING MANUAL                  | Native asset blocker is cleared; Safari host acceptance still needs to run                                                 |
+| 100MP RAW fixture             | Chrome desktop | Full-resolution JPEG export completes or fails closed without renderer crash                      | PENDING MANUAL                  | Native asset and dev-server blockers are cleared; run the 100MP fixture export in desktop Chrome to record final pass/fail |
+| Unsupported RAW-window source | Chrome desktop | Full-resolution export disabled with unsupported-source reason                                    | AUTOMATED PASS / PENDING MANUAL | Automated raw-runtime/export readiness coverage passed; manual Chrome confirmation remains pending                         |
+| Unknown LUT profile           | Chrome desktop | Full-resolution export disabled until user selects LUT input                                      | AUTOMATED PASS / PENDING MANUAL | Automated LUT readiness coverage passed; manual Chrome confirmation remains pending                                        |
 
 Task 15 command evidence:
 
 - PASS: `pnpm test:run packages/luma-raw-runtime/src/runtime.test.ts packages/luma-raw-runtime/worker/native-adapter.test.ts packages/luma-raw-runtime/worker/runtime-core.test.ts packages/luma-jpeg-runtime/src/runtime.test.ts packages/luma-jpeg-runtime/worker/runtime-core.test.ts src/lib/export/color-graph.test.ts src/lib/export/strip-scheduler.test.ts src/lib/export/buffer-pool.test.ts src/lib/export/demosaic.test.ts src/lib/export/lut3d.test.ts src/lib/export/raw-window-transform.test.ts src/lib/export/jpeg/row-writer.test.ts src/lib/export/full-res-export.test.ts src/lib/export/full-res-export-client.test.ts src/lib/raw/runtime-adapter.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx` (`19` files, `208` tests).
-- BLOCKED: `pnpm --filter @lumaforge/luma-raw-runtime build:native` downloads LibRaw and lcms2, then fails with `emcc is required to build Luma RAW native dependencies.`
-- PASS: `pnpm --filter @lumaforge/luma-raw-runtime test` (`5` files, `80` tests).
+- PASS: `pnpm --filter @lumaforge/luma-raw-runtime build:native` after activating the cached Emscripten SDK; native artifacts `luma_raw.js`, `luma_raw.wasm`, and `provenance.json` were written and verified.
+- PASS: `pnpm --filter @lumaforge/luma-raw-runtime native:verify`.
+- PASS: `pnpm --filter @lumaforge/luma-raw-runtime fixtures:fetch-public` followed by `pnpm --filter @lumaforge/luma-raw-runtime test:native-smoke` (`1` test).
+- PASS: `pnpm --filter @lumaforge/luma-raw-runtime test` (`5` files, `81` tests).
 - PASS: `pnpm --filter @lumaforge/luma-jpeg-runtime test` (`2` files, `17` tests).
 - PASS: `pnpm --filter @lumaforge/luma-jpeg-runtime build`.
-- BLOCKED: `pnpm build` cannot run because native assets are missing after `build:native` is blocked.
-- BLOCKED: `pnpm dev --host 0.0.0.0` cannot start for the same missing native assets, so desktop browser acceptance remains pending.
+- PASS: `pnpm --filter @lumaforge/luma-raw-runtime build`.
+- PASS: `pnpm build`; existing route-builder undefined `loader`/`handle` and chunk-size warnings remain non-fatal.
+- PASS: `pnpm dev --host 0.0.0.0 --port 5173` started successfully, and Chromium DevTools loaded `/raw` with the upload shell visible.
+- PENDING: desktop Chrome/Safari full-resolution fixture export acceptance still needs to be run now that native assets and the dev server are unblocked.
