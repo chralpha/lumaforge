@@ -1,6 +1,7 @@
 import type {
   LumaEmbeddedPreview,
   LumaRawErrorCode,
+  LumaRawExportCapability,
   LumaRawFrame,
   LumaRawRuntime,
 } from '@lumaforge/luma-raw-runtime'
@@ -198,6 +199,11 @@ export async function openRawSessionWithLuma(
       } catch (error) {
         throw normalizeRawAdapterError(error, 'RAW_THUMBNAIL_UNAVAILABLE')
       }
+    },
+    async probeExportCapability(
+      signal?: AbortSignal,
+    ): Promise<LumaRawExportCapability> {
+      return session.probeExportCapability(signal)
     },
     async decodeQuickRaw(onProgress?: ProgressCallback, signal?: AbortSignal) {
       try {

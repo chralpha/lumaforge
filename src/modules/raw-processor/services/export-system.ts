@@ -1,3 +1,4 @@
+import type { ExportFidelity } from '~/lib/gl/export'
 import type { ExportColorGraphDescriptor } from '~/lib/export/color-graph'
 import {
   FullResolutionExportWorkerClient,
@@ -5,14 +6,24 @@ import {
 } from '~/lib/export/full-res-export-client'
 import type { FullResolutionExportProgress } from '~/lib/export/full-res-export'
 
+const PREFERRED_ROWS_BY_FIDELITY: Record<ExportFidelity, number> = {
+  safe: 256,
+  balanced: 512,
+  max: 1024,
+}
+
 export function buildExportFilename(inputName: string, styleName: string) {
   const basename = inputName.replace(/\.[^.]+$/, '')
   return `${basename}_${styleName}_fullres.jpg`
 }
 
+export function getPreferredRowsForFidelity(fidelity: ExportFidelity) {
+  return PREFERRED_ROWS_BY_FIDELITY[fidelity]
+}
+
 export function recommendRetryLevel(
-  level: 'safe' | 'balanced' | 'max',
-): 'safe' | 'balanced' | null {
+  level: ExportFidelity,
+): Exclude<ExportFidelity, 'max'> | null {
   if (level === 'max') return 'balanced'
   if (level === 'balanced') return 'safe'
   return null
@@ -64,6 +75,7 @@ export async function runFullResolutionExportJob({
   filename: string
   graph: ExportColorGraphDescriptor
   quality?: RunFullResolutionJpegExportInWorkerInput['quality']
+  preferredRows?: RunFullResolutionJpegExportInWorkerInput['preferredRows']
   onProgress?: (progress: FullResolutionExportProgress) => void
   signal?: AbortSignal
   clientFactory?: () => FullResolutionExportWorkerClient
@@ -75,6 +87,7 @@ export async function runFullResolutionExportJob({
       file,
       graph,
       quality,
+      preferredRows,
       onProgress,
       signal,
     })

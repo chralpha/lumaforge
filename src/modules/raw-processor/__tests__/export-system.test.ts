@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   buildExportFilename,
+  getPreferredRowsForFidelity,
   recommendRetryLevel,
   runFullResolutionExportJob,
 } from '../services/export-system'
@@ -22,6 +23,15 @@ describe('export-system', () => {
     expect(recommendRetryLevel('safe')).toBe(null)
   })
 
+  it('maps fidelity levels to monotonic preferred row budgets', () => {
+    expect(getPreferredRowsForFidelity('safe')).toBeLessThan(
+      getPreferredRowsForFidelity('balanced'),
+    )
+    expect(getPreferredRowsForFidelity('balanced')).toBeLessThan(
+      getPreferredRowsForFidelity('max'),
+    )
+  })
+
   it('runs the full-resolution export client and disposes it', async () => {
     const file = new File(['raw'], 'frame.ARW')
     const blob = new Blob(['jpeg'], { type: 'image/jpeg' })
@@ -40,6 +50,7 @@ describe('export-system', () => {
         steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
       },
       quality: 0.92,
+      preferredRows: 1024,
       signal: controller.signal,
       clientFactory: () =>
         ({
@@ -58,6 +69,7 @@ describe('export-system', () => {
         steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
       },
       onProgress: undefined,
+      preferredRows: 1024,
       quality: 0.92,
       signal: controller.signal,
     })

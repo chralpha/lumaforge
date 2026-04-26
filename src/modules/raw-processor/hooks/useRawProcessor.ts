@@ -52,6 +52,7 @@ import type {
 import { BUILTIN_PRESETS } from '../services/builtin-presets'
 import {
   buildExportFilename,
+  getPreferredRowsForFidelity,
   recommendRetryLevel,
   runFullResolutionExportJob,
 } from '../services/export-system'
@@ -1168,6 +1169,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
           file: loadedImage.file,
           filename,
           quality: quality === 'high' ? 0.92 : 0.86,
+          preferredRows: getPreferredRowsForFidelity(fidelity),
           graph,
           onProgress: (entry) => {
             if (

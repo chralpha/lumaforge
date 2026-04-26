@@ -1,5 +1,6 @@
 import type {
   LumaEmbeddedPreview,
+  LumaRawExportCapability,
   LumaRawRuntime,
 } from '@lumaforge/luma-raw-runtime'
 
@@ -15,6 +16,9 @@ export type RawRuntimeSession = {
   extractEmbeddedPreview: (
     signal?: AbortSignal,
   ) => Promise<LumaEmbeddedPreview | null>
+  probeExportCapability?: (
+    signal?: AbortSignal,
+  ) => Promise<LumaRawExportCapability>
   decodeQuickRaw: (
     onProgress?: ProgressCallback,
     signal?: AbortSignal,

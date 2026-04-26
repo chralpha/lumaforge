@@ -1,5 +1,6 @@
 import type {
   LumaRawFrame,
+  LumaRawExportCapability,
   LumaRawRuntime,
   LumaRawRuntimeInfo,
 } from '@lumaforge/luma-raw-runtime'
@@ -62,6 +63,21 @@ function makeLumaFrame(source: 'quick' | 'hq') {
   }
 }
 
+function makeCapability(): LumaRawExportCapability {
+  return {
+    supported: true,
+    width: 6240,
+    height: 4168,
+    rawWidth: 6240,
+    rawHeight: 4168,
+    cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+    blackLevel: 0,
+    whiteLevel: 16383,
+    orientation: 1,
+    reasons: [],
+  }
+}
+
 function makeLumaRuntime(
   dataOrOverrides: Uint16Array | Partial<LumaRawRuntime> = new Uint16Array([
     0, 32768, 65535,
@@ -114,6 +130,7 @@ function makeLumaRuntime(
         },
         timings: { total: 1 },
         extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+        probeExportCapability: vi.fn().mockResolvedValue(makeCapability()),
         decodeQuick: vi.fn().mockResolvedValue(makeLumaFrame('quick')),
         decodeHq: vi.fn().mockResolvedValue(makeLumaFrame('hq')),
         dispose: vi.fn(),
@@ -210,6 +227,7 @@ describe('raw runtime adapter', () => {
 
   it('opens one luma session and decodes stages without rereading the file', async () => {
     const extractEmbeddedPreview = vi.fn().mockResolvedValue(null)
+    const probeExportCapability = vi.fn().mockResolvedValue(makeCapability())
     const decodeQuick = vi.fn().mockResolvedValue(makeLumaFrame('quick'))
     const decodeHq = vi.fn().mockResolvedValue(makeLumaFrame('hq'))
     const dispose = vi.fn()
@@ -227,6 +245,7 @@ describe('raw runtime adapter', () => {
         },
         timings: { total: 1 },
         extractEmbeddedPreview,
+        probeExportCapability,
         decodeQuick,
         decodeHq,
         dispose,
@@ -240,6 +259,7 @@ describe('raw runtime adapter', () => {
     const file = new File(['raw'], 'sample.ARW')
     const session = await adapter.openSession(file, openSignal)
     await session.extractEmbeddedPreview(stageSignal)
+    await session.probeExportCapability?.(stageSignal)
     await session.decodeQuickRaw(undefined, stageSignal)
     await session.decodeHqRaw(undefined, stageSignal)
     session.dispose()
@@ -250,6 +270,7 @@ describe('raw runtime adapter', () => {
       openSignal,
     )
     expect(extractEmbeddedPreview).toHaveBeenCalledWith(stageSignal)
+    expect(probeExportCapability).toHaveBeenCalledWith(stageSignal)
     expect(decodeQuick).toHaveBeenCalledWith(
       expect.objectContaining({ maxOutputPixels: expect.any(Number) }),
       stageSignal,

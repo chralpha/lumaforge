@@ -574,6 +574,7 @@ describe('useRawProcessor embedded preview state', () => {
       expect.objectContaining({
         file: expect.any(File),
         filename: 'frame_neutral_fullres.jpg',
+        preferredRows: 1024,
         quality: 0.92,
       }),
     )
