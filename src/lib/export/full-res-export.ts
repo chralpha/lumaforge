@@ -369,6 +369,9 @@ function isLibRawProcessedExportCapability(
     capability.supported === true &&
     capability.strategy === 'libraw-processed-window' &&
     capability.windows.librawProcessed === true &&
+    color !== undefined &&
+    'cameraWhiteBalanceAppliedByRuntime' in color &&
+    'cameraMatrixAppliedByRuntime' in color &&
     color?.workingSpace === 'linear-prophoto-rgb' &&
     color.cameraWhiteBalanceAppliedByRuntime === true &&
     color.cameraMatrixAppliedByRuntime === true

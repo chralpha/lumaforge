@@ -777,7 +777,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 scheduleToast(() =>
                   toast.error('Preview unavailable', {
                     description:
-                      'Full-resolution export remains available when raw-window support is confirmed.',
+                      'Full-resolution export remains available when processed-window support is confirmed.',
                   }),
                 )
                 break
@@ -828,7 +828,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 scheduleToast(() =>
                   toast.error('HQ preview unavailable', {
                     description:
-                      'The first preview stays visible while full-resolution export continues to depend on raw-window support.',
+                      'The first preview stays visible while full-resolution export continues to depend on processed-window support.',
                   }),
                 )
                 break

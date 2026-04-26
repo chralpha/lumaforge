@@ -96,8 +96,14 @@ function getUnsupportedExportFactReasons(capability: LumaRawExportCapability) {
   }
 
   const color = capability.color
+  const hasRuntimeColorProcessingFacts =
+    color !== undefined &&
+    'cameraWhiteBalanceAppliedByRuntime' in color &&
+    'cameraMatrixAppliedByRuntime' in color
+
   if (
-    color?.workingSpace !== 'linear-prophoto-rgb' ||
+    !hasRuntimeColorProcessingFacts ||
+    color.workingSpace !== 'linear-prophoto-rgb' ||
     color.cameraWhiteBalanceAppliedByRuntime !== true ||
     color.cameraMatrixAppliedByRuntime !== true
   ) {

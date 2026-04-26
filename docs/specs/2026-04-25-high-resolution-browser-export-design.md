@@ -24,9 +24,10 @@ Use a runtime-first strip exporter with three clear ownership boundaries.
 
 - RAW session lifetime.
 - Metadata, dimensions, orientation, CFA pattern, black level, white level, camera white balance, and camera color data.
-- RAW mosaic/window reads.
+- LibRaw processed-window reads for the current primary full-resolution RAW input strategy.
+- RAW mosaic/window reads as transitional diagnostics and legacy support, not the primary export input contract.
 - Low-level demosaic helpers when the helper depends on runtime-native RAW facts.
-- Capability reporting for source formats that can be exported through the raw-window path.
+- Capability reporting for source formats that can be exported through the `libraw-processed-window` path.
 
 The export worker owns product export:
 
@@ -57,9 +58,8 @@ File
 -> raw runtime open session
 -> metadata + export capability probe
 -> strip scheduler
--> read RAW mosaic window + halo
--> demosaic output region
--> scene-linear working RGB
+-> read LibRaw processed RGB16 window
+-> normalize to scene-linear working RGB
 -> LUT input gamut + transfer/log
 -> 3D LUT
 -> output sRGB transform
@@ -77,18 +77,17 @@ For each strip:
 
 ```text
 plan output rect
--> expand input rect by demosaic halo
--> runtime.readRawWindow(input rect)
--> normalize black/white levels
--> apply camera white balance
--> demosaic into reusable linear buffer
--> apply fused scene-referred color graph
+-> expand output rect by processed-window halo
+-> runtime.readProcessedWindow(output rect + halo)
+-> validate LibRaw RGB16 linear ProPhoto window facts
+-> normalize processed RGB16 samples into reusable linear buffer
+-> apply shared LUT graph
 -> quantize to RGB8 sRGB
 -> encoder.writeRows()
 -> release buffers to pool
 ```
 
-The first phase only includes local or per-pixel operations. Demosaic may read from the halo. Color transforms, transfer functions, LUT interpolation, and sRGB output must depend only on the current pixel. This keeps strip seams testable and prevents hidden neighborhood dependencies.
+The current primary path asks LibRaw for processed RGB16 windows and keeps the shared LUT graph, sRGB conversion, and JPEG row writing in the export worker. Raw mosaic windows are transitional diagnostics and legacy support unless they can reproduce preview-equivalent scene-linear RGB without guessing. Color transforms, transfer functions, LUT interpolation, and sRGB output must depend only on the current pixel. This keeps strip seams testable and prevents hidden neighborhood dependencies.
 
 ## Color science
 
@@ -124,7 +123,7 @@ Preview and export must use the same color graph descriptor. The descriptor is p
 
 Preview is interactive, not authoritative. It may continue to use embedded preview, quick decode, HQ preview, WebGL2 rendering, and lower-resolution textures. It may skip or cap HQ preview on constrained devices.
 
-Full-resolution export is independent of HQ preview readiness. If quick or HQ preview fails, the user may still attempt full-resolution export when the runtime reports raw-window export support for the source file and the selected color pipeline is exportable.
+Full-resolution export is independent of HQ preview readiness. If quick or HQ preview fails, the user may still attempt full-resolution export when the runtime reports `libraw-processed-window` export support for the source file and the selected color pipeline is exportable.
 
 Preview may have small numerical differences from export because of downsampling, GPU precision, or texture formats. It must not differ in profile choice, transform order, LUT role, or output intent.
 
@@ -157,8 +156,8 @@ The first browser-local JPEG target may retain encoded JPEG chunks as `Blob` par
 
 Full-resolution export is enabled only when all required capabilities are available:
 
-- The RAW source supports raw-window reads.
-- The CFA and demosaic path are supported.
+- The RAW source supports LibRaw processed-window reads.
+- LibRaw can apply the required crop, orientation, demosaic, white balance, and camera-to-ProPhoto processing for bounded windows.
 - Orientation and output dimensions are known.
 - The selected LUT/profile pipeline is renderable by the CPU/WASM export graph.
 - A JPEG encoder path is available.
@@ -167,7 +166,7 @@ Failures are grouped into three product-visible classes.
 
 `unsupported-source`:
 
-The RAW format, compression mode, CFA type, orientation handling, or raw-window access is not supported.
+The RAW format, compression mode, LibRaw processed-window path, or required orientation/crop handling is not supported.
 
 `unsupported-pipeline`:
 
@@ -187,19 +186,16 @@ The expected shape is:
 
 ```text
 session.probeExportCapabilities()
-session.readRawWindow(rect)
+session.readProcessedWindow(rect)
 session.readMetadata()
 session.close()
 ```
 
-The returned raw window must carry enough facts for the export worker to avoid guessing:
+The returned processed window must carry enough facts for the export worker to avoid guessing:
 
 - source rect and output rect mapping
-- CFA pattern and phase for the rect
-- bit depth or normalized sample range
-- black and white levels
-- camera white balance
-- camera color data
+- RGB16 bit depth and normalized sample range
+- linear ProPhoto color space confirmation
 - orientation and visible crop facts
 
 Product color, LUT handling, JPEG quality, retry policy, and output-stream decisions stay outside the raw runtime.
@@ -208,12 +204,9 @@ Product color, LUT handling, JPEG quality, retry policy, and output-stream decis
 
 The first production target is not satisfied by a placeholder JPEG runtime or by treating raw Bayer samples as if they were already scene-linear working RGB. A high-resolution export implementation is complete only when the runtime and export worker can either produce the same scene-linear working input as preview or fail closed before the export action is enabled.
 
-The raw-window contract must provide one of these two paths:
+The current primary RAW input strategy is `libraw-processed-window`: processed scene-linear working RGB windows with visible-output coordinates already applied. Raw mosaic windows are transitional diagnostics and legacy support unless they can reproduce preview-equivalent scene-linear RGB without guessing.
 
-- processed scene-linear working RGB windows with visible-output coordinates already applied
-- raw mosaic windows plus all facts required to reproduce preview-equivalent scene-linear RGB in the export worker
-
-For the raw mosaic path, capability probing must report `unsupported` unless these facts are present:
+For any retained raw mosaic path, capability probing must report `unsupported` unless these facts are present:
 
 - visible crop origin and size, including raw-space to visible-output mapping
 - orientation handling status for the exported output frame

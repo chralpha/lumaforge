@@ -2,9 +2,9 @@
  * Controls panel for style-first RAW editing.
  */
 
+import { useAtomValue } from 'jotai'
 import { m } from 'motion/react'
 import { useId, useMemo, useState } from 'react'
-import { useAtomValue } from 'jotai'
 
 import { Button } from '~/components/ui/button'
 import { Divider } from '~/components/ui/divider'
@@ -458,9 +458,9 @@ export function ControlsPanel({
           </Button>
           <p className="text-xs text-text-tertiary">
             {canExport
-              ? 'Exports from the raw-window path, not the visible preview.'
-              : resolvedExportDisabledReason ??
-                'Full-resolution export stays locked until raw-window support is confirmed.'}
+              ? 'Exports from the LibRaw processed-window path, not the visible preview.'
+              : (resolvedExportDisabledReason ??
+                'Full-resolution export stays locked until processed-window support is confirmed.')}
           </p>
         </section>
       </div>
