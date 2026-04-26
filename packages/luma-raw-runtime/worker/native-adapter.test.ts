@@ -207,7 +207,7 @@ describe('native-adapter', () => {
     expect(capability?.color?.cameraToWorkingRgb).toHaveLength(9)
   })
 
-  it('fails closed when export color facts are missing or orientation is unsupported', () => {
+  it('fails closed when export color facts are missing, unusable, or orientation is unsupported', () => {
     const baseCapability = {
       supported: true,
       width: 4000,
@@ -238,14 +238,56 @@ describe('native-adapter', () => {
         orientation: { code: 6, supported: false },
       },
     })
+    const unusableTransform = createProcessor({
+      exportCapability: {
+        ...baseCapability,
+        color: {
+          whiteBalance: [2.1, 1, 1.4, 1],
+          cameraToWorkingRgb: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+          workingSpace: 'linear-prophoto-rgb',
+        },
+      },
+    })
 
     expect(missingColor.probeExportCapability?.()).toMatchObject({
+      supported: false,
+      reasons: expect.arrayContaining(['missing-color-transform']),
+    })
+    expect(unusableTransform.probeExportCapability?.()).toMatchObject({
       supported: false,
       reasons: expect.arrayContaining(['missing-color-transform']),
     })
     expect(rotatedUnsupported.probeExportCapability?.()).toMatchObject({
       supported: false,
       reasons: expect.arrayContaining(['unsupported-orientation']),
+    })
+  })
+
+  it('fails closed when visible crop exceeds raw bounds', () => {
+    const processor = createProcessor({
+      exportCapability: {
+        supported: true,
+        width: 4000,
+        height: 3000,
+        rawWidth: 4048,
+        rawHeight: 3040,
+        visibleCrop: { x: 80, y: 20, width: 4000, height: 3000 },
+        cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+        blackLevel: 512,
+        whiteLevel: 16383,
+        orientation: { code: 1, supported: true },
+        color: {
+          whiteBalance: [2.1, 1, 1.4, 1],
+          cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+          workingSpace: 'linear-prophoto-rgb',
+        },
+        reasons: [],
+      },
+    })
+
+    expect(processor.probeExportCapability?.()).toMatchObject({
+      supported: false,
+      reasons: expect.arrayContaining(['missing-visible-crop']),
     })
   })
 

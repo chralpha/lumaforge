@@ -366,7 +366,11 @@ function normalizeUnsupportedReasons(
   return [...new Set(reasons)]
 }
 
-function normalizeVisibleCrop(value: unknown): LumaRawVisibleCrop | undefined {
+function normalizeVisibleCrop(
+  value: unknown,
+  rawWidth: number,
+  rawHeight: number,
+): LumaRawVisibleCrop | undefined {
   const raw = asRecord(value)
   const x = asNonNegativeIntegerOrUndefined(raw.x)
   const y = asNonNegativeIntegerOrUndefined(raw.y)
@@ -378,6 +382,14 @@ function normalizeVisibleCrop(value: unknown): LumaRawVisibleCrop | undefined {
     y === undefined ||
     width === undefined ||
     height === undefined
+  ) {
+    return undefined
+  }
+  if (
+    rawWidth <= 0 ||
+    rawHeight <= 0 ||
+    x + width > rawWidth ||
+    y + height > rawHeight
   ) {
     return undefined
   }
@@ -423,7 +435,9 @@ function normalizeExportColorFacts(
   if (
     !whiteBalance ||
     !cameraToWorkingRgb ||
-    raw.workingSpace !== 'linear-prophoto-rgb'
+    raw.workingSpace !== 'linear-prophoto-rgb' ||
+    whiteBalance.some((value) => value <= 0) ||
+    cameraToWorkingRgb.every((value) => value === 0)
   ) {
     return undefined
   }
@@ -445,13 +459,15 @@ function normalizeExportColorFacts(
   }
 }
 
-function normalizeExportCapability(value: unknown): LumaRawExportCapability {
+export function normalizeExportCapability(
+  value: unknown,
+): LumaRawExportCapability {
   const raw = asRecord(value)
   const width = asNonNegativeIntegerOrUndefined(raw.width) ?? 0
   const height = asNonNegativeIntegerOrUndefined(raw.height) ?? 0
   const rawWidth = asNonNegativeIntegerOrUndefined(raw.rawWidth) ?? 0
   const rawHeight = asNonNegativeIntegerOrUndefined(raw.rawHeight) ?? 0
-  const visibleCrop = normalizeVisibleCrop(raw.visibleCrop)
+  const visibleCrop = normalizeVisibleCrop(raw.visibleCrop, rawWidth, rawHeight)
   const cfa = normalizeCfa(raw.cfa)
   const blackLevel = asFiniteNumberOrUndefined(raw.blackLevel)
   const whiteLevel = asFiniteNumberOrUndefined(raw.whiteLevel)

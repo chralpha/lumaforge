@@ -734,10 +734,16 @@ describe('runtime-core', () => {
               height: 3000,
               rawWidth: 4024,
               rawHeight: 3024,
+              visibleCrop: { x: 12, y: 12, width: 4000, height: 3000 },
               cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
               blackLevel: 512,
               whiteLevel: 16383,
-              orientation: 1,
+              orientation: { code: 1, supported: true },
+              color: {
+                whiteBalance: [2, 1, 1.5, 1],
+                cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                workingSpace: 'linear-prophoto-rgb',
+              },
               reasons: [],
             }
           },
@@ -787,6 +793,13 @@ describe('runtime-core', () => {
         supported: true,
         width: 4000,
         rawWidth: 4024,
+        visibleCrop: { x: 12, y: 12, width: 4000, height: 3000 },
+        orientation: { code: 1, supported: true },
+        color: {
+          whiteBalance: expect.any(Array),
+          cameraToWorkingRgb: expect.any(Array),
+          workingSpace: 'linear-prophoto-rgb',
+        },
         cfa: { pattern: 'rggb' },
       },
     })
@@ -798,6 +811,61 @@ describe('runtime-core', () => {
         cfa: { pattern: 'rggb' },
         blackLevel: 512,
         whiteLevel: 16383,
+      },
+    })
+  })
+
+  it('normalizes session export capability payloads before responding', async () => {
+    const core = createRuntimeCore({
+      createProcessor() {
+        return {
+          ...makeNativeFactory().createProcessor(),
+          probeExportCapability() {
+            return {
+              supported: true,
+              width: 4000,
+              height: 3000,
+              rawWidth: 4024,
+              rawHeight: 3024,
+              cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+              blackLevel: 512,
+              whiteLevel: 16383,
+              orientation: 1,
+              reasons: [],
+            }
+          },
+        }
+      },
+    })
+
+    const opened = await core.handleRequest({
+      id: 'job-export-normalized-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+
+    const capability = await core.handleRequest({
+      id: 'job-export-normalized-capability',
+      type: 'probeExportCapabilityFromSession',
+      payload: { sessionId: opened.payload.sessionId },
+    })
+
+    expect(capability).toMatchObject({
+      ok: true,
+      type: 'probeExportCapabilityFromSession',
+      payload: {
+        supported: false,
+        orientation: { code: 1, supported: true },
+        reasons: expect.arrayContaining([
+          'missing-visible-crop',
+          'missing-color-transform',
+        ]),
       },
     })
   })
