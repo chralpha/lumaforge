@@ -72,7 +72,7 @@ describe('isRawExportSession', () => {
       decodeQuickRaw: vi.fn(),
       decodeHqRaw: vi.fn(),
       dispose: vi.fn(),
-    } as RawRuntimeSession
+    }
 
     expect(isRawExportSession(session)).toBe(false)
   })

@@ -5,8 +5,6 @@ import type {
   LumaRawWindowRect,
 } from '@lumaforge/luma-raw-runtime'
 
-import type { RawRuntimeSession } from './runtime-adapter'
-
 export type RawExportSession = {
   probeExportCapability: (
     signal?: AbortSignal,
