@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { expandRectWithHalo, planExportStrips } from './strip-scheduler'
+import {
+  expandRectWithHalo,
+  planExportStrips,
+  reduceStripRows,
+} from './strip-scheduler'
 
 describe('planExportStrips', () => {
   it('plans ordered output strips and expanded input windows', () => {
@@ -29,5 +33,13 @@ describe('expandRectWithHalo', () => {
         2,
       ),
     ).toEqual({ x: 0, y: 2, width: 10, height: 7 })
+  })
+})
+
+describe('reduceStripRows', () => {
+  it('shrinks monotonically until the minimum strip height', () => {
+    expect(reduceStripRows(8, 2)).toBe(4)
+    expect(reduceStripRows(3, 2)).toBe(2)
+    expect(reduceStripRows(2, 2)).toBe(2)
   })
 })

@@ -26,4 +26,14 @@ describe('sampleLutTrilinear', () => {
 
     expect(sampleLutTrilinear(lut, 2, 0.5, 0.5, 0.5)).toEqual([0.5, 0.5, 0.5])
   })
+
+  it('preserves axis order for asymmetric samples', () => {
+    const lut = createIdentityLut(2)
+
+    expect(sampleLutTrilinear(lut, 2, 0.25, 0.5, 0.75)).toEqual([
+      0.25,
+      0.5,
+      0.75,
+    ])
+  })
 })

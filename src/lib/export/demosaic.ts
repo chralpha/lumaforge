@@ -81,6 +81,15 @@ function isInside(rect: LumaRawWindowRect, x: number, y: number) {
   )
 }
 
+function containsRect(bounds: LumaRawWindowRect, rect: LumaRawWindowRect) {
+  return (
+    rect.x >= bounds.x &&
+    rect.y >= bounds.y &&
+    rect.x + rect.width <= bounds.x + bounds.width &&
+    rect.y + rect.height <= bounds.y + bounds.height
+  )
+}
+
 function resolveChannel(
   window: LumaRawWindow,
   x: number,
@@ -128,6 +137,10 @@ function resolveChannel(
 export function demosaicBilinearRgb(
   input: LumaRawWindow & { output: LumaRawWindowRect },
 ): LinearRgbTile {
+  if (!containsRect(input.rect, input.output)) {
+    throw new Error('Output rect must be fully contained within the raw window rect.')
+  }
+
   const data = new Float32Array(input.output.width * input.output.height * 3)
   let index = 0
 

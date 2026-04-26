@@ -16,13 +16,21 @@ describe('TypedBufferPool', () => {
 
   it('rejects releases above capacity', () => {
     const pool = new TypedBufferPool(() => new Uint16Array(2), 1)
-    const first = new Uint16Array(2)
-    const second = new Uint16Array(2)
+    const first = pool.acquire()
+    const second = pool.acquire()
 
     pool.release(first)
     pool.release(second)
 
     expect(pool.size).toBe(1)
     expect(pool.acquire()).toBe(first)
+  })
+
+  it('rejects buffers not acquired from the pool', () => {
+    const pool = new TypedBufferPool(() => new Uint16Array(2), 1)
+
+    expect(() => pool.release(new Uint16Array(2))).toThrow(
+      'Cannot release a buffer that was not acquired from this pool.',
+    )
   })
 })

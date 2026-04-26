@@ -46,5 +46,12 @@ export function planExportStrips(input: {
 }
 
 export function reduceStripRows(currentRows: number, minRows: number) {
-  return Math.max(minRows, Math.floor(currentRows / 2))
+  if (currentRows <= minRows) {
+    return minRows
+  }
+
+  return Math.max(
+    minRows,
+    Math.min(currentRows - 1, Math.floor(currentRows / 2)),
+  )
 }
