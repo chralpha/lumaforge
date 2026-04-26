@@ -2,12 +2,14 @@ import type {
   LumaEmbeddedPreview,
   LumaRawErrorCode,
   LumaRawExportCapability,
+  LumaRawExportUnsupportedReason,
   LumaRawFrame,
   LumaRawRuntime,
 } from '@lumaforge/luma-raw-runtime'
 
 import type { DecodedImage, ImageMetadata, ProgressCallback } from './decoder'
 import { QUICK_PREVIEW_MAX_PIXELS } from './decoder'
+import { JPEG_RUNTIME_UNAVAILABLE_MESSAGE } from '~/lib/export/jpeg/wasm-row-sink'
 import type { RawRuntimeSession } from './runtime-adapter'
 import type { JpegRuntimeAvailabilityProbe } from './runtime-adapter'
 
@@ -80,11 +82,13 @@ function formatLumaShutter(shutter?: number) {
   return typeof shutter === 'number' ? `${shutter}s` : undefined
 }
 
-function getUnsupportedExportFactReasons(capability: LumaRawExportCapability) {
-  const reasons: string[] = []
+function getUnsupportedExportFactReasons(
+  capability: LumaRawExportCapability,
+) {
+  const reasons: LumaRawExportUnsupportedReason[] = []
 
   if (!capability.visibleCrop) {
-    reasons.push('missing-raw-window-geometry')
+    reasons.push('missing-visible-crop')
   }
 
   const orientation = capability.orientation
@@ -102,16 +106,28 @@ function getUnsupportedExportFactReasons(capability: LumaRawExportCapability) {
   return reasons
 }
 
-async function isJpegRuntimeAvailable(probe?: JpegRuntimeAvailabilityProbe) {
+function createJpegRuntimeUnavailableProbeError(cause?: unknown) {
+  return new Error(JPEG_RUNTIME_UNAVAILABLE_MESSAGE, { cause })
+}
+
+async function assertJpegRuntimeAvailable(
+  probe?: JpegRuntimeAvailabilityProbe,
+) {
   if (!probe) {
-    return true
+    return
   }
 
   try {
-    return await probe()
-  } catch {
-    return false
+    if (await probe()) {
+      return
+    }
+  } catch (error) {
+    throw createJpegRuntimeUnavailableProbeError(error)
   }
+
+  throw createJpegRuntimeUnavailableProbeError(
+    new Error('JPEG runtime readiness probe returned unavailable.'),
+  )
 }
 
 async function resolveExportCapability(
@@ -131,16 +147,7 @@ async function resolveExportCapability(
     }
   }
 
-  const jpegRuntimeAvailable = await isJpegRuntimeAvailable(
-    jpegRuntimeAvailabilityProbe,
-  )
-  if (!jpegRuntimeAvailable) {
-    return {
-      ...rawCapability,
-      supported: false,
-      reasons: ['jpeg-runtime-unavailable'],
-    }
-  }
+  await assertJpegRuntimeAvailable(jpegRuntimeAvailabilityProbe)
 
   return rawCapability
 }

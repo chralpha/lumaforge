@@ -5,27 +5,33 @@ import {
 
 import type { JpegRowSink } from './row-writer'
 
-const JPEG_RUNTIME_UNAVAILABLE_MESSAGE =
+export const JPEG_RUNTIME_UNAVAILABLE_MESSAGE =
   'Full-resolution JPEG export is not available in this browser build.'
 
 function createJpegRuntimeUnavailableError(error: unknown) {
   return new Error(JPEG_RUNTIME_UNAVAILABLE_MESSAGE, { cause: error })
 }
 
-export function isWasmJpegRuntimeAvailable(
+export async function isWasmJpegRuntimeAvailable(
   runtimeFactory: () => LumaJpegRuntime = createLumaJpegRuntime,
 ) {
   let runtime: LumaJpegRuntime | null = null
   let encoder: ReturnType<LumaJpegRuntime['createEncoder']> | null = null
+  let finished = false
 
   try {
     runtime = runtimeFactory()
     encoder = runtime.createEncoder({ width: 1, height: 1, quality: 0.92 })
-    encoder.abort()
+    await encoder.writeRows(new Uint8Array([0, 0, 0]), 1)
+    await encoder.finish()
+    finished = true
     return true
   } catch {
     return false
   } finally {
+    if (encoder && !finished) {
+      encoder.abort()
+    }
     runtime?.dispose()
   }
 }
@@ -94,7 +100,7 @@ export function createWasmJpegRowSink(
             } catch {
               // Preserve the original encoder failure.
             }
-            throw error
+            throw createJpegRuntimeUnavailableError(error)
           }
         },
         async close() {
@@ -111,7 +117,7 @@ export function createWasmJpegRowSink(
             } catch {
               // Preserve the original finish failure.
             }
-            throw error
+            throw createJpegRuntimeUnavailableError(error)
           }
         },
         async abort() {

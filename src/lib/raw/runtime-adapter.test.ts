@@ -6,6 +6,7 @@ import type {
 } from '@lumaforge/luma-raw-runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { JPEG_RUNTIME_UNAVAILABLE_MESSAGE } from '~/lib/export/jpeg/wasm-row-sink'
 import { disposeLumaRawRuntime } from './luma-runtime-adapter'
 import { createRawRuntimeAdapter } from './runtime-adapter'
 
@@ -313,9 +314,8 @@ describe('raw runtime adapter', () => {
 
     const session = await adapter.openSession(new File(['raw'], 'sample.ARW'))
 
-    await expect(session.probeExportCapability?.()).resolves.toMatchObject({
-      supported: false,
-      reasons: ['jpeg-runtime-unavailable'],
+    await expect(session.probeExportCapability?.()).rejects.toMatchObject({
+      message: JPEG_RUNTIME_UNAVAILABLE_MESSAGE,
     })
     expect(probeExportCapability).toHaveBeenCalledTimes(1)
     expect(jpegRuntimeAvailabilityProbe).toHaveBeenCalledTimes(1)

@@ -479,11 +479,7 @@ describe('useRawProcessor embedded preview state', () => {
     expect(result.current.canExport).toBe(false)
   })
 
-  it.each([
-    'jpeg-runtime-unavailable',
-    'missing-color-transform',
-    'unsupported-orientation',
-  ])(
+  it.each(['missing-color-transform', 'unsupported-orientation'])(
     'keeps full-resolution export disabled when capability reports %s',
     async (reason) => {
       rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
@@ -522,6 +518,46 @@ describe('useRawProcessor embedded preview state', () => {
       )
     },
   )
+
+  it('keeps full-resolution export disabled with product copy when JPEG readiness fails', async () => {
+    const reason =
+      'Full-resolution JPEG export is not available in this browser build.'
+
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(
+      createDecodedImage('hq'),
+    )
+    rawRuntimeAdapterMock.probeExportCapability.mockRejectedValue(
+      new Error(reason),
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+
+    expect(result.current.canExport).toBe(false)
+    expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({
+      fullResCapability: {
+        status: 'unsupported',
+        reason,
+      },
+    })
+
+    await act(async () => {
+      await result.current.exportImage({ quality: 'high', fidelity: 'max' })
+    })
+
+    expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
+    expect(toastMock.error).toHaveBeenCalledWith(
+      'Full-resolution export is not ready',
+      { description: reason },
+    )
+  })
 
   it('disables full-resolution export for unsupported builtin styles after the source file is loaded', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())

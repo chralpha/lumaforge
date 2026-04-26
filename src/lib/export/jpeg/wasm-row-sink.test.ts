@@ -1,4 +1,8 @@
-import { createWasmJpegRowSink } from './wasm-row-sink'
+import {
+  createWasmJpegRowSink,
+  isWasmJpegRuntimeAvailable,
+  JPEG_RUNTIME_UNAVAILABLE_MESSAGE,
+} from './wasm-row-sink'
 
 describe('createWasmJpegRowSink', () => {
   it('forwards row chunks to the JPEG runtime', async () => {
@@ -69,7 +73,7 @@ describe('createWasmJpegRowSink', () => {
     const second = sink.createSession({ width: 1, height: 1, quality: 0.9 })
 
     await expect(first.writeRows(new Uint8Array([0, 0, 0]), 1)).rejects.toThrow(
-      'JPEG_RUNTIME_UNAVAILABLE',
+      JPEG_RUNTIME_UNAVAILABLE_MESSAGE,
     )
     await second.abort()
 
@@ -91,7 +95,102 @@ describe('createWasmJpegRowSink', () => {
 
     expect(() =>
       sink.createSession({ width: 1, height: 1, quality: 0.9 }),
-    ).toThrow('JPEG_RUNTIME_UNAVAILABLE')
+    ).toThrow(JPEG_RUNTIME_UNAVAILABLE_MESSAGE)
     expect(calls).toEqual(['createEncoder', 'dispose'])
+  })
+
+  it('wraps async row and finish failures with the product message', async () => {
+    const rowCause = new Error('JPEG_RUNTIME_ROWS_FAILED')
+    const finishCause = new Error('JPEG_RUNTIME_FINISH_FAILED')
+    const rowSink = createWasmJpegRowSink(() => ({
+      createEncoder() {
+        return {
+          async writeRows() {
+            throw rowCause
+          },
+          async finish() {
+            return new Blob()
+          },
+          abort: vi.fn(),
+        }
+      },
+      dispose: vi.fn(),
+    }))
+    const finishSink = createWasmJpegRowSink(() => ({
+      createEncoder() {
+        return {
+          async writeRows() {},
+          async finish() {
+            throw finishCause
+          },
+          abort: vi.fn(),
+        }
+      },
+      dispose: vi.fn(),
+    }))
+
+    const rowSession = rowSink.createSession({
+      width: 1,
+      height: 1,
+      quality: 0.9,
+    })
+    const finishSession = finishSink.createSession({
+      width: 1,
+      height: 1,
+      quality: 0.9,
+    })
+    let rowError: unknown
+    let finishError: unknown
+
+    try {
+      await rowSession.writeRows(new Uint8Array([0, 0, 0]), 1)
+    } catch (error) {
+      rowError = error
+    }
+    await finishSession.writeRows(new Uint8Array([0, 0, 0]), 1)
+    try {
+      await finishSession.close()
+    } catch (error) {
+      finishError = error
+    }
+
+    expect(rowError).toMatchObject({
+      message: JPEG_RUNTIME_UNAVAILABLE_MESSAGE,
+    })
+    expect(rowError).toHaveProperty('cause', rowCause)
+    expect(finishError).toMatchObject({
+      message: JPEG_RUNTIME_UNAVAILABLE_MESSAGE,
+    })
+    expect(finishError).toHaveProperty('cause', finishCause)
+  })
+
+  it('awaits a minimal encode before reporting the WASM JPEG runtime available', async () => {
+    const calls: string[] = []
+
+    await expect(
+      isWasmJpegRuntimeAvailable(() => ({
+        createEncoder() {
+          calls.push('create')
+          return {
+            async writeRows() {
+              calls.push('rows')
+              throw new Error('async create failed')
+            },
+            async finish() {
+              calls.push('finish')
+              return new Blob()
+            },
+            abort() {
+              calls.push('abort')
+            },
+          }
+        },
+        dispose() {
+          calls.push('dispose')
+        },
+      })),
+    ).resolves.toBe(false)
+
+    expect(calls).toEqual(['create', 'rows', 'abort', 'dispose'])
   })
 })
