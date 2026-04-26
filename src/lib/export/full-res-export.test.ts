@@ -1,12 +1,11 @@
 import type {
   LumaRawExportCapability,
-  LumaRawWindow,
-  LumaRawWindowRect,
+  LumaRawProcessedWindow,
+  LumaRawProcessedWindowRequest,
 } from '@lumaforge/luma-raw-runtime'
 
 import { mat3Identity } from '~/lib/color/matrix'
 
-import { demosaicBilinearRgb } from './demosaic'
 import { runFullResolutionJpegExport } from './full-res-export'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
 
@@ -15,7 +14,7 @@ function makeCapability(
 ): LumaRawExportCapability {
   return {
     supported: overrides.supported ?? true,
-    strategy: overrides.strategy,
+    strategy: overrides.strategy ?? 'libraw-processed-window',
     width: overrides.width ?? 4,
     height: overrides.height ?? 4,
     rawWidth: overrides.rawWidth ?? 4,
@@ -35,9 +34,11 @@ function makeCapability(
       'color' in overrides
         ? overrides.color
         : {
-            whiteBalance: [1, 1, 1, 1],
-            cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
             workingSpace: 'linear-prophoto-rgb',
+            librawOutputColor: 'prophoto',
+            gamma: 'linear',
+            cameraWhiteBalanceAppliedByRuntime: true,
+            cameraMatrixAppliedByRuntime: true,
           },
     sensor: overrides.sensor ?? {
       layout: 'bayer',
@@ -46,7 +47,7 @@ function makeCapability(
       phaseIsWindowLocal: false,
     },
     levels: overrides.levels,
-    windows: overrides.windows ?? { librawProcessed: false, rawMosaic: true },
+    windows: overrides.windows ?? { librawProcessed: true, rawMosaic: false },
     diagnostics: overrides.diagnostics ?? {
       hasRawImage: true,
       hasColor3Image: false,
@@ -57,13 +58,23 @@ function makeCapability(
   }
 }
 
-function makeWindow(rect: LumaRawWindowRect): LumaRawWindow {
+function makeProcessedWindow(
+  request: LumaRawProcessedWindowRequest,
+  value = 32768,
+): LumaRawProcessedWindow {
   return {
-    rect,
-    cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
-    data: new Uint16Array(rect.width * rect.height).fill(128),
-    blackLevel: 0,
-    whiteLevel: 255,
+    rect: request.outputRect,
+    workingSpace: 'linear-prophoto-rgb',
+    data: new Uint16Array(
+      request.outputRect.width * request.outputRect.height * 3,
+    ).fill(value),
+    width: request.outputRect.width,
+    height: request.outputRect.height,
+    stride: request.outputRect.width * 3,
+    normalized: false,
+    orientationApplied: true,
+    colorApplied: true,
+    warnings: [],
   }
 }
 
@@ -78,31 +89,9 @@ function linearToSrgb(value: number) {
     : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055
 }
 
-describe('demosaicBilinearRgb', () => {
-  it('preserves legacy absolute output rectangles before local output resolution', () => {
-    const rect = { x: 2, y: 2, width: 20, height: 20 }
-    const data = new Uint16Array(rect.width * rect.height)
-    data[1 * rect.width + 1] = 100
-    data[3 * rect.width + 3] = 200
-
-    const tile = demosaicBilinearRgb({
-      rect,
-      cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
-      data,
-      blackLevel: 0,
-      whiteLevel: 255,
-      output: { x: 3, y: 3, width: 1, height: 1 },
-    })
-
-    expect(tile.width).toBe(1)
-    expect(tile.height).toBe(1)
-    expect(tile.data[2]).toBeCloseTo(100 / 255)
-  })
-})
-
 describe('runFullResolutionJpegExport', () => {
   it('throws FULL_RES_EXPORT_UNSUPPORTED_SOURCE before opening writer or reading windows', async () => {
-    const readRawWindow = vi.fn()
+    const readProcessedWindow = vi.fn()
     const createSession = vi.fn(() => ({
       writeRows: vi.fn(),
       close: vi.fn(),
@@ -122,37 +111,28 @@ describe('runFullResolutionJpegExport', () => {
           lutProfile: null,
           steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
         },
-        readRawWindow,
+        readProcessedWindow,
         jpegSink,
       }),
     ).rejects.toThrow('FULL_RES_EXPORT_UNSUPPORTED_SOURCE')
 
-    expect(readRawWindow).not.toHaveBeenCalled()
+    expect(readProcessedWindow).not.toHaveBeenCalled()
     expect(createSession).not.toHaveBeenCalled()
   })
 
   it.each([
-    ['missing visible crop', { visibleCrop: undefined }],
-    ['unsupported orientation', { orientation: { code: 6, supported: false } }],
-    ['missing orientation', { orientation: undefined }],
     ['missing color facts', { color: undefined }],
     [
-      'processed-window strategy before Task 5 export path',
+      'raw-mosaic strategy',
       {
-        strategy: 'libraw-processed-window',
-        windows: { librawProcessed: true, rawMosaic: false },
+        strategy: 'raw-mosaic-window',
+        windows: { librawProcessed: false, rawMosaic: true },
       },
     ],
     [
-      'processed-window color facts before Task 5 export path',
+      'missing processed windows',
       {
-        color: {
-          workingSpace: 'linear-prophoto-rgb',
-          librawOutputColor: 'prophoto',
-          gamma: 'linear',
-          cameraWhiteBalanceAppliedByRuntime: true,
-          cameraMatrixAppliedByRuntime: true,
-        },
+        windows: { librawProcessed: false, rawMosaic: true },
       },
     ],
     [
@@ -165,10 +145,34 @@ describe('runFullResolutionJpegExport', () => {
         },
       },
     ],
+    [
+      'runtime camera white balance not applied',
+      {
+        color: {
+          workingSpace: 'linear-prophoto-rgb',
+          librawOutputColor: 'prophoto',
+          gamma: 'linear',
+          cameraWhiteBalanceAppliedByRuntime: false,
+          cameraMatrixAppliedByRuntime: true,
+        },
+      },
+    ],
+    [
+      'runtime camera matrix not applied',
+      {
+        color: {
+          workingSpace: 'linear-prophoto-rgb',
+          librawOutputColor: 'prophoto',
+          gamma: 'linear',
+          cameraWhiteBalanceAppliedByRuntime: true,
+          cameraMatrixAppliedByRuntime: false,
+        },
+      },
+    ],
   ] as Array<[string, Partial<LumaRawExportCapability>]>)(
     'fails closed before scheduling for %s',
     async (_name, overrides) => {
-      const readRawWindow = vi.fn()
+      const readProcessedWindow = vi.fn()
       const createSession = vi.fn(() => ({
         writeRows: vi.fn(),
         close: vi.fn(),
@@ -185,14 +189,14 @@ describe('runFullResolutionJpegExport', () => {
             lutProfile: null,
             steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
           },
-          readRawWindow,
+          readProcessedWindow,
           jpegSink: {
             createSession,
           },
         }),
       ).rejects.toThrow('FULL_RES_EXPORT_UNSUPPORTED_SOURCE')
 
-      expect(readRawWindow).not.toHaveBeenCalled()
+      expect(readProcessedWindow).not.toHaveBeenCalled()
       expect(createSession).not.toHaveBeenCalled()
     },
   )
@@ -200,8 +204,9 @@ describe('runFullResolutionJpegExport', () => {
   it('reports strip progress and returns the JPEG blob', async () => {
     const progress: number[] = []
     const writtenRows: Array<{ rowCount: number; bytes: Uint8Array }> = []
-    const readRawWindow = vi.fn((rect: LumaRawWindowRect) =>
-      Promise.resolve(makeWindow(rect)),
+    const readProcessedWindow = vi.fn(
+      (request: LumaRawProcessedWindowRequest) =>
+        Promise.resolve(makeProcessedWindow(request)),
     )
     const writer = {
       writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
@@ -224,7 +229,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
       },
       preferredRows: 2,
-      readRawWindow,
+      readProcessedWindow,
       writerFactory: () => writer,
       onProgress(entry) {
         progress.push(entry.progress)
@@ -232,7 +237,7 @@ describe('runFullResolutionJpegExport', () => {
     })
 
     expect(blob.type).toBe('image/jpeg')
-    expect(readRawWindow).toHaveBeenCalledTimes(1)
+    expect(readProcessedWindow).toHaveBeenCalledTimes(1)
     expect(writtenRows).toHaveLength(1)
     expect(writtenRows[0]?.rowCount).toBe(4)
     expect(writtenRows[0]?.bytes).toEqual(new Uint8Array(4 * 4 * 3).fill(188))
@@ -240,9 +245,9 @@ describe('runFullResolutionJpegExport', () => {
   })
 
   it.each([Infinity, -Infinity, Number.NaN, 0, -1])(
-    'fails closed for invalid preferred row count %s before reading raw windows',
+    'fails closed for invalid preferred row count %s before reading processed windows',
     async (preferredRows) => {
-      const readRawWindow = vi.fn()
+      const readProcessedWindow = vi.fn()
       const writer = {
         writeRows: vi.fn(),
         close: vi.fn(),
@@ -260,21 +265,22 @@ describe('runFullResolutionJpegExport', () => {
             steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
           },
           preferredRows,
-          readRawWindow,
+          readProcessedWindow,
           writerFactory: () => writer,
         }),
       ).rejects.toThrow('FULL_RES_EXPORT_INVALID_PREFERRED_ROWS')
 
-      expect(readRawWindow).not.toHaveBeenCalled()
+      expect(readProcessedWindow).not.toHaveBeenCalled()
       expect(writer.writeRows).not.toHaveBeenCalled()
       expect(writer.abort).not.toHaveBeenCalled()
     },
   )
 
-  it('normalizes fractional preferred rows before scheduling raw windows', async () => {
+  it('normalizes fractional preferred rows before scheduling processed windows', async () => {
     const writtenRows: number[] = []
-    const readRawWindow = vi.fn((rect: LumaRawWindowRect) =>
-      Promise.resolve(makeWindow(rect)),
+    const readProcessedWindow = vi.fn(
+      (request: LumaRawProcessedWindowRequest) =>
+        Promise.resolve(makeProcessedWindow(request)),
     )
     const writer = {
       writeRows: vi.fn(async (_bytes: Uint8Array, rowCount: number) => {
@@ -298,20 +304,23 @@ describe('runFullResolutionJpegExport', () => {
         steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
       },
       preferredRows: 64.5,
-      readRawWindow,
+      readProcessedWindow,
       writerFactory: () => writer,
     })
 
-    expect(readRawWindow.mock.calls.map(([rect]) => rect.height)).toEqual([
-      66, 68, 4,
-    ])
+    expect(
+      readProcessedWindow.mock.calls.map(
+        ([request]) => request.outputRect.height,
+      ),
+    ).toEqual([64, 64, 2])
     expect(writtenRows).toEqual([64, 64, 2])
   })
 
-  it('maps full export strips to raw windows and writes requested output rows', async () => {
+  it('maps full export strips to processed windows and writes requested output rows', async () => {
     const writtenRows: number[] = []
-    const readRawWindow = vi.fn((rect: LumaRawWindowRect) =>
-      Promise.resolve(makeWindow(rect)),
+    const readProcessedWindow = vi.fn(
+      (request: LumaRawProcessedWindowRequest) =>
+        Promise.resolve(makeProcessedWindow(request)),
     )
     const writer = {
       writeRows: vi.fn(async (_bytes: Uint8Array, rowCount: number) => {
@@ -337,27 +346,67 @@ describe('runFullResolutionJpegExport', () => {
         steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
       },
       preferredRows: 2,
-      readRawWindow,
+      readProcessedWindow,
       writerFactory: () => writer,
     })
 
-    expect(readRawWindow.mock.calls.map(([rect]) => rect)).toEqual([
-      { x: 5, y: 7, width: 4, height: 4 },
+    expect(readProcessedWindow.mock.calls.map(([request]) => request)).toEqual([
+      {
+        outputRect: { x: 0, y: 0, width: 4, height: 4 },
+        halo: { left: 2, top: 2, right: 2, bottom: 2 },
+      },
     ])
     expect(writtenRows).toEqual([4])
+  })
+
+  it('rejects processed windows whose rect does not match the requested output strip', async () => {
+    const readProcessedWindow = vi.fn(
+      (request: LumaRawProcessedWindowRequest) =>
+        Promise.resolve(
+          makeProcessedWindow({
+            ...request,
+            outputRect: { ...request.outputRect, y: request.outputRect.y + 1 },
+          }),
+        ),
+    )
+    const writer = {
+      writeRows: vi.fn(),
+      close: vi.fn(),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await expect(
+      runFullResolutionJpegExport({
+        capability: makeCapability(),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        },
+        preferredRows: 2,
+        readProcessedWindow,
+        writerFactory: () => writer,
+      }),
+    ).rejects.toThrow('FULL_RES_EXPORT_INVALID_PROCESSED_WINDOW')
+
+    expect(writer.writeRows).not.toHaveBeenCalled()
   })
 
   it('retries RESOURCE_ALLOCATION_FAILED with smaller strips and preserves JPEG dimensions', async () => {
     const writtenRows: Array<{ rowCount: number; bytes: Uint8Array }> = []
     let failedOnce = false
-    const readRawWindow = vi.fn((rect: LumaRawWindowRect) => {
-      if (!failedOnce) {
-        failedOnce = true
-        return Promise.reject(new Error('RESOURCE_ALLOCATION_FAILED'))
-      }
+    const readProcessedWindow = vi.fn(
+      (request: LumaRawProcessedWindowRequest) => {
+        if (!failedOnce) {
+          failedOnce = true
+          return Promise.reject(new Error('RESOURCE_ALLOCATION_FAILED'))
+        }
 
-      return Promise.resolve(makeWindow(rect))
-    })
+        return Promise.resolve(makeProcessedWindow(request))
+      },
+    )
     const writer = {
       writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
         writtenRows.push({ rowCount, bytes: new Uint8Array(bytes) })
@@ -383,16 +432,18 @@ describe('runFullResolutionJpegExport', () => {
         steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
       },
       preferredRows: 256,
-      readRawWindow,
+      readProcessedWindow,
       writerFactory: () => writer,
     })
 
     expect(blob.type).toBe('image/jpeg')
     expect(writer.abort).toHaveBeenCalledTimes(1)
-    expect(readRawWindow).toHaveBeenCalledTimes(3)
-    expect(readRawWindow.mock.calls.map(([rect]) => rect.height)).toEqual([
-      256, 130, 130,
-    ])
+    expect(readProcessedWindow).toHaveBeenCalledTimes(3)
+    expect(
+      readProcessedWindow.mock.calls.map(
+        ([request]) => request.outputRect.height,
+      ),
+    ).toEqual([256, 128, 128])
     expect(writtenRows.map((entry) => entry.rowCount)).toEqual([128, 128])
     expect(
       writtenRows.reduce((total, entry) => total + entry.rowCount, 0),
@@ -417,14 +468,16 @@ describe('runFullResolutionJpegExport', () => {
     }
     const attemptWriters = [firstWriter, secondWriter]
     let callCount = 0
-    const readRawWindow = vi.fn((rect: LumaRawWindowRect) => {
-      callCount += 1
-      if (callCount === 2) {
-        return Promise.reject(new Error('RESOURCE_ALLOCATION_FAILED'))
-      }
+    const readProcessedWindow = vi.fn(
+      (request: LumaRawProcessedWindowRequest) => {
+        callCount += 1
+        if (callCount === 2) {
+          return Promise.reject(new Error('RESOURCE_ALLOCATION_FAILED'))
+        }
 
-      return Promise.resolve(makeWindow(rect))
-    })
+        return Promise.resolve(makeProcessedWindow(request))
+      },
+    )
 
     const blob = await runFullResolutionJpegExport({
       capability: makeCapability({
@@ -440,7 +493,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
       },
       preferredRows: 256,
-      readRawWindow,
+      readProcessedWindow,
       writerFactory: () => {
         const writer = attemptWriters.shift()
         if (!writer) {
@@ -452,10 +505,10 @@ describe('runFullResolutionJpegExport', () => {
 
     expect(blob.type).toBe('image/jpeg')
     expect(attemptWriters).toHaveLength(0)
-    expect(readRawWindow).toHaveBeenCalledTimes(6)
-    expect(readRawWindow.mock.calls[0]?.[0].height).toBe(258)
-    expect(readRawWindow.mock.calls[2]?.[0].height).toBe(130)
-    expect(readRawWindow.mock.calls[5]?.[0].height).toBe(130)
+    expect(readProcessedWindow).toHaveBeenCalledTimes(6)
+    expect(readProcessedWindow.mock.calls[0]?.[0].outputRect.height).toBe(256)
+    expect(readProcessedWindow.mock.calls[2]?.[0].outputRect.height).toBe(128)
+    expect(readProcessedWindow.mock.calls[5]?.[0].outputRect.height).toBe(128)
     expect(firstWriter.writeRows).toHaveBeenCalledTimes(1)
     expect(firstWriter.abort).toHaveBeenCalledTimes(1)
     expect(firstWriter.close).not.toHaveBeenCalled()
@@ -465,7 +518,7 @@ describe('runFullResolutionJpegExport', () => {
   })
 
   it('retries writer allocation failures and throws FULL_RES_EXPORT_RESOURCE_FAILURE after exhaustion', async () => {
-    const readRawWindow = vi.fn()
+    const readProcessedWindow = vi.fn()
     const writerFactory = vi.fn(() => {
       throw new Error('RESOURCE_ALLOCATION_FAILED')
     })
@@ -485,17 +538,17 @@ describe('runFullResolutionJpegExport', () => {
           steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
         },
         preferredRows: 256,
-        readRawWindow,
+        readProcessedWindow,
         writerFactory,
       }),
     ).rejects.toThrow('FULL_RES_EXPORT_RESOURCE_FAILURE')
 
     expect(writerFactory).toHaveBeenCalledTimes(3)
-    expect(readRawWindow).not.toHaveBeenCalled()
+    expect(readProcessedWindow).not.toHaveBeenCalled()
   })
 
   it('surfaces a browser-build error when JPEG runtime initialization fails', async () => {
-    const readRawWindow = vi.fn()
+    const readProcessedWindow = vi.fn()
 
     await expect(
       runFullResolutionJpegExport({
@@ -507,7 +560,7 @@ describe('runFullResolutionJpegExport', () => {
           lutProfile: null,
           steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
         },
-        readRawWindow,
+        readProcessedWindow,
         jpegSink: createWasmJpegRowSink(() => {
           throw new Error('JPEG_RUNTIME_UNAVAILABLE')
         }),
@@ -517,7 +570,7 @@ describe('runFullResolutionJpegExport', () => {
         'Full-resolution JPEG export is not available in this browser build.',
     })
 
-    expect(readRawWindow).not.toHaveBeenCalled()
+    expect(readProcessedWindow).not.toHaveBeenCalled()
   })
 
   it('retries wrapped JPEG encoder resource failures with smaller strips', async () => {
@@ -560,8 +613,8 @@ describe('runFullResolutionJpegExport', () => {
         steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
       },
       preferredRows: 256,
-      readRawWindow: vi.fn((rect: LumaRawWindowRect) =>
-        Promise.resolve(makeWindow(rect)),
+      readProcessedWindow: vi.fn((request: LumaRawProcessedWindowRequest) =>
+        Promise.resolve(makeProcessedWindow(request)),
       ),
       jpegSink,
     })
@@ -577,7 +630,7 @@ describe('runFullResolutionJpegExport', () => {
       close: vi.fn(),
       abort: vi.fn(async () => undefined),
     }
-    const readRawWindow = vi.fn(() =>
+    const readProcessedWindow = vi.fn(() =>
       Promise.reject(new Error('RESOURCE_ALLOCATION_FAILED')),
     )
 
@@ -596,26 +649,21 @@ describe('runFullResolutionJpegExport', () => {
           steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
         },
         preferredRows: 256,
-        readRawWindow,
+        readProcessedWindow,
         writerFactory: () => writer,
       }),
     ).rejects.toThrow('FULL_RES_EXPORT_RESOURCE_FAILURE')
 
-    expect(readRawWindow).toHaveBeenCalledTimes(3)
+    expect(readProcessedWindow).toHaveBeenCalledTimes(3)
     expect(writer.writeRows).not.toHaveBeenCalled()
     expect(writer.abort).toHaveBeenCalledTimes(3)
   })
 
   it('uses the color graph before writing JPEG rows', async () => {
     const writtenRows: Array<{ rowCount: number; bytes: Uint8Array }> = []
-    const readRawWindow = vi.fn((rect: LumaRawWindowRect) =>
-      Promise.resolve({
-        rect,
-        cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
-        data: new Uint16Array(rect.width * rect.height).fill(255),
-        blackLevel: 0,
-        whiteLevel: 255,
-      } satisfies LumaRawWindow),
+    const readProcessedWindow = vi.fn(
+      (request: LumaRawProcessedWindowRequest) =>
+        Promise.resolve(makeProcessedWindow(request, 65535)),
     )
     const writer = {
       writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
@@ -635,7 +683,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
       },
       preferredRows: 2,
-      readRawWindow,
+      readProcessedWindow,
       writerFactory: () => writer,
     })
 
@@ -711,19 +759,13 @@ describe('runFullResolutionJpegExport', () => {
         ],
       },
       preferredRows: 2,
-      readRawWindow: vi.fn((rect: LumaRawWindowRect) =>
-        Promise.resolve({
-          rect,
-          cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
-          data: new Uint16Array(rect.width * rect.height).fill(128),
-          blackLevel: 0,
-          whiteLevel: 255,
-        } satisfies LumaRawWindow),
+      readProcessedWindow: vi.fn((request: LumaRawProcessedWindowRequest) =>
+        Promise.resolve(makeProcessedWindow(request, 32768)),
       ),
       writerFactory: () => writer,
     })
 
-    const baseLinear = 128 / 255
+    const baseLinear = 32768 / 65535
     const lutInputEncoded =
       clamp01(Math.pow(baseLinear, 1 / 2.4)) * legalScale + legalOffset
     const normalized = clamp01(
@@ -758,7 +800,9 @@ describe('runFullResolutionJpegExport', () => {
           lutProfile: null,
           steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
         },
-        readRawWindow: vi.fn().mockRejectedValue(new Error('read failed')),
+        readProcessedWindow: vi
+          .fn()
+          .mockRejectedValue(new Error('read failed')),
         writerFactory: () => writer,
       }),
     ).rejects.toThrow('read failed')
@@ -794,7 +838,7 @@ describe('runFullResolutionJpegExport', () => {
             { kind: 'output-srgb' },
           ],
         },
-        readRawWindow: vi.fn(),
+        readProcessedWindow: vi.fn(),
         writerFactory: () => writer,
       }),
     ).rejects.toThrow('FULL_RES_EXPORT_UNSUPPORTED_PIPELINE')
@@ -853,7 +897,7 @@ describe('runFullResolutionJpegExport', () => {
             { kind: 'output-srgb' },
           ],
         },
-        readRawWindow: vi.fn(),
+        readProcessedWindow: vi.fn(),
         writerFactory: () => writer,
       }),
     ).rejects.toThrow('FULL_RES_EXPORT_UNSUPPORTED_PIPELINE')

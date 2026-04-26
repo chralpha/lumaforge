@@ -1,7 +1,7 @@
 import type {
   LumaRawExportCapability,
-  LumaRawWindow,
-  LumaRawWindowRect,
+  LumaRawProcessedWindow,
+  LumaRawProcessedWindowRequest,
 } from '@lumaforge/luma-raw-runtime'
 
 import { getProPhotoToTargetMatrix } from '~/lib/color/matrix'
@@ -11,15 +11,11 @@ import type {
   ExportColorGraphDescriptor,
   SupportedExportColorGraphDescriptor,
 } from './color-graph'
-import { demosaicBilinearRgb } from './demosaic'
 import type { JpegRowSink, JpegRowWriter } from './jpeg/row-writer'
 import { createJpegRowWriter } from './jpeg/row-writer'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
 import { mix, sampleLutTrilinear } from './lut3d'
-import {
-  applyCameraToWorkingRgbInPlace,
-  mapOutputRectToRawWindow,
-} from './raw-window-transform'
+import { processedWindowToLinearProPhotoTile } from './processed-window-transform'
 import {
   normalizePreferredStripRows,
   planExportStrips,
@@ -35,10 +31,10 @@ export type FullResolutionExportProgress = {
 export type RunFullResolutionJpegExportInput = {
   capability: LumaRawExportCapability
   graph: ExportColorGraphDescriptor
-  readRawWindow: (
-    rect: LumaRawWindowRect,
+  readProcessedWindow: (
+    request: LumaRawProcessedWindowRequest,
     signal?: AbortSignal,
-  ) => Promise<LumaRawWindow>
+  ) => Promise<LumaRawProcessedWindow>
   signal?: AbortSignal
   onProgress?: (progress: FullResolutionExportProgress) => void
   preferredRows?: number
@@ -365,44 +361,17 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
-function isLegacyRawWindowOrientationSupported(
-  orientation: LumaRawExportCapability['orientation'],
+function isLibRawProcessedExportCapability(
+  capability: LumaRawExportCapability,
 ) {
-  if (typeof orientation === 'number') {
-    return orientation === 1
-  }
-
-  return orientation?.supported === true && orientation.code === 1
-}
-
-function isRawMosaicExportCapability(capability: LumaRawExportCapability) {
+  const color = capability.color
   return (
-    (capability.strategy === undefined ||
-      capability.strategy === 'raw-mosaic-window') &&
-    capability.windows.rawMosaic === true
-  )
-}
-
-function hasLegacyRawWindowColorFacts(
-  color: LumaRawExportCapability['color'],
-): color is NonNullable<LumaRawExportCapability['color']> & {
-  whiteBalance: [number, number, number, number]
-  cameraToWorkingRgb: [
-    number,
-    number,
-    number,
-    number,
-    number,
-    number,
-    number,
-    number,
-    number,
-  ]
-} {
-  return (
+    capability.supported === true &&
+    capability.strategy === 'libraw-processed-window' &&
+    capability.windows.librawProcessed === true &&
     color?.workingSpace === 'linear-prophoto-rgb' &&
-    color.whiteBalance !== undefined &&
-    color.cameraToWorkingRgb !== undefined
+    color.cameraWhiteBalanceAppliedByRuntime === true &&
+    color.cameraMatrixAppliedByRuntime === true
   )
 }
 
@@ -461,14 +430,7 @@ function looksLikeResourceExhaustion(error: unknown) {
 export async function runFullResolutionJpegExport(
   input: RunFullResolutionJpegExportInput,
 ) {
-  const color = input.capability.color
-  if (
-    !input.capability.supported ||
-    !isRawMosaicExportCapability(input.capability) ||
-    !input.capability.visibleCrop ||
-    !isLegacyRawWindowOrientationSupported(input.capability.orientation) ||
-    !hasLegacyRawWindowColorFacts(color)
-  ) {
+  if (!isLibRawProcessedExportCapability(input.capability)) {
     throw new Error('FULL_RES_EXPORT_UNSUPPORTED_SOURCE')
   }
 
@@ -500,22 +462,17 @@ export async function runFullResolutionJpegExport(
         throwIfAborted(input.signal)
 
         const strip = strips[index]
-        const rawWindowMapping = mapOutputRectToRawWindow({
-          output: strip.output,
-          visibleCrop: input.capability.visibleCrop,
-          rawWidth: input.capability.rawWidth,
-          rawHeight: input.capability.rawHeight,
-          halo: 2,
-        })
-        const rawWindow = await input.readRawWindow(
-          rawWindowMapping.rawInput,
+        const processedWindow = await input.readProcessedWindow(
+          {
+            outputRect: strip.output,
+            halo: { left: 2, top: 2, right: 2, bottom: 2 },
+          },
           input.signal,
         )
-        const tile = demosaicBilinearRgb({
-          ...rawWindow,
-          output: rawWindowMapping.outputWithinWindow,
-        })
-        applyCameraToWorkingRgbInPlace(tile.data, color)
+        const tile = processedWindowToLinearProPhotoTile(
+          processedWindow,
+          strip.output,
+        )
         const rows = applyGraphToRgbRows(tile.data)
         await writer.writeRows(rows, tile.height)
 

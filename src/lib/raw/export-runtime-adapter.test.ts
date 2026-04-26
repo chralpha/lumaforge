@@ -1,6 +1,8 @@
 import type {
   LumaRawDecodeSession,
   LumaRawExportCapability,
+  LumaRawProcessedWindow,
+  LumaRawProcessedWindowRequest,
   LumaRawWindow,
 } from '@lumaforge/luma-raw-runtime'
 import { describe, expect, it, vi } from 'vitest'
@@ -47,15 +49,40 @@ function makeWindow(): LumaRawWindow {
   }
 }
 
+function makeProcessedWindow(
+  request: LumaRawProcessedWindowRequest,
+): LumaRawProcessedWindow {
+  return {
+    rect: request.outputRect,
+    workingSpace: 'linear-prophoto-rgb',
+    data: new Uint16Array(
+      request.outputRect.width * request.outputRect.height * 3,
+    ),
+    width: request.outputRect.width,
+    height: request.outputRect.height,
+    stride: request.outputRect.width * 3,
+    normalized: false,
+    orientationApplied: true,
+    colorApplied: true,
+    warnings: [],
+  }
+}
+
 describe('createRawExportSession', () => {
-  it('forwards export capability and raw-window reads from the decode session', async () => {
+  it('forwards export capability, raw-window reads, and processed-window reads from the decode session', async () => {
     const capability = makeCapability()
     const window = makeWindow()
     const signal = new AbortController().signal
     const rect = { x: 1, y: 2, width: 3, height: 4 }
+    const request = {
+      outputRect: rect,
+      halo: { left: 2, top: 2, right: 2, bottom: 2 },
+    }
+    const processedWindow = makeProcessedWindow(request)
     const session = {
       probeExportCapability: vi.fn().mockResolvedValue(capability),
       readRawWindow: vi.fn().mockResolvedValue(window),
+      readProcessedWindow: vi.fn().mockResolvedValue(processedWindow),
     } as unknown as LumaRawDecodeSession
 
     const exportSession = createRawExportSession(session)
@@ -66,8 +93,12 @@ describe('createRawExportSession', () => {
     await expect(exportSession.readRawWindow(rect, signal)).resolves.toBe(
       window,
     )
+    await expect(
+      exportSession.readProcessedWindow(request, signal),
+    ).resolves.toBe(processedWindow)
     expect(session.probeExportCapability).toHaveBeenCalledWith(signal)
     expect(session.readRawWindow).toHaveBeenCalledWith(rect, signal)
+    expect(session.readProcessedWindow).toHaveBeenCalledWith(request, signal)
   })
 })
 
@@ -76,6 +107,7 @@ describe('isRawExportSession', () => {
     const session = {
       probeExportCapability: vi.fn(),
       readRawWindow: vi.fn(),
+      readProcessedWindow: vi.fn(),
     }
 
     expect(isRawExportSession(session)).toBe(true)
@@ -96,9 +128,19 @@ describe('isRawExportSession', () => {
     const exportOnly = {
       probeExportCapability: vi.fn(),
       readRawWindow: vi.fn(),
+      readProcessedWindow: vi.fn(),
     }
 
     expect(isRawExportSession(exportOnly)).toBe(true)
+  })
+
+  it('returns false when processed-window reads are missing', () => {
+    const legacyExportOnly = {
+      probeExportCapability: vi.fn(),
+      readRawWindow: vi.fn(),
+    }
+
+    expect(isRawExportSession(legacyExportOnly)).toBe(false)
   })
 
   it('returns false for non-object values', () => {

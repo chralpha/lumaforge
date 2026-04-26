@@ -1,11 +1,11 @@
 import { createLumaRawRuntime } from '@lumaforge/luma-raw-runtime'
 
+import { createRawExportSession } from '../raw/export-runtime-adapter'
+import { runFullResolutionJpegExport } from './full-res-export'
 import type {
   FullResExportWorkerRequest,
   FullResExportWorkerResponse,
 } from './full-res-export-client'
-import { runFullResolutionJpegExport } from './full-res-export'
-import { createRawExportSession } from '../raw/export-runtime-adapter'
 
 function toErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -17,7 +17,9 @@ function toErrorMessage(error: unknown) {
 
 const activeRequests = new Map<string, AbortController>()
 
-async function handleStart(message: Extract<FullResExportWorkerRequest, { kind: 'start' }>) {
+async function handleStart(
+  message: Extract<FullResExportWorkerRequest, { kind: 'start' }>,
+) {
   const controller = new AbortController()
   activeRequests.set(message.requestId, controller)
   const runtime = createLumaRawRuntime({
@@ -26,17 +28,23 @@ async function handleStart(message: Extract<FullResExportWorkerRequest, { kind: 
 
   try {
     await runtime.init()
-    const session = await runtime.openSession(message.file, undefined, controller.signal)
+    const session = await runtime.openSession(
+      message.file,
+      undefined,
+      controller.signal,
+    )
     try {
       const exportSession = createRawExportSession(session)
-      const capability = await exportSession.probeExportCapability(controller.signal)
+      const capability = await exportSession.probeExportCapability(
+        controller.signal,
+      )
       const blob = await runFullResolutionJpegExport({
         capability,
         graph: message.graph,
         preferredRows: message.preferredRows,
         quality: message.quality,
         signal: controller.signal,
-        readRawWindow: exportSession.readRawWindow,
+        readProcessedWindow: exportSession.readProcessedWindow,
         onProgress(progress) {
           self.postMessage({
             kind: 'progress',
