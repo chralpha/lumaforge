@@ -132,6 +132,23 @@ describe('lumaRawWorkerClient', () => {
     ).toHaveLength(1)
   })
 
+  it('transfers processed-window payload buffers', () => {
+    const payload = {
+      rect: { x: 0, y: 0, width: 2, height: 1 },
+      workingSpace: 'linear-prophoto-rgb' as const,
+      data: new Uint16Array([1, 2, 3, 4, 5, 6]),
+      width: 2,
+      height: 1,
+      stride: 6,
+      normalized: false as const,
+      orientationApplied: true as const,
+      colorApplied: true as const,
+      warnings: [],
+    }
+
+    expect(collectTransferables(payload)).toEqual([payload.data.buffer])
+  })
+
   it('collects adapter-normalized typed array output buffers safely', () => {
     const pooledThumbnail = new Uint8Array([9, 1, 2, 3, 8]).subarray(1, 4)
     const pooledImage = new Uint16Array([9, 1, 2, 3, 8]).subarray(1, 4)

@@ -4,6 +4,8 @@ import type {
   LumaRawExportCapability,
   LumaRawFrame,
   LumaRawProbe,
+  LumaRawProcessedWindow,
+  LumaRawProcessedWindowRequest,
   LumaRawRuntimeInfo,
   LumaRawSessionInfo,
   LumaRawWindow,
@@ -18,6 +20,7 @@ export type LumaRawWorkerRequestType =
   | 'decodeHqFromSession'
   | 'probeExportCapabilityFromSession'
   | 'readRawWindowFromSession'
+  | 'readProcessedWindowFromSession'
   | 'closeSession'
   | 'probe'
   | 'extractEmbeddedPreview'
@@ -41,6 +44,11 @@ export type LumaRawWorkerRawWindowPayload = {
   rect: LumaRawWindowRect
 }
 
+export type LumaRawWorkerProcessedWindowPayload = {
+  sessionId: string
+  request: LumaRawProcessedWindowRequest
+}
+
 export type LumaRawWorkerQuickSessionPayload = {
   sessionId: string
   maxOutputPixels?: number
@@ -54,6 +62,7 @@ export type LumaRawWorkerRequestPayloadByType = {
   decodeHqFromSession: LumaRawWorkerSessionPayload
   probeExportCapabilityFromSession: LumaRawWorkerSessionPayload
   readRawWindowFromSession: LumaRawWorkerRawWindowPayload
+  readProcessedWindowFromSession: LumaRawWorkerProcessedWindowPayload
   closeSession: LumaRawWorkerSessionPayload
   probe: LumaRawWorkerFilePayload
   extractEmbeddedPreview: LumaRawWorkerFilePayload
@@ -80,6 +89,7 @@ export type LumaRawWorkerPayloadByType = {
   decodeHqFromSession: LumaRawFrame
   probeExportCapabilityFromSession: LumaRawExportCapability
   readRawWindowFromSession: LumaRawWindow
+  readProcessedWindowFromSession: LumaRawProcessedWindow
   closeSession: { closed: true }
   probe: LumaRawProbe
   extractEmbeddedPreview: LumaEmbeddedPreview | null

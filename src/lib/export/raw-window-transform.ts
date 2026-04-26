@@ -52,7 +52,9 @@ export function mapOutputRectToRawWindow(input: {
     rawOutput.x + rawOutput.width > input.rawWidth ||
     rawOutput.y + rawOutput.height > input.rawHeight
   ) {
-    throw new Error('Output rect must be fully contained within the visible raw crop.')
+    throw new Error(
+      'Output rect must be fully contained within the visible raw crop.',
+    )
   }
 
   const visibleCropRight = input.visibleCrop.x + input.visibleCrop.width
@@ -91,14 +93,16 @@ export function applyCameraToWorkingRgbInPlace(
 ): void {
   const matrix = color.cameraToWorkingRgb
   const whiteBalance = color.whiteBalance
+  if (!matrix || !whiteBalance) {
+    throw new Error('FULL_RES_EXPORT_UNSUPPORTED_SOURCE')
+  }
 
   for (let index = 0; index < rgb.length; index += 3) {
     const cameraR = (rgb[index] ?? 0) * whiteBalance[0]
     const cameraG = (rgb[index + 1] ?? 0) * whiteBalance[1]
     const cameraB = (rgb[index + 2] ?? 0) * whiteBalance[2]
 
-    rgb[index] =
-      matrix[0] * cameraR + matrix[1] * cameraG + matrix[2] * cameraB
+    rgb[index] = matrix[0] * cameraR + matrix[1] * cameraG + matrix[2] * cameraB
     rgb[index + 1] =
       matrix[3] * cameraR + matrix[4] * cameraG + matrix[5] * cameraB
     rgb[index + 2] =

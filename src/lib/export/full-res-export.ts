@@ -365,6 +365,47 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
+function isLegacyRawWindowOrientationSupported(
+  orientation: LumaRawExportCapability['orientation'],
+) {
+  if (typeof orientation === 'number') {
+    return orientation === 1
+  }
+
+  return orientation?.supported === true && orientation.code === 1
+}
+
+function isRawMosaicExportCapability(capability: LumaRawExportCapability) {
+  return (
+    (capability.strategy === undefined ||
+      capability.strategy === 'raw-mosaic-window') &&
+    capability.windows.rawMosaic === true
+  )
+}
+
+function hasLegacyRawWindowColorFacts(
+  color: LumaRawExportCapability['color'],
+): color is NonNullable<LumaRawExportCapability['color']> & {
+  whiteBalance: [number, number, number, number]
+  cameraToWorkingRgb: [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ]
+} {
+  return (
+    color?.workingSpace === 'linear-prophoto-rgb' &&
+    color.whiteBalance !== undefined &&
+    color.cameraToWorkingRgb !== undefined
+  )
+}
+
 function currentErrorLooksLikeResourceExhaustion(error: unknown) {
   const tokens: string[] = []
 
@@ -420,11 +461,13 @@ function looksLikeResourceExhaustion(error: unknown) {
 export async function runFullResolutionJpegExport(
   input: RunFullResolutionJpegExportInput,
 ) {
+  const color = input.capability.color
   if (
     !input.capability.supported ||
+    !isRawMosaicExportCapability(input.capability) ||
     !input.capability.visibleCrop ||
-    !input.capability.orientation?.supported ||
-    input.capability.color?.workingSpace !== 'linear-prophoto-rgb'
+    !isLegacyRawWindowOrientationSupported(input.capability.orientation) ||
+    !hasLegacyRawWindowColorFacts(color)
   ) {
     throw new Error('FULL_RES_EXPORT_UNSUPPORTED_SOURCE')
   }
@@ -472,7 +515,7 @@ export async function runFullResolutionJpegExport(
           ...rawWindow,
           output: rawWindowMapping.outputWithinWindow,
         })
-        applyCameraToWorkingRgbInPlace(tile.data, input.capability.color)
+        applyCameraToWorkingRgbInPlace(tile.data, color)
         const rows = applyGraphToRgbRows(tile.data)
         await writer.writeRows(rows, tile.height)
 

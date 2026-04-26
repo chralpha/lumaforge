@@ -249,6 +249,14 @@ export function createLumaRawRuntime(
           stageSignal,
         )
       },
+      readProcessedWindow(request, stageSignal?: AbortSignal) {
+        return client.request(
+          'readProcessedWindowFromSession',
+          { sessionId: sessionInfo.sessionId, request },
+          [],
+          stageSignal,
+        )
+      },
       decodeQuick(
         stageOptions: LumaRawQuickOptions = options,
         stageSignal?: AbortSignal,

@@ -309,6 +309,19 @@ function unsupportedRawWindowCapability(): LumaRawExportCapability {
     blackLevel: 0,
     whiteLevel: 0,
     orientation: { code: 1, supported: true },
+    sensor: {
+      layout: 'unknown',
+      colorCount: 0,
+      cfa: { pattern: 'unsupported' as const, xPhase: 0, yPhase: 0 },
+      phaseIsWindowLocal: false,
+    },
+    windows: { librawProcessed: false, rawMosaic: false },
+    diagnostics: {
+      hasRawImage: false,
+      hasColor3Image: false,
+      hasColor4Image: false,
+      hasXTransTable: false,
+    },
     reasons: ['raw-window-unavailable'],
   }
 }
@@ -758,6 +771,35 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
     return response
   }
 
+  function handleReadProcessedWindowFromSession(
+    request: LumaRawWorkerRequest<'readProcessedWindowFromSession'>,
+  ): LumaRawWorkerResponse {
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    const session = requireSession(request.payload.sessionId)
+    if (!session.processor.readProcessedWindow) {
+      throw new LumaRawRuntimeError(
+        'RAW_RUNTIME_UNAVAILABLE',
+        'RAW runtime processed-window access is unavailable for this source.',
+      )
+    }
+
+    const response: LumaRawWorkerResponse = {
+      id: request.id,
+      ok: true,
+      type: request.type,
+      payload: session.processor.readProcessedWindow(request.payload.request),
+    }
+
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    return response
+  }
+
   return {
     async handleRequest(
       request: LumaRawWorkerRequest,
@@ -791,6 +833,8 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
             return handleProbeExportCapabilityFromSession(request)
           case 'readRawWindowFromSession':
             return handleReadRawWindowFromSession(request)
+          case 'readProcessedWindowFromSession':
+            return handleReadProcessedWindowFromSession(request)
           case 'decodeQuickFromSession':
           case 'decodeHqFromSession':
             return handleDecodeFromSession(request)

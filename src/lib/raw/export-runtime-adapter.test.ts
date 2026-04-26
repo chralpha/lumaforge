@@ -20,6 +20,19 @@ function makeCapability(): LumaRawExportCapability {
     blackLevel: 0,
     whiteLevel: 255,
     orientation: { code: 1, supported: true },
+    sensor: {
+      layout: 'bayer',
+      colorCount: 3,
+      cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+      phaseIsWindowLocal: false,
+    },
+    windows: { librawProcessed: false, rawMosaic: true },
+    diagnostics: {
+      hasRawImage: true,
+      hasColor3Image: false,
+      hasColor4Image: false,
+      hasXTransTable: false,
+    },
     reasons: [],
   }
 }

@@ -4,7 +4,11 @@ import { LumaRawRuntimeError, normalizeRawRuntimeError } from './errors'
 import type {
   LumaRawExportCapability,
   LumaRawFrame,
+  LumaRawFullResInputStrategy,
+  LumaRawProcessedWindow,
+  LumaRawProcessedWindowRequest,
   LumaRawRuntimeInfo,
+  LumaRawSensorLayout,
   LumaRawTimings,
   LumaRawWindow,
   LumaRawWindowRect,
@@ -86,6 +90,19 @@ describe('luma raw runtime public contract', () => {
       blackLevel: 512,
       whiteLevel: 16383,
       orientation: 1,
+      sensor: {
+        layout: 'bayer',
+        colorCount: 3,
+        cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+        phaseIsWindowLocal: false,
+      },
+      windows: { librawProcessed: false, rawMosaic: true },
+      diagnostics: {
+        hasRawImage: true,
+        hasColor3Image: false,
+        hasColor4Image: false,
+        hasXTransTable: false,
+      },
       reasons: [],
     }
     const unsupported: LumaRawExportCapability = {
@@ -98,6 +115,19 @@ describe('luma raw runtime public contract', () => {
       blackLevel: 0,
       whiteLevel: 0,
       orientation: 1,
+      sensor: {
+        layout: 'unknown',
+        colorCount: 0,
+        cfa: { pattern: 'unsupported', xPhase: 0, yPhase: 0 },
+        phaseIsWindowLocal: false,
+      },
+      windows: { librawProcessed: false, rawMosaic: false },
+      diagnostics: {
+        hasRawImage: false,
+        hasColor3Image: false,
+        hasColor4Image: false,
+        hasXTransTable: false,
+      },
       reasons: ['unsupported-cfa'],
     }
     const rawWindow: LumaRawWindow = {
@@ -109,8 +139,84 @@ describe('luma raw runtime public contract', () => {
     }
 
     expect(supported.supported).toBe(true)
+    expect(supported.sensor.layout).toBe('bayer')
+    expect(supported.windows.rawMosaic).toBe(true)
+    expect(supported.diagnostics.hasRawImage).toBe(true)
     expect(unsupported.supported).toBe(false)
     expect(rawWindow.data.length).toBe(80)
+  })
+
+  it('types LibRaw processed-window full-resolution payloads', () => {
+    const strategy: LumaRawFullResInputStrategy = 'libraw-processed-window'
+    const layout: LumaRawSensorLayout = 'bayer'
+    const request: LumaRawProcessedWindowRequest = {
+      outputRect: { x: 0, y: 8, width: 4, height: 2 },
+      halo: { left: 2, top: 2, right: 2, bottom: 2 },
+    }
+    const window: LumaRawProcessedWindow = {
+      rect: request.outputRect,
+      workingSpace: 'linear-prophoto-rgb',
+      data: new Uint16Array(
+        request.outputRect.width * request.outputRect.height * 3,
+      ),
+      width: request.outputRect.width,
+      height: request.outputRect.height,
+      stride: request.outputRect.width * 3,
+      normalized: false,
+      orientationApplied: true,
+      colorApplied: true,
+      warnings: [],
+    }
+    const capability: LumaRawExportCapability = {
+      supported: true,
+      strategy,
+      width: 4,
+      height: 10,
+      rawWidth: 4,
+      rawHeight: 10,
+      visibleCrop: { x: 0, y: 0, width: 4, height: 10 },
+      cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+      blackLevel: 0,
+      whiteLevel: 65535,
+      orientation: {
+        code: 6,
+        supported: true,
+        outputWidth: 10,
+        outputHeight: 4,
+      },
+      sensor: {
+        layout,
+        colorCount: 3,
+        cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+        phaseIsWindowLocal: false,
+      },
+      levels: { black: 0, white: 65535 },
+      color: {
+        workingSpace: 'linear-prophoto-rgb',
+        librawOutputColor: 'prophoto',
+        gamma: 'linear',
+        cameraWhiteBalanceAppliedByRuntime: true,
+        cameraMatrixAppliedByRuntime: true,
+      },
+      windows: { librawProcessed: true, rawMosaic: false },
+      diagnostics: {
+        make: 'Nikon',
+        model: 'Fixture',
+        librawFilterCode: 0x94949494,
+        hasRawImage: true,
+        hasColor3Image: false,
+        hasColor4Image: false,
+        hasXTransTable: false,
+        canRepeatCropProcess: true,
+      },
+      reasons: [],
+    }
+
+    expect(capability.strategy).toBe(strategy)
+    expect(capability.sensor.layout).toBe(layout)
+    expect(capability.windows.librawProcessed).toBe(true)
+    expect(capability.diagnostics.hasRawImage).toBe(true)
+    expect(window.data).toHaveLength(24)
   })
 
   it('reports runtime capabilities without app dependencies', () => {

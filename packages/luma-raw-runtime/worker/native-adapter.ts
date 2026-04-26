@@ -1,8 +1,13 @@
 import type {
+  LumaRawCfaInfo,
   LumaRawExportCapability,
   LumaRawExportColorFacts,
+  LumaRawExportDiagnostics,
   LumaRawExportOrientation,
+  LumaRawExportSensorFacts,
   LumaRawExportUnsupportedReason,
+  LumaRawProcessedWindow,
+  LumaRawProcessedWindowRequest,
   LumaRawVisibleCrop,
   LumaRawWindow,
   LumaRawWindowRect,
@@ -23,6 +28,7 @@ type EmbindProcessor = {
   extractThumbnail: () => unknown
   probeExportCapability?: () => unknown
   readRawWindow?: (rect: LumaRawWindowRect) => unknown
+  readProcessedWindow?: (request: LumaRawProcessedWindowRequest) => unknown
   decodePreview: (options?: LumaRawNativeDecodeOptions) => unknown
   decodeHq: (options?: LumaRawNativeDecodeOptions) => unknown
   delete?: () => void
@@ -316,12 +322,12 @@ function normalizeImage(value: unknown) {
   }
 }
 
-function clampPhase(value: unknown) {
+function clampPhase(value: unknown): LumaRawCfaInfo['xPhase'] {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return 0
   }
 
-  return Math.max(0, Math.min(5, Math.trunc(value)))
+  return Math.max(0, Math.min(5, Math.trunc(value))) as LumaRawCfaInfo['xPhase']
 }
 
 function normalizeCfa(value: unknown) {
@@ -349,6 +355,19 @@ function normalizeUnsupportedReasons(
 
   const reasons = value.filter(
     (reason): reason is LumaRawExportUnsupportedReason =>
+      reason === 'libraw-open-failed' ||
+      reason === 'libraw-unpack-failed' ||
+      reason === 'libraw-cropbox-window-unavailable' ||
+      reason === 'libraw-cropbox-not-repeatable' ||
+      reason === 'orientation-transform-unimplemented' ||
+      reason === 'unsupported-sensor-layout' ||
+      reason === 'unsupported-cfa-pattern' ||
+      reason === 'missing-camera-white-balance' ||
+      reason === 'missing-camera-to-output-color' ||
+      reason === 'degenerate-camera-to-output-color' ||
+      reason === 'processed-window-unavailable' ||
+      reason === 'raw-window-unavailable-after-unpack' ||
+      reason === 'jpeg-runtime-unavailable' ||
       reason === 'unsupported-source' ||
       reason === 'unsupported-cfa' ||
       reason === 'compressed-raw-window-unavailable' ||
@@ -397,6 +416,7 @@ function normalizeVisibleCrop(
 
 function normalizeExportOrientation(
   value: unknown,
+  options: { allowRuntimeAppliedOrientation?: boolean } = {},
 ): LumaRawExportOrientation | undefined {
   if (typeof value === 'number') {
     const code = asPositiveIntegerOrUndefined(value)
@@ -408,10 +428,19 @@ function normalizeExportOrientation(
   const code = asPositiveIntegerOrUndefined(raw.code)
   if (code === undefined) return undefined
 
-  return {
+  const orientation: LumaRawExportOrientation = {
     code,
-    supported: raw.supported === true && code === 1,
+    supported:
+      raw.supported === true &&
+      (code === 1 || options.allowRuntimeAppliedOrientation === true),
   }
+
+  const outputWidth = asPositiveIntegerOrUndefined(raw.outputWidth)
+  const outputHeight = asPositiveIntegerOrUndefined(raw.outputHeight)
+  if (outputWidth !== undefined) orientation.outputWidth = outputWidth
+  if (outputHeight !== undefined) orientation.outputHeight = outputHeight
+
+  return orientation
 }
 
 function normalizeFiniteTuple(value: unknown, length: number) {
@@ -458,6 +487,72 @@ function hasUsableMatrix3x3(values: number[]) {
   return Math.abs(determinant) > 1e-12
 }
 
+function normalizeExportSensorFacts(
+  value: unknown,
+  fallbackCfa: LumaRawCfaInfo,
+): LumaRawExportSensorFacts {
+  const raw = asRecord(value)
+  const cfa = raw.cfa == null ? fallbackCfa : normalizeCfa(raw.cfa)
+  const layout =
+    raw.layout === 'bayer' ||
+    raw.layout === 'x-trans' ||
+    raw.layout === 'foveon' ||
+    raw.layout === 'monochrome' ||
+    raw.layout === 'rgb-like' ||
+    raw.layout === 'unknown'
+      ? raw.layout
+      : fallbackCfa.pattern === 'x-trans'
+        ? 'x-trans'
+        : fallbackCfa.pattern === 'unsupported'
+          ? 'unknown'
+          : 'bayer'
+  const colorCount = asPositiveIntegerOrUndefined(raw.colorCount) ?? 3
+
+  return {
+    layout,
+    colorCount,
+    cfa,
+    phaseIsWindowLocal: raw.phaseIsWindowLocal === true,
+  }
+}
+
+function normalizeExportDiagnostics(
+  value: unknown,
+  supported: boolean,
+): LumaRawExportDiagnostics {
+  const raw = asRecord(value)
+  const diagnostics: LumaRawExportDiagnostics = {
+    hasRawImage:
+      typeof raw.hasRawImage === 'boolean' ? raw.hasRawImage : supported,
+    hasColor3Image:
+      typeof raw.hasColor3Image === 'boolean' ? raw.hasColor3Image : false,
+    hasColor4Image:
+      typeof raw.hasColor4Image === 'boolean' ? raw.hasColor4Image : false,
+    hasXTransTable:
+      typeof raw.hasXTransTable === 'boolean' ? raw.hasXTransTable : false,
+  }
+
+  if (typeof raw.make === 'string') diagnostics.make = raw.make
+  if (typeof raw.model === 'string') diagnostics.model = raw.model
+  if (typeof raw.normalizedMake === 'string') {
+    diagnostics.normalizedMake = raw.normalizedMake
+  }
+  if (typeof raw.normalizedModel === 'string') {
+    diagnostics.normalizedModel = raw.normalizedModel
+  }
+  if (typeof raw.librawFilterCode === 'number') {
+    diagnostics.librawFilterCode = raw.librawFilterCode
+  }
+  if (typeof raw.canRepeatCropProcess === 'boolean') {
+    diagnostics.canRepeatCropProcess = raw.canRepeatCropProcess
+  }
+  if (typeof raw.lastLibRawWarningMask === 'number') {
+    diagnostics.lastLibRawWarningMask = raw.lastLibRawWarningMask
+  }
+
+  return diagnostics
+}
+
 function normalizeExportColorFacts(
   value: unknown,
 ): LumaRawExportColorFacts | undefined {
@@ -471,32 +566,59 @@ function normalizeExportColorFacts(
     raw.workingSpace === 'prophoto-linear'
       ? 'linear-prophoto-rgb'
       : raw.workingSpace
+  const librawOutputColor = raw.librawOutputColor ?? 'prophoto'
+  const gamma = raw.gamma ?? 'linear'
+  const hasUsableWhiteBalance =
+    whiteBalance !== undefined && whiteBalance.every((value) => value > 0)
+  const hasUsableCameraMatrix =
+    cameraToWorkingRgb !== undefined && hasUsableMatrix3x3(cameraToWorkingRgb)
+  const cameraWhiteBalanceAppliedByRuntime =
+    raw.cameraWhiteBalanceAppliedByRuntime === true || hasUsableWhiteBalance
+  const cameraMatrixAppliedByRuntime =
+    raw.cameraMatrixAppliedByRuntime === true || hasUsableCameraMatrix
 
   if (
-    !whiteBalance ||
-    !cameraToWorkingRgb ||
     workingSpace !== 'linear-prophoto-rgb' ||
-    whiteBalance.some((value) => value <= 0) ||
-    !hasUsableMatrix3x3(cameraToWorkingRgb)
+    librawOutputColor !== 'prophoto' ||
+    gamma !== 'linear'
   ) {
     return undefined
   }
 
-  return {
-    whiteBalance: whiteBalance as [number, number, number, number],
-    cameraToWorkingRgb: cameraToWorkingRgb as [
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ],
-    workingSpace: 'linear-prophoto-rgb',
+  if (!hasUsableWhiteBalance && !cameraWhiteBalanceAppliedByRuntime) {
+    return undefined
   }
+
+  if (!hasUsableCameraMatrix && !cameraMatrixAppliedByRuntime) {
+    return undefined
+  }
+
+  const color: LumaRawExportColorFacts = {
+    workingSpace: 'linear-prophoto-rgb',
+    librawOutputColor: 'prophoto',
+    gamma: 'linear',
+    cameraWhiteBalanceAppliedByRuntime,
+    cameraMatrixAppliedByRuntime,
+  }
+
+  if (whiteBalance) {
+    color.whiteBalance = whiteBalance as [number, number, number, number]
+  }
+  if (cameraToWorkingRgb) {
+    color.cameraToWorkingRgb = cameraToWorkingRgb as [
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+    ]
+  }
+
+  return color
 }
 
 export function normalizeExportCapability(
@@ -511,7 +633,12 @@ export function normalizeExportCapability(
   const cfa = normalizeCfa(raw.cfa)
   const blackLevel = asFiniteNumberOrUndefined(raw.blackLevel)
   const whiteLevel = asFiniteNumberOrUndefined(raw.whiteLevel)
-  const orientation = normalizeExportOrientation(raw.orientation)
+  const rawWindows = asRecord(raw.windows)
+  const librawProcessed = rawWindows.librawProcessed === true
+  const orientation = normalizeExportOrientation(raw.orientation, {
+    allowRuntimeAppliedOrientation:
+      raw.strategy === 'libraw-processed-window' || librawProcessed,
+  })
   const color = normalizeExportColorFacts(raw.color)
   const normalizedReasons = normalizeUnsupportedReasons(raw.reasons)
   const reasons = new Set<LumaRawExportUnsupportedReason>(normalizedReasons)
@@ -563,12 +690,40 @@ export function normalizeExportCapability(
     cfa,
     blackLevel: blackLevel ?? 0,
     whiteLevel: whiteLevel ?? 0,
+    sensor: normalizeExportSensorFacts(raw.sensor, cfa),
+    windows: {
+      librawProcessed,
+      rawMosaic:
+        typeof rawWindows.rawMosaic === 'boolean'
+          ? rawWindows.rawMosaic
+          : supported,
+    },
+    diagnostics: normalizeExportDiagnostics(raw.diagnostics, supported),
     reasons: [...reasons],
   }
 
+  if (
+    raw.strategy === 'libraw-processed-window' ||
+    raw.strategy === 'raw-mosaic-window'
+  ) {
+    capability.strategy = raw.strategy
+  }
   if (visibleCrop) capability.visibleCrop = visibleCrop
   if (orientation) capability.orientation = orientation
   if (color) capability.color = color
+  if (blackLevel !== undefined && whiteLevel !== undefined) {
+    const rawLevels = asRecord(raw.levels)
+    const perChannelBlack = normalizeFiniteTuple(rawLevels.perChannelBlack, 4)
+    capability.levels = { black: blackLevel, white: whiteLevel }
+    if (perChannelBlack) {
+      capability.levels.perChannelBlack = perChannelBlack as [
+        number,
+        number,
+        number,
+        number,
+      ]
+    }
+  }
 
   return capability
 }
@@ -610,6 +765,80 @@ function normalizeRawWindow(value: unknown): LumaRawWindow {
     data: normalizeUint16Output(raw.data, 'raw-window'),
     blackLevel: asFiniteNumber(raw.blackLevel, 'blackLevel'),
     whiteLevel: asFiniteNumber(raw.whiteLevel, 'whiteLevel'),
+  }
+}
+
+function normalizeProcessedWindow(value: unknown): LumaRawProcessedWindow {
+  const raw = asRecord(value)
+  const rect = normalizeWindowRect(raw.rect)
+
+  if (!(raw.data instanceof Uint16Array)) {
+    throw new TypeError(
+      'Native RAW processed-window did not return Uint16Array data.',
+    )
+  }
+
+  const width = asPositiveInteger(raw.width, 'width')
+  const height = asPositiveInteger(raw.height, 'height')
+  const stride = asPositiveInteger(raw.stride, 'stride')
+  if (raw.workingSpace !== 'linear-prophoto-rgb') {
+    throw new TypeError(
+      'Native RAW processed-window returned invalid workingSpace.',
+    )
+  }
+  if (raw.normalized !== false) {
+    throw new TypeError(
+      'Native RAW processed-window returned invalid normalized flag.',
+    )
+  }
+  if (raw.orientationApplied !== true) {
+    throw new TypeError(
+      'Native RAW processed-window returned invalid orientationApplied flag.',
+    )
+  }
+  if (raw.colorApplied !== true) {
+    throw new TypeError(
+      'Native RAW processed-window returned invalid colorApplied flag.',
+    )
+  }
+  if (
+    !Array.isArray(raw.warnings) ||
+    !raw.warnings.every((warning) => typeof warning === 'string')
+  ) {
+    throw new TypeError(
+      'Native RAW processed-window returned invalid warnings.',
+    )
+  }
+  if (rect.width !== width || rect.height !== height) {
+    throw new TypeError(
+      'Native RAW processed-window dimensions do not match rect dimensions.',
+    )
+  }
+  if (stride < width * 3) {
+    throw new TypeError('Native RAW processed-window returned invalid stride.')
+  }
+
+  const expectedLength = stride * height
+  if (!Number.isSafeInteger(expectedLength)) {
+    throw new TypeError('Native RAW processed-window dimensions are too large.')
+  }
+  if (raw.data.length !== expectedLength) {
+    throw new TypeError(
+      'Native RAW processed-window data length does not match dimensions.',
+    )
+  }
+
+  return {
+    rect,
+    workingSpace: 'linear-prophoto-rgb',
+    data: normalizeUint16Output(raw.data, 'processed-window'),
+    width,
+    height,
+    stride,
+    normalized: false,
+    orientationApplied: true,
+    colorApplied: true,
+    warnings: raw.warnings,
   }
 }
 
@@ -660,6 +889,19 @@ export function createNativeFactory(
               blackLevel: 0,
               whiteLevel: 0,
               orientation: { code: 1, supported: true },
+              sensor: {
+                layout: 'unknown',
+                colorCount: 0,
+                cfa: { pattern: 'unsupported', xPhase: 0, yPhase: 0 },
+                phaseIsWindowLocal: false,
+              },
+              windows: { librawProcessed: false, rawMosaic: false },
+              diagnostics: {
+                hasRawImage: false,
+                hasColor3Image: false,
+                hasColor4Image: false,
+                hasXTransTable: false,
+              },
               reasons: ['raw-window-unavailable'],
             }
           }
@@ -672,6 +914,17 @@ export function createNativeFactory(
           }
 
           return normalizeRawWindow(processor.readRawWindow(rect))
+        },
+        readProcessedWindow(request) {
+          if (!processor.readProcessedWindow) {
+            throw new TypeError(
+              'Native RAW processed-window access is unavailable.',
+            )
+          }
+
+          return normalizeProcessedWindow(
+            processor.readProcessedWindow(request),
+          )
         },
         decodePreview(options) {
           return normalizeImage(

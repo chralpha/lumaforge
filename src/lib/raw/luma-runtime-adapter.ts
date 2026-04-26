@@ -7,11 +7,14 @@ import type {
   LumaRawRuntime,
 } from '@lumaforge/luma-raw-runtime'
 
+import { JPEG_RUNTIME_UNAVAILABLE_MESSAGE } from '~/lib/export/jpeg/wasm-row-sink'
+
 import type { DecodedImage, ImageMetadata, ProgressCallback } from './decoder'
 import { QUICK_PREVIEW_MAX_PIXELS } from './decoder'
-import { JPEG_RUNTIME_UNAVAILABLE_MESSAGE } from '~/lib/export/jpeg/wasm-row-sink'
-import type { RawRuntimeSession } from './runtime-adapter'
-import type { JpegRuntimeAvailabilityProbe } from './runtime-adapter'
+import type {
+  JpegRuntimeAvailabilityProbe,
+  RawRuntimeSession,
+} from './runtime-adapter'
 
 let singletonRuntime: LumaRawRuntime | null = null
 let singletonRuntimePromise: Promise<LumaRawRuntime> | null = null
@@ -82,10 +85,18 @@ function formatLumaShutter(shutter?: number) {
   return typeof shutter === 'number' ? `${shutter}s` : undefined
 }
 
-function getUnsupportedExportFactReasons(
-  capability: LumaRawExportCapability,
-) {
+function getUnsupportedExportFactReasons(capability: LumaRawExportCapability) {
   const reasons: LumaRawExportUnsupportedReason[] = []
+
+  if (
+    !(
+      (capability.strategy === undefined ||
+        capability.strategy === 'raw-mosaic-window') &&
+      capability.windows.rawMosaic
+    )
+  ) {
+    reasons.push('raw-window-unavailable')
+  }
 
   if (!capability.visibleCrop) {
     reasons.push('missing-visible-crop')
@@ -94,12 +105,18 @@ function getUnsupportedExportFactReasons(
   const orientation = capability.orientation
   if (
     !orientation ||
-    (typeof orientation === 'object' && !orientation.supported)
+    (typeof orientation === 'number' && orientation !== 1) ||
+    (typeof orientation === 'object' &&
+      (!orientation.supported || orientation.code !== 1))
   ) {
     reasons.push('unsupported-orientation')
   }
 
-  if (capability.color?.workingSpace !== 'linear-prophoto-rgb') {
+  if (
+    capability.color?.workingSpace !== 'linear-prophoto-rgb' ||
+    !capability.color.whiteBalance ||
+    !capability.color.cameraToWorkingRgb
+  ) {
     reasons.push('missing-color-transform')
   }
 
@@ -278,7 +295,10 @@ export async function openRawSessionWithLuma(
       signal?: AbortSignal,
     ): Promise<LumaRawExportCapability> {
       const rawCapability = await session.probeExportCapability(signal)
-      return resolveExportCapability(rawCapability, jpegRuntimeAvailabilityProbe)
+      return resolveExportCapability(
+        rawCapability,
+        jpegRuntimeAvailabilityProbe,
+      )
     },
     async decodeQuickRaw(onProgress?: ProgressCallback, signal?: AbortSignal) {
       try {

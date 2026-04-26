@@ -521,6 +521,23 @@ describe('runtime-core', () => {
         cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
         workingSpace: 'linear-prophoto-rgb' as const,
       },
+      sensor: {
+        layout: 'bayer' as const,
+        colorCount: 3,
+        cfa: {
+          pattern: 'rggb' as const,
+          xPhase: 0 as const,
+          yPhase: 0 as const,
+        },
+        phaseIsWindowLocal: false,
+      },
+      windows: { librawProcessed: false, rawMosaic: true },
+      diagnostics: {
+        hasRawImage: true,
+        hasColor3Image: false,
+        hasColor4Image: false,
+        hasXTransTable: false,
+      },
       reasons: [],
     }
 
@@ -590,7 +607,17 @@ describe('runtime-core', () => {
       return
     }
 
-    expect(capability.payload).toEqual(nativeCapability)
+    expect(capability.payload).toEqual({
+      ...nativeCapability,
+      color: {
+        ...nativeCapability.color,
+        librawOutputColor: 'prophoto',
+        gamma: 'linear',
+        cameraWhiteBalanceAppliedByRuntime: true,
+        cameraMatrixAppliedByRuntime: true,
+      },
+      levels: { black: 64, white: 1023 },
+    })
     expect(window.payload).toEqual(nativeWindow)
   })
 
@@ -639,6 +666,19 @@ describe('runtime-core', () => {
         blackLevel: 0,
         whiteLevel: 0,
         orientation: { code: 1, supported: true },
+        sensor: {
+          layout: 'unknown',
+          colorCount: 0,
+          cfa: { pattern: 'unsupported', xPhase: 0, yPhase: 0 },
+          phaseIsWindowLocal: false,
+        },
+        windows: { librawProcessed: false, rawMosaic: false },
+        diagnostics: {
+          hasRawImage: false,
+          hasColor3Image: false,
+          hasColor4Image: false,
+          hasXTransTable: false,
+        },
         reasons: ['raw-window-unavailable'],
       },
     })
@@ -648,9 +688,167 @@ describe('runtime-core', () => {
       type: 'readRawWindowFromSession',
       error: {
         code: 'RAW_UNSUPPORTED_FORMAT',
-        message: 'RAW runtime raw-window access is unavailable for this source.',
+        message:
+          'RAW runtime raw-window access is unavailable for this source.',
       },
     })
+  })
+
+  it('passes through native processed-window payloads', async () => {
+    const request = {
+      outputRect: { x: 0, y: 4, width: 2, height: 1 },
+      halo: { left: 1, top: 1, right: 1, bottom: 1 },
+    }
+    const processedWindow = {
+      rect: request.outputRect,
+      workingSpace: 'linear-prophoto-rgb' as const,
+      data: new Uint16Array([1, 2, 3, 4, 5, 6]),
+      width: 2,
+      height: 1,
+      stride: 6,
+      normalized: false as const,
+      orientationApplied: true as const,
+      colorApplied: true as const,
+      warnings: [],
+    }
+    const core = createRuntimeCore({
+      createProcessor() {
+        return {
+          ...makeNativeFactory().createProcessor(),
+          readProcessedWindow(receivedRequest) {
+            expect(receivedRequest).toEqual(request)
+            return processedWindow
+          },
+        }
+      },
+    })
+
+    const opened = await core.handleRequest({
+      id: 'job-processed-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+
+    const response = await core.handleRequest({
+      id: 'job-processed-read',
+      type: 'readProcessedWindowFromSession',
+      payload: { sessionId: opened.payload.sessionId, request },
+    })
+
+    expect(response).toEqual({
+      id: 'job-processed-read',
+      ok: true,
+      type: 'readProcessedWindowFromSession',
+      payload: processedWindow,
+    })
+  })
+
+  it('fails closed for missing session processed-window support', async () => {
+    const core = createRuntimeCore(makeNativeFactory())
+
+    const opened = await core.handleRequest({
+      id: 'job-processed-missing-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+
+    const response = await core.handleRequest({
+      id: 'job-processed-missing',
+      type: 'readProcessedWindowFromSession',
+      payload: {
+        sessionId: opened.payload.sessionId,
+        request: {
+          outputRect: { x: 0, y: 0, width: 1, height: 1 },
+          halo: { left: 0, top: 0, right: 0, bottom: 0 },
+        },
+      },
+    })
+
+    expect(response).toEqual({
+      id: 'job-processed-missing',
+      ok: false,
+      type: 'readProcessedWindowFromSession',
+      error: {
+        code: 'RAW_RUNTIME_UNAVAILABLE',
+        message:
+          'RAW runtime processed-window access is unavailable for this source.',
+      },
+    })
+  })
+
+  it('does not read processed windows for pre-cancelled jobs', async () => {
+    let readCount = 0
+    const core = createRuntimeCore({
+      createProcessor() {
+        return {
+          ...makeNativeFactory().createProcessor(),
+          readProcessedWindow() {
+            readCount += 1
+            return {
+              rect: { x: 0, y: 0, width: 1, height: 1 },
+              workingSpace: 'linear-prophoto-rgb',
+              data: new Uint16Array([1, 2, 3]),
+              width: 1,
+              height: 1,
+              stride: 3,
+              normalized: false,
+              orientationApplied: true,
+              colorApplied: true,
+              warnings: [],
+            }
+          },
+        }
+      },
+    })
+
+    const opened = await core.handleRequest({
+      id: 'job-processed-cancel-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+
+    await core.handleRequest({
+      id: 'job-processed-cancel-command',
+      type: 'cancel',
+      payload: { targetJobId: 'job-processed-cancelled' },
+    })
+    const cancelled = await core.handleRequest({
+      id: 'job-processed-cancelled',
+      type: 'readProcessedWindowFromSession',
+      payload: {
+        sessionId: opened.payload.sessionId,
+        request: {
+          outputRect: { x: 0, y: 0, width: 1, height: 1 },
+          halo: { left: 0, top: 0, right: 0, bottom: 0 },
+        },
+      },
+    })
+
+    expect(cancelled).toMatchObject({
+      id: 'job-processed-cancelled',
+      ok: false,
+      type: 'readProcessedWindowFromSession',
+      error: { code: 'RAW_JOB_CANCELLED' },
+    })
+    expect(readCount).toBe(0)
   })
 
   it('passes quick maxOutputPixels to native decodePreview', async () => {
@@ -744,6 +942,19 @@ describe('runtime-core', () => {
                 cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
                 workingSpace: 'linear-prophoto-rgb',
               },
+              sensor: {
+                layout: 'bayer',
+                colorCount: 3,
+                cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+                phaseIsWindowLocal: false,
+              },
+              windows: { librawProcessed: false, rawMosaic: true },
+              diagnostics: {
+                hasRawImage: true,
+                hasColor3Image: false,
+                hasColor4Image: false,
+                hasXTransTable: false,
+              },
               reasons: [],
             }
           },
@@ -831,6 +1042,19 @@ describe('runtime-core', () => {
               blackLevel: 512,
               whiteLevel: 16383,
               orientation: 1,
+              sensor: {
+                layout: 'bayer',
+                colorCount: 3,
+                cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+                phaseIsWindowLocal: false,
+              },
+              windows: { librawProcessed: false, rawMosaic: true },
+              diagnostics: {
+                hasRawImage: true,
+                hasColor3Image: false,
+                hasColor4Image: false,
+                hasXTransTable: false,
+              },
               reasons: [],
             }
           },
@@ -912,7 +1136,8 @@ describe('runtime-core', () => {
       type: 'readRawWindowFromSession',
       error: {
         code: 'RAW_UNSUPPORTED_FORMAT',
-        message: 'RAW runtime raw-window access is unavailable for this source.',
+        message:
+          'RAW runtime raw-window access is unavailable for this source.',
       },
     })
   })

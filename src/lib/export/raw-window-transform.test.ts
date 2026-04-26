@@ -60,7 +60,9 @@ describe('mapOutputRectToRawWindow', () => {
         rawHeight: 400,
         halo: 2,
       }),
-    ).toThrow('Output rect must be fully contained within the visible raw crop.')
+    ).toThrow(
+      'Output rect must be fully contained within the visible raw crop.',
+    )
   })
 })
 
@@ -75,5 +77,19 @@ describe('applyCameraToWorkingRgbInPlace', () => {
     })
 
     expect(Array.from(rgb)).toEqual([0.5, 0.5, 1])
+  })
+
+  it('fails closed when legacy color transform tuples are unavailable', () => {
+    const rgb = new Float32Array([0.25, 0.5, 1])
+
+    expect(() =>
+      applyCameraToWorkingRgbInPlace(rgb, {
+        workingSpace: 'linear-prophoto-rgb',
+        librawOutputColor: 'prophoto',
+        gamma: 'linear',
+        cameraWhiteBalanceAppliedByRuntime: true,
+        cameraMatrixAppliedByRuntime: true,
+      }),
+    ).toThrow('FULL_RES_EXPORT_UNSUPPORTED_SOURCE')
   })
 })

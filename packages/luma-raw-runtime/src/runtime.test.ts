@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createLumaRawRuntime } from './runtime'
 import type {
+  LumaRawWorkerPayloadByType,
   LumaRawWorkerRequest,
+  LumaRawWorkerRequestType,
   LumaRawWorkerResponse,
 } from './worker-protocol'
 
@@ -251,7 +253,9 @@ class EchoWorker {
   constructor(
     private readonly handleRequest: (
       request: LumaRawWorkerRequest,
-    ) => LumaRawWorkerResponse | LumaRawWorkerResponse['payload'],
+    ) =>
+      | LumaRawWorkerResponse
+      | LumaRawWorkerPayloadByType[LumaRawWorkerRequestType],
   ) {}
 
   readonly postMessage = vi.fn((request: LumaRawWorkerRequest) => {
@@ -525,6 +529,11 @@ describe('createLumaRawRuntime', () => {
   })
 
   it('forwards export capability and raw-window requests through the session', async () => {
+    const processedWindowRequest = {
+      outputRect: { x: 0, y: 0, width: 2, height: 1 },
+      halo: { left: 1, top: 1, right: 1, bottom: 1 },
+    }
+    const seenProcessedWindowRequests: unknown[] = []
     const worker = new EchoWorker((request) => {
       if (request.type === 'init') {
         return {
@@ -567,6 +576,19 @@ describe('createLumaRawRuntime', () => {
             cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
             workingSpace: 'linear-prophoto-rgb',
           },
+          sensor: {
+            layout: 'bayer',
+            colorCount: 3,
+            cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+            phaseIsWindowLocal: false,
+          },
+          windows: { librawProcessed: false, rawMosaic: true },
+          diagnostics: {
+            hasRawImage: true,
+            hasColor3Image: false,
+            hasColor4Image: false,
+            hasXTransTable: false,
+          },
           reasons: [],
         }
       }
@@ -577,6 +599,21 @@ describe('createLumaRawRuntime', () => {
           data: new Uint16Array(4),
           blackLevel: 0,
           whiteLevel: 65535,
+        }
+      }
+      if (request.type === 'readProcessedWindowFromSession') {
+        seenProcessedWindowRequests.push(request.payload)
+        return {
+          rect: request.payload.request.outputRect,
+          workingSpace: 'linear-prophoto-rgb',
+          data: new Uint16Array([1, 2, 3, 4, 5, 6]),
+          width: 2,
+          height: 1,
+          stride: 6,
+          normalized: false,
+          orientationApplied: true,
+          colorApplied: true,
+          warnings: [],
         }
       }
       if (request.type === 'closeSession') return { closed: true }
@@ -605,6 +642,19 @@ describe('createLumaRawRuntime', () => {
     ).resolves.toMatchObject({
       rect: { x: 0, y: 0, width: 2, height: 2 },
     })
+    const controller = new AbortController()
+    await expect(
+      session.readProcessedWindow(processedWindowRequest, controller.signal),
+    ).resolves.toMatchObject({
+      rect: processedWindowRequest.outputRect,
+      workingSpace: 'linear-prophoto-rgb',
+    })
+    expect(seenProcessedWindowRequests).toEqual([
+      {
+        sessionId: 's1',
+        request: processedWindowRequest,
+      },
+    ])
   })
 
   it('does not recreate a worker when disposing a session after runtime disposal', async () => {

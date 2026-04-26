@@ -14,23 +14,46 @@ function makeCapability(
   overrides: Partial<LumaRawExportCapability> = {},
 ): LumaRawExportCapability {
   return {
-    supported: true,
-    width: 4,
-    height: 4,
-    rawWidth: 4,
-    rawHeight: 4,
-    visibleCrop: { x: 0, y: 0, width: 4, height: 4 },
-    cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
-    blackLevel: 0,
-    whiteLevel: 255,
-    orientation: { code: 1, supported: true },
-    color: {
-      whiteBalance: [1, 1, 1, 1],
-      cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-      workingSpace: 'linear-prophoto-rgb',
+    supported: overrides.supported ?? true,
+    strategy: overrides.strategy,
+    width: overrides.width ?? 4,
+    height: overrides.height ?? 4,
+    rawWidth: overrides.rawWidth ?? 4,
+    rawHeight: overrides.rawHeight ?? 4,
+    visibleCrop:
+      'visibleCrop' in overrides
+        ? overrides.visibleCrop
+        : { x: 0, y: 0, width: 4, height: 4 },
+    cfa: overrides.cfa ?? { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+    blackLevel: overrides.blackLevel ?? 0,
+    whiteLevel: overrides.whiteLevel ?? 255,
+    orientation:
+      'orientation' in overrides
+        ? overrides.orientation
+        : { code: 1, supported: true },
+    color:
+      'color' in overrides
+        ? overrides.color
+        : {
+            whiteBalance: [1, 1, 1, 1],
+            cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+            workingSpace: 'linear-prophoto-rgb',
+          },
+    sensor: overrides.sensor ?? {
+      layout: 'bayer',
+      colorCount: 3,
+      cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+      phaseIsWindowLocal: false,
     },
-    reasons: [],
-    ...overrides,
+    levels: overrides.levels,
+    windows: overrides.windows ?? { librawProcessed: false, rawMosaic: true },
+    diagnostics: overrides.diagnostics ?? {
+      hasRawImage: true,
+      hasColor3Image: false,
+      hasColor4Image: false,
+      hasXTransTable: false,
+    },
+    reasons: overrides.reasons ?? [],
   }
 }
 
@@ -113,6 +136,25 @@ describe('runFullResolutionJpegExport', () => {
     ['unsupported orientation', { orientation: { code: 6, supported: false } }],
     ['missing orientation', { orientation: undefined }],
     ['missing color facts', { color: undefined }],
+    [
+      'processed-window strategy before Task 5 export path',
+      {
+        strategy: 'libraw-processed-window',
+        windows: { librawProcessed: true, rawMosaic: false },
+      },
+    ],
+    [
+      'processed-window color facts before Task 5 export path',
+      {
+        color: {
+          workingSpace: 'linear-prophoto-rgb',
+          librawOutputColor: 'prophoto',
+          gamma: 'linear',
+          cameraWhiteBalanceAppliedByRuntime: true,
+          cameraMatrixAppliedByRuntime: true,
+        },
+      },
+    ],
     [
       'unsupported working space',
       {

@@ -1,5 +1,7 @@
 import type {
   LumaRawExportCapability,
+  LumaRawProcessedWindow,
+  LumaRawProcessedWindowRequest,
   LumaRawWindow,
   LumaRawWindowRect,
 } from '../src/types'
@@ -75,6 +77,9 @@ export type LumaRawNativeProcessor = {
   extractThumbnail: () => LumaRawNativeThumbnail | undefined
   probeExportCapability?: () => LumaRawNativeExportCapability
   readRawWindow?: (rect: LumaRawWindowRect) => LumaRawWindow
+  readProcessedWindow?: (
+    request: LumaRawProcessedWindowRequest,
+  ) => LumaRawProcessedWindow
   decodePreview: (options?: LumaRawNativeDecodeOptions) => LumaRawNativeImage
   decodeHq: (options?: LumaRawNativeDecodeOptions) => LumaRawNativeImage
   dispose: () => void

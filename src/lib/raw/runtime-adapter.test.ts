@@ -82,6 +82,19 @@ function makeCapability(): LumaRawExportCapability {
       cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
       workingSpace: 'linear-prophoto-rgb',
     },
+    sensor: {
+      layout: 'bayer',
+      colorCount: 3,
+      cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+      phaseIsWindowLocal: false,
+    },
+    windows: { librawProcessed: false, rawMosaic: true },
+    diagnostics: {
+      hasRawImage: true,
+      hasColor3Image: false,
+      hasColor4Image: false,
+      hasXTransTable: false,
+    },
     reasons: [],
   }
 }
@@ -140,6 +153,7 @@ function makeLumaRuntime(
         extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
         probeExportCapability: vi.fn().mockResolvedValue(makeCapability()),
         readRawWindow: vi.fn(),
+        readProcessedWindow: vi.fn(),
         decodeQuick: vi.fn().mockResolvedValue(makeLumaFrame('quick')),
         decodeHq: vi.fn().mockResolvedValue(makeLumaFrame('hq')),
         dispose: vi.fn(),
@@ -256,6 +270,7 @@ describe('raw runtime adapter', () => {
         extractEmbeddedPreview,
         probeExportCapability,
         readRawWindow: vi.fn(),
+        readProcessedWindow: vi.fn(),
         decodeQuick,
         decodeHq,
         dispose,
@@ -307,6 +322,7 @@ describe('raw runtime adapter', () => {
         extractEmbeddedPreview: vi.fn(),
         probeExportCapability,
         readRawWindow: vi.fn(),
+        readProcessedWindow: vi.fn(),
         decodeQuick: vi.fn(),
         decodeHq: vi.fn(),
         dispose: vi.fn(),
@@ -337,6 +353,14 @@ describe('raw runtime adapter', () => {
       { orientation: { code: 6, supported: false } },
       ['unsupported-orientation'],
     ],
+    [
+      'processed-window-only-export',
+      {
+        strategy: 'libraw-processed-window',
+        windows: { librawProcessed: true, rawMosaic: false },
+      },
+      ['raw-window-unavailable'],
+    ],
   ] as Array<[string, Partial<LumaRawExportCapability>, string[]]>)(
     'fails export capability closed for %s',
     async (_name, overrides, reasons) => {
@@ -357,6 +381,7 @@ describe('raw runtime adapter', () => {
             .fn()
             .mockResolvedValue({ ...makeCapability(), ...overrides }),
           readRawWindow: vi.fn(),
+          readProcessedWindow: vi.fn(),
           decodeQuick: vi.fn(),
           decodeHq: vi.fn(),
           dispose: vi.fn(),
@@ -413,6 +438,7 @@ describe('raw runtime adapter', () => {
         timings: { total: 1 },
         extractEmbeddedPreview,
         readRawWindow: vi.fn(),
+        readProcessedWindow: vi.fn(),
         decodeQuick,
         decodeHq,
         dispose: vi.fn(),

@@ -15,6 +15,7 @@ type ProcessorValues = {
   thumbnail?: unknown
   exportCapability?: unknown
   rawWindow?: unknown
+  processedWindow?: unknown
   image?: unknown
   onDecodePreview?: (options?: LumaRawNativeDecodeOptions) => void
   onDecodeHq?: (options?: LumaRawNativeDecodeOptions) => void
@@ -67,6 +68,17 @@ function createProcessor(values: ProcessorValues) {
         height: number
       }) {
         return values.rawWindow
+      }
+      readProcessedWindow(_request: {
+        outputRect: {
+          x: number
+          y: number
+          width: number
+          height: number
+        }
+        halo: { left: number; top: number; right: number; bottom: number }
+      }) {
+        return values.processedWindow
       }
       decodePreview(options?: LumaRawNativeDecodeOptions) {
         values.onDecodePreview?.(options)
@@ -165,6 +177,19 @@ describe('native-adapter', () => {
       blackLevel: 0,
       whiteLevel: 0,
       orientation: { code: 1, supported: true },
+      sensor: {
+        layout: 'unknown',
+        colorCount: 0,
+        cfa: { pattern: 'unsupported', xPhase: 0, yPhase: 0 },
+        phaseIsWindowLocal: false,
+      },
+      windows: { librawProcessed: false, rawMosaic: false },
+      diagnostics: {
+        hasRawImage: false,
+        hasColor3Image: false,
+        hasColor4Image: false,
+        hasXTransTable: false,
+      },
       reasons: ['raw-window-unavailable'],
     })
   })
@@ -210,6 +235,169 @@ describe('native-adapter', () => {
     expect(capability?.color?.whiteBalance).toHaveLength(4)
     expect(capability?.color?.whiteBalance).toEqual([2.1, 1, 1.4, 1])
     expect(capability?.color?.cameraToWorkingRgb).toHaveLength(9)
+  })
+
+  it('accepts processed-window v2 export capability facts without legacy color tuples', () => {
+    const processor = createProcessor({
+      exportCapability: {
+        supported: true,
+        strategy: 'libraw-processed-window',
+        width: 4000,
+        height: 3000,
+        rawWidth: 4024,
+        rawHeight: 3024,
+        visibleCrop: { x: 12, y: 12, width: 4000, height: 3000 },
+        cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+        blackLevel: 512,
+        whiteLevel: 16383,
+        orientation: {
+          code: 6,
+          supported: true,
+          outputWidth: 3000,
+          outputHeight: 4000,
+        },
+        sensor: {
+          layout: 'bayer',
+          colorCount: 3,
+          cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+          phaseIsWindowLocal: false,
+        },
+        levels: {
+          black: 512,
+          white: 16383,
+          perChannelBlack: [512, 513, 514, 515],
+        },
+        color: {
+          workingSpace: 'linear-prophoto-rgb',
+          librawOutputColor: 'prophoto',
+          gamma: 'linear',
+          cameraWhiteBalanceAppliedByRuntime: true,
+          cameraMatrixAppliedByRuntime: true,
+        },
+        windows: { librawProcessed: true, rawMosaic: false },
+        diagnostics: {
+          make: 'Nikon',
+          model: 'Fixture',
+          librawFilterCode: 0x94949494,
+          hasRawImage: true,
+          hasColor3Image: true,
+          hasColor4Image: false,
+          hasXTransTable: false,
+          canRepeatCropProcess: true,
+        },
+        reasons: [],
+      },
+    })
+
+    expect(processor.probeExportCapability?.()).toEqual({
+      supported: true,
+      strategy: 'libraw-processed-window',
+      width: 4000,
+      height: 3000,
+      rawWidth: 4024,
+      rawHeight: 3024,
+      visibleCrop: { x: 12, y: 12, width: 4000, height: 3000 },
+      cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+      blackLevel: 512,
+      whiteLevel: 16383,
+      orientation: {
+        code: 6,
+        supported: true,
+        outputWidth: 3000,
+        outputHeight: 4000,
+      },
+      sensor: {
+        layout: 'bayer',
+        colorCount: 3,
+        cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+        phaseIsWindowLocal: false,
+      },
+      levels: {
+        black: 512,
+        white: 16383,
+        perChannelBlack: [512, 513, 514, 515],
+      },
+      color: {
+        workingSpace: 'linear-prophoto-rgb',
+        librawOutputColor: 'prophoto',
+        gamma: 'linear',
+        cameraWhiteBalanceAppliedByRuntime: true,
+        cameraMatrixAppliedByRuntime: true,
+      },
+      windows: { librawProcessed: true, rawMosaic: false },
+      diagnostics: {
+        make: 'Nikon',
+        model: 'Fixture',
+        librawFilterCode: 0x94949494,
+        hasRawImage: true,
+        hasColor3Image: true,
+        hasColor4Image: false,
+        hasXTransTable: false,
+        canRepeatCropProcess: true,
+      },
+      reasons: [],
+    })
+  })
+
+  it('normalizes processed-window payloads', () => {
+    const pooled = new Uint16Array([9, 1, 2, 3, 4, 5, 6, 8]).subarray(1, 7)
+    const processor = createProcessor({
+      processedWindow: {
+        rect: { x: 0, y: 2, width: 2, height: 1 },
+        workingSpace: 'linear-prophoto-rgb',
+        data: pooled,
+        width: 2,
+        height: 1,
+        stride: 6,
+        normalized: false,
+        orientationApplied: true,
+        colorApplied: true,
+        warnings: ['clipped'],
+      },
+    })
+
+    const window = processor.readProcessedWindow?.({
+      outputRect: { x: 0, y: 2, width: 2, height: 1 },
+      halo: { left: 1, top: 1, right: 1, bottom: 1 },
+    })
+
+    expect(window).toEqual({
+      rect: { x: 0, y: 2, width: 2, height: 1 },
+      workingSpace: 'linear-prophoto-rgb',
+      data: new Uint16Array([1, 2, 3, 4, 5, 6]),
+      width: 2,
+      height: 1,
+      stride: 6,
+      normalized: false,
+      orientationApplied: true,
+      colorApplied: true,
+      warnings: ['clipped'],
+    })
+    expect(window?.data.buffer).not.toBe(pooled.buffer)
+  })
+
+  it('rejects malformed processed-window payloads', () => {
+    const malformed = createProcessor({
+      processedWindow: {
+        rect: { x: 0, y: 0, width: 2, height: 1 },
+        workingSpace: 'linear-prophoto-rgb',
+        data: new Uint16Array([1, 2, 3]),
+        width: 2,
+        height: 1,
+        stride: 6,
+        normalized: false,
+        orientationApplied: true,
+        colorApplied: true,
+        warnings: [],
+      },
+    })
+
+    expect(() =>
+      malformed.readProcessedWindow?.({
+        outputRect: { x: 0, y: 0, width: 2, height: 1 },
+        halo: { left: 0, top: 0, right: 0, bottom: 0 },
+      }),
+    ).toThrow('processed-window data length does not match dimensions')
   })
 
   it('does not allow native camera white balance to fall back to LibRaw pre_mul', () => {
@@ -445,9 +633,27 @@ describe('native-adapter', () => {
       whiteLevel: 16383,
       orientation: { code: 1, supported: true },
       color: {
+        librawOutputColor: 'prophoto',
+        gamma: 'linear',
+        cameraWhiteBalanceAppliedByRuntime: true,
+        cameraMatrixAppliedByRuntime: true,
         whiteBalance: [2, 1, 1.5, 1],
         cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
         workingSpace: 'linear-prophoto-rgb',
+      },
+      sensor: {
+        layout: 'unknown',
+        colorCount: 3,
+        cfa: { pattern: 'unsupported', xPhase: 0, yPhase: 5 },
+        phaseIsWindowLocal: false,
+      },
+      levels: { black: 512, white: 16383 },
+      windows: { librawProcessed: false, rawMosaic: false },
+      diagnostics: {
+        hasRawImage: false,
+        hasColor3Image: false,
+        hasColor4Image: false,
+        hasXTransTable: false,
       },
       reasons: [
         'unsupported-cfa',
@@ -519,9 +725,26 @@ describe('native-adapter', () => {
       whiteLevel: 16383,
       orientation: { code: 1, supported: true },
       color: {
+        librawOutputColor: 'prophoto',
+        gamma: 'linear',
+        cameraWhiteBalanceAppliedByRuntime: true,
+        cameraMatrixAppliedByRuntime: true,
         whiteBalance: [2, 1, 1.5, 1],
         cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
         workingSpace: 'linear-prophoto-rgb',
+      },
+      sensor: {
+        layout: 'bayer',
+        colorCount: 3,
+        cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+        phaseIsWindowLocal: false,
+      },
+      windows: { librawProcessed: false, rawMosaic: false },
+      diagnostics: {
+        hasRawImage: false,
+        hasColor3Image: false,
+        hasColor4Image: false,
+        hasXTransTable: false,
       },
       reasons: ['raw-window-unavailable', 'missing-levels'],
     })
