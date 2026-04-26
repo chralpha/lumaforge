@@ -4,6 +4,7 @@
 
 import { m } from 'motion/react'
 import { useId, useMemo, useState } from 'react'
+import { useAtomValue } from 'jotai'
 
 import { Button } from '~/components/ui/button'
 import { Divider } from '~/components/ui/divider'
@@ -20,6 +21,7 @@ import type { LUTProfileResolution } from '~/lib/gl/pipeline'
 import { Spring } from '~/lib/spring'
 
 import type { LUTProfileSelectionState } from '../model/session'
+import { exportDisabledReasonAtom } from '../state/session.atoms'
 import { LutDropzone } from './Dropzone'
 import { IntensityChips } from './IntensityChips'
 
@@ -349,6 +351,8 @@ export function ControlsPanel({
   lutProfileResolution,
   className,
 }: ControlsPanelProps) {
+  const exportDisabledReason = useAtomValue(exportDisabledReasonAtom)
+
   return (
     <m.div
       className={clsxm(
@@ -438,7 +442,9 @@ export function ControlsPanel({
         <Divider />
 
         <section className="space-y-3">
-          <label className="text-sm font-medium text-text">Export</label>
+          <label className="text-sm font-medium text-text">
+            Full-resolution JPEG
+          </label>
           <Button
             variant="primary"
             size="sm"
@@ -446,10 +452,13 @@ export function ControlsPanel({
             disabled={!canExport || isProcessing}
             className="w-full"
           >
-            Export JPEG
+            Export full-resolution JPEG
           </Button>
           <p className="text-xs text-text-tertiary">
-            Export stays locked until the HQ preview is ready.
+            {canExport
+              ? 'Exports from the raw-window path, not the visible preview.'
+              : exportDisabledReason ??
+                'Full-resolution export stays locked until raw-window support is confirmed.'}
           </p>
         </section>
       </div>

@@ -18,16 +18,13 @@ import {
   useSetProcessingStatus,
   useSetProgress,
 } from '~/atoms/raw-processor'
-import {
-  getExportRenderOptionsForFidelity,
-  isExportRenderError,
-} from '~/lib/gl/export'
 import type {
   LUTData,
   PipelineStats,
   ProcessingParams,
   RawProcessingPipeline,
 } from '~/lib/gl/pipeline'
+import { resolveExportColorGraph } from '~/lib/export/color-graph'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import {
   isSupportedLUT,
@@ -50,8 +47,7 @@ import type { LUTProfileSelectionState, StyleAsset } from '../model/session'
 import { BUILTIN_PRESETS } from '../services/builtin-presets'
 import {
   buildExportFilename,
-  recommendRetryLevel,
-  runExportJob,
+  runFullResolutionExportJob,
 } from '../services/export-system'
 import { runPreviewPipeline } from '../services/preview-pipeline'
 import {
@@ -80,7 +76,7 @@ function getStableErrorCode(error: unknown) {
 
 function getProgressRecoveryHint(status: ProcessingStatus) {
   if (status === 'loading' || status === 'decoding') {
-    return 'If HQ preview cannot finish, the first visible preview stays available and export remains disabled.'
+    return 'If HQ preview cannot finish, the first visible preview stays available while full-resolution export depends on raw-window support instead.'
   }
 
   if (status === 'processing') {
@@ -88,7 +84,7 @@ function getProgressRecoveryHint(status: ProcessingStatus) {
   }
 
   if (status === 'exporting') {
-    return 'If export fails, retry with a lower fidelity level from the current session.'
+    return 'Full-resolution export runs in strips. Keep this tab open until the JPEG finishes, then retry from the current session if needed.'
   }
 
   return undefined
@@ -386,6 +382,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
             renderState: {
               status: 'preparing',
             },
+            exportState: {
+              ...prev.exportState,
+              fullResCapability: { status: 'probing' },
+            },
           }
         })
 
@@ -507,6 +507,87 @@ export function useRawProcessor(): UseRawProcessorReturn {
         const activeRuntimeSession = runtimeSession
         runtimeSessionRef.current = activeRuntimeSession
 
+        const probeExportCapability =
+          'probeExportCapability' in activeRuntimeSession &&
+          typeof activeRuntimeSession.probeExportCapability === 'function'
+            ? activeRuntimeSession.probeExportCapability.bind(
+                activeRuntimeSession,
+              )
+            : null
+
+        const exportCapabilityPromise = probeExportCapability
+          ? probeExportCapability(runtimeSignal)
+              .then((capability) => {
+                if (!matchesActiveSession()) {
+                  return
+                }
+
+                setSession((prev) =>
+                  prev && prev.id === nextSession.id
+                    ? {
+                        ...prev,
+                        exportState: {
+                          ...prev.exportState,
+                          fullResCapability: capability.supported
+                            ? {
+                                status: 'supported',
+                                width: capability.width,
+                                height: capability.height,
+                              }
+                            : {
+                                status: 'unsupported',
+                                reason:
+                                  capability.reasons.join(', ') ||
+                                  'This RAW source does not support full-resolution export in the current browser build.',
+                              },
+                        },
+                      }
+                    : prev,
+                )
+              })
+              .catch((probeError) => {
+                if (!matchesActiveSession()) {
+                  return
+                }
+
+                const reason =
+                  probeError instanceof Error && probeError.message
+                    ? probeError.message
+                    : 'Full-resolution export support could not be verified.'
+
+                setSession((prev) =>
+                  prev && prev.id === nextSession.id
+                    ? {
+                        ...prev,
+                        exportState: {
+                          ...prev.exportState,
+                          fullResCapability: {
+                            status: 'unsupported',
+                            reason,
+                          },
+                        },
+                      }
+                    : prev,
+                )
+              })
+          : Promise.resolve(
+              setSession((prev) =>
+                prev && prev.id === nextSession.id
+                  ? {
+                      ...prev,
+                      exportState: {
+                        ...prev.exportState,
+                        fullResCapability: {
+                          status: 'unsupported',
+                          reason:
+                            'Full-resolution export is not available in this runtime build yet.',
+                        },
+                      },
+                    }
+                  : prev,
+              ),
+            )
+
         await runPreviewPipeline({
           runtimeSession: {
             extractEmbeddedPreview() {
@@ -620,7 +701,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 scheduleToast(() =>
                   toast.error('HQ preview unavailable', {
                     description:
-                      'The first preview stays visible, but export remains disabled until HQ decode succeeds.',
+                      'The first preview stays visible while full-resolution export continues to depend on raw-window support.',
                   }),
                 )
                 break
@@ -628,6 +709,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
             }
           },
         })
+        await exportCapabilityPromise
         previewCompleted = true
         if (activeSessionIdRef.current === nextSession.id) {
           activeSessionIdRef.current = null
@@ -940,19 +1022,55 @@ export function useRawProcessor(): UseRawProcessorReturn {
       quality: 'standard' | 'high'
       fidelity: 'safe' | 'balanced' | 'max'
     }) => {
-      if (
-        !session ||
-        session.previewBundle.hqImage.status !== 'ready' ||
-        !pipelineRef.current
-      ) {
+      if (!session || !loadedImage.file) {
         scheduleToast(() =>
-          toast.error('High-quality preview is required before export'),
+          toast.error('Full-resolution export is not ready'),
+        )
+        return
+      }
+
+      if (session.exportState.fullResCapability.status !== 'supported') {
+        scheduleToast(() =>
+          toast.error(
+            session.exportState.fullResCapability.status === 'unsupported'
+              ? session.exportState.fullResCapability.reason
+              : 'Full-resolution export support is still being checked.',
+          ),
+        )
+        return
+      }
+
+      const graph = resolveExportColorGraph({
+        styleKind: params.styleKind,
+        intensity: params.intensity,
+        builtinPreset: params.builtinPreset,
+        lut: lutData,
+      })
+
+      if (!graph.supported) {
+        setError(graph.message)
+        setStatus('error')
+        setSession((prev) =>
+          prev
+            ? {
+                ...prev,
+                exportState: {
+                  ...prev.exportState,
+                  status: 'failed',
+                  lastErrorCode: 'EXPORT_UNSUPPORTED_PIPELINE',
+                  retryRecommended: false,
+                  recommendedRetryLevel: undefined,
+                },
+              }
+            : prev,
         )
         return
       }
 
       try {
         setStatus('exporting')
+        setProgress(0)
+        setError(null)
 
         setSession((prev) =>
           prev
@@ -963,6 +1081,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                   status: 'exporting',
                   qualityPreset: quality,
                   fidelityLevel: fidelity,
+                  lastProgress: undefined,
                   retryRecommended: false,
                   recommendedRetryLevel: undefined,
                 },
@@ -972,22 +1091,35 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
         const filename = buildExportFilename(
           session.sourceFile.name,
-          session.activeStyle?.kind === 'custom'
-            ? 'custom'
-            : session.activeStyle?.name || 'original',
+          session.activeStyle?.name ?? 'neutral',
         )
 
-        const result = await runExportJob({
+        const result = await runFullResolutionExportJob({
+          file: loadedImage.file,
           filename,
           quality: quality === 'high' ? 0.95 : 0.85,
-          renderToCanvas: () =>
-            pipelineRef.current!.renderToHiddenCanvas({
-              width:
-                session.sourceFile.width || loadedImage.decoded?.width || 0,
-              height:
-                session.sourceFile.height || loadedImage.decoded?.height || 0,
-              exportOptions: getExportRenderOptionsForFidelity(fidelity),
-            }),
+          graph,
+          onProgress: (entry) => {
+            if (!isMountedRef.current || sessionRef.current?.id !== session.id) {
+              return
+            }
+
+            setProgress(entry.progress)
+            setSession((prev) =>
+              prev && prev.id === session.id
+                ? {
+                    ...prev,
+                    exportState: {
+                      ...prev.exportState,
+                      lastProgress: {
+                        completedStrips: entry.completedStrips,
+                        totalStrips: entry.totalStrips,
+                      },
+                    },
+                  }
+                : prev,
+            )
+          },
         })
 
         const url = URL.createObjectURL(result.blob)
@@ -1008,14 +1140,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
                   status: 'done',
                   retryRecommended: false,
                   lastSuccessfulSize: {
-                    width:
-                      session.sourceFile.width ||
-                      loadedImage.decoded?.width ||
-                      0,
-                    height:
-                      session.sourceFile.height ||
-                      loadedImage.decoded?.height ||
-                      0,
+                    width: session.exportState.fullResCapability.width,
+                    height: session.exportState.fullResCapability.height,
                   },
                 },
               }
@@ -1028,13 +1154,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
           }),
         )
       } catch (err) {
-        const retryLevel = isExportRenderError(err)
-          ? null
-          : recommendRetryLevel(fidelity)
         const message = err instanceof Error ? err.message : 'Export failed'
-        const errorCode = isExportRenderError(err)
-          ? err.code
-          : toUserFacingErrorCode(getStableErrorCode(err) ?? message)
+        const errorCode = toUserFacingErrorCode(getStableErrorCode(err) ?? message)
 
         setSession((prev) =>
           prev
@@ -1047,8 +1168,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
                     errorCode === 'RAW_UNKNOWN'
                       ? 'EXPORT_RENDER_FAILED'
                       : errorCode,
-                  retryRecommended: retryLevel !== null,
-                  recommendedRetryLevel: retryLevel ?? undefined,
+                  retryRecommended: false,
+                  recommendedRetryLevel: undefined,
                 },
               }
             : prev,
@@ -1056,14 +1177,24 @@ export function useRawProcessor(): UseRawProcessorReturn {
         setStatus('ready')
         scheduleToast(() =>
           toast.error('Export failed', {
-            description: retryLevel
-              ? `${message}. Retry with ${retryLevel} fidelity.`
-              : message,
+            description: message,
           }),
         )
       }
     },
-    [loadedImage.decoded, scheduleToast, session, setSession, setStatus],
+    [
+      loadedImage.file,
+      lutData,
+      params.builtinPreset,
+      params.intensity,
+      params.styleKind,
+      scheduleToast,
+      session,
+      setError,
+      setProgress,
+      setSession,
+      setStatus,
+    ],
   )
 
   // Reset state

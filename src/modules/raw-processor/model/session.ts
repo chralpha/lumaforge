@@ -6,6 +6,11 @@ export type PreviewStatus = 'idle' | 'loading' | 'ready' | 'failed'
 export type DisplaySource = 'embedded' | 'quick' | 'hq' | 'none'
 export type IntensityLevel = 'off' | 'light' | 'standard' | 'strong'
 export type ExportFidelity = 'safe' | 'balanced' | 'max'
+export type FullResExportCapabilityState =
+  | { status: 'unknown' }
+  | { status: 'probing' }
+  | { status: 'supported'; width: number; height: number }
+  | { status: 'unsupported'; reason: string }
 
 export type LUTProfileSelectionState =
   | {
@@ -41,7 +46,7 @@ export type PreviewBundle = {
   quickDecodePreview: PreviewAsset
   hqImage: PreviewAsset
   displaySource: DisplaySource
-  hqRequiredForExport: true
+  hqRequiredForExport: false
 }
 
 export type StyleAsset = {
@@ -98,6 +103,11 @@ export type ImageSession = {
     status: 'idle' | 'preparing' | 'exporting' | 'done' | 'failed'
     qualityPreset: 'standard' | 'high'
     fidelityLevel: ExportFidelity
+    fullResCapability: FullResExportCapabilityState
+    lastProgress?: {
+      completedStrips: number
+      totalStrips: number
+    }
     recommendedRetryLevel?: Extract<ExportFidelity, 'safe' | 'balanced'>
     lastSuccessfulSize?: { width: number; height: number }
     lastErrorCode?: string

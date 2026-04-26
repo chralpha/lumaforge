@@ -3,6 +3,7 @@ import { atom } from 'jotai'
 import {
   deriveCanEdit,
   deriveCanExport,
+  deriveExportDisabledReason,
   selectDisplaySource,
 } from '../model/derive-session'
 import type { ImageSession } from '../model/session'
@@ -22,4 +23,9 @@ export const canEditAtom = atom((get) => {
 export const canExportFromSessionAtom = atom((get) => {
   const session = get(currentSessionAtom)
   return session ? deriveCanExport(session) : false
+})
+
+export const exportDisabledReasonAtom = atom((get) => {
+  const session = get(currentSessionAtom)
+  return session ? deriveExportDisabledReason(session) : undefined
 })

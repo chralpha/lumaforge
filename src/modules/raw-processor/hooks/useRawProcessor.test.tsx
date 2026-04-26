@@ -4,7 +4,6 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetToDefaults } from '~/atoms/raw-processor'
-import { ExportRenderError } from '~/lib/gl/export'
 import { jotaiStore } from '~/lib/jotai'
 import { getStoredLUTProfileSelection } from '~/lib/lut/profile-resolution'
 import type { DecodedImage } from '~/lib/raw/decoder'
@@ -17,12 +16,17 @@ const rawRuntimeAdapterMock = vi.hoisted(() => ({
   extractEmbeddedPreview: vi.fn(),
   decodeQuickRaw: vi.fn(),
   decodeHqRaw: vi.fn(),
+  probeExportCapability: vi.fn(),
 }))
 
 const toastMock = vi.hoisted(() => ({
   success: vi.fn(),
   error: vi.fn(),
   info: vi.fn(),
+}))
+
+const exportSystemMock = vi.hoisted(() => ({
+  runFullResolutionExportJob: vi.fn(),
 }))
 
 vi.mock('~/lib/raw/runtime-adapter', () => ({
@@ -32,6 +36,14 @@ vi.mock('~/lib/raw/runtime-adapter', () => ({
 vi.mock('sonner', () => ({
   toast: toastMock,
 }))
+
+vi.mock('../services/export-system', async () => {
+  const actual = await vi.importActual('../services/export-system')
+  return {
+    ...actual,
+    runFullResolutionExportJob: exportSystemMock.runFullResolutionExportJob,
+  }
+})
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -103,7 +115,7 @@ function createTestSession() {
       quickDecodePreview: { status: 'ready' as const, width: 800, height: 600 },
       hqImage: { status: 'ready' as const, width: 800, height: 600 },
       displaySource: 'hq' as const,
-      hqRequiredForExport: true as const,
+      hqRequiredForExport: false as const,
     },
     activeStyle: null,
     viewState: {
@@ -118,8 +130,28 @@ function createTestSession() {
       status: 'idle' as const,
       qualityPreset: 'high' as const,
       fidelityLevel: 'balanced' as const,
+      fullResCapability: {
+        status: 'supported' as const,
+        width: 4000,
+        height: 3000,
+      },
       retryRecommended: false,
     },
+  }
+}
+
+function createSupportedCapability() {
+  return {
+    supported: true,
+    width: 6048,
+    height: 4024,
+    rawWidth: 6048,
+    rawHeight: 4024,
+    cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+    blackLevel: 0,
+    whiteLevel: 16383,
+    orientation: 1,
+    reasons: [],
   }
 }
 
@@ -146,6 +178,8 @@ describe('useRawProcessor embedded preview state', () => {
     rawRuntimeAdapterMock.extractEmbeddedPreview.mockReset()
     rawRuntimeAdapterMock.decodeQuickRaw.mockReset()
     rawRuntimeAdapterMock.decodeHqRaw.mockReset()
+    rawRuntimeAdapterMock.probeExportCapability.mockReset()
+    exportSystemMock.runFullResolutionExportJob.mockReset()
     toastMock.success.mockReset()
     toastMock.error.mockReset()
     toastMock.info.mockReset()
@@ -160,8 +194,12 @@ describe('useRawProcessor embedded preview state', () => {
         extractEmbeddedPreview: rawRuntimeAdapterMock.extractEmbeddedPreview,
         decodeQuickRaw: rawRuntimeAdapterMock.decodeQuickRaw,
         decodeHqRaw: rawRuntimeAdapterMock.decodeHqRaw,
+        probeExportCapability: rawRuntimeAdapterMock.probeExportCapability,
         dispose: vi.fn(),
       }),
+    )
+    rawRuntimeAdapterMock.probeExportCapability.mockResolvedValue(
+      createSupportedCapability(),
     )
   })
 
@@ -382,7 +420,7 @@ describe('useRawProcessor embedded preview state', () => {
     expect(rawRuntimeAdapterMock.decodeHqRaw).not.toHaveBeenCalled()
   })
 
-  it('does not mark large quick previews as export-ready HQ output', async () => {
+  it('keeps full-resolution export enabled when raw-window capability is supported but hq preview fails', async () => {
     const file = createFileWithSize('large.ARW', 33 * 1024 * 1024)
     const decodeQuickRaw = vi
       .fn()
@@ -397,6 +435,9 @@ describe('useRawProcessor embedded preview state', () => {
       extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
       decodeQuickRaw,
       decodeHqRaw,
+      probeExportCapability: vi.fn().mockResolvedValue(
+        createSupportedCapability(),
+      ),
       dispose: vi.fn(),
     })
 
@@ -410,139 +451,130 @@ describe('useRawProcessor embedded preview state', () => {
     expect(decodeQuickRaw).toHaveBeenCalled()
     expect(decodeHqRaw).toHaveBeenCalled()
     expect(result.current.displaySource).toBe('quick')
-    expect(result.current.canExport).toBe(false)
+    expect(result.current.canExport).toBe(true)
     expect(session?.previewBundle.hqImage).toEqual({
       status: 'failed',
       errorCode: 'RAW_HQ_DECODE_FAILED',
     })
+    expect(session?.exportState.fullResCapability).toEqual({
+      status: 'supported',
+      width: 6048,
+      height: 4024,
+    })
   })
 
-  it('does not recommend lower fidelity for full-resolution export fit failures', async () => {
-    jotaiStore.set(currentSessionAtom, {
-      ...createTestSession(),
-      sourceFile: {
-        ...createTestSession().sourceFile,
-        width: 800,
-        height: 600,
-      },
-    })
-
-    const renderToHiddenCanvas = vi.fn().mockRejectedValue(
-      new ExportRenderError('EXPORT_CANVAS_LIMIT_EXCEEDED', {
-        retryable: true,
-        reason: 'canvas-limit',
-        width: 800,
-        height: 600,
-      }),
-    )
+  it('fails closed when the current style pipeline is unsupported for full-resolution export', async () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
 
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
-    result.current.pipelineRef.current = {
-      renderToHiddenCanvas,
-    } as unknown as typeof result.current.pipelineRef.current
+
+    act(() => {
+      result.current.selectBuiltinStyle(result.current.presetOptions[0]!.id)
+    })
 
     await act(async () => {
       await result.current.exportImage({ quality: 'high', fidelity: 'max' })
     })
 
+    expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
+    expect(result.current.error).toBe(
+      'Built-in styles are not supported by full-resolution JPEG export.',
+    )
     expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({
       status: 'failed',
-      lastErrorCode: 'EXPORT_CANVAS_LIMIT_EXCEEDED',
+      lastErrorCode: 'EXPORT_UNSUPPORTED_PIPELINE',
       retryRecommended: false,
       recommendedRetryLevel: undefined,
     })
   })
 
-  it('does not recommend a lower fidelity retry for non-retryable export fit failures', async () => {
-    jotaiStore.set(currentSessionAtom, {
-      ...createTestSession(),
-      sourceFile: {
-        ...createTestSession().sourceFile,
-        width: 800,
-        height: 600,
+  it('runs the full-resolution export job and records strip progress', async () => {
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(createDecodedImage('hq'))
+    rawRuntimeAdapterMock.probeExportCapability.mockResolvedValue(
+      createSupportedCapability(),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockImplementation(
+      async ({
+        onProgress,
+        filename,
+      }: {
+        onProgress?: (progress: {
+          completedStrips: number
+          totalStrips: number
+          progress: number
+        }) => void
+        filename: string
+      }) => {
+        onProgress?.({ completedStrips: 1, totalStrips: 4, progress: 25 })
+        onProgress?.({ completedStrips: 4, totalStrips: 4, progress: 100 })
+        return {
+          filename,
+          blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+        }
       },
-    })
+    )
 
-    const renderToHiddenCanvas = vi.fn().mockRejectedValue(
-      new ExportRenderError('EXPORT_GPU_LIMIT_EXCEEDED', {
-        retryable: false,
-        reason: 'gpu-limit',
-        width: 800,
-        height: 600,
-      }),
+    const click = vi.fn()
+    const remove = vi.fn()
+    const append = vi.fn()
+    const revokeObjectURL = vi.fn()
+    const originalCreateElement = document.createElement.bind(document)
+
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:fullres-export'),
+      revokeObjectURL,
+    })
+    vi.spyOn(document.body, 'append').mockImplementation(append)
+    vi.spyOn(document, 'createElement').mockImplementation(
+      ((tagName: string) => {
+        if (tagName === 'a') {
+          return {
+            href: '',
+            download: '',
+            click,
+            remove,
+          }
+        }
+        return originalCreateElement(tagName)
+      }) as typeof document.createElement,
     )
 
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
-    result.current.pipelineRef.current = {
-      renderToHiddenCanvas,
-    } as unknown as typeof result.current.pipelineRef.current
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
 
     await act(async () => {
       await result.current.exportImage({ quality: 'high', fidelity: 'max' })
     })
 
-    expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({
-      status: 'failed',
-      lastErrorCode: 'EXPORT_GPU_LIMIT_EXCEEDED',
-      retryRecommended: false,
-      recommendedRetryLevel: undefined,
-    })
-  })
-
-  it('passes fidelity planning options into hidden canvas export rendering', async () => {
-    jotaiStore.set(currentSessionAtom, {
-      ...createTestSession(),
-      sourceFile: {
-        ...createTestSession().sourceFile,
-        width: 800,
-        height: 600,
-      },
-    })
-
-    const renderToHiddenCanvas = vi.fn().mockRejectedValue(
-      new ExportRenderError('EXPORT_GPU_LIMIT_EXCEEDED', {
-        retryable: false,
-        reason: 'gpu-limit',
-        width: 800,
-        height: 600,
-      }),
-    )
-
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
-    result.current.pipelineRef.current = {
-      renderToHiddenCanvas,
-    } as unknown as typeof result.current.pipelineRef.current
-
-    await act(async () => {
-      await result.current.exportImage({
-        quality: 'high',
-        fidelity: 'safe',
-      })
-    })
-    await act(async () => {
-      await result.current.exportImage({
-        quality: 'high',
-        fidelity: 'max',
-      })
-    })
-
-    const safeOptions = renderToHiddenCanvas.mock.calls[0]?.[0].exportOptions
-    const maxOptions = renderToHiddenCanvas.mock.calls[1]?.[0].exportOptions
-
-    expect(renderToHiddenCanvas).toHaveBeenCalledWith(
+    expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledWith(
       expect.objectContaining({
-        width: 800,
-        height: 600,
-        exportOptions: expect.objectContaining({
-          memoryBudgetBytes: expect.any(Number),
-          maxCanvasPixels: expect.any(Number),
-        }),
+        file: expect.any(File),
+        filename: 'frame_neutral_fullres.jpg',
+        quality: 0.95,
       }),
     )
-    expect(safeOptions.memoryBudgetBytes).toBeLessThan(
-      maxOptions.memoryBudgetBytes,
-    )
-    expect(safeOptions.maxCanvasPixels).toBeLessThan(maxOptions.maxCanvasPixels)
+    expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({
+      status: 'done',
+      lastProgress: {
+        completedStrips: 4,
+        totalStrips: 4,
+      },
+      lastSuccessfulSize: {
+        width: 6048,
+        height: 4024,
+      },
+    })
+    expect(click).toHaveBeenCalledTimes(1)
+    expect(remove).toHaveBeenCalledTimes(1)
+    expect(append).toHaveBeenCalledTimes(1)
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:fullres-export')
   })
 
   it('aborts and disposes stale runtime session when replacing files', async () => {

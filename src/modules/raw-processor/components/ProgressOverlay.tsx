@@ -2,10 +2,12 @@
  * Progress overlay component for loading/processing states.
  */
 
+import { useAtomValue } from 'jotai'
 import { AnimatePresence, m } from 'motion/react'
 
 import { clsxm } from '~/lib/cn'
 import { Spring } from '~/lib/spring'
+import { currentSessionAtom } from '../state/session.atoms'
 
 export interface ProgressOverlayProps {
   visible: boolean
@@ -31,6 +33,10 @@ export function ProgressOverlay({
   recoveryHint,
   className,
 }: ProgressOverlayProps) {
+  const session = useAtomValue(currentSessionAtom)
+  const stripProgress =
+    phase === 'exporting' ? session?.exportState.lastProgress : undefined
+
   return (
     <AnimatePresence>
       {visible && (
@@ -97,6 +103,13 @@ export function ProgressOverlay({
               {recoveryHint && (
                 <p className="mt-2 max-w-xs text-center text-xs text-text-secondary">
                   {recoveryHint}
+                </p>
+              )}
+
+              {stripProgress && (
+                <p className="mt-2 text-xs text-text-secondary tabular-nums">
+                  Strip {stripProgress.completedStrips} of{' '}
+                  {stripProgress.totalStrips}
                 </p>
               )}
 

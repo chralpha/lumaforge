@@ -1,9 +1,13 @@
+import { useAtomValue } from 'jotai'
+
+import { exportDisabledReasonAtom } from '../state/session.atoms'
 import { SupportBadge } from './SupportBadge'
 
 export function WorkspaceHeader({
   fileName,
   supportLevel,
   canExport,
+  disabledReason,
   onReplaceFile,
   onResetSession,
   onOpenExport,
@@ -11,10 +15,16 @@ export function WorkspaceHeader({
   fileName: string
   supportLevel: 'official' | 'experimental'
   canExport: boolean
+  disabledReason?: string
   onReplaceFile: () => void
   onResetSession: () => void
   onOpenExport: () => void
 }) {
+  const sessionDisabledReason = useAtomValue(exportDisabledReasonAtom)
+  const exportDisabledReason = !canExport
+    ? disabledReason ?? sessionDisabledReason
+    : undefined
+
   return (
     <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
       <div className="min-w-0">
@@ -27,6 +37,11 @@ export function WorkspaceHeader({
         <p className="text-xs text-text-tertiary">
           Browser-local RAW styling workspace
         </p>
+        {exportDisabledReason && (
+          <p className="mt-1 text-xs text-text-secondary">
+            Full-res JPEG unavailable: {exportDisabledReason}
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -50,7 +65,7 @@ export function WorkspaceHeader({
           disabled={!canExport}
           className="rounded-lg bg-accent px-3 py-2 text-sm text-background disabled:opacity-50"
         >
-          Export JPEG
+          Full-res JPEG
         </button>
       </div>
     </header>

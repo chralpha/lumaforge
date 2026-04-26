@@ -1,6 +1,13 @@
+import type { ExportColorGraphDescriptor } from '~/lib/export/color-graph'
+import {
+  FullResolutionExportWorkerClient,
+  type RunFullResolutionJpegExportInWorkerInput,
+} from '~/lib/export/full-res-export-client'
+import type { FullResolutionExportProgress } from '~/lib/export/full-res-export'
+
 export function buildExportFilename(inputName: string, styleName: string) {
   const basename = inputName.replace(/\.[^.]+$/, '')
-  return `${basename}_${styleName}.jpg`
+  return `${basename}_${styleName}_fullres.jpg`
 }
 
 export function recommendRetryLevel(
@@ -38,4 +45,42 @@ export async function runExportJob({
       )
     },
   )
+}
+
+export function createFullResolutionExportClient() {
+  return new FullResolutionExportWorkerClient()
+}
+
+export async function runFullResolutionExportJob({
+  file,
+  filename,
+  graph,
+  quality,
+  onProgress,
+  signal,
+  clientFactory = createFullResolutionExportClient,
+}: {
+  file: File
+  filename: string
+  graph: ExportColorGraphDescriptor
+  quality?: RunFullResolutionJpegExportInWorkerInput['quality']
+  onProgress?: (progress: FullResolutionExportProgress) => void
+  signal?: AbortSignal
+  clientFactory?: () => FullResolutionExportWorkerClient
+}) {
+  const client = clientFactory()
+
+  try {
+    const blob = await client.run({
+      file,
+      graph,
+      quality,
+      onProgress,
+      signal,
+    })
+
+    return { filename, blob }
+  } finally {
+    client.dispose()
+  }
 }

@@ -19,7 +19,7 @@ function createEmptySession(file: File): ImageSession {
       quickDecodePreview: { status: 'idle' },
       hqImage: { status: 'idle' },
       displaySource: 'none',
-      hqRequiredForExport: true,
+      hqRequiredForExport: false,
     },
     activeStyle: null,
     viewState: {
@@ -34,6 +34,7 @@ function createEmptySession(file: File): ImageSession {
       status: 'idle',
       qualityPreset: 'high',
       fidelityLevel: 'balanced',
+      fullResCapability: { status: 'unknown' },
       retryRecommended: false,
     },
   }

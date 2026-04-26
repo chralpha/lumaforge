@@ -19,7 +19,7 @@ const baseSession: ImageSession = {
     quickDecodePreview: { status: 'idle' },
     hqImage: { status: 'idle' },
     displaySource: 'none',
-    hqRequiredForExport: true,
+    hqRequiredForExport: false,
   },
   activeStyle: null,
   viewState: {
@@ -34,6 +34,7 @@ const baseSession: ImageSession = {
     status: 'idle',
     qualityPreset: 'high',
     fidelityLevel: 'balanced',
+    fullResCapability: { status: 'unknown' },
     retryRecommended: false,
   },
 }
@@ -52,22 +53,22 @@ describe('session derivation', () => {
     expect(selectDisplaySource(session.previewBundle)).toBe('quick')
   })
 
-  it('enables export only when hq is ready and no export is running', () => {
+  it('enables export when full-resolution capability is supported even if hq preview failed', () => {
     expect(deriveCanExport(baseSession)).toBe(false)
 
     const session: ImageSession = {
       ...baseSession,
-      activeStyle: {
-        kind: 'builtin' as const,
-        name: 'Neutral',
-        defaultIntensityLevel: 'standard' as const,
-        currentIntensityLevel: 'standard' as const,
-      },
       previewBundle: {
         ...baseSession.previewBundle,
-        hqImage: { status: 'ready', width: 4000, height: 3000 },
+        quickDecodePreview: { status: 'ready', width: 2000, height: 1500 },
+        hqImage: { status: 'failed', errorCode: 'RAW_HQ_DECODE_FAILED' },
       },
-      renderState: { status: 'ready' as const },
+      renderState: { status: 'idle' as const },
+      exportState: {
+        ...baseSession.exportState,
+        status: 'idle',
+        fullResCapability: { status: 'supported', width: 4000, height: 3000 },
+      },
     }
 
     expect(deriveCanExport(session)).toBe(true)

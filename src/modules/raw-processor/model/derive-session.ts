@@ -15,8 +15,31 @@ export function deriveCanEdit(session: ImageSession): boolean {
 
 export function deriveCanExport(session: ImageSession): boolean {
   return (
-    session.previewBundle.hqImage.status === 'ready' &&
+    session.exportState.fullResCapability.status === 'supported' &&
     session.renderState.status !== 'failed' &&
     session.exportState.status !== 'exporting'
   )
+}
+
+export function deriveExportDisabledReason(
+  session: ImageSession,
+): string | undefined {
+  if (session.exportState.status === 'exporting') {
+    return 'Full-resolution export is already running.'
+  }
+
+  if (session.renderState.status === 'failed') {
+    return 'Resolve the current render error before exporting.'
+  }
+
+  switch (session.exportState.fullResCapability.status) {
+    case 'unknown':
+      return 'Full-resolution export support has not been checked yet.'
+    case 'probing':
+      return 'Checking full-resolution export support for this RAW file.'
+    case 'unsupported':
+      return session.exportState.fullResCapability.reason
+    case 'supported':
+      return undefined
+  }
 }
