@@ -192,6 +192,7 @@ bool isFiniteMatrix3x3(const double *m) {
 bool selectCameraWhiteBalance(const libraw_colordata_t &color,
                               double *white_balance) {
   const float *source = color.cam_mul;
+  double raw_multipliers[4] = {0, 0, 0, 0};
   double min_multiplier = std::numeric_limits<double>::infinity();
   double max_multiplier = 0.0;
 
@@ -200,13 +201,26 @@ bool selectCameraWhiteBalance(const libraw_colordata_t &color,
       return false;
     }
 
-    white_balance[index] = source[index];
-    min_multiplier = std::min(min_multiplier, white_balance[index]);
-    max_multiplier = std::max(max_multiplier, white_balance[index]);
+    raw_multipliers[index] = source[index];
+    min_multiplier = std::min(min_multiplier, raw_multipliers[index]);
+    max_multiplier = std::max(max_multiplier, raw_multipliers[index]);
   }
 
   if (max_multiplier <= min_multiplier) {
     return false;
+  }
+
+  // LibRaw cam_mul is a camera-scale fact, while raw-window export applies
+  // white balance to normalized scene-linear samples. Green-normalize to match
+  // the native preview intent: remove camera units while preserving camera WB
+  // chromatic ratios relative to the demosaiced green channel.
+  const double normalization_scale = raw_multipliers[1];
+
+  for (int index = 0; index < 4; ++index) {
+    white_balance[index] = raw_multipliers[index] / normalization_scale;
+    if (!std::isfinite(white_balance[index]) || white_balance[index] <= 0) {
+      return false;
+    }
   }
 
   return true;

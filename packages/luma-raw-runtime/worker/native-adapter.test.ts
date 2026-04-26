@@ -183,7 +183,7 @@ describe('native-adapter', () => {
         whiteLevel: 16383,
         orientation: { code: 1, supported: true },
         color: {
-          cameraWhiteBalance: [2.1, 1, 1.4, 1],
+          cameraWhiteBalance: [2100, 1000, 1400, 1000],
           cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
           workingSpace: 'prophoto-linear',
         },
@@ -228,6 +228,32 @@ describe('native-adapter', () => {
 
     expect(cameraWhiteBalanceSelector).toContain('color.cam_mul')
     expect(cameraWhiteBalanceSelector).not.toContain('color.pre_mul')
+  })
+
+  it('documents native camera white balance normalization and fail-closed guards', () => {
+    const wrapperSource = readFileSync(
+      resolve(
+        dirname(fileURLToPath(import.meta.url)),
+        '..',
+        'native',
+        'libraw_wrapper.cpp',
+      ),
+      'utf8',
+    )
+    const cameraWhiteBalanceSelector = wrapperSource.match(
+      /bool selectCameraWhiteBalance[\s\S]*?\n\}\n\nbool buildCameraToWorkingRgb/,
+    )?.[0]
+
+    expect(cameraWhiteBalanceSelector).toContain(
+      'const double normalization_scale = raw_multipliers[1]',
+    )
+    expect(cameraWhiteBalanceSelector).toContain(
+      'white_balance[index] = raw_multipliers[index] / normalization_scale',
+    )
+    expect(cameraWhiteBalanceSelector).toContain(
+      'max_multiplier <= min_multiplier',
+    )
+    expect(cameraWhiteBalanceSelector).toContain('source[index] <= 0')
   })
 
   it('fails closed when export color facts are missing, unusable, or orientation is unsupported', () => {

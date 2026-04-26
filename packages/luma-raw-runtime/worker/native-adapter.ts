@@ -423,6 +423,32 @@ function normalizeFiniteTuple(value: unknown, length: number) {
     : undefined
 }
 
+function normalizeCameraWhiteBalanceTuple(value: unknown) {
+  const values = normalizeFiniteTuple(value, 4)
+  if (!values) return undefined
+
+  let minMultiplier = Number.POSITIVE_INFINITY
+  let maxMultiplier = 0
+
+  for (const value of values) {
+    if (value <= 0) return undefined
+    minMultiplier = Math.min(minMultiplier, value)
+    maxMultiplier = Math.max(maxMultiplier, value)
+  }
+
+  if (maxMultiplier <= minMultiplier) return undefined
+
+  // Native LibRaw cam_mul is green-normalized before becoming export WB. Keep
+  // the same defensive boundary here for older/native-like cameraWhiteBalance
+  // payloads without changing already-normalized whiteBalance payloads.
+  const normalizationScale = values[1]
+  const normalized = values.map((value) => value / normalizationScale)
+
+  return normalized.every((value) => Number.isFinite(value) && value > 0)
+    ? normalized
+    : undefined
+}
+
 function hasUsableMatrix3x3(values: number[]) {
   const determinant =
     values[0] * (values[4] * values[8] - values[5] * values[7]) -
@@ -436,10 +462,10 @@ function normalizeExportColorFacts(
   value: unknown,
 ): LumaRawExportColorFacts | undefined {
   const raw = asRecord(value)
-  const whiteBalance = normalizeFiniteTuple(
-    raw.whiteBalance ?? raw.cameraWhiteBalance,
-    4,
-  )
+  const whiteBalance =
+    raw.whiteBalance != null
+      ? normalizeFiniteTuple(raw.whiteBalance, 4)
+      : normalizeCameraWhiteBalanceTuple(raw.cameraWhiteBalance)
   const cameraToWorkingRgb = normalizeFiniteTuple(raw.cameraToWorkingRgb, 9)
   const workingSpace =
     raw.workingSpace === 'prophoto-linear'
