@@ -276,4 +276,41 @@ describe('runFullResolutionJpegExport', () => {
 
     expect(writer.abort).toHaveBeenCalledTimes(1)
   })
+
+  it('fails closed for malformed supported graphs instead of falling back to the simple path', async () => {
+    const writer = {
+      writeRows: vi.fn(),
+      close: vi.fn(),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await expect(
+      runFullResolutionJpegExport({
+        capability: makeCapability(),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [
+            { kind: 'input-linear-prophoto' },
+            {
+              kind: 'lut-output-to-srgb',
+              matrix: mat3Identity(),
+              transfer: 'srgb',
+              range: 'full',
+              role: 'scene-creative',
+              intensity: 0.5,
+            },
+            { kind: 'output-srgb' },
+          ],
+        },
+        readRawWindow: vi.fn(),
+        writer,
+      }),
+    ).rejects.toThrow('FULL_RES_EXPORT_UNSUPPORTED_PIPELINE')
+
+    expect(writer.writeRows).not.toHaveBeenCalled()
+    expect(writer.abort).toHaveBeenCalledTimes(1)
+  })
 })

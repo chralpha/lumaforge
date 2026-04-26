@@ -11,7 +11,6 @@ import type {
   ExportColorGraphDescriptor,
   SupportedExportColorGraphDescriptor,
 } from './color-graph'
-import { resolveEffectiveLUTOutputTransfer } from './color-graph'
 import { demosaicBilinearRgb } from './demosaic'
 import {
   createJpegRowWriter,
@@ -93,6 +92,12 @@ function normalizeLutSample(
 }
 
 function compileGraphApplier(graph: SupportedExportColorGraphDescriptor) {
+  const isSimpleNoLutGraph =
+    graph.lutProfile === null &&
+    graph.steps.length === 2 &&
+    graph.steps[0]?.kind === 'input-linear-prophoto' &&
+    graph.steps[1]?.kind === 'output-srgb'
+
   const encodeStep = graph.steps.find(
     (step): step is Extract<typeof step, { kind: 'encode-lut-transfer' }> =>
       step.kind === 'encode-lut-transfer',
@@ -110,7 +115,7 @@ function compileGraphApplier(graph: SupportedExportColorGraphDescriptor) {
       step.kind === 'gamut-to-lut-input',
   )
 
-  if (!lutStep || !encodeStep || !outputStep) {
+  if (isSimpleNoLutGraph) {
     return (linear: Float32Array) => {
       const bytes = new Uint8Array(linear.length)
       for (let index = 0; index < linear.length; index += 3) {
@@ -140,12 +145,14 @@ function compileGraphApplier(graph: SupportedExportColorGraphDescriptor) {
     }
   }
 
+  if (!lutStep || !encodeStep || !outputStep) {
+    throw new Error('FULL_RES_EXPORT_UNSUPPORTED_PIPELINE')
+  }
+
   const inputMatrix = inputMatrixStep?.matrix
   const outputMatrix = outputStep.matrix
   const encodeTransfer = getTransferFunction(encodeStep.transfer)
-  const outputTransferId =
-    graph.lutProfile ? resolveEffectiveLUTOutputTransfer(graph.lutProfile) : outputStep.transfer
-  const decodeTransfer = getTransferFunction(outputTransferId)
+  const decodeTransfer = getTransferFunction(outputStep.transfer)
   if (!encodeTransfer || !decodeTransfer) {
     throw new Error('FULL_RES_EXPORT_UNSUPPORTED_PIPELINE')
   }
@@ -154,6 +161,9 @@ function compileGraphApplier(graph: SupportedExportColorGraphDescriptor) {
   const outputIsLegalRange = outputStep.range === 'legal'
   const role = outputStep.role
   const intensity = outputStep.intensity
+  if (role !== 'display-look' && !inputMatrix) {
+    throw new Error('FULL_RES_EXPORT_UNSUPPORTED_PIPELINE')
+  }
   const domainMin = lutStep.domainMin
   const inverseDomainSpanR =
     lutStep.domainMax[0] === domainMin[0]

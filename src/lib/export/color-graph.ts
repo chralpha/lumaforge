@@ -66,7 +66,7 @@ export type SupportedExportColorGraphDescriptor = Extract<
 const OUTPUT_GAMUT = 'srgb-rec709'
 const OUTPUT_TRANSFER = 'srgb'
 
-export function resolveEffectiveLUTOutputTransfer(
+function resolveEffectiveLUTOutputTransfer(
   profile: LUTColorProfile,
 ): TransferFunctionId {
   if (profile.outputTransfer) return profile.outputTransfer

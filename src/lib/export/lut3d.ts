@@ -41,20 +41,20 @@ export function sampleLutTrilinear(
   const ty = y - y0
   const tz = z - z0
 
-  const c000 = read(data, size, x0, y0, z0)
-  const c100 = read(data, size, x1, y0, z0)
-  const c010 = read(data, size, x0, y1, z0)
-  const c110 = read(data, size, x1, y1, z0)
-  const c001 = read(data, size, x0, y0, z1)
-  const c101 = read(data, size, x1, y0, z1)
-  const c011 = read(data, size, x0, y1, z1)
-  const c111 = read(data, size, x1, y1, z1)
+  const index000 = ((z0 * size + y0) * size + x0) * 3
+  const index100 = ((z0 * size + y0) * size + x1) * 3
+  const index010 = ((z0 * size + y1) * size + x0) * 3
+  const index110 = ((z0 * size + y1) * size + x1) * 3
+  const index001 = ((z1 * size + y0) * size + x0) * 3
+  const index101 = ((z1 * size + y0) * size + x1) * 3
+  const index011 = ((z1 * size + y1) * size + x0) * 3
+  const index111 = ((z1 * size + y1) * size + x1) * 3
 
   for (let channel = 0; channel < 3; channel += 1) {
-    const c00 = mix(c000[channel], c100[channel], tx)
-    const c10 = mix(c010[channel], c110[channel], tx)
-    const c01 = mix(c001[channel], c101[channel], tx)
-    const c11 = mix(c011[channel], c111[channel], tx)
+    const c00 = mix(data[index000 + channel] ?? 0, data[index100 + channel] ?? 0, tx)
+    const c10 = mix(data[index010 + channel] ?? 0, data[index110 + channel] ?? 0, tx)
+    const c01 = mix(data[index001 + channel] ?? 0, data[index101 + channel] ?? 0, tx)
+    const c11 = mix(data[index011 + channel] ?? 0, data[index111 + channel] ?? 0, tx)
     const c0 = mix(c00, c10, ty)
     const c1 = mix(c01, c11, ty)
     output[channel] = mix(c0, c1, tz)
