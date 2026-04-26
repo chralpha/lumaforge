@@ -9,8 +9,6 @@ import {
   createRawExportSession,
   isRawExportSession,
 } from './export-runtime-adapter'
-import type { RawRuntimeSession } from './runtime-adapter'
-
 function makeCapability(): LumaRawExportCapability {
   return {
     supported: true,
@@ -61,13 +59,9 @@ describe('createRawExportSession', () => {
 describe('isRawExportSession', () => {
   it('returns true when the session exposes export-stage functions', () => {
     const session = {
-      extractEmbeddedPreview: vi.fn(),
-      decodeQuickRaw: vi.fn(),
-      decodeHqRaw: vi.fn(),
-      dispose: vi.fn(),
       probeExportCapability: vi.fn(),
       readRawWindow: vi.fn(),
-    } as unknown as RawRuntimeSession
+    }
 
     expect(isRawExportSession(session)).toBe(true)
   })
@@ -81,6 +75,15 @@ describe('isRawExportSession', () => {
     } as RawRuntimeSession
 
     expect(isRawExportSession(session)).toBe(false)
+  })
+
+  it('returns true for export-only shapes that are not full raw runtime sessions', () => {
+    const exportOnly = {
+      probeExportCapability: vi.fn(),
+      readRawWindow: vi.fn(),
+    }
+
+    expect(isRawExportSession(exportOnly)).toBe(true)
   })
 
   it('returns false for non-object values', () => {

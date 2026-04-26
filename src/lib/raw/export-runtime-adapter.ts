@@ -32,7 +32,7 @@ export function createRawExportSession(
 
 export function isRawExportSession(
   value: unknown,
-): value is RawRuntimeSession & RawExportSession {
+): value is RawExportSession {
   if (!value || typeof value !== 'object') {
     return false
   }
