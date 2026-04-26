@@ -395,9 +395,10 @@ describe('runFullResolutionJpegExport', () => {
           throw new Error('JPEG_RUNTIME_UNAVAILABLE')
         }),
       }),
-    ).rejects.toThrow(
-      'Full-resolution JPEG export is not available in this browser build.',
-    )
+    ).rejects.toMatchObject({
+      message:
+        'Full-resolution JPEG export is not available in this browser build.',
+    })
 
     expect(readRawWindow).not.toHaveBeenCalled()
   })

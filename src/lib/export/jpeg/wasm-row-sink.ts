@@ -9,13 +9,7 @@ const JPEG_RUNTIME_UNAVAILABLE_MESSAGE =
   'Full-resolution JPEG export is not available in this browser build.'
 
 function createJpegRuntimeUnavailableError(error: unknown) {
-  const detail = error instanceof Error && error.message ? error.message : ''
-  return new Error(
-    detail
-      ? `${JPEG_RUNTIME_UNAVAILABLE_MESSAGE} ${detail}`
-      : JPEG_RUNTIME_UNAVAILABLE_MESSAGE,
-    { cause: error },
-  )
+  return new Error(JPEG_RUNTIME_UNAVAILABLE_MESSAGE, { cause: error })
 }
 
 export function isWasmJpegRuntimeAvailable(
