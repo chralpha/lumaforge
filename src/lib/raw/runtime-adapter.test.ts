@@ -1,12 +1,13 @@
 import type {
-  LumaRawFrame,
   LumaRawExportCapability,
+  LumaRawFrame,
   LumaRawRuntime,
   LumaRawRuntimeInfo,
 } from '@lumaforge/luma-raw-runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { JPEG_RUNTIME_UNAVAILABLE_MESSAGE } from '~/lib/export/jpeg/wasm-row-sink'
+
 import { disposeLumaRawRuntime } from './luma-runtime-adapter'
 import { createRawRuntimeAdapter } from './runtime-adapter'
 
@@ -261,6 +262,7 @@ describe('raw runtime adapter', () => {
 
     const adapter = createRawRuntimeAdapter({
       lumaRuntimeFactory: () => runtime,
+      jpegRuntimeAvailabilityProbe: vi.fn().mockReturnValue(true),
     })
 
     const file = new File(['raw'], 'sample.ARW')

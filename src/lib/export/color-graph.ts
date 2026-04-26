@@ -1,10 +1,10 @@
 import type { ColorGamutId } from '~/lib/color/constants'
 import type { TransferFunctionId } from '~/lib/color/log-encoding'
+import type {Mat3} from '~/lib/color/matrix';
 import {
   getLinearProPhotoToGamutMatrix,
   getLUTOutputToTargetMatrix,
-  mat3Identity,
-  type Mat3,
+  mat3Identity
 } from '~/lib/color/matrix'
 import type {
   LUTColorProfile,
@@ -124,10 +124,7 @@ export function resolveExportColorGraph(input: {
 
   const profile = input.lut.profileResolution.profile
   const effectiveOutputTransfer = resolveEffectiveLUTOutputTransfer(profile)
-  if (
-    effectiveOutputTransfer !== 'srgb' &&
-    effectiveOutputTransfer !== 'gamma24'
-  ) {
+  if (effectiveOutputTransfer === 'linear') {
     return {
       supported: false,
       reason: 'unsupported-pipeline',

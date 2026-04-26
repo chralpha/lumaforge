@@ -178,6 +178,12 @@ async function flushPromises() {
   await Promise.resolve()
 }
 
+async function flushScheduledToasts() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+}
+
 describe('useRawProcessor embedded preview state', () => {
   beforeEach(() => {
     resetToDefaults()
@@ -443,9 +449,9 @@ describe('useRawProcessor embedded preview state', () => {
       extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
       decodeQuickRaw,
       decodeHqRaw,
-      probeExportCapability: vi.fn().mockResolvedValue(
-        createSupportedCapability(),
-      ),
+      probeExportCapability: vi
+        .fn()
+        .mockResolvedValue(createSupportedCapability()),
       dispose: vi.fn(),
     })
 
@@ -510,6 +516,7 @@ describe('useRawProcessor embedded preview state', () => {
       await act(async () => {
         await result.current.exportImage({ quality: 'high', fidelity: 'max' })
       })
+      await flushScheduledToasts()
 
       expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
       expect(toastMock.error).toHaveBeenCalledWith(
@@ -551,6 +558,7 @@ describe('useRawProcessor embedded preview state', () => {
     await act(async () => {
       await result.current.exportImage({ quality: 'high', fidelity: 'max' })
     })
+    await flushScheduledToasts()
 
     expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
     expect(toastMock.error).toHaveBeenCalledWith(
@@ -568,7 +576,9 @@ describe('useRawProcessor embedded preview state', () => {
     rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
       createDecodedImage('quick'),
     )
-    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(createDecodedImage('hq'))
+    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(
+      createDecodedImage('hq'),
+    )
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -598,7 +608,9 @@ describe('useRawProcessor embedded preview state', () => {
     rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
       createDecodedImage('quick'),
     )
-    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(createDecodedImage('hq'))
+    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(
+      createDecodedImage('hq'),
+    )
     rawRuntimeAdapterMock.probeExportCapability.mockResolvedValue(
       createSupportedCapability(),
     )
@@ -634,19 +646,19 @@ describe('useRawProcessor embedded preview state', () => {
       revokeObjectURL,
     })
     vi.spyOn(document.body, 'append').mockImplementation(append)
-    vi.spyOn(document, 'createElement').mockImplementation(
-      ((tagName: string) => {
-        if (tagName === 'a') {
-          return {
-            href: '',
-            download: '',
-            click,
-            remove,
-          }
+    vi.spyOn(document, 'createElement').mockImplementation(((
+      tagName: string,
+    ) => {
+      if (tagName === 'a') {
+        return {
+          href: '',
+          download: '',
+          click,
+          remove,
         }
-        return originalCreateElement(tagName)
-      }) as typeof document.createElement,
-    )
+      }
+      return originalCreateElement(tagName)
+    }) as typeof document.createElement)
 
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
 
@@ -758,11 +770,7 @@ describe('useRawProcessor embedded preview state', () => {
     const originalCreateElement = document.createElement.bind(document)
 
     exportSystemMock.runFullResolutionExportJob.mockImplementation(
-      ({
-        signal,
-      }: {
-        signal?: AbortSignal
-      }) => {
+      ({ signal }: { signal?: AbortSignal }) => {
         staleExportSignal = signal
         return staleExport.promise
       },
@@ -771,26 +779,28 @@ describe('useRawProcessor embedded preview state', () => {
     rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
       createDecodedImage('quick'),
     )
-    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(createDecodedImage('hq'))
+    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(
+      createDecodedImage('hq'),
+    )
 
     vi.stubGlobal('URL', {
       createObjectURL: vi.fn(() => 'blob:stale-export'),
       revokeObjectURL: vi.fn(),
     })
     vi.spyOn(document.body, 'append').mockImplementation(append)
-    vi.spyOn(document, 'createElement').mockImplementation(
-      ((tagName: string) => {
-        if (tagName === 'a') {
-          return {
-            href: '',
-            download: '',
-            click,
-            remove,
-          }
+    vi.spyOn(document, 'createElement').mockImplementation(((
+      tagName: string,
+    ) => {
+      if (tagName === 'a') {
+        return {
+          href: '',
+          download: '',
+          click,
+          remove,
         }
-        return originalCreateElement(tagName)
-      }) as typeof document.createElement,
-    )
+      }
+      return originalCreateElement(tagName)
+    }) as typeof document.createElement)
 
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
     let staleExportPromise!: Promise<void>
