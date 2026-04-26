@@ -129,3 +129,11 @@ Task 15 command evidence:
 - PASS: `pnpm build`; existing route-builder undefined `loader`/`handle` and chunk-size warnings remain non-fatal.
 - PASS: Production preview on desktop Chrome loaded `/raw`, exported the 61MP fixture, and confirmed fail-closed gating for the 100MP, unsupported RAW-window, and unknown LUT profile cases above.
 - PENDING: desktop Safari full-resolution fixture acceptance still needs to run on a Safari host.
+
+## Full-resolution LibRaw processed-window RAW export
+
+| Fixture                                                                                       | Expected result                                                                                           | Status                      |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `/workspaces/LumaForge/test-images/SGL00940.ARW`                                              | Full-resolution export uses `libraw-processed-window` and succeeds.                                       | Record result during Task 7 |
+| `/workspaces/LumaForge/test-images/SGL_1998.NEF`                                              | Full-resolution export uses `libraw-processed-window`; non-identity orientation is not a support blocker. | Record result during Task 7 |
+| `/workspaces/LumaForge/test-images/Fujifilm - GFX100RF - 16bit lossless compressed (4_3).RAF` | Full-resolution export uses `libraw-processed-window` when LibRaw reports a processable source.           | Record result during Task 7 |

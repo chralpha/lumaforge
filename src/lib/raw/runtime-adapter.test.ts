@@ -75,12 +75,15 @@ function makeCapability(): LumaRawExportCapability {
     visibleCrop: { x: 0, y: 0, width: 6240, height: 4168 },
     cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
     blackLevel: 0,
-    whiteLevel: 16383,
+    whiteLevel: 65535,
+    strategy: 'libraw-processed-window',
     orientation: { code: 1, supported: true },
     color: {
-      whiteBalance: [1, 1, 1, 1],
-      cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
       workingSpace: 'linear-prophoto-rgb',
+      librawOutputColor: 'prophoto',
+      gamma: 'linear',
+      cameraWhiteBalanceAppliedByRuntime: true,
+      cameraMatrixAppliedByRuntime: true,
     },
     sensor: {
       layout: 'bayer',
@@ -88,7 +91,8 @@ function makeCapability(): LumaRawExportCapability {
       cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
       phaseIsWindowLocal: false,
     },
-    windows: { librawProcessed: false, rawMosaic: true },
+    levels: { black: 0, white: 65535 },
+    windows: { librawProcessed: true, rawMosaic: false },
     diagnostics: {
       hasRawImage: true,
       hasColor3Image: false,
@@ -96,6 +100,14 @@ function makeCapability(): LumaRawExportCapability {
       hasXTransTable: false,
     },
     reasons: [],
+  }
+}
+
+function makeRawMosaicCapability(): LumaRawExportCapability {
+  return {
+    ...makeCapability(),
+    strategy: 'raw-mosaic-window',
+    windows: { librawProcessed: false, rawMosaic: true },
   }
 }
 
@@ -305,6 +317,45 @@ describe('raw runtime adapter', () => {
     expect(dispose).toHaveBeenCalledTimes(1)
   })
 
+  it('preserves processed-window export capability facts when JPEG runtime is available', async () => {
+    const probeExportCapability = vi.fn().mockResolvedValue(makeCapability())
+    const jpegRuntimeAvailabilityProbe = vi.fn().mockReturnValue(true)
+    const { runtime } = makeLumaRuntime({
+      openSession: vi.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        probe: {
+          jobId: 'probe',
+          width: 6240,
+          height: 4168,
+          supportLevel: 'experimental',
+          timings: { total: 1 },
+        },
+        timings: { total: 1 },
+        extractEmbeddedPreview: vi.fn(),
+        probeExportCapability,
+        readRawWindow: vi.fn(),
+        readProcessedWindow: vi.fn(),
+        decodeQuick: vi.fn(),
+        decodeHq: vi.fn(),
+        dispose: vi.fn(),
+      }),
+    })
+    const adapter = createRawRuntimeAdapter({
+      lumaRuntimeFactory: () => runtime,
+      jpegRuntimeAvailabilityProbe,
+    })
+
+    const session = await adapter.openSession(new File(['raw'], 'sample.ARW'))
+
+    await expect(session.probeExportCapability?.()).resolves.toMatchObject({
+      supported: true,
+      strategy: 'libraw-processed-window',
+      windows: { librawProcessed: true, rawMosaic: false },
+    })
+    expect(probeExportCapability).toHaveBeenCalledTimes(1)
+    expect(jpegRuntimeAvailabilityProbe).toHaveBeenCalledTimes(1)
+  })
+
   it('fails export capability closed when the JPEG runtime is unavailable', async () => {
     const probeExportCapability = vi.fn().mockResolvedValue(makeCapability())
     const jpegRuntimeAvailabilityProbe = vi.fn().mockReturnValue(false)
@@ -349,19 +400,22 @@ describe('raw runtime adapter', () => {
       ['missing-color-transform'],
     ],
     [
-      'unsupported-orientation',
-      { orientation: { code: 6, supported: false } },
-      ['unsupported-orientation'],
+      'raw-mosaic-only-export',
+      makeRawMosaicCapability(),
+      ['processed-window-unavailable'],
     ],
     [
-      'processed-window-only-export',
-      {
-        strategy: 'libraw-processed-window',
-        windows: { librawProcessed: true, rawMosaic: false },
-      },
-      ['raw-window-unavailable'],
+      'missing processed window',
+      { windows: { librawProcessed: false, rawMosaic: false } },
+      ['processed-window-unavailable'],
     ],
-  ] as Array<[string, Partial<LumaRawExportCapability>, string[]]>)(
+  ] as Array<
+    [
+      string,
+      Partial<LumaRawExportCapability> | LumaRawExportCapability,
+      string[],
+    ]
+  >)(
     'fails export capability closed for %s',
     async (_name, overrides, reasons) => {
       const jpegRuntimeAvailabilityProbe = vi.fn().mockReturnValue(true)

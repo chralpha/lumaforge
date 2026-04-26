@@ -89,33 +89,17 @@ function getUnsupportedExportFactReasons(capability: LumaRawExportCapability) {
   const reasons: LumaRawExportUnsupportedReason[] = []
 
   if (
-    !(
-      (capability.strategy === undefined ||
-        capability.strategy === 'raw-mosaic-window') &&
-      capability.windows.rawMosaic
-    )
+    capability.strategy !== 'libraw-processed-window' ||
+    capability.windows.librawProcessed !== true
   ) {
-    reasons.push('raw-window-unavailable')
+    reasons.push('processed-window-unavailable')
   }
 
-  if (!capability.visibleCrop) {
-    reasons.push('missing-visible-crop')
-  }
-
-  const orientation = capability.orientation
+  const color = capability.color
   if (
-    !orientation ||
-    (typeof orientation === 'number' && orientation !== 1) ||
-    (typeof orientation === 'object' &&
-      (!orientation.supported || orientation.code !== 1))
-  ) {
-    reasons.push('unsupported-orientation')
-  }
-
-  if (
-    capability.color?.workingSpace !== 'linear-prophoto-rgb' ||
-    !capability.color.whiteBalance ||
-    !capability.color.cameraToWorkingRgb
+    color?.workingSpace !== 'linear-prophoto-rgb' ||
+    color.cameraWhiteBalanceAppliedByRuntime !== true ||
+    color.cameraMatrixAppliedByRuntime !== true
   ) {
     reasons.push('missing-color-transform')
   }

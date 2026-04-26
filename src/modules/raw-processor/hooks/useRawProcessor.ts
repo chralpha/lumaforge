@@ -1,3 +1,4 @@
+import type { LumaRawExportCapability } from '@lumaforge/luma-raw-runtime'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -84,9 +85,31 @@ function getStableErrorCode(error: unknown) {
   return (error as { code?: unknown }).code
 }
 
+function toFullResCapabilityState(capability: LumaRawExportCapability) {
+  if (
+    capability.supported &&
+    capability.strategy === 'libraw-processed-window' &&
+    capability.windows.librawProcessed
+  ) {
+    return {
+      status: 'supported' as const,
+      width: capability.width,
+      height: capability.height,
+    }
+  }
+
+  return {
+    status: 'unsupported' as const,
+    reason: capability.supported
+      ? 'processed-window-unavailable'
+      : capability.reasons.join(', ') ||
+        'This RAW source does not support full-resolution export in the current browser build.',
+  }
+}
+
 function getProgressRecoveryHint(status: ProcessingStatus) {
   if (status === 'loading' || status === 'decoding') {
-    return 'If HQ preview cannot finish, the first visible preview stays available while full-resolution export depends on raw-window support instead.'
+    return 'If HQ preview cannot finish, the first visible preview stays available while full-resolution export depends on processed-window support instead.'
   }
 
   if (status === 'processing') {
@@ -598,18 +621,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
                         ...prev,
                         exportState: {
                           ...prev.exportState,
-                          fullResCapability: capability.supported
-                            ? {
-                                status: 'supported',
-                                width: capability.width,
-                                height: capability.height,
-                              }
-                            : {
-                                status: 'unsupported',
-                                reason:
-                                  capability.reasons.join(', ') ||
-                                  'This RAW source does not support full-resolution export in the current browser build.',
-                              },
+                          fullResCapability:
+                            toFullResCapabilityState(capability),
                         },
                       }
                     : prev,

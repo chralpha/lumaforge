@@ -143,15 +143,45 @@ function createTestSession() {
 function createSupportedCapability() {
   return {
     supported: true,
+    strategy: 'libraw-processed-window',
     width: 6048,
     height: 4024,
     rawWidth: 6048,
     rawHeight: 4024,
     cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
     blackLevel: 0,
-    whiteLevel: 16383,
+    whiteLevel: 65535,
     orientation: 1,
+    sensor: {
+      layout: 'bayer',
+      colorCount: 3,
+      cfa: { pattern: 'rggb', xPhase: 0, yPhase: 0 },
+      phaseIsWindowLocal: false,
+    },
+    levels: { black: 0, white: 65535 },
+    color: {
+      workingSpace: 'linear-prophoto-rgb',
+      librawOutputColor: 'prophoto',
+      gamma: 'linear',
+      cameraWhiteBalanceAppliedByRuntime: true,
+      cameraMatrixAppliedByRuntime: true,
+    },
+    windows: { librawProcessed: true, rawMosaic: false },
+    diagnostics: {
+      hasRawImage: true,
+      hasColor3Image: false,
+      hasColor4Image: false,
+      hasXTransTable: false,
+    },
     reasons: [],
+  }
+}
+
+function createRawMosaicCapability() {
+  return {
+    ...createSupportedCapability(),
+    strategy: 'raw-mosaic-window',
+    windows: { librawProcessed: false, rawMosaic: true },
   }
 }
 
@@ -454,7 +484,7 @@ describe('useRawProcessor embedded preview state', () => {
     expect(rawRuntimeAdapterMock.decodeHqRaw).not.toHaveBeenCalled()
   })
 
-  it('keeps full-resolution export enabled when raw-window capability is supported but hq preview fails', async () => {
+  it('keeps full-resolution export enabled when processed-window capability is supported but hq preview fails', async () => {
     const file = createFileWithSize('large.ARW', 33 * 1024 * 1024)
     const decodeQuickRaw = vi
       .fn()
@@ -510,7 +540,7 @@ describe('useRawProcessor embedded preview state', () => {
     )
   })
 
-  it('keeps full-resolution export enabled when raw-window capability is supported but quick preview fails', async () => {
+  it('keeps full-resolution export enabled when processed-window capability is supported but quick preview fails', async () => {
     const file = createFileWithSize('large.ARW', 33 * 1024 * 1024)
     const decodeQuickRaw = vi.fn().mockRejectedValue(
       Object.assign(new Error('quick unavailable'), {
@@ -622,6 +652,44 @@ describe('useRawProcessor embedded preview state', () => {
       )
     },
   )
+
+  it('keeps full-resolution export disabled for raw-mosaic window capability', async () => {
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(
+      createDecodedImage('hq'),
+    )
+    rawRuntimeAdapterMock.probeExportCapability.mockResolvedValue(
+      createRawMosaicCapability(),
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+
+    expect(result.current.canExport).toBe(false)
+    expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({
+      fullResCapability: {
+        status: 'unsupported',
+        reason: 'processed-window-unavailable',
+      },
+    })
+
+    await act(async () => {
+      await result.current.exportImage({ quality: 'high', fidelity: 'max' })
+    })
+    await flushScheduledToasts()
+
+    expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
+    expect(toastMock.error).toHaveBeenCalledWith(
+      'Full-resolution export is not ready',
+      { description: 'processed-window-unavailable' },
+    )
+  })
 
   it('keeps full-resolution export disabled with product copy when JPEG readiness fails', async () => {
     const reason =
