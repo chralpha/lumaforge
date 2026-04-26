@@ -471,10 +471,22 @@ describe('useRawProcessor embedded preview state', () => {
     expect(result.current.canExport).toBe(false)
   })
 
-  it('fails closed when the current style pipeline is unsupported for full-resolution export', async () => {
+  it('disables full-resolution export for unsupported builtin styles after the source file is loaded', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
 
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(createDecodedImage('hq'))
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+
+    expect(result.current.canExport).toBe(true)
 
     act(() => {
       result.current.selectBuiltinStyle(result.current.presetOptions[0]!.id)

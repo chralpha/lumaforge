@@ -40,6 +40,7 @@ import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
 import {
   deriveCanEdit,
+  deriveCanExport,
   deriveExportDisabledReason,
   selectDisplaySource,
 } from '../model/derive-session'
@@ -108,12 +109,7 @@ function isFullResExportRunnable(input: {
   hasSourceFile: boolean
   session: ImageSession
 }) {
-  return (
-    input.hasSourceFile &&
-    input.session.exportState.fullResCapability.status === 'supported' &&
-    input.session.renderState.status !== 'failed' &&
-    input.session.exportState.status !== 'exporting'
-  )
+  return input.hasSourceFile && deriveCanExport(input.session)
 }
 
 export interface UseRawProcessorReturn {
