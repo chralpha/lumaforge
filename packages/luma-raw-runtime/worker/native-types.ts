@@ -49,6 +49,10 @@ export type LumaRawNativeOpenSettings = {
   outputColor: 4
   outputBps: 16
   noAutoBright: true
+  useAutoWb: false
+  useCameraMatrix: 1
+  bright: 1
+  highlight: 2
   userQual: number
   gamm: [1, 1, 1, 1, 0, 0]
 }
@@ -63,6 +67,8 @@ export type LumaRawNativeDecodeOptions = {
 }
 
 export type LumaRawNativeExportCapability = LumaRawExportCapability
+export type LumaRawNativeProcessedWindowRequest = LumaRawProcessedWindowRequest
+export type LumaRawNativeProcessedWindow = LumaRawProcessedWindow
 
 export type LumaRawNativeProcessor = {
   loadBuffer: (data: Uint8Array) => Pick<LumaRawNativeOpenTimings, 'copyToWasm'>

@@ -814,18 +814,22 @@ function normalizeProcessedWindow(value: unknown): LumaRawProcessedWindow {
       'Native RAW processed-window dimensions do not match rect dimensions.',
     )
   }
-  if (stride < width * 3) {
+  const expectedStride = width * 3
+  if (stride < expectedStride) {
     throw new TypeError('Native RAW processed-window returned invalid stride.')
   }
 
-  const expectedLength = stride * height
+  const expectedLength = expectedStride * height
   if (!Number.isSafeInteger(expectedLength)) {
     throw new TypeError('Native RAW processed-window dimensions are too large.')
   }
   if (raw.data.length !== expectedLength) {
     throw new TypeError(
-      'Native RAW processed-window data length does not match dimensions.',
+      'Native RAW processed-window data length does not match RGB dimensions.',
     )
+  }
+  if (stride !== expectedStride) {
+    throw new TypeError('Native RAW processed-window returned invalid stride.')
   }
 
   return {
@@ -849,7 +853,7 @@ export function createNativeFactory(
     createProcessor(): LumaRawNativeProcessor {
       const processor = new module.LumaRawProcessor()
 
-      return {
+      const adapted: LumaRawNativeProcessor = {
         loadBuffer(data) {
           if (!processor.loadBuffer) {
             throw new TypeError(
@@ -915,17 +919,6 @@ export function createNativeFactory(
 
           return normalizeRawWindow(processor.readRawWindow(rect))
         },
-        readProcessedWindow(request) {
-          if (!processor.readProcessedWindow) {
-            throw new TypeError(
-              'Native RAW processed-window access is unavailable.',
-            )
-          }
-
-          return normalizeProcessedWindow(
-            processor.readProcessedWindow(request),
-          )
-        },
         decodePreview(options) {
           return normalizeImage(
             processor.decodePreview(normalizeDecodeOptions(options)),
@@ -940,6 +933,22 @@ export function createNativeFactory(
           processor.delete?.()
         },
       }
+
+      if (processor.readProcessedWindow) {
+        adapted.readProcessedWindow = (request) => {
+          if (!processor.readProcessedWindow) {
+            throw new TypeError(
+              'Native RAW processed-window access is unavailable.',
+            )
+          }
+
+          return normalizeProcessedWindow(
+            processor.readProcessedWindow(request),
+          )
+        }
+      }
+
+      return adapted
     },
     heapBytes() {
       const heap = (module as unknown as { HEAPU8?: Uint8Array }).HEAPU8

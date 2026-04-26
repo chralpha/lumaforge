@@ -31,6 +31,10 @@ const quickSettings = {
   outputColor: 4,
   outputBps: 16,
   noAutoBright: true,
+  useAutoWb: false,
+  useCameraMatrix: 1,
+  bright: 1,
+  highlight: 2,
   userQual: 0,
   gamm: [1, 1, 1, 1, 0, 0],
 } satisfies LumaRawNativeOpenSettings

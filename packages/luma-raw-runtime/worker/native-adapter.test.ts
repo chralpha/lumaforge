@@ -27,6 +27,10 @@ const settings = {
   outputColor: 4,
   outputBps: 16,
   noAutoBright: true,
+  useAutoWb: false,
+  useCameraMatrix: 1,
+  bright: 1,
+  highlight: 2,
   userQual: 0,
   gamm: [1, 1, 1, 1, 0, 0],
 } satisfies LumaRawNativeOpenSettings
@@ -376,6 +380,98 @@ describe('native-adapter', () => {
     expect(window?.data.buffer).not.toBe(pooled.buffer)
   })
 
+  it('preserves native receiver when reading processed windows', () => {
+    const processor = createNativeFactory({
+      LumaRawProcessor: class {
+        processedWindow = {
+          rect: { x: 0, y: 2, width: 2, height: 1 },
+          workingSpace: 'linear-prophoto-rgb',
+          data: new Uint16Array([1, 2, 3, 4, 5, 6]),
+          width: 2,
+          height: 1,
+          stride: 6,
+          normalized: false,
+          orientationApplied: true,
+          colorApplied: true,
+          warnings: [],
+        }
+        loadBuffer(_data: Uint8Array) {
+          return { copyToWasm: 0 }
+        }
+        openWithSettings(_settings: LumaRawNativeOpenSettings) {
+          return {
+            copyToWasm: 0,
+            librawOpen: 0,
+          }
+        }
+        openBuffer(_data: Uint8Array, _settings: LumaRawNativeOpenSettings) {
+          return undefined
+        }
+        readMetadata() {
+          return {}
+        }
+        extractThumbnail() {
+          return undefined
+        }
+        readProcessedWindow() {
+          return this.processedWindow
+        }
+        decodePreview() {
+          return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
+        }
+        decodeHq() {
+          return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
+        }
+        delete() {}
+      },
+    }).createProcessor()
+
+    expect(
+      processor.readProcessedWindow?.({
+        outputRect: { x: 0, y: 2, width: 2, height: 1 },
+        halo: { left: 0, top: 0, right: 0, bottom: 0 },
+      }),
+    ).toMatchObject({
+      rect: { x: 0, y: 2, width: 2, height: 1 },
+      workingSpace: 'linear-prophoto-rgb',
+    })
+  })
+
+  it('omits processed-window access when native processor does not expose it', () => {
+    const processor = createNativeFactory({
+      LumaRawProcessor: class {
+        loadBuffer(_data: Uint8Array) {
+          return { copyToWasm: 0 }
+        }
+        openWithSettings(_settings: LumaRawNativeOpenSettings) {
+          return {
+            copyToWasm: 0,
+            librawOpen: 0,
+          }
+        }
+        openBuffer(_data: Uint8Array, _settings: LumaRawNativeOpenSettings) {
+          return undefined
+        }
+        readMetadata() {
+          return {}
+        }
+        extractThumbnail() {
+          return undefined
+        }
+        decodePreview() {
+          return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
+        }
+        decodeHq() {
+          return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
+        }
+        delete() {}
+      },
+    }).createProcessor()
+
+    expect('readProcessedWindow' in processor).toBe(false)
+    expect(processor.readProcessedWindow).toBeUndefined()
+  })
+
   it('rejects malformed processed-window payloads', () => {
     const malformed = createProcessor({
       processedWindow: {
@@ -397,7 +493,35 @@ describe('native-adapter', () => {
         outputRect: { x: 0, y: 0, width: 2, height: 1 },
         halo: { left: 0, top: 0, right: 0, bottom: 0 },
       }),
-    ).toThrow('processed-window data length does not match dimensions')
+    ).toThrow(
+      'Native RAW processed-window data length does not match RGB dimensions.',
+    )
+  })
+
+  it('rejects padded processed-window RGB16 payloads', () => {
+    const padded = createProcessor({
+      processedWindow: {
+        rect: { x: 0, y: 0, width: 2, height: 1 },
+        workingSpace: 'linear-prophoto-rgb',
+        data: new Uint16Array([1, 2, 3, 4, 5, 6, 7, 8]),
+        width: 2,
+        height: 1,
+        stride: 8,
+        normalized: false,
+        orientationApplied: true,
+        colorApplied: true,
+        warnings: [],
+      },
+    })
+
+    expect(() =>
+      padded.readProcessedWindow?.({
+        outputRect: { x: 0, y: 0, width: 2, height: 1 },
+        halo: { left: 0, top: 0, right: 0, bottom: 0 },
+      }),
+    ).toThrow(
+      'Native RAW processed-window data length does not match RGB dimensions.',
+    )
   })
 
   it('does not allow native camera white balance to fall back to LibRaw pre_mul', () => {
