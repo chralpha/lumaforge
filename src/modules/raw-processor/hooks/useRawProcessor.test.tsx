@@ -184,6 +184,26 @@ async function flushScheduledToasts() {
   })
 }
 
+function stubDownloadLink() {
+  const click = vi.fn()
+  const remove = vi.fn()
+  const originalCreateElement = document.createElement.bind(document)
+
+  vi.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
+    if (tagName === 'a') {
+      return {
+        href: '',
+        download: '',
+        click,
+        remove,
+      }
+    }
+    return originalCreateElement(tagName)
+  }) as typeof document.createElement)
+
+  return { click, remove }
+}
+
 describe('useRawProcessor embedded preview state', () => {
   beforeEach(() => {
     resetToDefaults()
@@ -454,6 +474,11 @@ describe('useRawProcessor embedded preview state', () => {
         .mockResolvedValue(createSupportedCapability()),
       dispose: vi.fn(),
     })
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'large_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+    stubDownloadLink()
 
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
 
@@ -475,6 +500,78 @@ describe('useRawProcessor embedded preview state', () => {
       width: 6048,
       height: 4024,
     })
+
+    await act(async () => {
+      await result.current.exportImage({ quality: 'high', fidelity: 'max' })
+    })
+
+    expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledWith(
+      expect.objectContaining({ file }),
+    )
+  })
+
+  it('keeps full-resolution export enabled when raw-window capability is supported but quick preview fails', async () => {
+    const file = createFileWithSize('large.ARW', 33 * 1024 * 1024)
+    const decodeQuickRaw = vi.fn().mockRejectedValue(
+      Object.assign(new Error('quick unavailable'), {
+        code: 'RAW_QUICK_DECODE_FAILED',
+      }),
+    )
+    const decodeHqRaw = vi.fn()
+
+    rawRuntimeAdapterMock.openSession.mockResolvedValue({
+      extractEmbeddedPreview: vi.fn().mockResolvedValue({
+        width: 1600,
+        height: 1067,
+        data: new Uint8Array([1, 2, 3]),
+        mimeType: 'image/jpeg',
+      }),
+      decodeQuickRaw,
+      decodeHqRaw,
+      probeExportCapability: vi
+        .fn()
+        .mockResolvedValue(createSupportedCapability()),
+      dispose: vi.fn(),
+    })
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'large_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+    stubDownloadLink()
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(file)
+    })
+
+    const session = jotaiStore.get(currentSessionAtom)
+    expect(decodeQuickRaw).toHaveBeenCalled()
+    expect(decodeHqRaw).not.toHaveBeenCalled()
+    expect(result.current.displaySource).toBe('embedded')
+    expect(result.current.status).toBe('error')
+    expect(result.current.canExport).toBe(true)
+    expect(session?.previewBundle.quickDecodePreview).toEqual({
+      status: 'failed',
+      errorCode: 'RAW_QUICK_DECODE_FAILED',
+    })
+    expect(session?.previewBundle.hqImage).toEqual({
+      status: 'failed',
+      errorCode: 'RAW_QUICK_DECODE_FAILED',
+    })
+    expect(session?.exportState.fullResCapability).toEqual({
+      status: 'supported',
+      width: 6048,
+      height: 4024,
+    })
+
+    await act(async () => {
+      await result.current.exportImage({ quality: 'high', fidelity: 'max' })
+    })
+
+    expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledWith(
+      expect.objectContaining({ file }),
+    )
   })
 
   it('keeps full-resolution export disabled until the source file is actually loaded', () => {

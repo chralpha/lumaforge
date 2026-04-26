@@ -46,7 +46,6 @@ function deriveUnsupportedExportPipelineReason(
 export function deriveCanExport(session: ImageSession): boolean {
   return (
     session.exportState.fullResCapability.status === 'supported' &&
-    session.renderState.status !== 'failed' &&
     session.exportState.status !== 'exporting' &&
     !deriveUnsupportedExportPipelineReason(session)
   )
@@ -57,10 +56,6 @@ export function deriveExportDisabledReason(
 ): string | undefined {
   if (session.exportState.status === 'exporting') {
     return 'Full-resolution export is already running.'
-  }
-
-  if (session.renderState.status === 'failed') {
-    return 'Resolve the current render error before exporting.'
   }
 
   switch (session.exportState.fullResCapability.status) {

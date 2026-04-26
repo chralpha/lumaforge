@@ -45,6 +45,44 @@ describe('runPreviewPipeline', () => {
     })
   })
 
+  it('reports quick decode failure without marking quick or HQ preview ready', async () => {
+    const onEvent = vi.fn()
+    const decodeHqRaw = vi.fn()
+    const error = Object.assign(new Error('quick decode failed'), {
+      code: 'RAW_QUICK_DECODE_FAILED',
+    })
+
+    await runPreviewPipeline({
+      runtimeSession: {
+        extractEmbeddedPreview: vi.fn().mockResolvedValue({
+          width: 1600,
+          height: 1067,
+          data: new Uint8Array([1, 2, 3]),
+          mimeType: 'image/jpeg',
+        }),
+        decodeQuickRaw: vi.fn().mockRejectedValue(error),
+        decodeHqRaw,
+      },
+      onEvent,
+    })
+
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'embedded-ready' }),
+    )
+    expect(onEvent).toHaveBeenCalledWith({
+      type: 'quick-failed',
+      errorCode: 'RAW_QUICK_DECODE_FAILED',
+      message: 'quick decode failed',
+    })
+    expect(onEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'quick-ready' }),
+    )
+    expect(onEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'hq-ready' }),
+    )
+    expect(decodeHqRaw).not.toHaveBeenCalled()
+  })
+
   it('still runs quick decode after an embedded preview is found', async () => {
     const onEvent = vi.fn()
     const decodeQuickRaw = vi

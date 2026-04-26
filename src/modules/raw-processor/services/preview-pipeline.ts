@@ -9,6 +9,7 @@ export type EmbeddedPreviewPayload = {
 export type PreviewEvent =
   | ({ type: 'embedded-ready' } & EmbeddedPreviewPayload)
   | { type: 'quick-ready'; width: number; height: number }
+  | { type: 'quick-failed'; errorCode: string; message: string }
   | { type: 'hq-ready'; width: number; height: number }
   | { type: 'hq-failed'; errorCode: string }
 
@@ -19,6 +20,12 @@ function toPreviewErrorCode(error: unknown, fallbackCode: string) {
   }
 
   return fallbackCode
+}
+
+function toPreviewErrorMessage(error: unknown, fallbackMessage: string) {
+  return error instanceof Error && error.message
+    ? error.message
+    : fallbackMessage
 }
 
 export async function runPreviewPipeline({
@@ -43,7 +50,18 @@ export async function runPreviewPipeline({
     onEvent({ type: 'embedded-ready', ...embedded })
   }
 
-  const quick = await runtimeSession.decodeQuickRaw()
+  let quick: { width: number; height: number }
+  try {
+    quick = await runtimeSession.decodeQuickRaw()
+  } catch (error) {
+    onEvent({
+      type: 'quick-failed',
+      errorCode: toPreviewErrorCode(error, 'RAW_QUICK_DECODE_FAILED'),
+      message: toPreviewErrorMessage(error, 'Quick preview decode failed'),
+    })
+    return
+  }
+
   onEvent({ type: 'quick-ready', ...quick })
   await yieldToPreviewPaint()
 

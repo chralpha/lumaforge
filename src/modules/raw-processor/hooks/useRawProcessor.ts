@@ -18,13 +18,13 @@ import {
   useSetProcessingStatus,
   useSetProgress,
 } from '~/atoms/raw-processor'
+import { resolveExportColorGraph } from '~/lib/export/color-graph'
 import type {
   LUTData,
   PipelineStats,
   ProcessingParams,
   RawProcessingPipeline,
 } from '~/lib/gl/pipeline'
-import { resolveExportColorGraph } from '~/lib/export/color-graph'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import {
   isSupportedLUT,
@@ -129,10 +129,10 @@ function enqueuePostCommitTask(task: () => void) {
 }
 
 function isFullResExportRunnable(input: {
-  hasSourceFile: boolean
+  sourceFile: File | null
   session: ImageSession
 }) {
-  return input.hasSourceFile && deriveCanExport(input.session)
+  return Boolean(input.sourceFile) && deriveCanExport(input.session)
 }
 
 export interface UseRawProcessorReturn {
@@ -214,7 +214,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const hasImage = session ? deriveCanEdit(session) : false
   const canExport = session
     ? isFullResExportRunnable({
-        hasSourceFile: Boolean(loadedImage.file),
+        sourceFile: loadedImage.file,
         session,
       })
     : false
@@ -289,7 +289,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     )
 
     for (const url of urls) {
-      URL.revokeObjectURL(url)
+      URL.revokeObjectURL?.(url)
     }
 
     embeddedPreviewUrlRef.current = null
@@ -405,7 +405,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
         sessionRef.current = nextSession
         activeSessionIdRef.current = nextSession.id
-        setLoadedImage({ file: null, decoded: null, metadata: null })
+        setLoadedImage({ file, decoded: null, metadata: null })
         setStatus('loading')
         setProgress(0)
         setError(null)
@@ -705,6 +705,50 @@ export function useRawProcessor(): UseRawProcessorReturn {
               }
               case 'quick-ready': {
                 updatePreviewState('quick', event, quickPreview)
+                break
+              }
+              case 'quick-failed': {
+                const errorCode = toUserFacingErrorCode(event.errorCode)
+
+                setSession((prev) => {
+                  if (!prev || prev.id !== nextSession.id) {
+                    return prev
+                  }
+
+                  const previewBundle = {
+                    ...prev.previewBundle,
+                    quickDecodePreview: {
+                      status: 'failed' as const,
+                      errorCode,
+                    },
+                    hqImage: {
+                      status: 'failed' as const,
+                      errorCode,
+                    },
+                  }
+
+                  return {
+                    ...prev,
+                    previewBundle: {
+                      ...previewBundle,
+                      displaySource: selectDisplaySource(previewBundle),
+                    },
+                    renderState: {
+                      ...prev.renderState,
+                      status: 'failed',
+                      lastErrorCode: errorCode,
+                    },
+                  }
+                })
+                setStatus('error')
+                setProgress(100)
+                setError(event.message)
+                scheduleToast(() =>
+                  toast.error('Preview unavailable', {
+                    description:
+                      'Full-resolution export remains available when raw-window support is confirmed.',
+                  }),
+                )
                 break
               }
               case 'hq-ready': {
@@ -1078,7 +1122,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       if (
         !session ||
         !isFullResExportRunnable({
-          hasSourceFile: Boolean(loadedImage.file),
+          sourceFile: loadedImage.file,
           session,
         }) ||
         !loadedImage.file
@@ -1255,9 +1299,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
           getStableErrorCode(err) ?? message,
         )
         const errorCode =
-          rawErrorCode === 'RAW_UNKNOWN'
-            ? 'EXPORT_RENDER_FAILED'
-            : rawErrorCode
+          rawErrorCode === 'RAW_UNKNOWN' ? 'EXPORT_RENDER_FAILED' : rawErrorCode
         const retryLevel = isRetryableFullResExportFailure(errorCode)
           ? recommendRetryLevel(fidelity)
           : null
