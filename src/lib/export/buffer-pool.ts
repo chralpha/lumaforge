@@ -1,5 +1,5 @@
 export class TypedBufferPool<T extends ArrayBufferView> {
-  readonly free: T[] = []
+  private readonly freeList: T[] = []
   private readonly leased = new Set<T>()
 
   constructor(
@@ -7,12 +7,16 @@ export class TypedBufferPool<T extends ArrayBufferView> {
     private readonly capacity: number,
   ) {}
 
+  get free(): readonly T[] {
+    return [...this.freeList]
+  }
+
   get size() {
-    return this.free.length
+    return this.freeList.length
   }
 
   acquire(): T {
-    const buffer = this.free.pop() ?? this.create()
+    const buffer = this.freeList.pop() ?? this.create()
     this.leased.add(buffer)
     return buffer
   }
@@ -22,14 +26,14 @@ export class TypedBufferPool<T extends ArrayBufferView> {
       throw new Error('Cannot release a buffer that was not acquired from this pool.')
     }
 
-    if (this.free.length >= this.capacity) {
+    if (this.freeList.length >= this.capacity) {
       return
     }
 
-    this.free.push(buffer)
+    this.freeList.push(buffer)
   }
 
   clear(): void {
-    this.free.length = 0
+    this.freeList.length = 0
   }
 }

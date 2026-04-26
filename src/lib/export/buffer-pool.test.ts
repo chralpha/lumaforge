@@ -33,4 +33,18 @@ describe('TypedBufferPool', () => {
       'Cannot release a buffer that was not acquired from this pool.',
     )
   })
+
+  it('exposes a free snapshot without allowing external mutation of pool storage', () => {
+    const pool = new TypedBufferPool(() => new Uint16Array(2), 2)
+    const first = pool.acquire()
+
+    pool.release(first)
+
+    const exposed = pool.free as Uint16Array[]
+    exposed.push(new Uint16Array([99, 100]))
+
+    expect(pool.size).toBe(1)
+    expect(pool.free).toEqual([first])
+    expect(pool.acquire()).toBe(first)
+  })
 })
