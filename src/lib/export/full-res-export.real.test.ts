@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createLumaRawRuntime } from '@lumaforge/luma-raw-runtime'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import type { RawRenderExposure } from '~/lib/color/raw-render-exposure'
 import {
   applyLUTContractSelection,
   parseCubeLUT,
@@ -267,17 +268,43 @@ function createResolvedVLogClassic709Graph(lutContent: string) {
     throw new Error('Expected V-Log Classic709 LUT contract selection')
   }
 
+  const rawRenderExposure: RawRenderExposure = {
+    ev: 0.75,
+    multiplier: Math.pow(2, 0.75),
+    source: 'image-statistics',
+  }
   const graph = resolveExportColorGraph({
     styleKind: 'custom',
     intensity: 1,
     builtinPreset: null,
     lut: toLUTData(lut),
+    rawRenderExposure,
   })
 
   if (!graph.supported) {
     throw new Error(graph.message)
   }
 
+  const rawExposureSteps = graph.steps.filter(
+    (step) => step.kind === 'raw-render-exposure',
+  )
+
+  expect(graph.steps.map((step) => step.kind)).toEqual([
+    'input-linear-prophoto',
+    'raw-render-exposure',
+    'gamut-to-lut-input',
+    'encode-lut-transfer',
+    'lut3d',
+    'lut-output-to-srgb',
+    'output-srgb',
+  ])
+  expect(rawExposureSteps).toEqual([
+    {
+      kind: 'raw-render-exposure',
+      ev: rawRenderExposure.ev,
+      multiplier: rawRenderExposure.multiplier,
+    },
+  ])
   expect(graph.lutProfile).toMatchObject({
     role: 'combined-look-output',
     inputGamut: 'v-gamut',

@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import type { ExportColorGraphDescriptor } from '~/lib/export/color-graph'
+
 import {
   buildExportFilename,
   getPreferredRowsForFidelity,
@@ -38,17 +40,22 @@ describe('export-system', () => {
     const run = vi.fn().mockResolvedValue(blob)
     const dispose = vi.fn()
     const controller = new AbortController()
+    const graph: ExportColorGraphDescriptor = {
+      supported: true,
+      outputGamut: 'srgb-rec709',
+      outputTransfer: 'srgb',
+      lutProfile: null,
+      steps: [
+        { kind: 'input-linear-prophoto' },
+        { kind: 'raw-render-exposure', ev: 0, multiplier: 1 },
+        { kind: 'output-srgb' },
+      ],
+    }
 
     const result = await runFullResolutionExportJob({
       file,
       filename: 'frame_neutral_fullres.jpg',
-      graph: {
-        supported: true,
-        outputGamut: 'srgb-rec709',
-        outputTransfer: 'srgb',
-        lutProfile: null,
-        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
-      },
+      graph,
       quality: 0.92,
       preferredRows: 1024,
       signal: controller.signal,
@@ -59,15 +66,17 @@ describe('export-system', () => {
         }) as never,
     })
 
+    expect(run).toHaveBeenCalledTimes(1)
+    const exportRequest = run.mock.calls[0]![0]
+
+    expect(exportRequest.graph.steps).toContainEqual({
+      kind: 'raw-render-exposure',
+      ev: 0,
+      multiplier: 1,
+    })
     expect(run).toHaveBeenCalledWith({
       file,
-      graph: {
-        supported: true,
-        outputGamut: 'srgb-rec709',
-        outputTransfer: 'srgb',
-        lutProfile: null,
-        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
-      },
+      graph,
       onProgress: undefined,
       preferredRows: 1024,
       quality: 0.92,

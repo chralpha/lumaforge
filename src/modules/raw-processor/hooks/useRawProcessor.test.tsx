@@ -1020,7 +1020,7 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
-  it('runs the full-resolution export job and records strip progress', async () => {
+  it('runs the full-resolution export job with decoded render exposure and records strip progress', async () => {
     const renderExposure: RawRenderExposure = {
       ev: 1.25,
       multiplier: Math.pow(2, 1.25),
@@ -1093,6 +1093,20 @@ describe('useRawProcessor embedded preview state', () => {
       await result.current.exportImage({ quality: 'high', fidelity: 'max' })
     })
 
+    expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledTimes(1)
+    const exportRequest =
+      exportSystemMock.runFullResolutionExportJob.mock.calls[0]![0]
+    const expectedExportGraphSteps = [
+      { kind: 'input-linear-prophoto' },
+      {
+        kind: 'raw-render-exposure',
+        ev: renderExposure.ev,
+        multiplier: renderExposure.multiplier,
+      },
+      { kind: 'output-srgb' },
+    ]
+
+    expect(exportRequest.graph.steps).toEqual(expectedExportGraphSteps)
     expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledWith(
       expect.objectContaining({
         file: expect.any(File),
@@ -1100,13 +1114,7 @@ describe('useRawProcessor embedded preview state', () => {
         preferredRows: 1024,
         quality: 0.92,
         graph: expect.objectContaining({
-          steps: expect.arrayContaining([
-            expect.objectContaining({
-              kind: 'raw-render-exposure',
-              ev: renderExposure.ev,
-              multiplier: renderExposure.multiplier,
-            }),
-          ]),
+          steps: expectedExportGraphSteps,
         }),
       }),
     )
