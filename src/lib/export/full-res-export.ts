@@ -15,6 +15,8 @@ import type { JpegRowSink, JpegRowWriter } from './jpeg/row-writer'
 import { createJpegRowWriter } from './jpeg/row-writer'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
 import { mix, sampleLutTrilinear } from './lut3d'
+import type { ExportPerfMetric } from './perf/export-metrics'
+import { createExportMetricCollector, nowMs } from './perf/export-metrics'
 import { processedWindowToLinearProPhotoTile } from './processed-window-transform'
 import {
   normalizePreferredStripRows,
@@ -37,6 +39,12 @@ export type RunFullResolutionJpegExportInput = {
   ) => Promise<LumaRawProcessedWindow>
   signal?: AbortSignal
   onProgress?: (progress: FullResolutionExportProgress) => void
+  metricContext?: {
+    requestId: string
+    fileName?: string
+    browser?: string
+  }
+  onMetric?: (metric: ExportPerfMetric) => void
   preferredRows?: number
   quality?: number
   jpegSink?: JpegRowSink
@@ -483,10 +491,21 @@ export async function runFullResolutionJpegExport(
   }
 
   const applyGraphToRgbRows = compileGraphApplier(input.graph)
+  const metricCollector = input.onMetric
+    ? createExportMetricCollector({
+        requestId: input.metricContext?.requestId ?? 'full-res-export',
+        fileName: input.metricContext?.fileName,
+        browser: input.metricContext?.browser,
+        width: input.capability.width,
+        height: input.capability.height,
+      })
+    : null
+  const exportStart = nowMs()
 
   let stripRows = normalizePreferredStripRows(
     input.preferredRows ?? DEFAULT_EXPORT_STRIP_ROWS,
   )
+  let retries = 0
 
   while (true) {
     const strips = planExportStrips({
@@ -498,6 +517,7 @@ export async function runFullResolutionJpegExport(
     })
     let writer: JpegRowWriter | null = null
     let closed = false
+    const attemptStripMetrics: ExportPerfMetric[] = []
 
     try {
       writer = createWriter(input)
@@ -506,6 +526,8 @@ export async function runFullResolutionJpegExport(
         throwIfAborted(input.signal)
 
         const strip = strips[index]
+        const stripStart = nowMs()
+        const rawStart = nowMs()
         const processedWindow = await input.readProcessedWindow(
           {
             outputRect: strip.output,
@@ -513,12 +535,34 @@ export async function runFullResolutionJpegExport(
           },
           input.signal,
         )
+        const rawReadMs = nowMs() - rawStart
+
+        const colorStart = nowMs()
         const tile = processedWindowToLinearProPhotoTile(
           processedWindow,
           strip.output,
         )
         const rows = applyGraphToRgbRows(tile.data)
+        const colorMs = nowMs() - colorStart
+
+        const jpegStart = nowMs()
         await writer.writeRows(rows, tile.height)
+        const jpegWriteMs = nowMs() - jpegStart
+
+        if (metricCollector) {
+          attemptStripMetrics.push(
+            metricCollector.record({
+              kind: 'strip',
+              stripIndex: index,
+              totalStrips: strips.length,
+              rows: tile.height,
+              rawReadMs,
+              colorMs,
+              jpegWriteMs,
+              totalMs: nowMs() - stripStart,
+            }),
+          )
+        }
 
         input.onProgress?.({
           completedStrips: index + 1,
@@ -529,6 +573,22 @@ export async function runFullResolutionJpegExport(
 
       const blob = await writer.close()
       closed = true
+      if (metricCollector) {
+        for (const metric of attemptStripMetrics) {
+          input.onMetric?.(metric)
+        }
+
+        input.onMetric?.(
+          metricCollector.record({
+            kind: 'summary',
+            stripRows,
+            retries,
+            concurrency: 1,
+            totalMs: nowMs() - exportStart,
+            outputBytes: blob.size,
+          }),
+        )
+      }
       return blob
     } catch (error) {
       if (writer && !closed) {
@@ -552,6 +612,7 @@ export async function runFullResolutionJpegExport(
       }
 
       stripRows = nextStripRows
+      retries += 1
     }
   }
 }

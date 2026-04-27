@@ -684,7 +684,8 @@ describe('runFullResolutionJpegExport', () => {
     ).toEqual([4, 4])
   })
 
-  it('retries with a fresh writer after a resource failure following partial writes', async () => {
+  it('retries with a fresh writer after a resource failure and emits performance metrics only for the successful attempt', async () => {
+    const metrics: unknown[] = []
     const firstWriter = {
       writeRows: vi.fn(async () => undefined),
       close: vi.fn(),
@@ -736,6 +737,9 @@ describe('runFullResolutionJpegExport', () => {
         }
         return writer
       },
+      onMetric(metric) {
+        metrics.push(metric)
+      },
     })
 
     expect(blob.type).toBe('image/jpeg')
@@ -750,6 +754,87 @@ describe('runFullResolutionJpegExport', () => {
     expect(secondWriter.writeRows).toHaveBeenCalledTimes(4)
     expect(secondWriter.close).toHaveBeenCalledTimes(1)
     expect(secondWriter.abort).not.toHaveBeenCalled()
+    expect(metrics.map((metric) => (metric as { kind: string }).kind)).toEqual([
+      'strip',
+      'strip',
+      'strip',
+      'strip',
+      'summary',
+    ])
+    expect(
+      metrics
+        .filter((metric) => (metric as { kind: string }).kind === 'strip')
+        .map((metric) => ({
+          rows: (metric as { rows: number }).rows,
+          totalStrips: (metric as { totalStrips: number }).totalStrips,
+        })),
+    ).toEqual([
+      { rows: 128, totalStrips: 4 },
+      { rows: 128, totalStrips: 4 },
+      { rows: 128, totalStrips: 4 },
+      { rows: 128, totalStrips: 4 },
+    ])
+    expect(metrics.at(-1)).toMatchObject({
+      kind: 'summary',
+      stripRows: 128,
+      retries: 1,
+    })
+  })
+
+  it('emits strip and summary performance metrics without changing output rows', async () => {
+    const metrics: unknown[] = []
+    const writtenRows: Array<{ rowCount: number; bytes: Uint8Array }> = []
+    const writer = {
+      writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
+        writtenRows.push({ rowCount, bytes: new Uint8Array(bytes) })
+      }),
+      close: vi.fn(
+        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      ),
+      abort: vi.fn(async () => undefined),
+    }
+
+    const blob = await runFullResolutionJpegExport({
+      capability: makeCapability({
+        width: 4,
+        height: 128,
+        rawHeight: 128,
+        visibleCrop: { x: 0, y: 0, width: 4, height: 128 },
+      }),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          { kind: 'output-srgb' },
+        ],
+      },
+      preferredRows: 64,
+      readProcessedWindow: async (request) => makeProcessedWindow(request),
+      writerFactory: () => writer,
+      onMetric(metric) {
+        metrics.push(metric)
+      },
+    })
+
+    expect(blob.type).toBe('image/jpeg')
+    expect(writer.writeRows).toHaveBeenCalledTimes(2)
+    expect(writtenRows.map((entry) => entry.rowCount)).toEqual([64, 64])
+    expect(
+      writtenRows.reduce((total, entry) => total + entry.rowCount, 0),
+    ).toBe(128)
+    expect(writtenRows.map((entry) => entry.bytes)).toEqual([
+      new Uint8Array(4 * 64 * 3).fill(188),
+      new Uint8Array(4 * 64 * 3).fill(188),
+    ])
+    expect(metrics.map((metric) => (metric as { kind: string }).kind)).toEqual([
+      'strip',
+      'strip',
+      'summary',
+    ])
   })
 
   it('retries writer allocation failures and throws FULL_RES_EXPORT_RESOURCE_FAILURE after exhaustion', async () => {
