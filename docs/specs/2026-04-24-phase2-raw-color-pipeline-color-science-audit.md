@@ -367,13 +367,21 @@ Relevant files:
 - `src/lib/gl/shaders.ts`
 - `src/lib/lut/cube-parser.ts`
 
-The current parser supports:
+Historical audit note: this section describes the Phase 1 behavior observed on
+2026-04-24. It is superseded by the
+[`2026-04-27 LUT output contract correction plan`](../plans/2026-04-27-phase2-lut-output-contract-correction-plan.md)
+and the current implementation. Filename, title, and free-form comments are no
+longer authority for render/export contracts; they may only produce suggestions.
+Current resolution requires structured metadata, an explicit user-selected full
+contract, or a persisted user-selected contract keyed by content fingerprint.
+
+At the time, the parser supported:
 
 ```ts
 type LUTInputProfile = 'display-srgb' | 'v-log'
 ```
 
-`v-log` is inferred from LUT comments/title/name. In the shader, V-Log LUT preparation starts from display color:
+In the historical Phase 1 path, `v-log` was inferred from LUT comments/title/name. In that shader path, V-Log LUT preparation started from display color:
 
 ```text
 Linear ProPhoto
@@ -386,7 +394,7 @@ Linear ProPhoto
 
 Audit result:
 
-- This is useful as a best-effort compatibility path for LUTs named like V-Log LUTs.
+- This was useful as a best-effort compatibility path for LUTs named like V-Log LUTs, but it is not the current contract-resolution rule.
 - It is not equivalent to the rigorous path:
 
 ```text
@@ -397,7 +405,8 @@ Linear ProPhoto scene data
   -> output transform
 ```
 
-- The current path cannot correctly support LogC4/AWG4, RWG/Log3G10, ACEScct/AP1, camera-native log spaces, or LUTs that include their own output transform unless metadata is added.
+- The historical path could not correctly support LogC4/AWG4, RWG/Log3G10, ACEScct/AP1, camera-native log spaces, or LUTs that include their own output transform unless metadata was added.
+- Current browser photo export remains Rec.709/sRGB. For combined or technical LUTs, the LUT output must be decoded from its declared output transfer before the final sRGB export encode.
 
 Required next step:
 
@@ -573,7 +582,7 @@ normalized into the same color semantics before a creative LUT is applied.
 The remaining differences are explainable residuals, not unrepeatable brand magic.
 ```
 
-LumaForge is currently correct for its Phase 1 preview scope. The RAW runtime produces a coherent Linear ProPhoto RGB input, and the WebGL preview path performs a reasonable display transform. The main product/technical boundary is that custom LUT handling is still display-referred or best-effort V-Log compatibility, not a full scene-referred professional LUT pipeline.
+As of the original 2026-04-24 audit, LumaForge was correct for its Phase 1 preview scope. The RAW runtime produced a coherent Linear ProPhoto RGB input, and the WebGL preview path performed a reasonable display transform. The successor 2026-04-27 correction makes the custom LUT contract boundary stricter: non-display LUTs require declared input and output contracts, filename/title/free-form comments are suggestions only, and final browser photo export remains Rec.709/sRGB with declared LUT output transfer decoding before final sRGB encoding.
 
 ## References
 

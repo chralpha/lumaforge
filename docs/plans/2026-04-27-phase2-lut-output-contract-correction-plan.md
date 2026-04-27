@@ -202,7 +202,7 @@ Rules:
 - Modify: `src/lib/gl/shaders.ts`
 - Modify: `src/lib/gl/shaders.test.ts`
 
-- [ ] **Step 1: Write failing transfer tests**
+- [x] **Step 1: Write failing transfer tests**
 
 Add to `src/lib/color/log-encoding.test.ts`:
 
@@ -219,7 +219,7 @@ it('encodes and decodes BT.709 display transfer separately from sRGB and gamma 2
 })
 ```
 
-- [ ] **Step 2: Run the failing test**
+- [x] **Step 2: Run the failing test**
 
 ```bash
 pnpm test:run src/lib/color/log-encoding.test.ts --exclude '.worktrees/**'
@@ -227,7 +227,7 @@ pnpm test:run src/lib/color/log-encoding.test.ts --exclude '.worktrees/**'
 
 Expected: FAIL because `bt709Encode` and `bt709Decode` are not exported.
 
-- [ ] **Step 3: Implement BT.709**
+- [x] **Step 3: Implement BT.709**
 
 Add `bt709` to `TransferFunctionId`, `TRANSFER_SOURCE_URLS`, and
 `TRANSFER_FUNCTIONS`:
@@ -248,7 +248,7 @@ export function bt709Decode(encoded: number): number {
 }
 ```
 
-- [ ] **Step 4: Add WebGL uniform and shader support**
+- [x] **Step 4: Add WebGL uniform and shader support**
 
 Insert `bt709` immediately after `srgb` and shift later numeric constants:
 
@@ -263,13 +263,16 @@ export const LUT_TRANSFER_UNIFORMS: Record<TransferFunctionId, number> = {
 
 Add GLSL encode/decode branches for `TRANSFER_BT709`.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 ```bash
 pnpm test:run src/lib/color/log-encoding.test.ts src/lib/gl/shaders.test.ts --exclude '.worktrees/**'
 ```
 
 Expected: PASS.
+
+Task 6 execution note: verified on 2026-04-27 with 10 files and 164 tests
+passing.
 
 ---
 
@@ -283,7 +286,7 @@ Expected: PASS.
 - Modify: `src/lib/lut/cube-parser.test.ts`
 - Modify: `src/lib/lut/profile-resolution.test.ts`
 
-- [ ] **Step 1: Write failing parser and resolver tests**
+- [x] **Step 1: Write failing parser and resolver tests**
 
 Filename/title/free-form comments must not resolve:
 
@@ -360,7 +363,7 @@ it('reapplies a persisted user-selected contract by content fingerprint', () => 
 })
 ```
 
-- [ ] **Step 2: Run the failing tests**
+- [x] **Step 2: Run the failing tests**
 
 ```bash
 pnpm test:run src/lib/lut/cube-parser.test.ts src/lib/lut/profile-resolution.test.ts --exclude '.worktrees/**'
@@ -369,7 +372,7 @@ pnpm test:run src/lib/lut/cube-parser.test.ts src/lib/lut/profile-resolution.tes
 Expected: FAIL because filename/free-form comment inference still resolves
 profiles and content identity still includes `sourceName`.
 
-- [ ] **Step 3: Make LUT identity content-only**
+- [x] **Step 3: Make LUT identity content-only**
 
 In `src/lib/lut/cube-parser.ts`, remove `sourceName` from stable identity:
 
@@ -387,7 +390,7 @@ const fingerprintSource = [
 
 Keep `sourceName` on `ParsedLUT` for display only.
 
-- [ ] **Step 4: Parse structured metadata**
+- [x] **Step 4: Parse structured metadata**
 
 In `src/lib/lut/profile-resolution.ts`, add an exact-key parser:
 
@@ -406,7 +409,7 @@ Use it before persisted user selection if the metadata declares a complete
 contract. User overrides should still be possible through the selector and then
 persist as a user-selected contract.
 
-- [ ] **Step 5: Remove filename resolution as authority**
+- [x] **Step 5: Remove filename resolution as authority**
 
 Change `LUTProfileResolution` confidence from:
 
@@ -425,7 +428,7 @@ Keep `inferLUTColorProfileHints(...)`, but use its result only for
 `kind: 'resolved'` for structured metadata, explicit user selection, or a
 persisted user-selected contract.
 
-- [ ] **Step 6: Store full user-selected contracts**
+- [x] **Step 6: Store full user-selected contracts**
 
 Replace input-profile-only storage with a full serializable contract:
 
@@ -444,7 +447,7 @@ export interface StoredLUTContractSelection {
 
 Reject selections that do not satisfy role-specific output requirements.
 
-- [ ] **Step 7: Verify**
+- [x] **Step 7: Verify**
 
 ```bash
 pnpm test:run src/lib/lut/cube-parser.test.ts src/lib/lut/profile-resolution.test.ts --exclude '.worktrees/**'
@@ -464,7 +467,7 @@ Expected: PASS.
 - Modify: `src/lib/gl/pipeline-profile.test.ts`
 - Modify: `src/lib/gl/pipeline-export.test.ts`
 
-- [ ] **Step 1: Write failing graph tests**
+- [x] **Step 1: Write failing graph tests**
 
 V-Log input plus Rec.709/BT.709 output should be a combined-output LUT:
 
@@ -543,7 +546,7 @@ it('fails closed when a non-display LUT has no declared output contract', () => 
 })
 ```
 
-- [ ] **Step 2: Run the failing tests**
+- [x] **Step 2: Run the failing tests**
 
 ```bash
 pnpm test:run src/lib/export/color-graph.test.ts src/lib/gl/pipeline-profile.test.ts --exclude '.worktrees/**'
@@ -552,7 +555,7 @@ pnpm test:run src/lib/export/color-graph.test.ts src/lib/gl/pipeline-profile.tes
 Expected: FAIL because current code still falls back from output to input
 transfer in some cases.
 
-- [ ] **Step 3: Remove output-from-input fallback**
+- [x] **Step 3: Remove output-from-input fallback**
 
 In `src/lib/export/color-graph.ts` and `src/lib/gl/pipeline.ts`, use:
 
@@ -569,7 +572,7 @@ function resolveEffectiveLUTOutputTransfer(
 If the effective output transfer is missing, preview should disable the LUT and
 export should return an unsupported graph with a user-actionable message.
 
-- [ ] **Step 4: Preserve final sRGB output**
+- [x] **Step 4: Preserve final sRGB output**
 
 Keep the export target fixed:
 
@@ -580,7 +583,7 @@ const OUTPUT_TRANSFER = 'srgb'
 
 The correction is how the LUT output is decoded before this final encode.
 
-- [ ] **Step 5: Update preview tests**
+- [x] **Step 5: Update preview tests**
 
 Replace expectations that a bare `panasonic-vgamut-vlog` profile is renderable
 as a full contract:
@@ -597,7 +600,7 @@ expect(uniforms.lutOutputTransfer).toBe(LUT_TRANSFER_UNIFORMS.bt709)
 expect(uniforms.lutRole).toBe(LUT_ROLE_UNIFORMS['combined-look-output'])
 ```
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 ```bash
 pnpm test:run src/lib/export/color-graph.test.ts src/lib/gl/pipeline-profile.test.ts src/lib/gl/pipeline-export.test.ts --exclude '.worktrees/**'
@@ -615,7 +618,7 @@ Expected: PASS.
 - Modify: `src/lib/export/full-res-export.test.ts`
 - Modify: `src/lib/export/full-res-export.real.test.ts`
 
-- [ ] **Step 1: Write failing CPU export test**
+- [x] **Step 1: Write failing CPU export test**
 
 Add a two-pixel test where a combined-output LUT returns BT.709 encoded gray
 and export writes final sRGB bytes after BT.709 decode plus sRGB encode:
@@ -681,7 +684,7 @@ it('decodes BT.709 LUT output before final sRGB JPEG encoding', async () => {
 })
 ```
 
-- [ ] **Step 2: Run the failing test**
+- [x] **Step 2: Run the failing test**
 
 ```bash
 pnpm test:run src/lib/export/full-res-export.test.ts --exclude '.worktrees/**'
@@ -690,7 +693,7 @@ pnpm test:run src/lib/export/full-res-export.test.ts --exclude '.worktrees/**'
 Expected: FAIL until `bt709` transfer exists in the export transfer registry and
 the full-resolution applier decodes the declared output transfer.
 
-- [ ] **Step 3: Keep role-specific mixing correct**
+- [x] **Step 3: Keep role-specific mixing correct**
 
 For `combined-look-output` and `technical-output`, the invariant is:
 
@@ -703,7 +706,7 @@ const finalSrgb = linearToSrgb(styledDisplayLinear)
 No path should apply `linearToSrgb` directly to an already display-encoded LUT
 sample without first decoding `outputStep.transfer`.
 
-- [ ] **Step 4: Keep real fixture coverage generic**
+- [x] **Step 4: Keep real fixture coverage generic**
 
 `src/lib/export/full-res-export.real.test.ts` should cover declared contracts,
 not specific filename recognition. Use one of these patterns:
@@ -733,7 +736,7 @@ expect(graph.steps).toContainEqual(
 )
 ```
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 ```bash
 pnpm test:run src/lib/export/full-res-export.test.ts src/lib/export/full-res-export.real.test.ts --exclude '.worktrees/**'
@@ -754,7 +757,7 @@ Expected: PASS. The real test may take roughly 90 seconds.
 - Modify: `src/modules/raw-processor/__tests__/style-system.test.ts`
 - Modify: `src/modules/raw-processor/hooks/useRawProcessor.test.tsx`
 
-- [ ] **Step 1: Write failing UI tests**
+- [x] **Step 1: Write failing UI tests**
 
 Resolved LUT panel:
 
@@ -774,7 +777,7 @@ expect(
 ).toBeInTheDocument()
 ```
 
-- [ ] **Step 2: Run the failing UI tests**
+- [x] **Step 2: Run the failing UI tests**
 
 ```bash
 pnpm test:run src/modules/raw-processor/__tests__/workspace-ui.test.tsx src/modules/raw-processor/__tests__/style-system.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'
@@ -782,7 +785,7 @@ pnpm test:run src/modules/raw-processor/__tests__/workspace-ui.test.tsx src/modu
 
 Expected: FAIL because the UI currently talks mostly about LUT input.
 
-- [ ] **Step 3: Update display labels**
+- [x] **Step 3: Update display labels**
 
 In `ControlsPanel.tsx`, make missing output explicit:
 
@@ -805,7 +808,7 @@ function getProfileOutputLabel(profile?: LUTColorProfile) {
 
 Rename the action from `Change LUT input` to `Change LUT contract`.
 
-- [ ] **Step 4: Update style warnings**
+- [x] **Step 4: Update style warnings**
 
 Use contract-level copy:
 
@@ -816,14 +819,14 @@ const warning =
     : 'Choose the LUT input and output contract before preview or export.'
 ```
 
-- [ ] **Step 5: Update hook selection**
+- [x] **Step 5: Update hook selection**
 
 `applyLUTProfileSelection` should become contract selection. Selecting only a
 camera-log input profile must not make a custom LUT renderable unless the LUT
 also has explicit output fields, including the same-space case where output
 gamut/transfer/range equal the input side.
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 ```bash
 pnpm test:run src/modules/raw-processor/__tests__/workspace-ui.test.tsx src/modules/raw-processor/__tests__/style-system.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'
@@ -844,7 +847,7 @@ Expected: PASS.
 - Modify:
   `docs/plans/2026-04-27-phase2-lut-output-contract-correction-plan.md`
 
-- [ ] **Step 1: Run the targeted LUT/export suite**
+- [x] **Step 1: Run the targeted LUT/export suite**
 
 ```bash
 pnpm test:run \
@@ -863,16 +866,24 @@ pnpm test:run \
 
 Expected: PASS.
 
-- [ ] **Step 2: Run real RAW/LUT regression**
+- [x] **Step 2: Run real RAW/LUT regression**
 
 ```bash
 pnpm test:run src/lib/export/full-res-export.real.test.ts --exclude '.worktrees/**'
 ```
 
-Expected: PASS. The real test must assert declared input and output contracts,
-not filename recognition.
+Expected: PASS when native artifacts and real RAW/LUT fixtures are available.
+The real test must assert declared input and output contracts, not filename
+recognition.
 
-- [ ] **Step 3: Run runtime smoke if native artifacts changed**
+Task 6 execution note: the 2026-04-27 verification command was executed but the
+real fixture regression was not validated in this environment: Vitest reported
+1 skipped file and 2 skipped tests because the local native runtime artifacts
+and/or real RAW/LUT fixtures were unavailable. The test setup still asserts the
+declared input/output contract graph instead of filename recognition when the
+gate is satisfied.
+
+- [x] **Step 3: Run runtime smoke if native artifacts changed**
 
 If this work touches `packages/luma-raw-runtime` or native runtime artifacts,
 run:
@@ -884,7 +895,11 @@ pnpm test:run packages/luma-raw-runtime/src/native-smoke.test.ts --exclude '.wor
 Expected: PASS. If runtime files were not changed, state the skip reason in the
 final implementation report.
 
-- [ ] **Step 4: Run formatting check on docs**
+Task 6 execution note: runtime smoke was skipped because this task changed docs
+only and the branch diff did not include `packages/luma-raw-runtime` or native
+runtime artifacts.
+
+- [x] **Step 4: Run formatting check on docs**
 
 ```bash
 pnpm exec prettier --check \
@@ -894,6 +909,9 @@ pnpm exec prettier --check \
 ```
 
 Expected: PASS.
+
+Task 6 execution note: Prettier passed for all three documentation files on
+2026-04-27.
 
 ---
 

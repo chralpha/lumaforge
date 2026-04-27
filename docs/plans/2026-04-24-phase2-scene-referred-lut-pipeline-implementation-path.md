@@ -4,7 +4,7 @@ Date: 2026-04-24
 
 Related audit: [`docs/specs/2026-04-24-phase2-raw-color-pipeline-color-science-audit.md`](../specs/2026-04-24-phase2-raw-color-pipeline-color-science-audit.md)
 
-Successor correction: [`docs/plans/2026-04-27-phase2-lut-output-contract-correction-plan.md`](2026-04-27-phase2-lut-output-contract-correction-plan.md) supersedes this plan's LUT profile resolution details where they allow filename-based decisions, treat the profile catalog as an automatic LUT decision table, or infer a LUT output transfer from its input transfer.
+Successor correction: [`docs/plans/2026-04-27-phase2-lut-output-contract-correction-plan.md`](2026-04-27-phase2-lut-output-contract-correction-plan.md) supersedes this plan's LUT profile resolution details where they allow filename-based decisions, treat the profile catalog as an automatic LUT decision table, infer a LUT output transfer from its input transfer, or describe input-only user selection. Current implementation resolves render/export contracts only from structured metadata, explicit user-selected full contracts, or persisted user-selected contracts keyed by content fingerprint. Filename, title, and free-form comment strings are suggestions only.
 
 ## 1. Goal
 
@@ -120,11 +120,11 @@ The important distinction is:
 - `inputGamut`: the RGB primary set expected by the LUT.
 - `inputTransfer`: the curve expected by the LUT.
 - `role`: whether the LUT is a pure creative transform, a technical/output transform, or a combined creative/output LUT.
-- `outputGamut` and `outputTransfer`: required when the LUT output is not the same scene/log space as the input.
+- `outputGamut` and `outputTransfer`: required for every non-display LUT, including same-space creative LUTs where output fields intentionally match the input fields. Omitting output fields is valid only for `display-look` LUTs with display-like inputs.
 
 ## 5. Required LUT Profile Catalog
 
-Phase 2 should ship a built-in searchable catalog of selectable input/output profiles. The successor correction plan narrows this section: the catalog is a user-selection surface, not an automatic LUT resolver. Unknown LUTs may display low-confidence hints, but filename/title/comment hints cannot silently choose a render/export contract.
+Phase 2 should ship a built-in searchable catalog of selectable input/output profiles. The successor correction plan narrows this section: the catalog is a user-selection surface, not an automatic LUT resolver. Unknown LUTs may display low-confidence hints, but filename/title/comment hints cannot silently choose a render/export contract. Compact selections should offer full contract choices such as camera/log input -> Rec.709 display output, rather than input-only profiles.
 
 ### 5.1 Tier 1: Must Ship in Phase 2
 
@@ -362,19 +362,19 @@ type LUTProfileResolution =
   | {
       kind: 'resolved'
       profile: LUTColorProfile
-      confidence: 'explicit' | 'filename' | 'user'
+      confidence: 'metadata' | 'user' | 'persisted-user'
     }
   | { kind: 'needs-user-selection'; suggestions: LUTColorProfile[] }
 ```
 
 `.cube` files rarely contain enough standardized metadata. Phase 2 should:
 
-- Parse comments and title.
-- Preserve comments for hinting.
-- Infer likely profiles from filename and comments.
-- Detect common output phrases: `to Rec709`, `BT709`, `BT.1886`, `WideDR`, `LC-709`, `709 Type A`, `to Linear`, `to Cineon`.
-- Show the selector when confidence is not high.
-- Persist the user's chosen profile per LUT file fingerprint.
+- Parse structured `LUMAFORGE_*` metadata when present.
+- Preserve title, source filename, and free-form comments for display and suggestions only.
+- Detect common input/output phrases as suggestions, not authority: `to Rec709`, `BT709`, `BT.1886`, `WideDR`, `LC-709`, `709 Type A`, `to Linear`, `to Cineon`.
+- Resolve only structured metadata, explicit user-selected full contracts, or persisted user-selected full contracts.
+- Persist the user's chosen contract by content fingerprint, not filename.
+- Require output fields for every non-display contract. Same-space creative LUTs declare output gamut, transfer, and range equal to the input side instead of omitting them.
 
 ### 7.5 UI Profile Selector
 
@@ -391,8 +391,8 @@ The user interaction should be:
 ```text
 Upload LUT
   -> app suggests "Sony S-Gamut3.Cine / S-Log3 -> Rec.709"
-  -> user can accept or open "Change LUT input"
-  -> searchable preset list grouped by Brand / Log / Output
+  -> user can accept or open "Change LUT contract"
+  -> searchable full-contract preset list grouped by Brand / Log / Output
 ```
 
 The UI copy should avoid pro-only jargon while still being precise:
@@ -407,6 +407,8 @@ For unknown LUTs:
 ```text
 This LUT does not declare its color contract. Choose what it expects and what it outputs.
 ```
+
+The compact control should offer full selections such as "Panasonic V-Gamut / V-Log -> Rec.709 display" and "Sony S-Gamut3.Cine / S-Log3 -> Rec.709 display". It should not let an input-only camera/log profile make a non-display LUT renderable.
 
 ### 7.6 GPU Shader Pipeline
 
@@ -504,7 +506,8 @@ Add tests for:
 - Encode/decode round trips.
 - Matrix round trips for known gamuts.
 - D50 to D65 chromatic adaptation.
-- LUT profile inference from real-world filenames.
+- Structured LUT metadata and user-selected full-contract resolution.
+- Filename/title/comment suggestions that do not resolve render/export contracts.
 
 ### 8.2 Shader Equivalence Tests
 
@@ -586,9 +589,10 @@ Use GPU matrices and 3D textures for transforms.
 ### Milestone 2: LUT Profile Resolution
 
 - Extend `.cube` parsing.
-- Add filename/comment inference.
-- Add manual profile selection model.
-- Persist selected profile per LUT fingerprint.
+- Add structured metadata parsing.
+- Keep filename/title/comment parsing as suggestions only.
+- Add manual full-contract selection model.
+- Persist selected contracts by content fingerprint.
 - Keep old `display-srgb` and `v-log` mappings through compatibility aliases.
 
 ### Milestone 3: Scene-Referred Shader Branch
@@ -603,9 +607,10 @@ Use GPU matrices and 3D textures for transforms.
 ### Milestone 4: Consumer UI
 
 - Add a compact LUT profile selector.
-- Show inferred input/output profile.
-- Warn only when the profile is unknown or confidence is low.
-- Avoid blocking casual users when inference is high.
+- Show selected or metadata-declared input/output contract.
+- Warn when a non-display LUT is missing an explicit output contract.
+- Offer compact camera/log -> Rec.709 display full-contract choices for casual users.
+- Keep filename/title/comment hints as suggestions inside the contract chooser.
 
 ### Milestone 5: Correct Export
 
