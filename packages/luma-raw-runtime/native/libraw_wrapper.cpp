@@ -1062,161 +1062,149 @@ class LumaRawProcessor {
           "bounds.");
     }
 
-    libraw_output_params_t original_params = processor_.imgdata.params;
+    auto crop_processor = std::make_unique<LibRaw>();
+    libraw_output_params_t &params = crop_processor->imgdata.params;
+    applyStrictExportProcessingSettings(params);
+    requireLibRawSuccess(
+        "LibRaw cropbox open_buffer",
+        crop_processor->open_buffer(input_buffer_.data(), input_buffer_.size()));
+    requireLibRawSuccess("LibRaw cropbox unpack", crop_processor->unpack());
+    params.cropbox[0] = static_cast<unsigned>(source_crop.x);
+    params.cropbox[1] = static_cast<unsigned>(source_crop.y);
+    params.cropbox[2] = static_cast<unsigned>(source_crop.width);
+    params.cropbox[3] = static_cast<unsigned>(source_crop.height);
 
-    try {
-      libraw_output_params_t &params = processor_.imgdata.params;
-      applyStrictExportProcessingSettings(params);
-      params.cropbox[0] = static_cast<unsigned>(source_crop.x);
-      params.cropbox[1] = static_cast<unsigned>(source_crop.y);
-      params.cropbox[2] = static_cast<unsigned>(source_crop.width);
-      params.cropbox[3] = static_cast<unsigned>(source_crop.height);
+    requireLibRawSuccess("LibRaw dcraw_process",
+                         crop_processor->dcraw_process());
 
-      processor_.free_image();
-      processed_ = false;
-      requireLibRawSuccess("LibRaw dcraw_process", processor_.dcraw_process());
+    int crop_width = 0;
+    int crop_height = 0;
+    int colors = 0;
+    int bits_per_sample = 0;
+    crop_processor->get_mem_image_format(&crop_width, &crop_height, &colors,
+                                         &bits_per_sample);
 
-      int crop_width = 0;
-      int crop_height = 0;
-      int colors = 0;
-      int bits_per_sample = 0;
-      processor_.get_mem_image_format(&crop_width, &crop_height, &colors,
-                                      &bits_per_sample);
-
-      if (colors != 3 || bits_per_sample != 16 || crop_width <= 0 ||
-          crop_height <= 0) {
-        throw std::runtime_error(
-            "LibRaw cropbox output is not the expected RGB16 bitmap image.");
-      }
-
-      const int expected_crop_width =
-          orientationSwapsAxes(orientation) ? expanded_output_rect.height
-                                           : expanded_output_rect.width;
-      const int expected_crop_height =
-          orientationSwapsAxes(orientation) ? expanded_output_rect.width
-                                           : expanded_output_rect.height;
-      if (crop_width != expected_crop_width ||
-          crop_height != expected_crop_height) {
-        throw std::runtime_error(
-            "LibRaw cropbox output dimensions do not match requested window.");
-      }
-
-      const size_t crop_pixel_count =
-          checkedMultiply(static_cast<size_t>(crop_width),
-                          static_cast<size_t>(crop_height),
-                          "LibRaw cropbox RGB16 pixel count");
-      const size_t crop_sample_count =
-          checkedMultiply(crop_pixel_count, static_cast<size_t>(3),
-                          "LibRaw cropbox RGB16 sample count");
-      std::vector<uint16_t> crop_data(crop_sample_count);
-      const int crop_stride = crop_width * 3 * static_cast<int>(sizeof(uint16_t));
-      requireLibRawSuccess("LibRaw copy_mem_image",
-                           processor_.copy_mem_image(crop_data.data(),
-                                                     crop_stride, 0));
-
-      const size_t expanded_pixel_count =
-          checkedMultiply(static_cast<size_t>(expanded_output_rect.width),
-                          static_cast<size_t>(expanded_output_rect.height),
-                          "Luma RAW expanded processed-window pixel count");
-      const size_t expanded_sample_count =
-          checkedMultiply(expanded_pixel_count, static_cast<size_t>(3),
-                          "Luma RAW expanded processed-window sample count");
-      std::vector<uint16_t> expanded_data(expanded_sample_count);
-
-      for (int y = 0; y < expanded_output_rect.height; ++y) {
-        for (int x = 0; x < expanded_output_rect.width; ++x) {
-          int sx = x;
-          int sy = y;
-
-          switch (orientation) {
-            case 1:
-              break;
-            case 3:
-              sx = expanded_output_rect.width - 1 - x;
-              sy = expanded_output_rect.height - 1 - y;
-              break;
-            case 5:
-            case 8:
-              sx = expanded_output_rect.height - 1 - y;
-              sy = x;
-              break;
-            case 6:
-              sx = y;
-              sy = expanded_output_rect.width - 1 - x;
-              break;
-            default:
-              throw std::runtime_error(
-                  "LibRaw processed-window orientation is unsupported.");
-          }
-
-          const size_t src =
-              (static_cast<size_t>(sy) * crop_width + sx) * 3;
-          const size_t dst =
-              (static_cast<size_t>(y) * expanded_output_rect.width + x) * 3;
-          expanded_data[dst] = crop_data[src];
-          expanded_data[dst + 1] = crop_data[src + 1];
-          expanded_data[dst + 2] = crop_data[src + 2];
-        }
-      }
-
-      const size_t output_pixel_count =
-          checkedMultiply(static_cast<size_t>(output_rect.width),
-                          static_cast<size_t>(output_rect.height),
-                          "Luma RAW processed-window pixel count");
-      const size_t output_sample_count =
-          checkedMultiply(output_pixel_count, static_cast<size_t>(3),
-                          "Luma RAW processed-window sample count");
-      std::vector<uint16_t> output_data(output_sample_count);
-      const int local_x = output_rect.x - expanded_output_rect.x;
-      const int local_y = output_rect.y - expanded_output_rect.y;
-
-      for (int y = 0; y < output_rect.height; ++y) {
-        const size_t src =
-            (static_cast<size_t>(local_y + y) * expanded_output_rect.width +
-             local_x) *
-            3;
-        const size_t dst = static_cast<size_t>(y) * output_rect.width * 3;
-        std::copy(expanded_data.data() + src,
-                  expanded_data.data() + src + output_rect.width * 3,
-                  output_data.data() + dst);
-      }
-
-      const int warning_mask = processor_.imgdata.process_warnings;
-
-      // Cropbox processing intentionally reuses the decoded rawdata but not a prior
-      // processed image; every export strip must get a fresh LibRaw postprocess pass.
-      processor_.free_image();
-      processed_ = false;
-      processor_.imgdata.params = original_params;
-
-      val warnings = val::array();
-      if (warning_mask != 0) {
-        warnings.set(
-            0, std::string("libraw-process-warnings:") +
-                   std::to_string(warning_mask));
-      }
-
-      val output = val::object();
-      output.set("rect", rectObject(output_rect));
-      output.set("workingSpace", std::string("linear-prophoto-rgb"));
-      output.set("data", copiedUint16Array(output_data.data(),
-                                            output_data.size()));
-      output.set("width", output_rect.width);
-      output.set("height", output_rect.height);
-      output.set("stride", output_rect.width * 3);
-      output.set("normalized", false);
-      output.set("orientationApplied", true);
-      output.set("colorApplied", true);
-      output.set("warnings", warnings);
-      return output;
-    } catch (...) {
-      // Cropbox processing intentionally reuses the decoded rawdata but not a prior
-      // processed image; every export strip must get a fresh LibRaw postprocess pass.
-      processor_.free_image();
-      processed_ = false;
-      processor_.imgdata.params = original_params;
-      throw;
+    if (colors != 3 || bits_per_sample != 16 || crop_width <= 0 ||
+        crop_height <= 0) {
+      throw std::runtime_error(
+          "LibRaw cropbox output is not the expected RGB16 bitmap image.");
     }
+
+    const int expected_crop_width =
+        orientationSwapsAxes(orientation) ? expanded_output_rect.height
+                                         : expanded_output_rect.width;
+    const int expected_crop_height =
+        orientationSwapsAxes(orientation) ? expanded_output_rect.width
+                                         : expanded_output_rect.height;
+    if (crop_width != expected_crop_width ||
+        crop_height != expected_crop_height) {
+      throw std::runtime_error(
+          "LibRaw cropbox output dimensions do not match requested window.");
+    }
+
+    const size_t crop_pixel_count =
+        checkedMultiply(static_cast<size_t>(crop_width),
+                        static_cast<size_t>(crop_height),
+                        "LibRaw cropbox RGB16 pixel count");
+    const size_t crop_sample_count =
+        checkedMultiply(crop_pixel_count, static_cast<size_t>(3),
+                        "LibRaw cropbox RGB16 sample count");
+    std::vector<uint16_t> crop_data(crop_sample_count);
+    const int crop_stride = crop_width * 3 * static_cast<int>(sizeof(uint16_t));
+    requireLibRawSuccess("LibRaw copy_mem_image",
+                         crop_processor->copy_mem_image(crop_data.data(),
+                                                        crop_stride, 0));
+    crop_processor->free_image();
+
+    const size_t expanded_pixel_count =
+        checkedMultiply(static_cast<size_t>(expanded_output_rect.width),
+                        static_cast<size_t>(expanded_output_rect.height),
+                        "Luma RAW expanded processed-window pixel count");
+    const size_t expanded_sample_count =
+        checkedMultiply(expanded_pixel_count, static_cast<size_t>(3),
+                        "Luma RAW expanded processed-window sample count");
+    std::vector<uint16_t> expanded_data(expanded_sample_count);
+
+    for (int y = 0; y < expanded_output_rect.height; ++y) {
+      for (int x = 0; x < expanded_output_rect.width; ++x) {
+        int sx = x;
+        int sy = y;
+
+        switch (orientation) {
+          case 1:
+            break;
+          case 3:
+            sx = expanded_output_rect.width - 1 - x;
+            sy = expanded_output_rect.height - 1 - y;
+            break;
+          case 5:
+          case 8:
+            sx = expanded_output_rect.height - 1 - y;
+            sy = x;
+            break;
+          case 6:
+            sx = y;
+            sy = expanded_output_rect.width - 1 - x;
+            break;
+          default:
+            throw std::runtime_error(
+                "LibRaw processed-window orientation is unsupported.");
+        }
+
+        const size_t src = (static_cast<size_t>(sy) * crop_width + sx) * 3;
+        const size_t dst =
+            (static_cast<size_t>(y) * expanded_output_rect.width + x) * 3;
+        expanded_data[dst] = crop_data[src];
+        expanded_data[dst + 1] = crop_data[src + 1];
+        expanded_data[dst + 2] = crop_data[src + 2];
+      }
+    }
+
+    const size_t output_pixel_count =
+        checkedMultiply(static_cast<size_t>(output_rect.width),
+                        static_cast<size_t>(output_rect.height),
+                        "Luma RAW processed-window pixel count");
+    const size_t output_sample_count =
+        checkedMultiply(output_pixel_count, static_cast<size_t>(3),
+                        "Luma RAW processed-window sample count");
+    std::vector<uint16_t> output_data(output_sample_count);
+    const int local_x = output_rect.x - expanded_output_rect.x;
+    const int local_y = output_rect.y - expanded_output_rect.y;
+
+    for (int y = 0; y < output_rect.height; ++y) {
+      const size_t src =
+          (static_cast<size_t>(local_y + y) * expanded_output_rect.width +
+           local_x) *
+          3;
+      const size_t dst = static_cast<size_t>(y) * output_rect.width * 3;
+      std::copy(expanded_data.data() + src,
+                expanded_data.data() + src + output_rect.width * 3,
+                output_data.data() + dst);
+    }
+
+    const int warning_mask = processor_.imgdata.process_warnings;
+    const int crop_warning_mask = crop_processor->imgdata.process_warnings;
+
+    val warnings = val::array();
+    if ((warning_mask | crop_warning_mask) != 0) {
+      warnings.set(
+          0, std::string("libraw-process-warnings:") +
+                 std::to_string(warning_mask | crop_warning_mask));
+    }
+
+    val output = val::object();
+    output.set("rect", rectObject(output_rect));
+    output.set("workingSpace", std::string("linear-prophoto-rgb"));
+    output.set("data", copiedUint16Array(output_data.data(),
+                                         output_data.size()));
+    output.set("width", output_rect.width);
+    output.set("height", output_rect.height);
+    output.set("stride", output_rect.width * 3);
+    output.set("normalized", false);
+    output.set("orientationApplied", true);
+    output.set("colorApplied", true);
+    output.set("warnings", warnings);
+    return output;
   }
 
  private:

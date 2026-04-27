@@ -889,9 +889,14 @@ describe('native-adapter', () => {
     )?.[0]
 
     expect(readProcessedWindow).toContain('params.cropbox')
-    expect(readProcessedWindow).toContain('processor_.free_image()')
-    expect(readProcessedWindow).toContain('processor_.dcraw_process()')
-    expect(readProcessedWindow).toContain('processor_.copy_mem_image')
+    expect(readProcessedWindow).toContain(
+      'auto crop_processor = std::make_unique<LibRaw>()',
+    )
+    expect(readProcessedWindow).toContain('crop_processor->open_buffer')
+    expect(readProcessedWindow).toContain('crop_processor->dcraw_process()')
+    expect(readProcessedWindow).toContain('crop_processor->copy_mem_image')
+    expect(readProcessedWindow).not.toContain('processor_.dcraw_process()')
+    expect(readProcessedWindow).not.toContain('processor_.copy_mem_image')
     expect(readProcessedWindow).not.toContain(
       'dcraw_make_mem_image(&image_error)',
     )
