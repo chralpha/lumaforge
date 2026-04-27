@@ -146,6 +146,53 @@ describe('native-adapter', () => {
     expect(factory.heapBytes?.()).toBe(0)
   })
 
+  it('normalizes finite DNG baseline exposure metadata', () => {
+    const processor = createNativeFactory({
+      LumaRawProcessor: class {
+        loadBuffer() {
+          return { copyToWasm: 0 }
+        }
+        openWithSettings() {
+          return { copyToWasm: 0, librawOpen: 0 }
+        }
+        openBuffer() {
+          return { copyToWasm: 0, librawOpen: 0 }
+        }
+        readMetadata() {
+          return {
+            width: 2,
+            height: 1,
+            baselineExposure: 1.25,
+          }
+        }
+        extractThumbnail() {
+          return undefined
+        }
+        decodePreview() {
+          return {
+            data: new Uint16Array([1, 2, 3, 4, 5, 6]),
+            width: 2,
+            height: 1,
+          }
+        }
+        decodeHq() {
+          return {
+            data: new Uint16Array([1, 2, 3, 4, 5, 6]),
+            width: 2,
+            height: 1,
+          }
+        }
+        delete() {}
+      },
+    }).createProcessor()
+
+    expect(processor.readMetadata()).toMatchObject({
+      width: 2,
+      height: 1,
+      baselineExposure: 1.25,
+    })
+  })
+
   it('throws when a thumbnail object has malformed data', () => {
     const processor = createProcessor({
       thumbnail: {

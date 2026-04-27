@@ -50,6 +50,7 @@ const makeNativeFactory = (): LumaRawNativeFactory => ({
           },
           blackLevel: 512,
           whiteLevel: 16383,
+          baselineExposure: 1.25,
         }
       },
       extractThumbnail() {
@@ -102,6 +103,7 @@ describe('runtime-core', () => {
         width: 4000,
         height: 3000,
         make: 'Sony',
+        baselineExposure: 1.25,
         supportLevel: 'experimental',
       },
     })

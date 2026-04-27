@@ -210,6 +210,7 @@ function normalizeMetadata(value: unknown) {
     orientation: asNumber(raw.orientation),
     blackLevel: asNumber(raw.blackLevel),
     whiteLevel: asNumber(raw.whiteLevel),
+    baselineExposure: asNumber(raw.baselineExposure),
     thumbnail:
       thumbnailWidth && thumbnailHeight
         ? {

@@ -872,6 +872,10 @@ class LumaRawProcessor {
     metadata.set("orientation", sizes.flip);
     metadata.set("blackLevel", color.black);
     metadata.set("whiteLevel", color.maximum);
+    const float baseline_exposure = color.dng_levels.baseline_exposure;
+    if (std::isfinite(baseline_exposure) && baseline_exposure > -999.0f) {
+      metadata.set("baselineExposure", baseline_exposure);
+    }
     metadata.set("thumbWidth", thumbnail.twidth);
     metadata.set("thumbHeight", thumbnail.theight);
     metadata.set("thumbFormat", thumbnailFormat(thumbnail.tformat));

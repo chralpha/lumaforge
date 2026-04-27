@@ -128,6 +128,7 @@ function toMetadata(metadata: LumaRawNativeMetadata): LumaRawMetadata {
     orientation: metadata.orientation,
     blackLevel: metadata.blackLevel,
     whiteLevel: metadata.whiteLevel,
+    baselineExposure: metadata.baselineExposure,
     thumbnail: metadata.thumbnail,
     supportLevel:
       metadata.width !== undefined && metadata.height !== undefined

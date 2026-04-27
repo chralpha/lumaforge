@@ -49,6 +49,29 @@ describe('luma raw runtime public contract', () => {
     expect(frame.data.byteLength).toBe(12)
   })
 
+  it('allows optional baseline exposure in public metadata', () => {
+    const frame: LumaRawFrame = {
+      jobId: 'job-1',
+      source: 'quick',
+      width: 1,
+      height: 1,
+      data: new Uint16Array([0, 0, 0]),
+      layout: 'rgb',
+      bitDepth: 16,
+      colorSpace: 'linear-prophoto-rgb',
+      orientation: 1,
+      metadata: {
+        width: 1,
+        height: 1,
+        baselineExposure: 0.75,
+        supportLevel: 'official',
+      },
+      timings: { total: 1 },
+    }
+
+    expect(frame.metadata.baselineExposure).toBe(0.75)
+  })
+
   it('normalizes stable runtime errors', () => {
     const error = new LumaRawRuntimeError(
       'RAW_CROSS_ORIGIN_ISOLATION_REQUIRED',

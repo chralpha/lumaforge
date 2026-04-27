@@ -220,6 +220,7 @@ export type LumaRawMetadata = {
   orientation?: number
   blackLevel?: number
   whiteLevel?: number
+  baselineExposure?: number
   thumbnail?: {
     width: number
     height: number
