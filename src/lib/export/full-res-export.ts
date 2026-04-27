@@ -97,13 +97,21 @@ function normalizeLutSample(
 function isSimpleNoLutGraph(
   graph: SupportedExportColorGraphDescriptor,
 ): graph is SupportedExportColorGraphDescriptor & {
-  steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }]
+  steps: [
+    { kind: 'input-linear-prophoto' },
+    Extract<
+      SupportedExportColorGraphDescriptor['steps'][number],
+      { kind: 'raw-render-exposure' }
+    >,
+    { kind: 'output-srgb' },
+  ]
 } {
   return (
     graph.lutProfile === null &&
-    graph.steps.length === 2 &&
+    graph.steps.length === 3 &&
     graph.steps[0]?.kind === 'input-linear-prophoto' &&
-    graph.steps[1]?.kind === 'output-srgb'
+    graph.steps[1]?.kind === 'raw-render-exposure' &&
+    graph.steps[2]?.kind === 'output-srgb'
   )
 }
 
@@ -112,6 +120,10 @@ function isSupportedLutGraph(
 ): graph is SupportedExportColorGraphDescriptor & {
   steps: [
     { kind: 'input-linear-prophoto' },
+    Extract<
+      SupportedExportColorGraphDescriptor['steps'][number],
+      { kind: 'raw-render-exposure' }
+    >,
     Extract<
       SupportedExportColorGraphDescriptor['steps'][number],
       { kind: 'gamut-to-lut-input' }
@@ -132,24 +144,44 @@ function isSupportedLutGraph(
   ]
 } {
   return (
-    graph.steps.length === 6 &&
+    graph.steps.length === 7 &&
     graph.steps[0]?.kind === 'input-linear-prophoto' &&
-    graph.steps[1]?.kind === 'gamut-to-lut-input' &&
-    graph.steps[2]?.kind === 'encode-lut-transfer' &&
-    graph.steps[3]?.kind === 'lut3d' &&
-    graph.steps[4]?.kind === 'lut-output-to-srgb' &&
-    graph.steps[5]?.kind === 'output-srgb'
+    graph.steps[1]?.kind === 'raw-render-exposure' &&
+    graph.steps[2]?.kind === 'gamut-to-lut-input' &&
+    graph.steps[3]?.kind === 'encode-lut-transfer' &&
+    graph.steps[4]?.kind === 'lut3d' &&
+    graph.steps[5]?.kind === 'lut-output-to-srgb' &&
+    graph.steps[6]?.kind === 'output-srgb'
   )
+}
+
+function getRawRenderExposureMultiplier(
+  step: Extract<
+    SupportedExportColorGraphDescriptor['steps'][number],
+    { kind: 'raw-render-exposure' }
+  >,
+) {
+  return Number.isFinite(step.multiplier) ? step.multiplier : 1
 }
 
 function compileGraphApplier(graph: SupportedExportColorGraphDescriptor) {
   if (isSimpleNoLutGraph(graph)) {
+    const rawRenderExposureMultiplier = getRawRenderExposureMultiplier(
+      graph.steps[1],
+    )
+
     return (linear: Float32Array) => {
       const bytes = new Uint8Array(linear.length)
       for (let index = 0; index < linear.length; index += 3) {
-        const sceneR = clampMin0(linear[index] ?? 0)
-        const sceneG = clampMin0(linear[index + 1] ?? 0)
-        const sceneB = clampMin0(linear[index + 2] ?? 0)
+        const sceneR = clampMin0(
+          (linear[index] ?? 0) * rawRenderExposureMultiplier,
+        )
+        const sceneG = clampMin0(
+          (linear[index + 1] ?? 0) * rawRenderExposureMultiplier,
+        )
+        const sceneB = clampMin0(
+          (linear[index + 2] ?? 0) * rawRenderExposureMultiplier,
+        )
         const displayLinearR = clampMin0(
           PROPHOTO_TO_SRGB_MATRIX[0] * sceneR +
             PROPHOTO_TO_SRGB_MATRIX[1] * sceneG +
@@ -177,10 +209,13 @@ function compileGraphApplier(graph: SupportedExportColorGraphDescriptor) {
     throw new Error('FULL_RES_EXPORT_UNSUPPORTED_PIPELINE')
   }
 
-  const inputMatrix = graph.steps[1].matrix
-  const encodeStep = graph.steps[2]
-  const lutStep = graph.steps[3]
-  const outputStep = graph.steps[4]
+  const rawRenderExposureMultiplier = getRawRenderExposureMultiplier(
+    graph.steps[1],
+  )
+  const inputMatrix = graph.steps[2].matrix
+  const encodeStep = graph.steps[3]
+  const lutStep = graph.steps[4]
+  const outputStep = graph.steps[5]
   const outputMatrix = outputStep.matrix
   const encodeTransfer = getTransferFunction(encodeStep.transfer)
   const decodeTransfer = getTransferFunction(outputStep.transfer)
@@ -211,9 +246,15 @@ function compileGraphApplier(graph: SupportedExportColorGraphDescriptor) {
     const bytes = new Uint8Array(linear.length)
 
     for (let index = 0; index < linear.length; index += 3) {
-      const sceneR = clampMin0(linear[index] ?? 0)
-      const sceneG = clampMin0(linear[index + 1] ?? 0)
-      const sceneB = clampMin0(linear[index + 2] ?? 0)
+      const sceneR = clampMin0(
+        (linear[index] ?? 0) * rawRenderExposureMultiplier,
+      )
+      const sceneG = clampMin0(
+        (linear[index + 1] ?? 0) * rawRenderExposureMultiplier,
+      )
+      const sceneB = clampMin0(
+        (linear[index + 2] ?? 0) * rawRenderExposureMultiplier,
+      )
 
       const baseDisplayLinearR = clampMin0(
         PROPHOTO_TO_SRGB_MATRIX[0] * sceneR +

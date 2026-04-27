@@ -172,11 +172,38 @@ function enqueuePostCommitTask(task: () => void) {
   setTimeout(task, 0)
 }
 
+const MISSING_RAW_RENDER_EXPOSURE_EXPORT_REASON =
+  'RAW preview exposure is still being prepared.'
+
 function isFullResExportRunnable(input: {
   sourceFile: File | null
   session: ImageSession
+  rawRenderExposure: DecodedImage['renderExposure'] | null | undefined
 }) {
-  return Boolean(input.sourceFile) && deriveCanExport(input.session)
+  return (
+    Boolean(input.sourceFile) &&
+    Boolean(input.rawRenderExposure) &&
+    deriveCanExport(input.session)
+  )
+}
+
+function resolveHookExportDisabledReason(input: {
+  sourceFile: File | null
+  session: ImageSession | null
+  rawRenderExposure: DecodedImage['renderExposure'] | null | undefined
+}) {
+  if (!input.sourceFile || !input.session) {
+    return 'Full-resolution export source is still loading.'
+  }
+
+  const sessionReason = deriveExportDisabledReason(input.session)
+  if (sessionReason) return sessionReason
+
+  if (!input.rawRenderExposure) {
+    return MISSING_RAW_RENDER_EXPOSURE_EXPORT_REASON
+  }
+
+  return undefined
 }
 
 export interface UseRawProcessorReturn {
@@ -195,6 +222,7 @@ export interface UseRawProcessorReturn {
   stats: PipelineStats | null
   hasImage: boolean
   canExport: boolean
+  exportDisabledReason?: string
   activeStyle: StyleAsset | null
   lutProfileSelection: LUTProfileSelectionState | null
   activePresetId: (typeof BUILTIN_PRESETS)[number]['id'] | null
@@ -263,12 +291,21 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const lutDataRef = useRef<LUTData | null>(null)
   const [lutDataVersion, setLutDataVersion] = useState(0)
   const hasImage = session ? deriveCanEdit(session) : false
+  const rawRenderExposure = decodedImageRef.current?.renderExposure ?? null
   const canExport = session
     ? isFullResExportRunnable({
         sourceFile: loadedImage.file,
         session,
+        rawRenderExposure,
       })
     : false
+  const exportDisabledReason = !canExport
+    ? resolveHookExportDisabledReason({
+        sourceFile: loadedImage.file,
+        session,
+        rawRenderExposure,
+      })
+    : undefined
   const activeStyle = session?.activeStyle || null
   const lutProfileSelection = session?.lutProfileSelection || null
   const activePresetId =
@@ -798,7 +835,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 scheduleToast(() =>
                   toast.error('Preview unavailable', {
                     description:
-                      'Full-resolution export remains available when processed-window support is confirmed.',
+                      'Full-resolution export needs a decoded RAW preview exposure before it can run.',
                   }),
                 )
                 break
@@ -1186,18 +1223,22 @@ export function useRawProcessor(): UseRawProcessorReturn {
       quality: 'standard' | 'high'
       fidelity: 'safe' | 'balanced' | 'max'
     }) => {
+      const rawRenderExposure = decodedImageRef.current?.renderExposure ?? null
       if (
         !session ||
+        !loadedImage.file ||
+        !rawRenderExposure ||
         !isFullResExportRunnable({
           sourceFile: loadedImage.file,
           session,
-        }) ||
-        !loadedImage.file
+          rawRenderExposure,
+        })
       ) {
-        const description =
-          !loadedImage.file || !session
-            ? 'Full-resolution export source is still loading.'
-            : deriveExportDisabledReason(session)
+        const description = resolveHookExportDisabledReason({
+          sourceFile: loadedImage.file,
+          session,
+          rawRenderExposure,
+        })
         scheduleToast(() =>
           toast.error(
             'Full-resolution export is not ready',
@@ -1223,6 +1264,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         intensity: params.intensity,
         builtinPreset: params.builtinPreset,
         lut: lutDataRef.current,
+        rawRenderExposure,
       })
 
       if (!graph.supported) {
@@ -1473,6 +1515,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     stats,
     hasImage,
     canExport,
+    exportDisabledReason,
     activeStyle,
     lutProfileSelection,
     activePresetId,

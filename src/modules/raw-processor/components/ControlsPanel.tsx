@@ -41,6 +41,7 @@ export interface ControlsPanelProps {
     fidelity: 'safe' | 'balanced' | 'max'
   }) => void
   canExport: boolean
+  disabledReason?: string
   isProcessing: boolean
   currentLutName?: string | null
   lutProfileSelection?: LUTProfileSelectionState | null
@@ -411,15 +412,18 @@ export function ControlsPanel({
   onLutProfileSelect,
   onExport,
   canExport,
+  disabledReason,
   isProcessing,
   currentLutName,
   lutProfileSelection,
   lutProfileResolution,
   className,
 }: ControlsPanelProps) {
-  const exportDisabledReason = useAtomValue(exportDisabledReasonAtom)
+  const sessionExportDisabledReason = useAtomValue(exportDisabledReasonAtom)
   const resolvedExportDisabledReason =
-    exportDisabledReason ?? 'Full-resolution export source is still loading.'
+    disabledReason ??
+    sessionExportDisabledReason ??
+    'Full-resolution export source is still loading.'
 
   return (
     <m.div
@@ -525,8 +529,7 @@ export function ControlsPanel({
           <p className="text-xs text-text-tertiary">
             {canExport
               ? 'Exports from the LibRaw processed-window path, not the visible preview.'
-              : (resolvedExportDisabledReason ??
-                'Full-resolution export stays locked until processed-window support is confirmed.')}
+              : resolvedExportDisabledReason}
           </p>
         </section>
       </div>

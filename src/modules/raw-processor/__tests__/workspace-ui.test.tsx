@@ -81,6 +81,20 @@ describe('controlsPanel', () => {
     expect(screen.queryByText('Log Space')).not.toBeInTheDocument()
   })
 
+  it('shows hook-provided export disabled reason in the export controls', () => {
+    render(
+      <ControlsPanel
+        {...controlsPanelProps({
+          disabledReason: 'RAW preview exposure is still being prepared.',
+        })}
+      />,
+    )
+
+    expect(
+      screen.getByText('RAW preview exposure is still being prepared.'),
+    ).toBeInTheDocument()
+  })
+
   it('opens the selector by default for pending LUT profile suggestions', async () => {
     const user = userEvent.setup()
     const onLutProfileSelect = vi.fn()

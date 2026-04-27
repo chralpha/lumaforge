@@ -21,8 +21,33 @@ describe('resolveExportColorGraph', () => {
     expect(graph.outputTransfer).toBe('srgb')
     expect(graph.steps.map((step) => step.kind)).toEqual([
       'input-linear-prophoto',
+      'raw-render-exposure',
       'output-srgb',
     ])
+    expect(graph.steps[1]).toMatchObject({
+      kind: 'raw-render-exposure',
+      ev: 0,
+      multiplier: 1,
+    })
+  })
+
+  it('inserts raw render exposure before output conversion', () => {
+    const graph = resolveExportColorGraph({
+      styleKind: 'none',
+      intensity: 0.7,
+      builtinPreset: null,
+      lut: null,
+      rawRenderExposure: { ev: 1, multiplier: 2, source: 'image-statistics' },
+    })
+
+    expect(graph).toMatchObject({
+      supported: true,
+      steps: [
+        { kind: 'input-linear-prophoto' },
+        { kind: 'raw-render-exposure', ev: 1, multiplier: 2 },
+        { kind: 'output-srgb' },
+      ],
+    })
   })
 
   it('fails closed for built-in styles', () => {
@@ -79,18 +104,19 @@ describe('resolveExportColorGraph', () => {
     expect(graph.outputTransfer).toBe('srgb')
     expect(graph.steps.map((step) => step.kind)).toEqual([
       'input-linear-prophoto',
+      'raw-render-exposure',
       'gamut-to-lut-input',
       'encode-lut-transfer',
       'lut3d',
       'lut-output-to-srgb',
       'output-srgb',
     ])
-    expect(graph.steps[3]).toMatchObject({
+    expect(graph.steps[4]).toMatchObject({
       kind: 'lut3d',
       domainMin: [0, 0, 0],
       domainMax: [1, 1, 1],
     })
-    expect(graph.steps[4]).toMatchObject({
+    expect(graph.steps[5]).toMatchObject({
       kind: 'lut-output-to-srgb',
       transfer: 's-log3',
       range: 'full',
@@ -168,7 +194,7 @@ describe('resolveExportColorGraph', () => {
     if (!graph.supported) {
       throw new Error('Expected supported graph')
     }
-    expect(graph.steps[4]).toMatchObject({
+    expect(graph.steps[5]).toMatchObject({
       kind: 'lut-output-to-srgb',
       transfer: 'gamma24',
       range: 'full',

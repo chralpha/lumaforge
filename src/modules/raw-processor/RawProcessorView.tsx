@@ -42,6 +42,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     stats,
     hasImage,
     canExport,
+    exportDisabledReason,
     activeStyle,
     lutProfileSelection,
     activePresetId,
@@ -150,6 +151,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
           fileName={sourceFileName}
           supportLevel={supportLevel}
           canExport={canExport}
+          disabledReason={exportDisabledReason}
           onReplaceFile={handleReplaceFile}
           onResetSession={reset}
           onOpenExport={() =>
@@ -261,6 +263,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
                 onLutProfileSelect={selectLUTProfile}
                 onExport={handleExport}
                 canExport={canExport}
+                disabledReason={exportDisabledReason}
                 isProcessing={isProcessing}
               />
             </m.aside>

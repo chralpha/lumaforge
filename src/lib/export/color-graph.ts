@@ -6,6 +6,7 @@ import {
   getLUTOutputToTargetMatrix,
   mat3Identity,
 } from '~/lib/color/matrix'
+import type { RawRenderExposure } from '~/lib/color/raw-render-exposure'
 import type {
   LUTColorProfile,
   LUTRole,
@@ -15,6 +16,7 @@ import type { LUTData, ProcessingParams } from '~/lib/gl/pipeline'
 
 export type ExportColorGraphStep =
   | { kind: 'input-linear-prophoto' }
+  | { kind: 'raw-render-exposure'; ev: number; multiplier: number }
   | { kind: 'gamut-to-lut-input'; matrix: Mat3; gamut: ColorGamutId }
   | {
       kind: 'encode-lut-transfer'
@@ -65,6 +67,11 @@ export type SupportedExportColorGraphDescriptor = Extract<
 
 const OUTPUT_GAMUT = 'srgb-rec709'
 const OUTPUT_TRANSFER = 'srgb'
+const IDENTITY_RAW_RENDER_EXPOSURE: RawRenderExposure = {
+  ev: 0,
+  multiplier: 1,
+  source: 'identity',
+}
 
 function resolveEffectiveLUTOutputTransfer(
   profile: LUTColorProfile,
@@ -107,8 +114,18 @@ export function resolveExportColorGraph(input: {
   intensity: number
   builtinPreset: ProcessingParams['builtinPreset']
   lut: LUTData | null
+  rawRenderExposure?: RawRenderExposure
 }): ExportColorGraphDescriptor {
-  const base: ExportColorGraphStep[] = [{ kind: 'input-linear-prophoto' }]
+  const rawRenderExposure =
+    input.rawRenderExposure ?? IDENTITY_RAW_RENDER_EXPOSURE
+  const base: ExportColorGraphStep[] = [
+    { kind: 'input-linear-prophoto' },
+    {
+      kind: 'raw-render-exposure',
+      ev: rawRenderExposure.ev,
+      multiplier: rawRenderExposure.multiplier,
+    },
+  ]
 
   if (input.styleKind === 'builtin' && input.builtinPreset) {
     return {

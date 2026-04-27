@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetToDefaults } from '~/atoms/raw-processor'
+import type { RawRenderExposure } from '~/lib/color/raw-render-exposure'
 import { getLUTColorProfile } from '~/lib/color/registry'
 import { jotaiStore } from '~/lib/jotai'
 import {
@@ -60,7 +61,10 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-function createDecodedImage(source: 'quick' | 'hq'): DecodedImage {
+function createDecodedImage(
+  source: 'quick' | 'hq',
+  overrides: Partial<DecodedImage> = {},
+): DecodedImage {
   const isQuick = source === 'quick'
 
   return {
@@ -80,6 +84,7 @@ function createDecodedImage(source: 'quick' | 'hq'): DecodedImage {
       height: isQuick ? 600 : 3000,
     },
     renderExposure: { ev: 0, multiplier: 1, source: 'identity' },
+    ...overrides,
   }
 }
 
@@ -723,7 +728,61 @@ describe('useRawProcessor embedded preview state', () => {
     )
   })
 
-  it('keeps full-resolution export enabled when processed-window capability is supported but quick preview fails', async () => {
+  it('keeps full-resolution export disabled until decoded render exposure is available', async () => {
+    const file = createFileWithSize('large.ARW', 33 * 1024 * 1024)
+    const quickDecode = deferred<DecodedImage>()
+    const hqDecode = deferred<DecodedImage>()
+
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockReturnValue(quickDecode.promise)
+    rawRuntimeAdapterMock.decodeHqRaw.mockReturnValue(hqDecode.promise)
+    rawRuntimeAdapterMock.probeExportCapability.mockResolvedValue(
+      createSupportedCapability(),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'large_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    let loadPromise!: Promise<void>
+
+    await act(async () => {
+      loadPromise = result.current.loadFile(file)
+      await flushPromises()
+    })
+
+    await waitFor(() => {
+      expect(
+        jotaiStore.get(currentSessionAtom)?.exportState.fullResCapability,
+      ).toMatchObject({
+        status: 'supported',
+      })
+    })
+    expect(result.current.canExport).toBe(false)
+    expect(result.current.exportDisabledReason).toBe(
+      'RAW preview exposure is still being prepared.',
+    )
+
+    await act(async () => {
+      await result.current.exportImage({ quality: 'high', fidelity: 'max' })
+    })
+    await flushScheduledToasts()
+
+    expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
+    expect(toastMock.error).toHaveBeenCalledWith(
+      'Full-resolution export is not ready',
+      { description: 'RAW preview exposure is still being prepared.' },
+    )
+
+    await act(async () => {
+      quickDecode.resolve(createDecodedImage('quick'))
+      hqDecode.resolve(createDecodedImage('hq'))
+      await loadPromise
+    })
+  })
+
+  it('keeps full-resolution export disabled when processed-window capability is supported but quick preview fails', async () => {
     const file = createFileWithSize('large.ARW', 33 * 1024 * 1024)
     const decodeQuickRaw = vi.fn().mockRejectedValue(
       Object.assign(new Error('quick unavailable'), {
@@ -763,7 +822,10 @@ describe('useRawProcessor embedded preview state', () => {
     expect(decodeHqRaw).not.toHaveBeenCalled()
     expect(result.current.displaySource).toBe('embedded')
     expect(result.current.status).toBe('error')
-    expect(result.current.canExport).toBe(true)
+    expect(result.current.canExport).toBe(false)
+    expect(result.current.exportDisabledReason).toBe(
+      'RAW preview exposure is still being prepared.',
+    )
     expect(session?.previewBundle.quickDecodePreview).toEqual({
       status: 'failed',
       errorCode: 'RAW_QUICK_DECODE_FAILED',
@@ -781,10 +843,17 @@ describe('useRawProcessor embedded preview state', () => {
     await act(async () => {
       await result.current.exportImage({ quality: 'high', fidelity: 'max' })
     })
+    await flushScheduledToasts()
 
-    expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledWith(
-      expect.objectContaining({ file }),
+    expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
+    expect(toastMock.error).toHaveBeenCalledWith(
+      'Full-resolution export is not ready',
+      { description: 'RAW preview exposure is still being prepared.' },
     )
+    expect(toastMock.error).toHaveBeenCalledWith('Preview unavailable', {
+      description:
+        'Full-resolution export needs a decoded RAW preview exposure before it can run.',
+    })
   })
 
   it('keeps full-resolution export disabled until the source file is actually loaded', () => {
@@ -952,12 +1021,18 @@ describe('useRawProcessor embedded preview state', () => {
   })
 
   it('runs the full-resolution export job and records strip progress', async () => {
+    const renderExposure: RawRenderExposure = {
+      ev: 1.25,
+      multiplier: Math.pow(2, 1.25),
+      source: 'image-statistics',
+    }
+
     rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
     rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
       createDecodedImage('quick'),
     )
     rawRuntimeAdapterMock.decodeHqRaw.mockResolvedValue(
-      createDecodedImage('hq'),
+      createDecodedImage('hq', { renderExposure }),
     )
     rawRuntimeAdapterMock.probeExportCapability.mockResolvedValue(
       createSupportedCapability(),
@@ -1024,6 +1099,15 @@ describe('useRawProcessor embedded preview state', () => {
         filename: 'frame_neutral_fullres.jpg',
         preferredRows: 1024,
         quality: 0.92,
+        graph: expect.objectContaining({
+          steps: expect.arrayContaining([
+            expect.objectContaining({
+              kind: 'raw-render-exposure',
+              ev: renderExposure.ev,
+              multiplier: renderExposure.multiplier,
+            }),
+          ]),
+        }),
       }),
     )
     expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({

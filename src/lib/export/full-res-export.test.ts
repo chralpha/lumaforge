@@ -89,6 +89,12 @@ function linearToSrgb(value: number) {
     : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055
 }
 
+const IDENTITY_RAW_RENDER_EXPOSURE_STEP = {
+  kind: 'raw-render-exposure' as const,
+  ev: 0,
+  multiplier: 1,
+}
+
 describe('runFullResolutionJpegExport', () => {
   it('throws FULL_RES_EXPORT_UNSUPPORTED_SOURCE before opening writer or reading windows', async () => {
     const readProcessedWindow = vi.fn()
@@ -109,7 +115,11 @@ describe('runFullResolutionJpegExport', () => {
           outputGamut: 'srgb-rec709',
           outputTransfer: 'srgb',
           lutProfile: null,
-          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+          steps: [
+            { kind: 'input-linear-prophoto' },
+            IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            { kind: 'output-srgb' },
+          ],
         },
         readProcessedWindow,
         jpegSink,
@@ -187,7 +197,11 @@ describe('runFullResolutionJpegExport', () => {
             outputGamut: 'srgb-rec709',
             outputTransfer: 'srgb',
             lutProfile: null,
-            steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+            steps: [
+              { kind: 'input-linear-prophoto' },
+              IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+              { kind: 'output-srgb' },
+            ],
           },
           readProcessedWindow,
           jpegSink: {
@@ -226,7 +240,11 @@ describe('runFullResolutionJpegExport', () => {
         outputGamut: 'srgb-rec709',
         outputTransfer: 'srgb',
         lutProfile: null,
-        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          { kind: 'output-srgb' },
+        ],
       },
       preferredRows: 2,
       readProcessedWindow,
@@ -272,6 +290,7 @@ describe('runFullResolutionJpegExport', () => {
         lutProfile: null,
         steps: [
           { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
           {
             kind: 'gamut-to-lut-input',
             matrix: mat3Identity(),
@@ -318,6 +337,124 @@ describe('runFullResolutionJpegExport', () => {
     expect(writtenRows[0]?.bytes[0]).not.toBe(encodedByte)
   })
 
+  it('applies raw render exposure before final sRGB encoding', async () => {
+    const writtenRows: Array<{ bytes: Uint8Array }> = []
+    const writer = {
+      writeRows: vi.fn(async (bytes: Uint8Array) => {
+        writtenRows.push({ bytes: new Uint8Array(bytes) })
+      }),
+      close: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await runFullResolutionJpegExport({
+      capability: makeCapability(),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          { kind: 'raw-render-exposure', ev: 1, multiplier: 2 },
+          { kind: 'output-srgb' },
+        ],
+      },
+      readProcessedWindow: vi.fn((request: LumaRawProcessedWindowRequest) =>
+        Promise.resolve(makeProcessedWindow(request, 16384)),
+      ),
+      writerFactory: () => writer,
+    })
+
+    const expected = Math.round(linearToSrgb(0.5) * 255)
+    const unexposed = Math.round(linearToSrgb(0.25) * 255)
+
+    expect(writtenRows[0]?.bytes[0]).toBe(expected)
+    expect(writtenRows[0]?.bytes[0]).not.toBe(unexposed)
+  })
+
+  it('applies raw render exposure before scene LUT input and base mixing', async () => {
+    const intensity = 0.5
+    const lut = new Float32Array(2 * 2 * 2 * 3)
+    for (let blue = 0; blue < 2; blue += 1) {
+      for (let green = 0; green < 2; green += 1) {
+        for (let red = 0; red < 2; red += 1) {
+          const index = ((blue * 2 + green) * 2 + red) * 3
+          lut[index] = red
+          lut[index + 1] = red
+          lut[index + 2] = red
+        }
+      }
+    }
+
+    const writtenRows: Array<{ bytes: Uint8Array }> = []
+    const writer = {
+      writeRows: vi.fn(async (bytes: Uint8Array) => {
+        writtenRows.push({ bytes: new Uint8Array(bytes) })
+      }),
+      close: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await runFullResolutionJpegExport({
+      capability: makeCapability(),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          { kind: 'raw-render-exposure', ev: 1, multiplier: 2 },
+          {
+            kind: 'gamut-to-lut-input',
+            matrix: mat3Identity(),
+            gamut: 'prophoto-rgb',
+          },
+          { kind: 'encode-lut-transfer', transfer: 'linear', range: 'full' },
+          {
+            kind: 'lut3d',
+            size: 2,
+            data: lut,
+            domainMin: [0, 0, 0],
+            domainMax: [0.5, 0.5, 0.5],
+          },
+          {
+            kind: 'lut-output-to-srgb',
+            matrix: mat3Identity(),
+            transfer: 'linear',
+            range: 'full',
+            role: 'scene-creative',
+            intensity,
+          },
+          { kind: 'output-srgb' },
+        ],
+      },
+      readProcessedWindow: vi.fn((request: LumaRawProcessedWindowRequest) =>
+        Promise.resolve(makeProcessedWindow(request, 16384)),
+      ),
+      writerFactory: () => writer,
+    })
+
+    const unexposedBaseLinear = 16384 / 65535
+    const exposedBaseLinear = unexposedBaseLinear * 2
+    const expectedLinear =
+      exposedBaseLinear + (1 - exposedBaseLinear) * intensity
+    const ignoresExposureForLutInput =
+      exposedBaseLinear + (0.5 - exposedBaseLinear) * intensity
+    const ignoresExposureForBaseMix =
+      unexposedBaseLinear + (1 - unexposedBaseLinear) * intensity
+    const expected = Math.round(clamp01(linearToSrgb(expectedLinear)) * 255)
+
+    expect(writtenRows[0]?.bytes[0]).toBe(expected)
+    expect(writtenRows[0]?.bytes[0]).not.toBe(
+      Math.round(clamp01(linearToSrgb(ignoresExposureForLutInput)) * 255),
+    )
+    expect(writtenRows[0]?.bytes[0]).not.toBe(
+      Math.round(clamp01(linearToSrgb(ignoresExposureForBaseMix)) * 255),
+    )
+  })
+
   it.each([Infinity, -Infinity, Number.NaN, 0, -1])(
     'fails closed for invalid preferred row count %s before reading processed windows',
     async (preferredRows) => {
@@ -336,7 +473,11 @@ describe('runFullResolutionJpegExport', () => {
             outputGamut: 'srgb-rec709',
             outputTransfer: 'srgb',
             lutProfile: null,
-            steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+            steps: [
+              { kind: 'input-linear-prophoto' },
+              IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+              { kind: 'output-srgb' },
+            ],
           },
           preferredRows,
           readProcessedWindow,
@@ -375,7 +516,11 @@ describe('runFullResolutionJpegExport', () => {
         outputGamut: 'srgb-rec709',
         outputTransfer: 'srgb',
         lutProfile: null,
-        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          { kind: 'output-srgb' },
+        ],
       },
       preferredRows: 64.5,
       readProcessedWindow,
@@ -417,7 +562,11 @@ describe('runFullResolutionJpegExport', () => {
         outputGamut: 'srgb-rec709',
         outputTransfer: 'srgb',
         lutProfile: null,
-        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          { kind: 'output-srgb' },
+        ],
       },
       preferredRows: 2,
       readProcessedWindow,
@@ -457,7 +606,11 @@ describe('runFullResolutionJpegExport', () => {
           outputGamut: 'srgb-rec709',
           outputTransfer: 'srgb',
           lutProfile: null,
-          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+          steps: [
+            { kind: 'input-linear-prophoto' },
+            IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            { kind: 'output-srgb' },
+          ],
         },
         preferredRows: 2,
         readProcessedWindow,
@@ -503,7 +656,11 @@ describe('runFullResolutionJpegExport', () => {
         outputGamut: 'srgb-rec709',
         outputTransfer: 'srgb',
         lutProfile: null,
-        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          { kind: 'output-srgb' },
+        ],
       },
       preferredRows: 256,
       readProcessedWindow,
@@ -564,7 +721,11 @@ describe('runFullResolutionJpegExport', () => {
         outputGamut: 'srgb-rec709',
         outputTransfer: 'srgb',
         lutProfile: null,
-        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          { kind: 'output-srgb' },
+        ],
       },
       preferredRows: 256,
       readProcessedWindow,
@@ -609,7 +770,11 @@ describe('runFullResolutionJpegExport', () => {
           outputGamut: 'srgb-rec709',
           outputTransfer: 'srgb',
           lutProfile: null,
-          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+          steps: [
+            { kind: 'input-linear-prophoto' },
+            IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            { kind: 'output-srgb' },
+          ],
         },
         preferredRows: 256,
         readProcessedWindow,
@@ -632,7 +797,11 @@ describe('runFullResolutionJpegExport', () => {
           outputGamut: 'srgb-rec709',
           outputTransfer: 'srgb',
           lutProfile: null,
-          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+          steps: [
+            { kind: 'input-linear-prophoto' },
+            IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            { kind: 'output-srgb' },
+          ],
         },
         readProcessedWindow,
         jpegSink: createWasmJpegRowSink(() => {
@@ -684,7 +853,11 @@ describe('runFullResolutionJpegExport', () => {
         outputGamut: 'srgb-rec709',
         outputTransfer: 'srgb',
         lutProfile: null,
-        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          { kind: 'output-srgb' },
+        ],
       },
       preferredRows: 256,
       readProcessedWindow: vi.fn((request: LumaRawProcessedWindowRequest) =>
@@ -720,7 +893,11 @@ describe('runFullResolutionJpegExport', () => {
           outputGamut: 'srgb-rec709',
           outputTransfer: 'srgb',
           lutProfile: null,
-          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+          steps: [
+            { kind: 'input-linear-prophoto' },
+            IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            { kind: 'output-srgb' },
+          ],
         },
         preferredRows: 256,
         readProcessedWindow,
@@ -754,7 +931,11 @@ describe('runFullResolutionJpegExport', () => {
         outputGamut: 'srgb-rec709',
         outputTransfer: 'srgb',
         lutProfile: null,
-        steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          { kind: 'output-srgb' },
+        ],
       },
       preferredRows: 2,
       readProcessedWindow,
@@ -804,6 +985,7 @@ describe('runFullResolutionJpegExport', () => {
         lutProfile: null,
         steps: [
           { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
           {
             kind: 'gamut-to-lut-input',
             matrix: mat3Identity(),
@@ -872,7 +1054,11 @@ describe('runFullResolutionJpegExport', () => {
           outputGamut: 'srgb-rec709',
           outputTransfer: 'srgb',
           lutProfile: null,
-          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+          steps: [
+            { kind: 'input-linear-prophoto' },
+            IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            { kind: 'output-srgb' },
+          ],
         },
         readProcessedWindow: vi
           .fn()
@@ -901,6 +1087,7 @@ describe('runFullResolutionJpegExport', () => {
           lutProfile: null,
           steps: [
             { kind: 'input-linear-prophoto' },
+            IDENTITY_RAW_RENDER_EXPOSURE_STEP,
             {
               kind: 'lut-output-to-srgb',
               matrix: mat3Identity(),
@@ -938,6 +1125,7 @@ describe('runFullResolutionJpegExport', () => {
           lutProfile: null,
           steps: [
             { kind: 'input-linear-prophoto' },
+            IDENTITY_RAW_RENDER_EXPOSURE_STEP,
             {
               kind: 'gamut-to-lut-input',
               matrix: mat3Identity(),
