@@ -78,6 +78,19 @@ bool isUnavailableThumbnailError(int code) {
 
 double nowMs() { return emscripten_get_now(); }
 
+val timingObject(double setup, double open, double unpack, double process,
+                 double output_copy, double orientation, double total) {
+  val timings = val::object();
+  timings.set("setup", setup);
+  timings.set("open", open);
+  timings.set("unpack", unpack);
+  timings.set("process", process);
+  timings.set("outputCopy", output_copy);
+  timings.set("orientation", orientation);
+  timings.set("total", total);
+  return timings;
+}
+
 std::string safeString(const char *value) {
   return value == nullptr ? std::string() : std::string(value);
 }
@@ -1034,6 +1047,8 @@ class LumaRawProcessor {
   }
 
   val readProcessedWindow(val request) {
+    const double total_start = nowMs();
+    const double setup_start = total_start;
     ensureUnpacked();
 
     const libraw_data_t &imgdata = processor_.imgdata;
@@ -1069,10 +1084,19 @@ class LumaRawProcessor {
     auto crop_processor = std::make_unique<LibRaw>();
     libraw_output_params_t &params = crop_processor->imgdata.params;
     applyStrictExportProcessingSettings(params);
+    const double setup_end = nowMs();
+
+    const double open_start = setup_end;
     requireLibRawSuccess(
         "LibRaw cropbox open_buffer",
         crop_processor->open_buffer(input_buffer_.data(), input_buffer_.size()));
+    const double open_end = nowMs();
+
+    const double unpack_start = open_end;
     requireLibRawSuccess("LibRaw cropbox unpack", crop_processor->unpack());
+    const double unpack_end = nowMs();
+
+    const double process_start = unpack_end;
     params.cropbox[0] = static_cast<unsigned>(source_crop.x);
     params.cropbox[1] = static_cast<unsigned>(source_crop.y);
     params.cropbox[2] = static_cast<unsigned>(source_crop.width);
@@ -1080,7 +1104,10 @@ class LumaRawProcessor {
 
     requireLibRawSuccess("LibRaw dcraw_process",
                          crop_processor->dcraw_process());
+    const double process_end = nowMs();
 
+    double output_copy_ms = 0;
+    const double libraw_copy_start = process_end;
     int crop_width = 0;
     int crop_height = 0;
     int colors = 0;
@@ -1119,7 +1146,10 @@ class LumaRawProcessor {
                          crop_processor->copy_mem_image(crop_data.data(),
                                                         crop_stride, 0));
     crop_processor->free_image();
+    const double libraw_copy_end = nowMs();
+    output_copy_ms += libraw_copy_end - libraw_copy_start;
 
+    const double orientation_start = libraw_copy_end;
     const size_t expanded_pixel_count =
         checkedMultiply(static_cast<size_t>(expanded_output_rect.width),
                         static_cast<size_t>(expanded_output_rect.height),
@@ -1163,7 +1193,9 @@ class LumaRawProcessor {
         expanded_data[dst + 2] = crop_data[src + 2];
       }
     }
+    const double orientation_end = nowMs();
 
+    const double output_copy_start = orientation_end;
     const size_t output_pixel_count =
         checkedMultiply(static_cast<size_t>(output_rect.width),
                         static_cast<size_t>(output_rect.height),
@@ -1196,11 +1228,14 @@ class LumaRawProcessor {
                  std::to_string(warning_mask | crop_warning_mask));
     }
 
+    val data = copiedUint16Array(output_data.data(), output_data.size());
+    const double output_copy_end = nowMs();
+    output_copy_ms += output_copy_end - output_copy_start;
+
     val output = val::object();
     output.set("rect", rectObject(output_rect));
     output.set("workingSpace", std::string("linear-prophoto-rgb"));
-    output.set("data", copiedUint16Array(output_data.data(),
-                                         output_data.size()));
+    output.set("data", data);
     output.set("width", output_rect.width);
     output.set("height", output_rect.height);
     output.set("stride", output_rect.width * 3);
@@ -1208,6 +1243,13 @@ class LumaRawProcessor {
     output.set("orientationApplied", true);
     output.set("colorApplied", true);
     output.set("warnings", warnings);
+    const double total_end = nowMs();
+    output.set("timings",
+               timingObject(setup_end - setup_start, open_end - open_start,
+                            unpack_end - unpack_start,
+                            process_end - process_start, output_copy_ms,
+                            orientation_end - orientation_start,
+                            total_end - total_start));
     return output;
   }
 

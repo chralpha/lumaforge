@@ -534,6 +534,7 @@ describe('createLumaRawRuntime', () => {
       halo: { left: 1, top: 1, right: 1, bottom: 1 },
     }
     const seenProcessedWindowRequests: unknown[] = []
+    const seenLifecycleRequests: string[] = []
     const worker = new EchoWorker((request) => {
       if (request.type === 'init') {
         return {
@@ -616,6 +617,14 @@ describe('createLumaRawRuntime', () => {
           warnings: [],
         }
       }
+      if (request.type === 'beginProcessedWindowExportFromSession') {
+        seenLifecycleRequests.push(request.type)
+        return { active: true }
+      }
+      if (request.type === 'endProcessedWindowExportFromSession') {
+        seenLifecycleRequests.push(request.type)
+        return { ended: true }
+      }
       if (request.type === 'closeSession') return { closed: true }
       throw new Error(`Unexpected request: ${request.type}`)
     })
@@ -654,6 +663,19 @@ describe('createLumaRawRuntime', () => {
         sessionId: 's1',
         request: processedWindowRequest,
       },
+    ])
+    const lifecycleController = new AbortController()
+    expect(session.beginProcessedWindowExport).toBeTypeOf('function')
+    expect(session.endProcessedWindowExport).toBeTypeOf('function')
+    await expect(
+      session.beginProcessedWindowExport!(lifecycleController.signal),
+    ).resolves.toEqual({ active: true })
+    await expect(
+      session.endProcessedWindowExport!(lifecycleController.signal),
+    ).resolves.toEqual({ ended: true })
+    expect(seenLifecycleRequests).toEqual([
+      'beginProcessedWindowExportFromSession',
+      'endProcessedWindowExportFromSession',
     ])
   })
 

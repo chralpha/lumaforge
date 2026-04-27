@@ -241,6 +241,22 @@ export function createLumaRawRuntime(
           stageSignal,
         )
       },
+      beginProcessedWindowExport(stageSignal?: AbortSignal) {
+        return client.request(
+          'beginProcessedWindowExportFromSession',
+          { sessionId: sessionInfo.sessionId },
+          [],
+          stageSignal,
+        )
+      },
+      endProcessedWindowExport(stageSignal?: AbortSignal) {
+        return client.request(
+          'endProcessedWindowExportFromSession',
+          { sessionId: sessionInfo.sessionId },
+          [],
+          stageSignal,
+        )
+      },
       readRawWindow(rect, stageSignal?: AbortSignal) {
         return client.request(
           'readRawWindowFromSession',
