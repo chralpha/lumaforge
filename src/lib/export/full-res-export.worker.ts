@@ -7,6 +7,13 @@ import type {
   FullResExportWorkerResponse,
 } from './full-res-export-client'
 
+type ProcessedWindowExportLifecycleInput<Result> = {
+  beginProcessedWindowExport?: (signal?: AbortSignal) => Promise<unknown>
+  endProcessedWindowExport?: (signal?: AbortSignal) => Promise<unknown>
+  runExport: () => Promise<Result>
+  signal?: AbortSignal
+}
+
 function toErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
     return error.message
@@ -16,6 +23,50 @@ function toErrorMessage(error: unknown) {
 }
 
 const activeRequests = new Map<string, AbortController>()
+
+export async function runProcessedWindowExportLifecycle<Result>({
+  beginProcessedWindowExport,
+  endProcessedWindowExport,
+  runExport,
+  signal,
+}: ProcessedWindowExportLifecycleInput<Result>): Promise<Result> {
+  let processedWindowExportActive = false
+
+  if (beginProcessedWindowExport) {
+    await beginProcessedWindowExport(signal)
+    processedWindowExportActive = true
+  }
+
+  let primaryError: unknown
+  let cleanupError: unknown
+  let hasPrimaryError = false
+  let result: Result
+
+  try {
+    result = await runExport()
+  } catch (error) {
+    primaryError = error
+    hasPrimaryError = true
+  }
+
+  if (processedWindowExportActive && endProcessedWindowExport) {
+    try {
+      await endProcessedWindowExport()
+    } catch (error) {
+      cleanupError = error
+    }
+  }
+
+  if (hasPrimaryError) {
+    throw primaryError
+  }
+
+  if (cleanupError !== undefined) {
+    throw cleanupError
+  }
+
+  return result!
+}
 
 async function handleStart(
   message: Extract<FullResExportWorkerRequest, { kind: 'start' }>,
@@ -38,36 +89,43 @@ async function handleStart(
       const capability = await exportSession.probeExportCapability(
         controller.signal,
       )
-      const blob = await runFullResolutionJpegExport({
-        capability,
-        graph: message.graph,
-        preferredRows: message.preferredRows,
-        quality: message.quality,
+      const blob = await runProcessedWindowExportLifecycle({
+        beginProcessedWindowExport: exportSession.beginProcessedWindowExport,
+        endProcessedWindowExport: exportSession.endProcessedWindowExport,
         signal: controller.signal,
-        readProcessedWindow: exportSession.readProcessedWindow,
-        onProgress(progress) {
-          self.postMessage({
-            kind: 'progress',
-            requestId: message.requestId,
-            progress,
-          } satisfies FullResExportWorkerResponse)
-        },
-        ...(message.collectMetrics
-          ? {
-              metricContext: {
+        runExport() {
+          return runFullResolutionJpegExport({
+            capability,
+            graph: message.graph,
+            preferredRows: message.preferredRows,
+            quality: message.quality,
+            signal: controller.signal,
+            readProcessedWindow: exportSession.readProcessedWindow,
+            onProgress(progress) {
+              self.postMessage({
+                kind: 'progress',
                 requestId: message.requestId,
-                fileName: message.file.name,
-                browser: globalThis.navigator?.userAgent,
-              },
-              onMetric(metric) {
-                self.postMessage({
-                  kind: 'metric',
-                  requestId: message.requestId,
-                  metric,
-                } satisfies FullResExportWorkerResponse)
-              },
-            }
-          : {}),
+                progress,
+              } satisfies FullResExportWorkerResponse)
+            },
+            ...(message.collectMetrics
+              ? {
+                  metricContext: {
+                    requestId: message.requestId,
+                    fileName: message.file.name,
+                    browser: globalThis.navigator?.userAgent,
+                  },
+                  onMetric(metric) {
+                    self.postMessage({
+                      kind: 'metric',
+                      requestId: message.requestId,
+                      metric,
+                    } satisfies FullResExportWorkerResponse)
+                  },
+                }
+              : {}),
+          })
+        },
       })
 
       self.postMessage({
