@@ -24,7 +24,40 @@ const contextMock = vi.hoisted(() => {
   }
 
   const gl = {
+    TEXTURE_2D: 3553,
+    TEXTURE_3D: 32879,
+    TEXTURE0: 33984,
+    TEXTURE1: 33985,
+    TEXTURE_MIN_FILTER: 10241,
+    TEXTURE_MAG_FILTER: 10240,
+    TEXTURE_WRAP_S: 10242,
+    TEXTURE_WRAP_T: 10243,
+    TEXTURE_WRAP_R: 32882,
+    NEAREST: 9728,
+    CLAMP_TO_EDGE: 33071,
+    RGB8: 32849,
+    RGB: 6407,
+    UNSIGNED_BYTE: 5121,
+    FRAMEBUFFER: 36160,
+    TRIANGLE_STRIP: 5,
+    createTexture: vi.fn(() => ({})),
+    bindTexture: vi.fn(),
+    texParameteri: vi.fn(),
+    texImage3D: vi.fn(),
     deleteTexture: vi.fn(),
+    deleteFramebuffer: vi.fn(),
+    getUniformLocation: vi.fn((_program, name: string) => name),
+    bindFramebuffer: vi.fn(),
+    viewport: vi.fn(),
+    useProgram: vi.fn(),
+    activeTexture: vi.fn(),
+    uniform1i: vi.fn(),
+    uniform1f: vi.fn(),
+    uniform3fv: vi.fn(),
+    uniformMatrix3fv: vi.fn(),
+    bindVertexArray: vi.fn(),
+    drawArrays: vi.fn(),
+    finish: vi.fn(),
   }
 
   return {
@@ -32,7 +65,9 @@ const contextMock = vi.hoisted(() => {
     create3DTexture: vi.fn(() => ({}) as WebGLTexture),
     gl,
     reset() {
-      gl.deleteTexture.mockClear()
+      for (const value of Object.values(gl)) {
+        if (vi.isMockFunction(value)) value.mockClear()
+      }
       this.create3DTexture.mockReset()
       this.create3DTexture.mockReturnValue({} as WebGLTexture)
     },
@@ -147,5 +182,53 @@ describe('rawProcessingPipeline export telemetry', () => {
     expect(stats.lutRole).toBeNull()
     expect(stats.lutInputTransfer).toBeNull()
     expect(stats.lutOutputTransfer).toBeNull()
+  })
+})
+
+describe('rawProcessingPipeline render uniforms', () => {
+  it('sends decoded raw render exposure multiplier to the process shader', async () => {
+    contextMock.reset()
+    const pipeline = new RawProcessingPipeline(document.createElement('canvas'))
+    await pipeline.initialize()
+
+    pipeline.uploadImage({
+      data: new Uint16Array([1024, 1024, 1024]),
+      width: 1,
+      height: 1,
+      layout: 'rgb-u16',
+      colorSpace: 'linear-prophoto-rgb',
+      renderExposureEv: 1.5,
+      renderExposureMultiplier: Math.pow(2, 1.5),
+    })
+    pipeline.render()
+
+    expect(contextMock.gl.getUniformLocation).toHaveBeenCalledWith(
+      expect.anything(),
+      'u_rawRenderExposureMultiplier',
+    )
+    expect(contextMock.gl.uniform1f).toHaveBeenCalledWith(
+      'u_rawRenderExposureMultiplier',
+      Math.pow(2, 1.5),
+    )
+  })
+
+  it('uses identity raw render exposure for legacy display preview input', async () => {
+    contextMock.reset()
+    const pipeline = new RawProcessingPipeline(document.createElement('canvas'))
+    await pipeline.initialize()
+
+    pipeline.uploadImage({
+      data: new Float32Array(4),
+      width: 1,
+      height: 1,
+      layout: 'rgba-float32',
+      colorSpace: 'display-srgb-preview',
+    })
+    pipeline.render()
+
+    expect(contextMock.gl.uniform1f).toHaveBeenCalledWith(
+      'u_rawRenderExposureMultiplier',
+      1,
+    )
   })
 })

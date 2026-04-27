@@ -27,6 +27,8 @@ describe('raw pipeline input descriptors', () => {
         height: 1,
         layout: 'rgb-u16',
         colorSpace: 'linear-prophoto-rgb',
+        renderExposureEv: 0,
+        renderExposureMultiplier: 1,
       }),
     ).toEqual({
       inputFormat: 'uint16-rgb',

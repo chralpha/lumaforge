@@ -1,8 +1,9 @@
-import { act, render } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ProcessingParams } from '~/lib/gl/pipeline'
+import type { DecodedImage } from '~/lib/raw/decoder'
 
 import {
   createRawUploadInput,
@@ -110,6 +111,7 @@ describe('preview canvas upload descriptor', () => {
         colorSpace: 'linear-prophoto-rgb',
         width: 1,
         height: 1,
+        renderExposureEv: 0,
       }),
     ).toEqual({
       data,
@@ -117,6 +119,25 @@ describe('preview canvas upload descriptor', () => {
       colorSpace: 'linear-prophoto-rgb',
       width: 1,
       height: 1,
+      renderExposureEv: 0,
+      renderExposureMultiplier: 1,
+    })
+  })
+
+  it('passes decoded raw render exposure into WebGL upload input', () => {
+    const data = new Uint16Array([1024, 1024, 1024])
+    expect(
+      createRawUploadInput({
+        data,
+        layout: 'rgb-u16',
+        colorSpace: 'linear-prophoto-rgb',
+        width: 1,
+        height: 1,
+        renderExposureEv: 1.5,
+      }),
+    ).toMatchObject({
+      renderExposureEv: 1.5,
+      renderExposureMultiplier: Math.pow(2, 1.5),
     })
   })
 
@@ -137,6 +158,7 @@ describe('preview canvas upload descriptor', () => {
         colorSpace: 'linear-prophoto-rgb',
         width: 1,
         height: 1,
+        renderExposureEv: 0,
       }),
     ).toBeNull()
     expect(
@@ -217,6 +239,48 @@ describe('preview canvas upload descriptor', () => {
     expect(pipeline.clearImage).not.toHaveBeenCalled()
     expect(pipeline.uploadImage).toHaveBeenCalledWith(uploadInput)
     expect(setError).toHaveBeenCalledWith(null)
+  })
+
+  it('uploads decoded image render exposure through the component path', async () => {
+    const data = new Uint16Array([1024, 1024, 1024])
+    const image: DecodedImage = {
+      data,
+      width: 1,
+      height: 1,
+      channels: 3,
+      bitsPerChannel: 16,
+      layout: 'rgb-u16',
+      colorSpace: 'linear-prophoto-rgb',
+      metadata: {
+        width: 1,
+        height: 1,
+      },
+      renderExposure: {
+        ev: 1.25,
+        multiplier: Math.pow(2, 1.25),
+        source: 'image-statistics',
+      },
+    }
+
+    render(
+      createElement(PreviewCanvas, {
+        imageRef: { current: image },
+        imageVersion: 1,
+        params: defaultParams,
+        lutDataRef: { current: null },
+        lutDataVersion: 0,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(pipelineMock.instances).toHaveLength(1)
+      expect(pipelineMock.instances[0]?.uploadImage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          renderExposureEv: 1.25,
+          renderExposureMultiplier: Math.pow(2, 1.25),
+        }),
+      )
+    })
   })
 
   it('does not publish a pipeline after unmount during async initialization', async () => {

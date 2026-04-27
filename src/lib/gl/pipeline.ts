@@ -121,6 +121,8 @@ export type RawUploadInput =
       height: number
       layout: 'rgb-u16'
       colorSpace: 'linear-prophoto-rgb'
+      renderExposureEv: number
+      renderExposureMultiplier: number
     }
 
 export type RawUploadInputFormat = 'float-rgba' | 'uint16-rgb'
@@ -400,6 +402,7 @@ export class RawProcessingPipeline {
   private inputHeight = 0
   private inputUpload: RawUploadInput | null = null
   private inputFormat: RawUploadInputFormat = 'float-rgba'
+  private rawRenderExposureMultiplier = 1
   private params: ProcessingParams = { ...DEFAULT_PARAMS }
   private lutData: LUTData | null = null
   private lastImageUploadTime = 0
@@ -511,6 +514,10 @@ export class RawProcessingPipeline {
       u_lutDomainMin: gl.getUniformLocation(program, 'u_lutDomainMin'),
       u_lutDomainMax: gl.getUniformLocation(program, 'u_lutDomainMax'),
       u_intensity: gl.getUniformLocation(program, 'u_intensity'),
+      u_rawRenderExposureMultiplier: gl.getUniformLocation(
+        program,
+        'u_rawRenderExposureMultiplier',
+      ),
       u_styleKind: gl.getUniformLocation(program, 'u_styleKind'),
       u_builtinPreset: gl.getUniformLocation(program, 'u_builtinPreset'),
       u_inputToLutGamut: gl.getUniformLocation(program, 'u_inputToLutGamut'),
@@ -548,6 +555,15 @@ export class RawProcessingPipeline {
 
     this.inputUpload = input
     this.inputFormat = describeRawUploadInput(input).inputFormat
+    const rawRenderExposureMultiplier =
+      input.colorSpace === 'linear-prophoto-rgb'
+        ? input.renderExposureMultiplier
+        : 1
+    this.rawRenderExposureMultiplier =
+      typeof rawRenderExposureMultiplier === 'number' &&
+      Number.isFinite(rawRenderExposureMultiplier)
+        ? rawRenderExposureMultiplier
+        : 1
 
     // Delete old texture
     if (this.inputTexture) {
@@ -609,6 +625,7 @@ export class RawProcessingPipeline {
 
     this.inputUpload = null
     this.inputFormat = 'float-rgba'
+    this.rawRenderExposureMultiplier = 1
     this.inputWidth = 0
     this.inputHeight = 0
     this.lastImageUploadTime = 0
@@ -848,6 +865,10 @@ export class RawProcessingPipeline {
     }
 
     gl.uniform1f(processUniforms.u_intensity, params.intensity)
+    gl.uniform1f(
+      processUniforms.u_rawRenderExposureMultiplier,
+      this.rawRenderExposureMultiplier,
+    )
     gl.uniform1i(
       processUniforms.u_styleKind,
       STYLE_KIND_UNIFORMS[params.styleKind],

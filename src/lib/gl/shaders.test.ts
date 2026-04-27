@@ -284,4 +284,14 @@ describe('process shader style path', () => {
       )
     },
   )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant applies raw render exposure before style and LUT routing',
+    (_name, shader) => {
+      expect(shader).toContain('uniform float u_rawRenderExposureMultiplier')
+      expect(shader).toContain(
+        'vec3 baseSceneLinearProPhoto = max(readInputSceneLinearProPhoto(v_texCoord) * u_rawRenderExposureMultiplier, vec3(0.0))',
+      )
+    },
+  )
 })

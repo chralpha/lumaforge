@@ -36,6 +36,7 @@ uniform bool u_useLut;
 uniform vec3 u_lutDomainMin;
 uniform vec3 u_lutDomainMax;
 uniform float u_intensity;
+uniform float u_rawRenderExposureMultiplier;
 uniform int u_styleKind;
 uniform int u_builtinPreset;
 uniform mat3 u_inputToLutGamut;
@@ -513,7 +514,7 @@ vec3 applyCombinedOutputLut(vec3 sceneLinearProPhoto) {
 }
 
 void main() {
-  vec3 baseSceneLinearProPhoto = max(readInputSceneLinearProPhoto(v_texCoord), vec3(0.0));
+  vec3 baseSceneLinearProPhoto = max(readInputSceneLinearProPhoto(v_texCoord) * u_rawRenderExposureMultiplier, vec3(0.0));
   vec3 baseDisplayLinear = linearProPhotoToLinearSrgb(baseSceneLinearProPhoto);
   vec3 baseDisplayColor = linearToSrgb(baseDisplayLinear);
   vec3 styledColor = baseDisplayColor;

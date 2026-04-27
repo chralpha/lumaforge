@@ -150,6 +150,8 @@ function createRawInput(width: number, height: number): RawUploadInput {
     height,
     layout: 'rgb-u16',
     colorSpace: 'linear-prophoto-rgb',
+    renderExposureEv: 0,
+    renderExposureMultiplier: 1,
   }
 }
 

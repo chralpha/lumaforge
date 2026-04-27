@@ -35,12 +35,14 @@ export function createRawUploadInput({
   colorSpace,
   width,
   height,
+  renderExposureEv,
 }: {
   data: Float32Array | Uint16Array | null
   layout: RawUploadInput['layout'] | null
   colorSpace: RawUploadInput['colorSpace'] | null
   width: number
   height: number
+  renderExposureEv?: number | null
 }): RawUploadInput | null {
   if (!data || !layout || !colorSpace) {
     return null
@@ -48,12 +50,20 @@ export function createRawUploadInput({
 
   if (layout === 'rgb-u16') {
     if (data instanceof Uint16Array && colorSpace === 'linear-prophoto-rgb') {
+      const ev =
+        typeof renderExposureEv === 'number' &&
+        Number.isFinite(renderExposureEv)
+          ? renderExposureEv
+          : 0
+
       return {
         data,
         width,
         height,
         layout,
         colorSpace,
+        renderExposureEv: ev,
+        renderExposureMultiplier: Math.pow(2, ev),
       }
     }
 
@@ -259,6 +269,7 @@ export function PreviewCanvas({
       colorSpace: image?.colorSpace ?? null,
       width: image?.width ?? 0,
       height: image?.height ?? 0,
+      renderExposureEv: image?.renderExposure.ev ?? 0,
     })
 
     syncRawUploadInput({
@@ -293,6 +304,7 @@ export function PreviewCanvas({
       colorSpace: image?.colorSpace ?? null,
       width: image?.width ?? 0,
       height: image?.height ?? 0,
+      renderExposureEv: image?.renderExposure.ev ?? 0,
     })
     if (!uploadInput) return
 
@@ -315,6 +327,7 @@ export function PreviewCanvas({
       colorSpace: image?.colorSpace ?? null,
       width: image?.width ?? 0,
       height: image?.height ?? 0,
+      renderExposureEv: image?.renderExposure.ev ?? 0,
     })
     if (!uploadInput) return
 
