@@ -64,6 +64,7 @@ Key constraints:
 - A LUT input contract never implies the LUT output contract. For example, a LUT that expects V-Gamut/V-Log input may output V-Log, scene-linear values, or a display-referred Rec.709 image. The output gamut, transfer, range, and role must be declared independently or selected explicitly.
 - Filename, title, and free-form comments are not color-science authority. They may be shown as hints in the UI, but rendering/export decisions must come from structured trusted metadata or explicit user selection. A persisted user-selected contract may be reapplied by stable LUT content identity, but the content identity is not authority by itself.
 - LumaForge's current browser photo export target is Rec.709/sRGB. Technical or combined LUTs that already output Rec.709/display-encoded values must be decoded according to the declared output transfer before final sRGB encoding, rather than receiving another display gamma pass.
+- LibRaw's strict 16-bit Linear ProPhoto output is a technical scene-linear handoff, not a complete default photo rendering. Camera/system previews normally include exposure normalization, a tone curve, and vendor style choices. LumaForge must add its own explicit, deterministic RAW render exposure stage instead of enabling LibRaw auto-brightening or display gamma in the scene-referred core.
 
 ## 3. Color-Science Basis
 
@@ -335,6 +336,7 @@ Audit result:
 - `outputColor: 4` is LibRaw's ProPhoto output path, which matches the adapter label.
 - `useCameraWb: true` is reasonable for Phase 1 preview, but future color-critical workflows should allow explicit illuminant/profile control instead of always trusting as-shot or camera WB.
 - `halfSize: true` in quick preview is acceptable for speed, while high-quality mode uses full size.
+- This setting intentionally bypasses LibRaw's output-stage auto-brightening and display gamma behavior. LibRaw discussions describe auto-ETTR/auto-brightening as output-stage behavior during conversion from linear internal representation to gamma-corrected output, and manual brightness control as a separate output parameter path.[^libraw-auto-ettr][^libraw-manual-brightness] Therefore, matching a system RAW preview requires a later explicit render-exposure decision, not changing the LibRaw handoff away from linear scene data.
 
 This path is technically coherent for:
 
@@ -344,7 +346,36 @@ Camera RAW -> LibRaw RGB16 Linear ProPhoto -> browser preview
 
 It should not yet be marketed as a camera-specific IDT or full ACES input pipeline.
 
-### 6.2 Display Transform and Built-In Looks
+### 6.2 Default RAW Render Exposure
+
+The current linear handoff can look darker than operating-system RAW previews because those previews are display renderings, not neutral scene-linear values. They often come from an embedded JPEG or from a vendor/system RAW renderer that has already applied exposure normalization, picture-style tone curves, local contrast, highlight handling, and display encoding. A linear ProPhoto buffer with LibRaw auto-brightening disabled should preserve scene ratios, but it is not expected to have the same midtone placement as a camera JPEG.
+
+The corrected LumaForge pipeline should keep LibRaw configured for deterministic Linear ProPhoto, then insert an explicit render-exposure stage owned by LumaForge:
+
+```text
+LibRaw RGB16 Linear ProPhoto
+  -> deterministic RAW render exposure multiplier
+  -> LUT input gamut / transfer preparation
+  -> LUT or built-in style
+  -> declared LUT output handling
+  -> Rec.709/sRGB photo output
+```
+
+Requirements:
+
+- Do not turn off `noAutoBright` or switch LibRaw `gamm` back to display gamma in the scene-referred path. That would make preview/export depend on LibRaw output heuristics and would contaminate camera-log LUT input preparation.
+- Prefer structured RAW metadata when it exists. For DNG, LibRaw exposes `imgdata.color.dng_levels.baseline_exposure`; DNG readers and LibRaw discussions use baseline exposure as an explicit scale needed to make DNG intensities comparable across files.[^libraw-baseline-exposure]
+- For files without reliable baseline exposure, compute one deterministic fallback exposure from the opened image, using a downsampled or preview-sized luminance statistic. The result must be stored with the decoded RAW session and reused by preview and full-resolution export. It must not be recomputed independently per export strip.
+- The render exposure is a scene-linear multiplier applied before LUT input gamut/log encoding. This aligns the RAW image into a practical default display/render domain while preserving the LUT contract.
+- Any future tone curve or highlight rolloff must be a named LumaForge render-intent step with preview/export parity. It must not be hidden inside LibRaw settings or inferred from the file name.
+
+Audit result:
+
+- The current strict LibRaw settings are still correct for the color-science handoff.
+- The observed dark appearance is an expected missing render-intent stage, not evidence that the LUT input/output contract design is wrong.
+- The next implementation should add a small, explicit default exposure resolver before broadening into a full photographic tone-mapping pipeline.
+
+### 6.3 Display Transform and Built-In Looks
 
 Relevant files:
 
@@ -360,7 +391,7 @@ Audit result:
 - Built-in looks currently operate after conversion to display sRGB semantics. They are display-referred style looks, not scene-referred ACES LMTs.
 - This is acceptable for a Phase 1 local editor if the UI language and documentation do not imply full color-managed finishing.
 
-### 6.3 Custom LUT Path
+### 6.4 Custom LUT Path
 
 Relevant files:
 
@@ -454,7 +485,7 @@ Display-referred LUT:
     -> LUT
 ```
 
-### 6.4 Log Encoding Functions
+### 6.5 Log Encoding Functions
 
 Relevant file:
 
@@ -475,7 +506,7 @@ Audit result:
 
 This matters even though LogC4 is not yet wired into the custom LUT path. Incorrect log math would make any future LogC4/AWG4 LUT support unusable.
 
-### 6.5 Export Path
+### 6.6 Export Path
 
 Relevant files:
 
@@ -524,7 +555,21 @@ Add explicit LUT metadata instead of relying on filename inference:
 - Whether the output contract is complete. Same-space creative output must still be explicit by setting the output gamut, transfer, and range equal to the input side. Otherwise preview and export should fail closed until the output contract is known.
 - Whether the LUT expects scene-referred or display-referred values.
 
-### 7.3 Scene-Referred LUT Branch
+### 7.3 Default RAW Render Exposure
+
+Add an explicit default RAW render exposure resolver before scene-referred LUT preparation:
+
+- Use DNG `baseline_exposure` when LibRaw exposes a finite value.
+- Otherwise estimate a stable EV offset from a downsampled Linear ProPhoto luminance statistic.
+- Clamp the automatic EV range to avoid hiding badly underexposed/overexposed captures.
+- Persist the resolved EV in the decoded image/session state and pass it into both WebGL preview and full-resolution export graph construction.
+- Apply the multiplier before `gamut-to-lut-input` and before no-LUT display conversion.
+- Surface the source in telemetry: `dng-baseline`, `image-statistics`, `user`, or `identity`.
+- Keep manual user exposure adjustment as a separate additive EV on top of the automatic base; do not bake it into LibRaw settings.
+
+This is the minimum step needed to make the strict Linear ProPhoto handoff visually usable while preserving scene-referred LUT correctness.
+
+### 7.4 Scene-Referred LUT Branch
 
 Add a second shader path for scene-referred creative LUTs:
 
@@ -545,11 +590,11 @@ At minimum, useful targets would be:
 - RWG / Log3G10
 - ACES AP1 / ACEScct
 
-### 7.4 ACES / OCIO Option
+### 7.5 ACES / OCIO Option
 
 For a professional pipeline, add an OCIO-backed or ACES-compatible transform graph rather than hard-coding every conversion in GLSL. The local shader path can remain for fast browser preview, but the transform graph should become declarative and testable.
 
-### 7.5 Validation Assets
+### 7.6 Validation Assets
 
 Add golden-image and numeric validation using:
 
@@ -558,6 +603,7 @@ Add golden-image and numeric validation using:
 - Macbeth/ColorChecker synthetic references.
 - Known LogC4, Log3G10, V-Log, and ACEScct reference points.
 - Round-trip tests for RGB primary matrices and log encodings.
+- RAW render exposure tests covering DNG baseline exposure, non-DNG statistical fallback, preview/export parity, and export-strip consistency.
 
 ## 8. Final Conclusion
 
@@ -582,7 +628,7 @@ normalized into the same color semantics before a creative LUT is applied.
 The remaining differences are explainable residuals, not unrepeatable brand magic.
 ```
 
-As of the original 2026-04-24 audit, LumaForge was correct for its Phase 1 preview scope. The RAW runtime produced a coherent Linear ProPhoto RGB input, and the WebGL preview path performed a reasonable display transform. The successor 2026-04-27 correction makes the custom LUT contract boundary stricter: non-display LUTs require declared input and output contracts, filename/title/free-form comments are suggestions only, and final browser photo export remains Rec.709/sRGB with declared LUT output transfer decoding before final sRGB encoding.
+As of the original 2026-04-24 audit, LumaForge was correct for its Phase 1 preview scope. The RAW runtime produced a coherent Linear ProPhoto RGB input, and the WebGL preview path performed a reasonable display transform. The successor 2026-04-27 LUT correction makes the custom LUT contract boundary stricter: non-display LUTs require declared input and output contracts, filename/title/free-form comments are suggestions only, and final browser photo export remains Rec.709/sRGB with declared LUT output transfer decoding before final sRGB encoding. The 2026-04-27 render-exposure correction adds one more boundary: LibRaw strict linear output remains the handoff, but LumaForge needs an explicit default RAW render exposure stage so neutral scene-linear values are not mistaken for a finished system-style RAW preview.
 
 ## References
 
@@ -609,5 +655,11 @@ As of the original 2026-04-24 audit, LumaForge was correct for its Phase 1 previ
 [^panasonic-vlog]: Panasonic, "VARICAM V-Log/V-Gamut Reference Manual." <https://pro-av.panasonic.net/en/cinema_camera_varicam_eva/support/pdf/VARICAM_V-Log_V-Gamut.pdf>
 
 [^libraw-params]: LibRaw, "libraw_output_params_t." <https://www.libraw.org/docs/API-datastruct.html>
+
+[^libraw-auto-ettr]: LibRaw forum, "preserving DNG brightness on conversion to RGB." <https://www.libraw.org/node/2740>
+
+[^libraw-manual-brightness]: LibRaw forum, "Inverting raw_image and getting magenta output." <https://www.libraw.org/node/2557>
+
+[^libraw-baseline-exposure]: LibRaw forum, "image scaled to 65535 even with no_auto_bright." <https://www.libraw.org/node/2706>
 
 [^luther-limit]: J. Holm, M. Rosen, and T. Sperling, "A Luther-like limit for digital still cameras." IS&T Color and Imaging Conference. <https://library.imaging.org/cic/articles/23/1/art00029>
