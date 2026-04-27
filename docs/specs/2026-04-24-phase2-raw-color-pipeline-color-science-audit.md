@@ -61,6 +61,9 @@ Key constraints:
 - Every LUT must either declare its input gamut, input transfer function, output semantics, and intended domain, or require explicit user selection of those properties.
 - Creative LUTs and output transforms should be separated. If a `.cube` LUT contains both the look and a Rec.709 output transform, it should be treated as a combined/output LUT, not as a pure scene-referred creative LUT.
 - Output transforms must define display primaries, white point, EOTF, viewing assumptions, tone mapping, and gamut mapping.
+- A LUT input contract never implies the LUT output contract. For example, a LUT that expects V-Gamut/V-Log input may output V-Log, scene-linear values, or a display-referred Rec.709 image. The output gamut, transfer, range, and role must be declared independently or selected explicitly.
+- Filename, title, and free-form comments are not color-science authority. They may be shown as hints in the UI, but rendering/export decisions must come from structured trusted metadata or explicit user selection. A persisted user-selected contract may be reapplied by stable LUT content identity, but the content identity is not authority by itself.
+- LumaForge's current browser photo export target is Rec.709/sRGB. Technical or combined LUTs that already output Rec.709/display-encoded values must be decoded according to the declared output transfer before final sRGB encoding, rather than receiving another display gamma pass.
 
 ## 3. Color-Science Basis
 
@@ -500,7 +503,7 @@ Avoid:
 
 ### 7.2 LUT Metadata and Import Controls
 
-Add explicit LUT metadata instead of relying only on filename inference:
+Add explicit LUT metadata instead of relying on filename inference:
 
 - Input gamut.
 - Input transfer function.
@@ -508,6 +511,8 @@ Add explicit LUT metadata instead of relying only on filename inference:
 - LUT role: creative, display look, output transform, or combined.
 - Domain min/max.
 - Whether the LUT expects legal/video range or full range.
+- Metadata source: structured trusted metadata, explicit user selection, or a persisted user-selected contract keyed by stable LUT content identity. Filename, title, and comment strings may populate suggestions only; they must not silently resolve the render/export profile.
+- Whether the output contract is complete. Same-space creative output must still be explicit by setting the output gamut, transfer, and range equal to the input side. Otherwise preview and export should fail closed until the output contract is known.
 - Whether the LUT expects scene-referred or display-referred values.
 
 ### 7.3 Scene-Referred LUT Branch

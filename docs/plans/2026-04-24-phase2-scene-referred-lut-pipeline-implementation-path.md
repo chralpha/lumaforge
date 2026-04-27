@@ -2,7 +2,9 @@
 
 Date: 2026-04-24
 
-Related audit: [`docs/specs/2026-04-24-raw-color-pipeline-color-science-audit.md`](../specs/2026-04-24-raw-color-pipeline-color-science-audit.md)
+Related audit: [`docs/specs/2026-04-24-phase2-raw-color-pipeline-color-science-audit.md`](../specs/2026-04-24-phase2-raw-color-pipeline-color-science-audit.md)
+
+Successor correction: [`docs/plans/2026-04-27-phase2-lut-output-contract-correction-plan.md`](2026-04-27-phase2-lut-output-contract-correction-plan.md) supersedes this plan's LUT profile resolution details where they allow filename-based decisions, treat the profile catalog as an automatic LUT decision table, or infer a LUT output transfer from its input transfer.
 
 ## 1. Goal
 
@@ -18,7 +20,7 @@ N camera RAW sources
 The user-facing workflow should remain simple:
 
 ```text
-Open RAW photo -> choose style LUT -> choose or confirm LUT input profile -> export photo
+Open RAW photo -> choose style LUT -> choose or confirm LUT input/output contract -> export photo
 ```
 
 The internal pipeline must be color-science correct:
@@ -122,7 +124,7 @@ The important distinction is:
 
 ## 5. Required LUT Profile Catalog
 
-Phase 2 should ship a built-in searchable catalog. Unknown LUTs should open the selector with filename-based suggestions, but the user must be able to override them.
+Phase 2 should ship a built-in searchable catalog of selectable input/output profiles. The successor correction plan narrows this section: the catalog is a user-selection surface, not an automatic LUT resolver. Unknown LUTs may display low-confidence hints, but filename/title/comment hints cannot silently choose a render/export contract.
 
 ### 5.1 Tier 1: Must Ship in Phase 2
 
@@ -403,7 +405,7 @@ LUT output: Rec.709 display
 For unknown LUTs:
 
 ```text
-This LUT does not declare its color input. Choose the camera/log space it was made for.
+This LUT does not declare its color contract. Choose what it expects and what it outputs.
 ```
 
 ### 7.6 GPU Shader Pipeline
@@ -648,7 +650,7 @@ This LUT outputs: Rec.709 photo/display
 For unknown LUTs:
 
 ```text
-Choose what the LUT was made for.
+Choose what the LUT expects and what it outputs.
 ```
 
 That single choice is the key to N-to-N compatibility.
