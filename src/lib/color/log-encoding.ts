@@ -26,6 +26,7 @@ export type TransferFunctionId =
   | 'acescc'
   | 'acescct'
   | 'srgb'
+  | 'bt709'
   | 'gamma24'
   | 'l-log'
   | 'linear'
@@ -74,6 +75,7 @@ const TRANSFER_SOURCE_URLS: Record<TransferFunctionId, string> = {
   acescc: 'https://docs.acescentral.com/encodings/acescc/',
   acescct: 'https://docs.acescentral.com/encodings/acescct/',
   srgb: 'https://www.w3.org/Graphics/Color/srgb.pdf',
+  bt709: 'https://www.itu.int/rec/R-REC-BT.709',
   gamma24:
     'https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.1886-0-201103-I!!PDF-E.pdf',
   'l-log': 'https://leica-camera.com/',
@@ -471,6 +473,20 @@ export function srgbDecode(encoded: number): number {
   return Math.pow((encoded + 0.055) / 1.055, 2.4)
 }
 
+export function bt709Encode(linear: number): number {
+  const clamped = Math.max(linear, 0)
+  return clamped <= 0.018
+    ? 4.5 * clamped
+    : 1.099 * Math.pow(clamped, 0.45) - 0.099
+}
+
+export function bt709Decode(encoded: number): number {
+  const clamped = Math.max(encoded, 0)
+  return clamped <= 0.081
+    ? clamped / 4.5
+    : Math.pow((clamped + 0.099) / 1.099, 1 / 0.45)
+}
+
 export function gamma24Encode(linear: number): number {
   return Math.pow(Math.max(linear, 0), 1 / 2.4)
 }
@@ -507,6 +523,8 @@ export const LOG_FUNCTIONS: Record<
   ACEScc: { encode: acesccEncode, decode: acesccDecode },
   ACEScct: { encode: acescctEncode, decode: acescctDecode },
   sRGB: { encode: srgbEncode, decode: srgbDecode },
+  'BT.709': { encode: bt709Encode, decode: bt709Decode },
+  'Rec.709': { encode: bt709Encode, decode: bt709Decode },
   'Gamma 2.4': { encode: gamma24Encode, decode: gamma24Decode },
   'Rec.709 Gamma 2.4': { encode: gamma24Encode, decode: gamma24Decode },
   'L-Log': { encode: lLogEncode, decode: lLogDecode },
@@ -724,6 +742,19 @@ export const TRANSFER_FUNCTIONS: Record<
     referencePoints: [
       referencePoint('black', 0, 0),
       referencePoint('linear segment threshold', 0.0031308, 0.04045),
+    ],
+  },
+  bt709: {
+    id: 'bt709',
+    label: 'BT.709',
+    encode: bt709Encode,
+    decode: bt709Decode,
+    aliases: ['BT.709', 'Rec.709', 'Rec709', 'ITU-R BT.709'],
+    source: TRANSFER_SOURCE_URLS.bt709,
+    referencePoints: [
+      referencePoint('black', 0, 0),
+      referencePoint('linear segment threshold', 0.018, 0.081),
+      referencePoint('18% gray sanity', 0.18, bt709Encode(0.18)),
     ],
   },
   gamma24: {

@@ -5,6 +5,8 @@ import {
   acesccEncode,
   acescctDecode,
   acescctEncode,
+  bt709Decode,
+  bt709Encode,
   canonLog2Decode,
   canonLog2Encode,
   canonLog3Decode,
@@ -52,6 +54,7 @@ describe('transfer function registry', () => {
     'acescc',
     'acescct',
     'srgb',
+    'bt709',
     'gamma24',
   ] as const
 
@@ -208,5 +211,14 @@ describe('display and ACES transfer functions', () => {
 
     expect(gamma24Encode(0.18)).toBeCloseTo(Math.pow(0.18, 1 / 2.4), 8)
     expect(gamma24Decode(gamma24Encode(0.18))).toBeCloseTo(0.18, 8)
+  })
+
+  it('encodes and decodes BT.709 display transfer separately from sRGB and gamma 2.4', () => {
+    expect(bt709Encode(0)).toBe(0)
+    expect(bt709Encode(0.018)).toBeCloseTo(0.081, 6)
+    expect(bt709Decode(0.081)).toBeCloseTo(0.018, 6)
+    expect(bt709Decode(bt709Encode(0.18))).toBeCloseTo(0.18, 6)
+    expect(bt709Encode(0.18)).not.toBeCloseTo(srgbEncode(0.18), 4)
+    expect(bt709Encode(0.18)).not.toBeCloseTo(gamma24Encode(0.18), 4)
   })
 })

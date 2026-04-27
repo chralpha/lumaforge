@@ -59,24 +59,25 @@ const int LUT_RANGE_FULL = 0;
 const int LUT_RANGE_LEGAL = 1;
 const int LUT_RANGE_UNKNOWN = 2;
 const int TRANSFER_SRGB = 0;
-const int TRANSFER_GAMMA24 = 1;
-const int TRANSFER_S_LOG2 = 2;
-const int TRANSFER_S_LOG3 = 3;
-const int TRANSFER_CANON_LOG = 4;
-const int TRANSFER_CANON_LOG2 = 5;
-const int TRANSFER_CANON_LOG3 = 6;
-const int TRANSFER_N_LOG = 7;
-const int TRANSFER_F_LOG = 8;
-const int TRANSFER_F_LOG2 = 9;
-const int TRANSFER_F_LOG2C = 10;
-const int TRANSFER_V_LOG = 11;
-const int TRANSFER_LOGC3 = 12;
-const int TRANSFER_LOGC4 = 13;
-const int TRANSFER_LOG3G10 = 14;
-const int TRANSFER_ACESCC = 15;
-const int TRANSFER_ACESCCT = 16;
-const int TRANSFER_L_LOG = 17;
-const int TRANSFER_LINEAR = 18;
+const int TRANSFER_BT709 = 1;
+const int TRANSFER_GAMMA24 = 2;
+const int TRANSFER_S_LOG2 = 3;
+const int TRANSFER_S_LOG3 = 4;
+const int TRANSFER_CANON_LOG = 5;
+const int TRANSFER_CANON_LOG2 = 6;
+const int TRANSFER_CANON_LOG3 = 7;
+const int TRANSFER_N_LOG = 8;
+const int TRANSFER_F_LOG = 9;
+const int TRANSFER_F_LOG2 = 10;
+const int TRANSFER_F_LOG2C = 11;
+const int TRANSFER_V_LOG = 12;
+const int TRANSFER_LOGC3 = 13;
+const int TRANSFER_LOGC4 = 14;
+const int TRANSFER_LOG3G10 = 15;
+const int TRANSFER_ACESCC = 16;
+const int TRANSFER_ACESCCT = 17;
+const int TRANSFER_L_LOG = 18;
+const int TRANSFER_LINEAR = 19;
 
 vec3 clamp01(vec3 color) {
   return clamp(color, 0.0, 1.0);
@@ -96,6 +97,22 @@ vec3 linearToSrgb(vec3 color) {
   vec3 higher = 1.055 * pow(color, vec3(1.0 / 2.4)) - 0.055;
   vec3 lowerMix = 1.0 - step(vec3(0.0031308), color);
   return clamp01(mix(higher, lower, lowerMix));
+}
+
+float encodeBT709(float linearValue) {
+  float value = max(linearValue, 0.0);
+  if (value <= 0.018) {
+    return 4.5 * value;
+  }
+  return 1.099 * pow(value, 0.45) - 0.099;
+}
+
+float decodeBT709(float encodedValue) {
+  float value = max(encodedValue, 0.0);
+  if (value <= 0.081) {
+    return value / 4.5;
+  }
+  return pow((value + 0.099) / 1.099, 1.0 / 0.45);
 }
 
 float luminance709(vec3 color) {
@@ -389,6 +406,7 @@ float decodeLLog(float encodedValue) {
 float encodeTransferChannel(float linearValue, int transfer) {
   if (transfer == TRANSFER_LINEAR) return linearValue;
   if (transfer == TRANSFER_SRGB) return linearToSrgb(vec3(linearValue)).r;
+  if (transfer == TRANSFER_BT709) return encodeBT709(linearValue);
   if (transfer == TRANSFER_GAMMA24) return pow(max(linearValue, 0.0), 1.0 / 2.4);
   if (transfer == TRANSFER_S_LOG2) return encodeSLog2(linearValue);
   if (transfer == TRANSFER_S_LOG3) return encodeSLog3(linearValue);
@@ -412,6 +430,7 @@ float encodeTransferChannel(float linearValue, int transfer) {
 float decodeTransferChannel(float encodedValue, int transfer) {
   if (transfer == TRANSFER_LINEAR) return encodedValue;
   if (transfer == TRANSFER_SRGB) return srgbToLinear(vec3(encodedValue)).r;
+  if (transfer == TRANSFER_BT709) return decodeBT709(encodedValue);
   if (transfer == TRANSFER_GAMMA24) return pow(max(encodedValue, 0.0), 2.4);
   if (transfer == TRANSFER_S_LOG2) return decodeSLog2(encodedValue);
   if (transfer == TRANSFER_S_LOG3) return decodeSLog3(encodedValue);

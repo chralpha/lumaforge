@@ -97,6 +97,7 @@ describe('process shader style path', () => {
     (_name, shader) => {
       for (const transferConst of [
         'TRANSFER_SRGB',
+        'TRANSFER_BT709',
         'TRANSFER_GAMMA24',
         'TRANSFER_S_LOG2',
         'TRANSFER_S_LOG3',
@@ -134,7 +135,7 @@ describe('process shader style path', () => {
   it.each(PROCESS_SHADER_VARIANTS)(
     '%s variant dispatches L-Log and clamps N-Log decode to avoid NaN',
     (_name, shader) => {
-      expect(shader).toContain('const int TRANSFER_L_LOG = 17')
+      expect(shader).toContain('const int TRANSFER_L_LOG = 18')
       expect(shader).toContain('float encodeLLog(float linearValue)')
       expect(shader).toContain('float decodeLLog(float encodedValue)')
       expect(shader).toContain(
@@ -156,12 +157,29 @@ describe('process shader style path', () => {
   it.each(PROCESS_SHADER_VARIANTS)(
     '%s variant treats linear transfer as an explicit no-op',
     (_name, shader) => {
-      expect(shader).toContain('const int TRANSFER_LINEAR = 18')
+      expect(shader).toContain('const int TRANSFER_LINEAR = 19')
       expect(shader).toContain(
         'if (transfer == TRANSFER_LINEAR) return linearValue',
       )
       expect(shader).toContain(
         'if (transfer == TRANSFER_LINEAR) return encodedValue',
+      )
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant dispatches BT.709 separately from sRGB and gamma 2.4',
+    (_name, shader) => {
+      expect(shader).toContain('const int TRANSFER_SRGB = 0')
+      expect(shader).toContain('const int TRANSFER_BT709 = 1')
+      expect(shader).toContain('const int TRANSFER_GAMMA24 = 2')
+      expect(shader).toContain('float encodeBT709(float linearValue)')
+      expect(shader).toContain('float decodeBT709(float encodedValue)')
+      expect(shader).toContain(
+        'if (transfer == TRANSFER_BT709) return encodeBT709(linearValue)',
+      )
+      expect(shader).toContain(
+        'if (transfer == TRANSFER_BT709) return decodeBT709(encodedValue)',
       )
     },
   )
