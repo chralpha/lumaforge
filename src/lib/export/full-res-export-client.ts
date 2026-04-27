@@ -1,5 +1,6 @@
 import type { ExportColorGraphDescriptor } from './color-graph'
 import type { FullResolutionExportProgress } from './full-res-export'
+import type { ExportPerfMetric } from './perf/export-metrics'
 import { normalizePreferredStripRows } from './strip-scheduler'
 
 export type FullResExportWorkerStartMessage = {
@@ -9,6 +10,7 @@ export type FullResExportWorkerStartMessage = {
   graph: ExportColorGraphDescriptor
   preferredRows?: number
   quality?: number
+  collectMetrics: boolean
 }
 
 export type FullResExportWorkerCancelMessage = {
@@ -38,10 +40,17 @@ export type FullResExportWorkerErrorMessage = {
   message: string
 }
 
+export type FullResExportWorkerMetricMessage = {
+  kind: 'metric'
+  requestId: string
+  metric: ExportPerfMetric
+}
+
 export type FullResExportWorkerResponse =
   | FullResExportWorkerProgressMessage
   | FullResExportWorkerSuccessMessage
   | FullResExportWorkerErrorMessage
+  | FullResExportWorkerMetricMessage
 
 export type RunFullResolutionJpegExportInWorkerInput = {
   file: File
@@ -50,12 +59,14 @@ export type RunFullResolutionJpegExportInWorkerInput = {
   quality?: number
   signal?: AbortSignal
   onProgress?: (progress: FullResolutionExportProgress) => void
+  onMetric?: (metric: ExportPerfMetric) => void
 }
 
 type PendingRequest = {
   resolve: (value: Blob) => void
   reject: (reason?: unknown) => void
   onProgress?: (progress: FullResolutionExportProgress) => void
+  onMetric?: (metric: ExportPerfMetric) => void
   cleanup: () => void
 }
 
@@ -137,6 +148,11 @@ export class FullResolutionExportWorkerClient {
 
       if (response.kind === 'progress') {
         pending.onProgress?.(response.progress)
+        return
+      }
+
+      if (response.kind === 'metric') {
+        pending.onMetric?.(response.metric)
         return
       }
 
@@ -229,6 +245,7 @@ export class FullResolutionExportWorkerClient {
         resolve,
         reject,
         onProgress: input.onProgress,
+        onMetric: input.onMetric,
         cleanup,
       })
 
@@ -243,6 +260,7 @@ export class FullResolutionExportWorkerClient {
           graph: input.graph,
           preferredRows,
           quality: input.quality,
+          collectMetrics: Boolean(input.onMetric),
         } satisfies FullResExportWorkerStartMessage)
       } catch (error) {
         this.rejectPending(createWorkerPostError(error))

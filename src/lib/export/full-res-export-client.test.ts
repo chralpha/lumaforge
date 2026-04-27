@@ -145,6 +145,88 @@ describe('fullResolutionExportWorkerClient', () => {
     )
   })
 
+  it('forwards worker metric messages to the caller', async () => {
+    const worker = new FakeWorker()
+    const client = new FullResolutionExportWorkerClient(
+      () => worker as unknown as Worker,
+    )
+    const metrics: unknown[] = []
+    const run = client.run({
+      file: new File([new Uint8Array([1])], 'sample.RAF'),
+      graph: supportedGraph,
+      onMetric(metric) {
+        metrics.push(metric)
+      },
+    })
+
+    const start = worker.requests[0]!
+    if (start.kind !== 'start') {
+      throw new Error('Expected a start request.')
+    }
+    const metric = {
+      requestId: start.requestId,
+      kind: 'summary' as const,
+      width: 4,
+      height: 4,
+      megapixels: 0,
+      timestamp: '2026-04-27T00:00:00.000Z',
+      stripRows: 4,
+      retries: 0,
+      concurrency: 1,
+      totalMs: 12,
+      outputBytes: 128,
+    }
+    expect(start.collectMetrics).toBe(true)
+    worker.emit({
+      kind: 'metric',
+      requestId: `${start.requestId}-stale`,
+      metric: {
+        ...metric,
+        requestId: `${start.requestId}-stale`,
+      },
+    })
+    worker.emit({
+      kind: 'metric',
+      requestId: start.requestId,
+      metric,
+    })
+    worker.emit({
+      kind: 'success',
+      requestId: start.requestId,
+      blob: new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+    })
+
+    await expect(run).resolves.toHaveProperty('type', 'image/jpeg')
+    expect(metrics).toEqual([metric])
+    client.dispose()
+  })
+
+  it('does not opt into worker metrics when no metric callback is provided', async () => {
+    const worker = new FakeWorker()
+    const client = new FullResolutionExportWorkerClient(
+      () => worker as unknown as Worker,
+    )
+
+    const run = client.run({
+      file: new File([new Uint8Array([1])], 'sample.RAF'),
+      graph: supportedGraph,
+    })
+
+    const start = worker.requests[0]!
+    if (start.kind !== 'start') {
+      throw new Error('Expected a start request.')
+    }
+    expect(start.collectMetrics).toBe(false)
+    worker.emit({
+      kind: 'success',
+      requestId: start.requestId,
+      blob: new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+    })
+
+    await expect(run).resolves.toHaveProperty('type', 'image/jpeg')
+    client.dispose()
+  })
+
   it('rejects run() after dispose without spawning a worker', async () => {
     const workerFactory = vi.fn(() => new FakeWorker() as unknown as Worker)
     const client = new FullResolutionExportWorkerClient(workerFactory)

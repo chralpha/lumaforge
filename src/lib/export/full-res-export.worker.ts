@@ -52,6 +52,22 @@ async function handleStart(
             progress,
           } satisfies FullResExportWorkerResponse)
         },
+        ...(message.collectMetrics
+          ? {
+              metricContext: {
+                requestId: message.requestId,
+                fileName: message.file.name,
+                browser: globalThis.navigator?.userAgent,
+              },
+              onMetric(metric) {
+                self.postMessage({
+                  kind: 'metric',
+                  requestId: message.requestId,
+                  metric,
+                } satisfies FullResExportWorkerResponse)
+              },
+            }
+          : {}),
       })
 
       self.postMessage({
