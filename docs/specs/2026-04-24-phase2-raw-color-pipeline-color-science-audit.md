@@ -350,30 +350,34 @@ It should not yet be marketed as a camera-specific IDT or full ACES input pipeli
 
 The current linear handoff can look darker than operating-system RAW previews because those previews are display renderings, not neutral scene-linear values. They often come from an embedded JPEG or from a vendor/system RAW renderer that has already applied exposure normalization, picture-style tone curves, local contrast, highlight handling, and display encoding. A linear ProPhoto buffer with LibRaw auto-brightening disabled should preserve scene ratios, but it is not expected to have the same midtone placement as a camera JPEG.
 
-The corrected LumaForge pipeline should keep LibRaw configured for deterministic Linear ProPhoto, then insert an explicit render-exposure stage owned by LumaForge:
+The implemented LumaForge pipeline keeps LibRaw configured for deterministic Linear ProPhoto, then inserts an explicit render-exposure stage owned by LumaForge:
 
 ```text
 LibRaw RGB16 Linear ProPhoto
-  -> deterministic RAW render exposure multiplier
-  -> LUT input gamut / transfer preparation
+  -> resolve decoded RawRenderExposure
+     (finite DNG baseline exposure or bounded image-statistics fallback)
+  -> apply scene-linear RAW render exposure multiplier
+  -> LUT input gamut / transfer preparation or no-LUT display conversion
   -> LUT or built-in style
   -> declared LUT output handling
   -> Rec.709/sRGB photo output
 ```
 
-Requirements:
+Implemented behavior:
 
 - Do not turn off `noAutoBright` or switch LibRaw `gamm` back to display gamma in the scene-referred path. That would make preview/export depend on LibRaw output heuristics and would contaminate camera-log LUT input preparation.
-- Prefer structured RAW metadata when it exists. For DNG, LibRaw exposes `imgdata.color.dng_levels.baseline_exposure`; DNG readers and LibRaw discussions use baseline exposure as an explicit scale needed to make DNG intensities comparable across files.[^libraw-baseline-exposure]
-- For files without reliable baseline exposure, compute one deterministic fallback exposure from the opened image, using a downsampled or preview-sized luminance statistic. The result must be stored with the decoded RAW session and reused by preview and full-resolution export. It must not be recomputed independently per export strip.
-- The render exposure is a scene-linear multiplier applied before LUT input gamut/log encoding. This aligns the RAW image into a practical default display/render domain while preserving the LUT contract.
+- Prefer structured RAW metadata when it exists. For DNG, LibRaw exposes `imgdata.color.dng_levels.baseline_exposure`; DNG readers and LibRaw discussions use baseline exposure as an explicit scale needed to make DNG intensities comparable across files.[^libraw-baseline-exposure] LumaForge uses finite DNG baseline exposure as the `dng-baseline` `RawRenderExposure` source.
+- For files without reliable baseline exposure, resolve one deterministic `image-statistics` fallback from RGB16 Linear ProPhoto luminance statistics, with the automatic EV clamped to a bounded range. Invalid image dimensions, malformed buffers, or unusable pixels resolve to the identity exposure.
+- Store the resolved `RawRenderExposure` on the decoded RAW image/session and reuse it in both WebGL preview and full-resolution export graph construction. Export strips consume the serialized multiplier; they do not recompute exposure independently.
+- Apply the render-exposure multiplier to scene-linear Linear ProPhoto values before no-LUT display conversion and before LUT input gamut/log encoding. This aligns the RAW image into a practical default display/render domain while preserving the LUT contract.
+- Keep final browser photo output as Rec.709/sRGB. RAW render exposure changes scene-linear placement before the look/output stages; it does not change the delivery target.
 - Any future tone curve or highlight rolloff must be a named LumaForge render-intent step with preview/export parity. It must not be hidden inside LibRaw settings or inferred from the file name.
 
 Audit result:
 
 - The current strict LibRaw settings are still correct for the color-science handoff.
-- The observed dark appearance is an expected missing render-intent stage, not evidence that the LUT input/output contract design is wrong.
-- The next implementation should add a small, explicit default exposure resolver before broadening into a full photographic tone-mapping pipeline.
+- The observed dark appearance was an expected missing render-intent stage, not evidence that the LUT input/output contract design was wrong.
+- The implemented RAW render exposure stage supplies deterministic default brightness without broadening into a full photographic tone-mapping pipeline.
 
 ### 6.3 Display Transform and Built-In Looks
 
@@ -511,13 +515,18 @@ This matters even though LogC4 is not yet wired into the custom LUT path. Incorr
 Relevant files:
 
 - `src/lib/gl/export.ts`
-- `src/lib/raw/pipeline.ts`
+- `src/lib/gl/pipeline.ts`
+- `src/lib/export/color-graph.ts`
+- `src/lib/export/full-res-export.ts`
+- `src/modules/raw-processor/hooks/useRawProcessor.ts`
 
-The export path renders through the same WebGL transform and reads back an 8-bit RGBA canvas buffer.
+The browser preview path renders through the WebGL transform. The current full-resolution JPEG export path builds a supported color graph and applies it in CPU strips. That graph starts with Linear ProPhoto input, applies the decoded RAW render exposure, then performs the no-LUT display conversion or declared LUT input/output handling before final sRGB encoding.
 
 Audit result:
 
 - This is acceptable for browser preview/export workflows.
+- Full-resolution export reuses the decoded `RawRenderExposure` passed from the active RAW session; it does not estimate exposure per strip.
+- Final browser photo export remains Rec.709/sRGB.
 - It is not suitable for high-end grading interchange, scene-linear EXR export, or HDR mastering.
 - Future professional export should preserve a higher-precision path, ideally 16-bit TIFF or EXR, with explicit color-space metadata and output-transform selection.
 
@@ -555,16 +564,16 @@ Add explicit LUT metadata instead of relying on filename inference:
 - Whether the output contract is complete. Same-space creative output must still be explicit by setting the output gamut, transfer, and range equal to the input side. Otherwise preview and export should fail closed until the output contract is known.
 - Whether the LUT expects scene-referred or display-referred values.
 
-### 7.3 Default RAW Render Exposure
+### 7.3 Implemented Default RAW Render Exposure
 
-Add an explicit default RAW render exposure resolver before scene-referred LUT preparation:
+The 2026-04-27 render-exposure implementation adds an explicit default RAW render exposure resolver before scene-referred LUT preparation:
 
-- Use DNG `baseline_exposure` when LibRaw exposes a finite value.
-- Otherwise estimate a stable EV offset from a downsampled Linear ProPhoto luminance statistic.
+- Use finite DNG `baseline_exposure` from LibRaw when present.
+- Otherwise estimate a stable EV offset from Linear ProPhoto luminance statistics.
 - Clamp the automatic EV range to avoid hiding badly underexposed/overexposed captures.
-- Persist the resolved EV in the decoded image/session state and pass it into both WebGL preview and full-resolution export graph construction.
-- Apply the multiplier before `gamut-to-lut-input` and before no-LUT display conversion.
-- Surface the source in telemetry: `dng-baseline`, `image-statistics`, `user`, or `identity`.
+- Persist the resolved `RawRenderExposure` in the decoded image/session state and pass it into both WebGL preview and full-resolution export graph construction.
+- Apply the multiplier before `gamut-to-lut-input`, LUT log encoding, and no-LUT display conversion.
+- Record the exposure source as `dng-baseline`, `image-statistics`, `user`, or `identity`.
 - Keep manual user exposure adjustment as a separate additive EV on top of the automatic base; do not bake it into LibRaw settings.
 
 This is the minimum step needed to make the strict Linear ProPhoto handoff visually usable while preserving scene-referred LUT correctness.
@@ -628,7 +637,7 @@ normalized into the same color semantics before a creative LUT is applied.
 The remaining differences are explainable residuals, not unrepeatable brand magic.
 ```
 
-As of the original 2026-04-24 audit, LumaForge was correct for its Phase 1 preview scope. The RAW runtime produced a coherent Linear ProPhoto RGB input, and the WebGL preview path performed a reasonable display transform. The successor 2026-04-27 LUT correction makes the custom LUT contract boundary stricter: non-display LUTs require declared input and output contracts, filename/title/free-form comments are suggestions only, and final browser photo export remains Rec.709/sRGB with declared LUT output transfer decoding before final sRGB encoding. The 2026-04-27 render-exposure correction adds one more boundary: LibRaw strict linear output remains the handoff, but LumaForge needs an explicit default RAW render exposure stage so neutral scene-linear values are not mistaken for a finished system-style RAW preview.
+As of the original 2026-04-24 audit, LumaForge was correct for its Phase 1 preview scope. The RAW runtime produced a coherent Linear ProPhoto RGB input, and the WebGL preview path performed a reasonable display transform. The successor 2026-04-27 LUT correction makes the custom LUT contract boundary stricter: non-display LUTs require declared input and output contracts, filename/title/free-form comments are suggestions only, and final browser photo export remains Rec.709/sRGB with declared LUT output transfer decoding before final sRGB encoding. The 2026-04-27 render-exposure correction adds one more boundary: LibRaw strict linear output remains the handoff, while LumaForge now owns an explicit default RAW render exposure stage so neutral scene-linear values are not mistaken for a finished system-style RAW preview.
 
 ## References
 

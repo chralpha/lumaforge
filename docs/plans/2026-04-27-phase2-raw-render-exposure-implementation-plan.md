@@ -81,7 +81,7 @@ Use these commit messages exactly unless a task's actual diff is narrower:
   built-in style, and scene-referred LUT paths.
 
 - `src/lib/gl/pipeline.test.ts`, `src/lib/gl/shaders.test.ts`, and
-  `src/modules/raw-processor/components/PreviewCanvas.test.tsx`  
+  `src/modules/raw-processor/components/PreviewCanvas.test.ts`
   Verify preview graph and uniform behavior.
 
 - `src/lib/export/color-graph.ts`  
@@ -599,13 +599,13 @@ git commit -m "feat(raw): attach render exposure to decoded images"
 - Modify: `src/modules/raw-processor/components/PreviewCanvas.tsx`
 - Modify: `src/lib/gl/pipeline.ts`
 - Modify: `src/lib/gl/shaders.ts`
-- Modify: `src/modules/raw-processor/components/PreviewCanvas.test.tsx`
+- Modify: `src/modules/raw-processor/components/PreviewCanvas.test.ts`
 - Modify: `src/lib/gl/pipeline.test.ts`
 - Modify: `src/lib/gl/shaders.test.ts`
 
 - [ ] **Step 1: Write failing preview tests**
 
-In `src/modules/raw-processor/components/PreviewCanvas.test.tsx`, assert that
+In `src/modules/raw-processor/components/PreviewCanvas.test.ts`, assert that
 upload input carries the decoded exposure:
 
 ```ts
@@ -639,7 +639,7 @@ expect(shader).toContain(
 - [ ] **Step 2: Run failing tests**
 
 ```bash
-pnpm test:run src/modules/raw-processor/components/PreviewCanvas.test.tsx src/lib/gl/shaders.test.ts src/lib/gl/pipeline.test.ts --exclude '.worktrees/**'
+pnpm test:run src/modules/raw-processor/components/PreviewCanvas.test.ts src/lib/gl/shaders.test.ts src/lib/gl/pipeline.test.ts --exclude '.worktrees/**'
 ```
 
 Expected: FAIL because preview upload and shader uniform are missing.
@@ -711,7 +711,7 @@ scene-linear values.
 - [ ] **Step 5: Verify**
 
 ```bash
-pnpm test:run src/modules/raw-processor/components/PreviewCanvas.test.tsx src/lib/gl/shaders.test.ts src/lib/gl/pipeline.test.ts --exclude '.worktrees/**'
+pnpm test:run src/modules/raw-processor/components/PreviewCanvas.test.ts src/lib/gl/shaders.test.ts src/lib/gl/pipeline.test.ts --exclude '.worktrees/**'
 ```
 
 Expected: PASS.
@@ -723,7 +723,7 @@ git add \
   src/modules/raw-processor/components/PreviewCanvas.tsx \
   src/lib/gl/pipeline.ts \
   src/lib/gl/shaders.ts \
-  src/modules/raw-processor/components/PreviewCanvas.test.tsx \
+  src/modules/raw-processor/components/PreviewCanvas.test.ts \
   src/lib/gl/pipeline.test.ts \
   src/lib/gl/shaders.test.ts
 git commit -m "feat(gl): apply raw render exposure in preview"
@@ -965,6 +965,13 @@ git commit -m "test(raw): verify render exposure parity"
 - Modify:
   `docs/plans/2026-04-27-phase2-raw-render-exposure-implementation-plan.md`
 
+**Implementation status:** Completed on 2026-04-27. The final verification used
+the actual `src/modules/raw-processor/components/PreviewCanvas.test.ts` path.
+Native smoke initially failed only because the public
+`raw-pixls-iphone-se.dng` fixture was absent; the allowed
+`pnpm --filter @lumaforge/luma-raw-runtime fixtures:fetch-public` command
+fetched it, and the rerun passed.
+
 - [ ] **Step 1: Run focused test suite**
 
 ```bash
@@ -973,7 +980,7 @@ pnpm test:run \
   packages/luma-raw-runtime/src/types.test.ts \
   src/lib/color/raw-render-exposure.test.ts \
   src/lib/raw/runtime-adapter.test.ts \
-  src/modules/raw-processor/components/PreviewCanvas.test.tsx \
+  src/modules/raw-processor/components/PreviewCanvas.test.ts \
   src/lib/gl/shaders.test.ts \
   src/lib/gl/pipeline.test.ts \
   src/lib/export/color-graph.test.ts \
