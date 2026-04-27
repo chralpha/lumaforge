@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "toolchain": {
+    "emsdk": "5.0.6"
+  },
+  "sources": [
+    {
+      "name": "libjpeg-turbo",
+      "version": "3.1.4.1",
+      "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.1.4.1/libjpeg-turbo-3.1.4.1.tar.gz",
+      "sha256": "ecae8008e2cc9ade2f2c1bb9d5e6d4fb73e7c433866a056bd82980741571a022",
+      "archiveName": "libjpeg-turbo-3.1.4.1.tar.gz",
+      "extractDir": "libjpeg-turbo-3.1.4.1"
+    }
+  ]
+}
