@@ -1,8 +1,12 @@
+import type { LUTColorProfile } from '~/lib/color/registry'
+import { getColorGamut, getTransferFunction } from '~/lib/color/registry'
 import type { LUTProfileResolution } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 
 import type { LUTProfileSelectionState } from '../model/session'
 import { BUILTIN_PRESETS } from './builtin-presets'
+
+const DISPLAY_LIKE_INPUT_TRANSFERS = new Set(['srgb', 'bt709', 'gamma24'])
 
 export function mapIntensityLevel(
   level: 'off' | 'light' | 'standard' | 'strong',
@@ -28,12 +32,40 @@ export function buildBuiltinStyle(id: (typeof BUILTIN_PRESETS)[number]['id']) {
   }
 }
 
-function describeLUTInput(profileResolution: LUTProfileResolution): string {
-  if (profileResolution.kind === 'resolved') {
-    return profileResolution.profile.label
+function describeLUTOutput(profile: LUTColorProfile): string {
+  if (!profile.outputGamut || !profile.outputTransfer || !profile.outputRange) {
+    if (
+      profile.role === 'display-look' &&
+      profile.inputGamut === 'srgb-rec709' &&
+      DISPLAY_LIKE_INPUT_TRANSFERS.has(profile.inputTransfer)
+    ) {
+      return 'Rec.709 display'
+    }
+    return 'output profile required'
   }
 
-  return 'an unresolved LUT profile'
+  if (
+    profile.outputGamut === 'srgb-rec709' &&
+    ['srgb', 'bt709', 'gamma24'].includes(profile.outputTransfer)
+  ) {
+    return 'Rec.709 display'
+  }
+
+  const gamut = getColorGamut(profile.outputGamut)?.label ?? profile.outputGamut
+  const transfer =
+    getTransferFunction(profile.outputTransfer)?.label ?? profile.outputTransfer
+
+  return `${gamut} / ${transfer}`
+}
+
+function describeLUTContract(profileResolution: LUTProfileResolution): string {
+  if (profileResolution.kind === 'resolved') {
+    return `${profileResolution.profile.label} -> ${describeLUTOutput(
+      profileResolution.profile,
+    )}`
+  }
+
+  return 'an unresolved LUT contract'
 }
 
 export function buildLUTProfileSelectionState(
@@ -59,9 +91,9 @@ export function buildLUTProfileSelectionState(
 
 export function toCustomStyle(lut: ParsedLUT) {
   const warning =
-    lut.inputProfile === 'v-log'
-      ? `This LUT is resolved as ${describeLUTInput(lut.profileResolution)} input and uses internal input preparation. Exact camera matching still depends on the source RAW transform.`
-      : 'Custom LUTs are applied in a best effort path and may not match pro video software exactly.'
+    lut.profileResolution.kind === 'resolved'
+      ? `This LUT uses ${describeLUTContract(lut.profileResolution)}.`
+      : 'Choose the LUT input and output contract before preview or export.'
 
   return {
     kind: 'custom' as const,

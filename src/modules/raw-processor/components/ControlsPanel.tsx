@@ -35,7 +35,7 @@ export interface ControlsPanelProps {
   onViewModeChange: (mode: 'processed' | 'original') => void
   onLutLoad: (files: File[]) => void
   onLutClear: () => void
-  onLutProfileSelect: (profileId: string) => void
+  onLutProfileSelect: (profile: LUTColorProfile) => void
   onExport: (options: {
     quality: 'standard' | 'high'
     fidelity: 'safe' | 'balanced' | 'max'
@@ -49,7 +49,8 @@ export interface ControlsPanelProps {
 }
 
 const UNKNOWN_LUT_COPY =
-  'This LUT does not declare its color input. Choose the camera/log space it was made for.'
+  'Choose the LUT input and output contract before preview or export.'
+const DISPLAY_LIKE_INPUT_TRANSFERS = new Set(['srgb', 'bt709', 'gamma24'])
 
 function getResolvedProfile(
   selection?: LUTProfileSelectionState | null,
@@ -62,18 +63,29 @@ function getResolvedProfile(
   return undefined
 }
 
+function hasDisplayLikeInput(profile: LUTColorProfile) {
+  return (
+    profile.inputGamut === 'srgb-rec709' &&
+    DISPLAY_LIKE_INPUT_TRANSFERS.has(profile.inputTransfer)
+  )
+}
+
 function getProfileOutputLabel(profile?: LUTColorProfile) {
   if (!profile) return undefined
 
-  const isDisplayOutput =
-    profile.role === 'display-look' ||
-    profile.outputGamut === 'srgb-rec709' ||
-    profile.outputTransfer === 'srgb' ||
-    profile.outputTransfer === 'gamma24'
+  if (!profile.outputGamut || !profile.outputTransfer || !profile.outputRange) {
+    if (profile.role === 'display-look' && hasDisplayLikeInput(profile)) {
+      return 'Rec.709 display'
+    }
+    return 'Output profile required'
+  }
 
-  if (isDisplayOutput) return 'Rec.709 display'
-
-  if (!profile.outputGamut && !profile.outputTransfer) return undefined
+  if (
+    profile.outputGamut === 'srgb-rec709' &&
+    ['srgb', 'bt709', 'gamma24'].includes(profile.outputTransfer)
+  ) {
+    return 'Rec.709 display'
+  }
 
   const gamut = profile.outputGamut
     ? (getColorGamut(profile.outputGamut)?.label ?? profile.outputGamut)
@@ -84,6 +96,53 @@ function getProfileOutputLabel(profile?: LUTColorProfile) {
     : undefined
 
   return [gamut, transfer].filter(Boolean).join(' / ')
+}
+
+function hasAnyOutputContractField(profile: LUTColorProfile) {
+  return Boolean(
+    profile.outputGamut || profile.outputTransfer || profile.outputRange,
+  )
+}
+
+function hasSelectableOutputContract(profile: LUTColorProfile) {
+  if (profile.role === 'display-look' && hasDisplayLikeInput(profile)) {
+    return true
+  }
+
+  return Boolean(
+    profile.outputGamut && profile.outputTransfer && profile.outputRange,
+  )
+}
+
+function getDefaultRec709Contract(profile: LUTColorProfile): LUTColorProfile {
+  return {
+    ...profile,
+    role: 'combined-look-output',
+    outputGamut: 'srgb-rec709',
+    outputTransfer: 'bt709',
+    outputRange: 'full',
+  }
+}
+
+function toSelectableContract(profile: LUTColorProfile) {
+  if (hasSelectableOutputContract(profile)) return profile
+  if (!hasAnyOutputContractField(profile) && !hasDisplayLikeInput(profile)) {
+    return getDefaultRec709Contract(profile)
+  }
+  return undefined
+}
+
+function getProfileContractLabel(profile: LUTColorProfile) {
+  const outputLabel = getProfileOutputLabel(profile)
+  if (
+    outputLabel &&
+    outputLabel !== 'Output profile required' &&
+    !hasDisplayLikeInput(profile)
+  ) {
+    return `${profile.label} -> ${outputLabel}`
+  }
+
+  return profile.label
 }
 
 function getProfileGroupLabel(profile: LUTColorProfile) {
@@ -121,17 +180,18 @@ function LUTProfileButton({
 }: {
   profile: LUTColorProfile
   activeProfileId?: string
-  onSelect: (profileId: string) => void
+  onSelect: (profile: LUTColorProfile) => void
   highlighted?: boolean
 }) {
   const isActive = activeProfileId === profile.id
+  const label = getProfileContractLabel(profile)
 
   return (
     <button
       type="button"
-      aria-label={profile.label}
+      aria-label={label}
       aria-pressed={isActive}
-      onClick={() => onSelect(profile.id)}
+      onClick={() => onSelect(profile)}
       className={clsxm(
         'w-full rounded-md border px-2.5 py-2 text-left text-xs leading-snug transition-colors',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
@@ -142,7 +202,7 @@ function LUTProfileButton({
             : 'border-border bg-background text-text-secondary hover:border-accent/40 hover:text-text',
       )}
     >
-      <span className="block min-w-0 break-words">{profile.label}</span>
+      <span className="block min-w-0 break-words">{label}</span>
     </button>
   )
 }
@@ -154,7 +214,7 @@ function LUTProfileSelector({
 }: {
   suggestions: LUTColorProfile[]
   activeProfileId?: string
-  onSelect: (profileId: string) => void
+  onSelect: (profile: LUTColorProfile) => void
 }) {
   const searchInputId = useId()
   const [query, setQuery] = useState('')
@@ -165,11 +225,14 @@ function LUTProfileSelector({
   )
   const visibleSuggestions = useMemo(
     () =>
-      suggestions.filter(
-        (profile, index, items) =>
-          resultIds.has(profile.id) &&
-          items.findIndex((item) => item.id === profile.id) === index,
-      ),
+      suggestions
+        .map(toSelectableContract)
+        .filter((profile): profile is LUTColorProfile => Boolean(profile))
+        .filter(
+          (profile, index, items) =>
+            resultIds.has(profile.id) &&
+            items.findIndex((item) => item.id === profile.id) === index,
+        ),
     [resultIds, suggestions],
   )
   const suggestionIds = useMemo(
@@ -179,7 +242,10 @@ function LUTProfileSelector({
   const groupedProfiles = useMemo(
     () =>
       groupProfiles(
-        searchResults.filter((profile) => !suggestionIds.has(profile.id)),
+        searchResults
+          .map(toSelectableContract)
+          .filter((profile): profile is LUTColorProfile => Boolean(profile))
+          .filter((profile) => !suggestionIds.has(profile.id)),
       ),
     [searchResults, suggestionIds],
   )
@@ -188,13 +254,13 @@ function LUTProfileSelector({
   return (
     <div className="space-y-2 pt-1">
       <label htmlFor={searchInputId} className="sr-only">
-        Search LUT input
+        Search LUT contract
       </label>
       <Input
         id={searchInputId}
         type="search"
         value={query}
-        placeholder="Search camera or log"
+        placeholder="Search camera/log or output"
         onChange={(event) => setQuery(event.currentTarget.value)}
         inputClassName="h-8 text-xs"
       />
@@ -239,7 +305,7 @@ function LUTProfileSelector({
 
         {!hasMatches && (
           <p className="text-xs text-text-tertiary">
-            No matching camera/log space.
+            No matching LUT contract.
           </p>
         )}
       </div>
@@ -254,30 +320,25 @@ function LUTProfileStatus({
 }: {
   selection?: LUTProfileSelectionState | null
   resolution?: LUTProfileResolution | null
-  onSelect: (profileId: string) => void
+  onSelect: (profile: LUTColorProfile) => void
 }) {
   const resolvedProfile = getResolvedProfile(selection, resolution)
   const outputLabel = getProfileOutputLabel(resolvedProfile)
+  const needsOutputContract = outputLabel === 'Output profile required'
   const isPending = selection?.status === 'pending'
-  const isFilenameMatch =
-    selection?.status === 'resolved' && selection.confidence === 'filename'
   const isUnsupportedOutput =
     resolution?.kind === 'needs-user-selection' &&
     resolution.reason === 'unsupported-output'
   const suggestions =
-    selection?.status === 'pending'
-      ? selection.suggestions
-      : isFilenameMatch && resolvedProfile
-        ? [resolvedProfile]
-        : []
+    selection?.status === 'pending' ? selection.suggestions : []
   const activeProfileId =
     selection?.status === 'resolved' ? selection.profileId : resolvedProfile?.id
   const [selectorOpen, setSelectorOpen] = useState(
-    !isUnsupportedOutput && (isPending || isFilenameMatch),
+    !isUnsupportedOutput && isPending,
   )
   const showSelector = !isUnsupportedOutput && selectorOpen
-  const handleSelect = (profileId: string) => {
-    onSelect(profileId)
+  const handleSelect = (profile: LUTColorProfile) => {
+    onSelect(profile)
     setSelectorOpen(false)
   }
 
@@ -310,13 +371,18 @@ function LUTProfileStatus({
               </span>
             </p>
           )}
+          {needsOutputContract && (
+            <p className="border-l-2 border-accent/70 pl-3 text-text-secondary">
+              Choose the LUT output before preview or export.
+            </p>
+          )}
           <Button
             variant="secondary"
             size="sm"
             onClick={() => setSelectorOpen((value) => !value)}
             className="mt-1"
           >
-            Change LUT input
+            Change LUT contract
           </Button>
         </div>
       ) : null}

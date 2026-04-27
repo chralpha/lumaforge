@@ -19,6 +19,8 @@ import {
   useSetProcessingStatus,
   useSetProgress,
 } from '~/atoms/raw-processor'
+import type { LUTColorProfile } from '~/lib/color/registry'
+import { getLUTColorProfile } from '~/lib/color/registry'
 import { resolveExportColorGraph } from '~/lib/export/color-graph'
 import type {
   LUTData,
@@ -33,7 +35,10 @@ import {
   toLUTData,
   validateLUT,
 } from '~/lib/lut/cube-parser'
-import { applyLUTProfileSelection } from '~/lib/lut/profile-resolution'
+import {
+  applyLUTContractSelection,
+  toLUTContractSelection,
+} from '~/lib/lut/profile-resolution'
 import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
 import { isSupportedRaw } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
@@ -66,6 +71,22 @@ import {
 } from '../services/style-system'
 import { classifySupportLevel } from '../services/support-matrix'
 import { useImageSession } from './useImageSession'
+
+function resolveLUTContractProfile(
+  profile: LUTColorProfile | string,
+): LUTColorProfile | undefined {
+  if (typeof profile !== 'string') return profile
+
+  const compact = profile.toLowerCase().replace(/[^a-z0-9]+/g, '')
+  if (compact === 'vlog' || compact === 'vloginput') {
+    return getLUTColorProfile('panasonic-vgamut-vlog')
+  }
+  if (compact === 'displaysrgb' || compact === 'srgbdisplay') {
+    return getLUTColorProfile('display-srgb')
+  }
+
+  return getLUTColorProfile(profile)
+}
 
 function toUserFacingErrorCode(code: unknown) {
   if (typeof code === 'string' && code.startsWith('LUT_')) return code
@@ -190,7 +211,7 @@ export interface UseRawProcessorReturn {
   // Actions
   loadFile: (file: File) => Promise<void>
   loadLUT: (file: File) => Promise<void>
-  selectLUTProfile: (profileId: string) => void
+  selectLUTProfile: (profile: LUTColorProfile | string) => void
   selectBuiltinStyle: (id: (typeof BUILTIN_PRESETS)[number]['id']) => void
   selectIntensityLevel: (level: 'off' | 'light' | 'standard' | 'strong') => void
   setViewMode: (mode: ProcessingParams['viewMode']) => void
@@ -1004,17 +1025,23 @@ export function useRawProcessor(): UseRawProcessorReturn {
   )
 
   const selectLUTProfile = useCallback(
-    (profileId: string) => {
+    (profile: LUTColorProfile | string) => {
       if (!lut) {
         scheduleToast(() => toast.error('No LUT loaded'))
         return
       }
 
-      const updatedLut = applyLUTProfileSelection(lut, profileId)
+      const contractProfile = resolveLUTContractProfile(profile)
+      const updatedLut = contractProfile
+        ? applyLUTContractSelection(
+            lut,
+            toLUTContractSelection(contractProfile),
+          )
+        : undefined
       if (!updatedLut) {
         scheduleToast(() =>
-          toast.error('Unknown LUT profile', {
-            description: profileId,
+          toast.error('Incomplete LUT contract', {
+            description: typeof profile === 'string' ? profile : profile.id,
           }),
         )
         return

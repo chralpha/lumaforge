@@ -81,98 +81,130 @@ describe('controlsPanel', () => {
     expect(screen.queryByText('Log Space')).not.toBeInTheDocument()
   })
 
-  it('opens the selector by default for filename-inferred LUT profiles', async () => {
+  it('opens the selector by default for pending LUT profile suggestions', async () => {
     const user = userEvent.setup()
     const onLutProfileSelect = vi.fn()
-    const profile = getLUTColorProfile('sony-sgamut3cine-slog3')!
+    const profile = {
+      ...getLUTColorProfile('sony-sgamut3cine-slog3')!,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'gamma24' as const,
+      outputRange: 'full' as const,
+    }
 
     render(
       <ControlsPanel
         {...controlsPanelProps({
           currentLutName: 'Sony Look.cube',
           lutProfileSelection: {
-            status: 'resolved',
+            status: 'pending',
             fingerprint: 'abc123',
-            profileId: profile.id,
-            confidence: 'filename',
+            title: 'Sony Look',
+            suggestions: [profile],
           },
           lutProfileResolution: {
-            kind: 'resolved',
-            profile: {
-              ...profile,
-              role: 'combined-look-output',
-              outputGamut: 'srgb-rec709',
-              outputTransfer: 'gamma24',
-              outputRange: 'full',
-            },
-            confidence: 'filename',
+            kind: 'needs-user-selection',
+            suggestions: [profile],
           },
           onLutProfileSelect,
         })}
       />,
     )
 
-    expect(screen.getByText('LUT input:')).toBeInTheDocument()
     expect(
-      screen.getAllByText('Sony S-Gamut3.Cine / S-Log3').length,
+      screen.getByText(
+        'Choose the LUT input and output contract before preview or export.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getAllByText('Sony S-Gamut3.Cine / S-Log3 -> Rec.709 display')
+        .length,
     ).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('LUT output:')).toBeInTheDocument()
-    expect(screen.getByText('Rec.709 display')).toBeInTheDocument()
+    expect(screen.getByLabelText('Search LUT contract')).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Change LUT input' }),
+      screen.getByPlaceholderText('Search camera/log or output'),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Search LUT input')).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Sony S-Gamut3.Cine / S-Log3' }),
+      screen.getByRole('button', {
+        name: 'Sony S-Gamut3.Cine / S-Log3 -> Rec.709 display',
+      }),
     ).toBeInTheDocument()
-    expect(screen.getByText('ARRI Wide Gamut 4 / LogC4')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Change LUT input' }))
-
-    expect(screen.queryByLabelText('Search LUT input')).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Change LUT input' }))
-
-    expect(screen.getByLabelText('Search LUT input')).toBeInTheDocument()
+    expect(
+      screen.queryByText('ARRI Wide Gamut 4 / LogC4'),
+    ).not.toBeInTheDocument()
 
     await user.click(
-      screen.getByRole('button', { name: 'Panasonic V-Gamut / V-Log' }),
+      screen.getByRole('button', {
+        name: 'Sony S-Gamut3.Cine / S-Log3 -> Rec.709 display',
+      }),
     )
 
-    expect(onLutProfileSelect).toHaveBeenCalledWith('panasonic-vgamut-vlog')
+    expect(onLutProfileSelect).toHaveBeenCalledWith(profile)
   })
 
-  it('keeps explicit LUT profile matches collapsed', () => {
-    const profile = getLUTColorProfile('sony-sgamut3cine-slog3')!
+  it('shows resolved LUT input and output contracts', () => {
+    const profile = {
+      ...getLUTColorProfile('panasonic-vgamut-vlog')!,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'gamma24' as const,
+      outputRange: 'full' as const,
+    }
 
     render(
       <ControlsPanel
         {...controlsPanelProps({
-          currentLutName: 'Sony Look.cube',
+          currentLutName: 'Panasonic Look.cube',
           lutProfileSelection: {
             status: 'resolved',
             fingerprint: 'abc123',
             profileId: profile.id,
-            confidence: 'explicit',
+            confidence: 'metadata',
           },
           lutProfileResolution: {
             kind: 'resolved',
-            profile: {
-              ...profile,
-              role: 'combined-look-output',
-              outputGamut: 'srgb-rec709',
-              outputTransfer: 'gamma24',
-              outputRange: 'full',
-            },
-            confidence: 'explicit',
+            profile,
+            confidence: 'metadata',
           },
         })}
       />,
     )
 
     expect(screen.getByText('LUT input:')).toBeInTheDocument()
-    expect(screen.getByText('Sony S-Gamut3.Cine / S-Log3')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Search LUT input')).not.toBeInTheDocument()
+    expect(screen.getByText('Panasonic V-Gamut / V-Log')).toBeInTheDocument()
+    expect(screen.getByText('LUT output:')).toBeInTheDocument()
+    expect(screen.getByText('Rec.709 display')).toBeInTheDocument()
+    expect(
+      screen.queryByLabelText('Search LUT contract'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('makes missing LUT output contracts explicit', () => {
+    const profile = getLUTColorProfile('panasonic-vgamut-vlog')!
+
+    render(
+      <ControlsPanel
+        {...controlsPanelProps({
+          currentLutName: 'Panasonic Look.cube',
+          lutProfileSelection: {
+            status: 'resolved',
+            fingerprint: 'abc123',
+            profileId: profile.id,
+            confidence: 'metadata',
+          },
+          lutProfileResolution: {
+            kind: 'resolved',
+            profile,
+            confidence: 'metadata',
+          },
+        })}
+      />,
+    )
+
+    expect(screen.getByText(/choose the LUT output/i)).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Change LUT contract' }),
+    ).toBeInTheDocument()
   })
 
   it('resets selector state and search when switching LUT fingerprints', async () => {
@@ -186,20 +218,24 @@ describe('controlsPanel', () => {
         status: 'resolved',
         fingerprint: 'first-lut',
         profileId: sonyProfile.id,
-        confidence: 'explicit',
+        confidence: 'metadata',
       },
       lutProfileResolution: {
         kind: 'resolved',
         profile: sonyProfile,
-        confidence: 'explicit',
+        confidence: 'metadata',
       },
     })
     const { rerender } = render(<ControlsPanel {...firstLutProps} />)
 
-    await user.click(screen.getByRole('button', { name: 'Change LUT input' }))
-    await user.type(screen.getByLabelText('Search LUT input'), 'panasonic')
+    await user.click(
+      screen.getByRole('button', { name: 'Change LUT contract' }),
+    )
+    await user.type(screen.getByLabelText('Search LUT contract'), 'panasonic')
 
-    expect(screen.getByLabelText('Search LUT input')).toHaveValue('panasonic')
+    expect(screen.getByLabelText('Search LUT contract')).toHaveValue(
+      'panasonic',
+    )
     expect(
       screen.queryByText('ARRI Wide Gamut 4 / LogC4'),
     ).not.toBeInTheDocument()
@@ -212,28 +248,34 @@ describe('controlsPanel', () => {
             status: 'resolved',
             fingerprint: 'second-lut',
             profileId: canonProfile.id,
-            confidence: 'explicit',
+            confidence: 'metadata',
           },
           lutProfileResolution: {
             kind: 'resolved',
             profile: canonProfile,
-            confidence: 'explicit',
+            confidence: 'metadata',
           },
         })}
       />,
     )
 
-    expect(screen.queryByLabelText('Search LUT input')).not.toBeInTheDocument()
+    expect(
+      screen.queryByLabelText('Search LUT contract'),
+    ).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Change LUT input' }))
+    await user.click(
+      screen.getByRole('button', { name: 'Change LUT contract' }),
+    )
 
-    expect(screen.getByLabelText('Search LUT input')).toHaveValue('')
-    expect(screen.getByText('ARRI Wide Gamut 4 / LogC4')).toBeInTheDocument()
+    expect(screen.getByLabelText('Search LUT contract')).toHaveValue('')
+    expect(
+      screen.queryByText('ARRI Wide Gamut 4 / LogC4'),
+    ).not.toBeInTheDocument()
   })
 
-  it('shows unknown LUT guidance and searchable profile options', async () => {
+  it('offers searchable full Rec.709 contracts for unannotated LUTs', async () => {
     const user = userEvent.setup()
-    const suggestion = getLUTColorProfile('sony-sgamut3cine-slog3')!
+    const onLutProfileSelect = vi.fn()
 
     render(
       <ControlsPanel
@@ -244,33 +286,58 @@ describe('controlsPanel', () => {
             fingerprint: 'def456',
             title: 'Unknown Look',
             sourceName: 'Unknown Look.cube',
-            suggestions: [suggestion],
+            suggestions: [],
           },
           lutProfileResolution: {
             kind: 'needs-user-selection',
-            suggestions: [suggestion],
+            suggestions: [],
           },
+          onLutProfileSelect,
         })}
       />,
     )
 
     expect(
       screen.getByText(
-        'This LUT does not declare its color input. Choose the camera/log space it was made for.',
+        'Choose the LUT input and output contract before preview or export.',
       ),
     ).toBeInTheDocument()
-    expect(screen.getByText('Sony S-Gamut3.Cine / S-Log3')).toBeInTheDocument()
-    expect(screen.getByText('ARRI Wide Gamut 4 / LogC4')).toBeInTheDocument()
 
-    await user.type(screen.getByLabelText('Search LUT input'), 'v-log')
+    await user.type(screen.getByLabelText('Search LUT contract'), 'v-log')
 
-    expect(screen.getByText('Panasonic V-Gamut / V-Log')).toBeInTheDocument()
+    const vLogContractButton = screen.getByRole('button', {
+      name: 'Panasonic V-Gamut / V-Log -> Rec.709 display',
+    })
+    expect(vLogContractButton).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Panasonic V-Gamut / V-Log' }),
+    ).not.toBeInTheDocument()
+
+    await user.click(vLogContractButton)
+
+    expect(onLutProfileSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'panasonic-vgamut-vlog',
+        role: 'combined-look-output',
+        inputGamut: 'v-gamut',
+        inputTransfer: 'v-log',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'bt709',
+        outputRange: 'full',
+      }),
+    )
   })
 
-  it('calls the profile selection callback when a LUT input is chosen', async () => {
+  it('passes the full suggested LUT contract when a LUT input is chosen', async () => {
     const user = userEvent.setup()
     const onLutProfileSelect = vi.fn()
-    const suggestion = getLUTColorProfile('sony-sgamut3cine-slog3')!
+    const suggestion = {
+      ...getLUTColorProfile('sony-sgamut3cine-slog3')!,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'bt709' as const,
+      outputRange: 'full' as const,
+    }
 
     render(
       <ControlsPanel
@@ -292,10 +359,12 @@ describe('controlsPanel', () => {
     )
 
     await user.click(
-      screen.getByRole('button', { name: 'Panasonic V-Gamut / V-Log' }),
+      screen.getByRole('button', {
+        name: 'Sony S-Gamut3.Cine / S-Log3 -> Rec.709 display',
+      }),
     )
 
-    expect(onLutProfileSelect).toHaveBeenCalledWith('panasonic-vgamut-vlog')
+    expect(onLutProfileSelect).toHaveBeenCalledWith(suggestion)
   })
 
   it('warns unsupported output LUTs without showing the input selector', () => {
@@ -323,7 +392,9 @@ describe('controlsPanel', () => {
     expect(
       screen.getByText(/This LUT output is not supported yet/),
     ).toBeInTheDocument()
-    expect(screen.queryByLabelText('Search LUT input')).not.toBeInTheDocument()
+    expect(
+      screen.queryByLabelText('Search LUT contract'),
+    ).not.toBeInTheDocument()
   })
 
   it('shows an embedded RAW preview image before decoded pixels are ready', async () => {

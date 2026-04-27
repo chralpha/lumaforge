@@ -72,7 +72,7 @@ export type LUTProfileResolution =
   | {
       kind: 'resolved'
       profile: LUTColorProfile
-      confidence: 'explicit' | 'filename' | 'user'
+      confidence: 'metadata' | 'user' | 'persisted-user'
     }
   | {
       kind: 'needs-user-selection'
@@ -294,35 +294,40 @@ const DISPLAY_PROFILE_UNIFORMS: LUTPipelineProfileUniforms = {
 export function isLUTProfileRenderable(
   profileResolution?: LUTProfileResolution | null,
 ): boolean {
-  return (
-    profileResolution?.kind !== 'needs-user-selection' ||
-    profileResolution.reason !== 'unsupported-output'
+  if (!profileResolution || profileResolution.kind !== 'resolved') {
+    return false
+  }
+
+  const { profile } = profileResolution
+  if (profile.role === 'display-look') {
+    return true
+  }
+
+  return Boolean(
+    profile.outputGamut &&
+    profile.outputTransfer &&
+    profile.outputRange &&
+    profile.outputRange !== 'unknown',
   )
 }
 
 function resolveLUTOutputTransfer(
   profile: LUTColorProfile,
-): TransferFunctionId {
+): TransferFunctionId | undefined {
   if (profile.outputTransfer) return profile.outputTransfer
 
   if (profile.role === 'display-look') return profile.inputTransfer
 
-  if (profile.role === 'scene-creative') return profile.inputTransfer
-
-  if (
-    profile.role === 'combined-look-output' &&
-    profile.outputGamut === DISPLAY_TARGET_GAMUT
-  ) {
-    return 'gamma24'
-  }
-
-  return 'linear'
+  return undefined
 }
 
 export function resolveLUTPipelineProfileUniforms(
   profileResolution?: LUTProfileResolution | null,
 ): LUTPipelineProfileUniforms {
-  if (!profileResolution || profileResolution.kind !== 'resolved') {
+  if (
+    !isLUTProfileRenderable(profileResolution) ||
+    profileResolution?.kind !== 'resolved'
+  ) {
     return DISPLAY_PROFILE_UNIFORMS
   }
 
@@ -342,7 +347,7 @@ export function resolveLUTPipelineProfileUniforms(
     }
   }
 
-  const outputGamut = profile.outputGamut ?? profile.inputGamut
+  const outputGamut = profile.outputGamut!
   const outputTransfer = resolveLUTOutputTransfer(profile)
   const lutOutputToDisplayGamut =
     outputGamut === DISPLAY_TARGET_GAMUT
@@ -355,10 +360,10 @@ export function resolveLUTPipelineProfileUniforms(
     ),
     lutOutputToDisplayGamut: mat3ToGLSL(lutOutputToDisplayGamut),
     lutInputTransfer: LUT_TRANSFER_UNIFORMS[profile.inputTransfer],
-    lutOutputTransfer: LUT_TRANSFER_UNIFORMS[outputTransfer],
+    lutOutputTransfer: LUT_TRANSFER_UNIFORMS[outputTransfer!],
     lutRole: LUT_ROLE_UNIFORMS[profile.role],
     lutInputRange: LUT_RANGE_UNIFORMS[profile.inputRange],
-    lutOutputRange: LUT_RANGE_UNIFORMS[profile.outputRange ?? 'full'],
+    lutOutputRange: LUT_RANGE_UNIFORMS[profile.outputRange!],
   }
 }
 
@@ -744,7 +749,7 @@ export class RawProcessingPipeline {
       transformPath: this.getTransformPath(),
       lutRole: resolvedProfile?.role ?? null,
       lutInputTransfer: resolvedProfile?.inputTransfer ?? null,
-      lutOutputTransfer: outputTransfer,
+      lutOutputTransfer: outputTransfer ?? null,
       lutSize: this.lutData?.size ?? null,
       processTargetPrecision: this.processTargetPrecision,
       capabilityWarnings: this.capabilityWarnings.map((warning) => ({

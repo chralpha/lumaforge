@@ -29,7 +29,7 @@ const contextMock = vi.hoisted(() => {
 
   return {
     capabilities,
-    create3DTexture: vi.fn(() => ({} as WebGLTexture)),
+    create3DTexture: vi.fn(() => ({}) as WebGLTexture),
     gl,
     reset() {
       gl.deleteTexture.mockClear()
@@ -77,13 +77,13 @@ function createLUTData(profileId = 'sony-sgamut3cine-slog3'): LUTData {
     profileResolution: {
       kind: 'resolved',
       profile,
-      confidence: 'explicit',
+      confidence: 'metadata',
     },
   }
 }
 
-describe('RawProcessingPipeline export telemetry', () => {
-  it('keeps preview transform-path telemetry while clearing unresolved export LUT metadata', () => {
+describe('rawProcessingPipeline export telemetry', () => {
+  it('disables unresolved LUTs while clearing export LUT metadata', () => {
     contextMock.reset()
     const pipeline = new RawProcessingPipeline(document.createElement('canvas'))
 
@@ -107,7 +107,7 @@ describe('RawProcessingPipeline export telemetry', () => {
 
     const stats = pipeline.render()
 
-    expect(stats.transformPath).toBe('display-lut')
+    expect(stats.transformPath).toBe('disabled-lut')
     expect(stats.lutRole).toBeNull()
     expect(stats.lutInputTransfer).toBeNull()
     expect(stats.lutOutputTransfer).toBeNull()
@@ -125,10 +125,12 @@ describe('RawProcessingPipeline export telemetry', () => {
       ...createLUTData(),
       profileResolution: {
         kind: 'resolved',
-        confidence: 'explicit',
+        confidence: 'metadata',
         profile: {
           ...profile,
+          outputGamut: profile.inputGamut,
           outputTransfer: 'linear',
+          outputRange: 'full',
         },
       },
     })

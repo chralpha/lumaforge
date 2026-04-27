@@ -151,10 +151,11 @@ describe('session derivation', () => {
           dimension: 33,
           profileResolution: {
             kind: 'resolved',
-            confidence: 'explicit',
+            confidence: 'metadata',
             profile: {
               ...profile!,
               role: 'technical-output',
+              outputGamut: 'v-gamut',
               outputTransfer: 'linear',
               outputRange: 'full',
             },
@@ -190,7 +191,7 @@ describe('session derivation', () => {
           dimension: 33,
           profileResolution: {
             kind: 'resolved',
-            confidence: 'explicit',
+            confidence: 'metadata',
             profile: {
               ...profile!,
               role: 'technical-output',

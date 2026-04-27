@@ -244,6 +244,80 @@ describe('runFullResolutionJpegExport', () => {
     expect(progress.at(-1)).toBe(100)
   })
 
+  it('decodes BT.709 LUT output before final sRGB JPEG encoding', async () => {
+    const bt709EncodedGray = 0.4090077
+    const lut = new Float32Array(2 * 2 * 2 * 3)
+    lut.fill(bt709EncodedGray)
+    const writtenRows: Array<{ bytes: Uint8Array; rowCount: number }> = []
+    const writer = {
+      writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
+        writtenRows.push({ bytes: new Uint8Array(bytes), rowCount })
+      }),
+      close: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await runFullResolutionJpegExport({
+      capability: makeCapability({
+        width: 2,
+        height: 1,
+        rawWidth: 2,
+        rawHeight: 1,
+        visibleCrop: { x: 0, y: 0, width: 2, height: 1 },
+      }),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          {
+            kind: 'gamut-to-lut-input',
+            matrix: mat3Identity(),
+            gamut: 'v-gamut',
+          },
+          { kind: 'encode-lut-transfer', transfer: 'v-log', range: 'full' },
+          {
+            kind: 'lut3d',
+            size: 2,
+            data: lut,
+            domainMin: [0, 0, 0],
+            domainMax: [1, 1, 1],
+          },
+          {
+            kind: 'lut-output-to-srgb',
+            matrix: mat3Identity(),
+            transfer: 'bt709',
+            range: 'full',
+            role: 'combined-look-output',
+            intensity: 1,
+          },
+          { kind: 'output-srgb' },
+        ],
+      },
+      readProcessedWindow: vi.fn((request: LumaRawProcessedWindowRequest) =>
+        Promise.resolve(makeProcessedWindow(request, 32768)),
+      ),
+      writerFactory: () => writer,
+    })
+
+    const bt709Linear = Math.pow((bt709EncodedGray + 0.099) / 1.099, 1 / 0.45)
+    const expected = Math.round(linearToSrgb(bt709Linear) * 255)
+    const encodedByte = Math.round(bt709EncodedGray * 255)
+
+    expect(writtenRows).toHaveLength(1)
+    expect(writtenRows[0]?.rowCount).toBe(1)
+    expect(writtenRows[0]?.bytes).toHaveLength(6)
+    expect(writtenRows[0]?.bytes.slice(0, 3)).toEqual(
+      new Uint8Array([expected, expected, expected]),
+    )
+    expect(writtenRows[0]?.bytes.slice(3, 6)).toEqual(
+      new Uint8Array([expected, expected, expected]),
+    )
+    expect(writtenRows[0]?.bytes[0]).not.toBe(encodedByte)
+  })
+
   it.each([Infinity, -Infinity, Number.NaN, 0, -1])(
     'fails closed for invalid preferred row count %s before reading processed windows',
     async (preferredRows) => {

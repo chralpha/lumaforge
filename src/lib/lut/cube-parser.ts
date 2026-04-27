@@ -12,10 +12,13 @@ import type {
 import { resolveLUTProfile, toCompatInputProfile } from './profile-resolution'
 
 export {
+  applyLUTContractSelection,
   applyLUTProfileSelection,
+  getStoredLUTContractSelection,
   getStoredLUTProfileSelection,
   inferLUTInputProfile,
   resolveLUTProfile,
+  storeLUTContractSelection,
   storeLUTProfileSelection,
 } from './profile-resolution'
 
@@ -66,7 +69,6 @@ function createStableHash(value: string): string {
 
 function createLUTFingerprint(input: {
   content?: string
-  sourceName?: string
   title: string
   size: number
   domainMin: [number, number, number]
@@ -78,7 +80,6 @@ function createLUTFingerprint(input: {
     input.content ??
     Array.from(input.data, (value) => value.toPrecision(8)).join(',')
   const fingerprintSource = [
-    input.sourceName ?? '',
     input.title,
     input.size,
     input.domainMin.join(','),
@@ -215,8 +216,7 @@ export function parseCubeLUT(
       : 'Untitled LUT')
   const fingerprint = createLUTFingerprint({
     content,
-    sourceName: options.sourceName,
-    title: resolvedTitle,
+    title,
     size,
     domainMin,
     domainMax,
@@ -327,7 +327,10 @@ export function generateIdentityLUT(size = 33): ParsedLUT {
   })
   const profileResolution = resolveLUTProfile({
     title: 'Identity',
-    comments: ['Input profile: display-srgb'],
+    comments: [
+      'LUMAFORGE_INPUT_PROFILE=display-srgb',
+      'LUMAFORGE_ROLE=display-look',
+    ],
   })
 
   return {

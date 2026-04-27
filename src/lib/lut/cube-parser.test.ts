@@ -1,6 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { parseCubeLUT, toLUTData } from './cube-parser'
+import {
+  applyLUTContractSelection,
+  parseCubeLUT,
+  toLUTData,
+} from './cube-parser'
 
 function makeCube({
   comments = [],
@@ -18,7 +22,7 @@ function makeCube({
   }) => [number, number, number]
   size?: number
   title?: string
-}) {
+} = {}) {
   const lines = [
     title ? `TITLE "${title}"` : '',
     ...comments.map((comment) => `# ${comment}`),
@@ -49,6 +53,14 @@ function makeCube({
 }
 
 describe('cube-parser input profiles', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+  })
+
   it('preserves comments and falls back to the source file name for the title', () => {
     const lut = parseCubeLUT(
       makeCube({
@@ -80,42 +92,126 @@ describe('cube-parser input profiles', () => {
     expect(lut.inputProfile).toBe('display-srgb')
   })
 
-  it('detects V-Log LUT markers from comments and file names', () => {
+  it('does not resolve LUT contracts from filename or free-form comments', () => {
+    const lut = parseCubeLUT(
+      makeCube({ comments: ['LUMIXPHOTOSTYLE VLOG'], title: 'Generated' }),
+      { sourceName: 'technical-vlog-to-rec709.cube' },
+    )
+
+    expect(lut.profileResolution).toMatchObject({
+      kind: 'needs-user-selection',
+    })
+    expect(lut.profileResolution).not.toMatchObject({
+      kind: 'resolved',
+    })
+  })
+
+  it('resolves structured metadata as a full input and output contract', () => {
+    const lut = parseCubeLUT(
+      makeCube({
+        title: 'Trusted LUT',
+        comments: [
+          'LUMAFORGE_INPUT_PROFILE=panasonic-vgamut-vlog',
+          'LUMAFORGE_ROLE=combined-look-output',
+          'LUMAFORGE_OUTPUT_GAMUT=srgb-rec709',
+          'LUMAFORGE_OUTPUT_TRANSFER=bt709',
+          'LUMAFORGE_OUTPUT_RANGE=full',
+        ],
+      }),
+      { sourceName: 'renamed-file.cube' },
+    )
+
+    expect(lut.profileResolution).toMatchObject({
+      kind: 'resolved',
+      confidence: 'metadata',
+      profile: {
+        inputGamut: 'v-gamut',
+        inputTransfer: 'v-log',
+        role: 'combined-look-output',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'bt709',
+        outputRange: 'full',
+      },
+    })
+  })
+
+  it('does not resolve display-look metadata for non-display input without output fields', () => {
+    const lut = parseCubeLUT(
+      makeCube({
+        title: 'Incomplete Camera LUT',
+        comments: [
+          'LUMAFORGE_INPUT_PROFILE=panasonic-vgamut-vlog',
+          'LUMAFORGE_ROLE=display-look',
+        ],
+      }),
+      { sourceName: 'Panasonic_VLog.cube' },
+    )
+
+    expect(lut.profileResolution).toMatchObject({
+      kind: 'needs-user-selection',
+    })
+    expect(lut.profileResolution).not.toMatchObject({
+      kind: 'resolved',
+    })
+  })
+
+  it('reapplies a persisted user-selected contract by content fingerprint', () => {
+    const first = parseCubeLUT(makeCube(), { sourceName: 'first-name.cube' })
+
+    applyLUTContractSelection(first, {
+      role: 'combined-look-output',
+      inputProfile: 'panasonic-vgamut-vlog',
+      outputGamut: 'srgb-rec709',
+      outputTransfer: 'bt709',
+      outputRange: 'full',
+    })
+
+    const renamed = parseCubeLUT(makeCube(), { sourceName: 'renamed.cube' })
+
+    expect(renamed.fingerprint).toBe(first.fingerprint)
+    expect(renamed.profileResolution).toMatchObject({
+      kind: 'resolved',
+      confidence: 'persisted-user',
+    })
+  })
+
+  it('suggests V-Log LUT markers from comments and file names', () => {
     const lut = parseCubeLUT(
       makeCube({ comments: ['LUMIXPHOTOSTYLE VLOG'], title: 'Generated' }),
       { sourceName: 'FLog2C_to_CLASSIC-Neg_VLog.cube' },
     )
 
     expect(lut.profileResolution).toMatchObject({
-      kind: 'resolved',
-      confidence: 'filename',
-      profile: { id: 'panasonic-vgamut-vlog' },
+      kind: 'needs-user-selection',
+      suggestions: expect.arrayContaining([
+        expect.objectContaining({ id: 'panasonic-vgamut-vlog' }),
+      ]),
     })
-    expect(lut.inputProfile).toBe('v-log')
+    expect(lut.inputProfile).toBe('display-srgb')
     expect(toLUTData(lut)).toMatchObject({
-      inputProfile: 'v-log',
+      inputProfile: 'display-srgb',
       profileResolution: {
-        kind: 'resolved',
-        profile: { id: 'panasonic-vgamut-vlog' },
+        kind: 'needs-user-selection',
       },
     })
   })
 
-  it('annotates S-Log3 S-Gamut3.Cine LUTs with Rec.709 output metadata', () => {
+  it('suggests S-Log3 S-Gamut3.Cine LUTs with Rec.709 output metadata', () => {
     const lut = parseCubeLUT(makeCube({ title: 'Sony technical LUT' }), {
       sourceName: 'SLog3_SGamut3Cine_to_Rec709.cube',
     })
 
     expect(lut.profileResolution).toMatchObject({
-      kind: 'resolved',
-      confidence: 'filename',
-      profile: {
-        id: 'sony-sgamut3cine-slog3',
-        role: 'combined-look-output',
-        outputGamut: 'srgb-rec709',
-        outputTransfer: 'gamma24',
-        outputRange: 'full',
-      },
+      kind: 'needs-user-selection',
+      suggestions: expect.arrayContaining([
+        expect.objectContaining({
+          id: 'sony-sgamut3cine-slog3',
+          role: 'combined-look-output',
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'gamma24',
+          outputRange: 'full',
+        }),
+      ]),
     })
     expect(lut.inputProfile).toBe('display-srgb')
   })
@@ -126,12 +222,13 @@ describe('cube-parser input profiles', () => {
     })
 
     expect(lut.profileResolution).toMatchObject({
-      kind: 'resolved',
-      confidence: 'filename',
-      profile: {
-        id: 'sony-sgamut3cine-slog3',
-        outputRange: 'unknown',
-      },
+      kind: 'needs-user-selection',
+      suggestions: expect.arrayContaining([
+        expect.objectContaining({
+          id: 'sony-sgamut3cine-slog3',
+          outputRange: 'unknown',
+        }),
+      ]),
     })
     expect(lut.profileResolution).not.toMatchObject({
       kind: 'resolved',
@@ -152,7 +249,7 @@ describe('cube-parser input profiles', () => {
     expect(lut.inputProfile).toBe('display-srgb')
   })
 
-  it('annotates bare BT.709 and BT.1886 output phrases', () => {
+  it('suggests bare BT.709 and BT.1886 output phrases', () => {
     const bt709 = parseCubeLUT(makeCube({ title: 'Sony technical LUT' }), {
       sourceName: 'SLog3_SGamut3Cine_BT709.cube',
     })
@@ -162,31 +259,35 @@ describe('cube-parser input profiles', () => {
 
     for (const lut of [bt709, bt1886]) {
       expect(lut.profileResolution).toMatchObject({
-        kind: 'resolved',
-        profile: {
-          id: 'sony-sgamut3cine-slog3',
-          role: 'combined-look-output',
-          outputGamut: 'srgb-rec709',
-          outputTransfer: 'gamma24',
-          outputRange: 'full',
-        },
+        kind: 'needs-user-selection',
+        suggestions: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'sony-sgamut3cine-slog3',
+            role: 'combined-look-output',
+            outputGamut: 'srgb-rec709',
+            outputTransfer: 'gamma24',
+            outputRange: 'full',
+          }),
+        ]),
       })
     }
   })
 
-  it('annotates to Linear output phrases with a supported linear transfer', () => {
+  it('suggests to Linear output phrases with a supported linear transfer', () => {
     const linear = parseCubeLUT(makeCube({ title: 'Sony technical LUT' }), {
       sourceName: 'SLog3_SGamut3Cine_to_Linear.cube',
     })
 
     expect(linear.profileResolution).toMatchObject({
-      kind: 'resolved',
-      profile: {
-        id: 'sony-sgamut3cine-slog3',
-        role: 'technical-output',
-        outputTransfer: 'linear',
-        outputRange: 'unknown',
-      },
+      kind: 'needs-user-selection',
+      suggestions: expect.arrayContaining([
+        expect.objectContaining({
+          id: 'sony-sgamut3cine-slog3',
+          role: 'technical-output',
+          outputTransfer: 'linear',
+          outputRange: 'unknown',
+        }),
+      ]),
     })
   })
 

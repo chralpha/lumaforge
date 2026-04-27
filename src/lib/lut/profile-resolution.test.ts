@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import {
+  applyLUTContractSelection,
   applyLUTProfileSelection,
+  getStoredLUTContractSelection,
   getStoredLUTProfileSelection,
   resolveLUTProfile,
   storeLUTProfileSelection,
@@ -37,20 +39,26 @@ describe('lUT profile selection persistence', () => {
     localStorage.clear()
   })
 
-  it('stores valid user profile selections by fingerprint', () => {
-    const stored = storeLUTProfileSelection(
-      'lut-fingerprint-1',
-      'sony-sgamut3cine-slog3',
-    )
+  it('stores valid display-look profile selections by fingerprint', () => {
+    const stored = storeLUTProfileSelection('lut-fingerprint-1', 'display-srgb')
 
-    expect(stored?.id).toBe('sony-sgamut3cine-slog3')
+    expect(stored?.id).toBe('display-srgb')
     expect(getStoredLUTProfileSelection('lut-fingerprint-1')?.id).toBe(
-      'sony-sgamut3cine-slog3',
+      'display-srgb',
     )
   })
 
   it('uses a stored fingerprint selection before filename inference', () => {
-    storeLUTProfileSelection('lut-fingerprint-2', 'sony-sgamut3cine-slog3')
+    applyLUTContractSelection(
+      makeParsedLUTForProfileSelection('lut-fingerprint-2'),
+      {
+        role: 'combined-look-output',
+        inputProfile: 'sony-sgamut3cine-slog3',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'bt709',
+        outputRange: 'full',
+      },
+    )
 
     expect(
       resolveLUTProfile({
@@ -61,9 +69,114 @@ describe('lUT profile selection persistence', () => {
       }),
     ).toMatchObject({
       kind: 'resolved',
-      confidence: 'user',
+      confidence: 'persisted-user',
       profile: { id: 'sony-sgamut3cine-slog3' },
     })
+  })
+
+  it('rejects scene-creative selections without a complete output contract', () => {
+    const selected = applyLUTContractSelection(
+      makeParsedLUTForProfileSelection('scene-creative-incomplete.cube'),
+      {
+        role: 'scene-creative',
+        inputProfile: 'sony-sgamut3cine-slog3',
+      },
+    )
+
+    expect(selected).toBeUndefined()
+    expect(
+      getStoredLUTContractSelection('scene-creative-incomplete.cube'),
+    ).toBeUndefined()
+  })
+
+  it('ignores legacy string selections for non-display input-only profiles', () => {
+    localStorage.setItem(
+      'lumaforge.lutProfileSelections.v1',
+      JSON.stringify({
+        legacy: 'sony-sgamut3cine-slog3',
+      }),
+    )
+
+    expect(getStoredLUTProfileSelection('legacy')).toBeUndefined()
+    expect(
+      resolveLUTProfile({
+        title: 'Sony technical LUT',
+        sourceName: 'SLog3_SGamut3Cine_to_Rec709.cube',
+        comments: [],
+        fingerprint: 'legacy',
+      }),
+    ).toMatchObject({
+      kind: 'needs-user-selection',
+    })
+  })
+
+  it('stores full user-selected contracts by fingerprint', () => {
+    const selected = applyLUTContractSelection(
+      makeParsedLUTForProfileSelection('manual-contract.cube'),
+      {
+        role: 'combined-look-output',
+        inputProfile: 'panasonic-vgamut-vlog',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'bt709',
+        outputRange: 'full',
+      },
+    )
+
+    expect(selected?.profileResolution).toMatchObject({
+      kind: 'resolved',
+      confidence: 'user',
+      profile: {
+        inputGamut: 'v-gamut',
+        inputTransfer: 'v-log',
+        role: 'combined-look-output',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'bt709',
+        outputRange: 'full',
+      },
+    })
+    expect(getStoredLUTContractSelection('manual-contract.cube')).toEqual({
+      inputProfile: 'panasonic-vgamut-vlog',
+      role: 'combined-look-output',
+      inputGamut: 'v-gamut',
+      inputTransfer: 'v-log',
+      inputRange: 'full',
+      outputGamut: 'srgb-rec709',
+      outputTransfer: 'bt709',
+      outputRange: 'full',
+    })
+  })
+
+  it('rejects output roles without a complete output contract', () => {
+    const selected = applyLUTContractSelection(
+      makeParsedLUTForProfileSelection('incomplete-output.cube'),
+      {
+        role: 'combined-look-output',
+        inputProfile: 'panasonic-vgamut-vlog',
+      },
+    )
+
+    expect(selected).toBeUndefined()
+    expect(
+      getStoredLUTContractSelection('incomplete-output.cube'),
+    ).toBeUndefined()
+  })
+
+  it('rejects display-look selections for non-display inputs even with output fields', () => {
+    const selected = applyLUTContractSelection(
+      makeParsedLUTForProfileSelection('display-look-camera-input.cube'),
+      {
+        role: 'display-look',
+        inputProfile: 'panasonic-vgamut-vlog',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'bt709',
+        outputRange: 'full',
+      },
+    )
+
+    expect(selected).toBeUndefined()
+    expect(
+      getStoredLUTContractSelection('display-look-camera-input.cube'),
+    ).toBeUndefined()
   })
 
   it('ignores malformed non-string stored profile IDs without throwing', () => {
@@ -89,16 +202,122 @@ describe('lUT profile selection persistence', () => {
 })
 
 describe('lUT explicit profile labels', () => {
-  it('resolves input profile labels as explicit input profiles', () => {
+  it('does not resolve LUT contracts from filename or free-form comments', () => {
+    const resolution = resolveLUTProfile({
+      title: 'Generated',
+      sourceName: 'technical-vlog-to-rec709.cube',
+      comments: ['LUMIXPHOTOSTYLE VLOG'],
+    })
+
+    expect(resolution).toMatchObject({
+      kind: 'needs-user-selection',
+    })
+    expect(resolution).not.toMatchObject({
+      kind: 'resolved',
+    })
+  })
+
+  it('resolves structured metadata as a full input and output contract', () => {
+    const resolution = resolveLUTProfile({
+      title: 'Trusted LUT',
+      sourceName: 'renamed-file.cube',
+      comments: [
+        'LUMAFORGE_INPUT_PROFILE=panasonic-vgamut-vlog',
+        'LUMAFORGE_ROLE=combined-look-output',
+        'LUMAFORGE_OUTPUT_GAMUT=srgb-rec709',
+        'LUMAFORGE_OUTPUT_TRANSFER=bt709',
+        'LUMAFORGE_OUTPUT_RANGE=full',
+      ],
+    })
+
+    expect(resolution).toMatchObject({
+      kind: 'resolved',
+      confidence: 'metadata',
+      profile: {
+        inputGamut: 'v-gamut',
+        inputTransfer: 'v-log',
+        role: 'combined-look-output',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'bt709',
+        outputRange: 'full',
+      },
+    })
+  })
+
+  it('does not resolve structured metadata when input profile conflicts with explicit input fields', () => {
+    const resolution = resolveLUTProfile({
+      title: 'Contradictory LUT',
+      sourceName: 'contradictory.cube',
+      comments: [
+        'LUMAFORGE_INPUT_PROFILE=display-srgb',
+        'LUMAFORGE_ROLE=display-look',
+        'LUMAFORGE_INPUT_GAMUT=v-gamut',
+        'LUMAFORGE_INPUT_TRANSFER=v-log',
+        'LUMAFORGE_INPUT_RANGE=full',
+        'LUMAFORGE_OUTPUT_GAMUT=srgb-rec709',
+        'LUMAFORGE_OUTPUT_TRANSFER=bt709',
+        'LUMAFORGE_OUTPUT_RANGE=full',
+      ],
+    })
+
+    expect(resolution).toMatchObject({
+      kind: 'needs-user-selection',
+    })
+    expect(resolution).not.toMatchObject({
+      kind: 'resolved',
+    })
+  })
+
+  it('does not resolve display-look metadata for non-display input without output fields', () => {
+    const resolution = resolveLUTProfile({
+      title: 'Incomplete Camera LUT',
+      sourceName: 'Panasonic_VLog.cube',
+      comments: [
+        'LUMAFORGE_INPUT_PROFILE=panasonic-vgamut-vlog',
+        'LUMAFORGE_ROLE=display-look',
+      ],
+    })
+
+    expect(resolution).toMatchObject({
+      kind: 'needs-user-selection',
+    })
+    expect(resolution).not.toMatchObject({
+      kind: 'resolved',
+    })
+  })
+
+  it('does not resolve display-look metadata for non-display input with output fields', () => {
+    const resolution = resolveLUTProfile({
+      title: 'Malformed Camera LUT',
+      sourceName: 'Panasonic_VLog_to_Rec709.cube',
+      comments: [
+        'LUMAFORGE_INPUT_PROFILE=panasonic-vgamut-vlog',
+        'LUMAFORGE_ROLE=display-look',
+        'LUMAFORGE_OUTPUT_GAMUT=srgb-rec709',
+        'LUMAFORGE_OUTPUT_TRANSFER=bt709',
+        'LUMAFORGE_OUTPUT_RANGE=full',
+      ],
+    })
+
+    expect(resolution).toMatchObject({
+      kind: 'needs-user-selection',
+    })
+    expect(resolution).not.toMatchObject({
+      kind: 'resolved',
+    })
+  })
+
+  it('does not resolve input profile labels as explicit input profiles', () => {
     expect(
       resolveLUTProfile({
         title: 'Client LUT',
         comments: ['Input profile: V-Log'],
       }),
     ).toMatchObject({
-      kind: 'resolved',
-      confidence: 'explicit',
-      profile: { id: 'panasonic-vgamut-vlog' },
+      kind: 'needs-user-selection',
+      suggestions: expect.arrayContaining([
+        expect.objectContaining({ id: 'panasonic-vgamut-vlog' }),
+      ]),
     })
   })
 
@@ -224,7 +443,7 @@ describe('lUT explicit profile labels', () => {
     }
   })
 
-  it('does not let profile selection make unsupported outputs renderable', () => {
+  it('rejects legacy input-profile-only selection for unsupported filename annotations', () => {
     const selected = applyLUTProfileSelection(
       makeParsedLUTForProfileSelection('SLog3_SGamut3Cine_to_Cineon.cube'),
       'sony-sgamut3cine-slog3',

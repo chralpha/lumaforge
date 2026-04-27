@@ -4,8 +4,12 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetToDefaults } from '~/atoms/raw-processor'
+import { getLUTColorProfile } from '~/lib/color/registry'
 import { jotaiStore } from '~/lib/jotai'
-import { getStoredLUTProfileSelection } from '~/lib/lut/profile-resolution'
+import {
+  getStoredLUTContractSelection,
+  getStoredLUTProfileSelection,
+} from '~/lib/lut/profile-resolution'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
 import { currentSessionAtom } from '../state/session.atoms'
@@ -305,15 +309,29 @@ describe('useRawProcessor embedded preview state', () => {
       pendingSelection,
     )
 
+    const selectedContract = {
+      ...getLUTColorProfile('sony-sgamut3cine-slog3')!,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'bt709' as const,
+      outputRange: 'full' as const,
+    }
+
     act(() => {
-      result.current.selectLUTProfile('sony-sgamut3cine-slog3')
+      result.current.selectLUTProfile(selectedContract)
     })
 
     await waitFor(() => {
       expect(result.current.lut?.profileResolution).toMatchObject({
         kind: 'resolved',
         confidence: 'user',
-        profile: { id: 'sony-sgamut3cine-slog3' },
+        profile: {
+          id: 'sony-sgamut3cine-slog3',
+          role: 'combined-look-output',
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'bt709',
+          outputRange: 'full',
+        },
       })
     })
     await waitFor(() => {
@@ -323,8 +341,23 @@ describe('useRawProcessor embedded preview state', () => {
       })
     })
     expect(
-      getStoredLUTProfileSelection(result.current.lut!.fingerprint)?.id,
-    ).toBe('sony-sgamut3cine-slog3')
+      getStoredLUTContractSelection(result.current.lut!.fingerprint),
+    ).toEqual(
+      expect.objectContaining({
+        inputProfile: 'sony-sgamut3cine-slog3',
+        role: 'combined-look-output',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'bt709',
+        outputRange: 'full',
+      }),
+    )
+    expect(
+      getStoredLUTProfileSelection(result.current.lut!.fingerprint),
+    ).toMatchObject({
+      id: 'sony-sgamut3cine-slog3',
+      role: 'combined-look-output',
+      outputTransfer: 'bt709',
+    })
     expect(result.current.lutProfileSelection).toMatchObject({
       status: 'resolved',
       fingerprint: result.current.lut?.fingerprint,
@@ -348,6 +381,155 @@ describe('useRawProcessor embedded preview state', () => {
         confidence: 'user',
       },
     })
+  })
+
+  it('rejects raw registry scene-creative LUT profile selections without output metadata', async () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadLUT(
+        createCubeFile('Client Secret Sauce', 'unknown-look.cube'),
+      )
+    })
+
+    await waitFor(() => {
+      expect(result.current.lutProfileSelection?.status).toBe('pending')
+    })
+
+    const fingerprint = result.current.lut!.fingerprint
+
+    act(() => {
+      result.current.selectLUTProfile(
+        getLUTColorProfile('sony-sgamut3cine-slog3')!,
+      )
+    })
+
+    expect(result.current.lut?.profileResolution).toEqual({
+      kind: 'needs-user-selection',
+      suggestions: [],
+    })
+    expect(result.current.lutProfileSelection?.status).toBe('pending')
+    expect(getStoredLUTContractSelection(fingerprint)).toBeUndefined()
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(toastMock.error).toHaveBeenCalledWith('Incomplete LUT contract', {
+      description: 'sony-sgamut3cine-slog3',
+    })
+  })
+
+  it('accepts explicit same-space output contract selections', async () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadLUT(
+        createCubeFile('Client Secret Sauce', 'unknown-look.cube'),
+      )
+    })
+
+    await waitFor(() => {
+      expect(result.current.lutProfileSelection?.status).toBe('pending')
+    })
+
+    const selectedContract = {
+      ...getLUTColorProfile('panasonic-vgamut-vlog')!,
+      role: 'combined-look-output' as const,
+      outputGamut: 'v-gamut' as const,
+      outputTransfer: 'v-log' as const,
+      outputRange: 'full' as const,
+    }
+
+    act(() => {
+      result.current.selectLUTProfile(selectedContract)
+    })
+
+    await waitFor(() => {
+      expect(result.current.lut?.profileResolution).toMatchObject({
+        kind: 'resolved',
+        confidence: 'user',
+        profile: {
+          id: 'panasonic-vgamut-vlog',
+          role: 'combined-look-output',
+          outputGamut: 'v-gamut',
+          outputTransfer: 'v-log',
+          outputRange: 'full',
+        },
+      })
+    })
+    expect(
+      getStoredLUTContractSelection(result.current.lut!.fingerprint),
+    ).toEqual(
+      expect.objectContaining({
+        inputProfile: 'panasonic-vgamut-vlog',
+        role: 'combined-look-output',
+        outputGamut: 'v-gamut',
+        outputTransfer: 'v-log',
+        outputRange: 'full',
+      }),
+    )
+  })
+
+  it('persists a searchable V-Log to Rec.709 display contract', async () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadLUT(
+        createCubeFile('Client Secret Sauce', 'unknown-look.cube'),
+      )
+    })
+
+    await waitFor(() => {
+      expect(result.current.lutProfileSelection?.status).toBe('pending')
+    })
+
+    const selectedContract = {
+      ...getLUTColorProfile('panasonic-vgamut-vlog')!,
+      label: 'Panasonic V-Gamut / V-Log -> Rec.709 display',
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'bt709' as const,
+      outputRange: 'full' as const,
+    }
+
+    act(() => {
+      result.current.selectLUTProfile(selectedContract)
+    })
+
+    await waitFor(() => {
+      expect(result.current.lut?.profileResolution).toMatchObject({
+        kind: 'resolved',
+        profile: {
+          id: 'panasonic-vgamut-vlog',
+          role: 'combined-look-output',
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'bt709',
+          outputRange: 'full',
+        },
+      })
+    })
+    expect(jotaiStore.get(currentSessionAtom)?.activeStyle).toMatchObject({
+      kind: 'custom',
+      warning: 'This LUT uses Panasonic V-Gamut / V-Log -> Rec.709 display.',
+    })
+    expect(
+      getStoredLUTContractSelection(result.current.lut!.fingerprint),
+    ).toEqual(
+      expect.objectContaining({
+        inputProfile: 'panasonic-vgamut-vlog',
+        role: 'combined-look-output',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'bt709',
+        outputRange: 'full',
+      }),
+    )
   })
 
   it('defers LUT success toasts until after the state commit finishes', async () => {

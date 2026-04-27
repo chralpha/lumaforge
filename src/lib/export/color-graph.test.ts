@@ -44,7 +44,7 @@ describe('resolveExportColorGraph', () => {
     expect(graph.steps).toEqual([])
   })
 
-  it('resolves scene creative LUTs with explicit input gamut and transfer', () => {
+  it('resolves scene creative LUTs with explicit input and output contracts', () => {
     const profile = getLUTColorProfile('sony-sgamut3cine-slog3')
     expect(profile).toBeDefined()
 
@@ -61,7 +61,12 @@ describe('resolveExportColorGraph', () => {
         profileResolution: {
           kind: 'resolved',
           confidence: 'user',
-          profile: profile!,
+          profile: {
+            ...profile!,
+            outputGamut: 's-gamut3-cine',
+            outputTransfer: 's-log3',
+            outputRange: 'full',
+          },
         },
       },
     })
@@ -92,6 +97,46 @@ describe('resolveExportColorGraph', () => {
       role: 'scene-creative',
       intensity: 0.7,
     })
+  })
+
+  it('routes V-Log input and BT.709 Rec.709 output as a combined output LUT', () => {
+    const base = getLUTColorProfile('panasonic-vgamut-vlog')
+    expect(base).toBeDefined()
+
+    const graph = resolveExportColorGraph({
+      styleKind: 'custom',
+      intensity: 1,
+      builtinPreset: null,
+      lut: {
+        size: 2,
+        data: new Float32Array(24),
+        domainMin: [0, 0, 0],
+        domainMax: [1, 1, 1],
+        inputProfile: 'v-log',
+        profileResolution: {
+          kind: 'resolved',
+          confidence: 'metadata',
+          profile: {
+            ...base!,
+            role: 'combined-look-output',
+            outputGamut: 'srgb-rec709',
+            outputTransfer: 'bt709',
+            outputRange: 'full',
+          },
+        },
+      },
+    })
+
+    expect(graph.supported).toBe(true)
+    if (!graph.supported) throw new Error('Expected supported graph')
+    expect(graph.steps).toContainEqual(
+      expect.objectContaining({
+        kind: 'lut-output-to-srgb',
+        transfer: 'bt709',
+        range: 'full',
+        role: 'combined-look-output',
+      }),
+    )
   })
 
   it('resolves omitted display-look output transfer from the LUT input transfer', () => {
@@ -161,40 +206,33 @@ describe('resolveExportColorGraph', () => {
     expect(graph.steps).toEqual([])
   })
 
-  it('fails closed for technical output LUTs when omitted output transfer resolves to linear', () => {
-    const profile = getLUTColorProfile('sony-sgamut3cine-slog3')
+  it('fails closed when a non-display LUT has no declared output contract', () => {
+    const profile = getLUTColorProfile('panasonic-vgamut-vlog')
     expect(profile).toBeDefined()
 
     const graph = resolveExportColorGraph({
       styleKind: 'custom',
-      intensity: 0.7,
+      intensity: 1,
       builtinPreset: null,
       lut: {
         size: 2,
         data: new Float32Array(24),
         domainMin: [0, 0, 0],
         domainMax: [1, 1, 1],
-        inputProfile: 'display-srgb',
+        inputProfile: 'v-log',
         profileResolution: {
           kind: 'resolved',
-          confidence: 'explicit',
-          profile: {
-            ...profile!,
-            role: 'technical-output',
-            outputTransfer: undefined,
-          },
+          confidence: 'user',
+          profile: profile!,
         },
       },
     })
 
-    expect(graph.supported).toBe(false)
-    if (graph.supported) {
-      throw new Error('Expected unsupported graph')
-    }
-    expect(graph.reason).toBe('unsupported-pipeline')
-    expect(graph.message).toBe(
-      'This LUT output transfer is not supported by full-resolution JPEG export.',
-    )
+    expect(graph).toMatchObject({
+      supported: false,
+      reason: 'unsupported-pipeline',
+      message: 'Choose a LUT output profile before full-resolution export.',
+    })
   })
 
   it('fails closed for resolved technical output LUTs with explicit linear output transfer', () => {
@@ -213,10 +251,11 @@ describe('resolveExportColorGraph', () => {
         inputProfile: 'v-log',
         profileResolution: {
           kind: 'resolved',
-          confidence: 'explicit',
+          confidence: 'metadata',
           profile: {
             ...profile!,
             role: 'technical-output',
+            outputGamut: 'v-gamut',
             outputTransfer: 'linear',
             outputRange: 'full',
           },
@@ -250,7 +289,7 @@ describe('resolveExportColorGraph', () => {
         inputProfile: 'v-log',
         profileResolution: {
           kind: 'resolved',
-          confidence: 'explicit',
+          confidence: 'metadata',
           profile: {
             ...profile!,
             role: 'technical-output',
@@ -272,7 +311,7 @@ describe('resolveExportColorGraph', () => {
     )
   })
 
-  it('fails closed for combined output LUTs when omitted output transfer resolves to linear', () => {
+  it('fails closed for combined output LUTs with incomplete output contracts', () => {
     const profile = getLUTColorProfile('sony-sgamut3cine-slog3')
     expect(profile).toBeDefined()
 
@@ -288,7 +327,7 @@ describe('resolveExportColorGraph', () => {
         inputProfile: 'display-srgb',
         profileResolution: {
           kind: 'resolved',
-          confidence: 'explicit',
+          confidence: 'metadata',
           profile: {
             ...profile!,
             role: 'combined-look-output',
@@ -305,7 +344,7 @@ describe('resolveExportColorGraph', () => {
     }
     expect(graph.reason).toBe('unsupported-pipeline')
     expect(graph.message).toBe(
-      'This LUT output transfer is not supported by full-resolution JPEG export.',
+      'Choose a LUT output profile before full-resolution export.',
     )
   })
 })

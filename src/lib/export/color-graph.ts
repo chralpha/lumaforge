@@ -68,33 +68,35 @@ const OUTPUT_TRANSFER = 'srgb'
 
 function resolveEffectiveLUTOutputTransfer(
   profile: LUTColorProfile,
-): TransferFunctionId {
+): TransferFunctionId | undefined {
   if (profile.outputTransfer) return profile.outputTransfer
 
   if (profile.role === 'display-look') return profile.inputTransfer
 
-  if (profile.role === 'scene-creative') return profile.inputTransfer
-
-  if (
-    profile.role === 'combined-look-output' &&
-    profile.outputGamut === OUTPUT_GAMUT
-  ) {
-    return 'gamma24'
-  }
-
-  return 'linear'
+  return undefined
 }
 
 export function resolveUnsupportedLUTOutputReason(
   profile: LUTColorProfile,
 ): string | undefined {
-  const effectiveOutputTransfer = resolveEffectiveLUTOutputTransfer(profile)
-  if (effectiveOutputTransfer === 'linear') {
-    return 'This LUT output transfer is not supported by full-resolution JPEG export.'
-  }
-
   if (profile.outputRange === 'unknown') {
     return 'This LUT output range must be explicit before full-resolution JPEG export.'
+  }
+
+  if (
+    profile.role !== 'display-look' &&
+    (!profile.outputGamut || !profile.outputTransfer || !profile.outputRange)
+  ) {
+    return 'Choose a LUT output profile before full-resolution export.'
+  }
+
+  const effectiveOutputTransfer = resolveEffectiveLUTOutputTransfer(profile)
+  if (!effectiveOutputTransfer) {
+    return 'Choose a LUT output profile before full-resolution export.'
+  }
+
+  if (effectiveOutputTransfer === 'linear') {
+    return 'This LUT output transfer is not supported by full-resolution JPEG export.'
   }
 
   return undefined
@@ -153,9 +155,12 @@ export function resolveExportColorGraph(input: {
     profile.inputGamut === 'prophoto-rgb'
       ? mat3Identity()
       : getLinearProPhotoToGamutMatrix(profile.inputGamut)
-  const outputMatrix = profile.outputGamut
-    ? getLUTOutputToTargetMatrix(profile.outputGamut, OUTPUT_GAMUT)
-    : mat3Identity()
+  const outputGamut = profile.outputGamut ?? profile.inputGamut
+  const outputRange = profile.outputRange ?? 'full'
+  const outputMatrix =
+    outputGamut === OUTPUT_GAMUT
+      ? mat3Identity()
+      : getLUTOutputToTargetMatrix(outputGamut, OUTPUT_GAMUT)
 
   return {
     supported: true,
@@ -184,8 +189,8 @@ export function resolveExportColorGraph(input: {
       {
         kind: 'lut-output-to-srgb',
         matrix: outputMatrix,
-        transfer: effectiveOutputTransfer,
-        range: profile.outputRange ?? 'full',
+        transfer: effectiveOutputTransfer!,
+        range: outputRange,
         role: profile.role,
         intensity: input.intensity,
       },

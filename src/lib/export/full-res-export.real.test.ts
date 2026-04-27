@@ -8,7 +8,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createLumaRawRuntime } from '@lumaforge/luma-raw-runtime'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { parseCubeLUT, toLUTData } from '~/lib/lut/cube-parser'
+import {
+  applyLUTContractSelection,
+  parseCubeLUT,
+  toLUTData,
+} from '~/lib/lut/cube-parser'
 
 import { createLumaJpegRuntime } from '../../../packages/luma-jpeg-runtime/src/runtime'
 import type {
@@ -249,7 +253,20 @@ async function createFileFromPath(absolutePath: string) {
 }
 
 function createResolvedVLogClassic709Graph(lutContent: string) {
-  const lut = parseCubeLUT(lutContent, { sourceName: basename(vLogLutPath) })
+  const parsedLut = parseCubeLUT(lutContent, {
+    sourceName: basename(vLogLutPath),
+  })
+  const lut = applyLUTContractSelection(parsedLut, {
+    role: 'combined-look-output',
+    inputProfile: 'panasonic-vgamut-vlog',
+    outputGamut: 'srgb-rec709',
+    outputTransfer: 'bt709',
+    outputRange: 'full',
+  })
+  if (!lut) {
+    throw new Error('Expected V-Log Classic709 LUT contract selection')
+  }
+
   const graph = resolveExportColorGraph({
     styleKind: 'custom',
     intensity: 1,
@@ -261,7 +278,20 @@ function createResolvedVLogClassic709Graph(lutContent: string) {
     throw new Error(graph.message)
   }
 
-  expect(graph.lutProfile?.id).toBe('panasonic-vgamut-vlog')
+  expect(graph.lutProfile).toMatchObject({
+    role: 'combined-look-output',
+    inputGamut: 'v-gamut',
+    inputTransfer: 'v-log',
+    outputGamut: 'srgb-rec709',
+    outputTransfer: 'bt709',
+  })
+  expect(graph.steps).toContainEqual(
+    expect.objectContaining({
+      kind: 'lut-output-to-srgb',
+      transfer: 'bt709',
+      role: 'combined-look-output',
+    }),
+  )
 
   return graph
 }

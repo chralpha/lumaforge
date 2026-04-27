@@ -18,7 +18,7 @@ function resolved(profile: LUTColorProfile) {
   return {
     kind: 'resolved' as const,
     profile,
-    confidence: 'explicit' as const,
+    confidence: 'metadata' as const,
   }
 }
 
@@ -30,19 +30,9 @@ describe('lUT pipeline profile uniforms', () => {
       (profile) => profile.role !== 'display-look',
     ),
   )(
-    'routes Tier 1 scene profile $id through its declared non-display transform',
+    'requires Tier 1 scene profile $id to declare its output contract',
     (profile) => {
-      const uniforms = resolveLUTPipelineProfileUniforms(resolved(profile))
-
-      expect(uniforms.lutRole).toBe(LUT_ROLE_UNIFORMS[profile.role])
-      expect(uniforms.lutRole).not.toBe(LUT_ROLE_UNIFORMS['display-look'])
-      expect(uniforms.lutInputTransfer).toBe(
-        LUT_TRANSFER_UNIFORMS[profile.inputTransfer],
-      )
-      expect(uniforms.lutInputRange).toBe(
-        LUT_RANGE_UNIFORMS[profile.inputRange],
-      )
-      expect(Array.from(uniforms.inputToLutGamut)).not.toEqual(IDENTITY_MATRIX)
+      expect(isLUTProfileRenderable(resolved(profile))).toBe(false)
     },
   )
 
@@ -63,24 +53,39 @@ describe('lUT pipeline profile uniforms', () => {
     )
   })
 
-  it('maps resolved scene creative profiles to transfer, role, range, and non-display matrices', () => {
+  it('marks bare resolved scene creative profiles as not renderable', () => {
     const profile = getLUTColorProfile('panasonic-vgamut-vlog')
     expect(profile).toBeDefined()
 
-    const uniforms = resolveLUTPipelineProfileUniforms(resolved(profile!))
+    expect(isLUTProfileRenderable(resolved(profile!))).toBe(false)
+  })
 
-    expect(uniforms.lutRole).toBe(LUT_ROLE_UNIFORMS['scene-creative'])
+  it('maps explicit combined output contracts to transfer, role, range, and non-display matrices', () => {
+    const profile = getLUTColorProfile('panasonic-vgamut-vlog')
+    expect(profile).toBeDefined()
+
+    const uniforms = resolveLUTPipelineProfileUniforms(
+      resolved({
+        ...profile!,
+        role: 'combined-look-output',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'bt709',
+        outputRange: 'full',
+      }),
+    )
+
+    expect(uniforms.lutRole).toBe(LUT_ROLE_UNIFORMS['combined-look-output'])
     expect(uniforms.lutInputTransfer).toBe(LUT_TRANSFER_UNIFORMS['v-log'])
-    expect(uniforms.lutOutputTransfer).toBe(LUT_TRANSFER_UNIFORMS['v-log'])
+    expect(uniforms.lutOutputTransfer).toBe(LUT_TRANSFER_UNIFORMS.bt709)
     expect(uniforms.lutInputRange).toBe(LUT_RANGE_UNIFORMS.full)
     expect(uniforms.lutOutputRange).toBe(LUT_RANGE_UNIFORMS.full)
     expect(Array.from(uniforms.inputToLutGamut)).not.toEqual(IDENTITY_MATRIX)
-    expect(Array.from(uniforms.lutOutputToDisplayGamut)).not.toEqual(
+    expect(Array.from(uniforms.lutOutputToDisplayGamut)).toEqual(
       IDENTITY_MATRIX,
     )
   })
 
-  it('maps unresolved profile choices to the display compatibility path', () => {
+  it('marks unresolved profile choices as not renderable', () => {
     const resolution = {
       kind: 'needs-user-selection',
       suggestions: [],
@@ -93,7 +98,7 @@ describe('lUT pipeline profile uniforms', () => {
     expect(uniforms.lutRole).toBe(LUT_ROLE_UNIFORMS['display-look'])
     expect(uniforms.lutInputTransfer).toBe(LUT_TRANSFER_UNIFORMS.srgb)
     expect(uniforms.lutOutputTransfer).toBe(LUT_TRANSFER_UNIFORMS.srgb)
-    expect(isLUTProfileRenderable(resolution)).toBe(true)
+    expect(isLUTProfileRenderable(resolution)).toBe(false)
     expect(Array.from(uniforms.inputToLutGamut)).toEqual(IDENTITY_MATRIX)
     expect(Array.from(uniforms.lutOutputToDisplayGamut)).toEqual(
       IDENTITY_MATRIX,
@@ -114,7 +119,7 @@ describe('lUT pipeline profile uniforms', () => {
     expect(Array.from(uniforms.inputToLutGamut)).toEqual(IDENTITY_MATRIX)
   })
 
-  it('defaults combined Rec.709 output LUTs to gamma24 output when omitted', () => {
+  it('maps combined Rec.709 output LUTs through explicit BT.709 output', () => {
     const profile: LUTColorProfile = {
       id: 'test-combined-rec709',
       label: 'Test Combined Rec.709 Output',
@@ -123,6 +128,8 @@ describe('lUT pipeline profile uniforms', () => {
       inputTransfer: 'v-log',
       inputRange: 'legal',
       outputGamut: 'srgb-rec709',
+      outputTransfer: 'bt709',
+      outputRange: 'full',
       aliases: [],
     }
 
@@ -130,7 +137,7 @@ describe('lUT pipeline profile uniforms', () => {
 
     expect(uniforms.lutRole).toBe(LUT_ROLE_UNIFORMS['combined-look-output'])
     expect(uniforms.lutInputTransfer).toBe(LUT_TRANSFER_UNIFORMS['v-log'])
-    expect(uniforms.lutOutputTransfer).toBe(LUT_TRANSFER_UNIFORMS.gamma24)
+    expect(uniforms.lutOutputTransfer).toBe(LUT_TRANSFER_UNIFORMS.bt709)
     expect(uniforms.lutInputRange).toBe(LUT_RANGE_UNIFORMS.legal)
     expect(uniforms.lutOutputRange).toBe(LUT_RANGE_UNIFORMS.full)
     expect(Array.from(uniforms.lutOutputToDisplayGamut)).toEqual(
@@ -146,8 +153,9 @@ describe('lUT pipeline profile uniforms', () => {
       resolved({
         ...profile!,
         role: 'technical-output',
+        outputGamut: 's-gamut3-cine',
         outputTransfer: 'linear',
-        outputRange: 'unknown',
+        outputRange: 'full',
       }),
     )
 
@@ -157,38 +165,29 @@ describe('lUT pipeline profile uniforms', () => {
     expect(uniforms.lutOutputTransfer).not.toBe(LUT_TRANSFER_UNIFORMS['s-log3'])
   })
 
-  it('does not infer camera or gamma output transfer for omitted non-display outputs', () => {
+  it('does not render omitted non-display output contracts', () => {
     const profile = getLUTColorProfile('sony-sgamut3cine-slog3')
     expect(profile).toBeDefined()
 
-    const technicalUniforms = resolveLUTPipelineProfileUniforms(
-      resolved({
-        ...profile!,
-        role: 'technical-output',
-        outputTransfer: undefined,
-      }),
-    )
-    const combinedUniforms = resolveLUTPipelineProfileUniforms(
-      resolved({
-        ...profile!,
-        role: 'combined-look-output',
-        outputGamut: undefined,
-        outputTransfer: undefined,
-      }),
-    )
-
-    expect(technicalUniforms.lutOutputTransfer).toBe(
-      LUT_TRANSFER_UNIFORMS.linear,
-    )
-    expect(combinedUniforms.lutOutputTransfer).toBe(
-      LUT_TRANSFER_UNIFORMS.linear,
-    )
-    expect(combinedUniforms.lutOutputTransfer).not.toBe(
-      LUT_TRANSFER_UNIFORMS.gamma24,
-    )
-    expect(technicalUniforms.lutOutputTransfer).not.toBe(
-      LUT_TRANSFER_UNIFORMS['s-log3'],
-    )
+    expect(
+      isLUTProfileRenderable(
+        resolved({
+          ...profile!,
+          role: 'technical-output',
+          outputTransfer: undefined,
+        }),
+      ),
+    ).toBe(false)
+    expect(
+      isLUTProfileRenderable(
+        resolved({
+          ...profile!,
+          role: 'combined-look-output',
+          outputGamut: undefined,
+          outputTransfer: undefined,
+        }),
+      ),
+    ).toBe(false)
   })
 
   it('marks unsupported output resolutions as not renderable', () => {
