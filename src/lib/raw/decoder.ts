@@ -1,3 +1,5 @@
+import type { RawRenderExposure } from '~/lib/color/raw-render-exposure'
+
 type DecodedImageLayout = 'rgba-float32' | 'rgb-u16'
 
 type DecodedImageColorSpace = 'display-srgb-preview' | 'linear-prophoto-rgb'
@@ -13,6 +15,7 @@ export interface DecodedImage {
   source?: 'quick' | 'hq'
   timings?: Record<string, number | undefined>
   metadata: ImageMetadata
+  renderExposure: RawRenderExposure
 }
 
 export interface ImageMetadata {
@@ -27,6 +30,7 @@ export interface ImageMetadata {
   width: number
   height: number
   orientation?: number
+  baselineExposure?: number
 }
 
 export interface DecodeProgress {

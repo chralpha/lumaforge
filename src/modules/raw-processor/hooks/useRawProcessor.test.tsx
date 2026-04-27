@@ -79,6 +79,7 @@ function createDecodedImage(source: 'quick' | 'hq'): DecodedImage {
       width: isQuick ? 800 : 4000,
       height: isQuick ? 600 : 3000,
     },
+    renderExposure: { ev: 0, multiplier: 1, source: 'identity' },
   }
 }
 

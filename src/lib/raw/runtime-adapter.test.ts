@@ -45,7 +45,7 @@ function makeFrame(data: Uint16Array): LumaRawFrame {
   }
 }
 
-function makeLumaFrame(source: 'quick' | 'hq') {
+function makeLumaFrame(source: 'quick' | 'hq'): LumaRawFrame {
   return {
     jobId: `${source}-1`,
     source,
@@ -237,6 +237,46 @@ describe('raw runtime adapter', () => {
       height: 1,
       orientation: 1,
     })
+  })
+
+  it('attaches DNG baseline render exposure to decoded images', async () => {
+    const frame = makeLumaFrame('quick')
+    frame.metadata.baselineExposure = 1
+    const { runtime } = makeLumaRuntime({
+      decodeQuick: vi.fn().mockResolvedValue(frame),
+    })
+    const adapter = createRawRuntimeAdapter({
+      lumaRuntimeFactory: () => runtime,
+    })
+
+    const image = await adapter.decodeQuickRaw(new File(['raw'], 'sample.DNG'))
+
+    expect(image.renderExposure).toEqual({
+      ev: 1,
+      multiplier: 2,
+      source: 'dng-baseline',
+    })
+  })
+
+  it('attaches statistical render exposure when metadata is missing', async () => {
+    const frame = makeLumaFrame('quick')
+    frame.metadata.baselineExposure = undefined
+    frame.data = new Uint16Array([
+      2048, 2048, 2048, 4096, 4096, 4096, 8192, 8192, 8192,
+    ])
+    frame.width = 3
+    frame.height = 1
+    const { runtime } = makeLumaRuntime({
+      decodeQuick: vi.fn().mockResolvedValue(frame),
+    })
+    const adapter = createRawRuntimeAdapter({
+      lumaRuntimeFactory: () => runtime,
+    })
+
+    const image = await adapter.decodeQuickRaw(new File(['raw'], 'sample.RAF'))
+
+    expect(image.renderExposure.source).toBe('image-statistics')
+    expect(image.renderExposure.ev).toBeGreaterThan(0)
   })
 
   it('preserves stable luma runtime error codes', async () => {
