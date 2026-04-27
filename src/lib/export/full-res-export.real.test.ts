@@ -16,6 +16,7 @@ import {
 } from '~/lib/lut/cube-parser'
 
 import { createLumaJpegRuntime } from '../../../packages/luma-jpeg-runtime/src/runtime'
+import { createBaselineJpegEncoder } from '../../../packages/luma-jpeg-runtime/worker/baseline-encoder'
 import type {
   JpegWorkerRequest,
   JpegWorkerResponse,
@@ -215,7 +216,9 @@ class RealNativeWorker {
 class CoreBackedJpegWorker {
   onmessage: ((event: MessageEvent<JpegWorkerMessage>) => void) | null = null
   onerror: ((event: ErrorEvent) => void) | null = null
-  private readonly core = createJpegRuntimeCore()
+  private readonly core = createJpegRuntimeCore(
+    async () => createBaselineJpegEncoder,
+  )
 
   postMessage(request: JpegWorkerRequest) {
     void this.core

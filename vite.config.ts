@@ -18,38 +18,62 @@ const LUMA_RAW_RUNTIME_SOURCE = resolve(
   ROOT,
   './packages/luma-raw-runtime/src/index.ts',
 )
-const LUMA_RAW_NATIVE_SOURCE_DIR = resolve(
-  ROOT,
-  './packages/luma-raw-runtime/dist/native',
-)
-const LUMA_RAW_NATIVE_ASSETS = ['luma_raw.js', 'luma_raw.wasm'] as const
+const NATIVE_RUNTIME_ASSETS = [
+  {
+    label: 'Luma RAW runtime',
+    packageName: '@lumaforge/luma-raw-runtime',
+    sourceDir: resolve(ROOT, './packages/luma-raw-runtime/dist/native'),
+    files: ['luma_raw.js', 'luma_raw.wasm'],
+  },
+  {
+    label: 'Luma JPEG runtime',
+    packageName: '@lumaforge/luma-jpeg-runtime',
+    sourceDir: resolve(ROOT, './packages/luma-jpeg-runtime/dist/native'),
+    files: ['luma_jpeg.js', 'luma_jpeg.wasm'],
+  },
+] as const
 const CROSS_ORIGIN_ISOLATION_HEADERS = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'require-corp',
 }
 
-function assertLumaRawNativeAssets() {
-  const missingAssets = LUMA_RAW_NATIVE_ASSETS.filter(
-    (fileName) => !existsSync(resolve(LUMA_RAW_NATIVE_SOURCE_DIR, fileName)),
+function assertNativeRuntimeAssets() {
+  const missingAssets = NATIVE_RUNTIME_ASSETS.flatMap((assetSet) =>
+    assetSet.files
+      .filter((fileName) => !existsSync(resolve(assetSet.sourceDir, fileName)))
+      .map((fileName) => ({
+        assetSet,
+        fileName,
+      })),
   )
 
   if (missingAssets.length > 0) {
+    const missingSummary = missingAssets
+      .map(({ assetSet, fileName }) => `${assetSet.label}: ${fileName}`)
+      .join(', ')
+    const buildCommands = [
+      ...new Set(
+        missingAssets.map(
+          ({ assetSet }) =>
+            `pnpm --filter ${assetSet.packageName} build:native`,
+        ),
+      ),
+    ].join(' && ')
+
     throw new Error(
-      `The Luma RAW runtime requires native assets (${missingAssets.join(
-        ', ',
-      )}). Run \`pnpm --filter @lumaforge/luma-raw-runtime build:native\` before building or serving the app.`,
+      `The app requires native runtime assets (${missingSummary}). Run \`${buildCommands}\` before building or serving the app.`,
     )
   }
 }
 
-function lumaRawNativeAssetsPlugin(): Plugin {
+function nativeRuntimeAssetsPlugin(): Plugin {
   return {
-    name: 'lumaforge-luma-raw-native-assets',
+    name: 'lumaforge-native-runtime-assets',
     configResolved() {
-      assertLumaRawNativeAssets()
+      assertNativeRuntimeAssets()
     },
     writeBundle(options) {
-      assertLumaRawNativeAssets()
+      assertNativeRuntimeAssets()
 
       const outputDir = options.dir
         ? resolve(ROOT, options.dir)
@@ -57,11 +81,13 @@ function lumaRawNativeAssetsPlugin(): Plugin {
       const nativeOutputDir = resolve(outputDir, 'native')
       mkdirSync(nativeOutputDir, { recursive: true })
 
-      for (const fileName of LUMA_RAW_NATIVE_ASSETS) {
-        copyFileSync(
-          resolve(LUMA_RAW_NATIVE_SOURCE_DIR, fileName),
-          resolve(nativeOutputDir, fileName),
-        )
+      for (const assetSet of NATIVE_RUNTIME_ASSETS) {
+        for (const fileName of assetSet.files) {
+          copyFileSync(
+            resolve(assetSet.sourceDir, fileName),
+            resolve(nativeOutputDir, fileName),
+          )
+        }
       }
     },
   }
@@ -76,7 +102,7 @@ export default defineConfig(() => {
       headers: CROSS_ORIGIN_ISOLATION_HEADERS,
     },
     plugins: [
-      lumaRawNativeAssetsPlugin(),
+      nativeRuntimeAssetsPlugin(),
       codeInspectorPlugin({
         bundler: 'vite',
         hotKeys: ['altKey'],

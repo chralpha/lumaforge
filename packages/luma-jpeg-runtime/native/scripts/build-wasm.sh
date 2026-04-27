@@ -85,9 +85,12 @@ emcc \
   "${LIBJPEG_DIR}/src/jccoefct.c" \
   "${LIBJPEG_DIR}/src/jccolor.c" \
   "${LIBJPEG_DIR}/src/jcdctmgr.c" \
+  "${LIBJPEG_DIR}/src/jcdiffct.c" \
   "${LIBJPEG_DIR}/src/jchuff.c" \
   "${LIBJPEG_DIR}/src/jcicc.c" \
   "${LIBJPEG_DIR}/src/jcinit.c" \
+  "${LIBJPEG_DIR}/src/jclhuff.c" \
+  "${LIBJPEG_DIR}/src/jclossls.c" \
   "${LIBJPEG_DIR}/src/jcmainct.c" \
   "${LIBJPEG_DIR}/src/jcmarker.c" \
   "${LIBJPEG_DIR}/src/jcmaster.c" \
@@ -125,8 +128,27 @@ emcc \
   "${LIBJPEG_DIR}/src/jquant1.c" \
   "${LIBJPEG_DIR}/src/jquant2.c" \
   "${LIBJPEG_DIR}/src/jutils.c" \
+  "${LIBJPEG_DIR}/src/jpeg_nbits.c" \
   "${LIBJPEG_DIR}/src/jmemmgr.c" \
   "${LIBJPEG_DIR}/src/jmemnobs.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jccoefct-12.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jccolor-12.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jccolor-16.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jcdctmgr-12.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jcdiffct-12.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jcdiffct-16.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jfdctfst-12.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jfdctint-12.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jclossls-12.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jclossls-16.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jcmainct-12.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jcmainct-16.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jcprepct-12.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jcprepct-16.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jcsample-12.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jcsample-16.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jutils-12.c" \
+  "${LIBJPEG_DIR}/src/wrapper/jutils-16.c" \
   -o "${OUTPUT_JS}"
 
 node "${SCRIPT_DIR}/verify-native-artifacts.mjs" --write-provenance

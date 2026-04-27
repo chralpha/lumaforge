@@ -1,7 +1,5 @@
-import type {
-  JpegWorkerRequest,
-  JpegWorkerResponse,
-} from './runtime-core'
+import { loadNativeJpegEncoderFactory } from './load-native-module'
+import type { JpegWorkerRequest, JpegWorkerResponse } from './runtime-core'
 import { createJpegRuntimeCore } from './runtime-core'
 
 let core: ReturnType<typeof createJpegRuntimeCore> | undefined
@@ -41,7 +39,7 @@ self.onmessage = async (event: MessageEvent<JpegWorkerRequest>) => {
   const request = event.data
 
   try {
-    core ??= createJpegRuntimeCore()
+    core ??= createJpegRuntimeCore(loadNativeJpegEncoderFactory)
     const response: JpegWorkerResponse = await core.handleRequest(request)
     self.postMessage(response)
   } catch (error) {

@@ -1,3 +1,4 @@
+import { createBaselineJpegEncoder } from '../worker/baseline-encoder'
 import type {
   JpegWorkerRequest,
   JpegWorkerResponse,
@@ -22,7 +23,9 @@ type PostedMessage = {
 class CoreBackedWorker {
   onmessage: ((event: MessageEvent<WorkerResponse>) => void) | null = null
   onerror: ((event: ErrorEvent) => void) | null = null
-  private readonly core = createJpegRuntimeCore()
+  private readonly core = createJpegRuntimeCore(
+    async () => createBaselineJpegEncoder,
+  )
 
   postMessage(request: JpegWorkerRequest) {
     void this.core

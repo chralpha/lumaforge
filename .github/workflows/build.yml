@@ -70,6 +70,24 @@ jobs:
           pnpm --filter @lumaforge/luma-raw-runtime build:native
           pnpm --filter @lumaforge/luma-raw-runtime native:verify
 
+      - name: Build native JPEG runtime
+        run: |
+          . "$HOME/.cache/lumaforge-emsdk/emsdk_env.sh"
+          pnpm --filter @lumaforge/luma-jpeg-runtime build:native
+          pnpm --filter @lumaforge/luma-jpeg-runtime native:verify
+
+      - name: Smoke test CI-built native JPEG runtime
+        run: pnpm --filter @lumaforge/luma-jpeg-runtime test:native-smoke
+
+      - name: Typecheck JPEG runtime package
+        run: pnpm --filter @lumaforge/luma-jpeg-runtime typecheck
+
+      - name: Test JPEG runtime package
+        run: pnpm --filter @lumaforge/luma-jpeg-runtime test
+
+      - name: Build JPEG runtime package
+        run: pnpm --filter @lumaforge/luma-jpeg-runtime build
+
       - name: Fetch public RAW smoke fixtures
         run: pnpm --filter @lumaforge/luma-raw-runtime fixtures:fetch-public
 
@@ -89,3 +107,5 @@ jobs:
         run: |
           test -f dist/native/luma_raw.js
           test -f dist/native/luma_raw.wasm
+          test -f dist/native/luma_jpeg.js
+          test -f dist/native/luma_jpeg.wasm

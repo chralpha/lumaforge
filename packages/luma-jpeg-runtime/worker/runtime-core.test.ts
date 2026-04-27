@@ -1,4 +1,17 @@
+import { createBaselineJpegEncoder } from './baseline-encoder'
 import { createJpegRuntimeCore } from './runtime-core'
+
+const JPEG_SOI_MARKER = 65_496
+const JPEG_EOI_MARKER = 65_497
+const JPEG_MARKER_PREFIX = 255
+const JPEG_SOS_MARKER = 218
+const JPEG_SOF0_MARKER = 192
+const JPEG_DQT_MARKER = 219
+const JPEG_DHT_MARKER = 196
+
+function createBaselineRuntime() {
+  return createJpegRuntimeCore(async () => createBaselineJpegEncoder)
+}
 
 function readWord(bytes: Uint8Array, offset: number) {
   return (bytes[offset] << 8) | bytes[offset + 1]
@@ -26,23 +39,23 @@ async function expectBaselineJpeg(
   let sof0: { width: number; height: number } | undefined
   let offset = 2
 
-  expect(readWord(bytes, 0)).toBe(0xFFD8)
-  expect(readWord(bytes, bytes.length - 2)).toBe(0xFFD9)
+  expect(readWord(bytes, 0)).toBe(JPEG_SOI_MARKER)
+  expect(readWord(bytes, bytes.length - 2)).toBe(JPEG_EOI_MARKER)
 
   while (offset < bytes.length - 2) {
-    if (bytes[offset] !== 0xFF) {
+    if (bytes[offset] !== JPEG_MARKER_PREFIX) {
       offset += 1
       continue
     }
 
     const marker = bytes[offset + 1]
     markers.add(marker)
-    if (marker === 0xDA) {
+    if (marker === JPEG_SOS_MARKER) {
       break
     }
 
     const segmentLength = readWord(bytes, offset + 2)
-    if (marker === 0xC0) {
+    if (marker === JPEG_SOF0_MARKER) {
       sof0 = {
         height: readWord(bytes, offset + 5),
         width: readWord(bytes, offset + 7),
@@ -51,16 +64,16 @@ async function expectBaselineJpeg(
     offset += 2 + segmentLength
   }
 
-  expect(markers.has(0xDB)).toBe(true)
-  expect(markers.has(0xC0)).toBe(true)
-  expect(markers.has(0xC4)).toBe(true)
-  expect(markers.has(0xDA)).toBe(true)
+  expect(markers.has(JPEG_DQT_MARKER)).toBe(true)
+  expect(markers.has(JPEG_SOF0_MARKER)).toBe(true)
+  expect(markers.has(JPEG_DHT_MARKER)).toBe(true)
+  expect(markers.has(JPEG_SOS_MARKER)).toBe(true)
   expect(sof0).toEqual(dimensions)
 }
 
 describe('createJpegRuntimeCore', () => {
   it('tracks written rows after create', async () => {
-    const core = createJpegRuntimeCore()
+    const core = createBaselineRuntime()
 
     await expect(
       core.handleRequest({
@@ -91,7 +104,7 @@ describe('createJpegRuntimeCore', () => {
   })
 
   it('returns a baseline image/jpeg blob on finish', async () => {
-    const core = createJpegRuntimeCore()
+    const core = createBaselineRuntime()
 
     await core.handleRequest({
       id: 'create-2',
@@ -138,7 +151,7 @@ describe('createJpegRuntimeCore', () => {
   })
 
   it('rejects finish before create', async () => {
-    const core = createJpegRuntimeCore()
+    const core = createBaselineRuntime()
 
     await expect(
       core.handleRequest({
@@ -150,7 +163,7 @@ describe('createJpegRuntimeCore', () => {
   })
 
   it('rejects rows before create', async () => {
-    const core = createJpegRuntimeCore()
+    const core = createBaselineRuntime()
 
     await expect(
       core.handleRequest({
@@ -165,7 +178,7 @@ describe('createJpegRuntimeCore', () => {
   })
 
   it('rejects non-positive row counts', async () => {
-    const core = createJpegRuntimeCore()
+    const core = createBaselineRuntime()
 
     await core.handleRequest({
       id: 'create-3',
@@ -187,7 +200,7 @@ describe('createJpegRuntimeCore', () => {
 
   it('rejects row length mismatches before writing to the backend', async () => {
     let wroteRows = false
-    const core = createJpegRuntimeCore(() => ({
+    const core = createJpegRuntimeCore(async () => () => ({
       async writeRows() {
         wroteRows = true
       },
@@ -217,7 +230,7 @@ describe('createJpegRuntimeCore', () => {
   })
 
   it('rejects rows after abort', async () => {
-    const core = createJpegRuntimeCore()
+    const core = createBaselineRuntime()
 
     await core.handleRequest({
       id: 'create-4',
@@ -243,7 +256,7 @@ describe('createJpegRuntimeCore', () => {
   })
 
   it('rejects invalid JPEG quality at create time', async () => {
-    const core = createJpegRuntimeCore()
+    const core = createBaselineRuntime()
 
     await expect(
       core.handleRequest({
@@ -255,7 +268,7 @@ describe('createJpegRuntimeCore', () => {
   })
 
   it('rejects create while an encoder is ready', async () => {
-    const core = createJpegRuntimeCore()
+    const core = createBaselineRuntime()
 
     await core.handleRequest({
       id: 'create-active',
@@ -274,7 +287,7 @@ describe('createJpegRuntimeCore', () => {
 
   it('rejects in-flight rows when abort wins the worker boundary', async () => {
     let resolveWriteRows: (() => void) | undefined
-    const core = createJpegRuntimeCore(() => ({
+    const core = createJpegRuntimeCore(async () => () => ({
       writeRows: () =>
         new Promise<void>((resolve) => {
           resolveWriteRows = resolve
@@ -308,7 +321,7 @@ describe('createJpegRuntimeCore', () => {
 
   it('rejects in-flight finish when abort wins the worker boundary', async () => {
     let resolveFinish: (() => void) | undefined
-    const core = createJpegRuntimeCore(() => ({
+    const core = createJpegRuntimeCore(async () => () => ({
       async writeRows() {},
       finish: () =>
         new Promise<Blob>((resolve) => {
@@ -341,5 +354,129 @@ describe('createJpegRuntimeCore', () => {
     resolveFinish?.()
 
     await expect(finishPromise).rejects.toThrow('JPEG_RUNTIME_ABORTED')
+  })
+
+  it('marks backend write failures terminal without reusing the encoder', async () => {
+    let createCalls = 0
+    let writeRowsCalls = 0
+    let finishCalls = 0
+    const core = createJpegRuntimeCore(async () => () => {
+      createCalls += 1
+
+      return {
+        async writeRows() {
+          writeRowsCalls += 1
+          throw new Error('JPEG_NATIVE_WRITE_FAILED')
+        },
+        async finish() {
+          finishCalls += 1
+          return new Blob([], { type: 'image/jpeg' })
+        },
+        abort() {},
+      }
+    })
+
+    await core.handleRequest({
+      id: 'create-write-failure',
+      type: 'create',
+      payload: { width: 1, height: 1, quality: 0.9 },
+    })
+
+    await expect(
+      core.handleRequest({
+        id: 'rows-write-failure',
+        type: 'rows',
+        payload: { rows: new Uint8Array([255, 255, 255]), rowCount: 1 },
+      }),
+    ).rejects.toThrow('JPEG_NATIVE_WRITE_FAILED')
+    await expect(
+      core.handleRequest({
+        id: 'rows-after-write-failure',
+        type: 'rows',
+        payload: { rows: new Uint8Array([255, 255, 255]), rowCount: 1 },
+      }),
+    ).rejects.toThrow('JPEG_RUNTIME_ABORTED')
+    await expect(
+      core.handleRequest({
+        id: 'finish-after-write-failure',
+        type: 'finish',
+        payload: {},
+      }),
+    ).rejects.toThrow('JPEG_RUNTIME_ABORTED')
+    await expect(
+      core.handleRequest({
+        id: 'create-after-write-failure',
+        type: 'create',
+        payload: { width: 1, height: 1, quality: 0.9 },
+      }),
+    ).rejects.toThrow('JPEG_RUNTIME_ABORTED')
+
+    expect(createCalls).toBe(1)
+    expect(writeRowsCalls).toBe(1)
+    expect(finishCalls).toBe(0)
+  })
+
+  it('marks backend finish failures terminal without reusing the encoder', async () => {
+    let createCalls = 0
+    let writeRowsCalls = 0
+    let finishCalls = 0
+    const core = createJpegRuntimeCore(async () => () => {
+      createCalls += 1
+
+      return {
+        async writeRows() {
+          writeRowsCalls += 1
+        },
+        async finish() {
+          finishCalls += 1
+          throw new Error('JPEG_NATIVE_FINISH_FAILED')
+        },
+        abort() {},
+      }
+    })
+
+    await core.handleRequest({
+      id: 'create-finish-failure',
+      type: 'create',
+      payload: { width: 1, height: 1, quality: 0.9 },
+    })
+    await core.handleRequest({
+      id: 'rows-before-finish-failure',
+      type: 'rows',
+      payload: { rows: new Uint8Array([255, 255, 255]), rowCount: 1 },
+    })
+
+    await expect(
+      core.handleRequest({
+        id: 'finish-failure',
+        type: 'finish',
+        payload: {},
+      }),
+    ).rejects.toThrow('JPEG_NATIVE_FINISH_FAILED')
+    await expect(
+      core.handleRequest({
+        id: 'finish-after-finish-failure',
+        type: 'finish',
+        payload: {},
+      }),
+    ).rejects.toThrow('JPEG_RUNTIME_ABORTED')
+    await expect(
+      core.handleRequest({
+        id: 'rows-after-finish-failure',
+        type: 'rows',
+        payload: { rows: new Uint8Array([255, 255, 255]), rowCount: 1 },
+      }),
+    ).rejects.toThrow('JPEG_RUNTIME_ABORTED')
+    await expect(
+      core.handleRequest({
+        id: 'create-after-finish-failure',
+        type: 'create',
+        payload: { width: 1, height: 1, quality: 0.9 },
+      }),
+    ).rejects.toThrow('JPEG_RUNTIME_ABORTED')
+
+    expect(createCalls).toBe(1)
+    expect(writeRowsCalls).toBe(1)
+    expect(finishCalls).toBe(1)
   })
 })
