@@ -533,6 +533,197 @@ describe('native-adapter', () => {
     expect(window?.data.buffer).not.toBe(pooled.buffer)
   })
 
+  it('normalizes processed-window timing payloads', () => {
+    const processor = createProcessor({
+      processedWindow: {
+        rect: { x: 0, y: 2, width: 2, height: 1 },
+        workingSpace: 'linear-prophoto-rgb',
+        data: new Uint16Array([1, 2, 3, 4, 5, 6]),
+        width: 2,
+        height: 1,
+        stride: 6,
+        normalized: false,
+        orientationApplied: true,
+        colorApplied: true,
+        warnings: [],
+        timings: {
+          setup: 1,
+          open: 2,
+          unpack: 3,
+          process: 4,
+          outputCopy: 5,
+          orientation: 6,
+          total: 21,
+        },
+      },
+    })
+
+    const window = processor.readProcessedWindow?.({
+      outputRect: { x: 0, y: 2, width: 2, height: 1 },
+      halo: { left: 1, top: 1, right: 1, bottom: 1 },
+    })
+
+    expect(window?.timings).toEqual({
+      setup: 1,
+      open: 2,
+      unpack: 3,
+      process: 4,
+      outputCopy: 5,
+      orientation: 6,
+      total: 21,
+    })
+  })
+
+  it('accepts absent processed-window timing payloads', () => {
+    const baseWindow = {
+      rect: { x: 0, y: 2, width: 2, height: 1 },
+      workingSpace: 'linear-prophoto-rgb',
+      data: new Uint16Array([1, 2, 3, 4, 5, 6]),
+      width: 2,
+      height: 1,
+      stride: 6,
+      normalized: false,
+      orientationApplied: true,
+      colorApplied: true,
+      warnings: [],
+    }
+    const withoutTimings = createProcessor({ processedWindow: baseWindow })
+    const nullTimings = createProcessor({
+      processedWindow: { ...baseWindow, timings: null },
+    })
+    const request = {
+      outputRect: { x: 0, y: 2, width: 2, height: 1 },
+      halo: { left: 1, top: 1, right: 1, bottom: 1 },
+    }
+
+    expect(
+      withoutTimings.readProcessedWindow?.(request).timings,
+    ).toBeUndefined()
+    expect(nullTimings.readProcessedWindow?.(request).timings).toBeUndefined()
+  })
+
+  it.each([
+    ['missing total', { process: 4 }],
+    ['negative total', { total: -1 }],
+    ['negative optional field', { process: -1, total: 1 }],
+    ['infinite optional field', { open: Infinity, total: 1 }],
+    ['NaN optional field', { unpack: Number.NaN, total: 1 }],
+    ['present invalid optional field', { process: 'bad', total: 1 }],
+  ])('rejects %s in processed-window timings', (_label, timings) => {
+    const processor = createProcessor({
+      processedWindow: {
+        rect: { x: 0, y: 2, width: 2, height: 1 },
+        workingSpace: 'linear-prophoto-rgb',
+        data: new Uint16Array([1, 2, 3, 4, 5, 6]),
+        width: 2,
+        height: 1,
+        stride: 6,
+        normalized: false,
+        orientationApplied: true,
+        colorApplied: true,
+        warnings: [],
+        timings,
+      },
+    })
+
+    expect(() =>
+      processor.readProcessedWindow?.({
+        outputRect: { x: 0, y: 2, width: 2, height: 1 },
+        halo: { left: 1, top: 1, right: 1, bottom: 1 },
+      }),
+    ).toThrow('Native RAW processed-window timings returned invalid')
+  })
+
+  it('passes through processed-window export lifecycle methods', () => {
+    const calls: string[] = []
+    const processor = createNativeFactory({
+      LumaRawProcessor: class {
+        loadBuffer(_data: Uint8Array) {
+          return { copyToWasm: 0 }
+        }
+        openWithSettings(_settings: LumaRawNativeOpenSettings) {
+          return {
+            copyToWasm: 0,
+            librawOpen: 0,
+          }
+        }
+        openBuffer(_data: Uint8Array, _settings: LumaRawNativeOpenSettings) {
+          return undefined
+        }
+        readMetadata() {
+          return {}
+        }
+        extractThumbnail() {
+          return undefined
+        }
+        beginProcessedWindowExport() {
+          calls.push('begin')
+          return { active: true }
+        }
+        endProcessedWindowExport() {
+          calls.push('end')
+        }
+        decodePreview() {
+          return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
+        }
+        decodeHq() {
+          return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
+        }
+        delete() {}
+      },
+    }).createProcessor()
+
+    expect(processor.beginProcessedWindowExport?.()).toEqual({ active: true })
+    processor.endProcessedWindowExport?.()
+    expect(calls).toEqual(['begin', 'end'])
+  })
+
+  it.each([
+    ['inactive', { active: false }],
+    ['malformed', {}],
+    ['undefined', undefined],
+  ])(
+    'rejects %s processed-window export begin result',
+    (_label, beginResult) => {
+      const processor = createNativeFactory({
+        LumaRawProcessor: class {
+          loadBuffer(_data: Uint8Array) {
+            return { copyToWasm: 0 }
+          }
+          openWithSettings(_settings: LumaRawNativeOpenSettings) {
+            return {
+              copyToWasm: 0,
+              librawOpen: 0,
+            }
+          }
+          openBuffer(_data: Uint8Array, _settings: LumaRawNativeOpenSettings) {
+            return undefined
+          }
+          readMetadata() {
+            return {}
+          }
+          extractThumbnail() {
+            return undefined
+          }
+          beginProcessedWindowExport() {
+            return beginResult
+          }
+          decodePreview() {
+            return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
+          }
+          decodeHq() {
+            return { data: new Uint16Array([1, 2, 3]), width: 1, height: 1 }
+          }
+          delete() {}
+        },
+      }).createProcessor()
+
+      expect(() => processor.beginProcessedWindowExport?.()).toThrow(
+        'Native RAW processed-window export session returned invalid state.',
+      )
+    },
+  )
+
   it('preserves native receiver when reading processed windows', () => {
     const processor = createNativeFactory({
       LumaRawProcessor: class {

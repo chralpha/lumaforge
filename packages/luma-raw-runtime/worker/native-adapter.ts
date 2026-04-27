@@ -8,6 +8,7 @@ import type {
   LumaRawExportUnsupportedReason,
   LumaRawProcessedWindow,
   LumaRawProcessedWindowRequest,
+  LumaRawProcessedWindowTimings,
   LumaRawVisibleCrop,
   LumaRawWindow,
   LumaRawWindowRect,
@@ -27,8 +28,10 @@ type EmbindProcessor = {
   readMetadata: () => unknown
   extractThumbnail: () => unknown
   probeExportCapability?: () => unknown
+  beginProcessedWindowExport?: () => unknown
   readRawWindow?: (rect: LumaRawWindowRect) => unknown
   readProcessedWindow?: (request: LumaRawProcessedWindowRequest) => unknown
+  endProcessedWindowExport?: () => void
   decodePreview: (options?: LumaRawNativeDecodeOptions) => unknown
   decodeHq: (options?: LumaRawNativeDecodeOptions) => unknown
   delete?: () => void
@@ -106,6 +109,25 @@ function asFiniteNumber(value: unknown, label: string) {
 
 function asFiniteNumberOrUndefined(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function asNonNegativeFiniteTiming(value: unknown, label: string) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new TypeError(
+      `Native RAW processed-window timings returned invalid ${label}.`,
+    )
+  }
+
+  return value
+}
+
+function asOptionalNonNegativeFiniteTiming(
+  raw: Record<string, unknown>,
+  key: keyof LumaRawProcessedWindowTimings,
+) {
+  if (!Object.hasOwn(raw, key)) return undefined
+
+  return asNonNegativeFiniteTiming(raw[key], key)
 }
 
 function asNonNegativeIntegerOrUndefined(value: unknown) {
@@ -782,9 +804,29 @@ function normalizeRawWindow(value: unknown): LumaRawWindow {
   }
 }
 
+function normalizeProcessedWindowTimings(
+  value: unknown,
+): LumaRawProcessedWindowTimings | undefined {
+  if (value === undefined || value === null) return undefined
+
+  const raw = asRecord(value)
+  const total = asNonNegativeFiniteTiming(raw.total, 'total')
+
+  return {
+    setup: asOptionalNonNegativeFiniteTiming(raw, 'setup'),
+    open: asOptionalNonNegativeFiniteTiming(raw, 'open'),
+    unpack: asOptionalNonNegativeFiniteTiming(raw, 'unpack'),
+    process: asOptionalNonNegativeFiniteTiming(raw, 'process'),
+    outputCopy: asOptionalNonNegativeFiniteTiming(raw, 'outputCopy'),
+    orientation: asOptionalNonNegativeFiniteTiming(raw, 'orientation'),
+    total,
+  }
+}
+
 function normalizeProcessedWindow(value: unknown): LumaRawProcessedWindow {
   const raw = asRecord(value)
   const rect = normalizeWindowRect(raw.rect)
+  const timings = normalizeProcessedWindowTimings(raw.timings)
 
   if (!(raw.data instanceof Uint16Array)) {
     throw new TypeError(
@@ -857,6 +899,7 @@ function normalizeProcessedWindow(value: unknown): LumaRawProcessedWindow {
     orientationApplied: true,
     colorApplied: true,
     warnings: raw.warnings,
+    ...(timings ? { timings } : {}),
   }
 }
 
@@ -959,6 +1002,29 @@ export function createNativeFactory(
           return normalizeProcessedWindow(
             processor.readProcessedWindow(request),
           )
+        }
+      }
+      if (processor.beginProcessedWindowExport) {
+        adapted.beginProcessedWindowExport = () => {
+          if (!processor.beginProcessedWindowExport) {
+            throw new TypeError(
+              'Native RAW processed-window export session is unavailable.',
+            )
+          }
+
+          const raw = asRecord(processor.beginProcessedWindowExport())
+          if (raw.active !== true) {
+            throw new TypeError(
+              'Native RAW processed-window export session returned invalid state.',
+            )
+          }
+
+          return { active: true }
+        }
+      }
+      if (processor.endProcessedWindowExport) {
+        adapted.endProcessedWindowExport = () => {
+          processor.endProcessedWindowExport?.()
         }
       }
 

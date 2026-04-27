@@ -19,8 +19,10 @@ export type LumaRawWorkerRequestType =
   | 'decodeQuickFromSession'
   | 'decodeHqFromSession'
   | 'probeExportCapabilityFromSession'
+  | 'beginProcessedWindowExportFromSession'
   | 'readRawWindowFromSession'
   | 'readProcessedWindowFromSession'
+  | 'endProcessedWindowExportFromSession'
   | 'closeSession'
   | 'probe'
   | 'extractEmbeddedPreview'
@@ -61,8 +63,10 @@ export type LumaRawWorkerRequestPayloadByType = {
   decodeQuickFromSession: LumaRawWorkerQuickSessionPayload
   decodeHqFromSession: LumaRawWorkerSessionPayload
   probeExportCapabilityFromSession: LumaRawWorkerSessionPayload
+  beginProcessedWindowExportFromSession: LumaRawWorkerSessionPayload
   readRawWindowFromSession: LumaRawWorkerRawWindowPayload
   readProcessedWindowFromSession: LumaRawWorkerProcessedWindowPayload
+  endProcessedWindowExportFromSession: LumaRawWorkerSessionPayload
   closeSession: LumaRawWorkerSessionPayload
   probe: LumaRawWorkerFilePayload
   extractEmbeddedPreview: LumaRawWorkerFilePayload
@@ -88,8 +92,10 @@ export type LumaRawWorkerPayloadByType = {
   decodeQuickFromSession: LumaRawFrame
   decodeHqFromSession: LumaRawFrame
   probeExportCapabilityFromSession: LumaRawExportCapability
+  beginProcessedWindowExportFromSession: { active: true }
   readRawWindowFromSession: LumaRawWindow
   readProcessedWindowFromSession: LumaRawProcessedWindow
+  endProcessedWindowExportFromSession: { ended: true }
   closeSession: { closed: true }
   probe: LumaRawProbe
   extractEmbeddedPreview: LumaEmbeddedPreview | null

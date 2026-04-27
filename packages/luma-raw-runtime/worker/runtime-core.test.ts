@@ -751,6 +751,226 @@ describe('runtime-core', () => {
     })
   })
 
+  it('runs processed-window export session lifecycle around window reads', async () => {
+    const calls: string[] = []
+    const request = {
+      outputRect: { x: 0, y: 4, width: 2, height: 1 },
+      halo: { left: 1, top: 1, right: 1, bottom: 1 },
+    }
+    const processedWindow = {
+      rect: request.outputRect,
+      workingSpace: 'linear-prophoto-rgb' as const,
+      data: new Uint16Array([1, 2, 3, 4, 5, 6]),
+      width: 2,
+      height: 1,
+      stride: 6,
+      normalized: false as const,
+      orientationApplied: true as const,
+      colorApplied: true as const,
+      warnings: [],
+    }
+    const core = createRuntimeCore({
+      createProcessor() {
+        return {
+          ...makeNativeFactory().createProcessor(),
+          beginProcessedWindowExport() {
+            calls.push('begin')
+            return { active: true as const }
+          },
+          readProcessedWindow(receivedRequest) {
+            calls.push(`read:${receivedRequest.outputRect.x}`)
+            return processedWindow
+          },
+          endProcessedWindowExport() {
+            calls.push('end')
+          },
+        }
+      },
+    })
+
+    const opened = await core.handleRequest({
+      id: 'job-processed-export-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+
+    const begin = await core.handleRequest({
+      id: 'job-processed-export-begin',
+      type: 'beginProcessedWindowExportFromSession',
+      payload: { sessionId: opened.payload.sessionId },
+    })
+    const read = await core.handleRequest({
+      id: 'job-processed-export-read',
+      type: 'readProcessedWindowFromSession',
+      payload: { sessionId: opened.payload.sessionId, request },
+    })
+    const end = await core.handleRequest({
+      id: 'job-processed-export-end',
+      type: 'endProcessedWindowExportFromSession',
+      payload: { sessionId: opened.payload.sessionId },
+    })
+
+    expect(begin).toEqual({
+      id: 'job-processed-export-begin',
+      ok: true,
+      type: 'beginProcessedWindowExportFromSession',
+      payload: { active: true },
+    })
+    expect(read).toMatchObject({
+      id: 'job-processed-export-read',
+      ok: true,
+      type: 'readProcessedWindowFromSession',
+    })
+    expect(end).toEqual({
+      id: 'job-processed-export-end',
+      ok: true,
+      type: 'endProcessedWindowExportFromSession',
+      payload: { ended: true },
+    })
+    expect(calls).toEqual(['begin', 'read:0', 'end'])
+  })
+
+  it('does not begin or end processed-window export for pre-cancelled jobs', async () => {
+    const calls: string[] = []
+    const core = createRuntimeCore({
+      createProcessor() {
+        return {
+          ...makeNativeFactory().createProcessor(),
+          beginProcessedWindowExport() {
+            calls.push('begin')
+            return { active: true as const }
+          },
+          endProcessedWindowExport() {
+            calls.push('end')
+          },
+        }
+      },
+    })
+
+    const opened = await core.handleRequest({
+      id: 'job-processed-export-cancel-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+
+    await core.handleRequest({
+      id: 'job-processed-export-cancel-begin-command',
+      type: 'cancel',
+      payload: { targetJobId: 'job-processed-export-cancel-begin' },
+    })
+    await core.handleRequest({
+      id: 'job-processed-export-cancel-end-command',
+      type: 'cancel',
+      payload: { targetJobId: 'job-processed-export-cancel-end' },
+    })
+
+    const begin = await core.handleRequest({
+      id: 'job-processed-export-cancel-begin',
+      type: 'beginProcessedWindowExportFromSession',
+      payload: { sessionId: opened.payload.sessionId },
+    })
+    const end = await core.handleRequest({
+      id: 'job-processed-export-cancel-end',
+      type: 'endProcessedWindowExportFromSession',
+      payload: { sessionId: opened.payload.sessionId },
+    })
+
+    expect(begin).toMatchObject({
+      id: 'job-processed-export-cancel-begin',
+      ok: false,
+      type: 'beginProcessedWindowExportFromSession',
+      error: { code: 'RAW_JOB_CANCELLED' },
+    })
+    expect(end).toMatchObject({
+      id: 'job-processed-export-cancel-end',
+      ok: false,
+      type: 'endProcessedWindowExportFromSession',
+      error: { code: 'RAW_JOB_CANCELLED' },
+    })
+    expect(calls).toEqual([])
+  })
+
+  it('honors cancellation queued during processed-window export begin and end', async () => {
+    const calls: string[] = []
+    const core = createRuntimeCore({
+      createProcessor() {
+        return {
+          ...makeNativeFactory().createProcessor(),
+          beginProcessedWindowExport() {
+            calls.push('begin')
+            void core.handleRequest({
+              id: 'job-processed-export-late-cancel-begin-command',
+              type: 'cancel',
+              payload: {
+                targetJobId: 'job-processed-export-late-cancel-begin',
+              },
+            })
+            return { active: true as const }
+          },
+          endProcessedWindowExport() {
+            calls.push('end')
+            void core.handleRequest({
+              id: 'job-processed-export-late-cancel-end-command',
+              type: 'cancel',
+              payload: {
+                targetJobId: 'job-processed-export-late-cancel-end',
+              },
+            })
+          },
+        }
+      },
+    })
+
+    const opened = await core.handleRequest({
+      id: 'job-processed-export-late-cancel-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+
+    const begin = await core.handleRequest({
+      id: 'job-processed-export-late-cancel-begin',
+      type: 'beginProcessedWindowExportFromSession',
+      payload: { sessionId: opened.payload.sessionId },
+    })
+    const end = await core.handleRequest({
+      id: 'job-processed-export-late-cancel-end',
+      type: 'endProcessedWindowExportFromSession',
+      payload: { sessionId: opened.payload.sessionId },
+    })
+
+    expect(begin).toMatchObject({
+      id: 'job-processed-export-late-cancel-begin',
+      ok: false,
+      type: 'beginProcessedWindowExportFromSession',
+      error: { code: 'RAW_JOB_CANCELLED' },
+    })
+    expect(end).toMatchObject({
+      id: 'job-processed-export-late-cancel-end',
+      ok: false,
+      type: 'endProcessedWindowExportFromSession',
+      error: { code: 'RAW_JOB_CANCELLED' },
+    })
+    expect(calls).toEqual(['begin', 'end'])
+  })
+
   it('fails closed for missing session processed-window support', async () => {
     const core = createRuntimeCore(makeNativeFactory())
 

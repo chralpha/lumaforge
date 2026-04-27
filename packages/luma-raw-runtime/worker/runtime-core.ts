@@ -747,6 +747,30 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
     return response
   }
 
+  function handleBeginProcessedWindowExportFromSession(
+    request: LumaRawWorkerRequest<'beginProcessedWindowExportFromSession'>,
+  ): LumaRawWorkerResponse {
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    const session = requireSession(request.payload.sessionId)
+    const response: LumaRawWorkerResponse = {
+      id: request.id,
+      ok: true,
+      type: request.type,
+      payload: session.processor.beginProcessedWindowExport?.() ?? {
+        active: true,
+      },
+    }
+
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    return response
+  }
+
   function handleReadRawWindowFromSession(
     request: LumaRawWorkerRequest<'readRawWindowFromSession'>,
   ): LumaRawWorkerResponse {
@@ -805,6 +829,29 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
     return response
   }
 
+  function handleEndProcessedWindowExportFromSession(
+    request: LumaRawWorkerRequest<'endProcessedWindowExportFromSession'>,
+  ): LumaRawWorkerResponse {
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    const session = requireSession(request.payload.sessionId)
+    session.processor.endProcessedWindowExport?.()
+    const response: LumaRawWorkerResponse = {
+      id: request.id,
+      ok: true,
+      type: request.type,
+      payload: { ended: true },
+    }
+
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    return response
+  }
+
   return {
     async handleRequest(
       request: LumaRawWorkerRequest,
@@ -836,10 +883,14 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
             return handleExtractEmbeddedPreviewFromSession(request)
           case 'probeExportCapabilityFromSession':
             return handleProbeExportCapabilityFromSession(request)
+          case 'beginProcessedWindowExportFromSession':
+            return handleBeginProcessedWindowExportFromSession(request)
           case 'readRawWindowFromSession':
             return handleReadRawWindowFromSession(request)
           case 'readProcessedWindowFromSession':
             return handleReadProcessedWindowFromSession(request)
+          case 'endProcessedWindowExportFromSession':
+            return handleEndProcessedWindowExportFromSession(request)
           case 'decodeQuickFromSession':
           case 'decodeHqFromSession':
             return handleDecodeFromSession(request)

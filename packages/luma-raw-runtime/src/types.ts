@@ -191,6 +191,16 @@ export type LumaRawProcessedWindowRequest = {
   halo: { left: number; top: number; right: number; bottom: number }
 }
 
+export type LumaRawProcessedWindowTimings = {
+  setup?: number
+  open?: number
+  unpack?: number
+  process?: number
+  outputCopy?: number
+  orientation?: number
+  total: number
+}
+
 export type LumaRawProcessedWindow = {
   rect: LumaRawWindowRect
   workingSpace: 'linear-prophoto-rgb'
@@ -202,6 +212,7 @@ export type LumaRawProcessedWindow = {
   orientationApplied: true
   colorApplied: true
   warnings: string[]
+  timings?: LumaRawProcessedWindowTimings
 }
 
 export type LumaRawMetadata = {

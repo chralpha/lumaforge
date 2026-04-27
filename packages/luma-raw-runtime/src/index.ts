@@ -23,6 +23,7 @@ export type {
   LumaRawProbe,
   LumaRawProcessedWindow,
   LumaRawProcessedWindowRequest,
+  LumaRawProcessedWindowTimings,
   LumaRawQuickOptions,
   LumaRawRuntime,
   LumaRawRuntimeInfo,

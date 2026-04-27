@@ -7,6 +7,7 @@ import type {
   LumaRawFullResInputStrategy,
   LumaRawProcessedWindow,
   LumaRawProcessedWindowRequest,
+  LumaRawProcessedWindowTimings,
   LumaRawRuntimeInfo,
   LumaRawSensorLayout,
   LumaRawTimings,
@@ -240,6 +241,32 @@ describe('luma raw runtime public contract', () => {
     expect(capability.windows.librawProcessed).toBe(true)
     expect(capability.diagnostics.hasRawImage).toBe(true)
     expect(window.data).toHaveLength(24)
+  })
+
+  it('types processed-window export timing payloads', () => {
+    const timings: LumaRawProcessedWindowTimings = {
+      setup: 1,
+      open: 2,
+      unpack: 3,
+      process: 4,
+      outputCopy: 5,
+      total: 15,
+    }
+    const window: LumaRawProcessedWindow = {
+      rect: { x: 0, y: 0, width: 1, height: 1 },
+      workingSpace: 'linear-prophoto-rgb',
+      data: new Uint16Array([1, 2, 3]),
+      width: 1,
+      height: 1,
+      stride: 3,
+      normalized: false,
+      orientationApplied: true,
+      colorApplied: true,
+      warnings: [],
+      timings,
+    }
+
+    expect(window.timings?.process).toBe(4)
   })
 
   it('reports runtime capabilities without app dependencies', () => {
