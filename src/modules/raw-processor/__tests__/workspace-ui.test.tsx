@@ -34,6 +34,34 @@ function controlsPanelProps(
   }
 }
 
+function compareStageProps(
+  overrides: Partial<ComponentProps<typeof ComparePreviewStage>> = {},
+): ComponentProps<typeof ComparePreviewStage> {
+  return {
+    hasImage: false,
+    imageRef: { current: null },
+    imageVersion: 0,
+    params: {
+      intensity: 0.7,
+      viewMode: 'compare',
+      compareSplit: 0.5,
+      styleKind: 'none',
+      builtinPreset: null,
+    },
+    lutDataRef: { current: null },
+    lutDataVersion: 0,
+    embeddedPreviewUrl: null,
+    displaySource: 'none',
+    split: 0.5,
+    onSplitChange: () => {},
+    isProcessing: false,
+    phase: 'loading',
+    progress: 0,
+    onRawDrop: () => {},
+    ...overrides,
+  }
+}
+
 vi.mock('~/lib/gl/pipeline', async (importOriginal) => {
   const actual = await importOriginal<typeof import('~/lib/gl/pipeline')>()
 
@@ -570,6 +598,68 @@ describe('controlsPanel', () => {
 
     expect(createElement).toHaveBeenCalledWith('input')
     expect(inputClick).toHaveBeenCalledTimes(1)
+  })
+
+  describe('comparePreviewStage', () => {
+    it('places upload inside the empty compare stage', () => {
+      render(<ComparePreviewStage {...compareStageProps()} />)
+
+      const stage = screen.getByLabelText('RAW preview comparison')
+      const uploadButton = screen.getByRole('button', {
+        name: /drop one raw here/i,
+      })
+
+      expect(stage).toBeInTheDocument()
+      expect(stage).toContainElement(uploadButton)
+      expect(screen.getByText('Unprocessed RAW')).toBeInTheDocument()
+      expect(screen.getByText('Final JPEG')).toBeInTheDocument()
+      expect(
+        screen.getByRole('slider', {
+          name: 'Compare unprocessed RAW and final JPEG',
+        }),
+      ).toBeInTheDocument()
+    })
+
+    it('keeps compare labels when an image is loaded', async () => {
+      await act(async () => {
+        render(
+          <ComparePreviewStage
+            {...compareStageProps({
+              hasImage: true,
+              imageRef: {
+                current: {
+                  data: new Float32Array(4),
+                  width: 1,
+                  height: 1,
+                  channels: 4,
+                  bitsPerChannel: 32,
+                  layout: 'rgba-float32',
+                  colorSpace: 'display-srgb-preview',
+                  metadata: { width: 1, height: 1 },
+                  renderExposure: {
+                    ev: 0,
+                    multiplier: 1,
+                    source: 'identity',
+                  },
+                },
+              },
+            })}
+          />,
+        )
+      })
+
+      expect(
+        screen.queryByRole('button', { name: /drop one raw here/i }),
+      ).not.toBeInTheDocument()
+      expect(screen.queryByText('Drop one RAW here')).not.toBeInTheDocument()
+      expect(screen.getByText('Unprocessed RAW')).toBeInTheDocument()
+      expect(screen.getByText('Final JPEG')).toBeInTheDocument()
+      expect(
+        screen.getByRole('slider', {
+          name: 'Compare unprocessed RAW and final JPEG',
+        }),
+      ).toBeInTheDocument()
+    })
   })
 
   it('shows an embedded RAW preview image before decoded pixels are ready', async () => {
