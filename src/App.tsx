@@ -1,14 +1,17 @@
 import type { FC } from 'react'
-import { Outlet } from 'react-router'
+import { Outlet, useLocation } from 'react-router'
 
 import { Footer } from './components/common/Footer'
 import { RootProviders } from './providers/root-providers'
 
 export const App: FC = () => {
+  const location = useLocation()
+  const showFooter = location.pathname !== '/'
+
   return (
     <RootProviders>
       <AppLayer />
-      <Footer />
+      {showFooter && <Footer />}
     </RootProviders>
   )
 }
