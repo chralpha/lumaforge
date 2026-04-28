@@ -401,4 +401,48 @@ describe('deployed artifact smoke checks', () => {
       { method: 'HEAD', redirect: 'follow' },
     )
   })
+
+  it('sends the Vercel automation bypass header when configured', async () => {
+    const fetch = vi.fn(async (url) => {
+      const headers = new Headers()
+      headers.set('Cross-Origin-Opener-Policy', 'same-origin')
+      headers.set('Cross-Origin-Embedder-Policy', 'require-corp')
+      if (String(url).endsWith('.wasm')) {
+        headers.set('Content-Type', 'application/wasm')
+      }
+
+      return { ok: true, status: 200, headers }
+    })
+
+    await expect(
+      smokeDeployUrl('https://lumaforge-preview.vercel.app', fetch, {
+        DEPLOY_TARGET: 'vercel',
+        VERCEL_AUTOMATION_BYPASS_SECRET: 'bypass-secret',
+      }),
+    ).resolves.toBeUndefined()
+
+    for (const call of fetch.mock.calls) {
+      expect(call[1]).toMatchObject({
+        headers: {
+          'x-vercel-protection-bypass': 'bypass-secret',
+        },
+      })
+    }
+  })
+
+  it('explains protected Vercel deployment failures', async () => {
+    const fetch = vi.fn(async () => ({
+      ok: false,
+      status: 401,
+      headers: new Headers(),
+    }))
+
+    await expect(
+      smokeDeployUrl('https://lumaforge-preview.vercel.app', fetch, {
+        DEPLOY_TARGET: 'vercel',
+      }),
+    ).rejects.toThrow(
+      'Vercel Deployment Protection returned HTTP 401. Configure VERCEL_AUTOMATION_BYPASS_SECRET',
+    )
+  })
 })
