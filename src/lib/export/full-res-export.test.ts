@@ -404,6 +404,76 @@ describe('runFullResolutionJpegExport', () => {
     )
   })
 
+  it('does not allocate a full-strip Float32 tile while writing row bands', async () => {
+    const outputRect = { x: 0, y: 0, width: 3, height: 130 }
+    const fullStripSampleCount = outputRect.width * outputRect.height * 3
+    const rowBandSampleCount = outputRect.width * 64 * 3
+    const allocations: number[] = []
+    const OriginalFloat32Array = globalThis.Float32Array
+    const Float32ArraySpy = new Proxy(OriginalFloat32Array, {
+      construct(target, args, newTarget) {
+        if (typeof args[0] === 'number') {
+          allocations.push(args[0])
+        }
+
+        return Reflect.construct(target, args, newTarget)
+      },
+    })
+    const writtenRows: Array<{ bytes: Uint8Array; rowCount: number }> = []
+    const writer = {
+      writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
+        writtenRows.push({ bytes: new Uint8Array(bytes), rowCount })
+      }),
+      close: vi.fn(
+        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      ),
+      abort: vi.fn(async () => undefined),
+    }
+
+    Object.defineProperty(globalThis, 'Float32Array', {
+      configurable: true,
+      writable: true,
+      value: Float32ArraySpy,
+    })
+
+    try {
+      await runFullResolutionJpegExport({
+        capability: makeCapability({
+          width: outputRect.width,
+          height: outputRect.height,
+          rawWidth: outputRect.width,
+          rawHeight: outputRect.height,
+          visibleCrop: outputRect,
+        }),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [
+            { kind: 'input-linear-prophoto' },
+            IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            { kind: 'output-srgb' },
+          ],
+        },
+        preferredRows: outputRect.height,
+        readProcessedWindow: async (request) =>
+          makePatternedProcessedWindow(request),
+        writerFactory: () => writer,
+      })
+    } finally {
+      Object.defineProperty(globalThis, 'Float32Array', {
+        configurable: true,
+        writable: true,
+        value: OriginalFloat32Array,
+      })
+    }
+
+    expect(writtenRows.map((entry) => entry.rowCount)).toEqual([64, 64, 2])
+    expect(allocations).toContain(rowBandSampleCount)
+    expect(allocations).not.toContain(fullStripSampleCount)
+  })
+
   it('keeps retained custom-writer row views stable across reusable row bands', async () => {
     const outputRect = { x: 0, y: 0, width: 3, height: 130 }
     const retainedRows: Uint8Array[] = []

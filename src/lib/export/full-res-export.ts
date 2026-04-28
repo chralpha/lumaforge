@@ -10,7 +10,7 @@ import { createJpegRowWriter } from './jpeg/row-writer'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
 import type { ExportPerfMetric } from './perf/export-metrics'
 import { createExportMetricCollector, nowMs } from './perf/export-metrics'
-import { processedWindowToLinearProPhotoTile } from './processed-window-transform'
+import { processedWindowToRgb16Rows } from './processed-window-transform'
 import { createRowBandProcessor } from './row-band-processor'
 import {
   normalizePreferredStripRows,
@@ -168,6 +168,19 @@ export async function runFullResolutionJpegExport(
   })
   const shouldCopyRowsForWriter =
     input.writerFactory !== undefined && rowBandProcessor.reusesOutputBuffer
+  const rgb16Band = new Uint16Array(
+    input.capability.width * rowBandProcessor.rowBandRows * 3,
+  )
+  const rgb16BandViews = new Map<number, Uint16Array>()
+  function getRgb16BandSource(sampleCount: number) {
+    let source = rgb16BandViews.get(sampleCount)
+    if (!source) {
+      source = rgb16Band.subarray(0, sampleCount)
+      rgb16BandViews.set(sampleCount, source)
+    }
+
+    return source
+  }
   let retries = 0
 
   while (true) {
@@ -201,10 +214,7 @@ export async function runFullResolutionJpegExport(
         const rawReadMs = nowMs() - rawStart
 
         const colorStart = nowMs()
-        const tile = processedWindowToLinearProPhotoTile(
-          processedWindow,
-          strip.output,
-        )
+        const tile = processedWindowToRgb16Rows(processedWindow, strip.output)
         let colorMs = nowMs() - colorStart
         let jpegWriteMs = 0
 
@@ -217,13 +227,13 @@ export async function runFullResolutionJpegExport(
             rowBandProcessor.rowBandRows,
             tile.height - row,
           )
-          const sourceStart = row * tile.width * 3
-          const sourceEnd = sourceStart + rowCount * tile.width * 3
+          const sampleCount = tile.width * rowCount * 3
+          const source = getRgb16BandSource(sampleCount)
           const rowColorStart = nowMs()
-          const rows = rowBandProcessor.processFloatRows(
-            tile.data.subarray(sourceStart, sourceEnd),
-            rowCount,
-          )
+          for (let bandRow = 0; bandRow < rowCount; bandRow += 1) {
+            source.set(tile.row(row + bandRow), bandRow * tile.width * 3)
+          }
+          const rows = rowBandProcessor.processUint16Rows(source, rowCount)
           colorMs += nowMs() - rowColorStart
 
           const writerRows = shouldCopyRowsForWriter
