@@ -7,6 +7,7 @@ import type {
 } from '~/lib/gl/pipeline'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
+import { CompareSplitHandle } from './CompareSplitHandle'
 import { Dropzone, RAW_FILE_EXTENSIONS } from './Dropzone'
 import { PreviewCanvas } from './PreviewCanvas'
 import { ProgressOverlay } from './ProgressOverlay'
@@ -26,6 +27,7 @@ export interface ComparePreviewStageProps {
   phase: 'loading' | 'decoding' | 'processing' | 'exporting'
   recoveryHint?: string
   onRawDrop: (files: File[]) => void
+  onSplitChange: (split: number) => void
   onStatsUpdate?: (stats: PipelineStats) => void
   onPipelineChange?: (pipeline: RawProcessingPipeline | null) => void
   className?: string
@@ -75,6 +77,7 @@ export function ComparePreviewStage({
   phase,
   recoveryHint,
   onRawDrop,
+  onSplitChange,
   onStatsUpdate,
   onPipelineChange,
   className,
@@ -114,6 +117,12 @@ export function ComparePreviewStage({
         <span className="raw-lab-compare-label raw-lab-compare-label-right">
           Final JPEG
         </span>
+
+        <CompareSplitHandle
+          value={split}
+          onChange={onSplitChange}
+          disabled={isProcessing}
+        />
 
         {!hasImage && <UploadDock />}
 

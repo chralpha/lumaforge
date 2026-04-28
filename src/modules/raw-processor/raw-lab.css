@@ -140,6 +140,54 @@
   line-height: 1.25;
 }
 
+.raw-lab-compare-handle {
+  position: absolute;
+  inset: 0 auto 0 var(--raw-compare-split, 50%);
+  z-index: 6;
+  width: 44px;
+  min-width: 44px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--raw-hero-ink);
+  cursor: ew-resize;
+  transform: translateX(-50%);
+}
+
+.raw-lab-compare-handle::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 50%;
+  width: 2px;
+  background: oklch(0.96 0.012 86 / 0.9);
+  transform: translateX(-50%);
+}
+
+.raw-lab-compare-handle span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid oklch(0.96 0.012 86 / 0.74);
+  border-radius: 999px;
+  background: oklch(0.17 0.018 76 / 0.78);
+  transform: translate(-50%, -50%);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.raw-lab-compare-handle:focus-visible span {
+  outline: 2px solid var(--raw-green);
+  outline-offset: 3px;
+}
+
+.raw-lab-compare-handle:disabled {
+  cursor: default;
+}
+
 @media (max-width: 980px) {
   .raw-lab-shell {
     grid-template-columns: 1fr;
