@@ -28,6 +28,7 @@ export interface ComparePreviewStageProps {
   recoveryHint?: string
   onRawDrop: (files: File[]) => void
   onSplitChange: (split: number) => void
+  onSplitPreviewChange?: (split: number) => void
   onStatsUpdate?: (stats: PipelineStats) => void
   onPipelineChange?: (pipeline: RawProcessingPipeline | null) => void
   className?: string
@@ -92,6 +93,7 @@ export function ComparePreviewStage({
   recoveryHint,
   onRawDrop,
   onSplitChange,
+  onSplitPreviewChange,
   onStatsUpdate,
   onPipelineChange,
   className,
@@ -138,6 +140,7 @@ export function ComparePreviewStage({
             <CompareSplitHandle
               value={split}
               onChange={onSplitChange}
+              onPreviewChange={onSplitPreviewChange}
               disabled={isProcessing}
             />
 

@@ -134,6 +134,17 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     setCompareSplit(0.5)
   }, [setCompareSplit, setViewMode])
 
+  const handleCompareSplitPreviewChange = useCallback(
+    (split: number) => {
+      const pipeline = pipelineRef.current
+      if (!pipeline) return
+
+      pipeline.setParams({ compareSplit: split })
+      pipeline.render({ waitForGpu: false })
+    },
+    [pipelineRef],
+  )
+
   const isProcessing =
     status === 'loading' ||
     status === 'decoding' ||
@@ -174,6 +185,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
           displaySource={displaySource}
           split={compareSplit}
           onSplitChange={setCompareSplit}
+          onSplitPreviewChange={handleCompareSplitPreviewChange}
           isProcessing={isProcessing}
           phase={
             status === 'loading'

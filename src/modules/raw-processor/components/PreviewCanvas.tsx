@@ -349,6 +349,7 @@ export function PreviewCanvas({
     >
       <canvas
         ref={canvasRef}
+        data-raw-compare-track="image"
         className={clsxm(
           'max-w-full max-h-full object-contain',
           showEmbeddedPreview && 'opacity-0',
@@ -359,6 +360,7 @@ export function PreviewCanvas({
         <img
           src={embeddedPreviewUrl ?? undefined}
           alt="Embedded RAW preview"
+          data-raw-compare-track="image"
           className="absolute max-w-full max-h-full object-contain"
         />
       )}

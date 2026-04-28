@@ -108,6 +108,10 @@ export interface PipelineStats {
   capabilityWarnings: PipelineCapabilityWarning[]
 }
 
+export interface RenderOptions {
+  waitForGpu?: boolean
+}
+
 export type RawUploadInput =
   | {
       data: Float32Array
@@ -727,9 +731,10 @@ export class RawProcessingPipeline {
   /**
    * Process the image and render to canvas.
    */
-  render(): PipelineStats {
+  render(options: RenderOptions = {}): PipelineStats {
     const startTime = performance.now()
     const { gl, canvas } = this
+    const waitForGpu = options.waitForGpu ?? true
 
     if (!this.isInitialized || !this.inputTexture) {
       return {
@@ -751,7 +756,9 @@ export class RawProcessingPipeline {
     // Pass 2: Output to canvas with tone mapping
     this.renderOutputPass()
 
-    gl.finish()
+    if (waitForGpu) {
+      gl.finish()
+    }
     const processTime = performance.now() - processStart
 
     return {

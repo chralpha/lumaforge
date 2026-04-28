@@ -264,4 +264,23 @@ describe('rawProcessingPipeline render uniforms', () => {
       0.42,
     )
   })
+
+  it('can skip GPU synchronization for transient interactive preview renders', async () => {
+    contextMock.reset()
+    const pipeline = new RawProcessingPipeline(document.createElement('canvas'))
+    await pipeline.initialize()
+
+    pipeline.uploadImage({
+      data: new Float32Array(4),
+      width: 1,
+      height: 1,
+      layout: 'rgba-float32',
+      colorSpace: 'display-srgb-preview',
+    })
+    ;(pipeline.render as (options?: { waitForGpu?: boolean }) => unknown)({
+      waitForGpu: false,
+    })
+
+    expect(contextMock.gl.finish).not.toHaveBeenCalled()
+  })
 })

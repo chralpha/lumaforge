@@ -240,7 +240,7 @@
 
 .raw-lab-compare-handle {
   position: absolute;
-  inset: 0 auto 0 var(--raw-compare-split, 50%);
+  inset: 0 auto 0 0;
   z-index: 6;
   width: 44px;
   min-width: 44px;
@@ -249,7 +249,10 @@
   background: transparent;
   color: var(--raw-hero-ink);
   cursor: ew-resize;
-  transform: translateX(-50%);
+  touch-action: none;
+  transform: translateX(var(--raw-compare-split-x, 50%)) translateX(-50%);
+  transition: none;
+  will-change: transform;
 }
 
 .raw-lab-compare-handle::before {

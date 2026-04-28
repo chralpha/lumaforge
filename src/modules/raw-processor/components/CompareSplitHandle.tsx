@@ -1,10 +1,11 @@
-import { useCallback } from 'react'
+import { useCallback, useLayoutEffect, useRef } from 'react'
 
 import { clsxm } from '~/lib/cn'
 
 const MIN_SPLIT = 0.05
 const MAX_SPLIT = 0.95
 const KEYBOARD_STEP = 0.01
+const IMAGE_TRACK_SELECTOR = '[data-raw-compare-track="image"]'
 
 export function clampCompareSplit(value: number) {
   if (!Number.isFinite(value)) return 0.5
@@ -19,29 +20,170 @@ export function getCompareSplitFromClientX(
   return clampCompareSplit((clientX - rect.left) / rect.width)
 }
 
-function getTrackRect(target: HTMLElement) {
-  return (
-    target.parentElement?.getBoundingClientRect() ??
-    target.getBoundingClientRect()
-  )
+function isUsableRect(rect: Pick<DOMRect, 'width'>) {
+  return Number.isFinite(rect.width) && rect.width > 0
+}
+
+function getCompareTrackGeometry(target: HTMLElement) {
+  const frame = target.parentElement ?? target
+  const frameRect = frame.getBoundingClientRect()
+  const imageTrack = frame.querySelector<HTMLElement>(IMAGE_TRACK_SELECTOR)
+  const imageRect = imageTrack?.getBoundingClientRect()
+
+  return {
+    frameRect,
+    trackRect: imageRect && isUsableRect(imageRect) ? imageRect : frameRect,
+  }
+}
+
+function getHandlePositionX(
+  frameRect: Pick<DOMRect, 'left'>,
+  trackRect: Pick<DOMRect, 'left' | 'width'>,
+  split: number,
+) {
+  return trackRect.left - frameRect.left + trackRect.width * split
+}
+
+export function getCompareSplitInteractionGeometry(
+  target: HTMLElement,
+  clientX: number,
+) {
+  const { frameRect, trackRect } = getCompareTrackGeometry(target)
+  const split = getCompareSplitFromClientX(trackRect, clientX)
+
+  return {
+    split,
+    handleX: getHandlePositionX(frameRect, trackRect, split),
+  }
+}
+
+export function getCompareSplitPositionGeometry(
+  target: HTMLElement,
+  value: number,
+) {
+  const { frameRect, trackRect } = getCompareTrackGeometry(target)
+  const split = clampCompareSplit(value)
+
+  return {
+    split,
+    handleX: getHandlePositionX(frameRect, trackRect, split),
+  }
+}
+
+function applyHandlePosition(target: HTMLElement, value: number) {
+  const { split, handleX } = getCompareSplitPositionGeometry(target, value)
+  target.style.setProperty('--raw-compare-split', `${split * 100}%`)
+  target.style.setProperty('--raw-compare-split-x', `${handleX}px`)
+}
+
+function applyPointerPosition(target: HTMLElement, clientX: number) {
+  const { split, handleX } = getCompareSplitInteractionGeometry(target, clientX)
+  target.style.setProperty('--raw-compare-split', `${split * 100}%`)
+  target.style.setProperty('--raw-compare-split-x', `${handleX}px`)
+  return split
+}
+
+function trySetPointerCapture(target: HTMLElement, pointerId: number) {
+  try {
+    target.setPointerCapture?.(pointerId)
+  } catch {
+    // Synthetic pointer events and a few edge paths can lack an active pointer.
+  }
+}
+
+function tryReleasePointerCapture(target: HTMLElement, pointerId: number) {
+  try {
+    target.releasePointerCapture?.(pointerId)
+  } catch {
+    // Release is best-effort; internal active pointer state is authoritative.
+  }
 }
 
 export function CompareSplitHandle({
   value,
   onChange,
+  onPreviewChange,
   disabled = false,
   className,
 }: {
   value: number
   onChange: (value: number) => void
+  onPreviewChange?: (value: number) => void
   disabled?: boolean
   className?: string
 }) {
-  const updateFromPointer = useCallback(
+  const handleRef = useRef<HTMLButtonElement>(null)
+  const activePointerIdRef = useRef<number | null>(null)
+  const pendingClientXRef = useRef<number | null>(null)
+  const pendingAnimationFrameRef = useRef<number | null>(null)
+  const latestPreviewSplitRef = useRef(clampCompareSplit(value))
+
+  useLayoutEffect(() => {
+    const handle = handleRef.current
+    if (!handle) return
+
+    if (activePointerIdRef.current === null) {
+      latestPreviewSplitRef.current = clampCompareSplit(value)
+      applyHandlePosition(handle, value)
+    }
+
+    if (typeof ResizeObserver === 'undefined') return
+
+    const frame = handle.parentElement
+    const imageTrack = frame?.querySelector<HTMLElement>(IMAGE_TRACK_SELECTOR)
+    const observer = new ResizeObserver(() => {
+      applyHandlePosition(handle, latestPreviewSplitRef.current)
+    })
+
+    if (frame) observer.observe(frame)
+    if (imageTrack) observer.observe(imageTrack)
+
+    return () => {
+      observer.disconnect()
+    }
+  })
+
+  const cancelPendingPreview = useCallback(() => {
+    const frame = pendingAnimationFrameRef.current
+    if (frame !== null) {
+      window.cancelAnimationFrame(frame)
+      pendingAnimationFrameRef.current = null
+    }
+  }, [])
+
+  const previewFromPointer = useCallback(
     (target: HTMLElement, clientX: number) => {
-      onChange(getCompareSplitFromClientX(getTrackRect(target), clientX))
+      const split = applyPointerPosition(target, clientX)
+      latestPreviewSplitRef.current = split
+      onPreviewChange?.(split)
+      return split
     },
-    [onChange],
+    [onPreviewChange],
+  )
+
+  const schedulePointerPreview = useCallback(
+    (target: HTMLElement, clientX: number) => {
+      pendingClientXRef.current = clientX
+
+      if (pendingAnimationFrameRef.current !== null) return
+
+      pendingAnimationFrameRef.current = window.requestAnimationFrame(() => {
+        pendingAnimationFrameRef.current = null
+        const nextClientX = pendingClientXRef.current
+        if (nextClientX === null) return
+        previewFromPointer(target, nextClientX)
+      })
+    },
+    [previewFromPointer],
+  )
+
+  const flushPointerPreview = useCallback(
+    (target: HTMLElement, clientX: number) => {
+      pendingClientXRef.current = null
+      cancelPendingPreview()
+      return previewFromPointer(target, clientX)
+    },
+    [cancelPendingPreview, previewFromPointer],
   )
 
   const handlePointerDown = useCallback(
@@ -49,25 +191,50 @@ export function CompareSplitHandle({
       event.stopPropagation()
       if (disabled) return
 
-      event.currentTarget.setPointerCapture?.(event.pointerId)
-      updateFromPointer(event.currentTarget, event.clientX)
+      trySetPointerCapture(event.currentTarget, event.pointerId)
+      activePointerIdRef.current = event.pointerId
+      schedulePointerPreview(event.currentTarget, event.clientX)
     },
-    [disabled, updateFromPointer],
+    [disabled, schedulePointerPreview],
   )
 
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLButtonElement>) => {
       event.stopPropagation()
-      if (
-        disabled ||
-        !event.currentTarget.hasPointerCapture?.(event.pointerId)
-      ) {
+      if (disabled || activePointerIdRef.current !== event.pointerId) {
         return
       }
 
-      updateFromPointer(event.currentTarget, event.clientX)
+      schedulePointerPreview(event.currentTarget, event.clientX)
     },
-    [disabled, updateFromPointer],
+    [disabled, schedulePointerPreview],
+  )
+
+  const handlePointerUp = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      event.stopPropagation()
+      if (disabled || activePointerIdRef.current !== event.pointerId) return
+
+      const nextSplit = flushPointerPreview(event.currentTarget, event.clientX)
+      activePointerIdRef.current = null
+      tryReleasePointerCapture(event.currentTarget, event.pointerId)
+      onChange(nextSplit)
+    },
+    [disabled, flushPointerPreview, onChange],
+  )
+
+  const handlePointerCancel = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      event.stopPropagation()
+      if (activePointerIdRef.current !== event.pointerId) return
+
+      activePointerIdRef.current = null
+      pendingClientXRef.current = null
+      cancelPendingPreview()
+      tryReleasePointerCapture(event.currentTarget, event.pointerId)
+      applyHandlePosition(event.currentTarget, value)
+    },
+    [cancelPendingPreview, value],
   )
 
   const handleKeyDown = useCallback(
@@ -101,6 +268,7 @@ export function CompareSplitHandle({
 
   return (
     <button
+      ref={handleRef}
       type="button"
       role="slider"
       aria-label="Compare unprocessed RAW and final JPEG"
@@ -116,6 +284,8 @@ export function CompareSplitHandle({
       }
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       onClick={stopInteractionPropagation}
       onKeyDown={handleKeyDown}
     >
