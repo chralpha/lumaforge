@@ -5,6 +5,7 @@ import deployConfig from '../../deploy.config.mjs'
 
 export const DEPLOY_TARGETS = ['cloudflare', 'vercel']
 export const DEPLOY_ENVS = ['preview', 'production']
+const DEFAULT_PRODUCTION_BRANCHES = ['main', 'master']
 
 export function createDeployConfig(root = process.cwd()) {
   const outputDir = resolve(root, deployConfig.outputDir)
@@ -34,6 +35,31 @@ function readRequiredOption(env, key) {
   return value
 }
 
+function parseProductionBranches(env = process.env) {
+  return (
+    env.DEPLOY_PRODUCTION_BRANCHES || DEFAULT_PRODUCTION_BRANCHES.join(',')
+  )
+    .split(',')
+    .map((branch) => branch.trim())
+    .filter(Boolean)
+}
+
+export function inferDeployEnv(env = process.env) {
+  if (
+    env.GITHUB_EVENT_NAME === 'pull_request' ||
+    env.GITHUB_EVENT_NAME === 'pull_request_target'
+  ) {
+    return 'preview'
+  }
+
+  const refName = env.GITHUB_REF_NAME?.trim()
+  if (refName && parseProductionBranches(env).includes(refName)) {
+    return 'production'
+  }
+
+  return 'preview'
+}
+
 export function resolveDeployOptions(env = process.env) {
   const target = readRequiredOption(env, 'DEPLOY_TARGET')
   if (!DEPLOY_TARGETS.includes(target)) {
@@ -42,7 +68,7 @@ export function resolveDeployOptions(env = process.env) {
     )
   }
 
-  const deployEnv = env.DEPLOY_ENV?.trim() || 'preview'
+  const deployEnv = env.DEPLOY_ENV?.trim() || inferDeployEnv(env)
   if (!DEPLOY_ENVS.includes(deployEnv)) {
     throw new Error(`DEPLOY_ENV must be one of: ${DEPLOY_ENVS.join(', ')}`)
   }

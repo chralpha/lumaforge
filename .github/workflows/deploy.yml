@@ -13,18 +13,27 @@ on:
         type: string
   push:
     branches: [main, master]
+  pull_request:
+    branches: [main, master]
 
 permissions:
   contents: read
 
 jobs:
   deploy:
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.DEPLOY_TARGET != '' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || vars.DEPLOY_TARGET != '') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-${{ github.event.inputs.deploy_target || vars.DEPLOY_TARGET }}-${{ github.event.pull_request.number || github.ref_name || github.run_id }}
+      cancel-in-progress: true
+    environment:
+      name: ${{ github.event_name == 'pull_request' && 'preview' || github.event.inputs.deploy_env || vars.DEPLOY_ENV || ((github.ref_name == 'main' || github.ref_name == 'master') && 'production' || 'preview') }}
+      url: ${{ steps.deploy.outputs.deployment_url }}
 
     env:
       DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || vars.DEPLOY_TARGET }}
-      DEPLOY_ENV: ${{ github.event.inputs.deploy_env || vars.DEPLOY_ENV || 'preview' }}
+      DEPLOY_ENV: ${{ github.event_name == 'pull_request' && 'preview' || github.event.inputs.deploy_env || vars.DEPLOY_ENV || ((github.ref_name == 'main' || github.ref_name == 'master') && 'production' || 'preview') }}
+      DEPLOY_PRODUCTION_BRANCHES: ${{ vars.DEPLOY_PRODUCTION_BRANCHES || 'main,master' }}
       EMSDK_VERSION: 5.0.6
       EMSDK_REF: 948c31acd3f369a5da276e33ab2ed57108c165e5
 
@@ -102,11 +111,18 @@ jobs:
           pnpm run deploy:build-artifact
 
       - name: Deploy selected target
+        id: deploy
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_PAGES_BRANCH: ${{ github.head_ref || github.ref_name }}
           CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: pnpm run deploy:selected
+
+      - name: Smoke deployed artifact
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.deployment_url }}
+        run: pnpm run deploy:smoke

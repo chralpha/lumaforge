@@ -2,12 +2,13 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { checkDeployArtifact } from './check.mjs'
 import { createDeployConfig, resolveDeployOptions } from './config.mjs'
 import { prepareCloudflareDeploy, prepareVercelDeploy } from './prepare.mjs'
-import { createPublishCommand } from './publish.mjs'
+import { createPublishCommand, resolveDeploymentUrl } from './publish.mjs'
+import { smokeDeployUrl } from './smoke.mjs'
 
 const tempDirs = []
 
@@ -65,6 +66,34 @@ describe('deploy configuration', () => {
       target: 'vercel',
       deployEnv: 'preview',
     })
+  })
+
+  it('infers deploy environment from GitHub event context when DEPLOY_ENV is omitted', () => {
+    expect(
+      resolveDeployOptions({
+        DEPLOY_TARGET: 'cloudflare',
+        GITHUB_EVENT_NAME: 'pull_request',
+        GITHUB_HEAD_REF: 'feat/deploy-preview',
+        GITHUB_REF_NAME: '12/merge',
+      }),
+    ).toEqual({ target: 'cloudflare', deployEnv: 'preview' })
+
+    expect(
+      resolveDeployOptions({
+        DEPLOY_TARGET: 'vercel',
+        GITHUB_EVENT_NAME: 'push',
+        GITHUB_REF_NAME: 'main',
+      }),
+    ).toEqual({ target: 'vercel', deployEnv: 'production' })
+
+    expect(
+      resolveDeployOptions({
+        DEPLOY_TARGET: 'vercel',
+        DEPLOY_ENV: 'preview',
+        GITHUB_EVENT_NAME: 'push',
+        GITHUB_REF_NAME: 'main',
+      }),
+    ).toEqual({ target: 'vercel', deployEnv: 'preview' })
   })
 })
 
@@ -191,6 +220,60 @@ describe('publish command selection', () => {
     })
   })
 
+  it('uses the pull-request head branch for Cloudflare preview deploys', () => {
+    const config = createDeployConfig('/repo')
+    expect(
+      createPublishCommand(config, {
+        target: 'cloudflare',
+        deployEnv: 'preview',
+        env: {
+          CLOUDFLARE_ACCOUNT_ID: 'account',
+          CLOUDFLARE_API_TOKEN: 'token',
+          CLOUDFLARE_PAGES_PROJECT: 'lumaforge',
+          GITHUB_HEAD_REF: 'feat/prod-preview',
+          GITHUB_REF_NAME: '17/merge',
+        },
+      }).args,
+    ).toEqual([
+      'exec',
+      'wrangler',
+      'pages',
+      'deploy',
+      '/repo/dist',
+      '--project-name',
+      'lumaforge',
+      '--branch',
+      'feat/prod-preview',
+    ])
+  })
+
+  it('pins Cloudflare production deploys to the configured production branch', () => {
+    const config = createDeployConfig('/repo')
+    expect(
+      createPublishCommand(config, {
+        target: 'cloudflare',
+        deployEnv: 'production',
+        env: {
+          CLOUDFLARE_ACCOUNT_ID: 'account',
+          CLOUDFLARE_API_TOKEN: 'token',
+          CLOUDFLARE_PAGES_PROJECT: 'lumaforge',
+          DEPLOY_PRODUCTION_BRANCHES: 'main,master',
+          GITHUB_REF_NAME: 'feat/manual-production',
+        },
+      }).args,
+    ).toEqual([
+      'exec',
+      'wrangler',
+      'pages',
+      'deploy',
+      '/repo/dist',
+      '--project-name',
+      'lumaforge',
+      '--branch',
+      'main',
+    ])
+  })
+
   it('builds a Vercel prebuilt command and only adds --prod for production', () => {
     const config = createDeployConfig('/repo')
     expect(
@@ -226,5 +309,76 @@ describe('publish command selection', () => {
         },
       }).args,
     ).not.toContain('--prod')
+  })
+
+  it('resolves deploy URLs for platform-specific post-deploy checks', () => {
+    expect(
+      resolveDeploymentUrl({
+        target: 'cloudflare',
+        deployEnv: 'preview',
+        env: {
+          CLOUDFLARE_PAGES_PROJECT: 'lumaforge',
+          GITHUB_HEAD_REF: 'feat/prod-preview',
+        },
+        output: '',
+      }),
+    ).toBe('https://feat-prod-preview.lumaforge.pages.dev')
+
+    expect(
+      resolveDeploymentUrl({
+        target: 'cloudflare',
+        deployEnv: 'production',
+        env: {
+          CLOUDFLARE_PAGES_PROJECT: 'lumaforge',
+          GITHUB_REF_NAME: 'main',
+        },
+        output: '',
+      }),
+    ).toBe('https://lumaforge.pages.dev')
+
+    expect(
+      resolveDeploymentUrl({
+        target: 'vercel',
+        deployEnv: 'preview',
+        env: {},
+        output: 'Queued\nhttps://lumaforge-git-feature.vercel.app\n',
+      }),
+    ).toBe('https://lumaforge-git-feature.vercel.app')
+  })
+})
+
+describe('deployed artifact smoke checks', () => {
+  it('checks production headers, SPA fallback, and native wasm MIME types', async () => {
+    const fetch = vi.fn(async (url) => {
+      const headers = new Headers()
+      headers.set('Cross-Origin-Opener-Policy', 'same-origin')
+      headers.set('Cross-Origin-Embedder-Policy', 'require-corp')
+      if (String(url).endsWith('.wasm')) {
+        headers.set('Content-Type', 'application/wasm')
+      }
+
+      return { ok: true, status: 200, headers }
+    })
+
+    await expect(
+      smokeDeployUrl('https://preview.example.com', fetch),
+    ).resolves.toBeUndefined()
+
+    expect(fetch).toHaveBeenCalledWith('https://preview.example.com/', {
+      method: 'HEAD',
+      redirect: 'follow',
+    })
+    expect(fetch).toHaveBeenCalledWith('https://preview.example.com/raw', {
+      method: 'HEAD',
+      redirect: 'follow',
+    })
+    expect(fetch).toHaveBeenCalledWith(
+      'https://preview.example.com/native/luma_raw.wasm',
+      { method: 'HEAD', redirect: 'follow' },
+    )
+    expect(fetch).toHaveBeenCalledWith(
+      'https://preview.example.com/native/luma_jpeg.wasm',
+      { method: 'HEAD', redirect: 'follow' },
+    )
   })
 })
