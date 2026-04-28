@@ -7,6 +7,7 @@ import { AnimatePresence, m } from 'motion/react'
 
 import { clsxm } from '~/lib/cn'
 import { Spring } from '~/lib/spring'
+
 import { currentSessionAtom } from '../state/session.atoms'
 
 export interface ProgressOverlayProps {
@@ -42,7 +43,7 @@ export function ProgressOverlay({
       {visible && (
         <m.div
           className={clsxm(
-            'absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50',
+            'absolute inset-0 z-50 flex items-center justify-center bg-[oklch(0.18_0.02_76_/_0.78)]',
             className,
           )}
           initial={{ opacity: 0 }}
@@ -151,7 +152,7 @@ export function ErrorOverlay({
       {visible && (
         <m.div
           className={clsxm(
-            'absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50',
+            'absolute inset-0 z-50 flex items-center justify-center bg-[oklch(0.18_0.02_76_/_0.78)]',
             className,
           )}
           initial={{ opacity: 0 }}

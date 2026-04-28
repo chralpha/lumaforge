@@ -22,7 +22,7 @@ function controlsPanelProps(
     viewMode: 'processed',
     onPresetSelect: () => {},
     onIntensitySelect: () => {},
-    onViewModeChange: () => {},
+    onCompareReset: () => {},
     onLutLoad: () => {},
     onLutClear: () => {},
     onLutProfileSelect: () => {},
@@ -106,6 +106,42 @@ describe('controlsPanel', () => {
     expect(
       screen.getByText('RAW preview exposure is still being prepared.'),
     ).toBeInTheDocument()
+  })
+
+  it('keeps compare copy tied to the new split interaction', () => {
+    render(<ControlsPanel {...controlsPanelProps({ viewMode: 'compare' })} />)
+
+    expect(screen.getByText('Compare')).toBeInTheDocument()
+    expect(screen.getByText('Drag the split on the image.')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Processed' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Original' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('lets users reset the compare split while already comparing', async () => {
+    const user = userEvent.setup()
+    const onCompareReset = vi.fn()
+
+    render(
+      <ControlsPanel
+        {...controlsPanelProps({
+          viewMode: 'compare',
+          onCompareReset,
+        })}
+      />,
+    )
+
+    const resetButton = screen.getByRole('button', {
+      name: 'Reset compare view',
+    })
+    expect(resetButton).toBeEnabled()
+
+    await user.click(resetButton)
+
+    expect(onCompareReset).toHaveBeenCalledTimes(1)
   })
 
   it('opens the selector by default for pending LUT profile suggestions', async () => {

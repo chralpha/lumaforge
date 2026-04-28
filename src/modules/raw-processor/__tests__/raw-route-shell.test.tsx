@@ -64,7 +64,7 @@ describe('rawProcessorView shell states', () => {
     render(<RawProcessorView />)
 
     expect(
-      screen.getByText('This browser is not supported'),
+      screen.getByText('This browser cannot run the RAW Lab'),
     ).toBeInTheDocument()
   })
 
@@ -78,7 +78,7 @@ describe('rawProcessorView shell states', () => {
     render(<RawProcessorView />)
 
     expect(
-      screen.getByText('This browser is not supported'),
+      screen.getByText('This browser cannot run the RAW Lab'),
     ).toBeInTheDocument()
     expect(
       screen.getByText(

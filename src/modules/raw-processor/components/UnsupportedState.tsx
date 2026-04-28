@@ -2,7 +2,7 @@ export function UnsupportedState({ reason }: { reason: string }) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6 text-center">
       <h2 className="text-2xl font-semibold text-text">
-        This browser is not supported
+        This browser cannot run the RAW Lab
       </h2>
       <p className="max-w-xl text-sm text-text-secondary">{reason}</p>
       <p className="max-w-xl text-sm text-text-tertiary">

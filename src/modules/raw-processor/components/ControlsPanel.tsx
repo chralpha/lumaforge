@@ -34,7 +34,7 @@ export interface ControlsPanelProps {
   viewMode: ViewMode
   onPresetSelect: (id: string) => void
   onIntensitySelect: (level: 'off' | 'light' | 'standard' | 'strong') => void
-  onViewModeChange: (mode: ViewMode) => void
+  onCompareReset: () => void
   onLutLoad: (files: File[]) => void
   onLutClear: () => void
   onLutProfileSelect: (profile: LUTColorProfile) => void
@@ -351,12 +351,12 @@ function LUTProfileStatus({
   return (
     <div className="space-y-2 pt-1">
       {isUnsupportedOutput ? (
-        <p className="border-l-2 border-accent/70 pl-3 text-xs leading-relaxed text-text-secondary">
+        <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs leading-relaxed text-text-secondary">
           This LUT output is not supported yet. Use a Rec.709 display LUT for
           this build.
         </p>
       ) : isPending ? (
-        <p className="border-l-2 border-accent/70 pl-3 text-xs leading-relaxed text-text-secondary">
+        <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs leading-relaxed text-text-secondary">
           {UNKNOWN_LUT_COPY}
         </p>
       ) : resolvedProfile ? (
@@ -376,7 +376,7 @@ function LUTProfileStatus({
             </p>
           )}
           {needsOutputContract && (
-            <p className="border-l-2 border-accent/70 pl-3 text-text-secondary">
+            <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs leading-relaxed text-text-secondary">
               Choose the LUT output before preview or export.
             </p>
           )}
@@ -406,10 +406,9 @@ export function ControlsPanel({
   presetOptions,
   activePresetId,
   activeIntensity,
-  viewMode,
   onPresetSelect,
   onIntensitySelect,
-  onViewModeChange,
+  onCompareReset,
   onLutLoad,
   onLutClear,
   onLutProfileSelect,
@@ -431,6 +430,7 @@ export function ControlsPanel({
 
   return (
     <m.div
+      data-raw-panel="controls"
       className={clsxm(
         'flex flex-col gap-6 p-5 bg-material-medium rounded-xl border border-border',
         className,
@@ -439,7 +439,7 @@ export function ControlsPanel({
       animate={{ opacity: 1, x: 0 }}
       transition={Spring.presets.smooth}
     >
-      <div className="space-y-6">
+      <div className="raw-lab-controls-grid space-y-6">
         <section className="space-y-3">
           <label className="text-sm font-medium text-text">Builtin looks</label>
           <div className="grid grid-cols-2 gap-2">
@@ -473,24 +473,19 @@ export function ControlsPanel({
 
         <Divider />
 
-        <section className="space-y-3">
+        <section className="space-y-2">
           <label className="text-sm font-medium text-text">Compare</label>
-          <div className="flex gap-2">
-            <Button
-              variant={viewMode === 'processed' ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={() => onViewModeChange('processed')}
-            >
-              Processed
-            </Button>
-            <Button
-              variant={viewMode === 'original' ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={() => onViewModeChange('original')}
-            >
-              Original
-            </Button>
-          </div>
+          <p className="text-xs leading-relaxed text-text-secondary">
+            Drag the split on the image.
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onCompareReset}
+            disabled={!hasImage || isProcessing}
+          >
+            Reset compare view
+          </Button>
         </section>
 
         <Divider />

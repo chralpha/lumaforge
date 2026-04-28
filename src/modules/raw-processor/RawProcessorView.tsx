@@ -129,6 +129,11 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     [pipelineRef],
   )
 
+  const handleCompareReset = useCallback(() => {
+    setViewMode('compare')
+    setCompareSplit(0.5)
+  }, [setCompareSplit, setViewMode])
+
   const isProcessing =
     status === 'loading' ||
     status === 'decoding' ||
@@ -196,7 +201,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
               selectBuiltinStyle(id as (typeof presetOptions)[number]['id'])
             }
             onIntensitySelect={selectIntensityLevel}
-            onViewModeChange={setViewMode}
+            onCompareReset={handleCompareReset}
             onLutLoad={handleLutDrop}
             onLutClear={clearLUT}
             currentLutName={currentLutName}
