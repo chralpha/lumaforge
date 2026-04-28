@@ -5,7 +5,7 @@ import { RawProcessorView } from '../RawProcessorView'
 import { classifySupportLevel } from '../services/support-matrix'
 
 describe('rawProcessorView', () => {
-  it('renders the initial upload CTA', () => {
+  it('renders the image-first empty RAW Lab workspace', () => {
     mockedUseCapabilityGate.mockReturnValue({
       ready: true,
       supportStatus: 'supported',
@@ -14,7 +14,34 @@ describe('rawProcessorView', () => {
 
     render(<RawProcessorView />)
 
-    expect(screen.getByText('Drop your RAW file here')).toBeInTheDocument()
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+    expect(screen.getByText('RAW Lab')).toBeInTheDocument()
+    expect(screen.getByText('Drop one RAW here')).toBeInTheDocument()
+    expect(screen.getByText('Unprocessed RAW')).toBeInTheDocument()
+    expect(screen.getByText('Final JPEG')).toBeInTheDocument()
+    expect(
+      screen.queryByText('Browser-local RAW styling'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Drop your RAW file here'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('keeps export disabled copy visible before a RAW is loaded', () => {
+    mockedUseCapabilityGate.mockReturnValue({
+      ready: true,
+      supportStatus: 'supported',
+      reason: null,
+    })
+
+    render(<RawProcessorView />)
+
+    expect(
+      screen.getByText('Full-resolution export source is still loading.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /export full-resolution jpeg/i }),
+    ).toBeDisabled()
   })
 })
 
