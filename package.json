@@ -9,8 +9,8 @@
   },
   "scripts": {
     "build": "vite build",
-    "deploy": "node scripts/deploy/deploy.mjs",
-    "deploy:build-artifact": "pnpm --filter @lumaforge/luma-raw-runtime build:native && pnpm --filter @lumaforge/luma-raw-runtime native:verify && pnpm --filter @lumaforge/luma-jpeg-runtime build:native && pnpm --filter @lumaforge/luma-jpeg-runtime native:verify && pnpm --filter @lumaforge/luma-jpeg-runtime build && pnpm --filter @lumaforge/luma-raw-runtime build && pnpm build && pnpm deploy:check",
+    "deploy:selected": "node scripts/deploy/deploy.mjs",
+    "deploy:build-artifact": "pnpm --filter @lumaforge/luma-raw-runtime build:native && pnpm --filter @lumaforge/luma-raw-runtime native:verify && pnpm --filter @lumaforge/luma-jpeg-runtime build:native && pnpm --filter @lumaforge/luma-jpeg-runtime native:verify && pnpm --filter @lumaforge/luma-jpeg-runtime build && pnpm --filter @lumaforge/luma-raw-runtime build && pnpm build && pnpm run deploy:check",
     "deploy:check": "node scripts/deploy/check.mjs",
     "deploy:prepare": "node scripts/deploy/prepare.mjs",
     "deploy:publish": "node scripts/deploy/publish.mjs",
