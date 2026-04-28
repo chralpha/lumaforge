@@ -1,3 +1,4 @@
+export * from './ComparePreviewStage'
 export { ControlsPanel, MetadataPanel, StatsPanel } from './ControlsPanel'
 export { Dropzone, FileDropzone, LutDropzone } from './Dropzone'
 export { IntensityChips } from './IntensityChips'

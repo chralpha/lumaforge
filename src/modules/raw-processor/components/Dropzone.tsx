@@ -8,6 +8,23 @@ import { useCallback, useState } from 'react'
 import { clsxm } from '~/lib/cn'
 import { Spring } from '~/lib/spring'
 
+export const RAW_FILE_EXTENSIONS = [
+  '.cr2',
+  '.cr3',
+  '.nef',
+  '.arw',
+  '.raf',
+  '.rw2',
+  '.orf',
+  '.dng',
+  '.pef',
+  '.srw',
+  '.3fr',
+  '.fff',
+  '.iiq',
+  '.raw',
+]
+
 export interface DropzoneProps {
   onFileDrop: (files: File[]) => void
   accept?: string[]
@@ -15,6 +32,8 @@ export interface DropzoneProps {
   className?: string
   children?: React.ReactNode
   disabled?: boolean
+  'aria-label'?: string
+  variant?: 'default' | 'stage'
 }
 
 export function Dropzone({
@@ -24,6 +43,8 @@ export function Dropzone({
   className,
   children,
   disabled = false,
+  'aria-label': ariaLabel,
+  variant = 'default',
 }: DropzoneProps) {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -89,13 +110,36 @@ export function Dropzone({
     input.click()
   }, [onFileDrop, accept, multiple, disabled])
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (disabled) return
+
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        handleClick()
+      }
+    },
+    [disabled, handleClick],
+  )
+
   return (
     <m.div
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled || undefined}
+      aria-label={ariaLabel}
       className={clsxm(
-        'relative rounded-xl border-2 border-dashed transition-colors cursor-pointer',
+        'relative transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+        variant === 'stage'
+          ? 'rounded-lg border border-[oklch(0.96_0.012_86_/_0.36)]'
+          : 'rounded-xl border-2 border-dashed',
         isDragOver
-          ? 'border-accent bg-accent/10'
-          : 'border-border hover:border-accent/50 hover:bg-fill/50',
+          ? variant === 'stage'
+            ? 'border-[oklch(0.59_0.15_153)] bg-[oklch(0.59_0.15_153_/_0.16)]'
+            : 'border-accent bg-accent/10'
+          : variant === 'stage'
+            ? 'hover:border-[oklch(0.59_0.15_153_/_0.72)]'
+            : 'border-border hover:border-accent/50 hover:bg-fill/50',
         disabled && 'opacity-50 cursor-not-allowed',
         className,
       )}
@@ -103,6 +147,7 @@ export function Dropzone({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       whileHover={disabled ? {} : { scale: 1.01 }}
       whileTap={disabled ? {} : { scale: 0.99 }}
       transition={Spring.presets.snappy}
@@ -110,7 +155,12 @@ export function Dropzone({
       {children}
       {isDragOver && (
         <m.div
-          className="absolute inset-0 flex items-center justify-center bg-accent/20 rounded-xl"
+          className={clsxm(
+            'absolute inset-0 flex items-center justify-center',
+            variant === 'stage'
+              ? 'rounded-lg bg-[oklch(0.59_0.15_153_/_0.18)]'
+              : 'rounded-xl bg-accent/20',
+          )}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -132,27 +182,10 @@ export function FileDropzone({
   onFileDrop: (files: File[]) => void
   disabled?: boolean
 }) {
-  const rawExtensions = [
-    '.cr2',
-    '.cr3',
-    '.nef',
-    '.arw',
-    '.raf',
-    '.rw2',
-    '.orf',
-    '.dng',
-    '.pef',
-    '.srw',
-    '.3fr',
-    '.fff',
-    '.iiq',
-    '.raw',
-  ]
-
   return (
     <Dropzone
       onFileDrop={onFileDrop}
-      accept={rawExtensions}
+      accept={RAW_FILE_EXTENSIONS}
       disabled={disabled}
       className="min-h-[300px] flex flex-col items-center justify-center p-8"
     >
