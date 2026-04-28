@@ -6,8 +6,11 @@ import type {
 
 import { mat3Identity } from '~/lib/color/matrix'
 
+import type { SupportedExportColorGraphDescriptor } from './color-graph'
 import { runFullResolutionJpegExport } from './full-res-export'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
+import { processedWindowToLinearProPhotoTile } from './processed-window-transform'
+import { createRowBandProcessor } from './row-band-processor'
 
 function makeCapability(
   overrides: Partial<LumaRawExportCapability> = {},
@@ -78,6 +81,28 @@ function makeProcessedWindow(
   }
 }
 
+function makePatternedProcessedWindow(
+  request: LumaRawProcessedWindowRequest,
+): LumaRawProcessedWindow {
+  const window = makeProcessedWindow(request, 0)
+
+  for (let row = 0; row < window.height; row += 1) {
+    for (let column = 0; column < window.width; column += 1) {
+      const index = (row * window.width + column) * 3
+      const absoluteRow = request.outputRect.y + row
+      const absoluteColumn = request.outputRect.x + column
+      window.data[index] =
+        10000 + ((absoluteRow * 97 + absoluteColumn * 1009) % 40000)
+      window.data[index + 1] =
+        12000 + ((absoluteRow * 193 + absoluteColumn * 701) % 38000)
+      window.data[index + 2] =
+        14000 + ((absoluteRow * 389 + absoluteColumn * 431) % 36000)
+    }
+  }
+
+  return window
+}
+
 function clamp01(value: number) {
   return Math.min(1, Math.max(0, value))
 }
@@ -87,6 +112,37 @@ function linearToSrgb(value: number) {
   return clamped <= 0.0031308
     ? clamped * 12.92
     : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055
+}
+
+function concatByteRows(rows: Uint8Array[]) {
+  const output = new Uint8Array(
+    rows.reduce((total, row) => total + row.length, 0),
+  )
+  let offset = 0
+
+  for (const row of rows) {
+    output.set(row, offset)
+    offset += row.length
+  }
+
+  return output
+}
+
+function makeRgbRampLut() {
+  const lut = new Float32Array(2 * 2 * 2 * 3)
+
+  for (let blue = 0; blue < 2; blue += 1) {
+    for (let green = 0; green < 2; green += 1) {
+      for (let red = 0; red < 2; red += 1) {
+        const index = ((blue * 2 + green) * 2 + red) * 3
+        lut[index] = red
+        lut[index + 1] = green
+        lut[index + 2] = blue
+      }
+    }
+  }
+
+  return lut
 }
 
 const IDENTITY_RAW_RENDER_EXPOSURE_STEP = {
@@ -256,10 +312,200 @@ describe('runFullResolutionJpegExport', () => {
 
     expect(blob.type).toBe('image/jpeg')
     expect(readProcessedWindow).toHaveBeenCalledTimes(1)
-    expect(writtenRows).toHaveLength(1)
-    expect(writtenRows[0]?.rowCount).toBe(4)
-    expect(writtenRows[0]?.bytes).toEqual(new Uint8Array(4 * 4 * 3).fill(188))
+    expect(writtenRows.map((entry) => entry.rowCount)).toEqual([2, 2])
+    expect(writtenRows.map((entry) => entry.bytes)).toEqual([
+      new Uint8Array(4 * 2 * 3).fill(188),
+      new Uint8Array(4 * 2 * 3).fill(188),
+    ])
     expect(progress.at(-1)).toBe(100)
+  })
+
+  it('writes row bands that match the same LUT graph applied to the full strip', async () => {
+    const outputRect = { x: 0, y: 0, width: 3, height: 130 }
+    const graph: SupportedExportColorGraphDescriptor = {
+      supported: true,
+      outputGamut: 'srgb-rec709',
+      outputTransfer: 'srgb',
+      lutProfile: null,
+      steps: [
+        { kind: 'input-linear-prophoto' },
+        { kind: 'raw-render-exposure', ev: 0.1375, multiplier: 1.1 },
+        {
+          kind: 'gamut-to-lut-input',
+          matrix: mat3Identity(),
+          gamut: 'prophoto-rgb',
+        },
+        { kind: 'encode-lut-transfer', transfer: 'linear', range: 'full' },
+        {
+          kind: 'lut3d',
+          size: 2,
+          data: makeRgbRampLut(),
+          domainMin: [0.12, 0.12, 0.12],
+          domainMax: [0.95, 0.95, 0.95],
+        },
+        {
+          kind: 'lut-output-to-srgb',
+          matrix: mat3Identity(),
+          transfer: 'linear',
+          range: 'full',
+          role: 'scene-creative',
+          intensity: 0.65,
+        },
+        { kind: 'output-srgb' },
+      ],
+    }
+    const expectedWindow = makePatternedProcessedWindow({
+      outputRect,
+      halo: { left: 2, top: 2, right: 2, bottom: 2 },
+    })
+    const expectedTile = processedWindowToLinearProPhotoTile(
+      expectedWindow,
+      outputRect,
+    )
+    const expectedRows = createRowBandProcessor({
+      width: outputRect.width,
+      rowBandRows: outputRect.height,
+      graph,
+    }).processFloatRows(expectedTile.data, outputRect.height)
+    const writtenRows: Array<{ bytes: Uint8Array; rowCount: number }> = []
+    const writer = {
+      writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
+        writtenRows.push({ bytes: new Uint8Array(bytes), rowCount })
+      }),
+      close: vi.fn(
+        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      ),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await runFullResolutionJpegExport({
+      capability: makeCapability({
+        width: outputRect.width,
+        height: outputRect.height,
+        rawWidth: outputRect.width,
+        rawHeight: outputRect.height,
+        visibleCrop: outputRect,
+      }),
+      graph,
+      preferredRows: outputRect.height,
+      readProcessedWindow: async (request) =>
+        makePatternedProcessedWindow(request),
+      writerFactory: () => writer,
+    })
+
+    expect(writtenRows.map((entry) => entry.rowCount)).toEqual([64, 64, 2])
+    expect(writtenRows.map((entry) => entry.bytes.length)).toEqual([
+      64 * outputRect.width * 3,
+      64 * outputRect.width * 3,
+      2 * outputRect.width * 3,
+    ])
+    expect(concatByteRows(writtenRows.map((entry) => entry.bytes))).toEqual(
+      new Uint8Array(expectedRows),
+    )
+  })
+
+  it('keeps retained custom-writer row views stable across reusable row bands', async () => {
+    const outputRect = { x: 0, y: 0, width: 3, height: 130 }
+    const retainedRows: Uint8Array[] = []
+    const snapshots: Uint8Array[] = []
+    const rowCounts: number[] = []
+    const writer = {
+      writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
+        retainedRows.push(bytes)
+        snapshots.push(new Uint8Array(bytes))
+        rowCounts.push(rowCount)
+      }),
+      close: vi.fn(
+        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      ),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await runFullResolutionJpegExport({
+      capability: makeCapability({
+        width: outputRect.width,
+        height: outputRect.height,
+        rawWidth: outputRect.width,
+        rawHeight: outputRect.height,
+        visibleCrop: outputRect,
+      }),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          { kind: 'output-srgb' },
+        ],
+      },
+      preferredRows: outputRect.height,
+      readProcessedWindow: async (request) =>
+        makePatternedProcessedWindow(request),
+      writerFactory: () => writer,
+    })
+
+    expect(rowCounts).toEqual([64, 64, 2])
+    expect(retainedRows).toHaveLength(3)
+    expect(new Set(retainedRows.map((row) => row.buffer)).size).toBe(
+      retainedRows.length,
+    )
+    retainedRows.forEach((row, index) => {
+      expect(row).toEqual(snapshots[index])
+    })
+  })
+
+  it('attributes row-band graph processing to color metrics and writes to JPEG metrics', async () => {
+    const metrics: unknown[] = []
+    const writer = {
+      writeRows: vi.fn(async () => undefined),
+      close: vi.fn(
+        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      ),
+      abort: vi.fn(async () => undefined),
+    }
+    let now = 0
+    const nowSpy = vi
+      .spyOn(globalThis.performance, 'now')
+      .mockImplementation(() => {
+        now += 1
+        return now
+      })
+
+    try {
+      await runFullResolutionJpegExport({
+        capability: makeCapability(),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [
+            { kind: 'input-linear-prophoto' },
+            IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            { kind: 'output-srgb' },
+          ],
+        },
+        preferredRows: 2,
+        readProcessedWindow: async (request) => makeProcessedWindow(request),
+        writerFactory: () => writer,
+        onMetric(metric) {
+          metrics.push(metric)
+        },
+      })
+    } finally {
+      nowSpy.mockRestore()
+    }
+
+    const stripMetric = metrics.find(
+      (metric) => (metric as { kind: string }).kind === 'strip',
+    ) as { colorMs: number; jpegWriteMs: number }
+
+    expect(writer.writeRows).toHaveBeenCalledTimes(2)
+    expect(stripMetric.colorMs).toBeGreaterThan(1)
+    expect(stripMetric.jpegWriteMs).toBeGreaterThan(0)
+    expect(stripMetric.colorMs).toBeGreaterThan(stripMetric.jpegWriteMs)
   })
 
   it('decodes BT.709 LUT output before final sRGB JPEG encoding', async () => {
@@ -579,7 +825,7 @@ describe('runFullResolutionJpegExport', () => {
         halo: { left: 2, top: 2, right: 2, bottom: 2 },
       },
     ])
-    expect(writtenRows).toEqual([4])
+    expect(writtenRows).toEqual([2, 2])
   })
 
   it('rejects processed windows whose rect does not match the requested output strip', async () => {
@@ -675,13 +921,13 @@ describe('runFullResolutionJpegExport', () => {
         ([request]) => request.outputRect.height,
       ),
     ).toEqual([256, 128, 128])
-    expect(writtenRows.map((entry) => entry.rowCount)).toEqual([128, 128])
+    expect(writtenRows.map((entry) => entry.rowCount)).toEqual([64, 64, 64, 64])
     expect(
       writtenRows.reduce((total, entry) => total + entry.rowCount, 0),
     ).toBe(256)
     expect(
       writtenRows.map((entry) => entry.bytes.length / (entry.rowCount * 3)),
-    ).toEqual([4, 4])
+    ).toEqual([4, 4, 4, 4])
   })
 
   it('retries with a fresh writer after a resource failure and emits performance metrics only for the successful attempt', async () => {
@@ -748,10 +994,10 @@ describe('runFullResolutionJpegExport', () => {
     expect(readProcessedWindow.mock.calls[0]?.[0].outputRect.height).toBe(256)
     expect(readProcessedWindow.mock.calls[2]?.[0].outputRect.height).toBe(128)
     expect(readProcessedWindow.mock.calls[5]?.[0].outputRect.height).toBe(128)
-    expect(firstWriter.writeRows).toHaveBeenCalledTimes(1)
+    expect(firstWriter.writeRows).toHaveBeenCalledTimes(4)
     expect(firstWriter.abort).toHaveBeenCalledTimes(1)
     expect(firstWriter.close).not.toHaveBeenCalled()
-    expect(secondWriter.writeRows).toHaveBeenCalledTimes(4)
+    expect(secondWriter.writeRows).toHaveBeenCalledTimes(8)
     expect(secondWriter.close).toHaveBeenCalledTimes(1)
     expect(secondWriter.abort).not.toHaveBeenCalled()
     expect(metrics.map((metric) => (metric as { kind: string }).kind)).toEqual([
@@ -953,7 +1199,7 @@ describe('runFullResolutionJpegExport', () => {
 
     expect(blob.type).toBe('image/jpeg')
     expect(sessionCount).toBe(2)
-    expect(writtenRows).toEqual([128, 128])
+    expect(writtenRows).toEqual([64, 64, 64, 64])
   })
 
   it('throws FULL_RES_EXPORT_RESOURCE_FAILURE after exhausting strip retries', async () => {
@@ -1027,8 +1273,7 @@ describe('runFullResolutionJpegExport', () => {
       writerFactory: () => writer,
     })
 
-    expect(writtenRows).toHaveLength(1)
-    expect(writtenRows[0]?.rowCount).toBe(4)
+    expect(writtenRows.map((entry) => entry.rowCount)).toEqual([2, 2])
     expect(writtenRows[0]?.bytes[0]).toBe(255)
   })
 
@@ -1119,7 +1364,7 @@ describe('runFullResolutionJpegExport', () => {
     const mixedLinear = baseLinear + (lutOutputLinear - baseLinear) * intensity
     const expectedByte = Math.round(clamp01(linearToSrgb(mixedLinear)) * 255)
 
-    expect(writtenRows).toHaveLength(1)
+    expect(writtenRows.map((entry) => entry.rowCount)).toEqual([2, 2])
     expect(writtenRows[0]?.bytes[0]).toBe(expectedByte)
     expect(writtenRows[0]?.bytes[0]).not.toBe(188)
   })
