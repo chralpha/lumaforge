@@ -4,6 +4,7 @@ import type { ExportColorGraphDescriptor } from '~/lib/export/color-graph'
 
 import {
   buildExportFilename,
+  getConcurrencyForFidelity,
   getPreferredRowsForFidelity,
   recommendRetryLevel,
   runFullResolutionExportJob,
@@ -34,6 +35,12 @@ describe('export-system', () => {
     )
   })
 
+  it('maps fidelity levels to bounded pipeline concurrency', () => {
+    expect(getConcurrencyForFidelity('safe')).toBe(1)
+    expect(getConcurrencyForFidelity('balanced')).toBe(2)
+    expect(getConcurrencyForFidelity('max')).toBe(3)
+  })
+
   it('runs the full-resolution export client and disposes it', async () => {
     const file = new File(['raw'], 'frame.ARW')
     const blob = new Blob(['jpeg'], { type: 'image/jpeg' })
@@ -58,6 +65,7 @@ describe('export-system', () => {
       graph,
       quality: 0.92,
       preferredRows: 1024,
+      concurrency: 3,
       signal: controller.signal,
       clientFactory: () =>
         ({
@@ -79,6 +87,7 @@ describe('export-system', () => {
       graph,
       onProgress: undefined,
       preferredRows: 1024,
+      concurrency: 3,
       quality: 0.92,
       signal: controller.signal,
     })

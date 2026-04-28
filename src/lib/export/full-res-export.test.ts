@@ -807,6 +807,42 @@ describe('runFullResolutionJpegExport', () => {
     },
   )
 
+  it.each([Infinity, -Infinity, Number.NaN, 0, -1])(
+    'fails closed for invalid concurrency %s before reading processed windows',
+    async (concurrency) => {
+      const readProcessedWindow = vi.fn()
+      const writer = {
+        writeRows: vi.fn(),
+        close: vi.fn(),
+        abort: vi.fn(async () => undefined),
+      }
+
+      await expect(
+        runFullResolutionJpegExport({
+          capability: makeCapability(),
+          graph: {
+            supported: true,
+            outputGamut: 'srgb-rec709',
+            outputTransfer: 'srgb',
+            lutProfile: null,
+            steps: [
+              { kind: 'input-linear-prophoto' },
+              IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+              { kind: 'output-srgb' },
+            ],
+          },
+          concurrency,
+          readProcessedWindow,
+          writerFactory: () => writer,
+        }),
+      ).rejects.toThrow('FULL_RES_EXPORT_INVALID_CONCURRENCY')
+
+      expect(readProcessedWindow).not.toHaveBeenCalled()
+      expect(writer.writeRows).not.toHaveBeenCalled()
+      expect(writer.abort).not.toHaveBeenCalled()
+    },
+  )
+
   it('normalizes fractional preferred rows before scheduling processed windows', async () => {
     const writtenRows: number[] = []
     const readProcessedWindow = vi.fn(
@@ -937,6 +973,64 @@ describe('runFullResolutionJpegExport', () => {
     expect(writer.writeRows).not.toHaveBeenCalled()
   })
 
+  it('keeps JPEG writes ordered when concurrency is greater than one', async () => {
+    const writtenFirstBytes: number[] = []
+    const readOrder: number[] = []
+    let releaseFirst!: () => void
+    const firstRead = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    const writer = {
+      writeRows: vi.fn(async (bytes: Uint8Array) => {
+        writtenFirstBytes.push(bytes[0] ?? -1)
+      }),
+      close: vi.fn(
+        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      ),
+      abort: vi.fn(async () => undefined),
+    }
+
+    const exportPromise = runFullResolutionJpegExport({
+      capability: makeCapability({
+        height: 128,
+        rawHeight: 128,
+        visibleCrop: { x: 0, y: 0, width: 4, height: 128 },
+      }),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          { kind: 'output-srgb' },
+        ],
+      },
+      preferredRows: 64,
+      concurrency: 2,
+      async readProcessedWindow(request) {
+        readOrder.push(request.outputRect.y)
+        if (request.outputRect.y === 0) {
+          await firstRead
+          return makeProcessedWindow(request, 0)
+        }
+
+        return makeProcessedWindow(request, 65535)
+      },
+      writerFactory: () => writer,
+    })
+
+    await Promise.resolve()
+    expect(readOrder).toEqual([0, 64])
+    expect(writer.writeRows).not.toHaveBeenCalled()
+
+    releaseFirst()
+    await exportPromise
+
+    expect(writtenFirstBytes).toEqual([0, 255])
+  })
+
   it('retries RESOURCE_ALLOCATION_FAILED with smaller strips and preserves JPEG dimensions', async () => {
     const writtenRows: Array<{ rowCount: number; bytes: Uint8Array }> = []
     let failedOnce = false
@@ -1000,6 +1094,106 @@ describe('runFullResolutionJpegExport', () => {
     ).toEqual([4, 4, 4, 4])
   })
 
+  it('cancels stale in-flight strip preparation before resource fallback retry', async () => {
+    const events: string[] = []
+    let staleReadResolved = false
+    const firstWriter = {
+      writeRows: vi.fn(async () => undefined),
+      close: vi.fn(),
+      abort: vi.fn(async () => undefined),
+    }
+    const secondWriter = {
+      writeRows: vi.fn(async () => undefined),
+      close: vi.fn(
+        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      ),
+      abort: vi.fn(async () => undefined),
+    }
+    const attemptWriters = [firstWriter, secondWriter]
+    const readProcessedWindow = vi.fn(
+      (
+        request: LumaRawProcessedWindowRequest,
+        signal?: AbortSignal,
+      ): Promise<LumaRawProcessedWindow> => {
+        if (request.outputRect.height === 256 && request.outputRect.y === 0) {
+          events.push('stale-read-start')
+
+          return new Promise<LumaRawProcessedWindow>((_resolve, reject) => {
+            signal?.addEventListener(
+              'abort',
+              () => {
+                events.push('stale-read-aborted')
+                reject(new Error('STALE_ATTEMPT_ABORTED'))
+              },
+              { once: true },
+            )
+
+            if (signal?.aborted) {
+              events.push('stale-read-aborted')
+              reject(new Error('STALE_ATTEMPT_ABORTED'))
+            }
+          }).then((window) => {
+            staleReadResolved = true
+            return window
+          })
+        }
+
+        if (request.outputRect.height === 256 && request.outputRect.y === 256) {
+          events.push('resource-error')
+          return Promise.reject(new Error('RESOURCE_ALLOCATION_FAILED'))
+        }
+
+        events.push(`retry-${request.outputRect.y}`)
+        return Promise.resolve(makeProcessedWindow(request))
+      },
+    )
+
+    const blob = await runFullResolutionJpegExport({
+      capability: makeCapability({
+        height: 512,
+        rawHeight: 512,
+        visibleCrop: { x: 0, y: 0, width: 4, height: 512 },
+      }),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          { kind: 'output-srgb' },
+        ],
+      },
+      preferredRows: 256,
+      concurrency: 2,
+      readProcessedWindow,
+      writerFactory: () => {
+        const writer = attemptWriters.shift()
+        if (!writer) {
+          throw new Error('unexpected writer request')
+        }
+        return writer
+      },
+    })
+
+    expect(blob.type).toBe('image/jpeg')
+    expect(staleReadResolved).toBe(false)
+    expect(events.slice(0, 3)).toEqual([
+      'stale-read-start',
+      'resource-error',
+      'stale-read-aborted',
+    ])
+    expect(events.indexOf('stale-read-aborted')).toBeLessThan(
+      events.indexOf('retry-0'),
+    )
+    expect(firstWriter.writeRows).not.toHaveBeenCalled()
+    expect(firstWriter.abort).toHaveBeenCalledTimes(1)
+    expect(secondWriter.writeRows).toHaveBeenCalledTimes(8)
+    expect(secondWriter.close).toHaveBeenCalledTimes(1)
+    expect(secondWriter.abort).not.toHaveBeenCalled()
+  })
+
   it('retries with a fresh writer after a resource failure and emits performance metrics only for the successful attempt', async () => {
     const metrics: unknown[] = []
     const firstWriter = {
@@ -1045,6 +1239,7 @@ describe('runFullResolutionJpegExport', () => {
         ],
       },
       preferredRows: 256,
+      concurrency: 3,
       readProcessedWindow,
       writerFactory: () => {
         const writer = attemptWriters.shift()
@@ -1094,6 +1289,7 @@ describe('runFullResolutionJpegExport', () => {
       kind: 'summary',
       stripRows: 128,
       retries: 1,
+      concurrency: 1,
     })
   })
 
@@ -1151,6 +1347,10 @@ describe('runFullResolutionJpegExport', () => {
       'strip',
       'summary',
     ])
+    expect(metrics.at(-1)).toMatchObject({
+      kind: 'summary',
+      concurrency: 2,
+    })
   })
 
   it('retries writer allocation failures and throws FULL_RES_EXPORT_RESOURCE_FAILURE after exhaustion', async () => {

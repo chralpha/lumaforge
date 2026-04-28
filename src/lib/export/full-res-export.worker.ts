@@ -98,6 +98,7 @@ async function handleStart(
             capability,
             graph: message.graph,
             preferredRows: message.preferredRows,
+            concurrency: message.concurrency,
             quality: message.quality,
             signal: controller.signal,
             readProcessedWindow: exportSession.readProcessedWindow,

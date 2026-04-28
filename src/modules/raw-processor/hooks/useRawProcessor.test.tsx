@@ -1112,6 +1112,7 @@ describe('useRawProcessor embedded preview state', () => {
         file: expect.any(File),
         filename: 'frame_neutral_fullres.jpg',
         preferredRows: 1024,
+        concurrency: 3,
         quality: 0.92,
         graph: expect.objectContaining({
           steps: expectedExportGraphSteps,

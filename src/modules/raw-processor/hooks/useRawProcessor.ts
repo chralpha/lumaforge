@@ -58,6 +58,7 @@ import type {
 import { BUILTIN_PRESETS } from '../services/builtin-presets'
 import {
   buildExportFilename,
+  getConcurrencyForFidelity,
   getPreferredRowsForFidelity,
   recommendRetryLevel,
   runFullResolutionExportJob,
@@ -1323,6 +1324,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
           filename,
           quality: quality === 'high' ? 0.92 : 0.86,
           preferredRows: getPreferredRowsForFidelity(fidelity),
+          concurrency: getConcurrencyForFidelity(fidelity),
           graph,
           onProgress: (entry) => {
             if (

@@ -1,6 +1,7 @@
 import type { ExportColorGraphDescriptor } from './color-graph'
 import type { FullResolutionExportProgress } from './full-res-export'
 import type { ExportPerfMetric } from './perf/export-metrics'
+import { normalizeExportConcurrency } from './pipeline-concurrency'
 import { normalizePreferredStripRows } from './strip-scheduler'
 
 export type FullResExportWorkerStartMessage = {
@@ -9,6 +10,7 @@ export type FullResExportWorkerStartMessage = {
   file: File
   graph: ExportColorGraphDescriptor
   preferredRows?: number
+  concurrency?: number
   quality?: number
   collectMetrics: boolean
 }
@@ -56,6 +58,7 @@ export type RunFullResolutionJpegExportInWorkerInput = {
   file: File
   graph: ExportColorGraphDescriptor
   preferredRows?: number
+  concurrency?: number
   quality?: number
   signal?: AbortSignal
   onProgress?: (progress: FullResolutionExportProgress) => void
@@ -204,11 +207,16 @@ export class FullResolutionExportWorkerClient {
     }
 
     let preferredRows: number | undefined
+    let concurrency: number | undefined
     try {
       preferredRows =
         input.preferredRows === undefined
           ? undefined
           : normalizePreferredStripRows(input.preferredRows)
+      concurrency =
+        input.concurrency === undefined
+          ? undefined
+          : normalizeExportConcurrency(input.concurrency, 'balanced')
     } catch (error) {
       return Promise.reject(createWorkerPostError(error))
     }
@@ -259,6 +267,7 @@ export class FullResolutionExportWorkerClient {
           file: input.file,
           graph: input.graph,
           preferredRows,
+          concurrency,
           quality: input.quality,
           collectMetrics: Boolean(input.onMetric),
         } satisfies FullResExportWorkerStartMessage)

@@ -4,14 +4,22 @@ import type {
   LumaRawProcessedWindowRequest,
 } from '@lumaforge/luma-raw-runtime'
 
-import type { ExportColorGraphDescriptor } from './color-graph'
+import type {
+  ExportColorGraphDescriptor,
+  SupportedExportColorGraphDescriptor,
+} from './color-graph'
 import type { JpegRowSink, JpegRowWriter } from './jpeg/row-writer'
 import { createJpegRowWriter } from './jpeg/row-writer'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
 import type { ExportPerfMetric } from './perf/export-metrics'
 import { createExportMetricCollector, nowMs } from './perf/export-metrics'
+import {
+  normalizeExportConcurrency,
+  runOrderedConcurrent,
+} from './pipeline-concurrency'
 import { processedWindowToRgb16Rows } from './processed-window-transform'
 import { createRowBandProcessor } from './row-band-processor'
+import type { ExportStrip } from './strip-scheduler'
 import {
   normalizePreferredStripRows,
   planExportStrips,
@@ -40,9 +48,27 @@ export type RunFullResolutionJpegExportInput = {
   }
   onMetric?: (metric: ExportPerfMetric) => void
   preferredRows?: number
+  concurrency?: number
   quality?: number
   jpegSink?: JpegRowSink
   writerFactory?: () => JpegRowWriter
+}
+
+type PreparedStrip = {
+  index: number
+  rows: Array<{ bytes: Uint8Array; rowCount: number }>
+  metrics: {
+    rows: number
+    rawReadMs: number
+    colorMs: number
+    totalMs: number
+  }
+}
+
+type AttemptAbortScope = {
+  signal: AbortSignal
+  abort: () => void
+  dispose: () => void
 }
 
 const MIN_EXPORT_STRIP_ROWS = 64
@@ -64,6 +90,29 @@ function createWriter(input: RunFullResolutionJpegExportInput) {
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
     throw new Error('FULL_RES_EXPORT_CANCELLED')
+  }
+}
+
+function createAttemptAbortScope(
+  parentSignal?: AbortSignal,
+): AttemptAbortScope {
+  const controller = new AbortController()
+  const abort = () => {
+    controller.abort()
+  }
+
+  if (parentSignal?.aborted) {
+    abort()
+  } else {
+    parentSignal?.addEventListener('abort', abort, { once: true })
+  }
+
+  return {
+    signal: controller.signal,
+    abort,
+    dispose() {
+      parentSignal?.removeEventListener('abort', abort)
+    },
   }
 }
 
@@ -136,6 +185,86 @@ function looksLikeResourceExhaustion(error: unknown) {
   return false
 }
 
+function createStripPreparer(
+  input: RunFullResolutionJpegExportInput,
+  stripRows: number,
+  graph: SupportedExportColorGraphDescriptor,
+  signal: AbortSignal,
+) {
+  const rowBandProcessor = createRowBandProcessor({
+    width: input.capability.width,
+    rowBandRows: Math.min(64, stripRows),
+    graph,
+  })
+  const rgb16Band = new Uint16Array(
+    input.capability.width * rowBandProcessor.rowBandRows * 3,
+  )
+  const rgb16BandViews = new Map<number, Uint16Array>()
+
+  function getRgb16BandSource(sampleCount: number) {
+    let source = rgb16BandViews.get(sampleCount)
+    if (!source) {
+      source = rgb16Band.subarray(0, sampleCount)
+      rgb16BandViews.set(sampleCount, source)
+    }
+
+    return source
+  }
+
+  return async function prepareStrip(
+    strip: ExportStrip,
+    index: number,
+  ): Promise<PreparedStrip> {
+    throwIfAborted(signal)
+
+    const stripStart = nowMs()
+    const rawStart = nowMs()
+    const processedWindow = await input.readProcessedWindow(
+      {
+        outputRect: strip.output,
+        halo: { left: 2, top: 2, right: 2, bottom: 2 },
+      },
+      signal,
+    )
+    const rawReadMs = nowMs() - rawStart
+
+    throwIfAborted(signal)
+
+    const colorStart = nowMs()
+    const tile = processedWindowToRgb16Rows(processedWindow, strip.output)
+    let colorMs = nowMs() - colorStart
+    const rows: PreparedStrip['rows'] = []
+
+    for (let row = 0; row < tile.height; row += rowBandProcessor.rowBandRows) {
+      throwIfAborted(signal)
+      const rowCount = Math.min(rowBandProcessor.rowBandRows, tile.height - row)
+      const sampleCount = tile.width * rowCount * 3
+      const source = getRgb16BandSource(sampleCount)
+      const rowColorStart = nowMs()
+      for (let bandRow = 0; bandRow < rowCount; bandRow += 1) {
+        source.set(tile.row(row + bandRow), bandRow * tile.width * 3)
+      }
+      const outputRows = rowBandProcessor.processUint16Rows(source, rowCount)
+      rows.push({
+        bytes: new Uint8Array(outputRows),
+        rowCount,
+      })
+      colorMs += nowMs() - rowColorStart
+    }
+
+    return {
+      index,
+      rows,
+      metrics: {
+        rows: tile.height,
+        rawReadMs,
+        colorMs,
+        totalMs: nowMs() - stripStart,
+      },
+    }
+  }
+}
+
 export async function runFullResolutionJpegExport(
   input: RunFullResolutionJpegExportInput,
 ) {
@@ -146,6 +275,7 @@ export async function runFullResolutionJpegExport(
   if (!input.graph.supported) {
     throw new Error('FULL_RES_EXPORT_UNSUPPORTED_PIPELINE')
   }
+  const graph = input.graph
 
   const metricCollector = input.onMetric
     ? createExportMetricCollector({
@@ -161,26 +291,7 @@ export async function runFullResolutionJpegExport(
   let stripRows = normalizePreferredStripRows(
     input.preferredRows ?? DEFAULT_EXPORT_STRIP_ROWS,
   )
-  const rowBandProcessor = createRowBandProcessor({
-    width: input.capability.width,
-    rowBandRows: Math.min(64, stripRows),
-    graph: input.graph,
-  })
-  const shouldCopyRowsForWriter =
-    input.writerFactory !== undefined && rowBandProcessor.reusesOutputBuffer
-  const rgb16Band = new Uint16Array(
-    input.capability.width * rowBandProcessor.rowBandRows * 3,
-  )
-  const rgb16BandViews = new Map<number, Uint16Array>()
-  function getRgb16BandSource(sampleCount: number) {
-    let source = rgb16BandViews.get(sampleCount)
-    if (!source) {
-      source = rgb16Band.subarray(0, sampleCount)
-      rgb16BandViews.set(sampleCount, source)
-    }
-
-    return source
-  }
+  let concurrency = normalizeExportConcurrency(input.concurrency, 'balanced')
   let retries = 0
 
   while (true) {
@@ -194,77 +305,73 @@ export async function runFullResolutionJpegExport(
     let writer: JpegRowWriter | null = null
     let closed = false
     const attemptStripMetrics: ExportPerfMetric[] = []
+    const attemptAbortScope = createAttemptAbortScope(input.signal)
 
     try {
+      const availablePreparers: Array<ReturnType<typeof createStripPreparer>> =
+        [createStripPreparer(input, stripRows, graph, attemptAbortScope.signal)]
       writer = createWriter(input)
+      let completedStrips = 0
 
-      for (let index = 0; index < strips.length; index += 1) {
-        throwIfAborted(input.signal)
+      await runOrderedConcurrent(
+        strips,
+        concurrency,
+        async (strip, index) => {
+          const preparer =
+            availablePreparers.pop() ??
+            createStripPreparer(
+              input,
+              stripRows,
+              graph,
+              attemptAbortScope.signal,
+            )
 
-        const strip = strips[index]
-        const stripStart = nowMs()
-        const rawStart = nowMs()
-        const processedWindow = await input.readProcessedWindow(
-          {
-            outputRect: strip.output,
-            halo: { left: 2, top: 2, right: 2, bottom: 2 },
-          },
-          input.signal,
-        )
-        const rawReadMs = nowMs() - rawStart
-
-        const colorStart = nowMs()
-        const tile = processedWindowToRgb16Rows(processedWindow, strip.output)
-        let colorMs = nowMs() - colorStart
-        let jpegWriteMs = 0
-
-        for (
-          let row = 0;
-          row < tile.height;
-          row += rowBandProcessor.rowBandRows
-        ) {
-          const rowCount = Math.min(
-            rowBandProcessor.rowBandRows,
-            tile.height - row,
-          )
-          const sampleCount = tile.width * rowCount * 3
-          const source = getRgb16BandSource(sampleCount)
-          const rowColorStart = nowMs()
-          for (let bandRow = 0; bandRow < rowCount; bandRow += 1) {
-            source.set(tile.row(row + bandRow), bandRow * tile.width * 3)
+          try {
+            return await preparer(strip, index)
+          } finally {
+            availablePreparers.push(preparer)
           }
-          const rows = rowBandProcessor.processUint16Rows(source, rowCount)
-          colorMs += nowMs() - rowColorStart
+        },
+        async (prepared) => {
+          throwIfAborted(attemptAbortScope.signal)
 
-          const writerRows = shouldCopyRowsForWriter
-            ? new Uint8Array(rows)
-            : rows
-          const jpegStart = nowMs()
-          await writer.writeRows(writerRows, rowCount)
-          jpegWriteMs += nowMs() - jpegStart
-        }
+          let jpegWriteMs = 0
+          for (const rowChunk of prepared.rows) {
+            const jpegStart = nowMs()
+            await writer!.writeRows(rowChunk.bytes, rowChunk.rowCount)
+            jpegWriteMs += nowMs() - jpegStart
+          }
 
-        if (metricCollector) {
-          attemptStripMetrics.push(
-            metricCollector.record({
-              kind: 'strip',
-              stripIndex: index,
-              totalStrips: strips.length,
-              rows: tile.height,
-              rawReadMs,
-              colorMs,
-              jpegWriteMs,
-              totalMs: nowMs() - stripStart,
-            }),
-          )
-        }
+          throwIfAborted(attemptAbortScope.signal)
 
-        input.onProgress?.({
-          completedStrips: index + 1,
-          totalStrips: strips.length,
-          progress: Math.round(((index + 1) / strips.length) * 100),
-        })
-      }
+          if (metricCollector) {
+            attemptStripMetrics.push(
+              metricCollector.record({
+                kind: 'strip',
+                stripIndex: prepared.index,
+                totalStrips: strips.length,
+                rows: prepared.metrics.rows,
+                rawReadMs: prepared.metrics.rawReadMs,
+                colorMs: prepared.metrics.colorMs,
+                jpegWriteMs,
+                totalMs: prepared.metrics.totalMs + jpegWriteMs,
+              }),
+            )
+          }
+
+          completedStrips += 1
+          input.onProgress?.({
+            completedStrips,
+            totalStrips: strips.length,
+            progress: Math.round((completedStrips / strips.length) * 100),
+          })
+        },
+        {
+          onError() {
+            attemptAbortScope.abort()
+          },
+        },
+      )
 
       const blob = await writer.close()
       closed = true
@@ -278,7 +385,7 @@ export async function runFullResolutionJpegExport(
             kind: 'summary',
             stripRows,
             retries,
-            concurrency: 1,
+            concurrency,
             totalMs: nowMs() - exportStart,
             outputBytes: blob.size,
           }),
@@ -286,6 +393,8 @@ export async function runFullResolutionJpegExport(
       }
       return blob
     } catch (error) {
+      attemptAbortScope.abort()
+
       if (writer && !closed) {
         try {
           await writer.abort()
@@ -302,12 +411,15 @@ export async function runFullResolutionJpegExport(
 
       const nextStripRows = reduceStripRows(stripRows, MIN_EXPORT_STRIP_ROWS)
 
-      if (nextStripRows >= stripRows) {
+      if (nextStripRows >= stripRows && concurrency <= 1) {
         throw new Error('FULL_RES_EXPORT_RESOURCE_FAILURE')
       }
 
+      concurrency = 1
       stripRows = nextStripRows
       retries += 1
+    } finally {
+      attemptAbortScope.dispose()
     }
   }
 }

@@ -2,6 +2,7 @@ import type { ExportColorGraphDescriptor } from '~/lib/export/color-graph'
 import type { FullResolutionExportProgress } from '~/lib/export/full-res-export'
 import type { RunFullResolutionJpegExportInWorkerInput } from '~/lib/export/full-res-export-client'
 import { FullResolutionExportWorkerClient } from '~/lib/export/full-res-export-client'
+import { normalizeExportConcurrency } from '~/lib/export/pipeline-concurrency'
 import type { ExportFidelity } from '~/lib/gl/export'
 
 const PREFERRED_ROWS_BY_FIDELITY: Record<ExportFidelity, number> = {
@@ -17,6 +18,10 @@ export function buildExportFilename(inputName: string, styleName: string) {
 
 export function getPreferredRowsForFidelity(fidelity: ExportFidelity) {
   return PREFERRED_ROWS_BY_FIDELITY[fidelity]
+}
+
+export function getConcurrencyForFidelity(fidelity: ExportFidelity) {
+  return normalizeExportConcurrency(undefined, fidelity)
 }
 
 export function recommendRetryLevel(
@@ -66,6 +71,7 @@ export async function runFullResolutionExportJob({
   graph,
   quality,
   preferredRows,
+  concurrency,
   onProgress,
   signal,
   clientFactory = createFullResolutionExportClient,
@@ -75,6 +81,7 @@ export async function runFullResolutionExportJob({
   graph: ExportColorGraphDescriptor
   quality?: RunFullResolutionJpegExportInWorkerInput['quality']
   preferredRows?: RunFullResolutionJpegExportInWorkerInput['preferredRows']
+  concurrency?: RunFullResolutionJpegExportInWorkerInput['concurrency']
   onProgress?: (progress: FullResolutionExportProgress) => void
   signal?: AbortSignal
   clientFactory?: () => FullResolutionExportWorkerClient
@@ -87,6 +94,7 @@ export async function runFullResolutionExportJob({
       graph,
       quality,
       preferredRows,
+      concurrency,
       onProgress,
       signal,
     })
