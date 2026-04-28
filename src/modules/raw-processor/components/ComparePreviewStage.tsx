@@ -48,9 +48,23 @@ function EmptySampleCompare({ split }: { split: number }) {
   )
 }
 
-function UploadDock() {
+function UploadDock({
+  onOpenFilePicker,
+  disabled,
+}: {
+  onOpenFilePicker: () => void
+  disabled: boolean
+}) {
   return (
-    <div className="raw-lab-upload-dock">
+    <button
+      type="button"
+      className="raw-lab-upload-dock"
+      onClick={(event) => {
+        event.stopPropagation()
+        onOpenFilePicker()
+      }}
+      disabled={disabled}
+    >
       <span className="raw-lab-upload-icon" aria-hidden="true">
         ↑
       </span>
@@ -58,7 +72,7 @@ function UploadDock() {
         <strong>Drop one RAW here</strong>
         <span>No upload, no helper, no account</span>
       </span>
-    </div>
+    </button>
   )
 }
 
@@ -93,45 +107,55 @@ export function ComparePreviewStage({
         onFileDrop={onRawDrop}
         accept={RAW_FILE_EXTENSIONS}
         disabled={isProcessing}
+        clickToOpen={false}
         className="raw-lab-stage-frame"
       >
-        {hasImage ? (
-          <PreviewCanvas
-            imageRef={imageRef}
-            imageVersion={imageVersion}
-            params={params}
-            lutDataRef={lutDataRef}
-            lutDataVersion={lutDataVersion}
-            embeddedPreviewUrl={embeddedPreviewUrl}
-            displaySource={displaySource}
-            onStatsUpdate={onStatsUpdate}
-            onPipelineChange={onPipelineChange}
-          />
-        ) : (
-          <EmptySampleCompare split={split} />
+        {({ openFilePicker, disabled }) => (
+          <>
+            {hasImage ? (
+              <PreviewCanvas
+                imageRef={imageRef}
+                imageVersion={imageVersion}
+                params={params}
+                lutDataRef={lutDataRef}
+                lutDataVersion={lutDataVersion}
+                embeddedPreviewUrl={embeddedPreviewUrl}
+                displaySource={displaySource}
+                onStatsUpdate={onStatsUpdate}
+                onPipelineChange={onPipelineChange}
+              />
+            ) : (
+              <EmptySampleCompare split={split} />
+            )}
+
+            <span className="raw-lab-compare-label raw-lab-compare-label-left">
+              Unprocessed RAW
+            </span>
+            <span className="raw-lab-compare-label raw-lab-compare-label-right">
+              Final JPEG
+            </span>
+
+            <CompareSplitHandle
+              value={split}
+              onChange={onSplitChange}
+              disabled={isProcessing}
+            />
+
+            {!hasImage && (
+              <UploadDock
+                onOpenFilePicker={openFilePicker}
+                disabled={disabled}
+              />
+            )}
+
+            <ProgressOverlay
+              visible={isProcessing}
+              phase={phase}
+              progress={progress}
+              recoveryHint={recoveryHint}
+            />
+          </>
         )}
-
-        <span className="raw-lab-compare-label raw-lab-compare-label-left">
-          Unprocessed RAW
-        </span>
-        <span className="raw-lab-compare-label raw-lab-compare-label-right">
-          Final JPEG
-        </span>
-
-        <CompareSplitHandle
-          value={split}
-          onChange={onSplitChange}
-          disabled={isProcessing}
-        />
-
-        {!hasImage && <UploadDock />}
-
-        <ProgressOverlay
-          visible={isProcessing}
-          phase={phase}
-          progress={progress}
-          recoveryHint={recoveryHint}
-        />
       </Dropzone>
     </section>
   )

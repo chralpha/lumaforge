@@ -30,8 +30,14 @@ export interface DropzoneProps {
   accept?: string[]
   multiple?: boolean
   className?: string
-  children?: React.ReactNode
+  children?:
+    | React.ReactNode
+    | ((controls: {
+        openFilePicker: () => void
+        disabled: boolean
+      }) => React.ReactNode)
   disabled?: boolean
+  clickToOpen?: boolean
   'aria-label'?: string
   variant?: 'default' | 'stage'
 }
@@ -43,10 +49,12 @@ export function Dropzone({
   className,
   children,
   disabled = false,
+  clickToOpen = true,
   'aria-label': ariaLabel,
   variant = 'default',
 }: DropzoneProps) {
   const [isDragOver, setIsDragOver] = useState(false)
+  const isClickTarget = clickToOpen && !disabled
 
   const handleDragOver = useCallback(
     (e: React.DragEvent) => {
@@ -90,7 +98,7 @@ export function Dropzone({
     [onFileDrop, accept, multiple, disabled],
   )
 
-  const handleClick = useCallback(() => {
+  const openFilePicker = useCallback(() => {
     if (disabled) return
 
     const input = document.createElement('input')
@@ -110,26 +118,33 @@ export function Dropzone({
     input.click()
   }, [onFileDrop, accept, multiple, disabled])
 
+  const handleClick = useCallback(() => {
+    if (!clickToOpen) return
+
+    openFilePicker()
+  }, [clickToOpen, openFilePicker])
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (disabled) return
+      if (!clickToOpen) return
 
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault()
-        handleClick()
+        openFilePicker()
       }
     },
-    [disabled, handleClick],
+    [clickToOpen, openFilePicker],
   )
 
   return (
     <m.div
-      role="button"
-      tabIndex={disabled ? -1 : 0}
-      aria-disabled={disabled || undefined}
-      aria-label={ariaLabel}
+      role={clickToOpen ? 'button' : undefined}
+      tabIndex={clickToOpen ? (disabled ? -1 : 0) : undefined}
+      aria-disabled={clickToOpen && disabled ? true : undefined}
+      aria-label={clickToOpen ? ariaLabel : undefined}
       className={clsxm(
-        'relative transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+        'relative transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+        clickToOpen ? 'cursor-pointer' : 'cursor-default',
         variant === 'stage'
           ? 'rounded-lg border border-[oklch(0.96_0.012_86_/_0.36)]'
           : 'rounded-xl border-2 border-dashed',
@@ -138,7 +153,7 @@ export function Dropzone({
             ? 'border-[oklch(0.59_0.15_153)] bg-[oklch(0.59_0.15_153_/_0.16)]'
             : 'border-accent bg-accent/10'
           : variant === 'stage'
-            ? 'hover:border-[oklch(0.59_0.15_153_/_0.72)]'
+            ? clickToOpen && 'hover:border-[oklch(0.59_0.15_153_/_0.72)]'
             : 'border-border hover:border-accent/50 hover:bg-fill/50',
         disabled && 'opacity-50 cursor-not-allowed',
         className,
@@ -148,11 +163,17 @@ export function Dropzone({
       onDrop={handleDrop}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      whileHover={disabled ? {} : { scale: 1.01 }}
-      whileTap={disabled ? {} : { scale: 0.99 }}
+      {...(isClickTarget
+        ? {
+            whileHover: { scale: 1.01 },
+            whileTap: { scale: 0.99 },
+          }
+        : {})}
       transition={Spring.presets.snappy}
     >
-      {children}
+      {typeof children === 'function'
+        ? children({ openFilePicker, disabled })
+        : children}
       {isDragOver && (
         <m.div
           className={clsxm(

@@ -8,6 +8,7 @@ import { SupportBadge } from './SupportBadge'
 
 export function WorkspaceHeader({
   fileName,
+  hasImage,
   supportLevel,
   canExport,
   disabledReason,
@@ -15,7 +16,8 @@ export function WorkspaceHeader({
   onResetSession,
   onOpenExport,
 }: {
-  fileName: string
+  fileName?: string
+  hasImage: boolean
   supportLevel: 'official' | 'experimental'
   canExport: boolean
   disabledReason?: string
@@ -27,44 +29,47 @@ export function WorkspaceHeader({
   const sessionDisabledReason = useAtomValue(exportDisabledReasonAtom)
   const isExporting = session?.exportState.status === 'exporting'
   const exportDisabledReason = !canExport
-    ? disabledReason ??
+    ? (disabledReason ??
       sessionDisabledReason ??
-      'Full-resolution export source is still loading.'
+      'Full-resolution export source is still loading.')
     : undefined
 
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
+    <header className="raw-lab-topbar" role="banner">
       <div className="min-w-0">
-        <div className="flex items-center gap-3">
-          <h1 className="truncate text-lg font-semibold text-text">
-            {fileName}
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="raw-lab-mark" aria-hidden="true" />
+          <h1 className="truncate text-base font-semibold text-[oklch(0.18_0.018_76)]">
+            {hasImage ? fileName : 'RAW Lab'}
           </h1>
-          <SupportBadge level={supportLevel} />
+          {hasImage && <SupportBadge level={supportLevel} />}
         </div>
-        <p className="text-xs text-text-tertiary">
-          Browser-local RAW styling workspace
+        <p className="mt-1 truncate text-xs text-[oklch(0.38_0.032_75)]">
+          {hasImage
+            ? 'Browser-local RAW finishing workspace'
+            : 'Drop one RAW to preview, compare, finish, and export locally.'}
         </p>
         {exportDisabledReason && (
-          <p className="mt-1 text-xs text-text-secondary">
+          <p className="mt-1 truncate text-xs text-[oklch(0.38_0.032_75)]">
             Full-res JPEG unavailable: {exportDisabledReason}
           </p>
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="raw-lab-topbar-actions">
         <button
           type="button"
           onClick={onReplaceFile}
           disabled={isExporting}
-          className="rounded-lg bg-fill px-3 py-2 text-sm text-text disabled:cursor-not-allowed disabled:opacity-50"
+          className="raw-lab-topbar-button"
         >
-          Replace file
+          {hasImage ? 'Replace' : 'Choose RAW'}
         </button>
         <button
           type="button"
           onClick={onResetSession}
-          disabled={isExporting}
-          className="rounded-lg bg-fill px-3 py-2 text-sm text-text disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!hasImage || isExporting}
+          className="raw-lab-topbar-button"
         >
           Reset
         </button>
@@ -72,7 +77,7 @@ export function WorkspaceHeader({
           type="button"
           onClick={onOpenExport}
           disabled={!canExport}
-          className="rounded-lg bg-accent px-3 py-2 text-sm text-background disabled:opacity-50"
+          className="raw-lab-topbar-button raw-lab-topbar-button-primary"
         >
           Full-res JPEG
         </button>

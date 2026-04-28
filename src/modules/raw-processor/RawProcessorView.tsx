@@ -3,22 +3,20 @@
  * Combines all sub-components into a complete RAW editing interface.
  */
 
-import { m } from 'motion/react'
+import './raw-lab.css'
+
 import { useCallback } from 'react'
 
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
-import { Spring } from '~/lib/spring'
 
 import {
+  ComparePreviewStage,
   ControlsPanel,
   ErrorOverlay,
   MetadataPanel,
-  PreviewCanvas,
-  ProgressOverlay,
   StatsPanel,
   UnsupportedState,
-  UploadState,
   WorkspaceHeader,
 } from './components'
 import { useRawProcessor } from './hooks'
@@ -52,6 +50,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     sourceFileName,
     supportLevel,
     progressRecoveryHint,
+    compareSplit,
     presetOptions,
     embeddedPreviewUrl,
     displaySource,
@@ -61,6 +60,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     selectBuiltinStyle,
     selectIntensityLevel,
     setViewMode,
+    setCompareSplit,
     clearLUT,
     exportImage,
     reset,
@@ -134,8 +134,6 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     status === 'decoding' ||
     status === 'processing' ||
     status === 'exporting'
-  const shouldShowProgressOverlay =
-    isProcessing && (displaySource === 'none' || status === 'exporting')
   const capability = useCapabilityGate()
 
   if (capability.ready && capability.supportStatus === 'unsupported') {
@@ -145,133 +143,92 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
   }
 
   return (
-    <div className={clsxm('relative flex flex-col h-full', className)}>
-      {hasImage && (
-        <WorkspaceHeader
-          fileName={sourceFileName}
-          supportLevel={supportLevel}
-          canExport={canExport}
-          disabledReason={exportDisabledReason}
-          onReplaceFile={handleReplaceFile}
-          onResetSession={reset}
-          onOpenExport={() =>
-            handleExport({ quality: 'high', fidelity: 'balanced' })
+    <div className={clsxm('raw-lab', className)}>
+      <WorkspaceHeader
+        fileName={sourceFileName}
+        hasImage={hasImage}
+        supportLevel={supportLevel}
+        canExport={canExport}
+        disabledReason={exportDisabledReason}
+        onReplaceFile={handleReplaceFile}
+        onResetSession={reset}
+        onOpenExport={() =>
+          handleExport({ quality: 'high', fidelity: 'balanced' })
+        }
+      />
+
+      <div className="raw-lab-shell">
+        <ComparePreviewStage
+          hasImage={hasImage}
+          imageRef={decodedImageRef}
+          imageVersion={decodedImageVersion}
+          params={params}
+          lutDataRef={lutDataRef}
+          lutDataVersion={lutDataVersion}
+          embeddedPreviewUrl={embeddedPreviewUrl}
+          displaySource={displaySource}
+          split={compareSplit}
+          onSplitChange={setCompareSplit}
+          isProcessing={isProcessing}
+          phase={
+            status === 'loading'
+              ? 'loading'
+              : status === 'decoding'
+                ? 'decoding'
+                : status === 'exporting'
+                  ? 'exporting'
+                  : 'processing'
           }
+          progress={progress}
+          recoveryHint={progressRecoveryHint}
+          onRawDrop={handleFileDrop}
+          onStatsUpdate={handleStatsUpdate}
+          onPipelineChange={handlePipelineChange}
         />
-      )}
 
-      {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
-        {!hasImage ? (
-          <m.div
-            className="flex-1 flex items-center justify-center p-8"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={Spring.presets.smooth}
-          >
-            <UploadState onFileDrop={handleFileDrop} disabled={isProcessing} />
-          </m.div>
-        ) : (
-          // Loaded state - preview and controls
-          <>
-            {/* Preview area */}
-            <m.div
-              className="flex-1 flex flex-col min-w-0"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={Spring.presets.smooth}
-            >
-              {/* Canvas */}
-              <div className="flex-1 relative">
-                <PreviewCanvas
-                  imageRef={decodedImageRef}
-                  imageVersion={decodedImageVersion}
-                  params={params}
-                  lutDataRef={lutDataRef}
-                  lutDataVersion={lutDataVersion}
-                  embeddedPreviewUrl={embeddedPreviewUrl}
-                  displaySource={displaySource}
-                  onStatsUpdate={handleStatsUpdate}
-                  onPipelineChange={handlePipelineChange}
-                />
-
-                {/* Processing overlay */}
-                <ProgressOverlay
-                  visible={shouldShowProgressOverlay}
-                  phase={
-                    status === 'loading'
-                      ? 'loading'
-                      : status === 'decoding'
-                        ? 'decoding'
-                        : status === 'exporting'
-                          ? 'exporting'
-                          : 'processing'
-                  }
-                  progress={progress}
-                  recoveryHint={progressRecoveryHint}
-                />
-              </div>
-
-              {/* Bottom bar with metadata and stats */}
-              <div className="px-4 py-3 border-t border-border flex items-center justify-between gap-4">
-                {loadedImage.metadata && (
-                  <MetadataPanel
-                    metadata={{
-                      ...loadedImage.metadata,
-                      width:
-                        decodedImageRef.current?.width ??
-                        loadedImage.metadata.width,
-                      height:
-                        decodedImageRef.current?.height ??
-                        loadedImage.metadata.height,
-                    }}
-                  />
-                )}
-                {stats && <StatsPanel stats={stats} />}
-              </div>
-            </m.div>
-
-            {/* Controls sidebar */}
-            <m.aside
-              className="w-80 border-l border-border overflow-y-auto p-4"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={Spring.presets.smooth}
-            >
-              <ControlsPanel
-                presetOptions={presetOptions.map(({ id, name }) => ({
-                  id,
-                  name,
-                }))}
-                activePresetId={activePresetId}
-                activeIntensity={activeIntensity}
-                viewMode={viewMode}
-                onPresetSelect={(id) =>
-                  selectBuiltinStyle(id as (typeof presetOptions)[number]['id'])
-                }
-                onIntensitySelect={selectIntensityLevel}
-                onViewModeChange={setViewMode}
-                onLutLoad={handleLutDrop}
-                onLutClear={clearLUT}
-                currentLutName={currentLutName}
-                lutProfileSelection={lutProfileSelection}
-                lutProfileResolution={
-                  activeStyle?.kind === 'custom'
-                    ? activeStyle.lutAsset?.profileResolution
-                    : null
-                }
-                onLutProfileSelect={selectLUTProfile}
-                onExport={handleExport}
-                canExport={canExport}
-                disabledReason={exportDisabledReason}
-                isProcessing={isProcessing}
-              />
-            </m.aside>
-          </>
-        )}
+        <aside className="raw-lab-controls" aria-label="RAW finishing controls">
+          <ControlsPanel
+            presetOptions={presetOptions.map(({ id, name }) => ({ id, name }))}
+            activePresetId={activePresetId}
+            activeIntensity={activeIntensity}
+            viewMode={viewMode}
+            onPresetSelect={(id) =>
+              selectBuiltinStyle(id as (typeof presetOptions)[number]['id'])
+            }
+            onIntensitySelect={selectIntensityLevel}
+            onViewModeChange={setViewMode}
+            onLutLoad={handleLutDrop}
+            onLutClear={clearLUT}
+            currentLutName={currentLutName}
+            lutProfileSelection={lutProfileSelection}
+            lutProfileResolution={
+              activeStyle?.kind === 'custom'
+                ? activeStyle.lutAsset?.profileResolution
+                : null
+            }
+            onLutProfileSelect={selectLUTProfile}
+            onExport={handleExport}
+            canExport={canExport}
+            disabledReason={exportDisabledReason}
+            isProcessing={isProcessing}
+            hasImage={hasImage}
+          />
+          {loadedImage.metadata && (
+            <MetadataPanel
+              metadata={{
+                ...loadedImage.metadata,
+                width:
+                  decodedImageRef.current?.width ?? loadedImage.metadata.width,
+                height:
+                  decodedImageRef.current?.height ??
+                  loadedImage.metadata.height,
+              }}
+            />
+          )}
+          {stats && <StatsPanel stats={stats} />}
+        </aside>
       </div>
 
-      {/* Error overlay */}
       <ErrorOverlay
         visible={status === 'error' && !!error}
         message={error || ''}

@@ -1,10 +1,11 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, vi } from 'vitest'
 
 import { getLUTColorProfile } from '~/lib/color/registry'
 
+import { ComparePreviewStage } from '../components/ComparePreviewStage'
 import { ControlsPanel } from '../components/ControlsPanel'
 import { PreviewCanvas } from '../components/PreviewCanvas'
 
@@ -28,6 +29,7 @@ function controlsPanelProps(
     onExport: () => {},
     canExport: false,
     isProcessing: false,
+    hasImage: true,
     ...overrides,
   }
 }
@@ -68,6 +70,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
@@ -79,6 +82,16 @@ describe('controlsPanel', () => {
     expect(screen.getByRole('button', { name: 'Standard' })).toBeInTheDocument()
     expect(screen.queryByText('Exposure')).not.toBeInTheDocument()
     expect(screen.queryByText('Log Space')).not.toBeInTheDocument()
+  })
+
+  it('disables preset and LUT loading controls before upload', () => {
+    render(<ControlsPanel {...controlsPanelProps({ hasImage: false })} />)
+
+    expect(screen.getByRole('button', { name: 'Neutral' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Warm' })).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: /drop \.cube lut file/i }),
+    ).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('shows hook-provided export disabled reason in the export controls', () => {
@@ -409,6 +422,118 @@ describe('controlsPanel', () => {
     expect(
       screen.queryByLabelText('Search LUT contract'),
     ).not.toBeInTheDocument()
+  })
+
+  it('keeps loaded preview stage drop-only instead of a button target', async () => {
+    const user = userEvent.setup()
+    const onRawDrop = vi.fn()
+    const file = new File(['raw'], 'photo.dng', {
+      type: 'image/x-adobe-dng',
+    })
+
+    const { container } = render(
+      <ComparePreviewStage
+        hasImage
+        imageRef={{ current: null }}
+        imageVersion={0}
+        params={{
+          intensity: 0.7,
+          viewMode: 'processed',
+          compareSplit: 0.5,
+          styleKind: 'none',
+          builtinPreset: null,
+        }}
+        lutDataRef={{ current: null }}
+        lutDataVersion={0}
+        split={0.5}
+        isProcessing={false}
+        phase="processing"
+        progress={0}
+        onRawDrop={onRawDrop}
+        onSplitChange={() => {}}
+      />,
+    )
+
+    const stageFrame = container.querySelector('.raw-lab-stage-frame')
+    expect(
+      screen.queryByRole('button', { name: 'Replace RAW file' }),
+    ).not.toBeInTheDocument()
+    expect(stageFrame).not.toHaveAttribute('tabindex')
+    expect(stageFrame).toHaveClass('cursor-default')
+
+    const input = document.createElement('input')
+    const inputClick = vi.spyOn(input, 'click').mockImplementation(() => {})
+    const createElement = vi
+      .spyOn(document, 'createElement')
+      .mockReturnValue(input)
+
+    await user.click(stageFrame!)
+
+    expect(createElement).not.toHaveBeenCalled()
+    expect(inputClick).not.toHaveBeenCalled()
+
+    fireEvent.drop(stageFrame!, {
+      dataTransfer: {
+        files: [file],
+      },
+    })
+
+    expect(onRawDrop).toHaveBeenCalledWith([file])
+  })
+
+  it('keeps empty preview stage upload button separate from the compare slider', async () => {
+    const user = userEvent.setup()
+
+    const { container } = render(
+      <ComparePreviewStage
+        hasImage={false}
+        imageRef={{ current: null }}
+        imageVersion={0}
+        params={{
+          intensity: 0.7,
+          viewMode: 'processed',
+          compareSplit: 0.5,
+          styleKind: 'none',
+          builtinPreset: null,
+        }}
+        lutDataRef={{ current: null }}
+        lutDataVersion={0}
+        split={0.5}
+        isProcessing={false}
+        phase="processing"
+        progress={0}
+        onRawDrop={() => {}}
+        onSplitChange={() => {}}
+      />,
+    )
+
+    const stageFrame = container.querySelector('.raw-lab-stage-frame')
+    const uploadButton = screen.getByRole('button', {
+      name: /drop one raw here/i,
+    })
+    const compareSlider = screen.getByRole('slider', {
+      name: 'Compare unprocessed RAW and final JPEG',
+    })
+
+    expect(stageFrame).not.toHaveAttribute('tabindex')
+    expect(
+      screen.queryByRole('button', { name: 'Load RAW file' }),
+    ).not.toBeInTheDocument()
+    expect(uploadButton).toHaveClass('raw-lab-upload-dock')
+    expect(uploadButton).not.toContainElement(compareSlider)
+    expect(stageFrame).toContainElement(uploadButton)
+    expect(stageFrame).toContainElement(compareSlider)
+
+    const input = document.createElement('input')
+    const inputClick = vi.spyOn(input, 'click').mockImplementation(() => {})
+    const createElement = vi
+      .spyOn(document, 'createElement')
+      .mockReturnValue(input)
+
+    await user.click(uploadButton)
+
+    expect(createElement).toHaveBeenCalledWith('input')
+    expect(inputClick).toHaveBeenCalledTimes(1)
   })
 
   it('shows an embedded RAW preview image before decoded pixels are ready', async () => {

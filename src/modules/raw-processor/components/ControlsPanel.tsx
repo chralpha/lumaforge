@@ -45,6 +45,7 @@ export interface ControlsPanelProps {
   canExport: boolean
   disabledReason?: string
   isProcessing: boolean
+  hasImage: boolean
   currentLutName?: string | null
   lutProfileSelection?: LUTProfileSelectionState | null
   lutProfileResolution?: LUTProfileResolution | null
@@ -416,6 +417,7 @@ export function ControlsPanel({
   canExport,
   disabledReason,
   isProcessing,
+  hasImage,
   currentLutName,
   lutProfileSelection,
   lutProfileResolution,
@@ -446,6 +448,7 @@ export function ControlsPanel({
                 key={preset.id}
                 type="button"
                 onClick={() => onPresetSelect(preset.id)}
+                disabled={!hasImage || isProcessing}
                 className={
                   activePresetId === preset.id
                     ? 'rounded-xl border border-accent bg-accent/10 px-3 py-3 text-left text-sm text-text'
@@ -498,7 +501,7 @@ export function ControlsPanel({
             onFileDrop={onLutLoad}
             currentLut={currentLutName}
             onClear={onLutClear}
-            disabled={isProcessing}
+            disabled={!hasImage || isProcessing}
           />
           {currentLutName && (
             <LUTProfileStatus
