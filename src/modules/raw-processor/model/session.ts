@@ -88,7 +88,8 @@ export type ImageSession = {
   activeStyle: StyleAsset | null
   lutProfileSelection?: LUTProfileSelectionState
   viewState: {
-    mode: 'processed' | 'original'
+    mode: 'processed' | 'original' | 'compare'
+    compareSplit: number
     zoom: number
     panX: number
     panY: number

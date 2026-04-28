@@ -211,9 +211,15 @@ describe('rawProcessingPipeline export rendering', () => {
     const lutData = createLUTData()
     const params: ProcessingParams = {
       intensity: 0.42,
-      viewMode: 'processed',
+      viewMode: 'compare',
+      compareSplit: 0.82,
       styleKind: 'custom',
       builtinPreset: null,
+    }
+    const exportSafeParams: ProcessingParams = {
+      ...params,
+      viewMode: 'processed',
+      compareSplit: 0.5,
     }
 
     pipeline.uploadLUT(lutData)
@@ -225,7 +231,7 @@ describe('rawProcessingPipeline export rendering', () => {
     await pipeline.renderToHiddenCanvas({ width: 2, height: 2 })
 
     expect(uploadLUTSpy).toHaveBeenCalledWith(lutData)
-    expect(setParamsSpy).toHaveBeenCalledWith(params)
+    expect(setParamsSpy).toHaveBeenCalledWith(exportSafeParams)
     expect(contextMock.gl.uniform1i).toHaveBeenCalledWith(
       'u_lutInputTransfer',
       LUT_TRANSFER_UNIFORMS['s-log3'],
@@ -239,6 +245,35 @@ describe('rawProcessingPipeline export rendering', () => {
       LUT_ROLE_UNIFORMS['display-look'],
     )
   })
+
+  it.each(['compare', 'original'] as const)(
+    'forces processed view params for hidden full-frame export when preview is %s',
+    async (viewMode) => {
+      const pipeline = await createSourcePipeline(createRawInput(2, 2))
+      const params: ProcessingParams = {
+        intensity: 0.35,
+        viewMode,
+        compareSplit: 0.91,
+        styleKind: 'builtin',
+        builtinPreset: 'cinematic',
+      }
+      pipeline.setParams(params)
+      const setParamsSpy = vi.spyOn(
+        RawProcessingPipeline.prototype,
+        'setParams',
+      )
+
+      await pipeline.renderToHiddenCanvas({ width: 2, height: 2 })
+
+      expect(setParamsSpy).toHaveBeenCalledWith({
+        intensity: 0.35,
+        viewMode: 'processed',
+        compareSplit: 0.5,
+        styleKind: 'builtin',
+        builtinPreset: 'cinematic',
+      })
+    },
+  )
 
   it('reports transform-path and LUT upload telemetry in preview stats', async () => {
     const pipeline = await createSourcePipeline(createRawInput(2, 2))
@@ -369,6 +404,32 @@ describe('rawProcessingPipeline export rendering', () => {
     expect(uploadImageSpy).toHaveBeenCalledWith(
       expect.objectContaining({ width: 476, height: 900 }),
     )
+  })
+
+  it('forces processed view params for tiled hidden export when preview is original', async () => {
+    contextMock.capabilities.maxTextureSize = 1024
+    const pipeline = await createSourcePipeline(createRawInput(1500, 900))
+    pipeline.setParams({
+      intensity: 0.6,
+      viewMode: 'original',
+      compareSplit: 0.12,
+      styleKind: 'builtin',
+      builtinPreset: 'warm',
+    })
+    const setParamsSpy = vi.spyOn(RawProcessingPipeline.prototype, 'setParams')
+
+    await pipeline.renderToHiddenCanvas({
+      width: 1500,
+      height: 900,
+    })
+
+    expect(setParamsSpy).toHaveBeenCalledWith({
+      intensity: 0.6,
+      viewMode: 'processed',
+      compareSplit: 0.5,
+      styleKind: 'builtin',
+      builtinPreset: 'warm',
+    })
   })
 
   it('records export planning and tile render telemetry', async () => {

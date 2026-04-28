@@ -130,6 +130,7 @@ function createTestSession() {
     activeStyle: null,
     viewState: {
       mode: 'processed' as const,
+      compareSplit: 0.5,
       zoom: 1,
       panX: 0,
       panY: 0,
@@ -670,6 +671,27 @@ describe('useRawProcessor embedded preview state', () => {
     expect(rawRuntimeAdapterMock.extractEmbeddedPreview).not.toHaveBeenCalled()
     expect(rawRuntimeAdapterMock.decodeQuickRaw).not.toHaveBeenCalled()
     expect(rawRuntimeAdapterMock.decodeHqRaw).not.toHaveBeenCalled()
+  })
+
+  it('preserves compare split in the new session when loading a file', async () => {
+    const file = new File(['raw'], 'frame.ARW')
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    act(() => {
+      result.current.setCompareSplit(0.8)
+    })
+
+    await act(async () => {
+      await result.current.loadFile(file)
+    })
+
+    expect(result.current.viewMode).toBe('compare')
+    expect(result.current.compareSplit).toBe(0.8)
+    expect(jotaiStore.get(currentSessionAtom)?.viewState).toMatchObject({
+      mode: 'compare',
+      compareSplit: 0.8,
+    })
   })
 
   it('keeps full-resolution export enabled when processed-window capability is supported but hq preview fails', async () => {

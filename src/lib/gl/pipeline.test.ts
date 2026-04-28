@@ -231,4 +231,37 @@ describe('rawProcessingPipeline render uniforms', () => {
       1,
     )
   })
+
+  it('sends compare mode and split uniforms to the process shader', async () => {
+    contextMock.reset()
+    const pipeline = new RawProcessingPipeline(document.createElement('canvas'))
+    await pipeline.initialize()
+
+    pipeline.uploadImage({
+      data: new Float32Array(4),
+      width: 1,
+      height: 1,
+      layout: 'rgba-float32',
+      colorSpace: 'display-srgb-preview',
+    })
+    pipeline.setParams({
+      viewMode: 'compare',
+      compareSplit: 0.42,
+    })
+    pipeline.render()
+
+    expect(contextMock.gl.getUniformLocation).toHaveBeenCalledWith(
+      expect.anything(),
+      'u_viewMode',
+    )
+    expect(contextMock.gl.getUniformLocation).toHaveBeenCalledWith(
+      expect.anything(),
+      'u_compareSplit',
+    )
+    expect(contextMock.gl.uniform1i).toHaveBeenCalledWith('u_viewMode', 2)
+    expect(contextMock.gl.uniform1f).toHaveBeenCalledWith(
+      'u_compareSplit',
+      0.42,
+    )
+  })
 })

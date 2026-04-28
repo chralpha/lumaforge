@@ -51,7 +51,8 @@ import {
 
 export interface ProcessingParams {
   intensity: number
-  viewMode: 'processed' | 'original'
+  viewMode: 'processed' | 'original' | 'compare'
+  compareSplit: number
   styleKind: 'none' | 'builtin' | 'custom'
   builtinPreset: BuiltinStylePreset | null
 }
@@ -213,9 +214,24 @@ function getExportFailureMessage(error: unknown): string {
 
 const DEFAULT_PARAMS: ProcessingParams = {
   intensity: 0.7,
-  viewMode: 'processed',
+  viewMode: 'compare',
+  compareSplit: 0.5,
   styleKind: 'none',
   builtinPreset: null,
+}
+
+const VIEW_MODE_UNIFORMS: Record<ProcessingParams['viewMode'], number> = {
+  processed: 0,
+  original: 1,
+  compare: 2,
+}
+
+function toExportProcessingParams(params: ProcessingParams): ProcessingParams {
+  return {
+    ...params,
+    viewMode: 'processed',
+    compareSplit: 0.5,
+  }
 }
 
 const STYLE_KIND_UNIFORMS: Record<ProcessingParams['styleKind'], number> = {
@@ -518,6 +534,8 @@ export class RawProcessingPipeline {
         program,
         'u_rawRenderExposureMultiplier',
       ),
+      u_viewMode: gl.getUniformLocation(program, 'u_viewMode'),
+      u_compareSplit: gl.getUniformLocation(program, 'u_compareSplit'),
       u_styleKind: gl.getUniformLocation(program, 'u_styleKind'),
       u_builtinPreset: gl.getUniformLocation(program, 'u_builtinPreset'),
       u_inputToLutGamut: gl.getUniformLocation(program, 'u_inputToLutGamut'),
@@ -865,6 +883,14 @@ export class RawProcessingPipeline {
     }
 
     gl.uniform1f(processUniforms.u_intensity, params.intensity)
+    gl.uniform1i(
+      processUniforms.u_viewMode,
+      VIEW_MODE_UNIFORMS[params.viewMode],
+    )
+    gl.uniform1f(
+      processUniforms.u_compareSplit,
+      Math.min(0.95, Math.max(0.05, params.compareSplit)),
+    )
     gl.uniform1f(
       processUniforms.u_rawRenderExposureMultiplier,
       this.rawRenderExposureMultiplier,
@@ -1076,7 +1102,7 @@ export class RawProcessingPipeline {
       if (this.lutData) {
         pipeline.uploadLUT(this.lutData)
       }
-      pipeline.setParams(this.params)
+      pipeline.setParams(toExportProcessingParams(this.params))
       pipeline.render()
       outputContext.drawImage(canvas, 0, 0, width, height)
     } finally {
@@ -1119,7 +1145,7 @@ export class RawProcessingPipeline {
       if (this.lutData) {
         pipeline.uploadLUT(this.lutData)
       }
-      pipeline.setParams(this.params)
+      pipeline.setParams(toExportProcessingParams(this.params))
 
       for (const tile of createExportTiles(plan)) {
         pipeline.resize(tile.width, tile.height)

@@ -27,6 +27,7 @@ const baseSession: ImageSession = {
   activeStyle: null,
   viewState: {
     mode: 'processed',
+    compareSplit: 0.5,
     zoom: 1,
     panX: 0,
     panY: 0,

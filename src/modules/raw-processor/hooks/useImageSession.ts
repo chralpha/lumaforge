@@ -23,7 +23,8 @@ function createEmptySession(file: File): ImageSession {
     },
     activeStyle: null,
     viewState: {
-      mode: 'processed',
+      mode: 'compare',
+      compareSplit: 0.5,
       zoom: 1,
       panX: 0,
       panY: 0,

@@ -25,14 +25,16 @@ import { exportDisabledReasonAtom } from '../state/session.atoms'
 import { LutDropzone } from './Dropzone'
 import { IntensityChips } from './IntensityChips'
 
+type ViewMode = 'processed' | 'original' | 'compare'
+
 export interface ControlsPanelProps {
   presetOptions: Array<{ id: string; name: string }>
   activePresetId: string | null
   activeIntensity: 'off' | 'light' | 'standard' | 'strong'
-  viewMode: 'processed' | 'original'
+  viewMode: ViewMode
   onPresetSelect: (id: string) => void
   onIntensitySelect: (level: 'off' | 'light' | 'standard' | 'strong') => void
-  onViewModeChange: (mode: 'processed' | 'original') => void
+  onViewModeChange: (mode: ViewMode) => void
   onLutLoad: (files: File[]) => void
   onLutClear: () => void
   onLutProfileSelect: (profile: LUTColorProfile) => void

@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 
 import type { ProcessingStatus } from '~/atoms/raw-processor'
 import {
+  getProcessingParams,
   useErrorMessageValue,
   useLoadedImageValue,
   useLutValue,
@@ -145,6 +146,10 @@ function getProgressRecoveryHint(status: ProcessingStatus) {
   return undefined
 }
 
+function clampCompareSplit(split: number): number {
+  return Math.min(0.95, Math.max(0.05, split))
+}
+
 function isRetryableFullResExportFailure(code: string) {
   return (
     code === 'FULL_RES_EXPORT_RESOURCE_FAILURE' ||
@@ -229,6 +234,7 @@ export interface UseRawProcessorReturn {
   activePresetId: (typeof BUILTIN_PRESETS)[number]['id'] | null
   activeIntensity: 'off' | 'light' | 'standard' | 'strong'
   viewMode: ProcessingParams['viewMode']
+  compareSplit: number
   currentLutName: string | null
   sourceFileName: string
   supportLevel: 'official' | 'experimental'
@@ -244,6 +250,7 @@ export interface UseRawProcessorReturn {
   selectBuiltinStyle: (id: (typeof BUILTIN_PRESETS)[number]['id']) => void
   selectIntensityLevel: (level: 'off' | 'light' | 'standard' | 'strong') => void
   setViewMode: (mode: ProcessingParams['viewMode']) => void
+  setCompareSplit: (split: number) => void
   clearLUT: () => void
   setParams: (params: Partial<ProcessingParams>) => void
   exportImage: (options: {
@@ -316,6 +323,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       : null
   const activeIntensity = activeStyle?.currentIntensityLevel || 'standard'
   const viewMode = params.viewMode
+  const compareSplit = params.compareSplit
   const currentLutName =
     activeStyle?.kind === 'custom' ? activeStyle.name : null
   const sourceFileName =
@@ -495,6 +503,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
         runtimeAbortController = new AbortController()
         runtimeAbortControllerRef.current = runtimeAbortController
         const runtimeSignal = runtimeAbortController.signal
+        const preservedCompareSplit = clampCompareSplit(
+          getProcessingParams().compareSplit ?? 0.5,
+        )
 
         const nextSession = replaceFile(file)
         loadSessionId = nextSession.id
@@ -513,7 +524,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
         setParams((prev) => ({
           ...prev,
           intensity: 0.7,
-          viewMode: 'processed',
+          viewMode: 'compare',
+          compareSplit: preservedCompareSplit,
           styleKind: 'none',
           builtinPreset: null,
         }))
@@ -525,6 +537,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
           return {
             ...prev,
+            viewState: {
+              ...prev.viewState,
+              mode: 'compare',
+              compareSplit: preservedCompareSplit,
+            },
             previewBundle: {
               ...prev.previewBundle,
               quickDecodePreview: { status: 'loading' },
@@ -1179,6 +1196,24 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [setParams, setSession],
   )
 
+  const setCompareSplit = useCallback(
+    (split: number) => {
+      const nextSplit = clampCompareSplit(split)
+      setParams((prev) => ({ ...prev, compareSplit: nextSplit }))
+      setSession((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          viewState: {
+            ...prev.viewState,
+            compareSplit: nextSplit,
+          },
+        }
+      })
+    },
+    [setParams, setSession],
+  )
+
   // Clear LUT
   const clearLUT = useCallback(() => {
     setLut(null)
@@ -1523,6 +1558,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     activePresetId,
     activeIntensity,
     viewMode,
+    compareSplit,
     currentLutName,
     sourceFileName,
     supportLevel,
@@ -1536,6 +1572,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     selectBuiltinStyle,
     selectIntensityLevel,
     setViewMode,
+    setCompareSplit,
     clearLUT,
     setParams: handleSetParams,
     exportImage,

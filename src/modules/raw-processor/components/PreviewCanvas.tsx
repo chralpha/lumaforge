@@ -308,10 +308,7 @@ export function PreviewCanvas({
     })
     if (!uploadInput) return
 
-    pipeline.setParams({
-      ...params,
-      intensity: params.viewMode === 'original' ? 0 : params.intensity,
-    })
+    pipeline.setParams(params)
     const stats = pipeline.render()
     onStatsUpdate?.(stats)
   }, [params, imageRef, imageVersion, isInitialized, onStatsUpdate])

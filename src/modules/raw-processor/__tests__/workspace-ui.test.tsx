@@ -420,6 +420,7 @@ describe('controlsPanel', () => {
           params={{
             intensity: 0.7,
             viewMode: 'processed',
+            compareSplit: 0.5,
             styleKind: 'none',
             builtinPreset: null,
           }}

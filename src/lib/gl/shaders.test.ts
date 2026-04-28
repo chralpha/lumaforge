@@ -34,6 +34,30 @@ describe('process shader style path', () => {
     },
   )
 
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant renders compare mode by split without a second decode',
+    (_name, shader) => {
+      expect(shader).toContain('uniform int u_viewMode')
+      expect(shader).toContain('uniform float u_compareSplit')
+      expect(shader).toContain('const int VIEW_MODE_COMPARE = 2')
+      expect(shader).toContain(
+        'float finalSide = step(clamp(u_compareSplit, 0.0, 1.0), v_texCoord.x)',
+      )
+      expect(shader).toContain(
+        'styledColor = mix(baseDisplayColor, styledColor, finalSide)',
+      )
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant keeps original mode as the unprocessed RAW side',
+    (_name, shader) => {
+      expect(shader).toContain('const int VIEW_MODE_ORIGINAL = 1')
+      expect(shader).toContain('if (u_viewMode == VIEW_MODE_ORIGINAL)')
+      expect(shader).toContain('styledColor = baseDisplayColor')
+    },
+  )
+
   it('uses a normalized float sampler for legacy RGBA input', () => {
     expect(PROCESS_FRAGMENT_SHADER_FLOAT).toContain(
       'uniform sampler2D u_inputTexture',

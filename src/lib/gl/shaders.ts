@@ -37,6 +37,8 @@ uniform vec3 u_lutDomainMin;
 uniform vec3 u_lutDomainMax;
 uniform float u_intensity;
 uniform float u_rawRenderExposureMultiplier;
+uniform int u_viewMode;
+uniform float u_compareSplit;
 uniform int u_styleKind;
 uniform int u_builtinPreset;
 uniform mat3 u_inputToLutGamut;
@@ -49,6 +51,9 @@ uniform int u_lutOutputRange;
 `
 
 const PROCESS_FRAGMENT_SHADER_BODY = /* glsl */ `
+const int VIEW_MODE_PROCESSED = 0;
+const int VIEW_MODE_ORIGINAL = 1;
+const int VIEW_MODE_COMPARE = 2;
 const int STYLE_NONE = 0;
 const int STYLE_BUILTIN = 1;
 const int STYLE_CUSTOM = 2;
@@ -532,6 +537,13 @@ void main() {
     } else {
       styledColor = mix(baseDisplayColor, applyDisplayLut(baseSceneLinearProPhoto), intensity);
     }
+  }
+
+  if (u_viewMode == VIEW_MODE_ORIGINAL) {
+    styledColor = baseDisplayColor;
+  } else if (u_viewMode == VIEW_MODE_COMPARE) {
+    float finalSide = step(clamp(u_compareSplit, 0.0, 1.0), v_texCoord.x);
+    styledColor = mix(baseDisplayColor, styledColor, finalSide);
   }
 
   fragColor = vec4(clamp01(styledColor), 1.0);
