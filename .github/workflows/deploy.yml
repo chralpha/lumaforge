@@ -1,0 +1,112 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: 'Optional override for DEPLOY_TARGET: cloudflare or vercel.'
+        required: false
+        type: string
+      deploy_env:
+        description: 'Optional override for DEPLOY_ENV: preview or production.'
+        required: false
+        type: string
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.DEPLOY_TARGET != '' }}
+    runs-on: ubuntu-latest
+
+    env:
+      DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || vars.DEPLOY_TARGET }}
+      DEPLOY_ENV: ${{ github.event.inputs.deploy_env || vars.DEPLOY_ENV || 'preview' }}
+      EMSDK_VERSION: 5.0.6
+      EMSDK_REF: 948c31acd3f369a5da276e33ab2ed57108c165e5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate deploy target
+        run: |
+          case "$DEPLOY_TARGET" in
+            cloudflare|vercel) ;;
+            *)
+              echo "DEPLOY_TARGET must be cloudflare or vercel."
+              exit 1
+              ;;
+          esac
+
+          case "$DEPLOY_ENV" in
+            preview|production) ;;
+            *)
+              echo "DEPLOY_ENV must be preview or production."
+              exit 1
+              ;;
+          esac
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Configure pnpm store
+        run: pnpm config set store-dir ~/.pnpm-store
+
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake libtool pkg-config
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Cache Emscripten SDK
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/lumaforge-emsdk
+          key: ${{ runner.os }}-${{ runner.arch }}-emsdk-${{ env.EMSDK_VERSION }}-${{ env.EMSDK_REF }}
+
+      - name: Install Emscripten SDK
+        run: |
+          if [ ! -d "$HOME/.cache/lumaforge-emsdk/.git" ]; then
+            rm -rf "$HOME/.cache/lumaforge-emsdk"
+            git clone https://github.com/emscripten-core/emsdk.git "$HOME/.cache/lumaforge-emsdk"
+          fi
+          cd "$HOME/.cache/lumaforge-emsdk"
+          git fetch --tags --force origin
+          git reset --hard "$EMSDK_REF"
+          ./emsdk install "$EMSDK_VERSION"
+          ./emsdk activate "$EMSDK_VERSION"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build deploy artifact
+        run: |
+          . "$HOME/.cache/lumaforge-emsdk/emsdk_env.sh"
+          pnpm deploy:build-artifact
+
+      - name: Deploy selected target
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: pnpm deploy
