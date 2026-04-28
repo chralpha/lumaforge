@@ -344,6 +344,26 @@ describe('publish command selection', () => {
         output: 'Queued\nhttps://lumaforge-git-feature.vercel.app\n',
       }),
     ).toBe('https://lumaforge-git-feature.vercel.app')
+
+    expect(
+      resolveDeploymentUrl({
+        target: 'vercel',
+        deployEnv: 'preview',
+        env: {},
+        output:
+          'Inspect: https://vercel.com/chralpha/lumaforge/abc123\nPreview: https://lumaforge-git-feature-chralpha.vercel.app\n',
+      }),
+    ).toBe('https://lumaforge-git-feature-chralpha.vercel.app')
+
+    expect(
+      resolveDeploymentUrl({
+        target: 'cloudflare',
+        deployEnv: 'preview',
+        env: { CLOUDFLARE_PAGES_PROJECT: 'lumaforge' },
+        output:
+          'View deployment: https://dash.cloudflare.com/account/pages/view/lumaforge\nPreview URL: https://feat-prod-preview.lumaforge.pages.dev\n',
+      }),
+    ).toBe('https://feat-prod-preview.lumaforge.pages.dev')
   })
 })
 

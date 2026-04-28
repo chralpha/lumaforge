@@ -45,8 +45,46 @@ export function extractDeploymentUrl(output) {
   return output.match(/https:\/\/[^\s"')>]+/)?.[0] ?? null
 }
 
+function extractUrls(output) {
+  return Array.from(
+    output.matchAll(/https:\/\/[^\s"')>]+/g),
+    (match) => match[0],
+  )
+}
+
+function hostnameForUrl(url) {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return ''
+  }
+}
+
+function selectDeploymentUrl(target, output) {
+  const urls = extractUrls(output)
+
+  if (target === 'cloudflare') {
+    return (
+      urls.find((url) => hostnameForUrl(url).endsWith('.pages.dev')) ?? null
+    )
+  }
+
+  return (
+    urls.find((url) => hostnameForUrl(url).endsWith('.vercel.app')) ??
+    urls.find((url) => {
+      const hostname = hostnameForUrl(url)
+      return (
+        hostname &&
+        hostname !== 'vercel.com' &&
+        !hostname.endsWith('.vercel.com')
+      )
+    }) ??
+    null
+  )
+}
+
 export function resolveDeploymentUrl({ target, deployEnv, env, output }) {
-  const printedUrl = extractDeploymentUrl(output)
+  const printedUrl = selectDeploymentUrl(target, output)
   if (printedUrl) return printedUrl
 
   if (target !== 'cloudflare') return null
