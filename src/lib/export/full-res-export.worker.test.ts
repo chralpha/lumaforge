@@ -17,6 +17,45 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+function makeJfifOnlyJpeg() {
+  return new Blob(
+    [
+      new Uint8Array([
+        255, 216, 255, 224, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0,
+        255, 217,
+      ]),
+    ],
+    { type: 'image/jpeg' },
+  )
+}
+
+function bytesIncludeAscii(bytes: Uint8Array, value: string) {
+  const needle = Array.from(value, (character) => character.charCodeAt(0))
+
+  return bytes.some((_byte, index) =>
+    needle.every(
+      (needleByte, needleIndex) => bytes[index + needleIndex] === needleByte,
+    ),
+  )
+}
+
+function readBlobBytes(blob: Blob) {
+  return new Promise<Uint8Array>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (reader.result instanceof ArrayBuffer) {
+        resolve(new Uint8Array(reader.result))
+        return
+      }
+
+      reject(new Error('Expected Blob to read as an ArrayBuffer.'))
+    }
+    reader.onerror = () =>
+      reject(reader.error ?? new Error('Failed to read Blob bytes.'))
+    reader.readAsArrayBuffer(blob)
+  })
+}
+
 describe('runProcessedWindowExportLifecycle', () => {
   it('runs begin, export, and end before returning the export result', async () => {
     const order: string[] = []
@@ -152,6 +191,81 @@ describe('runProcessedWindowExportLifecycle', () => {
 })
 
 describe('full-resolution export worker lifecycle responses', () => {
+  it('writes EXIF metadata into the successful JPEG response', async () => {
+    const terminalResponse = new Promise<FullResExportWorkerResponse>(
+      (resolve) => {
+        vi.spyOn(self, 'postMessage').mockImplementation((message) => {
+          const response = message as FullResExportWorkerResponse
+          if (response.kind === 'success' || response.kind === 'error') {
+            resolve(response)
+          }
+        })
+      },
+    )
+    const session = {
+      probe: {
+        jobId: 'raw-job-1',
+        make: 'Sony',
+        model: 'ILCE-7RM5',
+        lens: 'FE 50mm F1.4 GM',
+        iso: 125,
+        aperture: 1.4,
+        focalLength: 50,
+        shutter: 0.005,
+        timestamp: 1_704_067_200,
+        width: 9504,
+        height: 6336,
+        supportLevel: 'experimental',
+        timings: { total: 1 },
+      },
+      probeExportCapability: vi.fn(async () => ({
+        supported: true,
+        width: 9504,
+        height: 6336,
+      })),
+      readRawWindow: vi.fn(),
+      readProcessedWindow: vi.fn(),
+      beginProcessedWindowExport: vi.fn(async () => undefined),
+      endProcessedWindowExport: vi.fn(async () => undefined),
+      dispose: vi.fn(),
+    }
+    const runtime = {
+      init: vi.fn(async () => undefined),
+      openSession: vi.fn(async () => session),
+      dispose: vi.fn(),
+    }
+    vi.mocked(createLumaRawRuntime).mockReturnValue(runtime as never)
+    vi.mocked(runFullResolutionJpegExport).mockResolvedValue(makeJfifOnlyJpeg())
+
+    self.onmessage?.({
+      data: {
+        kind: 'start',
+        requestId: 'request-with-metadata',
+        file: new File(['raw'], 'sony.ARW'),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        },
+        collectMetrics: false,
+      },
+    } as MessageEvent)
+
+    const response = await terminalResponse
+    expect(response.kind).toBe('success')
+    if (response.kind !== 'success') {
+      throw new Error('Expected a successful export response.')
+    }
+
+    const bytes = await readBlobBytes(response.blob)
+    expect(bytesIncludeAscii(bytes, 'Exif\0\0')).toBe(true)
+    expect(bytesIncludeAscii(bytes, 'Sony')).toBe(true)
+    expect(bytesIncludeAscii(bytes, 'ILCE-7RM5')).toBe(true)
+    expect(bytesIncludeAscii(bytes, 'FE 50mm F1.4 GM')).toBe(true)
+  })
+
   it('posts one error and no success when end fails after a successful export', async () => {
     const terminalResponse = new Promise<FullResExportWorkerResponse>(
       (resolve) => {

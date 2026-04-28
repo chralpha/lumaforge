@@ -6,6 +6,7 @@ import type {
   FullResExportWorkerRequest,
   FullResExportWorkerResponse,
 } from './full-res-export-client'
+import { preserveJpegMetadata } from './jpeg-metadata'
 
 type ProcessedWindowExportLifecycleInput<Result> = {
   beginProcessedWindowExport?: (signal?: AbortSignal) => Promise<unknown>
@@ -128,11 +129,17 @@ async function handleStart(
           })
         },
       })
+      const blobWithMetadata = await preserveJpegMetadata({
+        jpeg: blob,
+        metadata: session.probe,
+        width: capability.width,
+        height: capability.height,
+      })
 
       self.postMessage({
         kind: 'success',
         requestId: message.requestId,
-        blob,
+        blob: blobWithMetadata,
       } satisfies FullResExportWorkerResponse)
     } finally {
       session.dispose()
