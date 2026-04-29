@@ -755,8 +755,11 @@ describe('useRawProcessor embedded preview state', () => {
       expect(result.current.displaySource).toBe('quick')
     })
 
+    const session = jotaiStore.get(currentSessionAtom)
     expect(result.current.error).toBeNull()
     expect(result.current.status).toBe('ready')
+    expect(session?.renderState).toMatchObject({ status: 'ready' })
+    expect(session?.renderState.lastErrorCode).toBeUndefined()
   })
 
   it('keeps full-resolution export enabled when processed-window capability is supported but bounded HQ preview fails', async () => {

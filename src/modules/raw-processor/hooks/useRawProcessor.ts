@@ -899,10 +899,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
                       ...previewBundle,
                       displaySource: selectDisplaySource(previewBundle),
                     },
-                    renderState: {
-                      ...prev.renderState,
-                      lastErrorCode: errorCode,
-                    },
                   }
                 })
                 break
