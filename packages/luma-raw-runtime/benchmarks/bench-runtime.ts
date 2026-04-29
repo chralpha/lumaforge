@@ -7,6 +7,7 @@ import type {
 } from '../src/types'
 
 const QUICK_PREVIEW_MAX_PIXELS = 2_500_000
+const BOUNDED_HQ_MAX_PIXELS = 12_000_000
 const HQ_TARGET_MAX_MEGAPIXELS = 30
 
 type BenchStage =
@@ -86,7 +87,9 @@ type LumaRawSession = {
   heap?: BenchHeap
   extractEmbeddedPreview: () => Promise<LumaSessionStageResult | null>
   decodeQuick: () => Promise<LumaSessionStageResult>
-  decodeHq: () => Promise<LumaSessionStageResult>
+  decodeBoundedHq: (options: {
+    maxOutputPixels: number
+  }) => Promise<LumaSessionStageResult>
   dispose: () => void
 }
 
@@ -369,7 +372,9 @@ async function benchLuma(file: File, provenance: BenchProvenance) {
     })
 
     await runLumaStage('luma-hq', async () => {
-      const hq = await session.decodeHq()
+      const hq = await session.decodeBoundedHq({
+        maxOutputPixels: BOUNDED_HQ_MAX_PIXELS,
+      })
       printLumaStage(file, provenance, 'luma-hq', {
         width: hq.width,
         height: hq.height,
