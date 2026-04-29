@@ -12,10 +12,8 @@ import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 
 import {
   ComparePreviewStage,
-  ControlsPanel,
   ErrorOverlay,
-  MetadataPanel,
-  StatsPanel,
+  RawToolSurface,
   UnsupportedState,
   WorkspaceHeader,
 } from './components'
@@ -45,7 +43,6 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     lutProfileSelection,
     activePresetId,
     activeIntensity,
-    viewMode,
     currentLutName,
     sourceFileName,
     supportLevel,
@@ -150,6 +147,21 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     status === 'decoding' ||
     status === 'processing' ||
     status === 'exporting'
+  const toolMetadata = loadedImage.metadata
+    ? {
+        ...loadedImage.metadata,
+        width: decodedImageRef.current?.width ?? loadedImage.metadata.width,
+        height: decodedImageRef.current?.height ?? loadedImage.metadata.height,
+      }
+    : null
+
+  const toolStats = stats
+    ? {
+        processTime: stats.processTime,
+        inputSize: stats.inputSize,
+        previewSize: stats.previewSize,
+      }
+    : null
   const capability = useCapabilityGate()
 
   if (capability.ready && capability.supportStatus === 'unsupported') {
@@ -207,47 +219,34 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
           onPipelineChange={handlePipelineChange}
         />
 
-        <aside className="raw-lab-controls" aria-label="RAW finishing controls">
-          <ControlsPanel
-            presetOptions={presetOptions.map(({ id, name }) => ({ id, name }))}
-            activePresetId={activePresetId}
-            activeIntensity={activeIntensity}
-            viewMode={viewMode}
-            onPresetSelect={(id) =>
-              selectBuiltinStyle(id as (typeof presetOptions)[number]['id'])
-            }
-            onIntensitySelect={selectIntensityLevel}
-            onCompareReset={handleCompareReset}
-            onLutLoad={handleLutDrop}
-            onLutClear={clearLUT}
-            currentLutName={currentLutName}
-            lutProfileSelection={lutProfileSelection}
-            lutProfileResolution={
-              activeStyle?.kind === 'custom'
-                ? activeStyle.lutAsset?.profileResolution
-                : null
-            }
-            onLutProfileSelect={selectLUTProfile}
-            onExport={handleExport}
-            canExport={canExport}
-            disabledReason={exportDisabledReason}
-            isProcessing={isProcessing}
-            hasImage={hasImage}
-          />
-          {loadedImage.metadata && (
-            <MetadataPanel
-              metadata={{
-                ...loadedImage.metadata,
-                width:
-                  decodedImageRef.current?.width ?? loadedImage.metadata.width,
-                height:
-                  decodedImageRef.current?.height ??
-                  loadedImage.metadata.height,
-              }}
-            />
-          )}
-          {stats && <StatsPanel stats={stats} />}
-        </aside>
+        <RawToolSurface
+          presetOptions={presetOptions.map(({ id, name }) => ({ id, name }))}
+          activePresetId={activePresetId}
+          activeIntensity={activeIntensity}
+          onPresetSelect={(id) =>
+            selectBuiltinStyle(id as (typeof presetOptions)[number]['id'])
+          }
+          onIntensitySelect={selectIntensityLevel}
+          onCompareReset={handleCompareReset}
+          onLutLoad={handleLutDrop}
+          onLutClear={clearLUT}
+          currentLutName={currentLutName}
+          lutProfileSelection={lutProfileSelection}
+          lutProfileResolution={
+            activeStyle?.kind === 'custom'
+              ? activeStyle.lutAsset?.profileResolution
+              : null
+          }
+          onLutProfileSelect={selectLUTProfile}
+          onExport={handleExport}
+          canExport={canExport}
+          disabledReason={exportDisabledReason}
+          isProcessing={isProcessing}
+          hasImage={hasImage}
+          supportLevel={supportLevel}
+          metadata={toolMetadata}
+          stats={toolStats}
+        />
       </div>
 
       <ErrorOverlay

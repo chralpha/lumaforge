@@ -67,6 +67,12 @@ describe('rawProcessorView', () => {
     expect(
       container.querySelector('[data-raw-lab-shell="viewport"]')?.parentElement,
     ).toBe(container)
+    expect(
+      container.querySelector('[data-raw-tool-surface="raw-finishing"]'),
+    ).toBeInTheDocument()
+    expect(
+      container.querySelector('[data-raw-panel="controls"]'),
+    ).not.toBeInTheDocument()
   })
 
   it('keeps export disabled copy visible before a RAW is loaded', () => {
