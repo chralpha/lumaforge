@@ -136,7 +136,7 @@ The compare split defaults near 50 percent and can be adjusted with:
 - Touch drag.
 - Keyboard focus on the handle with arrow-key adjustment.
 
-The handle should have an accessible name that describes the split comparison. Touch target size should be at least 44px where practical. The current split value should survive style changes, HQ preview upgrades, and control panel open/close transitions.
+The handle should have an accessible name that describes the split comparison. Touch target size should be at least 44px where practical. The current split value should survive style changes, bounded HQ preview upgrades, and control panel open/close transitions.
 
 Motion should be short and state-driven. Use opacity and transform transitions around 150 to 250ms. Respect `prefers-reduced-motion`; reduced-motion users should get immediate state changes.
 
@@ -158,7 +158,7 @@ Loading and decoding:
 - Show progress over the stage.
 - Do not collapse back into an upload page.
 
-Embedded, quick, and HQ preview:
+Embedded, quick, and bounded HQ preview:
 
 - Progressively upgrade the same stage.
 - Do not reset compare split, selected look, zoom, pan, or control drawer state.

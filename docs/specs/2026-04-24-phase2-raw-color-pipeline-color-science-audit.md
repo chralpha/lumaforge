@@ -312,16 +312,17 @@ The runtime's quick settings use:
 }
 ```
 
-High-quality preview switches to full size and higher demosaic quality:
+Bounded high-quality preview may use higher demosaic quality, but its output remains capped by the preview policy:
 
 ```ts
 {
   halfSize: false,
   userQual: 2,
+  maxOutputPixels: '8MP-to-12MP policy cap',
 }
 ```
 
-The native wrapper passes these settings into LibRaw before `unpack()` and `dcraw_process()`, then exports an RGB16 bitmap. The adapter maps the result to:
+The native wrapper passes these settings into LibRaw before `unpack()` and `dcraw_process()`, then exports a capped RGB16 bitmap. This quality setting is not permission to return or upload a full-resolution preview frame. The adapter maps the result to:
 
 ```ts
 layout: 'rgb-u16'
@@ -335,7 +336,7 @@ Audit result:
 - `noAutoBright: true` is important because automatic brightening would damage scene/exposure semantics.
 - `outputColor: 4` is LibRaw's ProPhoto output path, which matches the adapter label.
 - `useCameraWb: true` is reasonable for Phase 1 preview, but future color-critical workflows should allow explicit illuminant/profile control instead of always trusting as-shot or camera WB.
-- `halfSize: true` in quick preview is acceptable for speed, while high-quality mode uses full size.
+- `halfSize: true` in quick preview is acceptable for speed, while bounded high-quality mode may use better demosaic settings only when the returned preview asset stays within the active output-pixel cap.
 - This setting intentionally bypasses LibRaw's output-stage auto-brightening and display gamma behavior. LibRaw discussions describe auto-ETTR/auto-brightening as output-stage behavior during conversion from linear internal representation to gamma-corrected output, and manual brightness control as a separate output parameter path.[^libraw-auto-ettr][^libraw-manual-brightness] Therefore, matching a system RAW preview requires a later explicit render-exposure decision, not changing the LibRaw handoff away from linear scene data.
 
 This path is technically coherent for:

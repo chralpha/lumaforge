@@ -39,7 +39,7 @@ Performance is measured by the user-visible pipeline, not by one isolated `dcraw
 - Time to first visible image must prefer embedded preview when available.
 - Time to first stylable RAW-derived frame must prefer capped quick decode.
 - Style and LUT changes must never trigger RAW reopen or redecode.
-- HQ decode may arrive later and replace the quick frame without changing the style state.
+- Bounded HQ decode may arrive later and replace the quick frame without changing the style state.
 - Main thread blocking is a failure even when pure decode time looks acceptable.
 
 ## 3. Non-Goals
@@ -93,7 +93,7 @@ The only native C++ source authored by this package is Luma-owned wrapper code. 
 - `readMetadata()`
 - `extractThumbnail()`
 - `decodeQuick(options)`
-- `decodeHq(options)`
+- `decodeBoundedHq(options)`
 - `dispose()`
 - `heapStats()`
 
@@ -174,7 +174,7 @@ openSession(file)
   -> transfer file once
   -> copy into wasm once
   -> LibRaw open once per settings family
-  -> embedded / quick / hq stages reuse session state
+  -> embedded / quick / bounded-hq stages reuse session state
 ```
 
 One-shot public APIs may remain for compatibility, but internally they should open a temporary session and close it.
@@ -183,13 +183,13 @@ One-shot public APIs may remain for compatibility, but internally they should op
 
 The browser product path has three stages:
 
-| Stage | Purpose | Required behavior |
-| --- | --- | --- |
-| Embedded | Fast first visual | Extract LibRaw thumbnail/preview without `unpack()` or `dcraw_process()` when possible |
-| Quick | First stylable RAW-derived frame | Use fast demosaic settings, camera WB, Linear ProPhoto RGB, and cap output to preview budget |
-| HQ | Replacement frame | Decode full quality for export/zoom when budget allows; large files may remain asynchronous/background |
+| Stage      | Purpose                          | Required behavior                                                                                                                                  |
+| ---------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Embedded   | Fast first visual                | Extract LibRaw thumbnail/preview without `unpack()` or `dcraw_process()` when possible                                                             |
+| Quick      | First stylable RAW-derived frame | Use fast demosaic settings, camera WB, Linear ProPhoto RGB, and cap output to preview budget                                                       |
+| Bounded HQ | Replacement frame                | Use higher-quality preview settings where possible, cap output to the bounded preview budget, and keep large-file upgrades asynchronous/background |
 
-Embedded preview is not color-authoritative. It may be styled as a temporary display preview, but the UI must treat quick/HQ frames as the authoritative path for scene-referred LUT work.
+Embedded preview is not color-authoritative. It may be styled as a temporary display preview, but the UI must treat quick/bounded-HQ frames as the preview path for scene-referred LUT work.
 
 ### 5.3 Color Contract
 
@@ -205,11 +205,11 @@ This keeps runtime performance work separate from style-system behavior:
 
 - RAW decode happens only on image change.
 - Log conversion and LUT application happen on style change.
-- Export reuses the current decoded frame where possible.
+- Preview export may reuse the current decoded frame. Full-resolution export uses its own bounded export path and does not depend on preview readiness beyond quick interactivity.
 
 ### 5.4 Memory Contract
 
-The runtime must report wasm heap telemetry for every open, embedded, quick, and HQ stage:
+The runtime must report wasm heap telemetry for every open, embedded, quick, and bounded-HQ stage:
 
 ```ts
 type LumaRawHeapStats = {
@@ -272,7 +272,7 @@ The benchmark harness must accept fixtures through explicit input, not hard-code
 
 ```bash
 LUMAFORGE_RAW_FIXTURE_DIR=/workspaces/LumaForge/test-images \
-pnpm --filter @lumaforge/luma-raw-runtime bench:browser
+  pnpm --filter @lumaforge/luma-raw-runtime bench:browser
 ```
 
 Required local/manual performance set:
@@ -287,15 +287,15 @@ The current local files under `/workspaces/LumaForge/test-images` may satisfy de
 
 Do not claim the runtime is production-ready until all gates pass.
 
-| Gate | Requirement |
-| --- | --- |
-| Source provenance | `sources.lock.json` exists, all downloads verify SHA-256, provenance JSON is emitted |
+| Gate                  | Requirement                                                                                                                                                                                                                   |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source provenance     | `sources.lock.json` exists, all downloads verify SHA-256, provenance JSON is emitted                                                                                                                                          |
 | Baseline independence | `pnpm --filter @lumaforge/luma-raw-runtime native:verify-baseline` passes, or an equivalent scan finds no active build dependency outside verifier source, generated artifacts, caches, vendored sources, and historical docs |
-| CI reproducibility | GitHub Actions builds native wasm from clean checkout |
-| Smoke decode | CI opens at least one locked public RAW fixture with the CI-built wasm |
-| App build | Root `pnpm build` runs after native build and does not depend on local `dist/native` leftovers |
-| Performance | Local/manual high-megapixel benchmark shows embedded < 1000ms, quick <= 4000ms, 24MP HQ <= 8000ms, and no missing heap telemetry |
-| UX | RAW upload, embedded preview, quick replacement, HQ replacement, LUT styling, compare, and export remain functional |
+| CI reproducibility    | GitHub Actions builds native wasm from clean checkout                                                                                                                                                                         |
+| Smoke decode          | CI opens at least one locked public RAW fixture with the CI-built wasm                                                                                                                                                        |
+| App build             | Root `pnpm build` runs after native build and does not depend on local `dist/native` leftovers                                                                                                                                |
+| Performance           | Local/manual high-megapixel benchmark shows embedded < 1000ms, quick <= 4000ms, bounded HQ <= 8000ms when eligible, and no missing heap telemetry                                                                             |
+| UX                    | RAW upload, embedded preview, quick replacement, bounded HQ replacement, LUT styling, compare, and export remain functional                                                                                                   |
 
 The current V2 benchmark can be retained as historical evidence for session optimization. It is not sufficient to pass the new rollout gate because it did not prove independent source build or CI reproducibility.
 

@@ -4,7 +4,7 @@ Date: 2026-04-25
 
 ## Goal
 
-LumaForge must export high-resolution RAW photos without uploading the file, without requiring a native helper, and without depending on full-image RGB, Canvas, ImageData, or GPU surfaces. Export correctness is the priority. Preview remains interactive and may use approximate lower-resolution rendering, but it must share the same color intent and LUT contract as export.
+LumaForge must export high-resolution RAW photos without uploading the file, without requiring a native helper, and without depending on full-image RGB, Canvas, ImageData, or GPU surfaces. Export correctness is the priority. Preview remains interactive and never renders from full-resolution preview pixel surfaces, but it must share the same color intent and LUT contract as export.
 
 The first production target is full-resolution sRGB JPEG export on desktop Chrome, Edge, and Safari. Mobile browsers may disable or degrade full-resolution export with explicit product messaging.
 
@@ -12,6 +12,7 @@ The first production target is full-resolution sRGB JPEG export on desktop Chrom
 
 - Do not implement high-bit-depth TIFF, PNG, AVIF, or EXR in the first phase.
 - Do not treat preview export as full-resolution export.
+- Do not decode, transfer, or upload full-resolution RGB assets for preview.
 - Do not use `display sRGB -> LUT` as the default camera-log LUT path.
 - Do not add AI denoise, large-radius local tone mapping, sharpening, or lens correction to the first strip pipeline.
 - Do not rely on WebGPU, SharedArrayBuffer, or GPU readback for the authoritative export path.
@@ -42,6 +43,7 @@ The export worker owns product export:
 The raw processor UI owns product state:
 
 - Preview display and interaction.
+- Preview-resolution policy: embedded preview, quick preview, and bounded HQ preview.
 - LUT/profile selection.
 - Export action state.
 - Clear distinction between full-resolution export and preview export.
@@ -121,9 +123,17 @@ Preview and export must use the same color graph descriptor. The descriptor is p
 
 ## Preview relationship
 
-Preview is interactive, not authoritative. It may continue to use embedded preview, quick decode, HQ preview, WebGL2 rendering, and lower-resolution textures. It may skip or cap HQ preview on constrained devices.
+Preview is interactive, not authoritative, and never full-resolution. The preview ladder is:
 
-Full-resolution export is independent of HQ preview readiness. If quick or HQ preview fails, the user may still attempt full-resolution export when the runtime reports `libraw-processed-window` export support for the source file and the selected color pipeline is exportable.
+1. Embedded preview, when available, for earliest visual feedback.
+2. Quick preview at or below `2.5MP`. This is the first editable preview source and must be good enough to unblock LUT/profile selection and other interactive operations.
+3. Bounded HQ preview, targeting roughly `8MP` to `12MP` by default. This is a background resolution upgrade, not a prerequisite for editing. The cap may be lowered by device policy, runtime capability, or memory pressure, but it must never rise to full source resolution.
+
+Quick preview success makes the RAW session interactive. After quick preview is ready, the UI must dismiss blocking upload/decode progress and allow subsequent operations such as LUT selection, profile changes, compare, and export-readiness evaluation. Bounded HQ decode runs silently in the background with its own cancellation and retry policy. If bounded HQ succeeds, the UI may atomically replace the displayed preview source. If bounded HQ is skipped, fails, or is aborted, the product keeps the quick preview and must not move the session into a blocking or fatal error state.
+
+Downsampling for quick and bounded HQ preview must happen before the preview pixel buffer is returned to application JavaScript, before WebGL texture upload, and before display/output sRGB conversion. The preview pipeline must not decode a full-resolution HQ RGB buffer and then shrink it in JavaScript, Canvas, ImageData, or GPU memory. If the raw runtime cannot produce a bounded HQ asset within the active policy, it must return a structured skip or resource failure and leave quick preview as the active display source.
+
+Full-resolution export is independent of bounded HQ preview readiness. If quick preview succeeds but bounded HQ preview fails, the user may still attempt full-resolution export when the runtime reports `libraw-processed-window` export support for the source file and the selected color pipeline is exportable.
 
 Preview may have small numerical differences from export because of downsampling, GPU precision, or texture formats. It must not differ in profile choice, transform order, LUT role, or output intent.
 
@@ -138,17 +148,20 @@ Required safeguards:
 - Use bounded buffer pools. Default to one active strip and one worker for the first phase.
 - Adaptively reduce strip or tile height after allocation failure, worker failure, or resource pressure.
 - Preserve output resolution during retry. If full-resolution output cannot be produced, fail instead of silently lowering resolution.
+- Keep preview retries bounded by the preview policy. A preview retry may lower the bounded HQ cap or keep quick preview, but it must not fall back to a full-resolution preview decode.
 - Terminate and recreate the export worker after unrecoverable WASM high-water memory, protocol corruption, or native runtime failure.
 - Report progress after each completed strip.
 - Support cancellation that stops scheduling, closes the encoder, and releases worker resources.
 
-The full-resolution export path is forbidden from creating:
+The full-resolution export path and product preview path are forbidden from creating source-sized preview/export pixel surfaces:
 
 - full-image Canvas
 - full-image ImageData
 - full-image RGB or float intermediate buffers
 - full-image GPU textures
 - full-image contiguous JPEG byte assembly buffers
+
+For preview, these limits apply before display color conversion. A `100MP` source may produce an embedded preview, a `<=2.5MP` quick preview, or an `8MP` to `12MP` bounded HQ preview, but it must not produce a `100MP` RGB preview asset.
 
 The first browser-local JPEG target may retain encoded JPEG chunks as `Blob` parts until `finish()` returns the final download `Blob`. This is the final compressed output object, not an intermediate pixel staging surface, and it must not be assembled into one contiguous full-image `Uint8Array` before `Blob` creation. A future streaming or file-backed sink can reduce the final compressed-output footprint, but it is not required for the first production browser path.
 
@@ -234,6 +247,7 @@ Runtime contract tests:
 - Halo expansion works at image boundaries.
 - Black/white levels, orientation, CFA phase, and dimensions are stable.
 - Unsupported source formats fail closed with structured capability errors.
+- Bounded preview decodes respect the requested output-pixel cap and preserve full source metadata separately from preview dimensions.
 
 Color graph tests:
 
@@ -250,6 +264,8 @@ Strip seam tests:
 Browser and resource tests:
 
 - 61MP and 100MP-class RAW files can attempt full-resolution export without renderer crash.
+- 100MP-class RAW files on mobile WebKit reach quick-preview interactivity without renderer crash, without a full-resolution preview decode, and without blocking on bounded HQ completion.
+- Bounded HQ preview either upgrades the active preview within the configured cap or fails quietly while preserving quick preview and editing state.
 - Export failure preserves current editing state.
 - Worker failure does not crash the page.
 - Adaptive strip-size retry reduces memory pressure without reducing output resolution.
@@ -258,7 +274,9 @@ Browser and resource tests:
 
 Product acceptance:
 
-- Full-resolution export does not depend on HQ preview readiness.
+- Preview follows the embedded -> quick `<=2.5MP` -> bounded HQ `8MP` to `12MP` ladder and never performs full-resolution preview decode.
+- Quick preview readiness unblocks interactive editing; bounded HQ readiness is opportunistic only.
+- Full-resolution export does not depend on bounded HQ preview readiness.
 - Supported exports produce JPEG dimensions equal to the RAW output dimensions.
 - Unsupported files and unsupported LUT pipelines are clearly disabled or fail with actionable messaging.
 - Preview export and full-resolution export are labeled as separate actions.
