@@ -1313,16 +1313,35 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const selectBuiltinStyle = useCallback(
     (id: (typeof BUILTIN_PRESETS)[number]['id']) => {
       const style = buildBuiltinStyle(id)
-      invalidateExportGraph()
+      const shouldInvalidateExportGraph =
+        changesRenderGraphParams(params, {
+          styleKind: 'builtin',
+          builtinPreset: id,
+          intensity: mapIntensityLevel(style.defaultIntensityLevel),
+        }) ||
+        activeStyle?.kind !== 'builtin' ||
+        activeStyle.name !== style.name ||
+        activeStyle.currentIntensityLevel !== style.defaultIntensityLevel ||
+        Boolean(lut)
+
+      if (shouldInvalidateExportGraph) {
+        invalidateExportGraph()
+      }
       setLut(null)
       setLutDataRef(null)
       setSession((prev) =>
         prev
-          ? clearExportResultState({
-              ...prev,
-              activeStyle: style,
-              lutProfileSelection: undefined,
-            })
+          ? shouldInvalidateExportGraph
+            ? clearExportResultState({
+                ...prev,
+                activeStyle: style,
+                lutProfileSelection: undefined,
+              })
+            : {
+                ...prev,
+                activeStyle: style,
+                lutProfileSelection: undefined,
+              }
           : prev,
       )
       setParams((prev) => ({
@@ -1332,12 +1351,27 @@ export function useRawProcessor(): UseRawProcessorReturn {
         intensity: mapIntensityLevel(style.defaultIntensityLevel),
       }))
     },
-    [invalidateExportGraph, setLut, setLutDataRef, setParams, setSession],
+    [
+      activeStyle,
+      invalidateExportGraph,
+      lut,
+      params,
+      setLut,
+      setLutDataRef,
+      setParams,
+      setSession,
+    ],
   )
 
   const selectIntensityLevel = useCallback(
     (level: 'off' | 'light' | 'standard' | 'strong') => {
-      invalidateExportGraph()
+      const shouldInvalidateExportGraph =
+        params.intensity !== mapIntensityLevel(level) ||
+        (activeStyle ? activeStyle.currentIntensityLevel !== level : false)
+
+      if (shouldInvalidateExportGraph) {
+        invalidateExportGraph()
+      }
       setParams((prev) => ({ ...prev, intensity: mapIntensityLevel(level) }))
       setSession((prev) => {
         if (!prev) {
@@ -1345,19 +1379,31 @@ export function useRawProcessor(): UseRawProcessorReturn {
         }
 
         if (!prev.activeStyle) {
-          return clearExportResultState(prev)
+          return shouldInvalidateExportGraph
+            ? clearExportResultState(prev)
+            : prev
         }
 
-        return clearExportResultState({
+        const nextSession = {
           ...prev,
           activeStyle: {
             ...prev.activeStyle,
             currentIntensityLevel: level,
           },
-        })
+        }
+
+        return shouldInvalidateExportGraph
+          ? clearExportResultState(nextSession)
+          : nextSession
       })
     },
-    [invalidateExportGraph, setParams, setSession],
+    [
+      activeStyle,
+      invalidateExportGraph,
+      params.intensity,
+      setParams,
+      setSession,
+    ],
   )
 
   const setViewMode = useCallback(
@@ -1400,16 +1446,32 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   // Clear LUT
   const clearLUT = useCallback(() => {
-    invalidateExportGraph()
+    const shouldInvalidateExportGraph =
+      params.styleKind !== 'none' ||
+      params.builtinPreset !== null ||
+      Boolean(activeStyle) ||
+      Boolean(lut) ||
+      Boolean(lutDataRef.current) ||
+      Boolean(lutProfileSelection)
+
+    if (shouldInvalidateExportGraph) {
+      invalidateExportGraph()
+    }
     setLut(null)
     setLutDataRef(null)
     setSession((prev) =>
       prev
-        ? clearExportResultState({
-            ...prev,
-            activeStyle: null,
-            lutProfileSelection: undefined,
-          })
+        ? shouldInvalidateExportGraph
+          ? clearExportResultState({
+              ...prev,
+              activeStyle: null,
+              lutProfileSelection: undefined,
+            })
+          : {
+              ...prev,
+              activeStyle: null,
+              lutProfileSelection: undefined,
+            }
         : prev,
     )
     setParams((prev) => ({
@@ -1419,7 +1481,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
     }))
     scheduleToast(() => toast.info('LUT cleared'))
   }, [
+    activeStyle,
     invalidateExportGraph,
+    lut,
+    lutProfileSelection,
+    params.builtinPreset,
+    params.styleKind,
     scheduleToast,
     setLut,
     setLutDataRef,

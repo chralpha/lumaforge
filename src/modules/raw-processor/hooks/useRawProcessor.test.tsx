@@ -1455,6 +1455,45 @@ describe('useRawProcessor embedded preview state', () => {
     ).toBeUndefined()
   })
 
+  it('preserves a ready export when controls repeat the active render graph', async () => {
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.result).toBeDefined()
+
+    act(() => {
+      result.current.clearLUT()
+    })
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.status).toBe('ready')
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.result).toBeDefined()
+
+    act(() => {
+      result.current.selectIntensityLevel(result.current.activeIntensity)
+    })
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.status).toBe('ready')
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.result).toBeDefined()
+  })
+
   it('ignores an in-flight export after render graph inputs change', async () => {
     const pendingExport = deferred<{
       filename: string
