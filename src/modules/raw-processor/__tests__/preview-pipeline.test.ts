@@ -7,52 +7,64 @@ describe('runPreviewPipeline', () => {
   it('falls back to quick preview when embedded preview is unavailable', async () => {
     const onEvent = vi.fn()
 
-    await runPreviewPipeline({
+    const result = await runPreviewPipeline({
       runtimeSession: {
         extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
         decodeQuickRaw: vi.fn().mockResolvedValue({ width: 800, height: 600 }),
-        decodeHqRaw: vi.fn().mockResolvedValue({ width: 4000, height: 3000 }),
+        decodeBoundedHqRaw: vi
+          .fn()
+          .mockResolvedValue({ width: 4000, height: 3000 }),
       },
+      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
       onEvent,
     })
+    await result.boundedHqPromise
 
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'quick-ready', width: 800, height: 600 }),
     )
     expect(onEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'hq-ready', width: 4000, height: 3000 }),
+      expect.objectContaining({
+        type: 'bounded-hq-ready',
+        width: 4000,
+        height: 3000,
+      }),
     )
   })
 
-  it('keeps the quick preview path observable when HQ decode fails', async () => {
+  it('keeps the quick preview path observable when bounded HQ decode fails', async () => {
     const onEvent = vi.fn()
 
-    await runPreviewPipeline({
+    const result = await runPreviewPipeline({
       runtimeSession: {
         extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
         decodeQuickRaw: vi.fn().mockResolvedValue({ width: 800, height: 600 }),
-        decodeHqRaw: vi.fn().mockRejectedValue(new Error('decode failed')),
+        decodeBoundedHqRaw: vi
+          .fn()
+          .mockRejectedValue(new Error('decode failed')),
       },
+      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
       onEvent,
     })
+    await result.boundedHqPromise
 
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'quick-ready', width: 800, height: 600 }),
     )
     expect(onEvent).toHaveBeenCalledWith({
-      type: 'hq-failed',
-      errorCode: 'RAW_HQ_DECODE_FAILED',
+      type: 'bounded-hq-failed',
+      errorCode: 'RAW_BOUNDED_HQ_DECODE_FAILED',
     })
   })
 
   it('reports quick decode failure without marking quick or HQ preview ready', async () => {
     const onEvent = vi.fn()
-    const decodeHqRaw = vi.fn()
+    const decodeBoundedHqRaw = vi.fn()
     const error = Object.assign(new Error('quick decode failed'), {
       code: 'RAW_QUICK_DECODE_FAILED',
     })
 
-    await runPreviewPipeline({
+    const result = await runPreviewPipeline({
       runtimeSession: {
         extractEmbeddedPreview: vi.fn().mockResolvedValue({
           width: 1600,
@@ -61,11 +73,13 @@ describe('runPreviewPipeline', () => {
           mimeType: 'image/jpeg',
         }),
         decodeQuickRaw: vi.fn().mockRejectedValue(error),
-        decodeHqRaw,
+        decodeBoundedHqRaw,
       },
+      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
       onEvent,
     })
 
+    expect(result).toEqual({ boundedHqPromise: null })
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'embedded-ready' }),
     )
@@ -78,9 +92,9 @@ describe('runPreviewPipeline', () => {
       expect.objectContaining({ type: 'quick-ready' }),
     )
     expect(onEvent).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'hq-ready' }),
+      expect.objectContaining({ type: 'bounded-hq-ready' }),
     )
-    expect(decodeHqRaw).not.toHaveBeenCalled()
+    expect(decodeBoundedHqRaw).not.toHaveBeenCalled()
   })
 
   it('still runs quick decode after an embedded preview is found', async () => {
@@ -90,7 +104,7 @@ describe('runPreviewPipeline', () => {
       .mockResolvedValue({ width: 800, height: 600 })
     const embeddedData = new Uint8Array([1, 2, 3])
 
-    await runPreviewPipeline({
+    const result = await runPreviewPipeline({
       runtimeSession: {
         extractEmbeddedPreview: vi.fn().mockResolvedValue({
           width: 1600,
@@ -100,10 +114,14 @@ describe('runPreviewPipeline', () => {
           timings: { total: 8 },
         }),
         decodeQuickRaw,
-        decodeHqRaw: vi.fn().mockResolvedValue({ width: 4000, height: 3000 }),
+        decodeBoundedHqRaw: vi
+          .fn()
+          .mockResolvedValue({ width: 4000, height: 3000 }),
       },
+      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
       onEvent,
     })
+    await result.boundedHqPromise
 
     expect(decodeQuickRaw).toHaveBeenCalledTimes(1)
     expect(onEvent.mock.calls[0][0]).toMatchObject({
@@ -119,11 +137,11 @@ describe('runPreviewPipeline', () => {
     )
   })
 
-  it('emits embedded preview bytes before quick and HQ decode events', async () => {
+  it('emits embedded preview bytes before quick and bounded HQ decode events', async () => {
     const events: PreviewEvent[] = []
     const embeddedData = new Uint8Array([9, 8, 7])
 
-    await runPreviewPipeline({
+    const result = await runPreviewPipeline({
       runtimeSession: {
         extractEmbeddedPreview: vi.fn().mockResolvedValue({
           width: 1600,
@@ -133,15 +151,19 @@ describe('runPreviewPipeline', () => {
           timings: { total: 12, thumbnail: 4 },
         }),
         decodeQuickRaw: vi.fn().mockResolvedValue({ width: 800, height: 600 }),
-        decodeHqRaw: vi.fn().mockResolvedValue({ width: 4000, height: 3000 }),
+        decodeBoundedHqRaw: vi
+          .fn()
+          .mockResolvedValue({ width: 4000, height: 3000 }),
       },
+      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
       onEvent: (event) => events.push(event),
     })
+    await result.boundedHqPromise
 
     expect(events.map((event) => event.type)).toEqual([
       'embedded-ready',
       'quick-ready',
-      'hq-ready',
+      'bounded-hq-ready',
     ])
     expect(events[0]).toMatchObject({
       type: 'embedded-ready',
@@ -159,16 +181,20 @@ describe('runPreviewPipeline', () => {
       .fn()
       .mockResolvedValue({ width: 800, height: 600 })
 
-    await runPreviewPipeline({
+    const result = await runPreviewPipeline({
       runtimeSession: {
         extractEmbeddedPreview: vi
           .fn()
           .mockRejectedValue(new Error('thumbnail unavailable')),
         decodeQuickRaw,
-        decodeHqRaw: vi.fn().mockResolvedValue({ width: 4000, height: 3000 }),
+        decodeBoundedHqRaw: vi
+          .fn()
+          .mockResolvedValue({ width: 4000, height: 3000 }),
       },
+      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
       onEvent,
     })
+    await result.boundedHqPromise
 
     expect(decodeQuickRaw).toHaveBeenCalledTimes(1)
     expect(onEvent).not.toHaveBeenCalledWith(
@@ -179,24 +205,88 @@ describe('runPreviewPipeline', () => {
     )
   })
 
-  it('preserves stable runtime error codes from HQ failures', async () => {
+  it('preserves stable runtime error codes from bounded HQ failures', async () => {
     const onEvent = vi.fn()
     const error = Object.assign(new Error('cross-origin isolation required'), {
       code: 'RAW_CROSS_ORIGIN_ISOLATION_REQUIRED',
     })
 
-    await runPreviewPipeline({
+    const result = await runPreviewPipeline({
       runtimeSession: {
         extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
         decodeQuickRaw: vi.fn().mockResolvedValue({ width: 800, height: 600 }),
-        decodeHqRaw: vi.fn().mockRejectedValue(error),
+        decodeBoundedHqRaw: vi.fn().mockRejectedValue(error),
       },
+      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
       onEvent,
     })
+    await result.boundedHqPromise
 
     expect(onEvent).toHaveBeenCalledWith({
-      type: 'hq-failed',
+      type: 'bounded-hq-failed',
       errorCode: 'RAW_CROSS_ORIGIN_ISOLATION_REQUIRED',
     })
+  })
+
+  it('returns after quick preview while bounded HQ continues in the background', async () => {
+    const events: PreviewEvent[] = []
+    let resolveBoundedHq!: (value: { width: number; height: number }) => void
+    const boundedHqPromise = new Promise<{ width: number; height: number }>(
+      (resolve) => {
+        resolveBoundedHq = resolve
+      },
+    )
+
+    const result = await runPreviewPipeline({
+      runtimeSession: {
+        extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+        decodeQuickRaw: vi
+          .fn()
+          .mockResolvedValue({ width: 1600, height: 1000 }),
+        decodeBoundedHqRaw: vi.fn().mockReturnValue(boundedHqPromise),
+      },
+      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
+      onEvent: (event) => events.push(event),
+    })
+
+    expect(events.map((event) => event.type)).toEqual(['quick-ready'])
+    expect(result.boundedHqPromise).toBeInstanceOf(Promise)
+
+    resolveBoundedHq({ width: 4000, height: 3000 })
+    await result.boundedHqPromise
+
+    expect(events.map((event) => event.type)).toEqual([
+      'quick-ready',
+      'bounded-hq-ready',
+    ])
+  })
+
+  it('keeps quick preview when bounded HQ fails', async () => {
+    const events: PreviewEvent[] = []
+    const error = Object.assign(new Error('bounded failed'), {
+      code: 'RAW_BOUNDED_HQ_DECODE_FAILED',
+    })
+
+    const result = await runPreviewPipeline({
+      runtimeSession: {
+        extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+        decodeQuickRaw: vi
+          .fn()
+          .mockResolvedValue({ width: 1600, height: 1000 }),
+        decodeBoundedHqRaw: vi.fn().mockRejectedValue(error),
+      },
+      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
+      onEvent: (event) => events.push(event),
+    })
+
+    await result.boundedHqPromise
+
+    expect(events).toContainEqual({
+      type: 'bounded-hq-failed',
+      errorCode: 'RAW_BOUNDED_HQ_DECODE_FAILED',
+    })
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: 'quick-ready' }),
+    )
   })
 })

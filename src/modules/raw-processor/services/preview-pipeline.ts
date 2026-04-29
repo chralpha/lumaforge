@@ -1,3 +1,5 @@
+import type { BoundedHqPreviewDecision } from './preview-resolution-policy'
+
 export type EmbeddedPreviewPayload = {
   width: number
   height: number
@@ -10,8 +12,13 @@ export type PreviewEvent =
   | ({ type: 'embedded-ready' } & EmbeddedPreviewPayload)
   | { type: 'quick-ready'; width: number; height: number }
   | { type: 'quick-failed'; errorCode: string; message: string }
-  | { type: 'hq-ready'; width: number; height: number }
-  | { type: 'hq-failed'; errorCode: string }
+  | { type: 'bounded-hq-ready'; width: number; height: number }
+  | { type: 'bounded-hq-failed'; errorCode: string }
+  | { type: 'bounded-hq-skipped'; reason: string }
+
+export type PreviewPipelineResult = {
+  boundedHqPromise: Promise<void> | null
+}
 
 function toPreviewErrorCode(error: unknown, fallbackCode: string) {
   if (typeof error === 'object' && error && 'code' in error) {
@@ -30,15 +37,19 @@ function toPreviewErrorMessage(error: unknown, fallbackMessage: string) {
 
 export async function runPreviewPipeline({
   runtimeSession,
+  boundedHqDecision,
   onEvent,
 }: {
   runtimeSession: {
     extractEmbeddedPreview: () => Promise<EmbeddedPreviewPayload | null>
     decodeQuickRaw: () => Promise<{ width: number; height: number }>
-    decodeHqRaw: () => Promise<{ width: number; height: number }>
+    decodeBoundedHqRaw: (options: {
+      maxOutputPixels: number
+    }) => Promise<{ width: number; height: number }>
   }
+  boundedHqDecision: BoundedHqPreviewDecision
   onEvent: (event: PreviewEvent) => void
-}) {
+}): Promise<PreviewPipelineResult> {
   let embedded: EmbeddedPreviewPayload | null = null
   try {
     embedded = await runtimeSession.extractEmbeddedPreview()
@@ -59,21 +70,32 @@ export async function runPreviewPipeline({
       errorCode: toPreviewErrorCode(error, 'RAW_QUICK_DECODE_FAILED'),
       message: toPreviewErrorMessage(error, 'Quick preview decode failed'),
     })
-    return
+    return { boundedHqPromise: null }
   }
 
   onEvent({ type: 'quick-ready', ...quick })
   await yieldToPreviewPaint()
 
-  try {
-    const hq = await runtimeSession.decodeHqRaw()
-    onEvent({ type: 'hq-ready', ...hq })
-  } catch (error) {
-    onEvent({
-      type: 'hq-failed',
-      errorCode: toPreviewErrorCode(error, 'RAW_HQ_DECODE_FAILED'),
-    })
+  if (boundedHqDecision.kind === 'skip') {
+    onEvent({ type: 'bounded-hq-skipped', reason: boundedHqDecision.reason })
+    return { boundedHqPromise: null }
   }
+
+  const boundedHqPromise = (async () => {
+    try {
+      const boundedHq = await runtimeSession.decodeBoundedHqRaw({
+        maxOutputPixels: boundedHqDecision.maxOutputPixels,
+      })
+      onEvent({ type: 'bounded-hq-ready', ...boundedHq })
+    } catch (error) {
+      onEvent({
+        type: 'bounded-hq-failed',
+        errorCode: toPreviewErrorCode(error, 'RAW_BOUNDED_HQ_DECODE_FAILED'),
+      })
+    }
+  })()
+
+  return { boundedHqPromise }
 }
 
 export async function extractEmbeddedPreviewBestEffort() {
