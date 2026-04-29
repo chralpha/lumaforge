@@ -29,7 +29,7 @@ export function RawToolSurface(props: {
     fidelity: 'safe' | 'balanced' | 'max'
   }) => void
   canExport: boolean
-  disabledReason: string
+  disabledReason?: string
   isProcessing: boolean
   hasImage: boolean
   currentLutName?: string | null

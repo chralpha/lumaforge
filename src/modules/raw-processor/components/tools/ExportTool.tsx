@@ -9,13 +9,16 @@ export function ExportTool({
   onExport,
 }: {
   canExport: boolean
-  disabledReason: string
+  disabledReason?: string
   isProcessing: boolean
   onExport: (options: {
     quality: 'standard' | 'high'
     fidelity: 'safe' | 'balanced' | 'max'
   }) => void
 }) {
+  const unavailableReason =
+    disabledReason || 'Full-resolution export source is still loading.'
+
   return (
     <ToolSection title="Export" eyebrow="Full-res JPEG">
       <Button
@@ -30,7 +33,7 @@ export function ExportTool({
       <p className="raw-tool-note">
         {canExport
           ? 'Exports from the LibRaw processed-window path.'
-          : disabledReason}
+          : unavailableReason}
       </p>
     </ToolSection>
   )
