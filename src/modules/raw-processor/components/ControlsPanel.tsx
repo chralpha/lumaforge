@@ -11,12 +11,7 @@ import { Divider } from '~/components/ui/divider'
 import { Input } from '~/components/ui/input'
 import { clsxm } from '~/lib/cn'
 import type { LUTColorProfile } from '~/lib/color/registry'
-import {
-  getColorGamut,
-  getLUTColorProfile,
-  getTransferFunction,
-  searchLUTColorProfiles,
-} from '~/lib/color/registry'
+import { searchLUTColorProfiles } from '~/lib/color/registry'
 import type { LUTProfileResolution } from '~/lib/gl/pipeline'
 import { Spring } from '~/lib/spring'
 
@@ -24,6 +19,13 @@ import type { LUTProfileSelectionState } from '../model/session'
 import { exportDisabledReasonAtom } from '../state/session.atoms'
 import { LutDropzone } from './Dropzone'
 import { IntensityChips } from './IntensityChips'
+import {
+  getProfileContractLabel,
+  getProfileOutputLabel,
+  getResolvedProfile,
+  groupProfiles,
+  toSelectableContract,
+} from './tools/lut-contract'
 
 type ViewMode = 'processed' | 'original' | 'compare'
 
@@ -54,127 +56,6 @@ export interface ControlsPanelProps {
 
 const UNKNOWN_LUT_COPY =
   'Choose the LUT input and output contract before preview or export.'
-const DISPLAY_LIKE_INPUT_TRANSFERS = new Set(['srgb', 'bt709', 'gamma24'])
-
-function getResolvedProfile(
-  selection?: LUTProfileSelectionState | null,
-  resolution?: LUTProfileResolution | null,
-) {
-  if (resolution?.kind === 'resolved') return resolution.profile
-  if (selection?.status === 'resolved') {
-    return getLUTColorProfile(selection.profileId)
-  }
-  return undefined
-}
-
-function hasDisplayLikeInput(profile: LUTColorProfile) {
-  return (
-    profile.inputGamut === 'srgb-rec709' &&
-    DISPLAY_LIKE_INPUT_TRANSFERS.has(profile.inputTransfer)
-  )
-}
-
-function getProfileOutputLabel(profile?: LUTColorProfile) {
-  if (!profile) return undefined
-
-  if (!profile.outputGamut || !profile.outputTransfer || !profile.outputRange) {
-    if (profile.role === 'display-look' && hasDisplayLikeInput(profile)) {
-      return 'Rec.709 display'
-    }
-    return 'Output profile required'
-  }
-
-  if (
-    profile.outputGamut === 'srgb-rec709' &&
-    ['srgb', 'bt709', 'gamma24'].includes(profile.outputTransfer)
-  ) {
-    return 'Rec.709 display'
-  }
-
-  const gamut = profile.outputGamut
-    ? (getColorGamut(profile.outputGamut)?.label ?? profile.outputGamut)
-    : undefined
-  const transfer = profile.outputTransfer
-    ? (getTransferFunction(profile.outputTransfer)?.label ??
-      profile.outputTransfer)
-    : undefined
-
-  return [gamut, transfer].filter(Boolean).join(' / ')
-}
-
-function hasAnyOutputContractField(profile: LUTColorProfile) {
-  return Boolean(
-    profile.outputGamut || profile.outputTransfer || profile.outputRange,
-  )
-}
-
-function hasSelectableOutputContract(profile: LUTColorProfile) {
-  if (profile.role === 'display-look' && hasDisplayLikeInput(profile)) {
-    return true
-  }
-
-  return Boolean(
-    profile.outputGamut && profile.outputTransfer && profile.outputRange,
-  )
-}
-
-function getDefaultRec709Contract(profile: LUTColorProfile): LUTColorProfile {
-  return {
-    ...profile,
-    role: 'combined-look-output',
-    outputGamut: 'srgb-rec709',
-    outputTransfer: 'bt709',
-    outputRange: 'full',
-  }
-}
-
-function toSelectableContract(profile: LUTColorProfile) {
-  if (hasSelectableOutputContract(profile)) return profile
-  if (!hasAnyOutputContractField(profile) && !hasDisplayLikeInput(profile)) {
-    return getDefaultRec709Contract(profile)
-  }
-  return undefined
-}
-
-function getProfileContractLabel(profile: LUTColorProfile) {
-  const outputLabel = getProfileOutputLabel(profile)
-  if (
-    outputLabel &&
-    outputLabel !== 'Output profile required' &&
-    !hasDisplayLikeInput(profile)
-  ) {
-    return `${profile.label} -> ${outputLabel}`
-  }
-
-  return profile.label
-}
-
-function getProfileGroupLabel(profile: LUTColorProfile) {
-  if (profile.role === 'display-look') return 'Output'
-  if (profile.label.startsWith('ARRI')) return 'ARRI'
-  if (profile.label.startsWith('RED')) return 'RED'
-  if (profile.label.startsWith('Nikon')) return 'Nikon'
-  if (profile.label.startsWith('Sony')) return 'Sony'
-  if (profile.label.startsWith('Canon')) return 'Canon'
-  if (profile.label.startsWith('Fujifilm')) return 'Fujifilm'
-  if (profile.label.startsWith('Panasonic')) return 'Panasonic'
-  if (profile.label.startsWith('ACES')) return 'ACES'
-  return 'Other'
-}
-
-function groupProfiles(profiles: LUTColorProfile[]) {
-  const groups = new Map<string, LUTColorProfile[]>()
-
-  for (const profile of profiles) {
-    const group = getProfileGroupLabel(profile)
-    groups.set(group, [...(groups.get(group) ?? []), profile])
-  }
-
-  return Array.from(groups.entries()).map(([label, items]) => ({
-    label,
-    items,
-  }))
-}
 
 function LUTProfileButton({
   profile,
