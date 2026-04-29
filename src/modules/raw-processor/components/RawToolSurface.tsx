@@ -44,7 +44,7 @@ export function RawToolSurface(props: {
 
   return (
     <aside
-      className="raw-lab-controls raw-tool-surface"
+      className="raw-tool-surface"
       data-raw-tool-surface="raw-finishing"
       data-raw-tool-sheet={open ? 'open' : 'closed'}
       aria-label="RAW finishing controls"
