@@ -561,6 +561,89 @@ describe('runtime-core', () => {
     expect(decodeHq).toHaveBeenCalledWith({ maxOutputPixels: 12_000_000 })
   })
 
+  it('rejects session bounded HQ requests with a missing output cap', async () => {
+    const decodeHq = vi.fn(() => ({
+      data: new Uint16Array(1),
+      width: 1,
+      height: 1,
+      bits: 16 as const,
+    }))
+    const core = createRuntimeCore({
+      createProcessor() {
+        return {
+          ...makeNativeFactory().createProcessor(),
+          decodeHq,
+        }
+      },
+    })
+
+    const opened = await core.handleRequest({
+      id: 'open-missing-cap',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.RAF',
+        fileSize: 4,
+      },
+    })
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+
+    const response = await core.handleRequest({
+      id: 'bounded-missing-cap',
+      type: 'decodeBoundedHqFromSession',
+      payload: {
+        sessionId: opened.payload.sessionId,
+      },
+    } as never)
+
+    expect(response).toMatchObject({
+      ok: false,
+      type: 'decodeBoundedHqFromSession',
+      error: {
+        code: 'RAW_WORKER_PROTOCOL_ERROR',
+      },
+    })
+    expect(decodeHq).not.toHaveBeenCalled()
+  })
+
+  it('rejects file bounded HQ requests with a non-finite output cap', async () => {
+    const decodeHq = vi.fn(() => ({
+      data: new Uint16Array(1),
+      width: 1,
+      height: 1,
+      bits: 16 as const,
+    }))
+    const core = createRuntimeCore({
+      createProcessor() {
+        return {
+          ...makeNativeFactory().createProcessor(),
+          decodeHq,
+        }
+      },
+    })
+
+    const response = await core.handleRequest({
+      id: 'bounded-non-finite-cap',
+      type: 'decodeBoundedHq',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.RAF',
+        fileSize: 4,
+        maxOutputPixels: Number.POSITIVE_INFINITY,
+      },
+    })
+
+    expect(response).toMatchObject({
+      ok: false,
+      type: 'decodeBoundedHq',
+      error: {
+        code: 'RAW_WORKER_PROTOCOL_ERROR',
+      },
+    })
+    expect(decodeHq).not.toHaveBeenCalled()
+  })
+
   it('passes through native raw-window capability and window payloads', async () => {
     const nativeCapability = {
       supported: true,

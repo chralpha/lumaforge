@@ -297,6 +297,27 @@ function isBoundedHqRequest(
   )
 }
 
+function requireBoundedHqMaxOutputPixels(
+  request: LumaRawWorkerRequest<
+    'decodeBoundedHq' | 'decodeBoundedHqFromSession'
+  >,
+) {
+  const maxOutputPixels = (request.payload as { maxOutputPixels?: unknown })
+    .maxOutputPixels
+  if (
+    typeof maxOutputPixels !== 'number' ||
+    !Number.isFinite(maxOutputPixels) ||
+    maxOutputPixels <= 0
+  ) {
+    throw new LumaRawRuntimeError(
+      'RAW_WORKER_PROTOCOL_ERROR',
+      'RAW runtime bounded HQ maxOutputPixels must be a positive finite number.',
+    )
+  }
+
+  return maxOutputPixels
+}
+
 function captureHeap(nativeFactory: LumaRawNativeFactory) {
   return nativeFactory.heapBytes?.()
 }
@@ -399,6 +420,9 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
       return cancelledResponse(request)
     }
 
+    const boundedHqMaxOutputPixels = isBoundedHqRequest(request)
+      ? requireBoundedHqMaxOutputPixels(request)
+      : undefined
     const timer = createTimer()
     const settings = isBoundedHqRequest(request) ? hqSettings : quickSettings
     const heapBefore =
@@ -474,7 +498,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
       } else {
         const image = isBoundedHqRequest(request)
           ? processor.decodeHq({
-              maxOutputPixels: request.payload.maxOutputPixels,
+              maxOutputPixels: boundedHqMaxOutputPixels,
             })
           : processor.decodePreview({
               maxOutputPixels: defaultQuickMaxOutputPixels,
@@ -693,6 +717,9 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
       return cancelledResponse(request)
     }
 
+    const boundedHqMaxOutputPixels = isBoundedHqRequest(request)
+      ? requireBoundedHqMaxOutputPixels(request)
+      : undefined
     const session = requireSession(request.payload.sessionId)
     const timer = createTimer()
     const heapBefore = captureHeap(nativeFactory)
@@ -704,7 +731,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
 
     const image = isBoundedHqRequest(request)
       ? session.processor.decodeHq({
-          maxOutputPixels: request.payload.maxOutputPixels,
+          maxOutputPixels: boundedHqMaxOutputPixels,
         })
       : session.processor.decodePreview({
           maxOutputPixels:

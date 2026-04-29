@@ -4,6 +4,7 @@ export type { LumaRawRuntimeOptions } from './runtime'
 export { createLumaRawRuntime } from './runtime'
 export type {
   LumaEmbeddedPreview,
+  LumaRawBoundedHqOptions,
   LumaRawCfaInfo,
   LumaRawCfaPattern,
   LumaRawDecodeSession,
