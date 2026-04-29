@@ -6,12 +6,12 @@ import { afterEach, beforeEach, vi } from 'vitest'
 import { getLUTColorProfile } from '~/lib/color/registry'
 
 import { ComparePreviewStage } from '../components/ComparePreviewStage'
-import { ControlsPanel } from '../components/ControlsPanel'
 import { PreviewCanvas } from '../components/PreviewCanvas'
+import { RawToolSurface } from '../components/RawToolSurface'
 
-function controlsPanelProps(
-  overrides: Partial<ComponentProps<typeof ControlsPanel>> = {},
-): ComponentProps<typeof ControlsPanel> {
+function rawToolSurfaceProps(
+  overrides: Partial<ComponentProps<typeof RawToolSurface>> = {},
+): ComponentProps<typeof RawToolSurface> {
   return {
     presetOptions: [
       { id: 'neutral', name: 'Neutral' },
@@ -28,8 +28,15 @@ function controlsPanelProps(
     onLutProfileSelect: () => {},
     onExport: () => {},
     canExport: false,
+    disabledReason: 'Full-resolution export source is still loading.',
     isProcessing: false,
     hasImage: true,
+    currentLutName: null,
+    lutProfileSelection: null,
+    lutProfileResolution: null,
+    supportLevel: 'experimental',
+    metadata: null,
+    stats: null,
     ...overrides,
   }
 }
@@ -102,10 +109,12 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('controlsPanel', () => {
-  it('shows finite intensity choices and no pro controls', () => {
-    render(<ControlsPanel {...controlsPanelProps()} />)
+describe('rawToolSurface', () => {
+  it('presents task-grouped RAW finishing tools', () => {
+    render(<RawToolSurface {...rawToolSurfaceProps()} />)
 
+    expect(screen.getByRole('region', { name: 'Finish' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Strength' })).toBeInTheDocument()
     expect(screen.getByText('Neutral')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Standard' })).toBeInTheDocument()
     expect(screen.queryByText('Exposure')).not.toBeInTheDocument()
@@ -113,7 +122,7 @@ describe('controlsPanel', () => {
   })
 
   it('disables preset and LUT loading controls before upload', () => {
-    render(<ControlsPanel {...controlsPanelProps({ hasImage: false })} />)
+    render(<RawToolSurface {...rawToolSurfaceProps({ hasImage: false })} />)
 
     expect(screen.getByRole('button', { name: 'Neutral' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Warm' })).toBeDisabled()
@@ -124,8 +133,8 @@ describe('controlsPanel', () => {
 
   it('shows hook-provided export disabled reason in the export controls', () => {
     render(
-      <ControlsPanel
-        {...controlsPanelProps({
+      <RawToolSurface
+        {...rawToolSurfaceProps({
           disabledReason: 'RAW preview exposure is still being prepared.',
         })}
       />,
@@ -137,7 +146,7 @@ describe('controlsPanel', () => {
   })
 
   it('keeps compare copy tied to the new split interaction', () => {
-    render(<ControlsPanel {...controlsPanelProps({ viewMode: 'compare' })} />)
+    render(<RawToolSurface {...rawToolSurfaceProps({ viewMode: 'compare' })} />)
 
     expect(screen.getByText('Compare')).toBeInTheDocument()
     expect(screen.getByText('Drag the split on the image.')).toBeInTheDocument()
@@ -154,8 +163,8 @@ describe('controlsPanel', () => {
     const onCompareReset = vi.fn()
 
     render(
-      <ControlsPanel
-        {...controlsPanelProps({
+      <RawToolSurface
+        {...rawToolSurfaceProps({
           viewMode: 'compare',
           onCompareReset,
         })}
@@ -184,8 +193,8 @@ describe('controlsPanel', () => {
     }
 
     render(
-      <ControlsPanel
-        {...controlsPanelProps({
+      <RawToolSurface
+        {...rawToolSurfaceProps({
           currentLutName: 'Sony Look.cube',
           lutProfileSelection: {
             status: 'pending',
@@ -243,8 +252,8 @@ describe('controlsPanel', () => {
     }
 
     render(
-      <ControlsPanel
-        {...controlsPanelProps({
+      <RawToolSurface
+        {...rawToolSurfaceProps({
           currentLutName: 'Panasonic Look.cube',
           lutProfileSelection: {
             status: 'resolved',
@@ -274,8 +283,8 @@ describe('controlsPanel', () => {
     const profile = getLUTColorProfile('panasonic-vgamut-vlog')!
 
     render(
-      <ControlsPanel
-        {...controlsPanelProps({
+      <RawToolSurface
+        {...rawToolSurfaceProps({
           currentLutName: 'Panasonic Look.cube',
           lutProfileSelection: {
             status: 'resolved',
@@ -303,7 +312,7 @@ describe('controlsPanel', () => {
     const sonyProfile = getLUTColorProfile('sony-sgamut3cine-slog3')!
     const canonProfile = getLUTColorProfile('canon-cinema-gamut-clog3')!
 
-    const firstLutProps = controlsPanelProps({
+    const firstLutProps = rawToolSurfaceProps({
       currentLutName: 'Sony Look.cube',
       lutProfileSelection: {
         status: 'resolved',
@@ -317,7 +326,7 @@ describe('controlsPanel', () => {
         confidence: 'metadata',
       },
     })
-    const { rerender } = render(<ControlsPanel {...firstLutProps} />)
+    const { rerender } = render(<RawToolSurface {...firstLutProps} />)
 
     await user.click(
       screen.getByRole('button', { name: 'Change LUT contract' }),
@@ -332,8 +341,8 @@ describe('controlsPanel', () => {
     ).not.toBeInTheDocument()
 
     rerender(
-      <ControlsPanel
-        {...controlsPanelProps({
+      <RawToolSurface
+        {...rawToolSurfaceProps({
           currentLutName: 'Canon Look.cube',
           lutProfileSelection: {
             status: 'resolved',
@@ -369,8 +378,8 @@ describe('controlsPanel', () => {
     const onLutProfileSelect = vi.fn()
 
     render(
-      <ControlsPanel
-        {...controlsPanelProps({
+      <RawToolSurface
+        {...rawToolSurfaceProps({
           currentLutName: 'Unknown Look.cube',
           lutProfileSelection: {
             status: 'pending',
@@ -431,8 +440,8 @@ describe('controlsPanel', () => {
     }
 
     render(
-      <ControlsPanel
-        {...controlsPanelProps({
+      <RawToolSurface
+        {...rawToolSurfaceProps({
           currentLutName: 'Unknown Look.cube',
           lutProfileSelection: {
             status: 'pending',
@@ -462,8 +471,8 @@ describe('controlsPanel', () => {
     const suggestion = getLUTColorProfile('sony-sgamut3cine-slog3')!
 
     render(
-      <ControlsPanel
-        {...controlsPanelProps({
+      <RawToolSurface
+        {...rawToolSurfaceProps({
           currentLutName: 'Cineon Output.cube',
           lutProfileSelection: {
             status: 'pending',
