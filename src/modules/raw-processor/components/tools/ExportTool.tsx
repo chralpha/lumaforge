@@ -32,9 +32,9 @@ export function ExportTool({
   }) => void
   exportResult: ExportResult | null
   exportShareCapability: ExportShareCapability
-  onShareExport: () => void
+  onShareExport: () => void | Promise<void>
   onDownloadExport: () => void
-  onCopyExport: () => void
+  onCopyExport: () => void | Promise<void>
 }) {
   const unavailableReason =
     disabledReason || 'Full-resolution export source is still loading.'
