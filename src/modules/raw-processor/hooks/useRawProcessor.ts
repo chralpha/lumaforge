@@ -51,6 +51,10 @@ import {
   deriveExportDisabledReason,
   selectDisplaySource,
 } from '../model/derive-session'
+import type {
+  ExportResult,
+  ExportShareCapability,
+} from '../model/export-result'
 import { createExportResult } from '../model/export-result'
 import type {
   DisplaySource,
@@ -59,7 +63,14 @@ import type {
   StyleAsset,
 } from '../model/session'
 import { BUILTIN_PRESETS } from '../services/builtin-presets'
-import { resolveExportCopyCapability } from '../services/export-result-actions'
+import {
+  copyBlobToClipboard,
+  copyCanvasToClipboard,
+  downloadExportResult as downloadStoredExportResult,
+  resolveExportCopyCapability,
+  resolveExportShareCapability,
+  shareExportResult as shareStoredExportResult,
+} from '../services/export-result-actions'
 import {
   buildExportFilename,
   getConcurrencyForFidelity,
@@ -182,6 +193,24 @@ function enqueuePostCommitTask(task: () => void) {
   setTimeout(task, 0)
 }
 
+function clearExportResultState<T extends ImageSession | null>(session: T): T {
+  if (!session?.exportState.result) {
+    return session
+  }
+
+  return {
+    ...session,
+    exportState: {
+      ...session.exportState,
+      status:
+        session.exportState.status === 'ready'
+          ? 'idle'
+          : session.exportState.status,
+      result: undefined,
+    },
+  }
+}
+
 const MISSING_RAW_RENDER_EXPOSURE_EXPORT_REASON =
   'RAW preview exposure is still being prepared.'
 
@@ -233,6 +262,8 @@ export interface UseRawProcessorReturn {
   hasImage: boolean
   canExport: boolean
   exportDisabledReason?: string
+  exportResult: ExportResult | null
+  exportShareCapability: ExportShareCapability
   activeStyle: StyleAsset | null
   lutProfileSelection: LUTProfileSelectionState | null
   activePresetId: (typeof BUILTIN_PRESETS)[number]['id'] | null
@@ -261,6 +292,9 @@ export interface UseRawProcessorReturn {
     quality: 'standard' | 'high'
     fidelity: 'safe' | 'balanced' | 'max'
   }) => Promise<void>
+  downloadExportResult: () => void
+  shareExportResult: () => Promise<void>
+  copyExportResult: () => Promise<void>
   reset: () => void
   dismissError: () => void
   updateStats: (stats: PipelineStats) => void
@@ -284,8 +318,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const setLut = useSetLut()
   const stats = usePipelineStatsValue()
   const setStats = useSetPipelineStats()
-  const { session, replaceFile, resetSession, setActiveStyle, setSession } =
-    useImageSession()
+  const { session, replaceFile, resetSession, setSession } = useImageSession()
 
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
   const sessionRef = useRef(session)
@@ -1105,11 +1138,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
         setLut(parsed)
         setSession((prev) =>
           prev
-            ? {
+            ? clearExportResultState({
                 ...prev,
                 activeStyle: style,
                 lutProfileSelection: buildLUTProfileSelectionState(parsed),
-              }
+              })
             : prev,
         )
         setParams((prev) => ({
@@ -1185,11 +1218,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
       setLut(updatedLut)
       setSession((prev) =>
         prev
-          ? {
+          ? clearExportResultState({
               ...prev,
               activeStyle: style,
               lutProfileSelection: buildLUTProfileSelectionState(updatedLut),
-            }
+            })
           : prev,
       )
       setParams((prev) => ({
@@ -1207,13 +1240,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
       const style = buildBuiltinStyle(id)
       setLut(null)
       setLutDataRef(null)
-      setActiveStyle(style)
       setSession((prev) =>
         prev
-          ? {
+          ? clearExportResultState({
               ...prev,
+              activeStyle: style,
               lutProfileSelection: undefined,
-            }
+            })
           : prev,
       )
       setParams((prev) => ({
@@ -1223,24 +1256,28 @@ export function useRawProcessor(): UseRawProcessorReturn {
         intensity: mapIntensityLevel(style.defaultIntensityLevel),
       }))
     },
-    [setActiveStyle, setLut, setLutDataRef, setParams, setSession],
+    [setLut, setLutDataRef, setParams, setSession],
   )
 
   const selectIntensityLevel = useCallback(
     (level: 'off' | 'light' | 'standard' | 'strong') => {
       setParams((prev) => ({ ...prev, intensity: mapIntensityLevel(level) }))
       setSession((prev) => {
-        if (!prev || !prev.activeStyle) {
+        if (!prev) {
           return prev
         }
 
-        return {
+        if (!prev.activeStyle) {
+          return clearExportResultState(prev)
+        }
+
+        return clearExportResultState({
           ...prev,
           activeStyle: {
             ...prev.activeStyle,
             currentIntensityLevel: level,
           },
-        }
+        })
       })
     },
     [setParams, setSession],
@@ -1288,13 +1325,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const clearLUT = useCallback(() => {
     setLut(null)
     setLutDataRef(null)
-    setActiveStyle(null)
     setSession((prev) =>
       prev
-        ? {
+        ? clearExportResultState({
             ...prev,
+            activeStyle: null,
             lutProfileSelection: undefined,
-          }
+          })
         : prev,
     )
     setParams((prev) => ({
@@ -1303,14 +1340,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       builtinPreset: null,
     }))
     scheduleToast(() => toast.info('LUT cleared'))
-  }, [
-    scheduleToast,
-    setActiveStyle,
-    setLut,
-    setLutDataRef,
-    setParams,
-    setSession,
-  ])
+  }, [scheduleToast, setLut, setLutDataRef, setParams, setSession])
 
   // Update params
   const handleSetParams = useCallback(
@@ -1564,6 +1594,83 @@ export function useRawProcessor(): UseRawProcessorReturn {
     ],
   )
 
+  const downloadExportResult = useCallback(() => {
+    const result = sessionRef.current?.exportState.result
+    if (!result) return
+
+    try {
+      downloadStoredExportResult(result)
+    } catch (err) {
+      const description =
+        err instanceof Error ? err.message : 'Download action failed.'
+      scheduleToast(() =>
+        toast.error('Download failed', {
+          description,
+        }),
+      )
+    }
+  }, [scheduleToast])
+
+  const shareExportResult = useCallback(async () => {
+    const result = sessionRef.current?.exportState.result
+    if (!result) return
+
+    try {
+      await shareStoredExportResult(result)
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return
+      }
+
+      const description =
+        err instanceof Error ? err.message : 'Share action failed.'
+      scheduleToast(() =>
+        toast.error('Share failed', {
+          description,
+        }),
+      )
+    }
+  }, [scheduleToast])
+
+  const copyExportResult = useCallback(async () => {
+    const result = sessionRef.current?.exportState.result
+    if (!result) return
+
+    try {
+      if (result.copyCapability.mode === 'full-resolution') {
+        await copyBlobToClipboard(result.blob)
+        scheduleToast(() => toast.success('Full-resolution image copied'))
+        return
+      }
+
+      if (result.copyCapability.mode === 'preview-size') {
+        const pipeline = pipelineRef.current
+        const previewSize = stats?.previewSize
+        if (!pipeline || !previewSize) {
+          throw new Error('Preview image is not ready to copy.')
+        }
+
+        const canvas = await pipeline.renderToHiddenCanvas({
+          width: previewSize.width,
+          height: previewSize.height,
+        })
+        await copyCanvasToClipboard(canvas)
+        scheduleToast(() => toast.success('Preview-size image copied'))
+        return
+      }
+
+      throw new Error(result.copyCapability.reason)
+    } catch (err) {
+      const description =
+        err instanceof Error ? err.message : 'Copy action failed.'
+      scheduleToast(() =>
+        toast.error('Copy failed', {
+          description,
+        }),
+      )
+    }
+  }, [scheduleToast, stats?.previewSize])
+
   // Reset state
   const reset = useCallback(() => {
     runtimeWorkSessionIdRef.current = null
@@ -1608,6 +1715,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [setStats],
   )
 
+  const exportResult = session?.exportState.result ?? null
+  const exportShareCapability = exportResult
+    ? resolveExportShareCapability(exportResult)
+    : { available: false as const, reason: 'Export a JPEG before sharing.' }
+
   return {
     params,
     loadedImage: {
@@ -1627,6 +1739,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
     hasImage,
     canExport,
     exportDisabledReason,
+    exportResult,
+    exportShareCapability,
     activeStyle,
     lutProfileSelection,
     activePresetId,
@@ -1650,6 +1764,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
     clearLUT,
     setParams: handleSetParams,
     exportImage,
+    downloadExportResult,
+    shareExportResult,
+    copyExportResult,
     reset,
     dismissError,
     updateStats,

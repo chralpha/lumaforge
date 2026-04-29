@@ -1266,6 +1266,119 @@ describe('useRawProcessor embedded preview state', () => {
     expect(revokeObjectURL).not.toHaveBeenCalled()
   })
 
+  it('downloads a ready export only when downloadExportResult is called', async () => {
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+    const { click } = stubDownloadLink()
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    expect(click).not.toHaveBeenCalled()
+
+    act(() => {
+      result.current.downloadExportResult()
+    })
+
+    expect(click).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a ready export after share cancellation', async () => {
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+    vi.stubGlobal('navigator', {
+      canShare: vi.fn(() => true),
+      share: vi.fn().mockRejectedValue(new DOMException('Abort', 'AbortError')),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+    await act(async () => {
+      await result.current.shareExportResult()
+    })
+
+    expect(toastMock.error).not.toHaveBeenCalledWith(
+      'Share failed',
+      expect.anything(),
+    )
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.status).toBe('ready')
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.result).toBeDefined()
+  })
+
+  it('clears a ready export when render graph inputs change but not when compare split changes', async () => {
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.result).toBeDefined()
+
+    act(() => {
+      result.current.setCompareSplit(0.25)
+    })
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.result).toBeDefined()
+
+    act(() => {
+      result.current.selectIntensityLevel('strong')
+    })
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.status).toBe('idle')
+    expect(
+      jotaiStore.get(currentSessionAtom)?.exportState.result,
+    ).toBeUndefined()
+  })
+
   it('aborts and disposes stale runtime session when replacing files', async () => {
     const staleQuickDecode = deferred<DecodedImage>()
     const staleSession = {
