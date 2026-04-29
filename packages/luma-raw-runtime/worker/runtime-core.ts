@@ -769,6 +769,9 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
     }
 
     const session = requireSession(request.payload.sessionId)
+    const timer = createTimer()
+    openProcessorWithSettings(session.processor, quickSettings, timer)
+
     const response: LumaRawWorkerResponse = {
       id: request.id,
       ok: true,

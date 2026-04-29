@@ -1386,6 +1386,132 @@ describe('runtime-core', () => {
     })
   })
 
+  it('reopens the session before probing export capability after preview decode', async () => {
+    let sensorFactsAvailable = false
+    let openWithSettingsCount = 0
+
+    const supportedCapability = {
+      supported: true,
+      strategy: 'libraw-processed-window' as const,
+      width: 4000,
+      height: 3000,
+      rawWidth: 4024,
+      rawHeight: 3024,
+      visibleCrop: { x: 12, y: 12, width: 4000, height: 3000 },
+      cfa: { pattern: 'rggb' as const, xPhase: 0 as const, yPhase: 0 as const },
+      blackLevel: 512,
+      whiteLevel: 16383,
+      orientation: { code: 1, supported: true },
+      color: {
+        whiteBalance: [2, 1, 1.5, 1],
+        cameraToWorkingRgb: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+        workingSpace: 'linear-prophoto-rgb',
+        librawOutputColor: 'prophoto',
+        gamma: 'linear',
+        cameraWhiteBalanceAppliedByRuntime: true,
+        cameraMatrixAppliedByRuntime: true,
+      },
+      sensor: {
+        layout: 'bayer' as const,
+        colorCount: 3,
+        cfa: {
+          pattern: 'rggb' as const,
+          xPhase: 0 as const,
+          yPhase: 0 as const,
+        },
+        phaseIsWindowLocal: false,
+      },
+      windows: { librawProcessed: true, rawMosaic: true },
+      diagnostics: {
+        hasRawImage: true,
+        hasColor3Image: false,
+        hasColor4Image: false,
+        hasXTransTable: false,
+      },
+      reasons: [],
+    }
+    const unsupportedCapability = {
+      ...supportedCapability,
+      supported: false,
+      cfa: {
+        pattern: 'unsupported' as const,
+        xPhase: 0 as const,
+        yPhase: 0 as const,
+      },
+      sensor: {
+        layout: 'unknown' as const,
+        colorCount: 0,
+        cfa: {
+          pattern: 'unsupported' as const,
+          xPhase: 0 as const,
+          yPhase: 0 as const,
+        },
+        phaseIsWindowLocal: false,
+      },
+      reasons: ['unsupported-sensor-layout' as const],
+    }
+
+    const core = createRuntimeCore({
+      createProcessor() {
+        const processor = makeNativeFactory().createProcessor()
+
+        return {
+          ...processor,
+          openWithSettings(settings) {
+            sensorFactsAvailable = true
+            openWithSettingsCount += 1
+            return processor.openWithSettings(settings)
+          },
+          decodePreview(options) {
+            sensorFactsAvailable = false
+            return processor.decodePreview(options)
+          },
+          probeExportCapability() {
+            return sensorFactsAvailable
+              ? supportedCapability
+              : unsupportedCapability
+          },
+        }
+      },
+    })
+
+    const opened = await core.handleRequest({
+      id: 'job-export-after-preview-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+
+    await core.handleRequest({
+      id: 'job-export-after-preview-decode',
+      type: 'decodeQuickFromSession',
+      payload: { sessionId: opened.payload.sessionId },
+    })
+
+    const capability = await core.handleRequest({
+      id: 'job-export-after-preview-capability',
+      type: 'probeExportCapabilityFromSession',
+      payload: { sessionId: opened.payload.sessionId },
+    })
+
+    expect(openWithSettingsCount).toBeGreaterThanOrEqual(3)
+    expect(capability).toMatchObject({
+      ok: true,
+      type: 'probeExportCapabilityFromSession',
+      payload: {
+        supported: true,
+        cfa: { pattern: 'rggb' },
+        sensor: { layout: 'bayer' },
+        reasons: [],
+      },
+    })
+  })
+
   it('normalizes session export capability payloads before responding', async () => {
     const core = createRuntimeCore({
       createProcessor() {
