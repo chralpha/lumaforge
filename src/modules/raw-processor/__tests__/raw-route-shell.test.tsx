@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { vi } from 'vitest'
 
+import { Component as RawRoute } from '../../../pages/(main)/raw'
 import { RawProcessorView } from '../RawProcessorView'
 import { classifySupportLevel } from '../services/support-matrix'
 
@@ -47,6 +48,25 @@ describe('rawProcessorView', () => {
     expect(viewportShell).toHaveAttribute('data-raw-lab-state', 'empty')
     expect(stageToolsLayout).not.toBeNull()
     expect(stageToolsLayout).toHaveClass('raw-lab-shell')
+  })
+
+  it('lets the raw route hand viewport ownership directly to the shell', () => {
+    mockedUseCapabilityGate.mockReturnValue({
+      ready: true,
+      supportStatus: 'supported',
+      reason: null,
+    })
+
+    const { container } = render(<RawRoute />)
+    const routeRoot = container.firstElementChild
+
+    expect(routeRoot).not.toBeNull()
+    expect(routeRoot).toHaveAttribute('data-raw-lab-shell', 'viewport')
+    expect(routeRoot).toHaveClass('raw-lab')
+    expect(routeRoot).not.toHaveClass('h-screen')
+    expect(
+      container.querySelector('[data-raw-lab-shell="viewport"]')?.parentElement,
+    ).toBe(container)
   })
 
   it('keeps export disabled copy visible before a RAW is loaded', () => {
