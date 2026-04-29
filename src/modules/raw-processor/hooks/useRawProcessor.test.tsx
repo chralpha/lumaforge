@@ -1379,6 +1379,161 @@ describe('useRawProcessor embedded preview state', () => {
     expect(jotaiStore.get(currentSessionAtom)?.exportState.status).toBe('idle')
   })
 
+  it('preserves ready session across unmount while bounded HQ is still pending', async () => {
+    const boundedHqDecode = deferred<DecodedImage>()
+
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockReturnValue(
+      boundedHqDecode.promise,
+    )
+
+    const mounted = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await mounted.result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+
+    expect(mounted.result.current.status).toBe('ready')
+    expect(mounted.result.current.displaySource).toBe('quick')
+    expect(mounted.result.current.sourceFileName).toBe('frame.ARW')
+
+    act(() => {
+      mounted.unmount()
+    })
+
+    const remounted = renderHook(() => useRawProcessor(), { wrapper })
+    expect(remounted.result.current.status).toBe('ready')
+    expect(remounted.result.current.displaySource).toBe('quick')
+    expect(remounted.result.current.sourceFileName).toBe('frame.ARW')
+    expect(remounted.result.current.loadedImage.file?.name).toBe('frame.ARW')
+    expect(jotaiStore.get(currentSessionAtom)?.sourceFile.name).toBe(
+      'frame.ARW',
+    )
+
+    remounted.unmount()
+  })
+
+  it('aborts and disposes pending bounded HQ runtime session on reset', async () => {
+    const boundedHqDecode = deferred<DecodedImage>()
+    const runtimeSession = {
+      sourceDimensions: defaultSourceDimensions,
+      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+      decodeQuickRaw: vi.fn().mockResolvedValue(createDecodedImage('quick')),
+      decodeBoundedHqRaw: vi.fn().mockReturnValue(boundedHqDecode.promise),
+      probeExportCapability: vi
+        .fn()
+        .mockResolvedValue(createSupportedCapability()),
+      dispose: vi.fn(),
+    }
+    let signal: AbortSignal | undefined
+
+    rawRuntimeAdapterMock.openSession.mockImplementation(
+      (_file: File, nextSignal?: AbortSignal) => {
+        signal = nextSignal
+        return Promise.resolve(runtimeSession)
+      },
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+
+    expect(result.current.status).toBe('ready')
+
+    act(() => {
+      result.current.reset()
+    })
+
+    expect(signal).toBeInstanceOf(AbortSignal)
+    expect(signal?.aborted).toBe(true)
+    expect(runtimeSession.dispose).toHaveBeenCalledTimes(1)
+    expect(result.current.status).toBe('idle')
+    expect(jotaiStore.get(currentSessionAtom)).toBeNull()
+
+    await act(async () => {
+      boundedHqDecode.resolve(createDecodedImage('bounded-hq'))
+      await flushPromises()
+    })
+
+    expect(runtimeSession.dispose).toHaveBeenCalledTimes(1)
+    expect(jotaiStore.get(currentSessionAtom)).toBeNull()
+  })
+
+  it('aborts and disposes stale pending bounded HQ runtime session when replacing files', async () => {
+    const staleBoundedHqDecode = deferred<DecodedImage>()
+    const staleSession = {
+      sourceDimensions: defaultSourceDimensions,
+      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+      decodeQuickRaw: vi.fn().mockResolvedValue(createDecodedImage('quick')),
+      decodeBoundedHqRaw: vi.fn().mockReturnValue(staleBoundedHqDecode.promise),
+      probeExportCapability: vi
+        .fn()
+        .mockResolvedValue(createSupportedCapability()),
+      dispose: vi.fn(),
+    }
+    const currentSession = {
+      sourceDimensions: defaultSourceDimensions,
+      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+      decodeQuickRaw: vi.fn().mockResolvedValue(createDecodedImage('quick')),
+      decodeBoundedHqRaw: vi
+        .fn()
+        .mockResolvedValue(createDecodedImage('bounded-hq')),
+      probeExportCapability: vi
+        .fn()
+        .mockResolvedValue(createSupportedCapability()),
+      dispose: vi.fn(),
+    }
+    let staleSignal: AbortSignal | undefined
+    let currentSignal: AbortSignal | undefined
+
+    rawRuntimeAdapterMock.openSession
+      .mockImplementationOnce((_file: File, signal?: AbortSignal) => {
+        staleSignal = signal
+        return Promise.resolve(staleSession)
+      })
+      .mockImplementationOnce((_file: File, signal?: AbortSignal) => {
+        currentSignal = signal
+        return Promise.resolve(currentSession)
+      })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['stale'], 'stale.ARW'))
+    })
+
+    expect(result.current.status).toBe('ready')
+    expect(result.current.sourceFileName).toBe('stale.ARW')
+
+    await act(async () => {
+      await result.current.loadFile(new File(['current'], 'current.ARW'))
+    })
+
+    expect(staleSignal).toBeInstanceOf(AbortSignal)
+    expect(staleSignal?.aborted).toBe(true)
+    expect(staleSession.dispose).toHaveBeenCalledTimes(1)
+    expect(currentSignal).toBeInstanceOf(AbortSignal)
+    expect(currentSignal?.aborted).toBe(false)
+    expect(result.current.status).toBe('ready')
+    expect(result.current.sourceFileName).toBe('current.ARW')
+
+    await act(async () => {
+      staleBoundedHqDecode.resolve(createDecodedImage('bounded-hq'))
+      await flushPromises()
+    })
+
+    expect(staleSession.dispose).toHaveBeenCalledTimes(1)
+    expect(result.current.sourceFileName).toBe('current.ARW')
+    expect(jotaiStore.get(currentSessionAtom)?.sourceFile.name).toBe(
+      'current.ARW',
+    )
+  })
+
   it('aborts and disposes runtime session on reset', async () => {
     const quickDecode = deferred<DecodedImage>()
     const runtimeSession = {

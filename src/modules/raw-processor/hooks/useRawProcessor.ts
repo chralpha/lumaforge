@@ -289,7 +289,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const sessionRef = useRef(session)
   const embeddedPreviewUrlRef = useRef<string | null>(null)
   const isMountedRef = useRef(false)
-  const activeSessionIdRef = useRef<string | null>(null)
+  const runtimeWorkSessionIdRef = useRef<string | null>(null)
+  const pendingLoadSessionIdRef = useRef<string | null>(null)
   const runtimeSessionRef = useRef<RawRuntimeSession | null>(null)
   const runtimeAbortControllerRef = useRef<AbortController | null>(null)
   const exportAbortControllerRef = useRef<AbortController | null>(null)
@@ -446,20 +447,21 @@ export function useRawProcessor(): UseRawProcessorReturn {
     isMountedRef.current = true
 
     return () => {
-      const activeSessionId = activeSessionIdRef.current
+      const pendingLoadSessionId = pendingLoadSessionIdRef.current
       isMountedRef.current = false
-      activeSessionIdRef.current = null
+      runtimeWorkSessionIdRef.current = null
+      pendingLoadSessionIdRef.current = null
       abortExportWork()
       abortRuntimeWork()
       revokeCurrentEmbeddedPreviewUrl()
-      if (activeSessionId) {
+      if (pendingLoadSessionId) {
         decodedImageRef.current = null
         setLoadedImage({ file: null, decoded: null, metadata: null })
         setStatus('idle')
         setError(null)
         setProgress(0)
         setStats(null)
-        setSession((prev) => (prev?.id === activeSessionId ? null : prev))
+        setSession((prev) => (prev?.id === pendingLoadSessionId ? null : prev))
       }
       sessionRef.current = null
     }
@@ -499,7 +501,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
       let disposeRuntimeSessionInFinally = true
 
       try {
-        activeSessionIdRef.current = null
+        runtimeWorkSessionIdRef.current = null
+        pendingLoadSessionIdRef.current = null
         abortExportWork()
         abortRuntimeWork()
         revokeCurrentEmbeddedPreviewUrl()
@@ -516,7 +519,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
         let boundedHqPreview: DecodedImage | null = null
 
         sessionRef.current = nextSession
-        activeSessionIdRef.current = nextSession.id
+        runtimeWorkSessionIdRef.current = nextSession.id
+        pendingLoadSessionIdRef.current = nextSession.id
         setDecodedImageRef(null)
         setLoadedImage({ file, decoded: null, metadata: null })
         setStatus('loading')
@@ -562,7 +566,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
         const matchesActiveSession = () =>
           isMountedRef.current &&
-          activeSessionIdRef.current === nextSession.id &&
+          runtimeWorkSessionIdRef.current === nextSession.id &&
           sessionRef.current?.id === nextSession.id
 
         const mapPhaseToStatus = (
@@ -932,16 +936,19 @@ export function useRawProcessor(): UseRawProcessorReturn {
         })
         await exportCapabilityPromise
         previewCompleted = true
+        if (pendingLoadSessionIdRef.current === nextSession.id) {
+          pendingLoadSessionIdRef.current = null
+        }
 
         if (previewResult.boundedHqPromise) {
           disposeRuntimeSessionInFinally = false
           void previewResult.boundedHqPromise
             .finally(() => {
               if (
-                activeSessionIdRef.current === nextSession.id &&
+                runtimeWorkSessionIdRef.current === nextSession.id &&
                 sessionRef.current?.id === nextSession.id
               ) {
-                activeSessionIdRef.current = null
+                runtimeWorkSessionIdRef.current = null
               }
               if (
                 runtimeAbortControllerRef.current === runtimeAbortController
@@ -953,20 +960,21 @@ export function useRawProcessor(): UseRawProcessorReturn {
               }
             })
             .catch(() => undefined)
-        } else if (activeSessionIdRef.current === nextSession.id) {
-          activeSessionIdRef.current = null
+        } else if (runtimeWorkSessionIdRef.current === nextSession.id) {
+          runtimeWorkSessionIdRef.current = null
         }
       } catch (err) {
         if (
           !loadSessionId ||
           !isMountedRef.current ||
-          activeSessionIdRef.current !== loadSessionId ||
+          runtimeWorkSessionIdRef.current !== loadSessionId ||
           sessionRef.current?.id !== loadSessionId
         ) {
           return
         }
 
-        activeSessionIdRef.current = null
+        runtimeWorkSessionIdRef.current = null
+        pendingLoadSessionIdRef.current = null
 
         const message =
           err instanceof Error ? err.message : 'Failed to load file'
@@ -1533,7 +1541,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   // Reset state
   const reset = useCallback(() => {
-    activeSessionIdRef.current = null
+    runtimeWorkSessionIdRef.current = null
+    pendingLoadSessionIdRef.current = null
     abortExportWork()
     abortRuntimeWork()
     revokeCurrentEmbeddedPreviewUrl()
