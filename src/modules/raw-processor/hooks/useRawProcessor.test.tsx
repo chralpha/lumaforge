@@ -784,7 +784,7 @@ describe('useRawProcessor embedded preview state', () => {
     })
     expect(result.current.canExport).toBe(false)
     expect(result.current.exportDisabledReason).toBe(
-      'RAW preview exposure is still being prepared.',
+      'Quick preview is still being prepared.',
     )
 
     await act(async () => {
@@ -795,7 +795,7 @@ describe('useRawProcessor embedded preview state', () => {
     expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
     expect(toastMock.error).toHaveBeenCalledWith(
       'Full-resolution export is not ready',
-      { description: 'RAW preview exposure is still being prepared.' },
+      { description: 'Quick preview is still being prepared.' },
     )
 
     await act(async () => {
@@ -847,7 +847,7 @@ describe('useRawProcessor embedded preview state', () => {
     expect(result.current.status).toBe('error')
     expect(result.current.canExport).toBe(false)
     expect(result.current.exportDisabledReason).toBe(
-      'RAW preview exposure is still being prepared.',
+      'Quick preview is still being prepared.',
     )
     expect(session?.previewBundle.quickDecodePreview).toEqual({
       status: 'failed',
@@ -871,7 +871,7 @@ describe('useRawProcessor embedded preview state', () => {
     expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
     expect(toastMock.error).toHaveBeenCalledWith(
       'Full-resolution export is not ready',
-      { description: 'RAW preview exposure is still being prepared.' },
+      { description: 'Quick preview is still being prepared.' },
     )
     expect(toastMock.error).toHaveBeenCalledWith('Preview unavailable', {
       description:
