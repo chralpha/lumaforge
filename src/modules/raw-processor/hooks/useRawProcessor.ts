@@ -697,52 +697,60 @@ export function useRawProcessor(): UseRawProcessorReturn {
               )
             : null
 
-        const exportCapabilityPromise = probeExportCapability
-          ? probeExportCapability(runtimeSignal)
-              .then((capability) => {
-                if (!matchesActiveSession()) {
-                  return
-                }
+        let exportCapabilityPromise: Promise<void> | null = null
+        const startExportCapabilityProbe = () => {
+          if (exportCapabilityPromise) {
+            return exportCapabilityPromise
+          }
 
-                setSession((prev) =>
-                  prev && prev.id === nextSession.id
-                    ? {
-                        ...prev,
-                        exportState: {
-                          ...prev.exportState,
-                          fullResCapability:
-                            toFullResCapabilityState(capability),
-                        },
-                      }
-                    : prev,
-                )
-              })
-              .catch((probeError) => {
-                if (!matchesActiveSession()) {
-                  return
-                }
+          if (!probeExportCapability) {
+            setSession((prev) =>
+              prev && prev.id === nextSession.id
+                ? {
+                    ...prev,
+                    exportState: {
+                      ...prev.exportState,
+                      fullResCapability: {
+                        status: 'unsupported',
+                        reason:
+                          'Full-resolution export is not available in this runtime build yet.',
+                      },
+                    },
+                  }
+                : prev,
+            )
+            exportCapabilityPromise = Promise.resolve()
+            return exportCapabilityPromise
+          }
 
-                const reason =
-                  probeError instanceof Error && probeError.message
-                    ? probeError.message
-                    : 'Full-resolution export support could not be verified.'
+          exportCapabilityPromise = probeExportCapability(runtimeSignal)
+            .then((capability) => {
+              if (!matchesActiveSession()) {
+                return
+              }
 
-                setSession((prev) =>
-                  prev && prev.id === nextSession.id
-                    ? {
-                        ...prev,
-                        exportState: {
-                          ...prev.exportState,
-                          fullResCapability: {
-                            status: 'unsupported',
-                            reason,
-                          },
-                        },
-                      }
-                    : prev,
-                )
-              })
-          : Promise.resolve(
+              setSession((prev) =>
+                prev && prev.id === nextSession.id
+                  ? {
+                      ...prev,
+                      exportState: {
+                        ...prev.exportState,
+                        fullResCapability: toFullResCapabilityState(capability),
+                      },
+                    }
+                  : prev,
+              )
+            })
+            .catch((probeError) => {
+              if (!matchesActiveSession()) {
+                return
+              }
+
+              const reason =
+                probeError instanceof Error && probeError.message
+                  ? probeError.message
+                  : 'Full-resolution export support could not be verified.'
+
               setSession((prev) =>
                 prev && prev.id === nextSession.id
                   ? {
@@ -751,14 +759,16 @@ export function useRawProcessor(): UseRawProcessorReturn {
                         ...prev.exportState,
                         fullResCapability: {
                           status: 'unsupported',
-                          reason:
-                            'Full-resolution export is not available in this runtime build yet.',
+                          reason,
                         },
                       },
                     }
                   : prev,
-              ),
-            )
+              )
+            })
+
+          return exportCapabilityPromise
+        }
 
         const previewResult = await runPreviewPipeline({
           runtimeSession: {
@@ -823,6 +833,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
               }
               case 'quick-ready': {
                 updatePreviewState('quick', event, quickPreview)
+                void startExportCapabilityProbe()
                 break
               }
               case 'quick-failed': {
@@ -855,6 +866,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
                       ...prev.renderState,
                       status: 'failed',
                       lastErrorCode: errorCode,
+                    },
+                    exportState: {
+                      ...prev.exportState,
+                      fullResCapability: {
+                        status: 'unsupported',
+                        reason: 'Quick preview did not complete.',
+                      },
                     },
                   }
                 })
@@ -934,7 +952,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
             }
           },
         })
-        await exportCapabilityPromise
+        if (exportCapabilityPromise) {
+          await exportCapabilityPromise
+        }
         previewCompleted = true
         if (pendingLoadSessionIdRef.current === nextSession.id) {
           pendingLoadSessionIdRef.current = null

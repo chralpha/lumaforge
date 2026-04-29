@@ -823,15 +823,21 @@ describe('useRawProcessor embedded preview state', () => {
     const file = createFileWithSize('large.ARW', 33 * 1024 * 1024)
     const quickDecode = deferred<DecodedImage>()
     const boundedHqDecode = deferred<DecodedImage>()
+    const runtimeCallOrder: string[] = []
 
     rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
-    rawRuntimeAdapterMock.decodeQuickRaw.mockReturnValue(quickDecode.promise)
-    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockReturnValue(
-      boundedHqDecode.promise,
-    )
-    rawRuntimeAdapterMock.probeExportCapability.mockResolvedValue(
-      createSupportedCapability(),
-    )
+    rawRuntimeAdapterMock.decodeQuickRaw.mockImplementation(() => {
+      runtimeCallOrder.push('quick')
+      return quickDecode.promise
+    })
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockImplementation(() => {
+      runtimeCallOrder.push('bounded-hq')
+      return boundedHqDecode.promise
+    })
+    rawRuntimeAdapterMock.probeExportCapability.mockImplementation(() => {
+      runtimeCallOrder.push('probe-export')
+      return Promise.resolve(createSupportedCapability())
+    })
     exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
       filename: 'large_neutral_fullres.jpg',
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
@@ -846,12 +852,12 @@ describe('useRawProcessor embedded preview state', () => {
     })
 
     await waitFor(() => {
-      expect(
-        jotaiStore.get(currentSessionAtom)?.exportState.fullResCapability,
-      ).toMatchObject({
-        status: 'supported',
-      })
+      expect(rawRuntimeAdapterMock.decodeQuickRaw).toHaveBeenCalled()
     })
+    expect(rawRuntimeAdapterMock.probeExportCapability).not.toHaveBeenCalled()
+    expect(
+      jotaiStore.get(currentSessionAtom)?.exportState.fullResCapability,
+    ).toEqual({ status: 'probing' })
     expect(result.current.canExport).toBe(false)
     expect(result.current.exportDisabledReason).toBe(
       'Quick preview is still being prepared.',
@@ -870,6 +876,29 @@ describe('useRawProcessor embedded preview state', () => {
 
     await act(async () => {
       quickDecode.resolve(createDecodedImage('quick'))
+      await flushPromises()
+    })
+    await waitFor(() => {
+      expect(rawRuntimeAdapterMock.probeExportCapability).toHaveBeenCalled()
+    })
+    await waitFor(() => {
+      expect(rawRuntimeAdapterMock.decodeBoundedHqRaw).toHaveBeenCalled()
+    })
+    expect(runtimeCallOrder.indexOf('probe-export')).toBeGreaterThan(
+      runtimeCallOrder.indexOf('quick'),
+    )
+    expect(runtimeCallOrder.indexOf('probe-export')).toBeLessThan(
+      runtimeCallOrder.indexOf('bounded-hq'),
+    )
+    await waitFor(() => {
+      expect(
+        jotaiStore.get(currentSessionAtom)?.exportState.fullResCapability,
+      ).toMatchObject({
+        status: 'supported',
+      })
+    })
+
+    await act(async () => {
       boundedHqDecode.resolve(createDecodedImage('bounded-hq'))
       await loadPromise
     })
@@ -883,6 +912,9 @@ describe('useRawProcessor embedded preview state', () => {
       }),
     )
     const decodeBoundedHqRaw = vi.fn()
+    const probeExportCapability = vi
+      .fn()
+      .mockResolvedValue(createSupportedCapability())
 
     rawRuntimeAdapterMock.openSession.mockResolvedValue({
       sourceDimensions: defaultSourceDimensions,
@@ -894,9 +926,7 @@ describe('useRawProcessor embedded preview state', () => {
       }),
       decodeQuickRaw,
       decodeBoundedHqRaw,
-      probeExportCapability: vi
-        .fn()
-        .mockResolvedValue(createSupportedCapability()),
+      probeExportCapability,
       dispose: vi.fn(),
     })
     exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
@@ -929,10 +959,10 @@ describe('useRawProcessor embedded preview state', () => {
       errorCode: 'RAW_QUICK_DECODE_FAILED',
     })
     expect(session?.exportState.fullResCapability).toEqual({
-      status: 'supported',
-      width: 6048,
-      height: 4024,
+      status: 'unsupported',
+      reason: 'Quick preview did not complete.',
     })
+    expect(probeExportCapability).not.toHaveBeenCalled()
 
     await act(async () => {
       await result.current.exportImage({ quality: 'high', fidelity: 'max' })
