@@ -49,15 +49,13 @@
 }
 
 .raw-lab-mark {
-  display: inline-block;
-  width: 18px;
-  height: 18px;
+  display: block;
+  width: 28px;
+  height: 28px;
   flex: 0 0 auto;
-  border: 2px solid currentColor;
-  border-radius: 5px;
-  background:
-    linear-gradient(135deg, transparent 45%, currentColor 46% 54%, transparent 55%),
-    oklch(0.82 0.13 145 / 0.24);
+  border-radius: 7px;
+  box-shadow: 0 8px 22px oklch(0.1 0.02 78 / 0.12);
+  object-fit: cover;
 }
 
 .raw-lab-topbar-actions {

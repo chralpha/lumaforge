@@ -6,6 +6,8 @@ import {
 } from '../state/session.atoms'
 import { SupportBadge } from './SupportBadge'
 
+const appIcon = '/favicon.png'
+
 export function WorkspaceHeader({
   fileName,
   hasImage,
@@ -38,7 +40,12 @@ export function WorkspaceHeader({
     <header className="raw-lab-topbar" role="banner">
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="raw-lab-mark" aria-hidden="true" />
+          <img
+            className="raw-lab-mark"
+            src={appIcon}
+            alt=""
+            aria-hidden="true"
+          />
           <h1 className="truncate text-base font-semibold text-[oklch(0.18_0.018_76)]">
             {hasImage ? fileName : 'RAW Lab'}
           </h1>

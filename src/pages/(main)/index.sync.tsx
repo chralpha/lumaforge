@@ -8,17 +8,17 @@ import {
   LockKeyhole,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
 } from 'lucide-react'
 import { Link } from 'react-router'
 
-import type {SeoRouteHandle} from '~/lib/seo';
-import { HOME_ROUTE_SEO  } from '~/lib/seo'
+import type { SeoRouteHandle } from '~/lib/seo'
+import { HOME_ROUTE_SEO } from '~/lib/seo'
 
 import { repository } from '../../../package.json'
 
 const heroImage =
   'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=2400&q=86'
+const appIcon = '/favicon.png'
 
 export const handle = {
   seo: HOME_ROUTE_SEO,
@@ -83,7 +83,12 @@ export const Component = () => {
     <main className="lf-landing">
       <nav className="lf-nav" aria-label="Primary">
         <Link to="/" className="lf-wordmark" aria-label="LumaForge home">
-          <span className="lf-wordmark-mark" aria-hidden="true" />
+          <img
+            className="lf-wordmark-icon"
+            src={appIcon}
+            alt=""
+            aria-hidden="true"
+          />
           <span>LumaForge</span>
         </Link>
         <div className="lf-nav-actions">
@@ -251,7 +256,12 @@ export const Component = () => {
       </section>
 
       <section className="lf-final" aria-labelledby="lf-final-title">
-        <Sparkles size={28} strokeWidth={1.7} />
+        <img
+          className="lf-final-icon"
+          src={appIcon}
+          alt=""
+          aria-hidden="true"
+        />
         <h2 id="lf-final-title">Open the RAW lab. Finish the photo.</h2>
         <p>
           The workflow is browser-local, export-aware, and deliberately hard to

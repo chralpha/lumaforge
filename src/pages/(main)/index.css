@@ -48,19 +48,12 @@
   font-weight: 760;
 }
 
-.lf-wordmark-mark {
-  width: 18px;
-  height: 18px;
-  border: 2px solid currentColor;
-  border-radius: 5px;
-  background:
-    linear-gradient(
-      135deg,
-      transparent 48%,
-      currentColor 49% 53%,
-      transparent 54%
-    ),
-    oklch(0.82 0.13 145 / 0.24);
+.lf-wordmark-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  box-shadow: 0 8px 22px oklch(0.1 0.02 78 / 0.24);
+  object-fit: cover;
 }
 
 .lf-nav-actions {
@@ -554,8 +547,12 @@
   color: oklch(0.96 0.016 86);
 }
 
-.lf-final svg {
-  color: var(--lf-amber);
+.lf-final-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  box-shadow: 0 18px 48px oklch(0.1 0.02 78 / 0.34);
+  object-fit: cover;
 }
 
 .lf-final p {
