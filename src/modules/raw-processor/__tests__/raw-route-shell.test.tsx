@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { vi } from 'vitest'
 
 import { Component as RawRoute } from '../../../pages/(main)/raw'
+import { FileFactsTool } from '../components/tools/FileFactsTool'
 import { RawProcessorView } from '../RawProcessorView'
 import { classifySupportLevel } from '../services/support-matrix'
 
@@ -102,29 +103,41 @@ const mockedUseCapabilityGate = vi.mocked(
 )
 
 describe('rawProcessorView shell states', () => {
-  it('shows the unsupported state when WebGL2 is unavailable', () => {
+  it('keeps unsupported WebGL2 state inside the raw route shell contract', () => {
     mockedUseCapabilityGate.mockReturnValue({
       ready: true,
       supportStatus: 'unsupported',
       reason: 'WebGL2 is required',
     })
 
-    render(<RawProcessorView />)
+    const { container } = render(<RawProcessorView />)
+    const viewportShell = container.querySelector(
+      '[data-raw-lab-shell="viewport"]',
+    )
 
+    expect(viewportShell).not.toBeNull()
+    expect(viewportShell).toHaveClass('raw-lab')
+    expect(viewportShell).toHaveAttribute('data-raw-lab-state', 'unsupported')
     expect(
       screen.getByText('This browser cannot run the RAW Lab'),
     ).toBeInTheDocument()
   })
 
-  it('shows the unsupported state when RAW decode needs cross-origin isolation', () => {
+  it('keeps unsupported isolation state inside the raw route shell contract', () => {
     mockedUseCapabilityGate.mockReturnValue({
       ready: true,
       supportStatus: 'unsupported',
       reason: 'Cross-origin isolation is required for pthread RAW decode',
     })
 
-    render(<RawProcessorView />)
+    const { container } = render(<RawProcessorView />)
+    const viewportShell = container.querySelector(
+      '[data-raw-lab-shell="viewport"]',
+    )
 
+    expect(viewportShell).not.toBeNull()
+    expect(viewportShell).toHaveClass('raw-lab')
+    expect(viewportShell).toHaveAttribute('data-raw-lab-state', 'unsupported')
     expect(
       screen.getByText('This browser cannot run the RAW Lab'),
     ).toBeInTheDocument()
@@ -133,6 +146,25 @@ describe('rawProcessorView shell states', () => {
         'Cross-origin isolation is required for pthread RAW decode',
       ),
     ).toBeInTheDocument()
+  })
+})
+
+describe('fileFactsTool empty state', () => {
+  it('shows support as not loaded before any RAW session facts exist', () => {
+    render(
+      <FileFactsTool
+        supportLevel="experimental"
+        metadata={null}
+        stats={null}
+      />,
+    )
+
+    const supportRow = screen.getByText('Support').closest('div')
+
+    expect(supportRow).not.toBeNull()
+    expect(supportRow).toHaveTextContent('Support')
+    expect(supportRow).toHaveTextContent('Not loaded')
+    expect(screen.queryByText('experimental')).not.toBeInTheDocument()
   })
 })
 

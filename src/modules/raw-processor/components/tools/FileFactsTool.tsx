@@ -23,8 +23,9 @@ export function FileFactsTool({
     previewSize: { width: number; height: number }
   }
 }) {
+  const hasSessionFacts = metadata !== null || stats !== null
   const facts = [
-    { label: 'Support', value: supportLevel },
+    { label: 'Support', value: hasSessionFacts ? supportLevel : undefined },
     {
       label: 'Camera',
       value:

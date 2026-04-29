@@ -166,7 +166,13 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
 
   if (capability.ready && capability.supportStatus === 'unsupported') {
     return (
-      <UnsupportedState reason={capability.reason || 'WebGL2 is required'} />
+      <div
+        className={clsxm('raw-lab', className)}
+        data-raw-lab-shell="viewport"
+        data-raw-lab-state="unsupported"
+      >
+        <UnsupportedState reason={capability.reason || 'WebGL2 is required'} />
+      </div>
     )
   }
 
