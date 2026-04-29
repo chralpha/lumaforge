@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
   BOUNDED_HQ_PREVIEW_MAX_PIXELS,
   QUICK_PREVIEW_MAX_PIXELS,
 } from '~/lib/raw/decoder'
@@ -23,7 +22,7 @@ describe('decideBoundedHqPreview', () => {
     })
   })
 
-  it('uses the lower bounded cap for 100MP-class mobile WebKit input', () => {
+  it('uses the default bounded HQ cap on mobile-class input', () => {
     expect(
       decideBoundedHqPreview({
         sourceWidth: 11662,
@@ -33,7 +32,7 @@ describe('decideBoundedHqPreview', () => {
       }),
     ).toEqual({
       kind: 'decode',
-      maxOutputPixels: BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
+      maxOutputPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
     })
   })
 

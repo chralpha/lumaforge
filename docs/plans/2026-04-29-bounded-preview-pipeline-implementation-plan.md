@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace full-resolution HQ preview with an embedded -> quick `<=2.5MP` -> bounded HQ `8MP` to `12MP` preview ladder that becomes interactive after quick preview and never crashes mobile WebKit by uploading full-resolution preview pixels.
+**Goal:** Replace full-resolution HQ preview with an embedded -> quick `<=2.5MP` -> bounded HQ `12MP` preview ladder that becomes interactive after quick preview and never uploads full-resolution preview pixels.
 
 **Architecture:** Keep full-resolution export separate from preview. Add a bounded-HQ runtime API that always receives a `maxOutputPixels` cap, wire the app adapter and session model to `bounded-hq`, then make the preview pipeline return after quick preview while bounded HQ continues as a silent background upgrade. Failures in bounded HQ update only preview diagnostics and keep quick preview active.
 
-**Tech Stack:** TypeScript 6, React 19 hooks, Jotai state atoms, Vitest, Vite workers, `@lumaforge/luma-raw-runtime`, LibRaw WASM, Playwright WebKit.
+**Tech Stack:** TypeScript 6, React 19 hooks, Jotai state atoms, Vitest, Vite workers, `@lumaforge/luma-raw-runtime`, LibRaw WASM.
 
 ---
 
@@ -24,7 +24,7 @@ The implementation must preserve these invariants:
 
 - Preview never requests, returns, transfers, uploads, or renders an uncapped full-resolution RGB preview asset.
 - Quick preview is capped at `2_500_000` pixels and is the first interactive preview source.
-- Bounded HQ preview is capped by policy, defaults to `12_000_000` pixels, and uses `8_000_000` pixels or a structured skip on constrained devices.
+- Bounded HQ preview is capped by policy at `12_000_000` pixels and is skipped only when quick preview already covers the source.
 - Quick preview readiness unblocks LUT selection, compare, view changes, and export-readiness evaluation.
 - Bounded HQ failure never moves the session into a fatal state when quick preview is ready.
 - Full-resolution export uses the processed-window export path and does not depend on bounded HQ preview readiness.
@@ -53,10 +53,6 @@ pnpm install --frozen-lockfile
 
 ## File Structure
 
-Create:
-
-- `scripts/validation/raw-preview-webkit-probe.mjs`: production-build WebKit mobile validation for a 100MP-class fixture.
-
 Modify:
 
 - `src/lib/raw/decoder.ts`: define preview pixel caps and rename decoded preview source type to include `bounded-hq`.
@@ -73,8 +69,8 @@ Modify:
 - `src/modules/raw-processor/model/session.ts`: rename preview state from `hqImage` to `boundedHqPreview`, add `skipped`, and change `DisplaySource`.
 - `src/modules/raw-processor/model/derive-session.ts`: prefer bounded HQ display, keep quick as export gate, and remove HQ readiness dependency.
 - `src/modules/raw-processor/__tests__/session-derive.test.ts`: derivation coverage for quick-ready export and bounded-HQ failure.
-- `src/modules/raw-processor/services/preview-resolution-policy.ts`: choose quick and bounded-HQ caps, including constrained-device backoff.
-- `src/modules/raw-processor/services/preview-resolution-policy.test.ts`: policy tests for default, mobile WebKit, and tiny-source skip decisions.
+- `src/modules/raw-processor/services/preview-resolution-policy.ts`: choose quick and bounded-HQ caps without browser-specific policy branches.
+- `src/modules/raw-processor/services/preview-resolution-policy.test.ts`: policy tests for the default cap and tiny-source skip decisions.
 - `src/modules/raw-processor/services/preview-pipeline.ts`: make bounded HQ a background stage and add bounded-HQ events.
 - `src/modules/raw-processor/__tests__/preview-pipeline.test.ts`: preview event ordering and nonblocking bounded-HQ tests.
 - `src/modules/raw-processor/hooks/useRawProcessor.ts`: wire quick-ready interactivity, silent bounded-HQ update, cancellation, and status/progress behavior.
@@ -846,7 +842,6 @@ Create `src/modules/raw-processor/services/preview-resolution-policy.test.ts`:
 import { describe, expect, it } from 'vitest'
 
 import {
-  BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
   BOUNDED_HQ_PREVIEW_MAX_PIXELS,
   QUICK_PREVIEW_MAX_PIXELS,
 } from '~/lib/raw/decoder'
@@ -868,7 +863,7 @@ describe('decideBoundedHqPreview', () => {
     })
   })
 
-  it('uses the lower bounded cap for 100MP-class mobile WebKit input', () => {
+  it('uses the default bounded HQ cap on mobile-class input', () => {
     expect(
       decideBoundedHqPreview({
         sourceWidth: 11662,
@@ -878,7 +873,7 @@ describe('decideBoundedHqPreview', () => {
       }),
     ).toEqual({
       kind: 'decode',
-      maxOutputPixels: BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
+      maxOutputPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
     })
   })
 
@@ -903,7 +898,6 @@ Create `src/modules/raw-processor/services/preview-resolution-policy.ts`:
 
 ```ts
 import {
-  BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
   BOUNDED_HQ_PREVIEW_MAX_PIXELS,
   QUICK_PREVIEW_MAX_PIXELS,
 } from '~/lib/raw/decoder'
@@ -915,7 +909,6 @@ export type BoundedHqPreviewDecision =
 export function decideBoundedHqPreview({
   sourceWidth,
   sourceHeight,
-  userAgent,
 }: {
   sourceWidth: number
   sourceHeight: number
@@ -929,14 +922,9 @@ export function decideBoundedHqPreview({
     }
   }
 
-  const isMobileWebKit =
-    /AppleWebKit/i.test(userAgent) && /Mobile|iPhone|iPad|iPod/i.test(userAgent)
-
   return {
     kind: 'decode',
-    maxOutputPixels: isMobileWebKit
-      ? BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS
-      : BOUNDED_HQ_PREVIEW_MAX_PIXELS,
+    maxOutputPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
   }
 }
 ```
@@ -1388,158 +1376,11 @@ git commit -m "feat(raw): keep editing unblocked after quick preview"
 
 ---
 
-### Task 6: Add Mobile WebKit Preview Validation
+### Task 6: Final Verification
 
 **Files:**
 
-- Create: `scripts/validation/raw-preview-webkit-probe.mjs`
-- Modify: `package.json` only if adding a reusable script is preferred by the implementer.
-
-- [ ] **Step 1: Create the WebKit probe script**
-
-Create `scripts/validation/raw-preview-webkit-probe.mjs`:
-
-```js
-import { createServer } from 'node:http'
-import { readFile } from 'node:fs/promises'
-import { chromium, webkit, devices } from 'playwright'
-
-const appUrl = process.env.LUMAFORGE_APP_URL ?? 'http://127.0.0.1:5173/raw'
-const fixturePath =
-  process.env.LUMAFORGE_RAW_FIXTURE ??
-  '/workspaces/LumaForge/test-images/Fujifilm - GFX100RF - 16bit lossless compressed (4_3).RAF'
-const fixturePort = Number(process.env.LUMAFORGE_FIXTURE_PORT ?? '5184')
-
-const fixtureBytes = await readFile(fixturePath)
-const fixtureServer = createServer((request, response) => {
-  if (request.url !== '/fixture.RAF') {
-    response.writeHead(404)
-    response.end('not found')
-    return
-  }
-  response.writeHead(200, {
-    'Content-Type': 'application/octet-stream',
-    'Access-Control-Allow-Origin': '*',
-    'Cross-Origin-Resource-Policy': 'cross-origin',
-  })
-  response.end(fixtureBytes)
-})
-
-await new Promise((resolve) => fixtureServer.listen(fixturePort, resolve))
-
-const browser = await webkit.launch()
-const context = await browser.newContext({
-  ...devices['iPhone 15 Pro'],
-})
-const page = await context.newPage()
-const errors = []
-page.on('pageerror', (error) => errors.push(error.message))
-page.on('console', (message) => {
-  if (message.type() === 'error') errors.push(message.text())
-})
-
-try {
-  await page.goto(appUrl, { waitUntil: 'domcontentloaded' })
-  await page.evaluate(
-    async ({ fixtureUrl }) => {
-      const response = await fetch(fixtureUrl)
-      const blob = await response.blob()
-      const file = new File([blob], 'GFX100RF.RAF', {
-        type: 'application/octet-stream',
-      })
-      const dataTransfer = new DataTransfer()
-      dataTransfer.items.add(file)
-      const dropTarget =
-        document.querySelector('[data-raw-dropzone]') ?? document.body
-      dropTarget.dispatchEvent(
-        new DragEvent('drop', {
-          bubbles: true,
-          cancelable: true,
-          dataTransfer,
-        }),
-      )
-    },
-    { fixtureUrl: `http://127.0.0.1:${fixturePort}/fixture.RAF` },
-  )
-
-  await page.waitForFunction(
-    () => {
-      const text = document.body.innerText
-      return text.includes('GFX100RF') && !text.includes('75%')
-    },
-    null,
-    { timeout: 120_000 },
-  )
-
-  const summary = await page.evaluate(() => ({
-    bodyText: document.body.innerText,
-    displaySource: document.querySelector('[data-preview-source]')?.textContent,
-  }))
-
-  console.log(
-    JSON.stringify(
-      {
-        ok: errors.length === 0,
-        errors,
-        displaySource: summary.displaySource,
-      },
-      null,
-      2,
-    ),
-  )
-
-  if (errors.length > 0) process.exitCode = 1
-} finally {
-  await browser.close()
-  fixtureServer.close()
-}
-```
-
-If the current UI does not expose `data-raw-dropzone` or `data-preview-source`, add those attributes in the UI component that owns the drop target and preview status. Keep them test-only-neutral attributes with no visual effect.
-
-- [ ] **Step 2: Run a production WebKit validation**
-
-Run:
-
-```bash
-pnpm build
-pnpm serve --host 127.0.0.1 --port 5173
-```
-
-In another terminal:
-
-```bash
-pnpm dlx playwright@1.59.1 install webkit
-node scripts/validation/raw-preview-webkit-probe.mjs
-```
-
-Expected JSON:
-
-```json
-{
-  "ok": true,
-  "errors": []
-}
-```
-
-The page must not close, crash, or remain blocked at the old HQ progress stage.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add scripts/validation/raw-preview-webkit-probe.mjs package.json
-git commit -m "test(raw): add mobile WebKit bounded preview validation"
-```
-
-If `package.json` was not changed, omit it from `git add`.
-
----
-
-### Task 7: Final Verification
-
-**Files:**
-
-- Verify all files touched by Tasks 1 through 6.
+- Verify all files touched by Tasks 1 through 5.
 
 - [ ] **Step 1: Run focused unit suites**
 
@@ -1577,8 +1418,7 @@ pnpm exec prettier --check \
   src/modules/raw-processor/services/preview-resolution-policy.ts \
   src/modules/raw-processor/services/preview-resolution-policy.test.ts \
   src/modules/raw-processor/services/preview-pipeline.ts \
-  src/modules/raw-processor/hooks/useRawProcessor.ts \
-  scripts/validation/raw-preview-webkit-probe.mjs
+  src/modules/raw-processor/hooks/useRawProcessor.ts
 ```
 
 Expected: Prettier reports all matched files use the configured style.
@@ -1593,24 +1433,7 @@ pnpm build
 
 Expected: build exits `0`. Existing chunk-size warnings are acceptable if no new error is introduced.
 
-- [ ] **Step 4: Run mobile WebKit 100MP acceptance**
-
-Run:
-
-```bash
-pnpm serve --host 127.0.0.1 --port 5173
-node scripts/validation/raw-preview-webkit-probe.mjs
-```
-
-Expected:
-
-- WebKit page remains open.
-- No page errors are recorded.
-- Quick preview reaches interactive state.
-- Bounded HQ either upgrades under the cap or fails silently.
-- No full-resolution preview decode or texture upload is observable from app-level logs.
-
-- [ ] **Step 5: Search for forbidden preview usage**
+- [ ] **Step 4: Search for forbidden preview usage**
 
 Run:
 
@@ -1620,7 +1443,7 @@ rg -n "decodeHqRaw|decodeHqFromSession|source: 'hq'|displaySource.*hq|hqImage|hq
 
 Expected: no app preview path still references uncapped HQ. Native adapter implementation names may remain only where `decodeHq({ maxOutputPixels })` is used behind `decodeBoundedHq`.
 
-- [ ] **Step 6: Commit final verification notes if a doc/test matrix was updated**
+- [ ] **Step 5: Commit final verification notes if a doc/test matrix was updated**
 
 If execution records validation in a test matrix, commit it:
 
@@ -1641,4 +1464,3 @@ Skip this step when no validation record file is modified.
 - The app adapter no longer exposes an uncapped HQ preview method.
 - The hook sets ready state after quick preview and does not await bounded HQ before returning from `loadFile()`.
 - Bounded HQ failure updates preview diagnostics only and keeps quick preview active.
-- WebKit validation uses a production build, not the Vite dev server.
