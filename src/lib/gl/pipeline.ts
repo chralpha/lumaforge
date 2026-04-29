@@ -758,6 +758,8 @@ export class RawProcessingPipeline {
 
     if (waitForGpu) {
       gl.finish()
+    } else {
+      gl.flush()
     }
     const processTime = performance.now() - processStart
 

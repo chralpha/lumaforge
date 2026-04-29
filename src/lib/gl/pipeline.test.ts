@@ -57,6 +57,7 @@ const contextMock = vi.hoisted(() => {
     uniformMatrix3fv: vi.fn(),
     bindVertexArray: vi.fn(),
     drawArrays: vi.fn(),
+    flush: vi.fn(),
     finish: vi.fn(),
   }
 
@@ -265,7 +266,7 @@ describe('rawProcessingPipeline render uniforms', () => {
     )
   })
 
-  it('can skip GPU synchronization for transient interactive preview renders', async () => {
+  it('flushes transient interactive preview renders without blocking for GPU completion', async () => {
     contextMock.reset()
     const pipeline = new RawProcessingPipeline(document.createElement('canvas'))
     await pipeline.initialize()
@@ -281,6 +282,7 @@ describe('rawProcessingPipeline render uniforms', () => {
       waitForGpu: false,
     })
 
+    expect(contextMock.gl.flush).toHaveBeenCalled()
     expect(contextMock.gl.finish).not.toHaveBeenCalled()
   })
 })
