@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createExportResult } from '../model/export-result'
 import {
   copyBlobToClipboard,
+  copyCanvasToClipboard,
   downloadExportResult,
   resolveExportCopyCapability,
   resolveExportShareCapability,
@@ -196,10 +197,18 @@ describe('export result actions', () => {
 
   it('writes the full-resolution JPEG blob to clipboard when requested', async () => {
     const result = createResult()
-    const write = vi.fn().mockResolvedValue(undefined)
+    let clipboard: { write: (items: ClipboardItem[]) => Promise<void> }
+    const write = vi.fn(function (
+      this: unknown,
+      _items: ClipboardItem[],
+    ): Promise<void> {
+      expect(this).toBe(clipboard)
+      return Promise.resolve()
+    })
+    clipboard = { write }
     const ClipboardItemMock = createClipboardItemMock(() => false)
     const environment = {
-      navigator: { clipboard: { write } },
+      navigator: { clipboard },
       ClipboardItem: ClipboardItemMock,
     }
 
@@ -211,5 +220,51 @@ describe('export result actions', () => {
     expect(write).toHaveBeenCalledWith([
       ClipboardItemMock.mock.results[0].value,
     ])
+  })
+
+  it('writes a preview canvas as a PNG clipboard item', async () => {
+    const write = vi.fn().mockResolvedValue(undefined)
+    const ClipboardItemMock = createClipboardItemMock(() => false)
+    const pngBlob = new Blob(['png'], { type: 'image/png' })
+    const canvas = {
+      toBlob: vi.fn((callback: BlobCallback, type?: string) => {
+        expect(type).toBe('image/png')
+        callback(pngBlob)
+      }),
+    } as unknown as HTMLCanvasElement
+    const environment = {
+      navigator: { clipboard: { write } },
+      ClipboardItem: ClipboardItemMock,
+    }
+
+    await copyCanvasToClipboard(canvas, environment)
+
+    expect(canvas.toBlob).toHaveBeenCalledTimes(1)
+    expect(ClipboardItemMock).toHaveBeenCalledWith({
+      'image/png': pngBlob,
+    })
+    expect(write).toHaveBeenCalledWith([
+      ClipboardItemMock.mock.results[0].value,
+    ])
+  })
+
+  it('rejects preview canvas copy when canvas.toBlob returns null', async () => {
+    const write = vi.fn().mockResolvedValue(undefined)
+    const ClipboardItemMock = createClipboardItemMock(() => false)
+    const canvas = {
+      toBlob: vi.fn((callback: BlobCallback) => {
+        callback(null)
+      }),
+    } as unknown as HTMLCanvasElement
+    const environment = {
+      navigator: { clipboard: { write } },
+      ClipboardItem: ClipboardItemMock,
+    }
+
+    await expect(copyCanvasToClipboard(canvas, environment)).rejects.toThrow(
+      'Preview image copy failed.',
+    )
+    expect(ClipboardItemMock).not.toHaveBeenCalled()
+    expect(write).not.toHaveBeenCalled()
   })
 })

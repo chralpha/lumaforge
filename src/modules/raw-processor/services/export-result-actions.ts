@@ -109,15 +109,15 @@ export async function copyBlobToClipboard(
   blob: Blob,
   environment: ClipboardEnvironment = globalThis,
 ) {
-  const write = environment.navigator?.clipboard?.write
+  const clipboard = environment.navigator?.clipboard
   const ClipboardItemCtor = environment.ClipboardItem
 
-  if (typeof write !== 'function' || !ClipboardItemCtor) {
+  if (typeof clipboard?.write !== 'function' || !ClipboardItemCtor) {
     throw new Error('Clipboard image copy is not supported in this browser.')
   }
 
   const type = blob.type || 'image/jpeg'
-  await write([new ClipboardItemCtor({ [type]: blob })])
+  await clipboard.write([new ClipboardItemCtor({ [type]: blob })])
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, type: string) {
