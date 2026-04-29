@@ -257,15 +257,33 @@ function appendManagedMeta(
   head.append(meta)
 }
 
+function upsertManagedTitle(content: string) {
+  const titleNodes = [...document.head.querySelectorAll('title')]
+  const title = titleNodes[0] ?? document.createElement('title')
+
+  title.textContent = content
+  title.dataset.lfSeo = 'true'
+
+  if (!title.isConnected) {
+    document.head.append(title)
+  }
+
+  for (const extraTitle of titleNodes.slice(1)) {
+    extraTitle.remove()
+  }
+}
+
 export function applyDocumentSeo(
   routeSeo: RouteSeoMetadata,
   options: SeoRuntimeOptions,
 ) {
   const resolved = resolveSeoMetadata(routeSeo, options)
-  document.title = resolved.title
-  document.head.querySelectorAll('[data-lf-seo="true"]').forEach((node) => {
-    node.remove()
-  })
+  document.head
+    .querySelectorAll('[data-lf-seo="true"]:not(title)')
+    .forEach((node) => {
+      node.remove()
+    })
+  upsertManagedTitle(resolved.title)
 
   appendManagedMeta(document.head, 'name', 'description', resolved.description)
   appendManagedMeta(document.head, 'name', 'robots', resolved.robots)
