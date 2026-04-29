@@ -12,10 +12,17 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router'
 
+import type {SeoRouteHandle} from '~/lib/seo';
+import { HOME_ROUTE_SEO  } from '~/lib/seo'
+
 import { repository } from '../../../package.json'
 
 const heroImage =
   'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=2400&q=86'
+
+export const handle = {
+  seo: HOME_ROUTE_SEO,
+} satisfies SeoRouteHandle
 
 const workflow = [
   {

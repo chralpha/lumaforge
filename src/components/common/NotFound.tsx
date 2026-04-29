@@ -1,10 +1,23 @@
+import { useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
+import { NOT_FOUND_ROUTE_SEO } from '~/lib/seo'
+
 import { Button } from '../ui/button'
+import { useRouteSeo } from './SeoMetadata'
 
 export const NotFound = () => {
   const location = useLocation()
   const navigate = useNavigate()
+  const routeSeo = useMemo(
+    () => ({
+      ...NOT_FOUND_ROUTE_SEO,
+      canonicalPath: location.pathname,
+    }),
+    [location.pathname],
+  )
+
+  useRouteSeo(routeSeo)
 
   return (
     <div className="min-h-screen flex flex-col">

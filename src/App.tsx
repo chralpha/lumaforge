@@ -2,6 +2,7 @@ import type { FC } from 'react'
 import { Outlet, useLocation } from 'react-router'
 
 import { Footer } from './components/common/Footer'
+import { SeoMetadata } from './components/common/SeoMetadata'
 import { RootProviders } from './providers/root-providers'
 
 export function shouldShowAppFooter(pathname: string) {
@@ -14,6 +15,7 @@ export const App: FC = () => {
 
   return (
     <RootProviders>
+      <SeoMetadata />
       <AppLayer />
       {showFooter && <Footer />}
     </RootProviders>

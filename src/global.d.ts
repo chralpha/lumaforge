@@ -24,6 +24,8 @@ declare global {
   } & {}
 
   const APP_NAME: string
+  const APP_SITE_URL: string
+  const APP_DEPLOY_ENV: 'preview' | 'production'
 }
 
 declare global {

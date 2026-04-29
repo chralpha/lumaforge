@@ -7,6 +7,11 @@ export default defineConfig({
   esbuild: {
     jsx: 'automatic',
   },
+  define: {
+    APP_NAME: JSON.stringify('LumaForge'),
+    APP_SITE_URL: JSON.stringify('https://luma.ichr.me'),
+    APP_DEPLOY_ENV: JSON.stringify('production'),
+  },
   plugins: [react()],
   resolve: {
     alias: {

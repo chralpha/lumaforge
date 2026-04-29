@@ -18,7 +18,7 @@ async function makeTempProject() {
   return root
 }
 
-async function writeFixtureDist(root) {
+async function writeFixtureDist(root, { includeSeoArtifacts = true } = {}) {
   const config = createDeployConfig(root)
   await mkdir(join(config.outputDir, 'native'), { recursive: true })
   await writeFile(
@@ -26,6 +26,22 @@ async function writeFixtureDist(root) {
     '<main>LumaForge</main>',
   )
   await writeFile(join(config.outputDir, 'app.js'), 'console.log("app")')
+
+  if (includeSeoArtifacts) {
+    await mkdir(join(config.outputDir, 'raw'), { recursive: true })
+    await writeFile(
+      join(config.outputDir, 'raw/index.html'),
+      '<main>LumaForge RAW</main>',
+    )
+    await writeFile(
+      join(config.outputDir, 'robots.txt'),
+      'User-agent: *\nAllow: /\n',
+    )
+    await writeFile(
+      join(config.outputDir, 'sitemap.xml'),
+      '<?xml version="1.0" encoding="UTF-8"?><urlset />',
+    )
+  }
 
   for (const asset of config.nativeAssets) {
     await writeFile(join(config.outputDir, asset), asset)
@@ -98,6 +114,15 @@ describe('deploy configuration', () => {
 })
 
 describe('deploy artifact checks', () => {
+  it('fails when SEO artifacts are missing from the deploy output', async () => {
+    const root = await makeTempProject()
+    const config = await writeFixtureDist(root, { includeSeoArtifacts: false })
+
+    await expect(checkDeployArtifact(config)).rejects.toThrow(
+      'Missing deploy artifact: raw/index.html',
+    )
+  })
+
   it('fails when a required native runtime asset is missing', async () => {
     const root = await makeTempProject()
     const config = await writeFixtureDist(root)
@@ -322,7 +347,7 @@ describe('publish command selection', () => {
         },
         output: '',
       }),
-    ).toBe('https://feat-prod-preview.lumaforge.pages.dev')
+    ).toBe('https://feat-prod-preview.luma.ichr.me')
 
     expect(
       resolveDeploymentUrl({
@@ -334,7 +359,7 @@ describe('publish command selection', () => {
         },
         output: '',
       }),
-    ).toBe('https://lumaforge.pages.dev')
+    ).toBe('https://luma.ichr.me')
 
     expect(
       resolveDeploymentUrl({
@@ -361,9 +386,9 @@ describe('publish command selection', () => {
         deployEnv: 'preview',
         env: { CLOUDFLARE_PAGES_PROJECT: 'lumaforge' },
         output:
-          'View deployment: https://dash.cloudflare.com/account/pages/view/lumaforge\nPreview URL: https://feat-prod-preview.lumaforge.pages.dev\n',
+          'View deployment: https://dash.cloudflare.com/account/pages/view/lumaforge\nPreview URL: https://feat-prod-preview.luma.ichr.me\n',
       }),
-    ).toBe('https://feat-prod-preview.lumaforge.pages.dev')
+    ).toBe('https://feat-prod-preview.luma.ichr.me')
   })
 })
 

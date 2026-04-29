@@ -1,19 +1,33 @@
 import { repository } from '@pkg'
-import { useEffect, useRef } from 'react'
-import { isRouteErrorResponse, useRouteError } from 'react-router'
+import { useEffect, useMemo, useRef } from 'react'
+import { isRouteErrorResponse, useLocation, useRouteError } from 'react-router'
 
 import { attachOpenInEditor } from '~/lib/dev'
+import { ERROR_ROUTE_SEO } from '~/lib/seo'
 
 import { Button } from '../ui/button'
+import { useRouteSeo } from './SeoMetadata'
 
 export function ErrorElement() {
   const error = useRouteError()
+  const location = useLocation()
   const message = isRouteErrorResponse(error)
     ? `${error.status} ${error.statusText}`
     : error instanceof Error
       ? error.message
       : JSON.stringify(error)
   const stack = error instanceof Error ? error.stack : null
+  const routeSeo = useMemo(
+    () => ({
+      ...ERROR_ROUTE_SEO,
+      canonicalPath: location.pathname,
+      title: `Unexpected Error | LumaForge`,
+      description: `LumaForge hit an unexpected application error on ${location.pathname || '/'}: ${message}`,
+    }),
+    [location.pathname, message],
+  )
+
+  useRouteSeo(routeSeo)
 
   useEffect(() => {
     console.error('Error handled by React Router default ErrorBoundary:', error)

@@ -15,7 +15,13 @@ async function fileExists(path) {
 }
 
 export async function checkDeployArtifact(config = createDeployConfig()) {
-  const requiredFiles = ['index.html', ...config.nativeAssets]
+  const requiredFiles = [
+    'index.html',
+    'raw/index.html',
+    'robots.txt',
+    'sitemap.xml',
+    ...config.nativeAssets,
+  ]
 
   for (const file of requiredFiles) {
     if (!(await fileExists(join(config.outputDir, file)))) {
