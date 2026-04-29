@@ -491,11 +491,12 @@
   }
 
   .raw-tool-stack {
-    max-height: 0;
+    display: none;
     overflow: hidden;
   }
 
   .raw-tool-surface[data-raw-tool-sheet='open'] .raw-tool-stack {
+    display: block;
     max-height: calc(42svh - 52px);
     overflow-y: auto;
   }

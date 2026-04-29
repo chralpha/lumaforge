@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 
 import type { LUTColorProfile } from '~/lib/color/registry'
 import type { LUTProfileResolution } from '~/lib/gl/pipeline'
@@ -40,6 +40,7 @@ export function RawToolSurface(props: {
   stats: ComponentProps<typeof FileFactsTool>['stats']
 }) {
   const [open, setOpen] = useState(false)
+  const toolStackId = useId()
   const disabled = !props.hasImage || props.isProcessing
 
   return (
@@ -53,12 +54,13 @@ export function RawToolSurface(props: {
         type="button"
         className="raw-tool-sheet-toggle"
         aria-expanded={open}
+        aria-controls={toolStackId}
         onClick={() => setOpen((value) => !value)}
       >
         RAW tools
       </button>
 
-      <div className="raw-tool-stack">
+      <div id={toolStackId} className="raw-tool-stack">
         <FinishTool
           presetOptions={props.presetOptions}
           activePresetId={props.activePresetId}
