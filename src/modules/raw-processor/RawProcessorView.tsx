@@ -39,6 +39,8 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     hasImage,
     canExport,
     exportDisabledReason,
+    exportResult,
+    exportShareCapability,
     activeStyle,
     lutProfileSelection,
     activePresetId,
@@ -60,6 +62,9 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     setCompareSplit,
     clearLUT,
     exportImage,
+    downloadExportResult,
+    shareExportResult,
+    copyExportResult,
     reset,
     dismissError,
     updateStats,
@@ -248,6 +253,11 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
           canExport={canExport}
           disabledReason={exportDisabledReason}
           isProcessing={isProcessing}
+          exportResult={exportResult}
+          exportShareCapability={exportShareCapability}
+          onShareExport={shareExportResult}
+          onDownloadExport={downloadExportResult}
+          onCopyExport={copyExportResult}
           hasImage={hasImage}
           supportLevel={supportLevel}
           metadata={toolMetadata}

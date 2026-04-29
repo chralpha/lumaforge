@@ -4,6 +4,10 @@ import { useId, useState } from 'react'
 import type { LUTColorProfile } from '~/lib/color/registry'
 import type { LUTProfileResolution } from '~/lib/gl/pipeline'
 
+import type {
+  ExportResult,
+  ExportShareCapability,
+} from '../model/export-result'
 import type { LUTProfileSelectionState } from '../model/session'
 import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
@@ -31,6 +35,11 @@ export function RawToolSurface(props: {
   canExport: boolean
   disabledReason?: string
   isProcessing: boolean
+  exportResult: ExportResult | null
+  exportShareCapability: ExportShareCapability
+  onShareExport: () => void
+  onDownloadExport: () => void
+  onCopyExport: () => void
   hasImage: boolean
   currentLutName?: string | null
   lutProfileSelection?: LUTProfileSelectionState | null
@@ -92,6 +101,11 @@ export function RawToolSurface(props: {
           disabledReason={props.disabledReason}
           isProcessing={props.isProcessing}
           onExport={props.onExport}
+          exportResult={props.exportResult}
+          exportShareCapability={props.exportShareCapability}
+          onShareExport={props.onShareExport}
+          onDownloadExport={props.onDownloadExport}
+          onCopyExport={props.onCopyExport}
         />
         <FileFactsTool
           supportLevel={props.supportLevel}
