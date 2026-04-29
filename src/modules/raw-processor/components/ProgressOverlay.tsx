@@ -37,13 +37,19 @@ export function ProgressOverlay({
   const session = useAtomValue(currentSessionAtom)
   const stripProgress =
     phase === 'exporting' ? session?.exportState.lastProgress : undefined
+  const normalizedProgress =
+    typeof progress === 'number' && Number.isFinite(progress)
+      ? Math.min(100, Math.max(0, progress))
+      : null
+  const ringProgress =
+    normalizedProgress === null ? 32 : Math.max(8, normalizedProgress)
 
   return (
     <AnimatePresence>
       {visible && (
         <m.div
           className={clsxm(
-            'absolute inset-0 z-50 flex items-center justify-center bg-[oklch(0.18_0.02_76_/_0.78)]',
+            'absolute inset-0 z-50 flex items-center justify-center bg-[oklch(0.14_0.018_76_/_0.82)]',
             className,
           )}
           initial={{ opacity: 0 }}
@@ -52,75 +58,75 @@ export function ProgressOverlay({
           transition={Spring.presets.smooth}
         >
           <m.div
-            className="flex flex-col items-center gap-4 p-8"
+            className="flex flex-col items-center gap-4 rounded-lg border border-[oklch(0.97_0.014_86_/_0.16)] bg-[oklch(0.16_0.018_76_/_0.78)] px-7 py-6 shadow-[0_24px_80px_oklch(0.1_0.02_76_/_0.32)]"
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             transition={Spring.presets.snappy}
           >
-            {/* Spinner */}
-            <div className="relative size-16">
+            <div className="relative size-[4.5rem]">
               <svg
-                className="size-full animate-spin"
+                data-progress-indicator
+                className="size-full -rotate-90"
                 viewBox="0 0 64 64"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
               >
                 <circle
                   cx="32"
                   cy="32"
                   r="28"
-                  className="stroke-fill"
-                  strokeWidth="4"
+                  stroke="oklch(0.97 0.014 86 / 0.2)"
+                  strokeWidth="5"
                 />
                 <circle
+                  data-progress-arc
                   cx="32"
                   cy="32"
                   r="28"
-                  className="stroke-accent"
-                  strokeWidth="4"
+                  stroke="oklch(0.78 0.16 63)"
+                  strokeWidth="5"
                   strokeLinecap="round"
-                  strokeDasharray="176"
-                  strokeDashoffset="132"
+                  strokeDasharray="100"
+                  strokeDashoffset={100 - ringProgress}
+                  pathLength="100"
                 />
               </svg>
 
-              {/* Progress percentage */}
-              {progress !== undefined && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-medium text-text tabular-nums">
-                    {Math.round(progress)}%
-                  </span>
-                </div>
-              )}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-xs font-semibold tabular-nums text-[oklch(0.97_0.014_86)]">
+                  {normalizedProgress === null
+                    ? '...'
+                    : `${Math.round(normalizedProgress)}%`}
+                </span>
+              </div>
             </div>
 
-            {/* Phase label */}
             <div className="text-center">
-              <p className="text-sm font-medium text-text">
+              <p className="text-sm font-medium text-[oklch(0.97_0.014_86)]">
                 {message || phaseLabels[phase]}
               </p>
 
               {recoveryHint && (
-                <p className="mt-2 max-w-xs text-center text-xs text-text-secondary">
+                <p className="mt-2 max-w-xs text-center text-xs text-[oklch(0.91_0.02_86_/_0.82)]">
                   {recoveryHint}
                 </p>
               )}
 
               {stripProgress && (
-                <p className="mt-2 text-xs text-text-secondary tabular-nums">
+                <p className="mt-2 text-xs tabular-nums text-[oklch(0.91_0.02_86_/_0.82)]">
                   Strip {stripProgress.completedStrips} of{' '}
                   {stripProgress.totalStrips}
                 </p>
               )}
 
-              {/* Progress bar */}
-              {progress !== undefined && (
-                <div className="mt-3 w-48 h-1.5 bg-fill rounded-full overflow-hidden">
+              {normalizedProgress !== null && (
+                <div className="mt-3 h-1.5 w-48 overflow-hidden rounded-full bg-[oklch(0.97_0.014_86_/_0.18)]">
                   <m.div
-                    className="h-full bg-accent rounded-full"
+                    className="h-full rounded-full bg-[oklch(0.78_0.16_63)]"
                     initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
+                    animate={{ width: `${normalizedProgress}%` }}
                     transition={{ duration: 0.3, ease: 'easeOut' }}
                   />
                 </div>

@@ -657,7 +657,7 @@ describe('rawToolSurface', () => {
       ).toBeInTheDocument()
     })
 
-    it('constrains the progress spinner to the loading frame', () => {
+    it('renders a legible progress indicator without relying on spin motion', () => {
       const { container } = render(
         <ComparePreviewStage
           {...compareStageProps({
@@ -668,10 +668,16 @@ describe('rawToolSurface', () => {
         />,
       )
 
-      const spinner = container.querySelector('svg.animate-spin')
+      const indicator = container.querySelector('[data-progress-indicator]')
+      const arc = container.querySelector('[data-progress-arc]')
 
-      expect(spinner).toBeInTheDocument()
-      expect(spinner).toHaveClass('size-full')
+      expect(indicator).toBeInTheDocument()
+      expect(indicator).toHaveClass('size-full')
+      expect(indicator).not.toHaveClass('animate-spin')
+      expect(arc).toHaveAttribute('stroke-dasharray', '100')
+      expect(arc).toHaveAttribute('stroke-dashoffset', '50')
+      expect(arc).toHaveAttribute('stroke', 'oklch(0.78 0.16 63)')
+      expect(screen.getByText('50%')).toHaveClass('text-[oklch(0.97_0.014_86)]')
     })
 
     it('keeps compare labels when an image is loaded', async () => {
