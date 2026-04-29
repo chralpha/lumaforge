@@ -66,6 +66,7 @@ import {
   runFullResolutionExportJob,
 } from '../services/export-system'
 import { runPreviewPipeline } from '../services/preview-pipeline'
+import { decideBoundedHqPreview } from '../services/preview-resolution-policy'
 import {
   buildBuiltinStyle,
   buildLUTProfileSelectionState,
@@ -495,6 +496,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       let runtimeSession: RawRuntimeSession | null = null
       let runtimeAbortController: AbortController | null = null
       let previewCompleted = false
+      let disposeRuntimeSessionInFinally = true
 
       try {
         activeSessionIdRef.current = null
@@ -511,7 +513,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         const nextSession = replaceFile(file)
         loadSessionId = nextSession.id
         let quickPreview: DecodedImage | null = null
-        let hqPreview: DecodedImage | null = null
+        let boundedHqPreview: DecodedImage | null = null
 
         sessionRef.current = nextSession
         activeSessionIdRef.current = nextSession.id
@@ -676,6 +678,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
         disposeRuntimeSession()
         const activeRuntimeSession = runtimeSession
         runtimeSessionRef.current = activeRuntimeSession
+        const boundedHqDecision = decideBoundedHqPreview({
+          sourceWidth: activeRuntimeSession.sourceDimensions.width ?? 0,
+          sourceHeight: activeRuntimeSession.sourceDimensions.height ?? 0,
+          userAgent:
+            typeof navigator === 'undefined' ? '' : navigator.userAgent || '',
+        })
 
         const probeExportCapability =
           'probeExportCapability' in activeRuntimeSession &&
@@ -748,7 +756,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
               ),
             )
 
-        await runPreviewPipeline({
+        const previewResult = await runPreviewPipeline({
           runtimeSession: {
             extractEmbeddedPreview() {
               return activeRuntimeSession.extractEmbeddedPreview(runtimeSignal)
@@ -761,29 +769,27 @@ export function useRawProcessor(): UseRawProcessorReturn {
                   }
 
                   setStatus(mapPhaseToStatus(phase))
-                  setProgress(progress * 0.5)
+                  setProgress(progress)
                 },
                 runtimeSignal,
               )
 
               return { width: quickPreview.width, height: quickPreview.height }
             },
-            async decodeHqRaw() {
-              hqPreview = await activeRuntimeSession.decodeHqRaw(
-                ({ phase, progress }) => {
-                  if (!matchesActiveSession()) {
-                    return
-                  }
-
-                  setStatus(mapPhaseToStatus(phase))
-                  setProgress(50 + progress * 0.5)
-                },
+            async decodeBoundedHqRaw(options) {
+              boundedHqPreview = await activeRuntimeSession.decodeBoundedHqRaw(
+                options,
+                undefined,
                 runtimeSignal,
               )
 
-              return { width: hqPreview.width, height: hqPreview.height }
+              return {
+                width: boundedHqPreview.width,
+                height: boundedHqPreview.height,
+              }
             },
           },
+          boundedHqDecision,
           onEvent: (event) => {
             if (!matchesActiveSession()) {
               return
@@ -859,11 +865,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 )
                 break
               }
-              case 'hq-ready': {
-                updatePreviewState('bounded-hq', event, hqPreview)
-                setProgress(100)
-                if (hqPreview) {
-                  const description = `${hqPreview.width}×${hqPreview.height} • ${hqPreview.metadata.make || 'Unknown'} ${hqPreview.metadata.model || ''}`
+              case 'bounded-hq-ready': {
+                updatePreviewState('bounded-hq', event, boundedHqPreview)
+                if (boundedHqPreview) {
+                  const description = `${boundedHqPreview.width}×${boundedHqPreview.height} • ${boundedHqPreview.metadata.make || 'Unknown'} ${boundedHqPreview.metadata.model || ''}`
                   scheduleToast(() =>
                     toast.success(`Loaded ${file.name}`, {
                       description,
@@ -872,7 +877,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 }
                 break
               }
-              case 'hq-failed': {
+              case 'bounded-hq-failed': {
                 const errorCode = toUserFacingErrorCode(event.errorCode)
 
                 setSession((prev) => {
@@ -900,14 +905,30 @@ export function useRawProcessor(): UseRawProcessorReturn {
                     },
                   }
                 })
-                setStatus('ready')
-                setProgress(100)
-                scheduleToast(() =>
-                  toast.error('HQ preview unavailable', {
-                    description:
-                      'The first preview stays visible while full-resolution export continues to depend on processed-window support.',
-                  }),
-                )
+                break
+              }
+              case 'bounded-hq-skipped': {
+                setSession((prev) => {
+                  if (!prev || prev.id !== nextSession.id) {
+                    return prev
+                  }
+
+                  const previewBundle = {
+                    ...prev.previewBundle,
+                    boundedHqPreview: {
+                      status: 'skipped' as const,
+                      reason: event.reason,
+                    },
+                  }
+
+                  return {
+                    ...prev,
+                    previewBundle: {
+                      ...previewBundle,
+                      displaySource: selectDisplaySource(previewBundle),
+                    },
+                  }
+                })
                 break
               }
             }
@@ -915,7 +936,28 @@ export function useRawProcessor(): UseRawProcessorReturn {
         })
         await exportCapabilityPromise
         previewCompleted = true
-        if (activeSessionIdRef.current === nextSession.id) {
+
+        if (previewResult.boundedHqPromise) {
+          disposeRuntimeSessionInFinally = false
+          void previewResult.boundedHqPromise
+            .finally(() => {
+              if (
+                activeSessionIdRef.current === nextSession.id &&
+                sessionRef.current?.id === nextSession.id
+              ) {
+                activeSessionIdRef.current = null
+              }
+              if (
+                runtimeAbortControllerRef.current === runtimeAbortController
+              ) {
+                runtimeAbortControllerRef.current = null
+              }
+              if (runtimeSessionRef.current === activeRuntimeSession) {
+                disposeRuntimeSession(activeRuntimeSession)
+              }
+            })
+            .catch(() => undefined)
+        } else if (activeSessionIdRef.current === nextSession.id) {
           activeSessionIdRef.current = null
         }
       } catch (err) {
@@ -954,6 +996,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         )
       } finally {
         if (
+          disposeRuntimeSessionInFinally &&
           runtimeAbortController &&
           runtimeAbortControllerRef.current === runtimeAbortController
         ) {
@@ -962,7 +1005,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
           }
           runtimeAbortControllerRef.current = null
         }
-        if (runtimeSession) {
+        if (disposeRuntimeSessionInFinally && runtimeSession) {
           disposeRuntimeSession(runtimeSession)
         }
       }
