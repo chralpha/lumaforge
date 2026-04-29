@@ -7,6 +7,7 @@ import type {
 } from '~/lib/gl/pipeline'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
+import type { DisplaySource } from '../model/session'
 import { CompareSplitHandle } from './CompareSplitHandle'
 import { Dropzone, RAW_FILE_EXTENSIONS } from './Dropzone'
 import { PreviewCanvas } from './PreviewCanvas'
@@ -20,7 +21,7 @@ export interface ComparePreviewStageProps {
   lutDataRef: React.RefObject<LUTData | null>
   lutDataVersion: number
   embeddedPreviewUrl?: string | null
-  displaySource?: 'embedded' | 'quick' | 'hq' | 'none'
+  displaySource?: DisplaySource
   split: number
   isProcessing: boolean
   progress: number

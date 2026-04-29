@@ -52,6 +52,7 @@ import {
   selectDisplaySource,
 } from '../model/derive-session'
 import type {
+  DisplaySource,
   ImageSession,
   LUTProfileSelectionState,
   StyleAsset,
@@ -241,7 +242,7 @@ export interface UseRawProcessorReturn {
   progressRecoveryHint?: string
   presetOptions: typeof BUILTIN_PRESETS
   embeddedPreviewUrl: string | null
-  displaySource: 'embedded' | 'quick' | 'hq' | 'none'
+  displaySource: DisplaySource
 
   // Actions
   loadFile: (file: File) => Promise<void>
@@ -545,7 +546,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
             previewBundle: {
               ...prev.previewBundle,
               quickDecodePreview: { status: 'loading' },
-              hqImage: { status: 'loading' },
+              boundedHqPreview: { status: 'loading' },
             },
             renderState: {
               status: 'preparing',
@@ -572,7 +573,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         }
 
         const updatePreviewState = (
-          source: 'embedded' | 'quick' | 'hq',
+          source: Exclude<DisplaySource, 'none'>,
           payload: {
             width: number
             height: number
@@ -613,15 +614,15 @@ export function useRawProcessor(): UseRawProcessorReturn {
                       timings: payload.timings ?? decoded?.timings,
                     }
                   : prev.previewBundle.quickDecodePreview,
-              hqImage:
-                source === 'hq'
+              boundedHqPreview:
+                source === 'bounded-hq'
                   ? {
                       status: 'ready' as const,
                       width: payload.width,
                       height: payload.height,
                       timings: payload.timings ?? decoded?.timings,
                     }
-                  : prev.previewBundle.hqImage,
+                  : prev.previewBundle.boundedHqPreview,
             }
 
             return {
@@ -828,7 +829,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                       status: 'failed' as const,
                       errorCode,
                     },
-                    hqImage: {
+                    boundedHqPreview: {
                       status: 'failed' as const,
                       errorCode,
                     },
@@ -859,7 +860,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 break
               }
               case 'hq-ready': {
-                updatePreviewState('hq', event, hqPreview)
+                updatePreviewState('bounded-hq', event, hqPreview)
                 setProgress(100)
                 if (hqPreview) {
                   const description = `${hqPreview.width}×${hqPreview.height} • ${hqPreview.metadata.make || 'Unknown'} ${hqPreview.metadata.model || ''}`
@@ -881,7 +882,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
                   const previewBundle = {
                     ...prev.previewBundle,
-                    hqImage: {
+                    boundedHqPreview: {
                       status: 'failed' as const,
                       errorCode,
                     },

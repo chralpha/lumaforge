@@ -62,10 +62,11 @@ function deferred<T>() {
 }
 
 function createDecodedImage(
-  source: 'quick' | 'hq',
+  source: 'quick' | 'bounded-hq' | 'hq',
   overrides: Partial<DecodedImage> = {},
 ): DecodedImage {
   const isQuick = source === 'quick'
+  const decodedSource = source === 'hq' ? 'bounded-hq' : source
 
   return {
     width: isQuick ? 800 : 4000,
@@ -75,7 +76,7 @@ function createDecodedImage(
     data: new Uint16Array([0, 1024, 65535]),
     layout: 'rgb-u16',
     colorSpace: 'linear-prophoto-rgb',
-    source,
+    source: decodedSource,
     timings: { total: isQuick ? 20 : 120 },
     metadata: {
       make: 'Sony',
@@ -123,9 +124,9 @@ function createTestSession() {
     previewBundle: {
       embeddedPreview: { status: 'idle' as const },
       quickDecodePreview: { status: 'ready' as const, width: 800, height: 600 },
-      hqImage: { status: 'ready' as const, width: 800, height: 600 },
-      displaySource: 'hq' as const,
-      hqRequiredForExport: false as const,
+      boundedHqPreview: { status: 'ready' as const, width: 800, height: 600 },
+      displaySource: 'bounded-hq' as const,
+      boundedHqRequiredForExport: false as const,
     },
     activeStyle: null,
     viewState: {
@@ -619,7 +620,7 @@ describe('useRawProcessor embedded preview state', () => {
       await loadPromise
     })
     await waitFor(() => {
-      expect(result.current.displaySource).toBe('hq')
+      expect(result.current.displaySource).toBe('bounded-hq')
     })
 
     act(() => {
@@ -731,7 +732,7 @@ describe('useRawProcessor embedded preview state', () => {
     expect(decodeHqRaw).toHaveBeenCalled()
     expect(result.current.displaySource).toBe('quick')
     expect(result.current.canExport).toBe(true)
-    expect(session?.previewBundle.hqImage).toEqual({
+    expect(session?.previewBundle.boundedHqPreview).toEqual({
       status: 'failed',
       errorCode: 'RAW_HQ_DECODE_FAILED',
     })
@@ -852,7 +853,7 @@ describe('useRawProcessor embedded preview state', () => {
       status: 'failed',
       errorCode: 'RAW_QUICK_DECODE_FAILED',
     })
-    expect(session?.previewBundle.hqImage).toEqual({
+    expect(session?.previewBundle.boundedHqPreview).toEqual({
       status: 'failed',
       errorCode: 'RAW_QUICK_DECODE_FAILED',
     })

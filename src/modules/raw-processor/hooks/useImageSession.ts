@@ -17,9 +17,9 @@ function createEmptySession(file: File): ImageSession {
     previewBundle: {
       embeddedPreview: { status: 'idle' },
       quickDecodePreview: { status: 'idle' },
-      hqImage: { status: 'idle' },
+      boundedHqPreview: { status: 'idle' },
       displaySource: 'none',
-      hqRequiredForExport: false,
+      boundedHqRequiredForExport: false,
     },
     activeStyle: null,
     viewState: {

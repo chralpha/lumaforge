@@ -16,6 +16,8 @@ import { RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { DecodedImage } from '~/lib/raw/decoder'
 import { Spring } from '~/lib/spring'
 
+import type { DisplaySource } from '../model/session'
+
 export interface PreviewCanvasProps {
   imageRef: React.RefObject<DecodedImage | null>
   imageVersion: number
@@ -23,7 +25,7 @@ export interface PreviewCanvasProps {
   lutDataRef: React.RefObject<LUTData | null>
   lutDataVersion: number
   embeddedPreviewUrl?: string | null
-  displaySource?: 'embedded' | 'quick' | 'hq' | 'none'
+  displaySource?: DisplaySource
   onStatsUpdate?: (stats: PipelineStats) => void
   onPipelineChange?: (pipeline: RawProcessingPipeline | null) => void
   className?: string

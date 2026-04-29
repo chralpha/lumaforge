@@ -10,7 +10,12 @@ import type {
 import { resolveRawRenderExposure } from '~/lib/color/raw-render-exposure'
 import { JPEG_RUNTIME_UNAVAILABLE_MESSAGE } from '~/lib/export/jpeg/wasm-row-sink'
 
-import type { DecodedImage, ImageMetadata, ProgressCallback } from './decoder'
+import type {
+  DecodedImage,
+  DecodedImageSource,
+  ImageMetadata,
+  ProgressCallback,
+} from './decoder'
 import { QUICK_PREVIEW_MAX_PIXELS } from './decoder'
 import type {
   JpegRuntimeAvailabilityProbe,
@@ -182,6 +187,8 @@ export function metadataToImageMetadata(frame: LumaRawFrame): ImageMetadata {
 
 export function frameToDecodedImage(frame: LumaRawFrame): DecodedImage {
   const metadata = metadataToImageMetadata(frame)
+  const source: DecodedImageSource =
+    frame.source === 'hq' ? 'bounded-hq' : frame.source
 
   return {
     width: frame.width,
@@ -191,7 +198,7 @@ export function frameToDecodedImage(frame: LumaRawFrame): DecodedImage {
     data: frame.data,
     layout: 'rgb-u16',
     colorSpace: 'linear-prophoto-rgb',
-    source: frame.source,
+    source,
     timings: { ...frame.timings },
     metadata,
     renderExposure: resolveRawRenderExposure({
