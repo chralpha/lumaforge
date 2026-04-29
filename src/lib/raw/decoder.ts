@@ -4,6 +4,8 @@ type DecodedImageLayout = 'rgba-float32' | 'rgb-u16'
 
 type DecodedImageColorSpace = 'display-srgb-preview' | 'linear-prophoto-rgb'
 
+export type DecodedImageSource = 'quick' | 'bounded-hq'
+
 export interface DecodedImage {
   width: number
   height: number
@@ -12,7 +14,7 @@ export interface DecodedImage {
   data: Float32Array | Uint16Array
   layout: DecodedImageLayout
   colorSpace: DecodedImageColorSpace
-  source?: 'quick' | 'hq'
+  source?: DecodedImageSource
   timings?: Record<string, number | undefined>
   metadata: ImageMetadata
   renderExposure: RawRenderExposure
@@ -41,6 +43,8 @@ export interface DecodeProgress {
 export type ProgressCallback = (progress: DecodeProgress) => void
 
 export const QUICK_PREVIEW_MAX_PIXELS = 2_500_000
+export const BOUNDED_HQ_PREVIEW_MAX_PIXELS = 12_000_000
+export const BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS = 8_000_000
 
 export const SUPPORTED_RAW_EXTENSIONS = new Set([
   'cr2',

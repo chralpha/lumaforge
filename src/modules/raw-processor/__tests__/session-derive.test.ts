@@ -20,9 +20,9 @@ const baseSession: ImageSession = {
   previewBundle: {
     embeddedPreview: { status: 'idle' },
     quickDecodePreview: { status: 'idle' },
-    hqImage: { status: 'idle' },
+    boundedHqPreview: { status: 'idle' },
     displaySource: 'none',
-    hqRequiredForExport: false,
+    boundedHqRequiredForExport: false,
   },
   activeStyle: null,
   viewState: {
@@ -57,7 +57,7 @@ describe('session derivation', () => {
     expect(selectDisplaySource(session.previewBundle)).toBe('quick')
   })
 
-  it('enables export when full-resolution capability is supported even if hq preview failed', () => {
+  it('enables export when full-resolution capability is supported even if bounded HQ preview failed', () => {
     expect(deriveCanExport(baseSession)).toBe(false)
 
     const session: ImageSession = {
@@ -65,7 +65,10 @@ describe('session derivation', () => {
       previewBundle: {
         ...baseSession.previewBundle,
         quickDecodePreview: { status: 'ready', width: 2000, height: 1500 },
-        hqImage: { status: 'failed', errorCode: 'RAW_HQ_DECODE_FAILED' },
+        boundedHqPreview: {
+          status: 'failed',
+          errorCode: 'RAW_BOUNDED_HQ_DECODE_FAILED',
+        },
       },
       renderState: { status: 'idle' as const },
       exportState: {
@@ -78,9 +81,75 @@ describe('session derivation', () => {
     expect(deriveCanExport(session)).toBe(true)
   })
 
+  it('prefers bounded HQ for display without requiring it for export', () => {
+    const session: ImageSession = {
+      ...baseSession,
+      previewBundle: {
+        ...baseSession.previewBundle,
+        quickDecodePreview: { status: 'ready', width: 2000, height: 1250 },
+        boundedHqPreview: { status: 'ready', width: 4000, height: 3000 },
+      },
+      exportState: {
+        ...baseSession.exportState,
+        status: 'idle',
+        fullResCapability: { status: 'supported', width: 8000, height: 6000 },
+      },
+    }
+
+    expect(selectDisplaySource(session.previewBundle)).toBe('bounded-hq')
+    expect(deriveCanExport(session)).toBe(true)
+  })
+
+  it('keeps export available when bounded HQ fails after quick preview', () => {
+    const session: ImageSession = {
+      ...baseSession,
+      previewBundle: {
+        ...baseSession.previewBundle,
+        quickDecodePreview: { status: 'ready', width: 2000, height: 1250 },
+        boundedHqPreview: {
+          status: 'failed',
+          errorCode: 'RAW_BOUNDED_HQ_DECODE_FAILED',
+        },
+      },
+      exportState: {
+        ...baseSession.exportState,
+        status: 'idle',
+        fullResCapability: { status: 'supported', width: 8000, height: 6000 },
+      },
+    }
+
+    expect(selectDisplaySource(session.previewBundle)).toBe('quick')
+    expect(deriveCanEdit(session)).toBe(true)
+    expect(deriveCanExport(session)).toBe(true)
+  })
+
+  it('requires quick preview before full-resolution export can be enabled', () => {
+    const session: ImageSession = {
+      ...baseSession,
+      previewBundle: {
+        ...baseSession.previewBundle,
+        boundedHqPreview: { status: 'ready', width: 4000, height: 3000 },
+      },
+      exportState: {
+        ...baseSession.exportState,
+        status: 'idle',
+        fullResCapability: { status: 'supported', width: 8000, height: 6000 },
+      },
+    }
+
+    expect(deriveCanExport(session)).toBe(false)
+    expect(deriveExportDisabledReason(session)).toBe(
+      'Quick preview is still being prepared.',
+    )
+  })
+
   it('disables export for builtin styles before the export button becomes available', () => {
     const session: ImageSession = {
       ...baseSession,
+      previewBundle: {
+        ...baseSession.previewBundle,
+        quickDecodePreview: { status: 'ready', width: 2000, height: 1250 },
+      },
       renderState: { status: 'ready' as const },
       exportState: {
         ...baseSession.exportState,
@@ -103,6 +172,10 @@ describe('session derivation', () => {
   it('surfaces unsupported LUT output before export is triggered', () => {
     const session: ImageSession = {
       ...baseSession,
+      previewBundle: {
+        ...baseSession.previewBundle,
+        quickDecodePreview: { status: 'ready', width: 2000, height: 1250 },
+      },
       renderState: { status: 'ready' as const },
       exportState: {
         ...baseSession.exportState,
@@ -137,6 +210,10 @@ describe('session derivation', () => {
 
     const session: ImageSession = {
       ...baseSession,
+      previewBundle: {
+        ...baseSession.previewBundle,
+        quickDecodePreview: { status: 'ready', width: 2000, height: 1250 },
+      },
       renderState: { status: 'ready' as const },
       exportState: {
         ...baseSession.exportState,
@@ -177,6 +254,10 @@ describe('session derivation', () => {
 
     const session: ImageSession = {
       ...baseSession,
+      previewBundle: {
+        ...baseSession.previewBundle,
+        quickDecodePreview: { status: 'ready', width: 2000, height: 1250 },
+      },
       renderState: { status: 'ready' as const },
       exportState: {
         ...baseSession.exportState,

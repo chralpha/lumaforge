@@ -2,8 +2,8 @@ import type { LUTColorProfile } from '~/lib/color/registry'
 import type { LUTInputProfile, LUTProfileResolution } from '~/lib/gl/pipeline'
 
 export type SupportLevel = 'official' | 'experimental' | 'unsupported'
-export type PreviewStatus = 'idle' | 'loading' | 'ready' | 'failed'
-export type DisplaySource = 'embedded' | 'quick' | 'hq' | 'none'
+export type PreviewStatus = 'idle' | 'loading' | 'ready' | 'failed' | 'skipped'
+export type DisplaySource = 'embedded' | 'quick' | 'bounded-hq' | 'none'
 export type IntensityLevel = 'off' | 'light' | 'standard' | 'strong'
 export type ExportFidelity = 'safe' | 'balanced' | 'max'
 export type FullResExportCapabilityState =
@@ -44,9 +44,9 @@ export type PreviewAsset = {
 export type PreviewBundle = {
   embeddedPreview: PreviewAsset
   quickDecodePreview: PreviewAsset
-  hqImage: PreviewAsset
+  boundedHqPreview: PreviewAsset
   displaySource: DisplaySource
-  hqRequiredForExport: false
+  boundedHqRequiredForExport: false
 }
 
 export type StyleAsset = {

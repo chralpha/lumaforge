@@ -4,8 +4,8 @@ import type { ImageSession, PreviewBundle } from './session'
 
 export function selectDisplaySource(
   preview: PreviewBundle,
-): 'embedded' | 'quick' | 'hq' | 'none' {
-  if (preview.hqImage.status === 'ready') return 'hq'
+): 'embedded' | 'quick' | 'bounded-hq' | 'none' {
+  if (preview.boundedHqPreview.status === 'ready') return 'bounded-hq'
   if (preview.quickDecodePreview.status === 'ready') return 'quick'
   if (preview.embeddedPreview.status === 'ready') return 'embedded'
   return 'none'
@@ -45,6 +45,7 @@ function deriveUnsupportedExportPipelineReason(
 
 export function deriveCanExport(session: ImageSession): boolean {
   return (
+    session.previewBundle.quickDecodePreview.status === 'ready' &&
     session.exportState.fullResCapability.status === 'supported' &&
     session.exportState.status !== 'exporting' &&
     !deriveUnsupportedExportPipelineReason(session)
@@ -56,6 +57,10 @@ export function deriveExportDisabledReason(
 ): string | undefined {
   if (session.exportState.status === 'exporting') {
     return 'Full-resolution export is already running.'
+  }
+
+  if (session.previewBundle.quickDecodePreview.status !== 'ready') {
+    return 'Quick preview is still being prepared.'
   }
 
   switch (session.exportState.fullResCapability.status) {
