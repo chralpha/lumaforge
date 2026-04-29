@@ -28,6 +28,10 @@ export type LumaRawQuickOptions = {
   maxOutputPixels?: number
 }
 
+export type LumaRawBoundedHqOptions = {
+  maxOutputPixels: number
+}
+
 export type LumaRawCfaPattern =
   | 'rggb'
   | 'bggr'
@@ -265,7 +269,7 @@ export type LumaRawSessionInfo = {
 export type LumaRawFrame = {
   jobId: string
   sessionId?: string
-  source: 'quick' | 'hq'
+  source: 'quick' | 'bounded-hq'
   width: number
   height: number
   data: Uint16Array
@@ -302,7 +306,10 @@ export type LumaRawDecodeSession = LumaRawSessionInfo & {
     options?: LumaRawQuickOptions,
     signal?: AbortSignal,
   ) => Promise<LumaRawFrame>
-  decodeHq: (signal?: AbortSignal) => Promise<LumaRawFrame>
+  decodeBoundedHq: (
+    options: LumaRawBoundedHqOptions,
+    signal?: AbortSignal,
+  ) => Promise<LumaRawFrame>
   probeExportCapability: (
     signal?: AbortSignal,
   ) => Promise<LumaRawExportCapability>
@@ -334,6 +341,10 @@ export type LumaRawRuntime = {
     signal?: AbortSignal,
   ) => Promise<LumaEmbeddedPreview | null>
   decodeQuick: (file: File, signal?: AbortSignal) => Promise<LumaRawFrame>
-  decodeHq: (file: File, signal?: AbortSignal) => Promise<LumaRawFrame>
+  decodeBoundedHq: (
+    file: File,
+    options: LumaRawBoundedHqOptions,
+    signal?: AbortSignal,
+  ) => Promise<LumaRawFrame>
   dispose: () => void
 }

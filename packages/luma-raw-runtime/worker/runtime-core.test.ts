@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { LumaRawRuntimeError } from '../src/errors'
 import type { LumaRawNativeFactory } from './native-types'
@@ -271,7 +271,7 @@ describe('runtime-core', () => {
     })
   })
 
-  it('returns quick and HQ RGB16 Linear ProPhoto frames', async () => {
+  it('returns quick and bounded HQ RGB16 Linear ProPhoto frames', async () => {
     const core = createRuntimeCore(makeNativeFactory())
 
     const quick = await core.handleRequest({
@@ -285,11 +285,12 @@ describe('runtime-core', () => {
     })
     const hq = await core.handleRequest({
       id: 'job-4',
-      type: 'decodeHq',
+      type: 'decodeBoundedHq',
       payload: {
         fileBuffer: new ArrayBuffer(4),
         fileName: 'sample.ARW',
         fileSize: 4,
+        maxOutputPixels: 12_000_000,
       },
     })
 
@@ -305,7 +306,7 @@ describe('runtime-core', () => {
     expect(hq).toMatchObject({
       ok: true,
       payload: {
-        source: 'hq',
+        source: 'bounded-hq',
         layout: 'rgb',
         bitDepth: 16,
         colorSpace: 'linear-prophoto-rgb',
@@ -361,8 +362,8 @@ describe('runtime-core', () => {
     })
     const hq = await core.handleRequest({
       id: 'job-heap-hq',
-      type: 'decodeHqFromSession',
-      payload: { sessionId },
+      type: 'decodeBoundedHqFromSession',
+      payload: { sessionId, maxOutputPixels: 12_000_000 },
     })
     await core.handleRequest({
       id: 'job-heap-close',
@@ -374,14 +375,14 @@ describe('runtime-core', () => {
       embedded.ok && embedded.type === 'extractEmbeddedPreviewFromSession',
     ).toBe(true)
     expect(quick.ok && quick.type === 'decodeQuickFromSession').toBe(true)
-    expect(hq.ok && hq.type === 'decodeHqFromSession').toBe(true)
+    expect(hq.ok && hq.type === 'decodeBoundedHqFromSession').toBe(true)
     if (
       !embedded.ok ||
       embedded.type !== 'extractEmbeddedPreviewFromSession' ||
       !quick.ok ||
       quick.type !== 'decodeQuickFromSession' ||
       !hq.ok ||
-      hq.type !== 'decodeHqFromSession'
+      hq.type !== 'decodeBoundedHqFromSession'
     ) {
       return
     }
@@ -457,8 +458,8 @@ describe('runtime-core', () => {
     })
     const hq = await core.handleRequest({
       id: 'job-session-hq',
-      type: 'decodeHqFromSession',
-      payload: { sessionId },
+      type: 'decodeBoundedHqFromSession',
+      payload: { sessionId, maxOutputPixels: 12_000_000 },
     })
     const close = await core.handleRequest({
       id: 'job-session-close',
@@ -484,10 +485,10 @@ describe('runtime-core', () => {
     })
     expect(hq).toMatchObject({
       ok: true,
-      type: 'decodeHqFromSession',
+      type: 'decodeBoundedHqFromSession',
       payload: {
         sessionId,
-        source: 'hq',
+        source: 'bounded-hq',
       },
     })
     expect(close).toMatchObject({
@@ -504,6 +505,60 @@ describe('runtime-core', () => {
     ])
     expect(previewOptions).toEqual([{ maxOutputPixels: 123 }])
     expect(disposeCount).toBe(1)
+  })
+
+  it('uses high-quality native settings with a bounded HQ output cap', async () => {
+    const decodeHq = vi.fn(() => ({
+      data: new Uint16Array(4000 * 3000 * 3),
+      width: 4000,
+      height: 3000,
+      bits: 16 as const,
+    }))
+    const core = createRuntimeCore({
+      createProcessor() {
+        return {
+          ...makeNativeFactory().createProcessor(),
+          readMetadata() {
+            return {
+              width: 11662,
+              height: 8746,
+              rawWidth: 11662,
+              rawHeight: 8746,
+              orientation: 1,
+            }
+          },
+          decodeHq,
+        }
+      },
+    })
+
+    const opened = await core.handleRequest({
+      id: 'open-1',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.RAF',
+        fileSize: 4,
+      },
+    })
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+
+    const response = await core.handleRequest({
+      id: 'bounded-1',
+      type: 'decodeBoundedHqFromSession',
+      payload: {
+        sessionId: opened.payload.sessionId,
+        maxOutputPixels: 12_000_000,
+      },
+    })
+
+    expect(response.ok && response.type === 'decodeBoundedHqFromSession').toBe(
+      true,
+    )
+    if (!response.ok || response.type !== 'decodeBoundedHqFromSession') return
+    expect(response.payload.source).toBe('bounded-hq')
+    expect(decodeHq).toHaveBeenCalledWith({ maxOutputPixels: 12_000_000 })
   })
 
   it('passes through native raw-window capability and window payloads', async () => {
@@ -1414,9 +1469,10 @@ describe('runtime-core', () => {
     })
     const hq = await core.handleRequest({
       id: 'job-default-hq-no-cap',
-      type: 'decodeHqFromSession',
+      type: 'decodeBoundedHqFromSession',
       payload: {
         sessionId: opened.payload.sessionId,
+        maxOutputPixels: 12_000_000,
       },
     })
 
@@ -1424,12 +1480,12 @@ describe('runtime-core', () => {
     expect(
       sessionQuick.ok && sessionQuick.type === 'decodeQuickFromSession',
     ).toBe(true)
-    expect(hq.ok && hq.type === 'decodeHqFromSession').toBe(true)
+    expect(hq.ok && hq.type === 'decodeBoundedHqFromSession').toBe(true)
     expect(previewOptions).toEqual([
       { maxOutputPixels: 2_500_000 },
       { maxOutputPixels: 2_500_000 },
     ])
-    expect(hqOptions).toEqual([undefined])
+    expect(hqOptions).toEqual([{ maxOutputPixels: 12_000_000 }])
   })
 
   it('disposes an opened session when late cancellation targets its open request', async () => {
@@ -1674,7 +1730,7 @@ describe('runtime-core', () => {
     expect(response.payload.data).toBe(nativeData)
   })
 
-  it('opens quick and HQ decodes with native RGB16 ProPhoto settings', async () => {
+  it('opens quick and bounded HQ decodes with native RGB16 ProPhoto settings', async () => {
     const openSettings: unknown[] = []
     const core = createRuntimeCore({
       createProcessor() {
@@ -1700,11 +1756,12 @@ describe('runtime-core', () => {
     })
     await core.handleRequest({
       id: 'job-settings-hq',
-      type: 'decodeHq',
+      type: 'decodeBoundedHq',
       payload: {
         fileBuffer: new ArrayBuffer(4),
         fileName: 'sample.ARW',
         fileSize: 4,
+        maxOutputPixels: 12_000_000,
       },
     })
 

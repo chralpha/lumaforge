@@ -1,6 +1,7 @@
 import { LumaRawRuntimeError } from './errors'
 import type {
   LumaEmbeddedPreview,
+  LumaRawBoundedHqOptions,
   LumaRawDecodeSession,
   LumaRawExportCapability,
   LumaRawFrame,
@@ -287,10 +288,16 @@ export function createLumaRawRuntime(
           stageSignal,
         )
       },
-      decodeHq(stageSignal?: AbortSignal) {
+      decodeBoundedHq(
+        stageOptions: LumaRawBoundedHqOptions,
+        stageSignal?: AbortSignal,
+      ) {
         return client.request(
-          'decodeHqFromSession',
-          { sessionId: sessionInfo.sessionId },
+          'decodeBoundedHqFromSession',
+          {
+            sessionId: sessionInfo.sessionId,
+            maxOutputPixels: stageOptions.maxOutputPixels,
+          },
           [],
           stageSignal,
         )
@@ -341,10 +348,17 @@ export function createLumaRawRuntime(
       }
     },
 
-    async decodeHq(file: File, signal?: AbortSignal): Promise<LumaRawFrame> {
+    async decodeBoundedHq(
+      file: File,
+      options: LumaRawBoundedHqOptions,
+      signal?: AbortSignal,
+    ): Promise<LumaRawFrame> {
       const session = await openSession(file, {}, signal)
       try {
-        return mergeSessionStageTimings(await session.decodeHq(signal), session)
+        return mergeSessionStageTimings(
+          await session.decodeBoundedHq(options, signal),
+          session,
+        )
       } finally {
         session.dispose()
       }

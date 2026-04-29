@@ -111,16 +111,16 @@ class RecordingWorker {
           } as MessageEvent<LumaRawWorkerResponse>)
         }
 
-        if (request.type === 'decodeHqFromSession') {
+        if (request.type === 'decodeBoundedHqFromSession') {
           this.onmessage?.({
             data: {
               id: request.id,
               ok: true,
-              type: 'decodeHqFromSession',
+              type: 'decodeBoundedHqFromSession',
               payload: {
                 jobId: request.id,
                 sessionId: request.payload.sessionId,
-                source: 'hq',
+                source: 'bounded-hq',
                 width: 2,
                 height: 2,
                 data: new Uint16Array([4, 5, 6, 7]),
@@ -211,15 +211,15 @@ class RecordingWorker {
           } as MessageEvent<LumaRawWorkerResponse>)
         }
 
-        if (request.type === 'decodeHq') {
+        if (request.type === 'decodeBoundedHq') {
           this.onmessage?.({
             data: {
               id: request.id,
               ok: true,
-              type: 'decodeHq',
+              type: 'decodeBoundedHq',
               payload: {
                 jobId: request.id,
-                source: 'hq',
+                source: 'bounded-hq',
                 width: 2,
                 height: 2,
                 data: new Uint16Array([4, 5, 6, 7]),
@@ -381,7 +381,7 @@ describe('createLumaRawRuntime', () => {
     runtime.dispose()
   })
 
-  it('returns HQ decode frames through a temporary session', async () => {
+  it('returns bounded HQ decode frames through a temporary session', async () => {
     const { runtime, worker } = createRuntime()
     const timingSpy = vi.spyOn(performance, 'now')
     let now = 200
@@ -391,10 +391,13 @@ describe('createLumaRawRuntime', () => {
       return value
     })
 
-    const frame = await runtime.decodeHq(new File(['raw'], 'sample.ARW'))
+    const frame = await runtime.decodeBoundedHq(
+      new File(['raw'], 'sample.ARW'),
+      { maxOutputPixels: 12_000_000 },
+    )
 
     expect(frame).toMatchObject({
-      source: 'hq',
+      source: 'bounded-hq',
       colorSpace: 'linear-prophoto-rgb',
       timings: {
         total: 28,
@@ -409,16 +412,17 @@ describe('createLumaRawRuntime', () => {
       },
     })
     expect(worker.requests[1]).toMatchObject({
-      type: 'decodeHqFromSession',
+      type: 'decodeBoundedHqFromSession',
       payload: {
         sessionId: 'session-1',
+        maxOutputPixels: 12_000_000,
       },
     })
 
     runtime.dispose()
   })
 
-  it('opens a session once and runs embedded, quick, and HQ by session id', async () => {
+  it('opens a session once and runs embedded, quick, and bounded HQ by session id', async () => {
     const requests: string[] = []
     const worker = new EchoWorker((request) => {
       requests.push(request.type)
@@ -472,7 +476,7 @@ describe('createLumaRawRuntime', () => {
 
       if (
         request.type === 'decodeQuickFromSession' ||
-        request.type === 'decodeHqFromSession'
+        request.type === 'decodeBoundedHqFromSession'
       ) {
         return {
           id: request.id,
@@ -481,7 +485,10 @@ describe('createLumaRawRuntime', () => {
           payload: {
             jobId: request.id,
             sessionId: 'session-1',
-            source: request.type === 'decodeHqFromSession' ? 'hq' : 'quick',
+            source:
+              request.type === 'decodeBoundedHqFromSession'
+                ? 'bounded-hq'
+                : 'quick',
             width: 1000,
             height: 667,
             data: new Uint16Array(1000 * 667 * 3),
@@ -516,16 +523,98 @@ describe('createLumaRawRuntime', () => {
     const session = await runtime.openSession(new File(['raw'], 'sample.ARW'))
     await session.extractEmbeddedPreview()
     await session.decodeQuick()
-    await session.decodeHq()
+    await session.decodeBoundedHq({ maxOutputPixels: 12_000_000 })
     session.dispose()
 
     expect(requests).toEqual([
       'openSession',
       'extractEmbeddedPreviewFromSession',
       'decodeQuickFromSession',
-      'decodeHqFromSession',
+      'decodeBoundedHqFromSession',
       'closeSession',
     ])
+  })
+
+  it('sends bounded HQ session requests with an explicit pixel cap', async () => {
+    const requests: Array<{ type: string; payload: unknown }> = []
+    const worker = new EchoWorker((request) => {
+      requests.push({ type: request.type, payload: request.payload })
+
+      if (request.type === 'openSession') {
+        return {
+          id: request.id,
+          ok: true,
+          type: 'openSession',
+          payload: {
+            sessionId: 'raw-session-1',
+            probe: {
+              jobId: request.id,
+              width: 6240,
+              height: 4168,
+              supportLevel: 'experimental',
+              timings: { total: 10 },
+            },
+            timings: { total: 10 },
+          },
+        }
+      }
+
+      if (request.type === 'decodeBoundedHqFromSession') {
+        return {
+          id: request.id,
+          ok: true,
+          type: 'decodeBoundedHqFromSession',
+          payload: {
+            jobId: request.id,
+            sessionId: 'raw-session-1',
+            source: 'bounded-hq',
+            width: 4000,
+            height: 3000,
+            data: new Uint16Array(4000 * 3000 * 3),
+            layout: 'rgb',
+            bitDepth: 16,
+            colorSpace: 'linear-prophoto-rgb',
+            orientation: 1,
+            metadata: {
+              width: 4000,
+              height: 3000,
+              supportLevel: 'experimental',
+            },
+            timings: { unpack: 100, total: 100 },
+          },
+        }
+      }
+
+      if (request.type === 'closeSession') {
+        return {
+          id: request.id,
+          ok: true,
+          type: 'closeSession',
+          payload: { closed: true },
+        }
+      }
+
+      throw new Error(`Unexpected request ${request.type}`)
+    })
+
+    const runtime = createLumaRawRuntime({
+      requireCrossOriginIsolation: false,
+      workerFactory: () => worker as unknown as Worker,
+    })
+
+    const session = await runtime.openSession(new File(['raw'], 'sample.RAF'))
+    const frame = await session.decodeBoundedHq({ maxOutputPixels: 12_000_000 })
+
+    expect(frame.source).toBe('bounded-hq')
+    expect(requests.map((request) => request.type)).toContain(
+      'decodeBoundedHqFromSession',
+    )
+    expect(requests.at(-1)?.payload).toMatchObject({
+      sessionId: 'raw-session-1',
+      maxOutputPixels: 12_000_000,
+    })
+
+    session.dispose()
   })
 
   it('forwards export capability and raw-window requests through the session', async () => {

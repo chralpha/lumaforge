@@ -320,11 +320,12 @@ describe('lumaRawWorkerClient', () => {
     const controller = new AbortController()
 
     const promise = client.request(
-      'decodeHq',
+      'decodeBoundedHq',
       {
         fileBuffer: new ArrayBuffer(4),
         fileName: 'sample.ARW',
         fileSize: 4,
+        maxOutputPixels: 12_000_000,
       },
       undefined,
       controller.signal,

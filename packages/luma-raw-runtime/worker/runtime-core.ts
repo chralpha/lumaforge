@@ -255,9 +255,9 @@ function createProbePayload(
 function createFramePayload(
   request: LumaRawWorkerRequest<
     | 'decodeQuick'
-    | 'decodeHq'
+    | 'decodeBoundedHq'
     | 'decodeQuickFromSession'
-    | 'decodeHqFromSession'
+    | 'decodeBoundedHqFromSession'
   >,
   nativeMetadata: LumaRawNativeMetadata,
   image: LumaRawNativeImage,
@@ -265,13 +265,12 @@ function createFramePayload(
   heap?: LumaRawHeapStats,
 ): LumaRawFrame {
   const metadata = toMetadata(nativeMetadata)
-  const isHq =
-    request.type === 'decodeHq' || request.type === 'decodeHqFromSession'
+  const isBoundedHq = isBoundedHqRequest(request)
 
   return {
     jobId: request.id,
     sessionId: request.payload.sessionId,
-    source: isHq ? 'hq' : 'quick',
+    source: isBoundedHq ? 'bounded-hq' : 'quick',
     width: image.width,
     height: image.height,
     data: image.data,
@@ -285,6 +284,17 @@ function createFramePayload(
     timings,
     ...(heap ? { heap } : {}),
   }
+}
+
+function isBoundedHqRequest(
+  request: LumaRawWorkerRequest,
+): request is LumaRawWorkerRequest<
+  'decodeBoundedHq' | 'decodeBoundedHqFromSession'
+> {
+  return (
+    request.type === 'decodeBoundedHq' ||
+    request.type === 'decodeBoundedHqFromSession'
+  )
 }
 
 function captureHeap(nativeFactory: LumaRawNativeFactory) {
@@ -382,7 +392,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
 
   function handleFileRequest(
     request: LumaRawWorkerRequest<
-      'probe' | 'extractEmbeddedPreview' | 'decodeQuick' | 'decodeHq'
+      'probe' | 'extractEmbeddedPreview' | 'decodeQuick' | 'decodeBoundedHq'
     >,
   ): LumaRawWorkerResponse {
     if (consumeCancellation(request)) {
@@ -390,7 +400,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
     }
 
     const timer = createTimer()
-    const settings = request.type === 'decodeHq' ? hqSettings : quickSettings
+    const settings = isBoundedHqRequest(request) ? hqSettings : quickSettings
     const heapBefore =
       request.type === 'probe' ? undefined : captureHeap(nativeFactory)
     const processor = nativeFactory.createProcessor()
@@ -462,12 +472,13 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
           payload,
         }
       } else {
-        const image =
-          request.type === 'decodeHq'
-            ? processor.decodeHq()
-            : processor.decodePreview({
-                maxOutputPixels: defaultQuickMaxOutputPixels,
-              })
+        const image = isBoundedHqRequest(request)
+          ? processor.decodeHq({
+              maxOutputPixels: request.payload.maxOutputPixels,
+            })
+          : processor.decodePreview({
+              maxOutputPixels: defaultQuickMaxOutputPixels,
+            })
         timer.mark('unpack')
         const heapAfter = captureHeap(nativeFactory)
 
@@ -675,7 +686,7 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
 
   function handleDecodeFromSession(
     request: LumaRawWorkerRequest<
-      'decodeQuickFromSession' | 'decodeHqFromSession'
+      'decodeQuickFromSession' | 'decodeBoundedHqFromSession'
     >,
   ): LumaRawWorkerResponse {
     if (consumeCancellation(request)) {
@@ -685,22 +696,22 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
     const session = requireSession(request.payload.sessionId)
     const timer = createTimer()
     const heapBefore = captureHeap(nativeFactory)
-    const settings =
-      request.type === 'decodeHqFromSession' ? hqSettings : quickSettings
+    const settings = isBoundedHqRequest(request) ? hqSettings : quickSettings
 
     openProcessorWithSettings(session.processor, settings, timer)
     const nativeMetadata = session.processor.readMetadata()
     timer.mark('metadata')
 
-    const image =
-      request.type === 'decodeHqFromSession'
-        ? session.processor.decodeHq()
-        : session.processor.decodePreview({
-            maxOutputPixels:
-              request.payload.maxOutputPixels ??
-              session.maxOutputPixels ??
-              defaultQuickMaxOutputPixels,
-          })
+    const image = isBoundedHqRequest(request)
+      ? session.processor.decodeHq({
+          maxOutputPixels: request.payload.maxOutputPixels,
+        })
+      : session.processor.decodePreview({
+          maxOutputPixels:
+            request.payload.maxOutputPixels ??
+            session.maxOutputPixels ??
+            defaultQuickMaxOutputPixels,
+        })
     timer.mark('unpack')
     const heapAfter = captureHeap(nativeFactory)
     const response: LumaRawWorkerResponse = {
@@ -892,12 +903,12 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
           case 'endProcessedWindowExportFromSession':
             return handleEndProcessedWindowExportFromSession(request)
           case 'decodeQuickFromSession':
-          case 'decodeHqFromSession':
+          case 'decodeBoundedHqFromSession':
             return handleDecodeFromSession(request)
           case 'probe':
           case 'extractEmbeddedPreview':
           case 'decodeQuick':
-          case 'decodeHq':
+          case 'decodeBoundedHq':
             return handleFileRequest(request)
         }
       } catch (error) {

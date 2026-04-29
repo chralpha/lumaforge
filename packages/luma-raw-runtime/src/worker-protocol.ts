@@ -17,7 +17,7 @@ export type LumaRawWorkerRequestType =
   | 'openSession'
   | 'extractEmbeddedPreviewFromSession'
   | 'decodeQuickFromSession'
-  | 'decodeHqFromSession'
+  | 'decodeBoundedHqFromSession'
   | 'probeExportCapabilityFromSession'
   | 'beginProcessedWindowExportFromSession'
   | 'readRawWindowFromSession'
@@ -27,7 +27,7 @@ export type LumaRawWorkerRequestType =
   | 'probe'
   | 'extractEmbeddedPreview'
   | 'decodeQuick'
-  | 'decodeHq'
+  | 'decodeBoundedHq'
   | 'cancel'
 
 export type LumaRawWorkerFilePayload = {
@@ -56,12 +56,17 @@ export type LumaRawWorkerQuickSessionPayload = {
   maxOutputPixels?: number
 }
 
+export type LumaRawWorkerBoundedHqSessionPayload = {
+  sessionId: string
+  maxOutputPixels: number
+}
+
 export type LumaRawWorkerRequestPayloadByType = {
   init: { requireCrossOriginIsolation: boolean }
   openSession: LumaRawWorkerFilePayload & { maxOutputPixels?: number }
   extractEmbeddedPreviewFromSession: LumaRawWorkerSessionPayload
   decodeQuickFromSession: LumaRawWorkerQuickSessionPayload
-  decodeHqFromSession: LumaRawWorkerSessionPayload
+  decodeBoundedHqFromSession: LumaRawWorkerBoundedHqSessionPayload
   probeExportCapabilityFromSession: LumaRawWorkerSessionPayload
   beginProcessedWindowExportFromSession: LumaRawWorkerSessionPayload
   readRawWindowFromSession: LumaRawWorkerRawWindowPayload
@@ -71,7 +76,7 @@ export type LumaRawWorkerRequestPayloadByType = {
   probe: LumaRawWorkerFilePayload
   extractEmbeddedPreview: LumaRawWorkerFilePayload
   decodeQuick: LumaRawWorkerFilePayload
-  decodeHq: LumaRawWorkerFilePayload
+  decodeBoundedHq: LumaRawWorkerFilePayload & { maxOutputPixels: number }
   cancel: { targetJobId: string }
 }
 
@@ -90,7 +95,7 @@ export type LumaRawWorkerPayloadByType = {
   openSession: LumaRawSessionInfo
   extractEmbeddedPreviewFromSession: LumaEmbeddedPreview | null
   decodeQuickFromSession: LumaRawFrame
-  decodeHqFromSession: LumaRawFrame
+  decodeBoundedHqFromSession: LumaRawFrame
   probeExportCapabilityFromSession: LumaRawExportCapability
   beginProcessedWindowExportFromSession: { active: true }
   readRawWindowFromSession: LumaRawWindow
@@ -100,7 +105,7 @@ export type LumaRawWorkerPayloadByType = {
   probe: LumaRawProbe
   extractEmbeddedPreview: LumaEmbeddedPreview | null
   decodeQuick: LumaRawFrame
-  decodeHq: LumaRawFrame
+  decodeBoundedHq: LumaRawFrame
   cancel: { cancelled: true }
 }
 
