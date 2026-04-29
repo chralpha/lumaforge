@@ -148,7 +148,9 @@ describe('rawToolSurface', () => {
     render(<RawToolSurface {...rawToolSurfaceProps()} />)
 
     expect(screen.getByText('Compare')).toBeInTheDocument()
-    expect(screen.getByText('Drag the split on the image.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Drag the split directly on the image.'),
+    ).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Processed' }),
     ).not.toBeInTheDocument()

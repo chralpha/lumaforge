@@ -11,10 +11,7 @@ export function CompareTool({
 }) {
   return (
     <ToolSection title="Compare" eyebrow="Split">
-      <p className="raw-tool-note">
-        Drag the split directly on the image.
-        <span className="sr-only">Drag the split on the image.</span>
-      </p>
+      <p className="raw-tool-note">Drag the split directly on the image.</p>
       <Button
         variant="secondary"
         size="sm"
