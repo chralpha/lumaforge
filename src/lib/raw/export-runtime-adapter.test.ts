@@ -140,7 +140,7 @@ describe('isRawExportSession', () => {
     const session = {
       extractEmbeddedPreview: vi.fn(),
       decodeQuickRaw: vi.fn(),
-      decodeHqRaw: vi.fn(),
+      decodeBoundedHqRaw: vi.fn(),
       dispose: vi.fn(),
     }
 
