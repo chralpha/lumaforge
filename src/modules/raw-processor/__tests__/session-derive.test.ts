@@ -123,6 +123,24 @@ describe('session derivation', () => {
     expect(deriveCanExport(session)).toBe(true)
   })
 
+  it('keeps export runnable when a previous result is ready', () => {
+    const session: ImageSession = {
+      ...baseSession,
+      previewBundle: {
+        ...baseSession.previewBundle,
+        quickDecodePreview: { status: 'ready', width: 2000, height: 1250 },
+      },
+      exportState: {
+        ...baseSession.exportState,
+        status: 'ready',
+        fullResCapability: { status: 'supported', width: 4000, height: 3000 },
+      },
+    }
+
+    expect(deriveCanExport(session)).toBe(true)
+    expect(deriveExportDisabledReason(session)).toBeUndefined()
+  })
+
   it('requires quick preview before full-resolution export can be enabled', () => {
     const session: ImageSession = {
       ...baseSession,

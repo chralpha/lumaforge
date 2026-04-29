@@ -1244,7 +1244,7 @@ describe('useRawProcessor embedded preview state', () => {
       }),
     )
     expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({
-      status: 'done',
+      status: 'ready',
       lastProgress: {
         completedStrips: 4,
         totalStrips: 4,
@@ -1253,11 +1253,17 @@ describe('useRawProcessor embedded preview state', () => {
         width: 6048,
         height: 4024,
       },
+      result: {
+        filename: 'frame_neutral_fullres.jpg',
+        width: 6048,
+        height: 4024,
+        size: 4,
+      },
     })
-    expect(click).toHaveBeenCalledTimes(1)
-    expect(remove).toHaveBeenCalledTimes(1)
-    expect(append).toHaveBeenCalledTimes(1)
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:fullres-export')
+    expect(click).not.toHaveBeenCalled()
+    expect(remove).not.toHaveBeenCalled()
+    expect(append).not.toHaveBeenCalled()
+    expect(revokeObjectURL).not.toHaveBeenCalled()
   })
 
   it('aborts and disposes stale runtime session when replacing files', async () => {

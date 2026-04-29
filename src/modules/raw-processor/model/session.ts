@@ -1,6 +1,8 @@
 import type { LUTColorProfile } from '~/lib/color/registry'
 import type { LUTInputProfile, LUTProfileResolution } from '~/lib/gl/pipeline'
 
+import type { ExportResult } from './export-result'
+
 export type SupportLevel = 'official' | 'experimental' | 'unsupported'
 export type PreviewStatus = 'idle' | 'loading' | 'ready' | 'failed' | 'skipped'
 export type DisplaySource = 'embedded' | 'quick' | 'bounded-hq' | 'none'
@@ -101,10 +103,11 @@ export type ImageSession = {
     lastErrorCode?: string
   }
   exportState: {
-    status: 'idle' | 'preparing' | 'exporting' | 'done' | 'failed'
+    status: 'idle' | 'preparing' | 'exporting' | 'ready' | 'failed'
     qualityPreset: 'standard' | 'high'
     fidelityLevel: ExportFidelity
     fullResCapability: FullResExportCapabilityState
+    result?: ExportResult
     lastProgress?: {
       completedStrips: number
       totalStrips: number

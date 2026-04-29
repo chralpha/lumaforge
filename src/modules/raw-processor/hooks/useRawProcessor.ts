@@ -51,6 +51,7 @@ import {
   deriveExportDisabledReason,
   selectDisplaySource,
 } from '../model/derive-session'
+import { createExportResult } from '../model/export-result'
 import type {
   DisplaySource,
   ImageSession,
@@ -58,6 +59,7 @@ import type {
   StyleAsset,
 } from '../model/session'
 import { BUILTIN_PRESETS } from '../services/builtin-presets'
+import { resolveExportCopyCapability } from '../services/export-result-actions'
 import {
   buildExportFilename,
   getConcurrencyForFidelity,
@@ -1381,6 +1383,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 exportState: {
                   ...prev.exportState,
                   status: 'failed',
+                  result: undefined,
                   lastErrorCode: 'EXPORT_UNSUPPORTED_PIPELINE',
                   retryRecommended: false,
                   recommendedRetryLevel: undefined,
@@ -1409,6 +1412,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                   status: 'exporting',
                   qualityPreset: quality,
                   fidelityLevel: fidelity,
+                  result: undefined,
                   lastProgress: undefined,
                   retryRecommended: false,
                   recommendedRetryLevel: undefined,
@@ -1469,14 +1473,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
         }
         const completedCapability = activeSession.exportState.fullResCapability
 
-        const url = URL.createObjectURL(result.blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = result.filename
-        document.body.append(link)
-        link.click()
-        link.remove()
-        URL.revokeObjectURL(url)
+        const exportResult = createExportResult({
+          blob: result.blob,
+          filename: result.filename,
+          width: completedCapability.width,
+          height: completedCapability.height,
+          copyCapability: resolveExportCopyCapability(),
+        })
 
         setSession((prev) =>
           prev && prev.id === exportSessionId
@@ -1484,7 +1487,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 ...prev,
                 exportState: {
                   ...prev.exportState,
-                  status: 'done',
+                  status: 'ready',
+                  result: exportResult,
                   retryRecommended: false,
                   lastSuccessfulSize: {
                     width: completedCapability.width,
@@ -1496,7 +1500,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         )
         setStatus('ready')
         scheduleToast(() =>
-          toast.success('JPEG exported', {
+          toast.success('JPEG ready', {
             description: result.filename,
           }),
         )
@@ -1526,6 +1530,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 exportState: {
                   ...prev.exportState,
                   status: 'failed',
+                  result: undefined,
                   lastErrorCode: errorCode,
                   retryRecommended: Boolean(retryLevel),
                   recommendedRetryLevel: retryLevel ?? undefined,
