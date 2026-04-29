@@ -148,10 +148,10 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     status === 'processing' ||
     status === 'exporting'
   const toolMetadata = loadedImage.metadata
+  const decodedPreviewSize = decodedImageRef.current
     ? {
-        ...loadedImage.metadata,
-        width: decodedImageRef.current?.width ?? loadedImage.metadata.width,
-        height: decodedImageRef.current?.height ?? loadedImage.metadata.height,
+        width: decodedImageRef.current.width,
+        height: decodedImageRef.current.height,
       }
     : null
 
@@ -159,7 +159,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     ? {
         processTime: stats.processTime,
         inputSize: stats.inputSize,
-        previewSize: stats.previewSize,
+        previewSize: decodedPreviewSize ?? stats.previewSize,
       }
     : null
   const capability = useCapabilityGate()
