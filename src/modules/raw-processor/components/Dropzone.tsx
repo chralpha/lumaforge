@@ -298,17 +298,25 @@ export function LutDropzone({
   onClear?: () => void
   disabled?: boolean
 }) {
+  const label = currentLut
+    ? `Selected LUT: ${currentLut}. Drop .cube LUT file to replace.`
+    : 'Drop .cube LUT file'
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 max-w-full items-center gap-2 overflow-hidden">
       <Dropzone
         onFileDrop={onFileDrop}
         accept={['.cube']}
         disabled={disabled}
-        className="flex-1 px-4 py-3"
+        aria-label={label}
+        className="min-w-0 flex-1 px-4 py-3"
       >
-        <div className="flex items-center gap-3">
-          <i className="i-mingcute-palette-2-line text-lg text-text-secondary" />
-          <span className="text-sm text-text truncate">
+        <div className="flex min-w-0 items-center gap-3">
+          <i className="i-mingcute-palette-2-line shrink-0 text-lg text-text-secondary" />
+          <span
+            className="block min-w-0 max-w-full truncate text-sm text-text"
+            title={currentLut ?? undefined}
+          >
             {currentLut || 'Drop .cube LUT file'}
           </span>
         </div>
@@ -320,7 +328,7 @@ export function LutDropzone({
             e.stopPropagation()
             onClear()
           }}
-          className="p-2 rounded-lg hover:bg-fill text-text-secondary hover:text-text transition-colors"
+          className="shrink-0 rounded-lg p-2 text-text-secondary transition-colors hover:bg-fill hover:text-text"
           title="Clear LUT"
         >
           <i className="i-mingcute-close-line text-lg" />

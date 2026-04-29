@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+import { LutDropzone } from './Dropzone'
 import { RawToolSurface } from './RawToolSurface'
 
 const baseProps = {
@@ -70,5 +71,22 @@ describe('rawToolSurface', () => {
 
     await user.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('keeps long LUT names inside the tool column while preserving the full name', () => {
+    const currentLut =
+      'Fujifilm-GFX100RF-F-Log2C-to-Classic-Negative-Rec709-Display-Extremely-Long-Client-Delivery-Name.cube'
+
+    render(<LutDropzone currentLut={currentLut} onFileDrop={vi.fn()} />)
+
+    const label = screen.getByLabelText(/drop \.cube lut file/i)
+    const frame = label.closest('label')
+    const fileName = screen.getByText(currentLut)
+    const row = fileName.parentElement?.parentElement
+
+    expect(row).toHaveClass('min-w-0')
+    expect(frame).toHaveClass('min-w-0')
+    expect(fileName).toHaveClass('min-w-0', 'truncate')
+    expect(fileName).toHaveAttribute('title', currentLut)
   })
 })
