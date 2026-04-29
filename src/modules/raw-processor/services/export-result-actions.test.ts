@@ -23,6 +23,34 @@ function createResult() {
   })
 }
 
+function createClipboardItem(items: Record<string, Blob>): ClipboardItem {
+  return {
+    presentationStyle: 'unspecified',
+    types: Object.keys(items),
+    getType: vi.fn(async (type: string) => {
+      const blob = items[type]
+      if (!blob) {
+        throw new Error(`Clipboard item does not include ${type}.`)
+      }
+
+      return blob
+    }),
+  }
+}
+
+function createClipboardItemMock(supports: (type: string) => boolean) {
+  const ClipboardItemMock = Object.assign(
+    vi.fn((items: Record<string, Blob>): ClipboardItem => {
+      return createClipboardItem(items)
+    }),
+    { supports: vi.fn(supports) },
+  )
+
+  return ClipboardItemMock as typeof ClipboardItemMock & {
+    new (items: Record<string, Blob>): ClipboardItem
+  }
+}
+
 describe('export result actions', () => {
   it('creates a file-backed export result with size and dimensions', () => {
     const result = createResult()
@@ -38,6 +66,7 @@ describe('export result actions', () => {
   })
 
   it('downloads the stored full-resolution blob only when the action is called', () => {
+    vi.useFakeTimers()
     const result = createResult()
     const click = vi.fn()
     const remove = vi.fn()
@@ -52,21 +81,30 @@ describe('export result actions', () => {
       revokeObjectURL: vi.fn(),
     } as unknown as typeof URL
 
-    downloadExportResult(result, { document: documentLike, URL: urlLike })
+    try {
+      downloadExportResult(result, { document: documentLike, URL: urlLike })
 
-    expect(urlLike.createObjectURL).toHaveBeenCalledWith(result.blob)
-    expect(link.href).toBe('blob:export')
-    expect(link.download).toBe('frame_neutral_fullres.jpg')
-    expect(append).toHaveBeenCalledWith(link)
-    expect(click).toHaveBeenCalledTimes(1)
-    expect(remove).toHaveBeenCalledTimes(1)
-    expect(urlLike.revokeObjectURL).toHaveBeenCalledWith('blob:export')
+      expect(urlLike.createObjectURL).toHaveBeenCalledWith(result.blob)
+      expect(link.href).toBe('blob:export')
+      expect(link.download).toBe('frame_neutral_fullres.jpg')
+      expect(append).toHaveBeenCalledWith(link)
+      expect(click).toHaveBeenCalledTimes(1)
+      expect(remove).toHaveBeenCalledTimes(1)
+      expect(urlLike.revokeObjectURL).not.toHaveBeenCalled()
+
+      vi.runOnlyPendingTimers()
+
+      expect(urlLike.revokeObjectURL).toHaveBeenCalledWith('blob:export')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('enables share only when the browser can share the JPEG file', () => {
     const result = createResult()
     const navigatorLike = {
       canShare: vi.fn(() => true),
+      share: vi.fn(),
     } as unknown as Navigator
 
     expect(resolveExportShareCapability(result, navigatorLike)).toEqual({
@@ -75,6 +113,19 @@ describe('export result actions', () => {
     expect(navigatorLike.canShare).toHaveBeenCalledWith({
       files: [result.file],
     })
+  })
+
+  it('marks share unavailable when canShare exists but share is unsupported', () => {
+    const result = createResult()
+    const navigatorLike = {
+      canShare: vi.fn(() => true),
+    } as unknown as Navigator
+
+    expect(resolveExportShareCapability(result, navigatorLike)).toEqual({
+      available: false,
+      reason: 'This browser cannot share JPEG files.',
+    })
+    expect(navigatorLike.canShare).not.toHaveBeenCalled()
   })
 
   it('marks share unavailable when file sharing is unsupported', () => {
@@ -105,11 +156,8 @@ describe('export result actions', () => {
 
   it('prefers full-resolution copy when JPEG clipboard write is supported', () => {
     const write = vi.fn()
-    const ClipboardItemMock = Object.assign(
-      vi.fn((items: Record<string, Blob>) => {
-        return { items }
-      }),
-      { supports: vi.fn((type: string) => type === 'image/jpeg') },
+    const ClipboardItemMock = createClipboardItemMock(
+      (type) => type === 'image/jpeg',
     )
     const environment = {
       navigator: { clipboard: { write } },
@@ -124,11 +172,8 @@ describe('export result actions', () => {
 
   it('falls back to preview-size copy when JPEG clipboard write is unsupported but PNG clipboard write is available', () => {
     const write = vi.fn()
-    const ClipboardItemMock = Object.assign(
-      vi.fn((items: Record<string, Blob>) => {
-        return { items }
-      }),
-      { supports: vi.fn((type: string) => type === 'image/png') },
+    const ClipboardItemMock = createClipboardItemMock(
+      (type) => type === 'image/png',
     )
     const environment = {
       navigator: { clipboard: { write } },
@@ -152,11 +197,7 @@ describe('export result actions', () => {
   it('writes the full-resolution JPEG blob to clipboard when requested', async () => {
     const result = createResult()
     const write = vi.fn().mockResolvedValue(undefined)
-    const ClipboardItemMock = vi.fn((
-      items: Record<string, Blob>,
-    ) => {
-      return { items }
-    })
+    const ClipboardItemMock = createClipboardItemMock(() => false)
     const environment = {
       navigator: { clipboard: { write } },
       ClipboardItem: ClipboardItemMock,
@@ -167,6 +208,8 @@ describe('export result actions', () => {
     expect(ClipboardItemMock).toHaveBeenCalledWith({
       'image/jpeg': result.blob,
     })
-    expect(write).toHaveBeenCalledTimes(1)
+    expect(write).toHaveBeenCalledWith([
+      ClipboardItemMock.mock.results[0].value,
+    ])
   })
 })

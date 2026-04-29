@@ -22,6 +22,7 @@ export function resolveExportShareCapability(
 ): ExportShareCapability {
   if (
     typeof navigatorLike.canShare === 'function' &&
+    typeof navigatorLike.share === 'function' &&
     navigatorLike.canShare({ files: [result.file] })
   ) {
     return { available: true }
@@ -65,7 +66,9 @@ export function downloadExportResult(
   documentLike.body.append(link)
   link.click()
   link.remove()
-  urlLike.revokeObjectURL(url)
+  setTimeout(() => {
+    urlLike.revokeObjectURL(url)
+  }, 0)
 }
 
 export function resolveExportCopyCapability(
