@@ -194,7 +194,11 @@ function enqueuePostCommitTask(task: () => void) {
 }
 
 function clearExportResultState<T extends ImageSession | null>(session: T): T {
-  if (!session?.exportState.result) {
+  if (
+    !session?.exportState.result &&
+    session?.exportState.status !== 'ready' &&
+    session?.exportState.status !== 'exporting'
+  ) {
     return session
   }
 
@@ -203,12 +207,32 @@ function clearExportResultState<T extends ImageSession | null>(session: T): T {
     exportState: {
       ...session.exportState,
       status:
-        session.exportState.status === 'ready'
+        session.exportState.status === 'ready' ||
+        session.exportState.status === 'exporting'
           ? 'idle'
           : session.exportState.status,
       result: undefined,
+      lastProgress:
+        session.exportState.status === 'exporting'
+          ? undefined
+          : session.exportState.lastProgress,
     },
   }
+}
+
+function hasSameRawRenderExposure(
+  current: DecodedImage['renderExposure'] | null | undefined,
+  next: DecodedImage['renderExposure'] | null | undefined,
+) {
+  if (!current || !next) {
+    return current === next
+  }
+
+  return (
+    current.ev === next.ev &&
+    current.multiplier === next.multiplier &&
+    current.source === next.source
+  )
 }
 
 function changesRenderGraphParams(
@@ -342,6 +366,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const runtimeSessionRef = useRef<RawRuntimeSession | null>(null)
   const runtimeAbortControllerRef = useRef<AbortController | null>(null)
   const exportAbortControllerRef = useRef<AbortController | null>(null)
+  const exportGraphVersionRef = useRef(0)
   const disposedRuntimeSessionsRef = useRef<WeakSet<RawRuntimeSession>>(
     new WeakSet(),
   )
@@ -397,10 +422,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
       notify()
     })
-  }, [])
-  const setDecodedImageRef = useCallback((nextDecoded: DecodedImage | null) => {
-    decodedImageRef.current = nextDecoded
-    setDecodedImageVersion((version) => version + 1)
   }, [])
   const setLutDataRef = useCallback((nextLutData: LUTData | null) => {
     lutDataRef.current = nextLutData
@@ -486,6 +507,37 @@ export function useRawProcessor(): UseRawProcessorReturn {
     }
     exportAbortControllerRef.current = null
   }, [])
+
+  const invalidateExportGraph = useCallback(() => {
+    exportGraphVersionRef.current += 1
+    const hasActiveExport =
+      Boolean(
+        exportAbortControllerRef.current &&
+        !exportAbortControllerRef.current.signal.aborted,
+      ) || sessionRef.current?.exportState.status === 'exporting'
+
+    abortExportWork()
+    setSession(clearExportResultState)
+
+    if (hasActiveExport) {
+      setStatus('ready')
+      setProgress(0)
+    }
+  }, [abortExportWork, setProgress, setSession, setStatus])
+
+  const setDecodedImageRef = useCallback(
+    (nextDecoded: DecodedImage | null) => {
+      const currentExposure = decodedImageRef.current?.renderExposure ?? null
+      const nextExposure = nextDecoded?.renderExposure ?? null
+      decodedImageRef.current = nextDecoded
+      setDecodedImageVersion((version) => version + 1)
+
+      if (!hasSameRawRenderExposure(currentExposure, nextExposure)) {
+        invalidateExportGraph()
+      }
+    },
+    [invalidateExportGraph],
+  )
 
   useEffect(() => {
     sessionRef.current = session
@@ -1148,6 +1200,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         }
 
         const style = toCustomStyle(parsed)
+        invalidateExportGraph()
         setLut(parsed)
         setSession((prev) =>
           prev
@@ -1192,7 +1245,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         )
       }
     },
-    [scheduleToast, setLut, setParams, setSession],
+    [invalidateExportGraph, scheduleToast, setLut, setParams, setSession],
   )
 
   const selectLUTProfile = useCallback(
@@ -1229,6 +1282,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
 
       setLut(updatedLut)
+      invalidateExportGraph()
       setSession((prev) =>
         prev
           ? clearExportResultState({
@@ -1245,12 +1299,21 @@ export function useRawProcessor(): UseRawProcessorReturn {
         intensity: mapIntensityLevel(currentIntensityLevel),
       }))
     },
-    [activeStyle, lut, scheduleToast, setLut, setParams, setSession],
+    [
+      activeStyle,
+      invalidateExportGraph,
+      lut,
+      scheduleToast,
+      setLut,
+      setParams,
+      setSession,
+    ],
   )
 
   const selectBuiltinStyle = useCallback(
     (id: (typeof BUILTIN_PRESETS)[number]['id']) => {
       const style = buildBuiltinStyle(id)
+      invalidateExportGraph()
       setLut(null)
       setLutDataRef(null)
       setSession((prev) =>
@@ -1269,11 +1332,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
         intensity: mapIntensityLevel(style.defaultIntensityLevel),
       }))
     },
-    [setLut, setLutDataRef, setParams, setSession],
+    [invalidateExportGraph, setLut, setLutDataRef, setParams, setSession],
   )
 
   const selectIntensityLevel = useCallback(
     (level: 'off' | 'light' | 'standard' | 'strong') => {
+      invalidateExportGraph()
       setParams((prev) => ({ ...prev, intensity: mapIntensityLevel(level) }))
       setSession((prev) => {
         if (!prev) {
@@ -1293,7 +1357,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         })
       })
     },
-    [setParams, setSession],
+    [invalidateExportGraph, setParams, setSession],
   )
 
   const setViewMode = useCallback(
@@ -1336,6 +1400,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   // Clear LUT
   const clearLUT = useCallback(() => {
+    invalidateExportGraph()
     setLut(null)
     setLutDataRef(null)
     setSession((prev) =>
@@ -1353,7 +1418,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
       builtinPreset: null,
     }))
     scheduleToast(() => toast.info('LUT cleared'))
-  }, [scheduleToast, setLut, setLutDataRef, setParams, setSession])
+  }, [
+    invalidateExportGraph,
+    scheduleToast,
+    setLut,
+    setLutDataRef,
+    setParams,
+    setSession,
+  ])
 
   // Update params
   const handleSetParams = useCallback(
@@ -1364,10 +1436,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
       )
       setParams((prev) => ({ ...prev, ...newParams }))
       if (shouldClearExportResult) {
-        setSession(clearExportResultState)
+        invalidateExportGraph()
       }
     },
-    [params, setParams, setSession],
+    [invalidateExportGraph, params, setParams],
   )
 
   // Export image
@@ -1445,6 +1517,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
 
       const exportSessionId = session.id
+      const exportGraphVersion = exportGraphVersionRef.current
+      abortExportWork()
       const exportAbortController = new AbortController()
       exportAbortControllerRef.current = exportAbortController
 
@@ -1487,6 +1561,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
             if (
               !isMountedRef.current ||
               exportAbortController.signal.aborted ||
+              exportGraphVersionRef.current !== exportGraphVersion ||
               sessionRef.current?.id !== exportSessionId
             ) {
               return
@@ -1515,6 +1590,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         if (
           !isMountedRef.current ||
           exportAbortController.signal.aborted ||
+          exportGraphVersionRef.current !== exportGraphVersion ||
           !activeSession ||
           activeSession.id !== exportSessionId ||
           activeSession.exportState.fullResCapability.status !== 'supported'
@@ -1558,6 +1634,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         if (
           exportAbortController.signal.aborted ||
           !isMountedRef.current ||
+          exportGraphVersionRef.current !== exportGraphVersion ||
           sessionRef.current?.id !== exportSessionId
         ) {
           return
@@ -1601,6 +1678,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
     },
     [
+      abortExportWork,
       loadedImage.file,
       params.builtinPreset,
       params.intensity,
