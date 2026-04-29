@@ -19,7 +19,6 @@ function rawToolSurfaceProps(
     ],
     activePresetId: 'neutral',
     activeIntensity: 'standard',
-    viewMode: 'processed',
     onPresetSelect: () => {},
     onIntensitySelect: () => {},
     onCompareReset: () => {},
@@ -146,7 +145,7 @@ describe('rawToolSurface', () => {
   })
 
   it('keeps compare copy tied to the new split interaction', () => {
-    render(<RawToolSurface {...rawToolSurfaceProps({ viewMode: 'compare' })} />)
+    render(<RawToolSurface {...rawToolSurfaceProps()} />)
 
     expect(screen.getByText('Compare')).toBeInTheDocument()
     expect(screen.getByText('Drag the split on the image.')).toBeInTheDocument()
@@ -165,7 +164,6 @@ describe('rawToolSurface', () => {
     render(
       <RawToolSurface
         {...rawToolSurfaceProps({
-          viewMode: 'compare',
           onCompareReset,
         })}
       />,
