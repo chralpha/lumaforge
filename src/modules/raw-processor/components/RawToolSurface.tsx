@@ -10,8 +10,8 @@ import { ExportTool } from './tools/ExportTool'
 import { FileFactsTool } from './tools/FileFactsTool'
 import { FinishTool } from './tools/FinishTool'
 import { LutContractTool } from './tools/LutContractTool'
-import type {StrengthLevel} from './tools/StrengthControl';
-import { StrengthControl  } from './tools/StrengthControl'
+import type { StrengthLevel } from './tools/StrengthControl'
+import { StrengthControl } from './tools/StrengthControl'
 import { ToolSection } from './tools/ToolSection'
 
 export function RawToolSurface(props: {
