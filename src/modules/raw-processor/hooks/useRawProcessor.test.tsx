@@ -1379,6 +1379,167 @@ describe('useRawProcessor embedded preview state', () => {
     ).toBeUndefined()
   })
 
+  it('clears a ready export when generic params change render graph inputs but not view-only inputs', async () => {
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.result).toBeDefined()
+
+    act(() => {
+      result.current.setParams({ viewMode: 'processed', compareSplit: 0.25 })
+    })
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.status).toBe('ready')
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.result).toBeDefined()
+
+    act(() => {
+      result.current.setParams({ styleKind: 'builtin', builtinPreset: 'warm' })
+    })
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.status).toBe('idle')
+    expect(
+      jotaiStore.get(currentSessionAtom)?.exportState.result,
+    ).toBeUndefined()
+  })
+
+  it('clears a ready export when generic params change intensity', async () => {
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.result).toBeDefined()
+
+    act(() => {
+      result.current.setParams({ intensity: 0.2 })
+    })
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.status).toBe('idle')
+    expect(
+      jotaiStore.get(currentSessionAtom)?.exportState.result,
+    ).toBeUndefined()
+  })
+
+  it('copies a preview-size export through a hidden processed preview canvas', async () => {
+    const clipboardWrite = vi.fn().mockResolvedValue(undefined)
+    const renderToHiddenCanvas = vi.fn()
+    const fakeCanvas = {
+      toBlob: vi.fn((callback: BlobCallback, type?: string) => {
+        callback(new Blob(['png'], { type: type ?? 'image/png' }))
+      }),
+    }
+
+    class FakeClipboardItem {
+      static supports(type: string) {
+        return type === 'image/png'
+      }
+
+      constructor(public readonly items: Record<string, Blob>) {}
+    }
+
+    vi.stubGlobal('navigator', {
+      clipboard: { write: clipboardWrite },
+    })
+    vi.stubGlobal('ClipboardItem', FakeClipboardItem)
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+    renderToHiddenCanvas.mockResolvedValue(fakeCanvas)
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    act(() => {
+      result.current.updateStats({
+        uploadTime: 1,
+        lutUploadTime: 0,
+        processTime: 2,
+        totalTime: 3,
+        inputSize: { width: 800, height: 600 },
+        previewSize: { width: 640, height: 480 },
+        inputFormat: 'rgb-u16',
+        transformPath: 'raw-rgb',
+        lutRole: null,
+        lutInputTransfer: null,
+        lutOutputTransfer: null,
+        lutSize: null,
+        processTargetPrecision: 'float32',
+        capabilityWarnings: [],
+      })
+      result.current.pipelineRef.current = {
+        renderToHiddenCanvas,
+      } as never
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+    await act(async () => {
+      await result.current.copyExportResult()
+    })
+    await flushScheduledToasts()
+
+    expect(result.current.exportResult?.copyCapability).toMatchObject({
+      mode: 'preview-size',
+    })
+    expect(renderToHiddenCanvas).toHaveBeenCalledWith({
+      width: 640,
+      height: 480,
+    })
+    expect(fakeCanvas.toBlob).toHaveBeenCalledWith(
+      expect.any(Function),
+      'image/png',
+    )
+    expect(clipboardWrite).toHaveBeenCalledTimes(1)
+    expect(toastMock.success).toHaveBeenCalledWith('Preview-size image copied')
+  })
+
   it('aborts and disposes stale runtime session when replacing files', async () => {
     const staleQuickDecode = deferred<DecodedImage>()
     const staleSession = {

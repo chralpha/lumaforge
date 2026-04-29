@@ -211,6 +211,19 @@ function clearExportResultState<T extends ImageSession | null>(session: T): T {
   }
 }
 
+function changesRenderGraphParams(
+  current: ProcessingParams,
+  next: Partial<ProcessingParams>,
+) {
+  return (
+    (Object.hasOwn(next, 'styleKind') &&
+      next.styleKind !== current.styleKind) ||
+    (Object.hasOwn(next, 'builtinPreset') &&
+      next.builtinPreset !== current.builtinPreset) ||
+    (Object.hasOwn(next, 'intensity') && next.intensity !== current.intensity)
+  )
+}
+
 const MISSING_RAW_RENDER_EXPOSURE_EXPORT_REASON =
   'RAW preview exposure is still being prepared.'
 
@@ -1345,9 +1358,16 @@ export function useRawProcessor(): UseRawProcessorReturn {
   // Update params
   const handleSetParams = useCallback(
     (newParams: Partial<ProcessingParams>) => {
+      const shouldClearExportResult = changesRenderGraphParams(
+        params,
+        newParams,
+      )
       setParams((prev) => ({ ...prev, ...newParams }))
+      if (shouldClearExportResult) {
+        setSession(clearExportResultState)
+      }
     },
-    [setParams],
+    [params, setParams, setSession],
   )
 
   // Export image
