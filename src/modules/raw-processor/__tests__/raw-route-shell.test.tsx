@@ -27,6 +27,28 @@ describe('rawProcessorView', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('exposes the viewport app shell contract for the empty workspace', () => {
+    mockedUseCapabilityGate.mockReturnValue({
+      ready: true,
+      supportStatus: 'supported',
+      reason: null,
+    })
+
+    const { container } = render(<RawProcessorView />)
+    const viewportShell = container.querySelector(
+      '[data-raw-lab-shell="viewport"]',
+    )
+    const stageToolsLayout = container.querySelector(
+      '[data-raw-lab-layout="stage-tools"]',
+    )
+
+    expect(viewportShell).not.toBeNull()
+    expect(viewportShell).toHaveClass('raw-lab')
+    expect(viewportShell).toHaveAttribute('data-raw-lab-state', 'empty')
+    expect(stageToolsLayout).not.toBeNull()
+    expect(stageToolsLayout).toHaveClass('raw-lab-shell')
+  })
+
   it('keeps export disabled copy visible before a RAW is loaded', () => {
     mockedUseCapabilityGate.mockReturnValue({
       ready: true,

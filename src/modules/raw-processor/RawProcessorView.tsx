@@ -159,7 +159,11 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
   }
 
   return (
-    <div className={clsxm('raw-lab', className)}>
+    <div
+      className={clsxm('raw-lab', className)}
+      data-raw-lab-shell="viewport"
+      data-raw-lab-state={hasImage ? 'loaded' : 'empty'}
+    >
       <WorkspaceHeader
         fileName={sourceFileName}
         hasImage={hasImage}
@@ -173,7 +177,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
         }
       />
 
-      <div className="raw-lab-shell">
+      <div className="raw-lab-shell" data-raw-lab-layout="stage-tools">
         <ComparePreviewStage
           hasImage={hasImage}
           imageRef={decodedImageRef}
