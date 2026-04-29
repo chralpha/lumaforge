@@ -261,6 +261,29 @@ describe('runPreviewPipeline', () => {
     ])
   })
 
+  it('skips bounded HQ decode after quick preview when policy says to skip', async () => {
+    const events: PreviewEvent[] = []
+    const decodeBoundedHqRaw = vi.fn()
+    const skipReason = 'Source fits within quick preview cap 2500000.'
+
+    const result = await runPreviewPipeline({
+      runtimeSession: {
+        extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+        decodeQuickRaw: vi.fn().mockResolvedValue({ width: 1200, height: 900 }),
+        decodeBoundedHqRaw,
+      },
+      boundedHqDecision: { kind: 'skip', reason: skipReason },
+      onEvent: (event) => events.push(event),
+    })
+
+    expect(result).toEqual({ boundedHqPromise: null })
+    expect(decodeBoundedHqRaw).not.toHaveBeenCalled()
+    expect(events).toEqual([
+      { type: 'quick-ready', width: 1200, height: 900 },
+      { type: 'bounded-hq-skipped', reason: skipReason },
+    ])
+  })
+
   it('keeps quick preview when bounded HQ fails', async () => {
     const events: PreviewEvent[] = []
     const error = Object.assign(new Error('bounded failed'), {
