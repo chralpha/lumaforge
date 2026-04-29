@@ -8,6 +8,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { JPEG_RUNTIME_UNAVAILABLE_MESSAGE } from '~/lib/export/jpeg/wasm-row-sink'
 
+import {
+  BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
+  BOUNDED_HQ_PREVIEW_MAX_PIXELS,
+} from './decoder'
 import { disposeLumaRawRuntime } from './luma-runtime-adapter'
 import { createRawRuntimeAdapter } from './runtime-adapter'
 
@@ -45,7 +49,7 @@ function makeFrame(data: Uint16Array): LumaRawFrame {
   }
 }
 
-function makeLumaFrame(source: 'quick' | 'hq'): LumaRawFrame {
+function makeLumaFrame(source: 'quick' | 'bounded-hq'): LumaRawFrame {
   return {
     jobId: `${source}-1`,
     source,
@@ -146,11 +150,13 @@ function makeLumaRuntime(
       decodeQuick: vi
         .fn<LumaRawRuntime['decodeQuick']>()
         .mockResolvedValue(quickFrame),
-      decodeHq: vi.fn<LumaRawRuntime['decodeHq']>().mockResolvedValue({
-        ...quickFrame,
-        jobId: 'hq-1',
-        source: 'hq',
-      }),
+      decodeBoundedHq: vi
+        .fn<LumaRawRuntime['decodeBoundedHq']>()
+        .mockResolvedValue({
+          ...quickFrame,
+          jobId: 'bounded-hq-1',
+          source: 'bounded-hq',
+        }),
       dispose: vi.fn<LumaRawRuntime['dispose']>(),
       openSession: vi.fn<LumaRawRuntime['openSession']>().mockResolvedValue({
         sessionId: 'session-1',
@@ -167,7 +173,7 @@ function makeLumaRuntime(
         readRawWindow: vi.fn(),
         readProcessedWindow: vi.fn(),
         decodeQuick: vi.fn().mockResolvedValue(makeLumaFrame('quick')),
-        decodeHq: vi.fn().mockResolvedValue(makeLumaFrame('hq')),
+        decodeBoundedHq: vi.fn().mockResolvedValue(makeLumaFrame('bounded-hq')),
         dispose: vi.fn(),
       }),
       ...overrides,
@@ -304,7 +310,9 @@ describe('raw runtime adapter', () => {
     const extractEmbeddedPreview = vi.fn().mockResolvedValue(null)
     const probeExportCapability = vi.fn().mockResolvedValue(makeCapability())
     const decodeQuick = vi.fn().mockResolvedValue(makeLumaFrame('quick'))
-    const decodeHq = vi.fn().mockResolvedValue(makeLumaFrame('hq'))
+    const decodeBoundedHq = vi
+      .fn()
+      .mockResolvedValue(makeLumaFrame('bounded-hq'))
     const dispose = vi.fn()
     const openSignal = new AbortController().signal
     const stageSignal = new AbortController().signal
@@ -324,7 +332,7 @@ describe('raw runtime adapter', () => {
         readRawWindow: vi.fn(),
         readProcessedWindow: vi.fn(),
         decodeQuick,
-        decodeHq,
+        decodeBoundedHq,
         dispose,
       }),
     })
@@ -339,7 +347,11 @@ describe('raw runtime adapter', () => {
     await session.extractEmbeddedPreview(stageSignal)
     await session.probeExportCapability?.(stageSignal)
     await session.decodeQuickRaw(undefined, stageSignal)
-    await session.decodeHqRaw(undefined, stageSignal)
+    await session.decodeBoundedHqRaw(
+      { maxOutputPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS },
+      undefined,
+      stageSignal,
+    )
     session.dispose()
 
     expect(runtime.openSession).toHaveBeenCalledWith(
@@ -353,8 +365,87 @@ describe('raw runtime adapter', () => {
       expect.objectContaining({ maxOutputPixels: expect.any(Number) }),
       stageSignal,
     )
-    expect(decodeHq).toHaveBeenCalledWith(stageSignal)
+    expect(decodeBoundedHq).toHaveBeenCalledWith(
+      { maxOutputPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS },
+      stageSignal,
+    )
     expect(dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('requests bounded HQ with the configured preview cap through an open session', async () => {
+    const decodeBoundedHq = vi
+      .fn()
+      .mockResolvedValue(makeLumaFrame('bounded-hq'))
+    const { runtime } = makeLumaRuntime({
+      openSession: vi.fn().mockResolvedValue({
+        sessionId: 'raw-session-1',
+        probe: {
+          jobId: 'probe',
+          width: 11662,
+          height: 8746,
+          supportLevel: 'experimental',
+          timings: { total: 1 },
+        },
+        timings: { total: 1 },
+        extractEmbeddedPreview: vi.fn(),
+        decodeQuick: vi.fn().mockResolvedValue(makeLumaFrame('quick')),
+        decodeBoundedHq,
+        probeExportCapability: vi.fn().mockResolvedValue(makeCapability()),
+        readRawWindow: vi.fn(),
+        readProcessedWindow: vi.fn(),
+        dispose: vi.fn(),
+      }),
+    })
+    const adapter = createRawRuntimeAdapter({
+      lumaRuntimeFactory: () => runtime,
+    })
+    const session = await adapter.openSession(new File(['raw'], 'sample.RAF'))
+
+    const image = await session.decodeBoundedHqRaw({
+      maxOutputPixels: BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
+    })
+
+    expect(image.source).toBe('bounded-hq')
+    expect(decodeBoundedHq).toHaveBeenCalledWith(
+      { maxOutputPixels: BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS },
+      undefined,
+    )
+    expect(session.sourceDimensions).toEqual({ width: 11662, height: 8746 })
+  })
+
+  it('normalizes bounded HQ failures to RAW_BOUNDED_HQ_DECODE_FAILED', async () => {
+    const { runtime } = makeLumaRuntime({
+      openSession: vi.fn().mockResolvedValue({
+        sessionId: 'raw-session-1',
+        probe: {
+          jobId: 'probe',
+          width: 6240,
+          height: 4168,
+          supportLevel: 'experimental',
+          timings: { total: 1 },
+        },
+        timings: { total: 1 },
+        extractEmbeddedPreview: vi.fn(),
+        decodeQuick: vi.fn().mockResolvedValue(makeLumaFrame('quick')),
+        decodeBoundedHq: vi.fn().mockRejectedValue(new Error('bounded failed')),
+        probeExportCapability: vi.fn().mockResolvedValue(makeCapability()),
+        readRawWindow: vi.fn(),
+        readProcessedWindow: vi.fn(),
+        dispose: vi.fn(),
+      }),
+    })
+    const adapter = createRawRuntimeAdapter({
+      lumaRuntimeFactory: () => runtime,
+    })
+    const session = await adapter.openSession(new File(['raw'], 'sample.RAF'))
+
+    await expect(
+      session.decodeBoundedHqRaw({
+        maxOutputPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
+      }),
+    ).rejects.toMatchObject({
+      code: 'RAW_BOUNDED_HQ_DECODE_FAILED',
+    })
   })
 
   it('preserves processed-window export capability facts when JPEG runtime is available', async () => {
@@ -376,7 +467,7 @@ describe('raw runtime adapter', () => {
         readRawWindow: vi.fn(),
         readProcessedWindow: vi.fn(),
         decodeQuick: vi.fn(),
-        decodeHq: vi.fn(),
+        decodeBoundedHq: vi.fn(),
         dispose: vi.fn(),
       }),
     })
@@ -415,7 +506,7 @@ describe('raw runtime adapter', () => {
         readRawWindow: vi.fn(),
         readProcessedWindow: vi.fn(),
         decodeQuick: vi.fn(),
-        decodeHq: vi.fn(),
+        decodeBoundedHq: vi.fn(),
         dispose: vi.fn(),
       }),
     })
@@ -477,7 +568,7 @@ describe('raw runtime adapter', () => {
           readRawWindow: vi.fn(),
           readProcessedWindow: vi.fn(),
           decodeQuick: vi.fn(),
-          decodeHq: vi.fn(),
+          decodeBoundedHq: vi.fn(),
           dispose: vi.fn(),
         }),
       })
@@ -518,7 +609,9 @@ describe('raw runtime adapter', () => {
       .fn()
       .mockRejectedValue(new Error('thumbnail exploded'))
     const decodeQuick = vi.fn().mockRejectedValue(new Error('quick exploded'))
-    const decodeHq = vi.fn().mockRejectedValue(new Error('hq exploded'))
+    const decodeBoundedHq = vi
+      .fn()
+      .mockRejectedValue(new Error('bounded hq exploded'))
     const { runtime } = makeLumaRuntime({
       openSession: vi.fn().mockResolvedValue({
         sessionId: 'session-1',
@@ -534,7 +627,7 @@ describe('raw runtime adapter', () => {
         readRawWindow: vi.fn(),
         readProcessedWindow: vi.fn(),
         decodeQuick,
-        decodeHq,
+        decodeBoundedHq,
         dispose: vi.fn(),
       }),
     })
@@ -553,10 +646,14 @@ describe('raw runtime adapter', () => {
       code: 'RAW_QUICK_DECODE_FAILED',
       message: 'quick exploded',
     })
-    await expect(session.decodeHqRaw()).rejects.toMatchObject({
+    await expect(
+      session.decodeBoundedHqRaw({
+        maxOutputPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
+      }),
+    ).rejects.toMatchObject({
       name: 'RawAdapterError',
-      code: 'RAW_HQ_DECODE_FAILED',
-      message: 'hq exploded',
+      code: 'RAW_BOUNDED_HQ_DECODE_FAILED',
+      message: 'bounded hq exploded',
     })
   })
 

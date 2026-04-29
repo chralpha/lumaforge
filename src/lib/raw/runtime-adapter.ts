@@ -4,16 +4,21 @@ import type {
   LumaRawRuntime,
 } from '@lumaforge/luma-raw-runtime'
 
-import type { DecodedImage, ProgressCallback } from './decoder'
 import { isWasmJpegRuntimeAvailable } from '~/lib/export/jpeg/wasm-row-sink'
+
+import type { DecodedImage, ProgressCallback } from './decoder'
 import {
-  decodeHqRawWithLuma,
+  decodeBoundedHqRawWithLuma,
   decodeQuickRawWithLuma,
   extractEmbeddedPreviewWithLuma,
   openRawSessionWithLuma,
 } from './luma-runtime-adapter'
 
 export type RawRuntimeSession = {
+  sourceDimensions: {
+    width?: number
+    height?: number
+  }
   extractEmbeddedPreview: (
     signal?: AbortSignal,
   ) => Promise<LumaEmbeddedPreview | null>
@@ -24,7 +29,8 @@ export type RawRuntimeSession = {
     onProgress?: ProgressCallback,
     signal?: AbortSignal,
   ) => Promise<DecodedImage>
-  decodeHqRaw: (
+  decodeBoundedHqRaw: (
+    options: { maxOutputPixels: number },
     onProgress?: ProgressCallback,
     signal?: AbortSignal,
   ) => Promise<DecodedImage>
@@ -38,8 +44,9 @@ export type RawRuntimeAdapter = {
     file: File,
     onProgress?: ProgressCallback,
   ) => Promise<DecodedImage>
-  decodeHqRaw: (
+  decodeBoundedHqRaw: (
     file: File,
+    options: { maxOutputPixels: number },
     onProgress?: ProgressCallback,
   ) => Promise<DecodedImage>
 }
@@ -68,8 +75,13 @@ export function createRawRuntimeAdapter({
     decodeQuickRaw(file, onProgress) {
       return decodeQuickRawWithLuma(file, onProgress, lumaRuntimeFactory)
     },
-    decodeHqRaw(file, onProgress) {
-      return decodeHqRawWithLuma(file, onProgress, lumaRuntimeFactory)
+    decodeBoundedHqRaw(file, options, onProgress) {
+      return decodeBoundedHqRawWithLuma(
+        file,
+        options,
+        onProgress,
+        lumaRuntimeFactory,
+      )
     },
   }
 }
