@@ -182,6 +182,46 @@ describe('compareSplitHandle', () => {
     cancelAnimationFrame.mockRestore()
   })
 
+  it('publishes transient pointer split to the parent frame for sibling preview layers', () => {
+    const onChange = vi.fn()
+    const animationFrames: FrameRequestCallback[] = []
+    const requestAnimationFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        animationFrames.push(callback)
+        return animationFrames.length
+      })
+    const cancelAnimationFrame = vi
+      .spyOn(window, 'cancelAnimationFrame')
+      .mockImplementation(() => {})
+
+    render(
+      <div data-testid="track">
+        <div data-testid="sample-layer" />
+        <CompareSplitHandle value={0.5} onChange={onChange} />
+      </div>,
+    )
+
+    const track = screen.getByTestId('track')
+    const slider = screen.getByRole('slider')
+    Object.defineProperty(track, 'getBoundingClientRect', {
+      value: () => ({ left: 0, width: 100 }),
+    })
+    Object.defineProperty(slider, 'getBoundingClientRect', {
+      value: () => ({ left: 50, width: 44 }),
+    })
+
+    fireEvent.pointerDown(slider, { clientX: 50, pointerId: 1 })
+    fireEvent.pointerMove(slider, { clientX: 80, pointerId: 1 })
+    animationFrames[0]?.(performance.now())
+
+    expect(track.style.getPropertyValue('--raw-compare-split')).toBe('80%')
+    expect(onChange).not.toHaveBeenCalled()
+
+    requestAnimationFrame.mockRestore()
+    cancelAnimationFrame.mockRestore()
+  })
+
   it('keeps pointer dragging usable when pointer capture is unavailable', () => {
     const onChange = vi.fn()
     const originalSetPointerCapture = HTMLElement.prototype.setPointerCapture

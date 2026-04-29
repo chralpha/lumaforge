@@ -72,15 +72,29 @@ export function getCompareSplitPositionGeometry(
 
 function applyHandlePosition(target: HTMLElement, value: number) {
   const { split, handleX } = getCompareSplitPositionGeometry(target, value)
-  target.style.setProperty('--raw-compare-split', `${split * 100}%`)
-  target.style.setProperty('--raw-compare-split-x', `${handleX}px`)
+  applyCompareSplitVariables(target, split, handleX)
 }
 
 function applyPointerPosition(target: HTMLElement, clientX: number) {
   const { split, handleX } = getCompareSplitInteractionGeometry(target, clientX)
-  target.style.setProperty('--raw-compare-split', `${split * 100}%`)
-  target.style.setProperty('--raw-compare-split-x', `${handleX}px`)
+  applyCompareSplitVariables(target, split, handleX)
   return split
+}
+
+function applyCompareSplitVariables(
+  target: HTMLElement,
+  split: number,
+  handleX: number,
+) {
+  const splitPercent = `${split * 100}%`
+  const handlePosition = `${handleX}px`
+
+  target.style.setProperty('--raw-compare-split', splitPercent)
+  target.style.setProperty('--raw-compare-split-x', handlePosition)
+
+  const frame = target.parentElement
+  frame?.style.setProperty('--raw-compare-split', splitPercent)
+  frame?.style.setProperty('--raw-compare-split-x', handlePosition)
 }
 
 function trySetPointerCapture(target: HTMLElement, pointerId: number) {

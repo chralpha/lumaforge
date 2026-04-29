@@ -602,15 +602,22 @@ describe('controlsPanel', () => {
 
   describe('comparePreviewStage', () => {
     it('places upload inside the empty compare stage', () => {
-      render(<ComparePreviewStage {...compareStageProps()} />)
+      const { container } = render(
+        <ComparePreviewStage {...compareStageProps()} />,
+      )
 
       const stage = screen.getByLabelText('RAW preview comparison')
       const uploadButton = screen.getByRole('button', {
         name: /drop one raw here/i,
       })
+      const sample = container.querySelector<HTMLElement>('.raw-lab-sample')
 
       expect(stage).toBeInTheDocument()
       expect(stage).toContainElement(uploadButton)
+      expect(sample?.style.getPropertyValue('--raw-compare-split')).toBe('')
+      expect(
+        sample?.style.getPropertyValue('--raw-compare-split-committed'),
+      ).toBe('50%')
       expect(screen.getByText('Unprocessed RAW')).toBeInTheDocument()
       expect(screen.getByText('Final JPEG')).toBeInTheDocument()
       expect(

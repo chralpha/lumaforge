@@ -154,7 +154,9 @@
 }
 
 .raw-lab-sample-finish {
-  clip-path: inset(0 0 0 var(--raw-compare-split, 50%));
+  clip-path: inset(
+    0 0 0 var(--raw-compare-split, var(--raw-compare-split-committed, 50%))
+  );
   background:
     radial-gradient(circle at 54% 28%, oklch(0.92 0.09 68) 0 5%, transparent 5.4%),
     linear-gradient(140deg, oklch(0.3 0.085 145), oklch(0.68 0.1 72) 46%, oklch(0.32 0.045 54) 47% 100%);

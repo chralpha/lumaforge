@@ -39,7 +39,9 @@ function EmptySampleCompare({ split }: { split: number }) {
     <div
       className="raw-lab-sample"
       style={
-        { '--raw-compare-split': `${split * 100}%` } as React.CSSProperties
+        {
+          '--raw-compare-split-committed': `${split * 100}%`,
+        } as React.CSSProperties
       }
       aria-hidden="true"
     >
