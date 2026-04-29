@@ -431,6 +431,8 @@
   }
 
   .raw-tool-surface {
+    max-height: min(42svh, 390px);
+    overflow-y: auto;
     border-top: 1px solid var(--raw-hairline);
     border-left: 0;
   }
