@@ -6,6 +6,7 @@ import { afterEach, beforeEach, vi } from 'vitest'
 import { getLUTColorProfile } from '~/lib/color/registry'
 
 import { ComparePreviewStage } from '../components/ComparePreviewStage'
+import { LutDropzone } from '../components/Dropzone'
 import { PreviewCanvas } from '../components/PreviewCanvas'
 import { RawToolSurface } from '../components/RawToolSurface'
 
@@ -125,9 +126,29 @@ describe('rawToolSurface', () => {
 
     expect(screen.getByRole('button', { name: 'Neutral' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Warm' })).toBeDisabled()
-    expect(
-      screen.getByRole('button', { name: /drop \.cube lut file/i }),
-    ).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByLabelText(/drop \.cube lut file/i)).toBeDisabled()
+  })
+
+  it('keeps LUT upload backed by a native file input for mobile tap upload', () => {
+    const onFileDrop = vi.fn()
+    const file = new File(['lut'], 'look.cube', {
+      type: 'application/octet-stream',
+    })
+
+    render(<LutDropzone onFileDrop={onFileDrop} />)
+
+    const input = screen.getByLabelText(/drop \.cube lut file/i)
+    expect(input).toHaveAttribute('type', 'file')
+    expect(input).toHaveAttribute('accept', '.cube')
+    expect(input).not.toBeDisabled()
+
+    fireEvent.change(input, {
+      target: {
+        files: [file],
+      },
+    })
+
+    expect(onFileDrop).toHaveBeenCalledWith([file])
   })
 
   it('shows hook-provided export disabled reason in the export controls', () => {

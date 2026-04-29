@@ -3,7 +3,7 @@
  */
 
 import { m } from 'motion/react'
-import { useCallback, useState } from 'react'
+import { useCallback, useId, useRef, useState } from 'react'
 
 import { clsxm } from '~/lib/cn'
 import { Spring } from '~/lib/spring'
@@ -42,6 +42,15 @@ export interface DropzoneProps {
   variant?: 'default' | 'stage'
 }
 
+function filterAcceptedFiles(files: File[], accept?: string[]) {
+  if (!accept) return files
+
+  return files.filter((file) => {
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    return ext && accept.some((a) => a.toLowerCase() === `.${ext}`)
+  })
+}
+
 export function Dropzone({
   onFileDrop,
   accept,
@@ -54,7 +63,20 @@ export function Dropzone({
   variant = 'default',
 }: DropzoneProps) {
   const [isDragOver, setIsDragOver] = useState(false)
+  const inputId = useId()
+  const inputRef = useRef<HTMLInputElement | null>(null)
   const isClickTarget = clickToOpen && !disabled
+
+  const handleFiles = useCallback(
+    (files: File[]) => {
+      const filteredFiles = filterAcceptedFiles(files, accept)
+
+      if (filteredFiles.length > 0) {
+        onFileDrop(multiple ? filteredFiles : [filteredFiles[0]])
+      }
+    },
+    [onFileDrop, accept, multiple],
+  )
 
   const handleDragOver = useCallback(
     (e: React.DragEvent) => {
@@ -82,24 +104,17 @@ export function Dropzone({
       if (disabled) return
 
       const files = Array.from(e.dataTransfer.files)
-
-      // Filter by accepted extensions if specified
-      const filteredFiles = accept
-        ? files.filter((file) => {
-            const ext = file.name.split('.').pop()?.toLowerCase()
-            return ext && accept.some((a) => a.toLowerCase() === `.${ext}`)
-          })
-        : files
-
-      if (filteredFiles.length > 0) {
-        onFileDrop(multiple ? filteredFiles : [filteredFiles[0]])
-      }
+      handleFiles(files)
     },
-    [onFileDrop, accept, multiple, disabled],
+    [handleFiles, disabled],
   )
 
   const openFilePicker = useCallback(() => {
     if (disabled) return
+    if (inputRef.current) {
+      inputRef.current.click()
+      return
+    }
 
     const input = document.createElement('input')
     input.type = 'file'
@@ -110,13 +125,11 @@ export function Dropzone({
 
     input.onchange = () => {
       const files = Array.from(input.files || [])
-      if (files.length > 0) {
-        onFileDrop(files)
-      }
+      handleFiles(files)
     }
 
     input.click()
-  }, [onFileDrop, accept, multiple, disabled])
+  }, [handleFiles, accept, multiple, disabled])
 
   const handleClick = useCallback(() => {
     if (!clickToOpen) return
@@ -136,41 +149,17 @@ export function Dropzone({
     [clickToOpen, openFilePicker],
   )
 
-  return (
-    <m.div
-      role={clickToOpen ? 'button' : undefined}
-      tabIndex={clickToOpen ? (disabled ? -1 : 0) : undefined}
-      aria-disabled={clickToOpen && disabled ? true : undefined}
-      aria-label={clickToOpen ? ariaLabel : undefined}
-      className={clsxm(
-        'relative transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
-        clickToOpen ? 'cursor-pointer' : 'cursor-default',
-        variant === 'stage'
-          ? 'rounded-lg border border-[oklch(0.96_0.012_86_/_0.36)]'
-          : 'rounded-xl border-2 border-dashed',
-        isDragOver
-          ? variant === 'stage'
-            ? 'border-[oklch(0.59_0.15_153)] bg-[oklch(0.59_0.15_153_/_0.16)]'
-            : 'border-accent bg-accent/10'
-          : variant === 'stage'
-            ? clickToOpen && 'hover:border-[oklch(0.59_0.15_153_/_0.72)]'
-            : 'border-border hover:border-accent/50 hover:bg-fill/50',
-        disabled && 'opacity-50 cursor-not-allowed',
-        className,
-      )}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
-      {...(isClickTarget
-        ? {
-            whileHover: { scale: 1.01 },
-            whileTap: { scale: 0.99 },
-          }
-        : {})}
-      transition={Spring.presets.snappy}
-    >
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.currentTarget.files || [])
+      handleFiles(files)
+      e.currentTarget.value = ''
+    },
+    [handleFiles],
+  )
+
+  const content = (
+    <>
       {typeof children === 'function'
         ? children({ openFilePicker, disabled })
         : children}
@@ -189,6 +178,73 @@ export function Dropzone({
           <span className="text-accent font-medium">Drop to load</span>
         </m.div>
       )}
+    </>
+  )
+
+  const frameClassName = clsxm(
+    'relative transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+    clickToOpen ? 'cursor-pointer' : 'cursor-default',
+    variant === 'stage'
+      ? 'rounded-lg border border-[oklch(0.96_0.012_86_/_0.36)]'
+      : 'rounded-xl border-2 border-dashed',
+    isDragOver
+      ? variant === 'stage'
+        ? 'border-[oklch(0.59_0.15_153)] bg-[oklch(0.59_0.15_153_/_0.16)]'
+        : 'border-accent bg-accent/10'
+      : variant === 'stage'
+        ? clickToOpen && 'hover:border-[oklch(0.59_0.15_153_/_0.72)]'
+        : 'border-border hover:border-accent/50 hover:bg-fill/50',
+    disabled && 'opacity-50 cursor-not-allowed',
+    className,
+  )
+
+  const motionProps = isClickTarget
+    ? {
+        whileHover: { scale: 1.01 },
+        whileTap: { scale: 0.99 },
+      }
+    : {}
+
+  if (clickToOpen) {
+    return (
+      <m.label
+        htmlFor={inputId}
+        aria-disabled={disabled ? true : undefined}
+        className={frameClassName}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        {...motionProps}
+        transition={Spring.presets.snappy}
+      >
+        {content}
+        <input
+          ref={inputRef}
+          id={inputId}
+          type="file"
+          multiple={multiple}
+          accept={accept?.join(',')}
+          disabled={disabled}
+          aria-label={ariaLabel}
+          className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+          onChange={handleInputChange}
+        />
+      </m.label>
+    )
+  }
+
+  return (
+    <m.div
+      className={frameClassName}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      {...motionProps}
+      transition={Spring.presets.snappy}
+    >
+      {content}
     </m.div>
   )
 }
