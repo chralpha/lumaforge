@@ -657,6 +657,23 @@ describe('rawToolSurface', () => {
       ).toBeInTheDocument()
     })
 
+    it('constrains the progress spinner to the loading frame', () => {
+      const { container } = render(
+        <ComparePreviewStage
+          {...compareStageProps({
+            isProcessing: true,
+            phase: 'decoding',
+            progress: 50,
+          })}
+        />,
+      )
+
+      const spinner = container.querySelector('svg.animate-spin')
+
+      expect(spinner).toBeInTheDocument()
+      expect(spinner).toHaveClass('size-full')
+    })
+
     it('keeps compare labels when an image is loaded', async () => {
       await act(async () => {
         render(

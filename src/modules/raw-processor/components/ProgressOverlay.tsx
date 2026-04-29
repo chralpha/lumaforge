@@ -61,7 +61,7 @@ export function ProgressOverlay({
             {/* Spinner */}
             <div className="relative size-16">
               <svg
-                className="animate-spin"
+                className="size-full animate-spin"
                 viewBox="0 0 64 64"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
