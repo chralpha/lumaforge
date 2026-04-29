@@ -4,9 +4,13 @@ import { Outlet, useLocation } from 'react-router'
 import { Footer } from './components/common/Footer'
 import { RootProviders } from './providers/root-providers'
 
+export function shouldShowAppFooter(pathname: string) {
+  return pathname !== '/' && pathname !== '/raw' && pathname !== '/raw/'
+}
+
 export const App: FC = () => {
   const location = useLocation()
-  const showFooter = location.pathname !== '/'
+  const showFooter = shouldShowAppFooter(location.pathname)
 
   return (
     <RootProviders>
