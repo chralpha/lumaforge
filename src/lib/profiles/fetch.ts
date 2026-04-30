@@ -65,7 +65,7 @@ async function fetchResponse(
   let response: Response
 
   try {
-    response = await fetch(url, { signal })
+    response = await fetch(url, { credentials: 'omit', signal })
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw error
@@ -189,6 +189,29 @@ export function createBrowserOnlineProfileCache(
       )
     },
   }
+}
+
+function normalizeCacheUrl(url: string): string {
+  return new URL(url, globalThis.location?.href).href
+}
+
+export async function fetchCachedBytesWithLimit(
+  url: string,
+  options: {
+    signal?: AbortSignal
+    maxBytes: number
+    cache?: OnlineProfileCache
+  },
+): Promise<Uint8Array> {
+  const cacheKey = `url:${normalizeCacheUrl(url)}`
+  const cachedBytes = await options.cache?.get(cacheKey)
+  if (cachedBytes) return cachedBytes
+
+  const bytes = await fetchBytesWithLimit(url, options)
+
+  await options.cache?.set(cacheKey, bytes)
+
+  return bytes
 }
 
 async function readVerifiedCache(

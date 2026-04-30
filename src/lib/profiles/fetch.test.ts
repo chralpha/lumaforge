@@ -4,6 +4,7 @@ import type { OnlineLUTAsset } from './catalog'
 import {
   createMemoryOnlineProfileCache,
   fetchBytesWithLimit,
+  fetchCachedBytesWithLimit,
   fetchJsonWithLimit,
   fetchVerifiedCubeAsset,
   OnlineProfileFetchError,
@@ -65,7 +66,7 @@ describe('fetchJsonWithLimit', () => {
 
     expect(fetch).toHaveBeenCalledWith(
       'https://profiles.example.com/catalog.json',
-      { signal: controller.signal },
+      { credentials: 'omit', signal: controller.signal },
     )
   })
 
@@ -148,6 +149,46 @@ describe('fetchBytesWithLimit', () => {
   })
 })
 
+describe('fetchCachedBytesWithLimit', () => {
+  it('caches direct URL bytes on miss', async () => {
+    const fetch = vi.fn(async () => response(cubeBytes))
+    vi.stubGlobal('fetch', fetch)
+    const cache = createMemoryOnlineProfileCache()
+
+    const bytes = await fetchCachedBytesWithLimit(
+      'https://profiles.example.com/blobs/../blobs/cube.cube',
+      { maxBytes: 1024, cache },
+    )
+
+    expect([...bytes]).toEqual([...cubeBytes])
+    expect(fetch).toHaveBeenCalledWith(
+      'https://profiles.example.com/blobs/../blobs/cube.cube',
+      { credentials: 'omit', signal: undefined },
+    )
+    expect([
+      ...(await cache.get('url:https://profiles.example.com/blobs/cube.cube'))!,
+    ]).toEqual([...cubeBytes])
+  })
+
+  it('returns URL-keyed cache hits without network fetch', async () => {
+    const fetch = vi.fn()
+    vi.stubGlobal('fetch', fetch)
+    const cache = createMemoryOnlineProfileCache()
+    await cache.set(
+      'url:https://profiles.example.com/blobs/cube.cube',
+      cubeBytes,
+    )
+
+    const bytes = await fetchCachedBytesWithLimit(
+      'https://profiles.example.com/blobs/cube.cube',
+      { maxBytes: 1024, cache },
+    )
+
+    expect([...bytes]).toEqual([...cubeBytes])
+    expect(fetch).not.toHaveBeenCalled()
+  })
+})
+
 describe('sha256Hex', () => {
   it('returns lowercase hex', async () => {
     vi.stubGlobal('crypto', {
@@ -208,6 +249,25 @@ describe('fetchVerifiedCubeAsset', () => {
 
     expect([...fetchedBytes]).toEqual([...cubeBytes])
     expect([...cachedBytes]).toEqual([...cubeBytes])
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect([...(await cache.get(`sha256:${cubeHash}`))!]).toEqual([
+      ...cubeBytes,
+    ])
+  })
+
+  it('refetches and overwrites cache entries whose hash no longer matches', async () => {
+    stubDigestForCubeBytes()
+    const fetch = vi.fn(async () => response(cubeBytes))
+    vi.stubGlobal('fetch', fetch)
+    const cache = createMemoryOnlineProfileCache()
+    await cache.set(`sha256:${cubeHash}`, new TextEncoder().encode('stale'))
+
+    const bytes = await fetchVerifiedCubeAsset(cubeAsset(), {
+      maxBytes: 1024,
+      cache,
+    })
+
+    expect([...bytes]).toEqual([...cubeBytes])
     expect(fetch).toHaveBeenCalledTimes(1)
     expect([...(await cache.get(`sha256:${cubeHash}`))!]).toEqual([
       ...cubeBytes,
