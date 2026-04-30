@@ -109,6 +109,54 @@ describe('online LUT release catalog parsing', () => {
       issues: [{ code: 'invalid-url', entryId: 'kodak-2383-rec709' }],
     })
   })
+
+  it('returns compatible LUT entries from mixed release catalogs', () => {
+    const result = parseReleaseCatalog(
+      {
+        schemaVersion: 1,
+        entries: [
+          {
+            id: entryManifest.id,
+            kind: 'lut',
+            version: entryManifest.version,
+            title: entryManifest.title,
+            license: entryManifest.license,
+            redistributionAllowed: true,
+            primaryAsset,
+            entryUrl: entryManifest.entryUrl,
+          },
+          {
+            id: 'camera-profile',
+            kind: 'camera-profile',
+            version: '1.0.0',
+            title: 'Camera Profile',
+            license: 'NOASSERTION',
+            redistributionAllowed: true,
+            primaryAsset: {
+              role: 'dcp-profile',
+              mediaType: 'application/octet-stream',
+              size: 12,
+              sha256,
+              url: 'https://profiles.example.com/camera.dcp',
+            },
+            entryUrl:
+              'https://profiles.example.com/releases/v2026.05.01/entries/camera-profile.json',
+          },
+        ],
+      },
+      'https://profiles.example.com/releases/v2026.05.01/catalog.json',
+    )
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: [
+        {
+          id: 'kodak-2383-rec709',
+          title: 'Kodak 2383 Rec.709',
+        },
+      ],
+    })
+  })
 })
 
 describe('online LUT release entry parsing', () => {
@@ -230,6 +278,58 @@ describe('online LUT release entry parsing', () => {
         { code: 'unsupported-entry', entryId: 'kodak-2383-rec709' },
         { code: 'unsupported-asset', entryId: 'kodak-2383-rec709' },
       ],
+    })
+  })
+
+  it('rejects missing or unsupported release entry schema versions', () => {
+    expect(
+      parseReleaseEntry(
+        { ...entryManifest, schemaVersion: undefined },
+        entryManifest.entryUrl,
+      ),
+    ).toMatchObject({
+      ok: false,
+      issues: [{ code: 'invalid-entry', entryId: 'kodak-2383-rec709' }],
+    })
+
+    expect(
+      parseReleaseEntry(
+        { ...entryManifest, schemaVersion: 2 },
+        entryManifest.entryUrl,
+      ),
+    ).toMatchObject({
+      ok: false,
+      issues: [{ code: 'invalid-entry', entryId: 'kodak-2383-rec709' }],
+    })
+  })
+
+  it('rejects unsupported release entry formats directly', () => {
+    const result = parseReleaseEntry(
+      { ...entryManifest, format: 'icc' },
+      entryManifest.entryUrl,
+    )
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [{ code: 'unsupported-entry', entryId: 'kodak-2383-rec709' }],
+    })
+  })
+
+  it('rejects invalid primary asset URLs', () => {
+    const result = parseReleaseEntry(
+      {
+        ...entryManifest,
+        primaryAsset: {
+          ...primaryAsset,
+          url: 'ftp://profiles.example.com/lut.cube',
+        },
+      },
+      entryManifest.entryUrl,
+    )
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [{ code: 'invalid-url', entryId: 'kodak-2383-rec709' }],
     })
   })
 })

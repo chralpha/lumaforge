@@ -56,6 +56,29 @@ describe('online LUT trusted contract mapping', () => {
     })
   })
 
+  it('maps flat R2 look metadata to combined-look-output when output fields are present', () => {
+    const result = mapProfileLUTContract({
+      inputTransfer: 'arri-logc3',
+      inputGamut: 'arri-wide-gamut-3',
+      outputTransfer: 'srgb',
+      outputGamut: 'rec709',
+      intent: 'look',
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        role: 'combined-look-output',
+        inputGamut: 'arri-wide-gamut-3',
+        inputTransfer: 'logc3',
+        inputRange: 'full',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        outputRange: 'full',
+      },
+    })
+  })
+
   it('maps legacy look intent to scene-creative without output metadata and fails closed', () => {
     const result = mapProfileLUTContract({
       intent: 'look',

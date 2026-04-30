@@ -223,6 +223,30 @@ function validateReleaseEntryFields(
   return issues
 }
 
+function validateCatalogEntryFields(
+  entry: Record<string, unknown>,
+): OnlineProfileIssue[] {
+  const entryId = readString(entry, 'id')
+  const issues: OnlineProfileIssue[] = []
+
+  if (
+    !entryId ||
+    !readString(entry, 'version') ||
+    !readString(entry, 'title') ||
+    !readString(entry, 'license')
+  ) {
+    issues.push(
+      issue(
+        'invalid-entry',
+        'Catalog entry is missing required fields.',
+        entryId,
+      ),
+    )
+  }
+
+  return issues
+}
+
 function selectReleaseEntryAsset(
   entry: Record<string, unknown>,
   entryId: string | undefined,
@@ -297,11 +321,20 @@ export function parseReleaseCatalog(
     }
 
     const entryId = readString(entry, 'id')
-    issues.push(...validateReleaseEntryFields(entry))
+    const entryIssues: OnlineProfileIssue[] = []
+
+    if (
+      readString(entry, 'kind') !== 'lut' ||
+      entry.redistributionAllowed !== true
+    ) {
+      continue
+    }
+
+    entryIssues.push(...validateCatalogEntryFields(entry))
 
     const entryUrl = readString(entry, 'entryUrl')
     if (!isRuntimeUrl(entryUrl)) {
-      issues.push(
+      entryIssues.push(
         issue(
           'invalid-url',
           'Catalog entry URL must be an absolute HTTPS or localhost HTTP URL.',
@@ -312,7 +345,11 @@ export function parseReleaseCatalog(
 
     const asset = validateCubeAsset(entry.primaryAsset, entryId)
     if (!asset.ok) {
-      issues.push(...asset.issues)
+      entryIssues.push(...asset.issues)
+    }
+
+    if (entryIssues.length > 0) {
+      issues.push(...entryIssues)
       continue
     }
 
@@ -321,9 +358,22 @@ export function parseReleaseCatalog(
     }
   }
 
-  return issues.length > 0
-    ? { ok: false, issues }
-    : { ok: true, value: entries }
+  if (entries.length > 0) {
+    return { ok: true, value: entries }
+  }
+
+  return {
+    ok: false,
+    issues:
+      issues.length > 0
+        ? issues
+        : [
+            issue(
+              'unsupported-entry',
+              'Catalog does not contain compatible redistributable CUBE LUT entries.',
+            ),
+          ],
+  }
 }
 
 export function parseReleaseEntry(
@@ -346,6 +396,12 @@ export function parseReleaseEntry(
 
   const entryId = readString(document, 'id')
   const issues = validateReleaseEntryFields(document)
+
+  if (document.schemaVersion !== 1) {
+    issues.push(
+      issue('invalid-entry', 'Release entry schemaVersion must be 1.', entryId),
+    )
+  }
 
   if (readString(document, 'format') !== 'cube') {
     issues.push(

@@ -45,7 +45,7 @@ function isSignalRange(value: unknown): value is SignalRange {
 
 function resolveRole(
   intent: unknown,
-  output: Record<string, unknown> | undefined,
+  hasCompleteOutput: boolean,
 ): OnlineProfileResult<LUTContractRole> {
   if (
     intent === 'monitoring' ||
@@ -59,10 +59,7 @@ function resolveRole(
   if (intent === 'look') {
     return {
       ok: true,
-      value:
-        readString(output, 'gamut') && readString(output, 'transfer')
-          ? 'combined-look-output'
-          : 'scene-creative',
+      value: hasCompleteOutput ? 'combined-look-output' : 'scene-creative',
     }
   }
 
@@ -132,32 +129,38 @@ export function mapProfileLUTContract(
 
   const input = readRecordField(lut, 'input')
   const output = readRecordField(lut, 'output')
+  const inputGamutValue =
+    readString(input, 'gamut') ?? readString(lut, 'inputGamut')
+  const inputTransferValue =
+    readString(input, 'transfer') ?? readString(lut, 'inputTransfer')
+  const inputRangeValue = input?.range ?? lut.inputRange
+  const outputGamutValue =
+    readString(output, 'gamut') ?? readString(lut, 'outputGamut')
+  const outputTransferValue =
+    readString(output, 'transfer') ?? readString(lut, 'outputTransfer')
+  const outputRangeValue = output?.range ?? lut.outputRange
+  const hasCompleteOutput = Boolean(outputGamutValue && outputTransferValue)
   const issues: OnlineProfileIssue[] = []
-  const role = resolveRole(lut.intent, output)
+  const role = resolveRole(lut.intent, hasCompleteOutput)
 
   if (!role.ok) issues.push(...role.issues)
 
-  const inputGamut = resolveGamut(readString(input, 'gamut'), 'Input')
+  const inputGamut = resolveGamut(inputGamutValue, 'Input')
   if (!inputGamut.ok) issues.push(...inputGamut.issues)
 
-  const inputTransfer = resolveTransfer(readString(input, 'transfer'), 'Input')
+  const inputTransfer = resolveTransfer(inputTransferValue, 'Input')
   if (!inputTransfer.ok) issues.push(...inputTransfer.issues)
 
-  const inputRange = resolveRange(input?.range, 'Input')
+  const inputRange = resolveRange(inputRangeValue, 'Input')
   if (!inputRange.ok) issues.push(...inputRange.issues)
 
-  const outputGamut = resolveGamut(readString(output, 'gamut'), 'Output')
-  const outputTransfer = resolveTransfer(
-    readString(output, 'transfer'),
-    'Output',
-  )
-  const outputRange = resolveRange(output?.range, 'Output')
+  const outputGamut = resolveGamut(outputGamutValue, 'Output')
+  const outputTransfer = resolveTransfer(outputTransferValue, 'Output')
+  const outputRange = resolveRange(outputRangeValue, 'Output')
   const resolvedRole = role.ok ? role.value : undefined
   const requiresOutput = resolvedRole !== 'display-look'
   const hasOutput =
-    readString(output, 'gamut') ||
-    readString(output, 'transfer') ||
-    output?.range !== undefined
+    outputGamutValue || outputTransferValue || outputRangeValue !== undefined
 
   if (requiresOutput || hasOutput) {
     if (!outputGamut.ok) issues.push(...outputGamut.issues)
