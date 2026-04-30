@@ -84,9 +84,15 @@ export function useOnlineLutSources({
   const [state, setState] = useState<OnlineLUTSourceState>(emptyState)
   const [sourceUrlInput, setSourceUrlInput] = useState('')
   const queryResourceUrlsRef = useRef(new Set<string>())
+  const resourceIdsByUrlRef = useRef(new Map<string, string>())
   const nextResourceIdRef = useRef(1)
   const resourceControllersRef = useRef(new Map<string, AbortController>())
   const loadControllersRef = useRef(new Set<AbortController>())
+  const stateRef = useRef(state)
+
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
 
   const hasShareCapability =
     typeof navigator !== 'undefined' &&
@@ -97,6 +103,27 @@ export function useOnlineLutSources({
     nextResourceIdRef.current += 1
     return id
   }, [])
+
+  const resolveResourceId = useCallback(
+    (resource: ProfileSourceResource) => {
+      const existingId = resourceIdsByUrlRef.current.get(resource.url)
+      if (existingId) return existingId
+
+      const existingResource = stateRef.current.resources.find(
+        (item) => item.url === resource.url,
+      )
+      if (existingResource) {
+        resourceIdsByUrlRef.current.set(resource.url, existingResource.id)
+        return existingResource.id
+      }
+
+      const id = createResourceId()
+      resourceIdsByUrlRef.current.set(resource.url, id)
+
+      return id
+    },
+    [createResourceId],
+  )
 
   const abortResourceRequest = useCallback((resourceId: string) => {
     const controller = resourceControllersRef.current.get(resourceId)
@@ -149,7 +176,7 @@ export function useOnlineLutSources({
       .map((resource) => {
         queryResourceUrlsRef.current.add(resource.url)
 
-        return retargetResource(resource, createResourceId(), true)
+        return retargetResource(resource, resolveResourceId(resource), true)
       })
     const issues = parseIssuesToSourceIssues(parsed.issues)
 
@@ -163,7 +190,7 @@ export function useOnlineLutSources({
     for (const resource of resources) {
       void resolveResource(resource)
     }
-  }, [createResourceId, resolveResource, search])
+  }, [resolveResource, resolveResourceId, search])
 
   useEffect(
     () => () => {
@@ -171,6 +198,7 @@ export function useOnlineLutSources({
         controller.abort()
       }
       resourceControllersRef.current.clear()
+      queryResourceUrlsRef.current.clear()
 
       for (const controller of loadControllersRef.current) {
         controller.abort()
@@ -196,10 +224,14 @@ export function useOnlineLutSources({
 
     if (!parsedResource) return
 
-    const resource = retargetResource(parsedResource, createResourceId(), false)
+    const resource = retargetResource(
+      parsedResource,
+      resolveResourceId(parsedResource),
+      false,
+    )
     setSourceUrlInput('')
     await resolveResource(resource)
-  }, [createResourceId, resolveResource, sourceUrlInput])
+  }, [resolveResource, resolveResourceId, sourceUrlInput])
 
   const refreshSource = useCallback(
     async (resourceId: string) => {

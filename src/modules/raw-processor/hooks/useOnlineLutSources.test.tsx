@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { OnlineLUTEntry } from '~/lib/profiles/catalog'
@@ -441,6 +442,27 @@ describe('useOnlineLutSources', () => {
     })
 
     expect(pending.signals[0].aborted).toBe(true)
+  })
+
+  it('retries query metadata after StrictMode cleanup aborts the first effect pass', async () => {
+    const pending = setupPendingFetchJson()
+    const { result } = renderHook(
+      () =>
+        useOnlineLutSources({
+          search: `?luts=${encodeURIComponent(catalogUrl)}`,
+          pathname: '/raw',
+          loadOnlineLUT: createLoadOnlineLUT(),
+        }),
+      { wrapper: StrictMode },
+    )
+
+    await waitFor(() =>
+      expect(pending.signals.length).toBeGreaterThanOrEqual(2),
+    )
+    await waitFor(() => expect(result.current.state.resources).toHaveLength(1))
+
+    expect(pending.signals[0].aborted).toBe(true)
+    expect(pending.signals.at(-1)?.aborted).toBe(false)
   })
 
   it('aborts in-flight metadata requests on unmount', async () => {
