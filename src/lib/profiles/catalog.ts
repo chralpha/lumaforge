@@ -357,6 +357,8 @@ export function parseReleaseCatalog(
     const asset = validateCubeAsset(entry.primaryAsset, entryId)
     if (!asset.ok) {
       entryIssues.push(...asset.issues)
+      issues.push(...entryIssues)
+      continue
     }
 
     if (entryIssues.length > 0) {
@@ -365,7 +367,8 @@ export function parseReleaseCatalog(
     }
 
     if (entryUrl && isRuntimeUrl(entryUrl)) {
-      entries.push(buildEntry(entry, entryUrl, asset.value))
+      const validatedAsset = asset.value
+      entries.push(buildEntry(entry, entryUrl, validatedAsset))
     }
   }
 

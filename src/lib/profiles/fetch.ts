@@ -173,7 +173,14 @@ async function getSubtleCrypto(): Promise<SubtleCrypto> {
 
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const subtle = await getSubtleCrypto()
-  const digest = new Uint8Array(await subtle.digest('SHA-256', bytes))
+  const buffer = bytes.buffer
+  const digestInput =
+    buffer instanceof ArrayBuffer &&
+    bytes.byteOffset === 0 &&
+    bytes.byteLength === buffer.byteLength
+      ? buffer
+      : bytes.slice().buffer
+  const digest = new Uint8Array(await subtle.digest('SHA-256', digestInput))
 
   return Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join(
     '',
