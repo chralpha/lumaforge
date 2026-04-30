@@ -1,3 +1,8 @@
+import {
+  LUMA_COLOR_LUT_GLSL,
+  LUMA_COLOR_RANGE_GLSL,
+  LUMA_COLOR_TRANSFER_GLSL,
+} from '@lumaforge/luma-color-runtime/glsl'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -9,6 +14,32 @@ import {
 const PROCESS_SHADER_VARIANTS = [
   ['float', PROCESS_FRAGMENT_SHADER_FLOAT],
   ['u16', PROCESS_FRAGMENT_SHADER_U16],
+] as const
+
+const REQUIRED_PACKAGE_LUT_ABI_NAMES = [
+  'u_lutTexture',
+  'u_lutDomainMin',
+  'u_lutDomainMax',
+  'u_inputToLutGamut',
+  'u_lutOutputToDisplayGamut',
+  'u_lutInputTransfer',
+  'u_lutOutputTransfer',
+  'u_lutRole',
+  'u_lutInputRange',
+  'u_lutOutputRange',
+  'linearProPhotoToLinearSrgb',
+  'encodeTransfer',
+  'decodeTransfer',
+  'applySignalRangeForLutInput',
+  'removeSignalRangeFromLutOutput',
+] as const
+
+const PACKAGE_LUT_HELPER_DEPENDENCIES = [
+  'linearProPhotoToLinearSrgb',
+  'encodeTransfer',
+  'decodeTransfer',
+  'applySignalRangeForLutInput',
+  'removeSignalRangeFromLutOutput',
 ] as const
 
 describe('preview output shader', () => {
@@ -23,6 +54,45 @@ describe('preview output shader', () => {
 })
 
 describe('process shader style path', () => {
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant composes shared color runtime GLSL snippets',
+    (_name, shader) => {
+      expect(shader).toContain(LUMA_COLOR_TRANSFER_GLSL)
+      expect(shader).toContain(LUMA_COLOR_RANGE_GLSL)
+      expect(shader).toContain(LUMA_COLOR_LUT_GLSL)
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant composes app-provided color helpers before package LUT dispatch',
+    (_name, shader) => {
+      expect(shader).toContain('bool isSceneCreativeLut()')
+      expect(shader).toContain('bool isOutputLut()')
+      expect(shader).toContain('vec3 linearProPhotoToLinearSrgb(vec3 color)')
+
+      const packageLutSnippet = shader.indexOf('bool isSceneCreativeLut()')
+      const lutDispatch = shader.indexOf('if (isSceneCreativeLut())')
+
+      expect(packageLutSnippet).toBeGreaterThanOrEqual(0)
+      expect(lutDispatch).toBeGreaterThanOrEqual(0)
+      for (const dependency of PACKAGE_LUT_HELPER_DEPENDENCIES) {
+        const dependencyIndex = shader.indexOf(dependency)
+        expect(dependencyIndex).toBeGreaterThanOrEqual(0)
+        expect(dependencyIndex).toBeLessThan(packageLutSnippet)
+      }
+      expect(packageLutSnippet).toBeLessThan(lutDispatch)
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant exposes the package LUT ABI in the composed shader',
+    (_name, shader) => {
+      for (const abiName of REQUIRED_PACKAGE_LUT_ABI_NAMES) {
+        expect(shader).toContain(abiName)
+      }
+    },
+  )
+
   it.each(PROCESS_SHADER_VARIANTS)(
     '%s variant has the shared style path with explicit style uniforms',
     (_name, shader) => {
@@ -260,7 +330,7 @@ describe('process shader style path', () => {
     '%s variant mixes scene creative LUT intensity in linear display domain',
     (_name, shader) => {
       const sceneMain = shader.match(
-        /if \(u_lutRole == LUT_ROLE_SCENE_CREATIVE\) \{[\s\S]*?\n {4}\}/,
+        /if \(isSceneCreativeLut\(\)\) \{[\s\S]*?\n {4}\}/,
       )?.[0]
       expect(sceneMain).toBeDefined()
       expect(sceneMain).toContain(

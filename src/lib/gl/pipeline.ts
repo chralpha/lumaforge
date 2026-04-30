@@ -9,6 +9,11 @@ import type {
   LUTProfileResolution,
   ProcessingParams,
 } from '@lumaforge/luma-color-runtime'
+import {
+  LUT_RANGE_UNIFORMS,
+  LUT_ROLE_UNIFORMS,
+  LUT_TRANSFER_UNIFORMS,
+} from '@lumaforge/luma-color-runtime/glsl'
 
 import type { TransferFunctionId } from '~/lib/color/log-encoding'
 import {
@@ -17,11 +22,7 @@ import {
   mat3Identity,
   mat3ToGLSL,
 } from '~/lib/color/matrix'
-import type {
-  LUTColorProfile,
-  LUTRole,
-  SignalRange,
-} from '~/lib/color/registry'
+import type { LUTColorProfile, LUTRole } from '~/lib/color/registry'
 import { resolveExportColorGraph } from '~/lib/export/color-graph'
 
 import type {
@@ -63,6 +64,11 @@ export type {
   LUTProfileResolution,
   ProcessingParams,
 } from '@lumaforge/luma-color-runtime'
+export {
+  LUT_RANGE_UNIFORMS,
+  LUT_ROLE_UNIFORMS,
+  LUT_TRANSFER_UNIFORMS,
+} from '@lumaforge/luma-color-runtime/glsl'
 
 export interface PipelineStats {
   uploadTime: number
@@ -226,42 +232,6 @@ const BUILTIN_PRESET_UNIFORMS: Record<BuiltinStylePreset, number> = {
   cinematic: 5,
   fade: 6,
   mono: 7,
-}
-
-export const LUT_ROLE_UNIFORMS: Record<LUTRole, number> = {
-  'display-look': 0,
-  'scene-creative': 1,
-  'combined-look-output': 2,
-  'technical-output': 3,
-}
-
-export const LUT_RANGE_UNIFORMS: Record<SignalRange, number> = {
-  full: 0,
-  legal: 1,
-  unknown: 2,
-}
-
-export const LUT_TRANSFER_UNIFORMS: Record<TransferFunctionId, number> = {
-  srgb: 0,
-  bt709: 1,
-  gamma24: 2,
-  's-log2': 3,
-  's-log3': 4,
-  'canon-log': 5,
-  'canon-log2': 6,
-  'canon-log3': 7,
-  'n-log': 8,
-  'f-log': 9,
-  'f-log2': 10,
-  'f-log2c': 11,
-  'v-log': 12,
-  logc3: 13,
-  logc4: 14,
-  log3g10: 15,
-  acescc: 16,
-  acescct: 17,
-  'l-log': 18,
-  linear: 19,
 }
 
 export interface LUTPipelineProfileUniforms {

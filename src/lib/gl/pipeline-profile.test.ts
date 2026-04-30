@@ -1,3 +1,8 @@
+import {
+  LUT_RANGE_UNIFORMS,
+  LUT_ROLE_UNIFORMS,
+  LUT_TRANSFER_UNIFORMS,
+} from '@lumaforge/luma-color-runtime/glsl'
 import { describe, expect, it } from 'vitest'
 
 import type { LUTColorProfile } from '~/lib/color/registry'
@@ -8,9 +13,6 @@ import {
 
 import {
   isLUTProfileRenderable,
-  LUT_RANGE_UNIFORMS,
-  LUT_ROLE_UNIFORMS,
-  LUT_TRANSFER_UNIFORMS,
   resolveLUTPipelineProfileUniforms,
 } from './pipeline'
 
