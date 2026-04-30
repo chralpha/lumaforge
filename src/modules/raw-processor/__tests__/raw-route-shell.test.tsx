@@ -518,7 +518,7 @@ describe('rawProcessorView online LUT route sources', () => {
     expect(
       screen.queryByRole('button', { name: 'Load Route Flow LUT' }),
     ).not.toBeInTheDocument()
-    await waitFor(() => expect(fetchUrls()).toEqual([catalogUrl, entryUrl]))
+    await waitFor(() => expect(fetchUrls()).toEqual([catalogUrl]))
 
     const browser = await openLutSourceBrowser(user, 'Catalog from example.com')
     const loadButton = within(browser).getByRole('button', {
@@ -527,7 +527,9 @@ describe('rawProcessorView online LUT route sources', () => {
 
     await user.click(loadButton)
 
-    await waitFor(() => expect(fetchUrls()).toContain(cubeUrl))
+    await waitFor(() =>
+      expect(fetchUrls()).toEqual([catalogUrl, entryUrl, cubeUrl]),
+    )
     await waitFor(() => expect(getLut()?.title).toBe('Route Flow LUT'))
     expect(getProcessingParams()).toMatchObject({
       styleKind: 'custom',
@@ -619,7 +621,7 @@ describe('rawProcessorView online LUT route sources', () => {
     expect(
       screen.queryByRole('button', { name: 'Load Hash Check LUT' }),
     ).not.toBeInTheDocument()
-    await waitFor(() => expect(fetchUrls()).toEqual([catalogUrl, entryUrl]))
+    await waitFor(() => expect(fetchUrls()).toEqual([catalogUrl]))
 
     const browser = await openLutSourceBrowser(user, 'Catalog from example.com')
     const loadButton = within(browser).getByRole('button', {
@@ -628,7 +630,9 @@ describe('rawProcessorView online LUT route sources', () => {
 
     await user.click(loadButton)
 
-    await waitFor(() => expect(fetchUrls()).toContain(cubeUrl))
+    await waitFor(() =>
+      expect(fetchUrls()).toEqual([catalogUrl, entryUrl, cubeUrl]),
+    )
     await waitFor(() =>
       expect(mockedToastError).toHaveBeenCalledWith(
         'Failed to load LUT',

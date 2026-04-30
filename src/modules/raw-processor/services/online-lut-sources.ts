@@ -37,6 +37,11 @@ export interface OnlineLUTSourceResolution {
   issues: OnlineLUTSourceIssue[]
 }
 
+export interface OnlineLUTSourceEntryResolution {
+  entry: OnlineLUTSourceEntry
+  issues: OnlineLUTSourceIssue[]
+}
+
 function withResourceId(
   entry: OnlineLUTEntry,
   resourceId: string,
@@ -206,51 +211,62 @@ export async function resolveProfileSourceResource(
       }
     }
 
-    const entries: OnlineLUTSourceEntry[] = []
-    const issues: OnlineLUTSourceIssue[] = []
-
-    for (const catalogEntry of catalog.value) {
-      try {
-        const entryDocument = await options.fetchJson<unknown>(
-          catalogEntry.sourceUrl,
-          {
-            signal: options.signal,
-            maxBytes,
-          },
-        )
-        const entry = parseReleaseEntry(entryDocument, catalogEntry.sourceUrl)
-
-        if (entry.ok) {
-          entries.push(withResourceId(entry.value, resource.id))
-        } else {
-          entries.push(withResourceId(catalogEntry, resource.id))
-          issues.push(
-            ...mapProfileIssues(
-              entry.issues,
-              resource.id,
-              catalogEntry.sourceUrl,
-            ),
-          )
-        }
-      } catch (error) {
-        entries.push(withResourceId(catalogEntry, resource.id))
-        issues.push(
-          mapFetchIssue(
-            error,
-            resource.id,
-            catalogEntry.sourceUrl,
-            catalogEntry.id,
-          ),
-        )
-      }
+    return {
+      resource,
+      entries: catalog.value.map((entry) => withResourceId(entry, resource.id)),
+      issues: [],
     }
-
-    return { resource, entries, issues }
   } catch (error) {
     return {
       resource,
       entries: [],
       issues: [mapFetchIssue(error, resource.id, resource.url)],
+    }
+  }
+}
+
+export async function resolveOnlineLUTSourceEntry(
+  entry: OnlineLUTSourceEntry,
+  options: {
+    fetchJson: typeof fetchJsonWithLimit
+    signal?: AbortSignal
+    maxJsonBytes?: number
+  },
+): Promise<OnlineLUTSourceEntryResolution> {
+  if (entry.sourceType !== 'catalog-entry' || entry.trustedContract) {
+    return { entry, issues: [] }
+  }
+
+  const maxBytes = options.maxJsonBytes ?? defaultMaxJsonBytes
+
+  try {
+    const document = await options.fetchJson<unknown>(entry.sourceUrl, {
+      signal: options.signal,
+      maxBytes,
+    })
+    const result = parseReleaseEntry(document, entry.sourceUrl)
+
+    if (!result.ok) {
+      return {
+        entry,
+        issues: mapProfileIssues(
+          result.issues,
+          entry.resourceId,
+          entry.sourceUrl,
+        ),
+      }
+    }
+
+    return {
+      entry: withResourceId(result.value, entry.resourceId),
+      issues: [],
+    }
+  } catch (error) {
+    return {
+      entry,
+      issues: [
+        mapFetchIssue(error, entry.resourceId, entry.sourceUrl, entry.id),
+      ],
     }
   }
 }

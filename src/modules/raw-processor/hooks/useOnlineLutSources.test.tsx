@@ -180,7 +180,50 @@ describe('useOnlineLutSources', () => {
       title: 'Kodak 2383 Rec.709',
       resourceId: 'lut-source-1',
     })
+    expect(mockedFetchJson).toHaveBeenCalledTimes(1)
+  })
+
+  it('fetches the entry manifest only when loading a selected catalog LUT', async () => {
+    setupFetchJson({
+      [catalogUrl]: catalogDocument(),
+      [entryUrl]: entryManifest(),
+    })
+
+    const loadOnlineLUT = createLoadOnlineLUT()
+    const { result } = renderHook(() =>
+      useOnlineLutSources({
+        search: `?luts=${encodeURIComponent(catalogUrl)}`,
+        pathname: '/raw',
+        loadOnlineLUT,
+      }),
+    )
+
+    await waitFor(() => expect(result.current.state.entries).toHaveLength(1))
+    expect(mockedFetchJson).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await result.current.loadEntry('kodak-2383-rec709')
+    })
+
     expect(mockedFetchJson).toHaveBeenCalledTimes(2)
+    expect(mockedFetchJson).toHaveBeenNthCalledWith(2, entryUrl, {
+      signal: expect.any(AbortSignal),
+      maxBytes: expect.any(Number),
+    })
+    expect(loadOnlineLUT).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'kodak-2383-rec709',
+        sourceUrl: entryUrl,
+        trustedContract: expect.objectContaining({
+          inputTransfer: 'logc3',
+        }),
+        tags: ['film-print'],
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
+    expect(result.current.state.entries[0]).toMatchObject({
+      trustedContract: { outputTransfer: 'gamma24' },
+    })
   })
 
   it('does not duplicate resources when re-rendering with the same search string', async () => {
@@ -209,7 +252,7 @@ describe('useOnlineLutSources', () => {
 
     expect(result.current.state.resources).toHaveLength(1)
     expect(result.current.state.entries).toHaveLength(1)
-    expect(mockedFetchJson).toHaveBeenCalledTimes(2)
+    expect(mockedFetchJson).toHaveBeenCalledTimes(1)
   })
 
   it('processes newly introduced query resources while mounted without duplicating the same query', async () => {
@@ -242,7 +285,7 @@ describe('useOnlineLutSources', () => {
 
     expect(result.current.state.resources).toHaveLength(1)
     expect(result.current.state.entries).toHaveLength(1)
-    expect(mockedFetchJson).toHaveBeenCalledTimes(2)
+    expect(mockedFetchJson).toHaveBeenCalledTimes(1)
   })
 
   it('keeps share disabled when no valid source has entries', () => {

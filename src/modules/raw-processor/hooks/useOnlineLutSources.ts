@@ -12,6 +12,7 @@ import {
 } from '~/lib/profiles/source-url'
 
 import type {
+  OnlineLUTSourceEntry,
   OnlineLUTSourceIssue,
   OnlineLUTSourceState,
 } from '../services/online-lut-sources'
@@ -19,6 +20,7 @@ import {
   getShareableOnlineLUTSourceResources,
   mergeOnlineLUTSourceResolution,
   removeOnlineLUTSourceResource,
+  resolveOnlineLUTSourceEntry,
   resolveProfileSourceResource,
 } from '../services/online-lut-sources'
 
@@ -73,6 +75,38 @@ function retargetResource(
     ...resource,
     id,
     fromQuery,
+  }
+}
+
+function issueBelongsToEntry(
+  issue: OnlineLUTSourceIssue,
+  entry: OnlineLUTSourceEntry,
+): boolean {
+  if (issue.resourceId !== entry.resourceId) return false
+
+  return issue.entryId === entry.id || issue.sourceUrl === entry.sourceUrl
+}
+
+function mergeEntryResolution(
+  state: OnlineLUTSourceState,
+  requestedEntry: OnlineLUTSourceEntry,
+  resolvedEntry: OnlineLUTSourceEntry,
+  issues: OnlineLUTSourceIssue[],
+): OnlineLUTSourceState {
+  return {
+    ...state,
+    entries: state.entries.map((entry) =>
+      entry.resourceId === requestedEntry.resourceId &&
+      entry.id === requestedEntry.id
+        ? resolvedEntry
+        : entry,
+    ),
+    issues: [
+      ...state.issues.filter(
+        (issue) => !issueBelongsToEntry(issue, requestedEntry),
+      ),
+      ...issues,
+    ],
   }
 }
 
@@ -253,19 +287,39 @@ export function useOnlineLutSources({
 
   const loadEntry = useCallback(
     async (entryId: string) => {
-      const entry = state.entries.find((item) => item.id === entryId)
+      const entry = stateRef.current.entries.find((item) => item.id === entryId)
       if (!entry) return
 
       const controller = new AbortController()
       loadControllersRef.current.add(controller)
 
       try {
-        await loadOnlineLUT(entry, { signal: controller.signal })
+        const entryResolution = await resolveOnlineLUTSourceEntry(entry, {
+          fetchJson: fetchJsonWithLimit,
+          signal: controller.signal,
+        })
+
+        if (controller.signal.aborted) return
+
+        if (entryResolution.entry !== entry || entryResolution.issues.length) {
+          setState((current) =>
+            mergeEntryResolution(
+              current,
+              entry,
+              entryResolution.entry,
+              entryResolution.issues,
+            ),
+          )
+        }
+
+        await loadOnlineLUT(entryResolution.entry, {
+          signal: controller.signal,
+        })
       } finally {
         loadControllersRef.current.delete(controller)
       }
     },
-    [loadOnlineLUT, state.entries],
+    [loadOnlineLUT],
   )
 
   const shareResources = useMemo(

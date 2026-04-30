@@ -12,6 +12,7 @@ import {
   getShareableOnlineLUTSourceResources,
   mergeOnlineLUTSourceResolution,
   removeOnlineLUTSourceResource,
+  resolveOnlineLUTSourceEntry,
   resolveProfileSourceResource,
 } from './online-lut-sources'
 
@@ -135,10 +136,9 @@ function createFetchJson(fixtures: Record<string, unknown>) {
 }
 
 describe('online LUT source metadata service', () => {
-  it('adds a catalog resource by fetching catalog JSON and each referenced entry manifest', async () => {
+  it('adds a catalog resource by fetching only catalog JSON and keeping entryUrl for lazy load', async () => {
     const fetchJson = createFetchJson({
       [catalogUrl]: catalogDocument(),
-      [entryUrl]: entryManifest(),
     })
 
     const resolution = await resolveProfileSourceResource(resource({}), {
@@ -147,12 +147,8 @@ describe('online LUT source metadata service', () => {
     })
     const state = mergeOnlineLUTSourceResolution(emptyState(), resolution)
 
-    expect(fetchJson).toHaveBeenCalledTimes(2)
+    expect(fetchJson).toHaveBeenCalledTimes(1)
     expect(fetchJson).toHaveBeenNthCalledWith(1, catalogUrl, {
-      signal: undefined,
-      maxBytes: 1234,
-    })
-    expect(fetchJson).toHaveBeenNthCalledWith(2, entryUrl, {
       signal: undefined,
       maxBytes: 1234,
     })
@@ -162,13 +158,13 @@ describe('online LUT source metadata service', () => {
         resourceId: 'source-1',
         sourceUrl: entryUrl,
         cube: { url: cubeUrl, sha256 },
-        trustedContract: { inputTransfer: 'logc3' },
+        trustedContract: undefined,
       },
     ])
     expect(state.issues).toEqual([])
   })
 
-  it('keeps catalog summary rows when entry manifests fail to fetch', async () => {
+  it('does not report entry manifest fetch failures while only catalog rows are being listed', async () => {
     const fetchJson = createFetchJson({
       [catalogUrl]: catalogDocument(),
     })
@@ -186,7 +182,66 @@ describe('online LUT source metadata service', () => {
         trustedContract: undefined,
       },
     ])
-    expect(resolution.issues).toMatchObject([
+    expect(fetchJson).toHaveBeenCalledTimes(1)
+    expect(resolution.issues).toEqual([])
+  })
+
+  it('resolves a selected catalog row by fetching only that entry manifest', async () => {
+    const fetchJson = createFetchJson({
+      [catalogUrl]: catalogDocument(),
+      [entryUrl]: entryManifest(),
+    })
+
+    const catalogResolution = await resolveProfileSourceResource(resource({}), {
+      fetchJson,
+      maxJsonBytes: 1234,
+    })
+    expect(fetchJson.mock.calls.map(([url]) => url)).toEqual([catalogUrl])
+
+    fetchJson.mockClear()
+    const [catalogEntry] = catalogResolution.entries
+    const entryResolution = await resolveOnlineLUTSourceEntry(catalogEntry, {
+      fetchJson,
+      maxJsonBytes: 2345,
+    })
+
+    expect(fetchJson).toHaveBeenCalledTimes(1)
+    expect(fetchJson).toHaveBeenCalledWith(entryUrl, {
+      signal: undefined,
+      maxBytes: 2345,
+    })
+    expect(entryResolution).toMatchObject({
+      entry: {
+        id: 'kodak-2383-rec709',
+        resourceId: 'source-1',
+        sourceUrl: entryUrl,
+        cube: { url: cubeUrl, sha256 },
+        trustedContract: { inputTransfer: 'logc3' },
+        tags: ['film-print'],
+      },
+      issues: [],
+    })
+  })
+
+  it('falls back to catalog summary rows when a selected entry manifest cannot be fetched', async () => {
+    const fetchJson = createFetchJson({})
+    const catalogEntry: OnlineLUTSourceEntry = {
+      id: 'kodak-2383-rec709',
+      resourceId: 'source-1',
+      title: 'Kodak 2383 Rec.709',
+      sourceUrl: entryUrl,
+      sourceType: 'catalog-entry',
+      cube: { url: cubeUrl, sha256, bytes: 12, title: 'Kodak 2383 Rec.709' },
+      tags: [],
+    }
+
+    const entryResolution = await resolveOnlineLUTSourceEntry(catalogEntry, {
+      fetchJson,
+      maxJsonBytes: 2345,
+    })
+
+    expect(entryResolution.entry).toEqual(catalogEntry)
+    expect(entryResolution.issues).toMatchObject([
       {
         code: 'network',
         resourceId: 'source-1',
@@ -465,7 +520,6 @@ describe('online LUT source metadata service', () => {
   it('refreshes catalog metadata by re-fetching JSON but never fetching CUBE bytes', async () => {
     const fetchJson = createFetchJson({
       [catalogUrl]: catalogDocument(),
-      [entryUrl]: entryManifest(),
     })
 
     const first = await resolveProfileSourceResource(resource({}), {
@@ -479,12 +533,10 @@ describe('online LUT source metadata service', () => {
     })
     const refreshed = mergeOnlineLUTSourceResolution(firstState, second)
 
-    expect(fetchJson).toHaveBeenCalledTimes(4)
+    expect(fetchJson).toHaveBeenCalledTimes(2)
     expect(fetchJson.mock.calls.map(([url]) => url)).toEqual([
       catalogUrl,
-      entryUrl,
       catalogUrl,
-      entryUrl,
     ])
     expect(refreshed.entries).toHaveLength(1)
   })
