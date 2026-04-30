@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'sonner'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   getLut,
@@ -16,6 +17,13 @@ import { RawProcessorView } from '../RawProcessorView'
 import { classifySupportLevel } from '../services/support-matrix'
 
 const fetchMock = vi.fn<typeof fetch>()
+const mockedToastSuccess = vi.mocked(toast.success)
+const mockedToastError = vi.mocked(toast.error)
+const mockedToastInfo = vi.mocked(toast.info)
+const originalNavigatorDescriptors = {
+  clipboard: Object.getOwnPropertyDescriptor(navigator, 'clipboard'),
+  share: Object.getOwnPropertyDescriptor(navigator, 'share'),
+}
 
 vi.mock('../hooks/useCapabilityGate', () => ({
   useCapabilityGate: vi.fn(),
@@ -78,8 +86,38 @@ function encodeCube(title: string) {
   return new TextEncoder().encode(createCube(title))
 }
 
-function pendingFetch() {
-  return new Promise<Response>(() => {})
+function restoreNavigatorProperty(property: 'clipboard' | 'share') {
+  const descriptor = originalNavigatorDescriptors[property]
+
+  if (descriptor) {
+    Object.defineProperty(navigator, property, descriptor)
+    return
+  }
+
+  Reflect.deleteProperty(navigator, property)
+}
+
+function abortError() {
+  return new DOMException('The operation was aborted.', 'AbortError')
+}
+
+function pendingFetch(
+  _input?: Parameters<typeof fetch>[0],
+  init?: Parameters<typeof fetch>[1],
+) {
+  return new Promise<Response>((_resolve, reject) => {
+    const signal = init?.signal
+    if (!signal) return
+
+    if (signal.aborted) {
+      reject(abortError())
+      return
+    }
+
+    signal.addEventListener('abort', () => reject(abortError()), {
+      once: true,
+    })
+  })
 }
 
 function jsonResponse(body: unknown) {
@@ -121,6 +159,9 @@ beforeEach(() => {
   resetToDefaults()
   localStorage.clear()
   disableShareCapabilities()
+  mockedToastSuccess.mockClear()
+  mockedToastError.mockClear()
+  mockedToastInfo.mockClear()
 
   fetchMock.mockReset()
   fetchMock.mockImplementation(pendingFetch)
@@ -132,6 +173,17 @@ beforeEach(() => {
     supportStatus: 'supported',
     reason: null,
   })
+})
+
+afterEach(() => {
+  act(() => {
+    resetToDefaults()
+  })
+  localStorage.clear()
+  vi.unstubAllGlobals()
+  restoreNavigatorProperty('clipboard')
+  restoreNavigatorProperty('share')
+  fetchMock.mockReset()
 })
 
 describe('rawProcessorView', () => {
@@ -455,6 +507,94 @@ describe('rawProcessorView online LUT route sources', () => {
         outputTransfer: 'gamma24',
         outputRange: 'legal',
       },
+    })
+  })
+
+  it('rejects catalog CUBE bytes that do not match the entry hash', async () => {
+    const user = userEvent.setup()
+    const catalogUrl = 'https://example.com/hash-check/catalog.json'
+    const entryUrl =
+      'https://example.com/hash-check/entries/hash-check-lut.json'
+    const cubeUrl = 'https://example.com/hash-check/blobs/hash-check-lut.cube'
+    const cubeBytes = encodeCube('Hash Check LUT')
+    const primaryAsset = {
+      role: 'cube-lut',
+      mediaType: 'application/x-cube-lut',
+      size: cubeBytes.byteLength,
+      sha256:
+        '0000000000000000000000000000000000000000000000000000000000000000',
+      url: cubeUrl,
+    }
+    const catalog = {
+      schemaVersion: 1,
+      entries: [
+        {
+          id: 'hash-check-lut',
+          kind: 'lut',
+          version: '1.0.0',
+          title: 'Hash Check LUT',
+          license: 'NOASSERTION',
+          redistributionAllowed: true,
+          primaryAsset,
+          entryUrl,
+        },
+      ],
+    }
+    const entryManifest = {
+      schemaVersion: 1,
+      id: 'hash-check-lut',
+      kind: 'lut',
+      format: 'cube',
+      version: '1.0.0',
+      title: 'Hash Check LUT',
+      license: 'NOASSERTION',
+      redistributionAllowed: true,
+      entryUrl,
+      primaryAsset,
+      assets: [],
+      lut: {
+        intent: 'combined-look-output',
+        input: {
+          gamut: 'arri-wide-gamut-3',
+          transfer: 'logc3',
+          range: 'full',
+        },
+        output: { gamut: 'rec709', transfer: 'gamma24', range: 'legal' },
+      },
+      tags: ['route-acceptance'],
+    }
+
+    fetchMock.mockImplementation((input) => {
+      const url = fetchUrl(input)
+
+      if (url === catalogUrl) return jsonResponse(catalog)
+      if (url === entryUrl) return jsonResponse(entryManifest)
+      if (url === cubeUrl) return bytesResponse(cubeBytes)
+
+      return Promise.reject(new Error(`Unexpected URL: ${url}`))
+    })
+
+    renderRawRoute(`/raw?luts=${encodeURIComponent(catalogUrl)}`)
+
+    const loadButton = await screen.findByRole('button', {
+      name: 'Load Hash Check LUT',
+    })
+
+    await user.click(loadButton)
+
+    await waitFor(() => expect(fetchUrls()).toContain(cubeUrl))
+    await waitFor(() =>
+      expect(mockedToastError).toHaveBeenCalledWith(
+        'Failed to load LUT',
+        expect.objectContaining({
+          description: 'Online profile asset hash does not match the manifest.',
+        }),
+      ),
+    )
+    expect(getLut()).toBeNull()
+    expect(getProcessingParams()).toMatchObject({
+      styleKind: 'none',
+      builtinPreset: null,
     })
   })
 })
