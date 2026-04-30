@@ -1,4 +1,4 @@
-import { resolveUnsupportedLUTOutputReason } from '~/lib/export/color-graph'
+import { resolveUnsupportedLUTOutputReason } from '@lumaforge/luma-color-runtime'
 
 import type { ImageSession, PreviewBundle } from './session'
 

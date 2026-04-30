@@ -31,9 +31,7 @@ describe('sampleLutTrilinear', () => {
     const lut = createIdentityLut(2)
 
     expect(sampleLutTrilinear(lut, 2, 0.25, 0.5, 0.75)).toEqual([
-      0.25,
-      0.5,
-      0.75,
+      0.25, 0.5, 0.75,
     ])
   })
 })

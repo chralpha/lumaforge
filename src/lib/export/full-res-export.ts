@@ -1,13 +1,14 @@
 import type {
+  ExportColorGraphDescriptor,
+  SupportedExportColorGraphDescriptor,
+} from '@lumaforge/luma-color-runtime'
+import { createRowBandProcessor } from '@lumaforge/luma-color-runtime'
+import type {
   LumaRawExportCapability,
   LumaRawProcessedWindow,
   LumaRawProcessedWindowRequest,
 } from '@lumaforge/luma-raw-runtime'
 
-import type {
-  ExportColorGraphDescriptor,
-  SupportedExportColorGraphDescriptor,
-} from './color-graph'
 import type { JpegRowSink, JpegRowWriter } from './jpeg/row-writer'
 import { createJpegRowWriter } from './jpeg/row-writer'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
@@ -18,7 +19,6 @@ import {
   runOrderedConcurrent,
 } from './pipeline-concurrency'
 import { processedWindowToRgb16Rows } from './processed-window-transform'
-import { createRowBandProcessor } from './row-band-processor'
 import type { ExportStrip } from './strip-scheduler'
 import {
   normalizePreferredStripRows,

@@ -1,4 +1,5 @@
-import type { ExportColorGraphDescriptor } from './color-graph'
+import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
+
 import type { FullResolutionExportProgress } from './full-res-export'
 import type { ExportPerfMetric } from './perf/export-metrics'
 import { normalizeExportConcurrency } from './pipeline-concurrency'

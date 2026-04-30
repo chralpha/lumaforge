@@ -1,6 +1,5 @@
-import { mat3Identity } from '~/lib/color/matrix'
-
 import type { SupportedExportColorGraphDescriptor } from './color-graph'
+import { mat3Identity } from './matrix'
 import { createRowBandProcessor } from './row-band-processor'
 
 const noLutGraph: SupportedExportColorGraphDescriptor = {

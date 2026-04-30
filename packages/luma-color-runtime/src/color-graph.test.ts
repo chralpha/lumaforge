@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { getLUTColorProfile } from '~/lib/color/registry'
-
 import { resolveExportColorGraph } from './color-graph'
+import { getLUTColorProfile } from './registry'
 
 describe('resolveExportColorGraph', () => {
   it('resolves no-lut export to linear ProPhoto then sRGB output', () => {

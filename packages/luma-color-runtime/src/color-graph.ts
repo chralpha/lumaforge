@@ -1,0 +1,229 @@
+import type { ColorGamutId } from './constants'
+import type { TransferFunctionId } from './log-encoding'
+import type { Mat3 } from './matrix'
+import {
+  getLinearProPhotoToGamutMatrix,
+  getLUTOutputToTargetMatrix,
+  mat3Identity,
+} from './matrix'
+import type { RawRenderExposure } from './raw-render-exposure'
+import type { LUTColorProfile, LUTRole, SignalRange } from './registry'
+import type { LUTData, ProcessingParams } from './types'
+
+export type ExportColorGraphStep =
+  | { kind: 'input-linear-prophoto' }
+  | { kind: 'raw-render-exposure'; ev: number; multiplier: number }
+  | { kind: 'gamut-to-lut-input'; matrix: Mat3; gamut: ColorGamutId }
+  | {
+      kind: 'encode-lut-transfer'
+      transfer: TransferFunctionId
+      range: SignalRange
+    }
+  | {
+      kind: 'lut3d'
+      size: number
+      data: Float32Array
+      domainMin: [number, number, number]
+      domainMax: [number, number, number]
+    }
+  | {
+      kind: 'builtin-style'
+      preset: NonNullable<ProcessingParams['builtinPreset']>
+      intensity: number
+    }
+  | {
+      kind: 'lut-output-to-srgb'
+      matrix: Mat3
+      transfer: TransferFunctionId
+      range: SignalRange
+      role: LUTRole
+      intensity: number
+    }
+  | { kind: 'output-srgb' }
+
+export type ExportColorGraphDescriptor =
+  | {
+      supported: true
+      outputGamut: 'srgb-rec709'
+      outputTransfer: 'srgb'
+      lutProfile: LUTColorProfile | null
+      steps: ExportColorGraphStep[]
+    }
+  | {
+      supported: false
+      reason: 'unsupported-pipeline'
+      message: string
+      steps: []
+    }
+
+export type SupportedExportColorGraphDescriptor = Extract<
+  ExportColorGraphDescriptor,
+  { supported: true }
+>
+
+const OUTPUT_GAMUT = 'srgb-rec709'
+const OUTPUT_TRANSFER = 'srgb'
+const IDENTITY_RAW_RENDER_EXPOSURE: RawRenderExposure = {
+  ev: 0,
+  multiplier: 1,
+  source: 'identity',
+}
+
+function resolveEffectiveLUTOutputTransfer(
+  profile: LUTColorProfile,
+): TransferFunctionId | undefined {
+  if (profile.outputTransfer) return profile.outputTransfer
+
+  if (profile.role === 'display-look') return profile.inputTransfer
+
+  return undefined
+}
+
+export function resolveUnsupportedLUTOutputReason(
+  profile: LUTColorProfile,
+): string | undefined {
+  if (profile.outputRange === 'unknown') {
+    return 'This LUT output range must be explicit before full-resolution JPEG export.'
+  }
+
+  if (
+    profile.role !== 'display-look' &&
+    (!profile.outputGamut || !profile.outputTransfer || !profile.outputRange)
+  ) {
+    return 'Choose a LUT output profile before full-resolution export.'
+  }
+
+  const effectiveOutputTransfer = resolveEffectiveLUTOutputTransfer(profile)
+  if (!effectiveOutputTransfer) {
+    return 'Choose a LUT output profile before full-resolution export.'
+  }
+
+  if (effectiveOutputTransfer === 'linear') {
+    return 'This LUT output transfer is not supported by full-resolution JPEG export.'
+  }
+
+  return undefined
+}
+
+export function resolveExportColorGraph(input: {
+  styleKind: ProcessingParams['styleKind']
+  intensity: number
+  builtinPreset: ProcessingParams['builtinPreset']
+  lut: LUTData | null
+  rawRenderExposure?: RawRenderExposure
+}): ExportColorGraphDescriptor {
+  const rawRenderExposure =
+    input.rawRenderExposure ?? IDENTITY_RAW_RENDER_EXPOSURE
+  const base: ExportColorGraphStep[] = [
+    { kind: 'input-linear-prophoto' },
+    {
+      kind: 'raw-render-exposure',
+      ev: rawRenderExposure.ev,
+      multiplier: rawRenderExposure.multiplier,
+    },
+  ]
+
+  if (input.styleKind === 'builtin' && input.builtinPreset) {
+    return {
+      supported: false,
+      reason: 'unsupported-pipeline',
+      message:
+        'Built-in styles are not supported by full-resolution JPEG export.',
+      steps: [],
+    }
+  }
+
+  if (input.styleKind !== 'custom' || !input.lut) {
+    return {
+      supported: true,
+      outputGamut: OUTPUT_GAMUT,
+      outputTransfer: OUTPUT_TRANSFER,
+      lutProfile: null,
+      steps: [...base, { kind: 'output-srgb' }],
+    }
+  }
+
+  if (input.lut.profileResolution.kind !== 'resolved') {
+    return {
+      supported: false,
+      reason: 'unsupported-pipeline',
+      message: 'Choose a LUT input profile before full-resolution export.',
+      steps: [],
+    }
+  }
+
+  const profile = input.lut.profileResolution.profile
+  const effectiveOutputTransfer = resolveEffectiveLUTOutputTransfer(profile)
+  const unsupportedOutputReason = resolveUnsupportedLUTOutputReason(profile)
+  if (unsupportedOutputReason) {
+    return {
+      supported: false,
+      reason: 'unsupported-pipeline',
+      message: unsupportedOutputReason,
+      steps: [],
+    }
+  }
+
+  const inputMatrix =
+    profile.inputGamut === 'prophoto-rgb'
+      ? mat3Identity()
+      : getLinearProPhotoToGamutMatrix(profile.inputGamut)
+  const outputGamut = profile.outputGamut ?? profile.inputGamut
+  const outputRange = profile.outputRange ?? 'full'
+  const outputMatrix =
+    outputGamut === OUTPUT_GAMUT
+      ? mat3Identity()
+      : getLUTOutputToTargetMatrix(outputGamut, OUTPUT_GAMUT)
+
+  return {
+    supported: true,
+    outputGamut: OUTPUT_GAMUT,
+    outputTransfer: OUTPUT_TRANSFER,
+    lutProfile: profile,
+    steps: [
+      ...base,
+      {
+        kind: 'gamut-to-lut-input',
+        matrix: inputMatrix,
+        gamut: profile.inputGamut,
+      },
+      {
+        kind: 'encode-lut-transfer',
+        transfer: profile.inputTransfer,
+        range: profile.inputRange,
+      },
+      {
+        kind: 'lut3d',
+        size: input.lut.size,
+        data: input.lut.data,
+        domainMin: input.lut.domainMin,
+        domainMax: input.lut.domainMax,
+      },
+      {
+        kind: 'lut-output-to-srgb',
+        matrix: outputMatrix,
+        transfer: effectiveOutputTransfer!,
+        range: outputRange,
+        role: profile.role,
+        intensity: input.intensity,
+      },
+      { kind: 'output-srgb' },
+    ],
+  }
+}
+
+export type ColorGraphStep = ExportColorGraphStep
+export type ColorGraph = ExportColorGraphDescriptor
+export type SupportedColorGraph = SupportedExportColorGraphDescriptor
+
+export type ResolveColorGraphInput = {
+  styleKind: ProcessingParams['styleKind']
+  intensity: number
+  builtinPreset: ProcessingParams['builtinPreset']
+  lut: LUTData | null
+  rawRenderExposure?: RawRenderExposure
+}
+
+export function resolveColorGraph(input: ResolveColorGraphInput): ColorGraph {
+  return resolveExportColorGraph(input)
+}

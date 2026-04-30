@@ -1,4 +1,5 @@
-import type { ExportColorGraphDescriptor } from '~/lib/export/color-graph'
+import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
+
 import type { FullResolutionExportProgress } from '~/lib/export/full-res-export'
 import type { RunFullResolutionJpegExportInWorkerInput } from '~/lib/export/full-res-export-client'
 import { FullResolutionExportWorkerClient } from '~/lib/export/full-res-export-client'
