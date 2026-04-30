@@ -138,6 +138,7 @@ function createLoadedProcessorState(
     displaySource: 'bounded-hq',
     loadFile: vi.fn(),
     loadLUT: vi.fn(),
+    loadOnlineLUT: vi.fn(),
     selectLUTProfile: vi.fn(),
     selectBuiltinStyle: vi.fn(),
     selectIntensityLevel: vi.fn(),

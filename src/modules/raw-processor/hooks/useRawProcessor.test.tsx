@@ -796,6 +796,79 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
+  it('ignores aborted verified online LUT fetches without changing error state or active LUT', async () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadLUT(
+        createCubeFile('Previous LUT', 'previous.cube'),
+      )
+    })
+
+    const previousLut = result.current.lut
+    const previousLastErrorCode =
+      jotaiStore.get(currentSessionAtom)?.renderState.lastErrorCode
+    const controller = new AbortController()
+    onlineProfileFetchMock.fetchVerifiedCubeAsset.mockRejectedValue(
+      new DOMException('The operation was aborted.', 'AbortError'),
+    )
+
+    await act(async () => {
+      await result.current.loadOnlineLUT(createOnlineLUTEntry(), {
+        signal: controller.signal,
+      })
+    })
+    await flushScheduledToasts()
+
+    expect(result.current.lut).toBe(previousLut)
+    expect(jotaiStore.get(currentSessionAtom)?.renderState.lastErrorCode).toBe(
+      previousLastErrorCode,
+    )
+    expect(toastMock.error).not.toHaveBeenCalledWith(
+      'Failed to load LUT',
+      expect.anything(),
+    )
+  })
+
+  it('does not apply an online LUT when the signal is aborted after fetch resolves', async () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadLUT(
+        createCubeFile('Previous LUT', 'previous.cube'),
+      )
+    })
+
+    const previousLut = result.current.lut
+    const previousLastErrorCode =
+      jotaiStore.get(currentSessionAtom)?.renderState.lastErrorCode
+    const controller = new AbortController()
+    onlineProfileFetchMock.fetchVerifiedCubeAsset.mockImplementation(
+      async () => {
+        controller.abort()
+        return encodeCube('Late Aborted Online LUT')
+      },
+    )
+
+    await act(async () => {
+      await result.current.loadOnlineLUT(createOnlineLUTEntry(), {
+        signal: controller.signal,
+      })
+    })
+    await flushScheduledToasts()
+
+    expect(result.current.lut).toBe(previousLut)
+    expect(jotaiStore.get(currentSessionAtom)?.renderState.lastErrorCode).toBe(
+      previousLastErrorCode,
+    )
+    expect(toastMock.error).not.toHaveBeenCalledWith(
+      'Failed to load LUT',
+      expect.anything(),
+    )
+  })
+
   it('stores embedded object URLs, upgrades display source, and revokes on reset', async () => {
     const embeddedPreview = deferred<{
       width: number

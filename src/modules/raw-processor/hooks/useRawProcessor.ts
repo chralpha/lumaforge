@@ -163,6 +163,10 @@ function resolveOnlineLUTSourceName(entry: OnlineLUTEntry): string {
   return entry.cube.url
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
+
 function toFullResCapabilityState(capability: LumaRawExportCapability) {
   if (
     capability.supported &&
@@ -1315,6 +1319,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const loadOnlineLUT = useCallback(
     async (entry: OnlineLUTEntry, options?: { signal?: AbortSignal }) => {
       try {
+        if (options?.signal?.aborted) return
+
         const bytes =
           entry.sourceType === 'catalog-entry'
             ? await fetchVerifiedCubeAsset(entry.cube, {
@@ -1328,8 +1334,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 cache: onlineProfileCache,
               })
 
+        if (options?.signal?.aborted) return
+
+        const content = new TextDecoder().decode(bytes)
+        if (options?.signal?.aborted) return
+
         await loadLUTContent({
-          content: new TextDecoder().decode(bytes),
+          content,
           sourceName: resolveOnlineLUTSourceName(entry),
           trustedContract:
             entry.sourceType === 'catalog-entry'
@@ -1337,6 +1348,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
               : undefined,
         })
       } catch (err) {
+        if (isAbortError(err) || options?.signal?.aborted) return
+
         reportLUTLoadFailure(err)
       }
     },
