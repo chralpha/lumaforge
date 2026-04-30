@@ -1,23 +1,23 @@
 import type {
+  LUTColorProfile,
   LUTContractSelection,
   LUTInputProfile,
   LUTProfileResolution,
-  StoredLUTContractSelection,
-} from '@lumaforge/luma-color-runtime'
-
-import type { ColorGamutId } from '~/lib/color/constants'
-import type { TransferFunctionId } from '~/lib/color/log-encoding'
-import type {
-  LUTColorProfile,
   LUTRole,
   SignalRange,
-} from '~/lib/color/registry'
+  StoredLUTContractSelection,
+} from '@lumaforge/luma-color-runtime'
 import {
-  getColorGamut,
+  buildStoredContractSelection,
+  contractToLUTColorProfile as contractToRuntimeLUTColorProfile,
   getLUTColorProfile,
-  getTransferFunction,
   inferLUTColorProfileHints,
-} from '~/lib/color/registry'
+  isLUTRole,
+  isSignalRange,
+  resolveColorGamutId,
+  resolveTransferFunctionId,
+  toLUTContractSelection,
+} from '@lumaforge/luma-color-runtime'
 
 import type { ParsedLUT } from './cube-parser'
 
@@ -25,14 +25,9 @@ export type {
   LUTContractSelection,
   StoredLUTContractSelection,
 } from '@lumaforge/luma-color-runtime'
+export { toLUTContractSelection } from '@lumaforge/luma-color-runtime'
 
 const LUT_PROFILE_SELECTIONS_STORAGE_KEY = 'lumaforge.lutProfileSelections.v1'
-const DISPLAY_LIKE_INPUT_TRANSFERS = new Set<TransferFunctionId>([
-  'srgb',
-  'bt709',
-  'gamma24',
-])
-
 function stripCubeExtension(name: string): string {
   return name.replace(/\.cube$/i, '')
 }
@@ -76,157 +71,6 @@ function getLUTProfileStorage(): Storage | undefined {
   }
 }
 
-function isSignalRange(value: unknown): value is SignalRange {
-  return value === 'full' || value === 'legal' || value === 'unknown'
-}
-
-function isLUTRole(value: unknown): value is LUTRole {
-  return (
-    value === 'display-look' ||
-    value === 'scene-creative' ||
-    value === 'technical-output' ||
-    value === 'combined-look-output'
-  )
-}
-
-function resolveColorGamutId(value: unknown): ColorGamutId | undefined {
-  if (typeof value !== 'string') return undefined
-  return getColorGamut(value)?.id
-}
-
-function resolveTransferFunctionId(
-  value: unknown,
-): TransferFunctionId | undefined {
-  if (typeof value !== 'string') return undefined
-  return getTransferFunction(value)?.id
-}
-
-function hasDisplayLikeInput(selection: {
-  inputGamut?: ColorGamutId
-  inputTransfer?: TransferFunctionId
-}): boolean {
-  return Boolean(
-    selection.inputGamut === 'srgb-rec709' &&
-    selection.inputTransfer &&
-    DISPLAY_LIKE_INPUT_TRANSFERS.has(selection.inputTransfer),
-  )
-}
-
-function hasConflictingProfileInputFields(
-  profile: LUTColorProfile | undefined,
-  selection: LUTContractSelection,
-): boolean {
-  if (!profile) return false
-
-  const explicitInputGamut = resolveColorGamutId(selection.inputGamut)
-  if (selection.inputGamut && explicitInputGamut !== profile.inputGamut) {
-    return true
-  }
-
-  const explicitInputTransfer = resolveTransferFunctionId(
-    selection.inputTransfer,
-  )
-  if (
-    selection.inputTransfer &&
-    explicitInputTransfer !== profile.inputTransfer
-  ) {
-    return true
-  }
-
-  return false
-}
-
-function roleRequiresOutputContract(role: LUTRole): boolean {
-  return role !== 'display-look'
-}
-
-function isDisplayLookContractAllowed(selection: {
-  role: LUTRole
-  inputGamut?: ColorGamutId
-  inputTransfer?: TransferFunctionId
-}): boolean {
-  return selection.role !== 'display-look' || hasDisplayLikeInput(selection)
-}
-
-function hasCompleteOutputContract(selection: {
-  outputGamut?: ColorGamutId
-  outputTransfer?: TransferFunctionId
-  outputRange?: SignalRange
-}): boolean {
-  return Boolean(
-    selection.outputGamut && selection.outputTransfer && selection.outputRange,
-  )
-}
-
-function hasAnyOutputContractField(selection: {
-  outputGamut?: ColorGamutId
-  outputTransfer?: TransferFunctionId
-  outputRange?: SignalRange
-}): boolean {
-  return Boolean(
-    selection.outputGamut || selection.outputTransfer || selection.outputRange,
-  )
-}
-
-function buildStoredContractSelection(
-  selection: LUTContractSelection,
-): StoredLUTContractSelection | undefined {
-  if (!isLUTRole(selection.role)) return undefined
-
-  const profile = selection.inputProfile
-    ? getCompatibleLUTColorProfile(selection.inputProfile)
-    : undefined
-  if (hasConflictingProfileInputFields(profile, selection)) {
-    return undefined
-  }
-
-  const inputGamut =
-    profile?.inputGamut ?? resolveColorGamutId(selection.inputGamut)
-  const inputTransfer =
-    profile?.inputTransfer ?? resolveTransferFunctionId(selection.inputTransfer)
-  const inputRange = selection.inputRange ?? profile?.inputRange
-  const outputGamut = resolveColorGamutId(selection.outputGamut)
-  const outputTransfer = resolveTransferFunctionId(selection.outputTransfer)
-  const outputRange = selection.outputRange
-
-  if (!inputGamut || !inputTransfer || !isSignalRange(inputRange)) {
-    return undefined
-  }
-  if (selection.outputRange && !isSignalRange(selection.outputRange)) {
-    return undefined
-  }
-
-  const contract: StoredLUTContractSelection = {
-    inputProfile: profile?.id,
-    role: selection.role,
-    inputGamut,
-    inputTransfer,
-    inputRange,
-    outputGamut,
-    outputTransfer,
-    outputRange,
-  }
-
-  if (!isDisplayLookContractAllowed(contract)) {
-    return undefined
-  }
-
-  const requiresOutputContract = roleRequiresOutputContract(contract.role)
-  if (requiresOutputContract && !hasCompleteOutputContract(contract)) {
-    return undefined
-  }
-
-  if (
-    !requiresOutputContract &&
-    hasAnyOutputContractField(contract) &&
-    !hasCompleteOutputContract(contract)
-  ) {
-    return undefined
-  }
-
-  return contract
-}
-
 function isStoredLUTContractSelection(
   value: unknown,
 ): value is StoredLUTContractSelection {
@@ -242,9 +86,6 @@ function isStoredLUTContractSelection(
   const outputGamut = resolveColorGamutId(candidate.outputGamut)
   const outputTransfer = resolveTransferFunctionId(candidate.outputTransfer)
   const outputRange = candidate.outputRange
-  const hasOutput = Boolean(
-    candidate.outputGamut || candidate.outputTransfer || candidate.outputRange,
-  )
 
   if (
     !isLUTRole(role) ||
@@ -255,22 +96,16 @@ function isStoredLUTContractSelection(
     return false
   }
 
-  if (!isDisplayLookContractAllowed({ role, inputGamut, inputTransfer })) {
-    return false
-  }
-
-  if (
-    hasOutput &&
-    (!outputGamut || !outputTransfer || !isSignalRange(outputRange))
-  ) {
-    return false
-  }
-
-  const requiresOutputContract = roleRequiresOutputContract(role)
-  if (
-    requiresOutputContract &&
-    (!outputGamut || !outputTransfer || !isSignalRange(outputRange))
-  ) {
+  const normalized = buildStoredContractSelection({
+    role,
+    inputGamut,
+    inputTransfer,
+    inputRange,
+    outputGamut,
+    outputTransfer,
+    outputRange: isSignalRange(outputRange) ? outputRange : undefined,
+  })
+  if (!normalized) {
     return false
   }
 
@@ -314,21 +149,6 @@ function normalizeStoredLUTContractSelection(
     outputRange: isSignalRange(candidate.outputRange)
       ? candidate.outputRange
       : undefined,
-  }
-}
-
-export function toLUTContractSelection(
-  profile: LUTColorProfile,
-): LUTContractSelection {
-  return {
-    inputProfile: profile.id,
-    role: profile.role,
-    inputGamut: profile.inputGamut,
-    inputTransfer: profile.inputTransfer,
-    inputRange: profile.inputRange,
-    outputGamut: profile.outputGamut,
-    outputTransfer: profile.outputTransfer,
-    outputRange: profile.outputRange,
   }
 }
 
@@ -377,31 +197,39 @@ function writeStoredLUTContractSelections(
   }
 }
 
-export function contractToLUTColorProfile(
-  contract: StoredLUTContractSelection,
-): LUTColorProfile {
+function getContractProfileId(contract: StoredLUTContractSelection): string {
   const baseProfile = contract.inputProfile
     ? getCompatibleLUTColorProfile(contract.inputProfile)
     : undefined
 
+  return (
+    baseProfile?.id ??
+    contract.inputProfile ??
+    `${contract.inputGamut}-${contract.inputTransfer}`
+  )
+}
+
+function normalizeAppContractSelection(
+  selection: LUTContractSelection,
+): LUTContractSelection {
+  const inputProfile =
+    typeof selection.inputProfile === 'string'
+      ? getCompatibleLUTColorProfile(selection.inputProfile)?.id
+      : undefined
+
   return {
-    id:
-      baseProfile?.id ??
-      contract.inputProfile ??
-      `${contract.inputGamut}-${contract.inputTransfer}`,
-    label:
-      baseProfile?.label ??
-      `${contract.inputGamut} / ${contract.inputTransfer}`,
-    aliases: baseProfile?.aliases ?? [],
-    source: baseProfile?.source,
-    role: contract.role,
-    inputGamut: contract.inputGamut,
-    inputTransfer: contract.inputTransfer,
-    inputRange: contract.inputRange,
-    outputGamut: contract.outputGamut,
-    outputTransfer: contract.outputTransfer,
-    outputRange: contract.outputRange,
+    ...selection,
+    inputProfile,
   }
+}
+
+export function contractToLUTColorProfile(
+  contract: StoredLUTContractSelection,
+): LUTColorProfile {
+  return contractToRuntimeLUTColorProfile(
+    getContractProfileId(contract),
+    contract,
+  )
 }
 
 export function getStoredLUTContractSelection(
@@ -421,7 +249,9 @@ export function storeLUTContractSelection(
   fingerprint: string,
   selection: LUTContractSelection,
 ): LUTColorProfile | undefined {
-  const contract = buildStoredContractSelection(selection)
+  const contract = buildStoredContractSelection(
+    normalizeAppContractSelection(selection),
+  )
   if (!contract) return undefined
 
   writeStoredLUTContractSelections({
@@ -515,7 +345,9 @@ function resolveStructuredMetadataContract(
   const outputRange = metadata.get('OUTPUT_RANGE')
 
   const contract = buildStoredContractSelection({
-    inputProfile,
+    inputProfile: inputProfile
+      ? getCompatibleLUTColorProfile(inputProfile)?.id
+      : undefined,
     role,
     inputGamut,
     inputTransfer,
