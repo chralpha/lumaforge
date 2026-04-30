@@ -199,6 +199,10 @@
   stroke-width: 2;
 }
 
+.raw-lut-source-icon-button-busy svg {
+  animation: raw-lut-source-spin 900ms linear infinite;
+}
+
 .raw-lut-source-icon-button:hover:not(:disabled) {
   border-color: oklch(0.59 0.15 153 / 0.58);
   background: oklch(0.59 0.15 153 / 0.1);
@@ -292,6 +296,18 @@
   color: var(--raw-ink-soft);
   font-size: 0.7rem;
   line-height: 1.35;
+}
+
+@keyframes raw-lut-source-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .raw-lut-source-icon-button-busy svg {
+    animation: none;
+  }
 }
 
 .raw-export-result {

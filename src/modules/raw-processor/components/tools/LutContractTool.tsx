@@ -249,11 +249,13 @@ function LUTProfileStatus({
 
 function LutIconButton({
   label,
+  busy,
   disabled,
   onClick,
   children,
 }: {
   label: string
+  busy?: boolean
   disabled?: boolean
   onClick: () => void
   children: ReactNode
@@ -262,10 +264,15 @@ function LutIconButton({
     <button
       type="button"
       aria-label={label}
+      aria-busy={busy || undefined}
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className="raw-lut-source-icon-button"
+      className={
+        busy
+          ? 'raw-lut-source-icon-button raw-lut-source-icon-button-busy'
+          : 'raw-lut-source-icon-button'
+      }
     >
       {children}
     </button>
@@ -318,55 +325,70 @@ function OnlineLutSourceControls({
 
       {state.resources.length > 0 && (
         <div className="raw-lut-source-list">
-          {state.resources.map((resource) => (
-            <div key={resource.id} className="raw-lut-source-resource">
-              <div className="raw-lut-source-resource-row">
-                <span className="raw-lut-source-label">{resource.label}</span>
-                <div className="raw-lut-source-actions">
-                  <LutIconButton
-                    label={`Refresh ${resource.label}`}
-                    onClick={() =>
-                      void onlineLutSources.refreshSource(resource.id)
-                    }
-                  >
-                    <RefreshCw aria-hidden="true" />
-                  </LutIconButton>
-                  <LutIconButton
-                    label={`Remove ${resource.label}`}
-                    onClick={() => onlineLutSources.removeSource(resource.id)}
-                  >
-                    <Trash2 aria-hidden="true" />
-                  </LutIconButton>
-                </div>
-              </div>
+          {state.resources.map((resource) => {
+            const isResourceLoading =
+              state.isLoading && state.activeResourceId === resource.id
 
-              {state.entries
-                .filter((entry) => entry.resourceId === resource.id)
-                .map((entry) => (
-                  <div key={entry.id} className="raw-lut-source-entry">
-                    <span className="raw-lut-source-entry-title">
-                      {entry.title}
-                    </span>
-                    <span className="raw-lut-source-entry-source">
-                      {resourcesById.get(entry.resourceId)?.label}
-                    </span>
+            return (
+              <div key={resource.id} className="raw-lut-source-resource">
+                <div className="raw-lut-source-resource-row">
+                  <span className="raw-lut-source-label">{resource.label}</span>
+                  <div className="raw-lut-source-actions">
                     <LutIconButton
-                      label={`Load ${entry.title}`}
-                      onClick={() => void onlineLutSources.loadEntry(entry.id)}
+                      label={`Refresh ${resource.label}`}
+                      busy={isResourceLoading}
+                      onClick={() =>
+                        void onlineLutSources.refreshSource(resource.id)
+                      }
                     >
-                      <Download aria-hidden="true" />
+                      <RefreshCw aria-hidden="true" />
+                    </LutIconButton>
+                    <LutIconButton
+                      label={`Remove ${resource.label}`}
+                      onClick={() => onlineLutSources.removeSource(resource.id)}
+                    >
+                      <Trash2 aria-hidden="true" />
                     </LutIconButton>
                   </div>
-                ))}
-            </div>
-          ))}
+                </div>
+
+                {state.entries
+                  .filter((entry) => entry.resourceId === resource.id)
+                  .map((entry) => (
+                    <div key={entry.id} className="raw-lut-source-entry">
+                      <span className="raw-lut-source-entry-title">
+                        {entry.title}
+                      </span>
+                      <span className="raw-lut-source-entry-source">
+                        {resourcesById.get(entry.resourceId)?.label}
+                      </span>
+                      <LutIconButton
+                        label={`Load ${entry.title}`}
+                        onClick={() =>
+                          void onlineLutSources.loadEntry(entry.id)
+                        }
+                      >
+                        <Download aria-hidden="true" />
+                      </LutIconButton>
+                    </div>
+                  ))}
+              </div>
+            )
+          })}
         </div>
       )}
 
       {state.issues.length > 0 && (
         <div className="raw-lut-source-issues" role="status" aria-live="polite">
           {state.issues.slice(-2).map((issue, index) => (
-            <p key={`${issue.code}-${issue.resourceId ?? issue.raw ?? index}`}>
+            <p
+              key={[
+                issue.code,
+                issue.resourceId ?? issue.raw ?? 'source',
+                issue.entryId ?? issue.sourceUrl ?? issue.message,
+                index,
+              ].join(':')}
+            >
               {issue.message}
             </p>
           ))}

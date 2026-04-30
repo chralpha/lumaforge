@@ -223,6 +223,29 @@ describe('rawToolSurface', () => {
     ).toBeEnabled()
   })
 
+  it('shows a busy refresh affordance while an online LUT source is loading', () => {
+    render(
+      <RawToolSurface
+        {...baseProps}
+        onlineLutSources={onlineLutSourcesFixture({
+          state: {
+            ...onlineLutSourcesFixture().state,
+            entries: [],
+            activeResourceId: 'source-1',
+            isLoading: true,
+          },
+        })}
+      />,
+    )
+
+    const refresh = screen.getByRole('button', {
+      name: 'Refresh Catalog from profiles.example.com',
+    })
+
+    expect(refresh).toHaveAttribute('aria-busy', 'true')
+    expect(refresh).toHaveClass('raw-lut-source-icon-button-busy')
+  })
+
   it('announces online LUT source issues as status updates', () => {
     render(
       <RawToolSurface
