@@ -1,3 +1,5 @@
+import { Download, Plus, RefreshCw, Share2, Trash2 } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { useId, useMemo, useState } from 'react'
 
 import { Button } from '~/components/ui/button'
@@ -6,6 +8,7 @@ import type { LUTColorProfile } from '~/lib/color/registry'
 import { searchLUTColorProfiles } from '~/lib/color/registry'
 import type { LUTProfileResolution } from '~/lib/gl/pipeline'
 
+import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
 import type { LUTProfileSelectionState } from '../../model/session'
 import { LutDropzone } from '../Dropzone'
 import {
@@ -244,6 +247,135 @@ function LUTProfileStatus({
   )
 }
 
+function LutIconButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string
+  disabled?: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="raw-lut-source-icon-button"
+    >
+      {children}
+    </button>
+  )
+}
+
+function OnlineLutSourceControls({
+  onlineLutSources,
+}: {
+  onlineLutSources: UseOnlineLutSourcesResult
+}) {
+  const sourceInputId = useId()
+  const { state } = onlineLutSources
+  const resourcesById = useMemo(
+    () => new Map(state.resources.map((resource) => [resource.id, resource])),
+    [state.resources],
+  )
+
+  return (
+    <div className="raw-lut-source-controls">
+      <div className="raw-lut-source-input-row">
+        <label htmlFor={sourceInputId} className="sr-only">
+          Online LUT source URL
+        </label>
+        <Input
+          id={sourceInputId}
+          type="url"
+          value={onlineLutSources.sourceUrlInput}
+          placeholder="https://.../catalog.json"
+          onChange={(event) =>
+            onlineLutSources.setSourceUrlInput(event.currentTarget.value)
+          }
+          inputClassName="h-8 text-xs"
+        />
+        <LutIconButton
+          label="Add LUT source"
+          disabled={!onlineLutSources.sourceUrlInput.trim()}
+          onClick={() => void onlineLutSources.addSourceFromInput()}
+        >
+          <Plus aria-hidden="true" />
+        </LutIconButton>
+        <LutIconButton
+          label="Copy LUT source link"
+          disabled={!onlineLutSources.share.enabled}
+          onClick={() => void onlineLutSources.share.copy()}
+        >
+          <Share2 aria-hidden="true" />
+        </LutIconButton>
+      </div>
+
+      {state.resources.length > 0 && (
+        <div className="raw-lut-source-list">
+          {state.resources.map((resource) => (
+            <div key={resource.id} className="raw-lut-source-resource">
+              <div className="raw-lut-source-resource-row">
+                <span className="raw-lut-source-label">{resource.label}</span>
+                <div className="raw-lut-source-actions">
+                  <LutIconButton
+                    label={`Refresh ${resource.label}`}
+                    onClick={() =>
+                      void onlineLutSources.refreshSource(resource.id)
+                    }
+                  >
+                    <RefreshCw aria-hidden="true" />
+                  </LutIconButton>
+                  <LutIconButton
+                    label={`Remove ${resource.label}`}
+                    onClick={() => onlineLutSources.removeSource(resource.id)}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </LutIconButton>
+                </div>
+              </div>
+
+              {state.entries
+                .filter((entry) => entry.resourceId === resource.id)
+                .map((entry) => (
+                  <div key={entry.id} className="raw-lut-source-entry">
+                    <span className="raw-lut-source-entry-title">
+                      {entry.title}
+                    </span>
+                    <span className="raw-lut-source-entry-source">
+                      {resourcesById.get(entry.resourceId)?.label}
+                    </span>
+                    <LutIconButton
+                      label={`Load ${entry.title}`}
+                      onClick={() => void onlineLutSources.loadEntry(entry.id)}
+                    >
+                      <Download aria-hidden="true" />
+                    </LutIconButton>
+                  </div>
+                ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {state.issues.length > 0 && (
+        <div className="raw-lut-source-issues">
+          {state.issues.slice(-2).map((issue, index) => (
+            <p key={`${issue.code}-${issue.resourceId ?? issue.raw ?? index}`}>
+              {issue.message}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function LutContractTool({
   currentLutName,
   disabled,
@@ -252,6 +384,7 @@ export function LutContractTool({
   lutProfileSelection,
   lutProfileResolution,
   onLutProfileSelect,
+  onlineLutSources,
 }: {
   currentLutName?: string | null
   disabled: boolean
@@ -260,9 +393,13 @@ export function LutContractTool({
   lutProfileSelection?: LUTProfileSelectionState | null
   lutProfileResolution?: LUTProfileResolution | null
   onLutProfileSelect: (profile: LUTColorProfile) => void
+  onlineLutSources?: UseOnlineLutSourcesResult
 }) {
   return (
     <ToolSection title="LUT contract" eyebrow="Color">
+      {onlineLutSources && (
+        <OnlineLutSourceControls onlineLutSources={onlineLutSources} />
+      )}
       <LutDropzone
         onFileDrop={onLutLoad}
         currentLut={currentLutName}

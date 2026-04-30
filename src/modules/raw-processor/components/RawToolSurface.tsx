@@ -4,6 +4,7 @@ import { useId, useState } from 'react'
 import type { LUTColorProfile } from '~/lib/color/registry'
 import type { LUTProfileResolution } from '~/lib/gl/pipeline'
 
+import type { UseOnlineLutSourcesResult } from '../hooks/useOnlineLutSources'
 import type {
   ExportResult,
   ExportShareCapability,
@@ -44,6 +45,7 @@ export function RawToolSurface(props: {
   currentLutName?: string | null
   lutProfileSelection?: LUTProfileSelectionState | null
   lutProfileResolution?: LUTProfileResolution | null
+  onlineLutSources?: UseOnlineLutSourcesResult
   supportLevel: 'official' | 'experimental'
   metadata: ComponentProps<typeof FileFactsTool>['metadata']
   stats: ComponentProps<typeof FileFactsTool>['stats']
@@ -95,6 +97,7 @@ export function RawToolSurface(props: {
           lutProfileSelection={props.lutProfileSelection}
           lutProfileResolution={props.lutProfileResolution}
           onLutProfileSelect={props.onLutProfileSelect}
+          onlineLutSources={props.onlineLutSources}
         />
         <ExportTool
           canExport={props.canExport}

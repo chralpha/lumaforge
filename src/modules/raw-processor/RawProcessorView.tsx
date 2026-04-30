@@ -6,6 +6,7 @@
 import './raw-lab.css'
 
 import { useCallback } from 'react'
+import { useLocation } from 'react-router'
 
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
@@ -19,12 +20,14 @@ import {
 } from './components'
 import { useRawProcessor } from './hooks'
 import { useCapabilityGate } from './hooks/useCapabilityGate'
+import { useOnlineLutSources } from './hooks/useOnlineLutSources'
 
 export interface RawProcessorViewProps {
   className?: string
 }
 
 export function RawProcessorView({ className }: RawProcessorViewProps) {
+  const location = useLocation()
   const {
     params,
     loadedImage,
@@ -55,6 +58,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     displaySource,
     loadFile,
     loadLUT,
+    loadOnlineLUT,
     selectLUTProfile,
     selectBuiltinStyle,
     selectIntensityLevel,
@@ -70,6 +74,11 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     updateStats,
     pipelineRef,
   } = useRawProcessor()
+  const onlineLutSources = useOnlineLutSources({
+    search: location.search,
+    pathname: location.pathname,
+    loadOnlineLUT,
+  })
 
   // Handle file drop
   const handleFileDrop = useCallback(
@@ -249,6 +258,7 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
               : null
           }
           onLutProfileSelect={selectLUTProfile}
+          onlineLutSources={onlineLutSources}
           onExport={handleExport}
           canExport={canExport}
           disabledReason={exportDisabledReason}
