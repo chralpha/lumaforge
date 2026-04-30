@@ -16,6 +16,20 @@ type ClipboardEnvironment = {
   }
 }
 
+function createShareProbeFile(result: ExportResult) {
+  return new File([], result.filename, {
+    type: result.blob.type || 'image/jpeg',
+    lastModified: result.createdAt,
+  })
+}
+
+function createShareFile(result: ExportResult) {
+  return new File([result.blob], result.filename, {
+    type: result.blob.type || 'image/jpeg',
+    lastModified: result.createdAt,
+  })
+}
+
 export function resolveExportShareCapability(
   result: ExportResult,
   navigatorLike: Navigator = navigator,
@@ -23,7 +37,7 @@ export function resolveExportShareCapability(
   if (
     typeof navigatorLike.canShare === 'function' &&
     typeof navigatorLike.share === 'function' &&
-    navigatorLike.canShare({ files: [result.file] })
+    navigatorLike.canShare({ files: [createShareProbeFile(result)] })
   ) {
     return { available: true }
   }
@@ -43,8 +57,9 @@ export async function shareExportResult(
     throw new Error(capability.reason)
   }
 
+  const file = createShareFile(result)
   await navigatorLike.share({
-    files: [result.file],
+    files: [file],
     title: result.filename,
   })
 }

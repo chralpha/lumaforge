@@ -13,7 +13,6 @@ export type ExportShareCapability =
 
 export type ExportResult = {
   blob: Blob
-  file: File
   filename: string
   width: number
   height: number
@@ -38,15 +37,9 @@ export function createExportResult({
   copyCapability: ExportCopyCapability
 }): ExportResult {
   const createdAt = now()
-  const type = blob.type || 'image/jpeg'
-  const file = new File([blob], filename, {
-    type,
-    lastModified: createdAt,
-  })
 
   return {
     blob,
-    file,
     filename,
     width,
     height,

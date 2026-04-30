@@ -66,10 +66,11 @@ the session is still valid.
 
 Share always targets the authoritative full-resolution JPEG result.
 
-When a result is ready, LumaForge constructs a `File` from the JPEG Blob using
-the exported filename and `image/jpeg` type. The Share action is available only
-when the browser can share that file. On activation, LumaForge calls the system
-share flow with the file.
+When a result is ready, LumaForge keeps the JPEG Blob as the authoritative
+result. To avoid a second large allocation on mobile WebKit, it must not eagerly
+wrap that Blob in a `File` at export completion. Share availability can be
+probed with a lightweight same-type placeholder `File`; the full-resolution
+`File` is constructed from the Blob only inside the user's Share activation.
 
 The Share action must be triggered from the user's button press. Worker
 completion may open the result surface, but it must not call the share API
@@ -139,7 +140,6 @@ facts:
 ```ts
 type ExportResult = {
   blob: Blob
-  file: File
   filename: string
   width: number
   height: number
@@ -215,7 +215,7 @@ Result actions consume that stored result:
 
 ```text
 Share
--> consume ExportResult.file
+-> lazily create File from ExportResult.blob
 -> call system share from user activation
 
 Download
@@ -280,8 +280,8 @@ Unit and component tests should verify:
 
 - full-resolution export completion no longer triggers an immediate anchor
   download,
-- export completion stores an `ExportResult` with Blob, File, filename, size,
-  and dimensions,
+- export completion stores an `ExportResult` with Blob, filename, size, and
+  dimensions without eagerly constructing a full-resolution `File`,
 - Download triggers the existing object URL download only after the Download
   button is clicked,
 - Share is available only when file sharing is supported,

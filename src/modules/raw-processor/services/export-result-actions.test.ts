@@ -53,17 +53,39 @@ function createClipboardItemMock(supports: (type: string) => boolean) {
 }
 
 describe('export result actions', () => {
-  it('creates a file-backed export result with size and dimensions', () => {
-    const result = createResult()
+  it('creates a blob-backed export result without eagerly constructing a share file', () => {
+    const OriginalFile = File
+    const fileConstructions: Array<{
+      parts: BlobPart[]
+      filename: string
+    }> = []
 
-    expect(result.filename).toBe('frame_neutral_fullres.jpg')
-    expect(result.width).toBe(6048)
-    expect(result.height).toBe(4024)
-    expect(result.size).toBe(4)
-    expect(result.createdAt).toBe(123)
-    expect(result.file).toBeInstanceOf(File)
-    expect(result.file.name).toBe('frame_neutral_fullres.jpg')
-    expect(result.file.type).toBe('image/jpeg')
+    class InstrumentedFile extends OriginalFile {
+      constructor(
+        parts: BlobPart[],
+        filename: string,
+        options?: FilePropertyBag,
+      ) {
+        fileConstructions.push({ parts, filename })
+        super(parts, filename, options)
+      }
+    }
+
+    vi.stubGlobal('File', InstrumentedFile)
+
+    try {
+      const result = createResult()
+
+      expect(result.filename).toBe('frame_neutral_fullres.jpg')
+      expect(result.width).toBe(6048)
+      expect(result.height).toBe(4024)
+      expect(result.size).toBe(4)
+      expect(result.createdAt).toBe(123)
+      expect('file' in result).toBe(false)
+      expect(fileConstructions).toHaveLength(0)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('downloads the stored full-resolution blob only when the action is called', () => {
@@ -103,17 +125,23 @@ describe('export result actions', () => {
 
   it('enables share only when the browser can share the JPEG file', () => {
     const result = createResult()
+    const canShare = vi.fn((_data?: ShareData) => true)
     const navigatorLike = {
-      canShare: vi.fn(() => true),
+      canShare,
       share: vi.fn(),
     } as unknown as Navigator
 
     expect(resolveExportShareCapability(result, navigatorLike)).toEqual({
       available: true,
     })
-    expect(navigatorLike.canShare).toHaveBeenCalledWith({
-      files: [result.file],
-    })
+    const shareData = canShare.mock.calls[0]?.[0]
+    expect(shareData).toBeDefined()
+    const files = shareData?.files ?? []
+    expect(files).toHaveLength(1)
+    expect(files[0]).toBeInstanceOf(File)
+    expect(files[0].name).toBe('frame_neutral_fullres.jpg')
+    expect(files[0].type).toBe('image/jpeg')
+    expect(files[0].size).toBe(0)
   })
 
   it('marks share unavailable when canShare exists but share is unsupported', () => {
@@ -139,20 +167,34 @@ describe('export result actions', () => {
     })
   })
 
-  it('calls navigator.share with the stored file from user action handlers', async () => {
+  it('creates the full-resolution share file only from user action handlers', async () => {
     const result = createResult()
+    const canShare = vi.fn((_data?: ShareData) => true)
     const share = vi.fn().mockResolvedValue(undefined)
     const navigatorLike = {
-      canShare: vi.fn(() => true),
+      canShare,
       share,
     } as unknown as Navigator
 
     await shareExportResult(result, navigatorLike)
 
+    const shareData = canShare.mock.calls[0]?.[0]
+    expect(shareData).toBeDefined()
+    const probeFiles = shareData?.files ?? []
+    expect(probeFiles[0].size).toBe(0)
+
+    const [{ files: sharedFiles, title }] = share.mock.calls[0]
+    expect(title).toBe('frame_neutral_fullres.jpg')
+    expect(sharedFiles).toHaveLength(1)
+    expect(sharedFiles[0]).toBeInstanceOf(File)
+    expect(sharedFiles[0].name).toBe('frame_neutral_fullres.jpg')
+    expect(sharedFiles[0].type).toBe('image/jpeg')
+    expect(sharedFiles[0].size).toBe(result.size)
     expect(share).toHaveBeenCalledWith({
-      files: [result.file],
+      files: sharedFiles,
       title: 'frame_neutral_fullres.jpg',
     })
+    expect(sharedFiles[0]).not.toBe((result as { file?: File }).file)
   })
 
   it('prefers full-resolution copy when JPEG clipboard write is supported', () => {

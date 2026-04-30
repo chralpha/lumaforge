@@ -7,13 +7,9 @@ import { ExportTool } from './ExportTool'
 
 function createResult(overrides: Partial<ExportResult> = {}): ExportResult {
   const blob = new Blob(['jpeg'], { type: 'image/jpeg' })
-  const file = new File([blob], 'frame_neutral_fullres.jpg', {
-    type: 'image/jpeg',
-  })
 
   return {
     blob,
-    file,
     filename: 'frame_neutral_fullres.jpg',
     width: 6048,
     height: 4024,
