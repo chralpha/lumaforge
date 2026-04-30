@@ -251,6 +251,9 @@ describe('rawToolSurface', () => {
     ).toHaveFocus()
     expect(browser).toHaveClass('raw-lut-source-browser')
     expect(browser).toHaveAttribute('data-lut-source-placement', 'anchored')
+    expect(
+      browser.style.getPropertyValue('--raw-lut-source-browser-top'),
+    ).not.toBe('')
     expect(browserList).toHaveAttribute('data-lut-source-scroll', 'internal')
     expect(browser.closest('.raw-lut-source-controls')).toBeNull()
     expect(
@@ -327,6 +330,56 @@ describe('rawToolSurface', () => {
       expect(
         browser.style.getPropertyValue('--raw-lut-source-browser-max-height'),
       ).toBe('396px')
+
+      getRect.mockRestore()
+    } finally {
+      restoreWindowSize()
+    }
+  })
+
+  it('opens above the trigger when the upper viewport has more room', async () => {
+    const restoreWindowSize = setWindowSize(980, 700)
+    const user = userEvent.setup()
+
+    try {
+      render(
+        <RawToolSurface
+          {...baseProps}
+          onlineLutSources={onlineLutSourcesFixture()}
+        />,
+      )
+
+      const open = screen.getByRole('button', {
+        name: 'Open Catalog from profiles.example.com',
+      })
+      const rect = {
+        bottom: 462,
+        height: 32,
+        left: 900,
+        right: 932,
+        top: 430,
+        width: 32,
+        x: 900,
+        y: 430,
+        toJSON: () => ({}),
+      } satisfies DOMRect
+      const getRect = vi
+        .spyOn(open, 'getBoundingClientRect')
+        .mockReturnValue(rect)
+
+      await user.click(open)
+
+      const browser = screen.getByRole('dialog', {
+        name: 'Catalog from profiles.example.com LUTs',
+      })
+
+      expect(browser).toHaveAttribute('data-lut-source-placement', 'anchored')
+      expect(
+        browser.style.getPropertyValue('--raw-lut-source-browser-top'),
+      ).toBe('12px')
+      expect(
+        browser.style.getPropertyValue('--raw-lut-source-browser-max-height'),
+      ).toBe('410px')
 
       getRect.mockRestore()
     } finally {

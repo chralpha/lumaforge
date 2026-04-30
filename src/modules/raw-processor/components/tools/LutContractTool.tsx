@@ -119,8 +119,7 @@ function getViewportBoundedBrowserLayout(
   const availableBelow =
     viewportHeight - triggerRect.bottom - margin - LUT_BROWSER_TRIGGER_GAP
   const availableAbove = triggerRect.top - margin - LUT_BROWSER_TRIGGER_GAP
-  const placeBelow =
-    availableBelow >= LUT_BROWSER_MIN_HEIGHT || availableBelow >= availableAbove
+  const placeBelow = availableBelow >= availableAbove
   const maxHeight = clampNumber(
     placeBelow ? availableBelow : availableAbove,
     LUT_BROWSER_MIN_HEIGHT,
@@ -488,6 +487,13 @@ function OnlineLutSourceControls({
     },
     [openResourceId],
   )
+  const openBrowserForResource = useCallback((resourceId: string) => {
+    const trigger = openButtonRefs.current.get(resourceId)
+    if (!trigger) return
+
+    setBrowserLayout(getViewportBoundedBrowserLayout(trigger))
+    setOpenResourceId(resourceId)
+  }, [])
   const updateBrowserLayout = useCallback(() => {
     if (!openResourceId) return
 
@@ -573,6 +579,7 @@ function OnlineLutSourceControls({
     count === 1 ? '1 LUT' : count > 1 ? `${count} LUTs` : 'No LUTs'
   const openBrowser =
     openResource &&
+    browserLayout &&
     (() => {
       const browser = (
         <div
@@ -581,7 +588,7 @@ function OnlineLutSourceControls({
           className="raw-lut-source-browser"
           role="dialog"
           aria-label={`${openResource.label} LUTs`}
-          data-lut-source-placement={browserLayout?.placement ?? 'anchored'}
+          data-lut-source-placement={browserLayout.placement}
           style={toBrowserStyle(browserLayout)}
         >
           <div className="raw-lut-source-browser-heading">
@@ -714,9 +721,9 @@ function OnlineLutSourceControls({
                         }
                       }}
                       onClick={() =>
-                        setOpenResourceId((current) =>
-                          current === resource.id ? null : resource.id,
-                        )
+                        isOpen
+                          ? closeBrowser(resource.id, { restoreFocus: true })
+                          : openBrowserForResource(resource.id)
                       }
                     >
                       <FolderOpen aria-hidden="true" />
