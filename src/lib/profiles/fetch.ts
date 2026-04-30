@@ -1,4 +1,5 @@
 import type { OnlineLUTAsset } from './catalog'
+import { normalizeProfileSourceUrl } from './source-url'
 
 export type OnlineProfileFetchErrorCode =
   | 'network'
@@ -10,8 +11,12 @@ export type OnlineProfileFetchErrorCode =
 export class OnlineProfileFetchError extends Error {
   readonly code: OnlineProfileFetchErrorCode
 
-  constructor(code: OnlineProfileFetchErrorCode, message: string) {
-    super(message)
+  constructor(
+    code: OnlineProfileFetchErrorCode,
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options)
     this.name = 'OnlineProfileFetchError'
     this.code = code
   }
@@ -74,17 +79,60 @@ async function fetchResponse(
     throw new OnlineProfileFetchError(
       'network',
       `Failed to fetch online profile resource: ${url}`,
+      { cause: error },
     )
   }
 
   if (!response.ok) {
     throw new OnlineProfileFetchError(
       'network',
-      `Online profile request failed with HTTP ${response.status}.`,
+      `Online profile request failed for ${url} with HTTP ${response.status} ${response.statusText}.`,
     )
   }
 
   return response
+}
+
+async function readBytesWithLimit(
+  response: Response,
+  maxBytes: number,
+): Promise<Uint8Array> {
+  if (!response.body) {
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    assertBytesWithinLimit(bytes, maxBytes)
+
+    return bytes
+  }
+
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  let totalBytes = 0
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    totalBytes += value.byteLength
+    if (totalBytes > maxBytes) {
+      await reader.cancel()
+      throw new OnlineProfileFetchError(
+        'size-limit',
+        `Online profile response is larger than ${maxBytes} bytes.`,
+      )
+    }
+
+    chunks.push(value)
+  }
+
+  const bytes = new Uint8Array(totalBytes)
+  let offset = 0
+
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+
+  return bytes
 }
 
 export async function fetchBytesWithLimit(
@@ -94,10 +142,7 @@ export async function fetchBytesWithLimit(
   const response = await fetchResponse(url, options.signal)
   assertContentLengthWithinLimit(response.headers, options.maxBytes)
 
-  const bytes = new Uint8Array(await response.arrayBuffer())
-  assertBytesWithinLimit(bytes, options.maxBytes)
-
-  return bytes
+  return readBytesWithLimit(response, options.maxBytes)
 }
 
 export async function fetchJsonWithLimit<T>(
@@ -119,15 +164,6 @@ export async function fetchJsonWithLimit<T>(
 
 async function getSubtleCrypto(): Promise<SubtleCrypto> {
   if (globalThis.crypto?.subtle) return globalThis.crypto.subtle
-
-  try {
-    const nodeCrypto =
-      (await import('node:crypto')) as typeof import('node:crypto')
-
-    if (nodeCrypto.webcrypto?.subtle) return nodeCrypto.webcrypto.subtle
-  } catch {
-    // Browser builds should normally use globalThis.crypto.subtle.
-  }
 
   throw new OnlineProfileFetchError(
     'unsupported-crypto',
@@ -192,7 +228,10 @@ export function createBrowserOnlineProfileCache(
 }
 
 function normalizeCacheUrl(url: string): string {
-  return new URL(url, globalThis.location?.href).href
+  const normalized = new URL(normalizeProfileSourceUrl(url))
+  normalized.hash = ''
+
+  return normalized.href
 }
 
 export async function fetchCachedBytesWithLimit(

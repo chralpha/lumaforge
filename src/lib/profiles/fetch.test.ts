@@ -73,7 +73,9 @@ describe('fetchJsonWithLimit', () => {
   it('rejects non-2xx responses with a typed network issue', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => response('nope', { status: 503 })),
+      vi.fn(async () =>
+        response('nope', { status: 503, statusText: 'Service Unavailable' }),
+      ),
     )
 
     await expect(
@@ -82,7 +84,30 @@ describe('fetchJsonWithLimit', () => {
       }),
     ).rejects.toMatchObject({
       code: 'network',
+      message:
+        'Online profile request failed for https://profiles.example.com/catalog.json with HTTP 503 Service Unavailable.',
       name: 'OnlineProfileFetchError',
+    })
+  })
+
+  it('preserves the caught fetch error as the network error cause', async () => {
+    const cause = new Error('CORS blocked')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw cause
+      }),
+    )
+
+    await expect(
+      fetchJsonWithLimit('https://profiles.example.com/catalog.json', {
+        maxBytes: 32,
+      }),
+    ).rejects.toMatchObject({
+      cause,
+      code: 'network',
+      message:
+        'Failed to fetch online profile resource: https://profiles.example.com/catalog.json',
     })
   })
 
@@ -147,6 +172,48 @@ describe('fetchBytesWithLimit', () => {
       }),
     ).rejects.toMatchObject({ code: 'size-limit' })
   })
+
+  it('stops reading a streaming response as soon as chunks exceed the size limit', async () => {
+    let pullCount = 0
+    let canceled = false
+    const stream = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          pullCount += 1
+
+          if (pullCount === 1) {
+            controller.enqueue(new Uint8Array([1, 2]))
+            return
+          }
+
+          if (pullCount === 2) {
+            controller.enqueue(new Uint8Array([3, 4, 5]))
+            return
+          }
+
+          controller.enqueue(new Uint8Array([6]))
+        },
+        cancel() {
+          canceled = true
+        },
+      },
+      {
+        highWaterMark: 0,
+      },
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => response(stream)),
+    )
+
+    await expect(
+      fetchBytesWithLimit('https://profiles.example.com/blobs/cube.cube', {
+        maxBytes: 4,
+      }),
+    ).rejects.toMatchObject({ code: 'size-limit' })
+    expect(pullCount).toBe(2)
+    expect(canceled).toBe(true)
+  })
 })
 
 describe('fetchCachedBytesWithLimit', () => {
@@ -187,6 +254,41 @@ describe('fetchCachedBytesWithLimit', () => {
     expect([...bytes]).toEqual([...cubeBytes])
     expect(fetch).not.toHaveBeenCalled()
   })
+
+  it('rejects relative direct URLs before fetching', async () => {
+    const fetch = vi.fn()
+    vi.stubGlobal('fetch', fetch)
+
+    await expect(
+      fetchCachedBytesWithLimit('/relative.cube', {
+        maxBytes: 1024,
+        cache: createMemoryOnlineProfileCache(),
+      }),
+    ).rejects.toMatchObject({ code: 'invalid-url' })
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('shares cache identity for URL fragments', async () => {
+    const fetch = vi.fn(async () => response(cubeBytes))
+    vi.stubGlobal('fetch', fetch)
+    const cache = createMemoryOnlineProfileCache()
+
+    const first = await fetchCachedBytesWithLimit(
+      'https://example.com/a.cube#one',
+      { maxBytes: 1024, cache },
+    )
+    const second = await fetchCachedBytesWithLimit(
+      'https://example.com/a.cube#two',
+      { maxBytes: 1024, cache },
+    )
+
+    expect([...first]).toEqual([...cubeBytes])
+    expect([...second]).toEqual([...cubeBytes])
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect([...(await cache.get('url:https://example.com/a.cube'))!]).toEqual([
+      ...cubeBytes,
+    ])
+  })
 })
 
 describe('sha256Hex', () => {
@@ -223,12 +325,13 @@ describe('fetchVerifiedCubeAsset', () => {
     const cache = createMemoryOnlineProfileCache()
     const set = vi.spyOn(cache, 'set')
 
-    await expect(
-      fetchVerifiedCubeAsset(cubeAsset(otherHash), { maxBytes: 1024, cache }),
-    ).rejects.toBeInstanceOf(OnlineProfileFetchError)
-    await expect(
-      fetchVerifiedCubeAsset(cubeAsset(otherHash), { maxBytes: 1024, cache }),
-    ).rejects.toMatchObject({ code: 'hash-mismatch' })
+    const promise = fetchVerifiedCubeAsset(cubeAsset(otherHash), {
+      maxBytes: 1024,
+      cache,
+    })
+
+    await expect(promise).rejects.toBeInstanceOf(OnlineProfileFetchError)
+    await expect(promise).rejects.toMatchObject({ code: 'hash-mismatch' })
     expect(set).not.toHaveBeenCalled()
   })
 
