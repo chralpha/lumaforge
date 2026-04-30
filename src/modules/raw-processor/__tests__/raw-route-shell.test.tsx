@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { toast } from 'sonner'
@@ -153,6 +153,29 @@ function renderRawRoute(initialEntry: string) {
       <RawProcessorView />
     </MemoryRouter>,
   )
+}
+
+async function openLutSourceBrowser(
+  user: ReturnType<typeof userEvent.setup>,
+  sourceLabel: string,
+) {
+  const openButton = await screen.findByRole('button', {
+    name: `Open ${sourceLabel}`,
+  })
+  expect(openButton).toHaveAttribute('aria-haspopup', 'dialog')
+  expect(openButton).toHaveAttribute('aria-expanded', 'false')
+  expect(
+    screen.queryByRole('dialog', { name: `${sourceLabel} LUTs` }),
+  ).not.toBeInTheDocument()
+
+  await user.click(openButton)
+
+  const browser = await screen.findByRole('dialog', {
+    name: `${sourceLabel} LUTs`,
+  })
+  expect(openButton).toHaveAttribute('aria-expanded', 'true')
+
+  return browser
 }
 
 beforeEach(() => {
@@ -402,10 +425,16 @@ describe('rawProcessorView online LUT route sources', () => {
 
     renderRawRoute(`/raw?luts=${encodeURIComponent(cubeUrl)}`)
 
-    const loadButton = await screen.findByRole('button', {
+    expect(await screen.findByText('lazy-direct.cube')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Load lazy-direct.cube' }),
+    ).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    const browser = await openLutSourceBrowser(user, 'lazy-direct.cube')
+    const loadButton = within(browser).getByRole('button', {
       name: 'Load lazy-direct.cube',
     })
-    expect(fetchMock).not.toHaveBeenCalled()
 
     await user.click(loadButton)
 
@@ -483,10 +512,18 @@ describe('rawProcessorView online LUT route sources', () => {
 
     renderRawRoute(`/raw?luts=${encodeURIComponent(catalogUrl)}`)
 
-    const loadButton = await screen.findByRole('button', {
+    expect(
+      await screen.findByText('Catalog from example.com'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Load Route Flow LUT' }),
+    ).not.toBeInTheDocument()
+    await waitFor(() => expect(fetchUrls()).toEqual([catalogUrl, entryUrl]))
+
+    const browser = await openLutSourceBrowser(user, 'Catalog from example.com')
+    const loadButton = within(browser).getByRole('button', {
       name: 'Load Route Flow LUT',
     })
-    expect(fetchUrls()).toEqual([catalogUrl, entryUrl])
 
     await user.click(loadButton)
 
@@ -576,7 +613,16 @@ describe('rawProcessorView online LUT route sources', () => {
 
     renderRawRoute(`/raw?luts=${encodeURIComponent(catalogUrl)}`)
 
-    const loadButton = await screen.findByRole('button', {
+    expect(
+      await screen.findByText('Catalog from example.com'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Load Hash Check LUT' }),
+    ).not.toBeInTheDocument()
+    await waitFor(() => expect(fetchUrls()).toEqual([catalogUrl, entryUrl]))
+
+    const browser = await openLutSourceBrowser(user, 'Catalog from example.com')
+    const loadButton = within(browser).getByRole('button', {
       name: 'Load Hash Check LUT',
     })
 

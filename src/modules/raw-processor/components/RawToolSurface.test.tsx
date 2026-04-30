@@ -99,6 +99,31 @@ function onlineLutSourcesFixture(
   }
 }
 
+function setWindowSize(width: number, height: number) {
+  const previousWidth = window.innerWidth
+  const previousHeight = window.innerHeight
+
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    value: width,
+  })
+  Object.defineProperty(window, 'innerHeight', {
+    configurable: true,
+    value: height,
+  })
+
+  return () => {
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: previousWidth,
+    })
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: previousHeight,
+    })
+  }
+}
+
 describe('rawToolSurface', () => {
   it('groups controls as a RAW finishing surface instead of a legacy panel', () => {
     const { container } = render(<RawToolSurface {...baseProps} />)
@@ -158,20 +183,93 @@ describe('rawToolSurface', () => {
     expect(fileName).toHaveAttribute('title', currentLut)
   })
 
-  it('renders online LUT entry rows with title and load action only', () => {
-    render(
+  it('renders online LUT sources as collapsed summary rows by default', () => {
+    const { container } = render(
       <RawToolSurface
         {...baseProps}
         onlineLutSources={onlineLutSourcesFixture()}
       />,
     )
 
-    expect(screen.getByText('Kodak 2383 Rec.709')).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Load Kodak 2383 Rec.709' }),
+      screen.getByText('Catalog from profiles.example.com'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('1 LUT')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', {
+        name: 'Open Catalog from profiles.example.com',
+      }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', {
+        name: 'Refresh Catalog from profiles.example.com',
+      }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', {
+        name: 'Remove Catalog from profiles.example.com',
+      }),
     ).toBeInTheDocument()
 
-    const entryRow = screen
+    expect(screen.queryByText('Kodak 2383 Rec.709')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Load Kodak 2383 Rec.709' }),
+    ).not.toBeInTheDocument()
+    expect(container.querySelector('.raw-lut-source-entry')).toBeNull()
+  })
+
+  it('opens online LUT entries in a floating browser with compact rows', async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <RawToolSurface
+        {...baseProps}
+        onlineLutSources={onlineLutSourcesFixture()}
+      />,
+    )
+
+    const open = screen.getByRole('button', {
+      name: 'Open Catalog from profiles.example.com',
+    })
+
+    expect(open).toHaveAttribute('aria-haspopup', 'dialog')
+    expect(open).toHaveAttribute('aria-expanded', 'false')
+    expect(open).toHaveAttribute('aria-controls')
+
+    await user.click(open)
+
+    const browser = screen.getByRole('dialog', {
+      name: 'Catalog from profiles.example.com LUTs',
+    })
+    const browserList = browser.querySelector('.raw-lut-source-browser-list')
+
+    expect(open).toHaveAttribute('aria-expanded', 'true')
+    expect(open).toHaveAttribute('aria-controls', browser.id)
+    expect(
+      within(browser).getByRole('button', {
+        name: 'Close LUT source browser',
+      }),
+    ).toHaveFocus()
+    expect(browser).toHaveClass('raw-lut-source-browser')
+    expect(browser).toHaveAttribute('data-lut-source-placement', 'anchored')
+    expect(browserList).toHaveAttribute('data-lut-source-scroll', 'internal')
+    expect(browser.closest('.raw-lut-source-controls')).toBeNull()
+    expect(
+      container.querySelector(
+        '.raw-lut-source-controls .raw-lut-source-resource .raw-lut-source-entry',
+      ),
+    ).toBeNull()
+
+    expect(within(browser).getByText('Kodak 2383 Rec.709')).toBeInTheDocument()
+    expect(
+      within(browser).getAllByText('Catalog from profiles.example.com'),
+    ).toHaveLength(2)
+    expect(
+      within(browser).getByRole('button', {
+        name: 'Load Kodak 2383 Rec.709',
+      }),
+    ).toBeInTheDocument()
+
+    const entryRow = within(browser)
       .getByText('Kodak 2383 Rec.709')
       .closest('.raw-lut-source-entry')
     expect(entryRow).not.toBeNull()
@@ -184,6 +282,141 @@ describe('rawToolSurface', () => {
     expect(entry.queryByText(/sha256/i)).not.toBeInTheDocument()
     expect(entry.queryByText(/hash/i)).not.toBeInTheDocument()
     expect(entry.queryByText(/12\s*bytes/i)).not.toBeInTheDocument()
+  })
+
+  it('docks the online LUT browser inside a short desktop viewport', async () => {
+    const restoreWindowSize = setWindowSize(980, 420)
+    const user = userEvent.setup()
+
+    try {
+      render(
+        <RawToolSurface
+          {...baseProps}
+          onlineLutSources={onlineLutSourcesFixture()}
+        />,
+      )
+
+      const open = screen.getByRole('button', {
+        name: 'Open Catalog from profiles.example.com',
+      })
+      const rect = {
+        bottom: 362,
+        height: 32,
+        left: 900,
+        right: 932,
+        top: 330,
+        width: 32,
+        x: 900,
+        y: 330,
+        toJSON: () => ({}),
+      } satisfies DOMRect
+      const getRect = vi
+        .spyOn(open, 'getBoundingClientRect')
+        .mockReturnValue(rect)
+
+      await user.click(open)
+
+      const browser = screen.getByRole('dialog', {
+        name: 'Catalog from profiles.example.com LUTs',
+      })
+
+      expect(browser).toHaveAttribute('data-lut-source-placement', 'docked')
+      expect(
+        browser.style.getPropertyValue('--raw-lut-source-browser-top'),
+      ).toBe('12px')
+      expect(
+        browser.style.getPropertyValue('--raw-lut-source-browser-max-height'),
+      ).toBe('396px')
+
+      getRect.mockRestore()
+    } finally {
+      restoreWindowSize()
+    }
+  })
+
+  it('uses a bottom sheet placement for online LUT browsing on mobile widths', async () => {
+    const restoreWindowSize = setWindowSize(390, 640)
+    const user = userEvent.setup()
+
+    try {
+      render(
+        <RawToolSurface
+          {...baseProps}
+          onlineLutSources={onlineLutSourcesFixture()}
+        />,
+      )
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Open Catalog from profiles.example.com',
+        }),
+      )
+
+      const browser = screen.getByRole('dialog', {
+        name: 'Catalog from profiles.example.com LUTs',
+      })
+
+      expect(browser).toHaveAttribute('data-lut-source-placement', 'sheet')
+      expect(
+        browser.style.getPropertyValue('--raw-lut-source-browser-top'),
+      ).toBe('')
+    } finally {
+      restoreWindowSize()
+    }
+  })
+
+  it('closes the online LUT browser with Escape or outside click and restores focus', async () => {
+    const user = userEvent.setup()
+    render(
+      <RawToolSurface
+        {...baseProps}
+        onlineLutSources={onlineLutSourcesFixture()}
+      />,
+    )
+
+    const open = screen.getByRole('button', {
+      name: 'Open Catalog from profiles.example.com',
+    })
+
+    await user.click(open)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(open).toHaveFocus()
+
+    await user.click(open)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    await user.click(document.body)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(open).toHaveFocus()
+  })
+
+  it('does not add search, filtering, sorting, favorites, or catalog-management controls to source UI', async () => {
+    const user = userEvent.setup()
+    render(
+      <RawToolSurface
+        {...baseProps}
+        onlineLutSources={onlineLutSourcesFixture()}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Open Catalog from profiles.example.com',
+      }),
+    )
+
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', {
+        name: /search|filter|sort|favorite|manage|catalog management/i,
+      }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByPlaceholderText(/search|filter/i),
+    ).not.toBeInTheDocument()
   })
 
   it('keeps manual upload visible beside online source controls', () => {
@@ -244,6 +477,7 @@ describe('rawToolSurface', () => {
 
     expect(refresh).toHaveAttribute('aria-busy', 'true')
     expect(refresh).toHaveClass('raw-lut-source-icon-button-busy')
+    expect(screen.getByText('Loading')).toBeInTheDocument()
   })
 
   it('announces online LUT source issues as status updates', () => {
@@ -269,5 +503,6 @@ describe('rawToolSurface', () => {
 
     expect(status).toHaveAttribute('aria-live', 'polite')
     expect(status).toHaveTextContent('Failed to fetch online profile resource.')
+    expect(screen.getByText('Issue')).toBeInTheDocument()
   })
 })

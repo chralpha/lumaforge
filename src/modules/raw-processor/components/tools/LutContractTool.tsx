@@ -1,6 +1,23 @@
-import { Download, Plus, RefreshCw, Share2, Trash2 } from 'lucide-react'
-import type { ReactNode } from 'react'
-import { useId, useMemo, useState } from 'react'
+import {
+  Download,
+  FolderOpen,
+  Plus,
+  RefreshCw,
+  Share2,
+  Trash2,
+  X,
+} from 'lucide-react'
+import type { CSSProperties, ReactNode, Ref } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { createPortal } from 'react-dom'
 
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -22,6 +39,118 @@ import { ToolSection } from './ToolSection'
 
 const UNKNOWN_LUT_COPY =
   'Choose the LUT input and output contract before preview or export.'
+
+type OnlineLutSourceEntries = UseOnlineLutSourcesResult['state']['entries']
+type OnlineLutSourceIssues = UseOnlineLutSourcesResult['state']['issues']
+
+type OnlineLutBrowserPlacement = 'anchored' | 'docked' | 'sheet'
+
+type OnlineLutBrowserLayout = {
+  placement: OnlineLutBrowserPlacement
+  top?: number
+  left?: number
+  width?: number
+  maxHeight?: number
+}
+
+type OnlineLutBrowserStyle = CSSProperties & {
+  '--raw-lut-source-browser-top'?: string
+  '--raw-lut-source-browser-left'?: string
+  '--raw-lut-source-browser-width'?: string
+  '--raw-lut-source-browser-max-height'?: string
+}
+
+const LUT_BROWSER_VIEWPORT_MARGIN = 12
+const LUT_BROWSER_TRIGGER_GAP = 8
+const LUT_BROWSER_MIN_WIDTH = 320
+const LUT_BROWSER_MAX_WIDTH = 420
+const LUT_BROWSER_MIN_HEIGHT = 184
+const LUT_BROWSER_MAX_HEIGHT = 420
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
+function getViewportBoundedBrowserLayout(
+  trigger: HTMLButtonElement | undefined,
+): OnlineLutBrowserLayout {
+  if (typeof window === 'undefined' || !trigger) {
+    return { placement: 'anchored' }
+  }
+
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const margin = LUT_BROWSER_VIEWPORT_MARGIN
+
+  if (viewportWidth <= 720) {
+    return { placement: 'sheet' }
+  }
+
+  const triggerRect = trigger.getBoundingClientRect()
+  const rowRect =
+    trigger.closest('.raw-lut-source-resource-row')?.getBoundingClientRect() ??
+    triggerRect
+  const availableWidth = Math.max(0, viewportWidth - margin * 2)
+  const width = Math.min(
+    LUT_BROWSER_MAX_WIDTH,
+    Math.max(LUT_BROWSER_MIN_WIDTH, Math.min(rowRect.width, availableWidth)),
+    availableWidth,
+  )
+  const left = clampNumber(
+    rowRect.right - width,
+    margin,
+    viewportWidth - margin - width,
+  )
+  const viewportBoundedHeight = Math.max(
+    LUT_BROWSER_MIN_HEIGHT,
+    viewportHeight - margin * 2,
+  )
+
+  if (viewportHeight <= 520) {
+    return {
+      placement: 'docked',
+      top: margin,
+      left,
+      width,
+      maxHeight: viewportBoundedHeight,
+    }
+  }
+
+  const availableBelow =
+    viewportHeight - triggerRect.bottom - margin - LUT_BROWSER_TRIGGER_GAP
+  const availableAbove = triggerRect.top - margin - LUT_BROWSER_TRIGGER_GAP
+  const placeBelow =
+    availableBelow >= LUT_BROWSER_MIN_HEIGHT || availableBelow >= availableAbove
+  const maxHeight = clampNumber(
+    placeBelow ? availableBelow : availableAbove,
+    LUT_BROWSER_MIN_HEIGHT,
+    Math.min(LUT_BROWSER_MAX_HEIGHT, viewportBoundedHeight),
+  )
+  const preferredTop = placeBelow
+    ? triggerRect.bottom + LUT_BROWSER_TRIGGER_GAP
+    : triggerRect.top - LUT_BROWSER_TRIGGER_GAP - maxHeight
+
+  return {
+    placement: 'anchored',
+    top: clampNumber(preferredTop, margin, viewportHeight - margin - maxHeight),
+    left,
+    width,
+    maxHeight,
+  }
+}
+
+function toBrowserStyle(
+  layout: OnlineLutBrowserLayout | null,
+): OnlineLutBrowserStyle | undefined {
+  if (!layout || layout.placement === 'sheet') return undefined
+
+  return {
+    '--raw-lut-source-browser-top': `${layout.top}px`,
+    '--raw-lut-source-browser-left': `${layout.left}px`,
+    '--raw-lut-source-browser-width': `${layout.width}px`,
+    '--raw-lut-source-browser-max-height': `${layout.maxHeight}px`,
+  }
+}
 
 function LUTProfileButton({
   profile,
@@ -251,20 +380,32 @@ function LutIconButton({
   label,
   busy,
   disabled,
+  ariaControls,
+  ariaExpanded,
+  ariaHasPopup,
+  buttonRef,
   onClick,
   children,
 }: {
   label: string
   busy?: boolean
   disabled?: boolean
+  ariaControls?: string
+  ariaExpanded?: boolean
+  ariaHasPopup?: 'dialog'
+  buttonRef?: Ref<HTMLButtonElement>
   onClick: () => void
   children: ReactNode
 }) {
   return (
     <button
+      ref={buttonRef}
       type="button"
       aria-label={label}
       aria-busy={busy || undefined}
+      aria-controls={ariaControls}
+      aria-expanded={ariaExpanded}
+      aria-haspopup={ariaHasPopup}
       title={label}
       disabled={disabled}
       onClick={onClick}
@@ -285,11 +426,218 @@ function OnlineLutSourceControls({
   onlineLutSources: UseOnlineLutSourcesResult
 }) {
   const sourceInputId = useId()
+  const browserId = useId()
   const { state } = onlineLutSources
+  const [openResourceId, setOpenResourceId] = useState<string | null>(null)
+  const [browserLayout, setBrowserLayout] =
+    useState<OnlineLutBrowserLayout | null>(null)
+  const browserRef = useRef<HTMLDivElement | null>(null)
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null)
+  const openButtonRefs = useRef(new Map<string, HTMLButtonElement>())
   const resourcesById = useMemo(
     () => new Map(state.resources.map((resource) => [resource.id, resource])),
     [state.resources],
   )
+  const entriesByResourceId = useMemo(() => {
+    const entries = new Map<string, OnlineLutSourceEntries>()
+
+    for (const resource of state.resources) {
+      entries.set(resource.id, [])
+    }
+
+    for (const entry of state.entries) {
+      entries.set(entry.resourceId, [
+        ...(entries.get(entry.resourceId) ?? []),
+        entry,
+      ])
+    }
+
+    return entries
+  }, [state.entries, state.resources])
+  const issuesByResourceId = useMemo(() => {
+    const issues = new Map<string, OnlineLutSourceIssues>()
+
+    for (const issue of state.issues) {
+      if (!issue.resourceId) continue
+
+      issues.set(issue.resourceId, [
+        ...(issues.get(issue.resourceId) ?? []),
+        issue,
+      ])
+    }
+
+    return issues
+  }, [state.issues])
+  const openResource = openResourceId
+    ? resourcesById.get(openResourceId)
+    : undefined
+  const openEntries = openResourceId
+    ? (entriesByResourceId.get(openResourceId) ?? [])
+    : []
+  const openIssues = openResourceId
+    ? (issuesByResourceId.get(openResourceId) ?? [])
+    : []
+  const closeBrowser = useCallback(
+    (resourceId = openResourceId, options: { restoreFocus?: boolean } = {}) => {
+      setOpenResourceId(null)
+      setBrowserLayout(null)
+
+      if (options.restoreFocus && resourceId) {
+        queueMicrotask(() => openButtonRefs.current.get(resourceId)?.focus())
+      }
+    },
+    [openResourceId],
+  )
+  const updateBrowserLayout = useCallback(() => {
+    if (!openResourceId) return
+
+    setBrowserLayout(
+      getViewportBoundedBrowserLayout(
+        openButtonRefs.current.get(openResourceId),
+      ),
+    )
+  }, [openResourceId])
+
+  useEffect(() => {
+    if (!openResourceId) return
+
+    if (!resourcesById.has(openResourceId)) {
+      closeBrowser(openResourceId)
+    }
+  }, [closeBrowser, openResourceId, resourcesById])
+
+  useEffect(() => {
+    if (!openResource) return
+
+    closeButtonRef.current?.focus()
+  }, [openResource])
+
+  useLayoutEffect(() => {
+    updateBrowserLayout()
+  }, [updateBrowserLayout, openEntries.length, openIssues.length])
+
+  useEffect(() => {
+    if (!openResourceId) return
+
+    const handleViewportChange = () => {
+      updateBrowserLayout()
+    }
+    const trigger = openButtonRefs.current.get(openResourceId)
+    const scrollTargets = [
+      trigger?.closest('.raw-tool-stack'),
+      trigger?.closest('.raw-tool-surface'),
+    ].filter((target): target is Element => target instanceof Element)
+
+    window.addEventListener('resize', handleViewportChange)
+    for (const target of scrollTargets) {
+      target.addEventListener('scroll', handleViewportChange)
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleViewportChange)
+      for (const target of scrollTargets) {
+        target.removeEventListener('scroll', handleViewportChange)
+      }
+    }
+  }, [openResourceId, updateBrowserLayout])
+
+  useEffect(() => {
+    if (!openResourceId) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+
+      event.preventDefault()
+      closeBrowser(openResourceId, { restoreFocus: true })
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+
+      if (!(target instanceof Node)) return
+      if (browserRef.current?.contains(target)) return
+      if (openButtonRefs.current.get(openResourceId)?.contains(target)) return
+
+      closeBrowser(openResourceId, { restoreFocus: true })
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('pointerdown', handlePointerDown)
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('pointerdown', handlePointerDown)
+    }
+  }, [closeBrowser, openResourceId])
+
+  const formatEntryCount = (count: number) =>
+    count === 1 ? '1 LUT' : count > 1 ? `${count} LUTs` : 'No LUTs'
+  const openBrowser =
+    openResource &&
+    (() => {
+      const browser = (
+        <div
+          id={browserId}
+          ref={browserRef}
+          className="raw-lut-source-browser"
+          role="dialog"
+          aria-label={`${openResource.label} LUTs`}
+          data-lut-source-placement={browserLayout?.placement ?? 'anchored'}
+          style={toBrowserStyle(browserLayout)}
+        >
+          <div className="raw-lut-source-browser-heading">
+            <div>
+              <span>{openResource.label}</span>
+              <p>{formatEntryCount(openEntries.length)}</p>
+            </div>
+            <LutIconButton
+              label="Close LUT source browser"
+              buttonRef={closeButtonRef}
+              onClick={() =>
+                closeBrowser(openResource.id, { restoreFocus: true })
+              }
+            >
+              <X aria-hidden="true" />
+            </LutIconButton>
+          </div>
+          <div
+            className="raw-lut-source-browser-list"
+            data-lut-source-scroll="internal"
+          >
+            {openEntries.length > 0 ? (
+              openEntries.map((entry) => (
+                <div key={entry.id} className="raw-lut-source-entry">
+                  <span className="raw-lut-source-entry-title">
+                    {entry.title}
+                  </span>
+                  <span className="raw-lut-source-entry-source">
+                    {resourcesById.get(entry.resourceId)?.label}
+                  </span>
+                  <LutIconButton
+                    label={`Load ${entry.title}`}
+                    onClick={() => void onlineLutSources.loadEntry(entry.id)}
+                  >
+                    <Download aria-hidden="true" />
+                  </LutIconButton>
+                </div>
+              ))
+            ) : (
+              <p className="raw-lut-source-browser-empty">
+                {openIssues.length > 0
+                  ? 'No compatible LUTs loaded from this source.'
+                  : 'No compatible LUTs yet.'}
+              </p>
+            )}
+          </div>
+        </div>
+      )
+
+      if (typeof document === 'undefined') return browser
+
+      return createPortal(
+        browser,
+        document.querySelector('.raw-lab') ?? document.body,
+      )
+    })()
 
   return (
     <div className="raw-lut-source-controls">
@@ -328,12 +676,51 @@ function OnlineLutSourceControls({
           {state.resources.map((resource) => {
             const isResourceLoading =
               state.isLoading && state.activeResourceId === resource.id
+            const entries = entriesByResourceId.get(resource.id) ?? []
+            const hasIssue =
+              (issuesByResourceId.get(resource.id) ?? []).length > 0
+            const isOpen = openResourceId === resource.id
 
             return (
               <div key={resource.id} className="raw-lut-source-resource">
                 <div className="raw-lut-source-resource-row">
-                  <span className="raw-lut-source-label">{resource.label}</span>
+                  <div className="raw-lut-source-summary">
+                    <span className="raw-lut-source-label">
+                      {resource.label}
+                    </span>
+                    <span className="raw-lut-source-count">
+                      {formatEntryCount(entries.length)}
+                    </span>
+                    {isResourceLoading && (
+                      <span className="raw-lut-source-state">Loading</span>
+                    )}
+                    {hasIssue && (
+                      <span className="raw-lut-source-state raw-lut-source-state-issue">
+                        Issue
+                      </span>
+                    )}
+                  </div>
                   <div className="raw-lut-source-actions">
+                    <LutIconButton
+                      label={`Open ${resource.label}`}
+                      ariaControls={browserId}
+                      ariaExpanded={isOpen}
+                      ariaHasPopup="dialog"
+                      buttonRef={(node) => {
+                        if (node) {
+                          openButtonRefs.current.set(resource.id, node)
+                        } else {
+                          openButtonRefs.current.delete(resource.id)
+                        }
+                      }}
+                      onClick={() =>
+                        setOpenResourceId((current) =>
+                          current === resource.id ? null : resource.id,
+                        )
+                      }
+                    >
+                      <FolderOpen aria-hidden="true" />
+                    </LutIconButton>
                     <LutIconButton
                       label={`Refresh ${resource.label}`}
                       busy={isResourceLoading}
@@ -345,38 +732,22 @@ function OnlineLutSourceControls({
                     </LutIconButton>
                     <LutIconButton
                       label={`Remove ${resource.label}`}
-                      onClick={() => onlineLutSources.removeSource(resource.id)}
+                      onClick={() => {
+                        if (isOpen) closeBrowser(resource.id)
+                        onlineLutSources.removeSource(resource.id)
+                      }}
                     >
                       <Trash2 aria-hidden="true" />
                     </LutIconButton>
                   </div>
                 </div>
-
-                {state.entries
-                  .filter((entry) => entry.resourceId === resource.id)
-                  .map((entry) => (
-                    <div key={entry.id} className="raw-lut-source-entry">
-                      <span className="raw-lut-source-entry-title">
-                        {entry.title}
-                      </span>
-                      <span className="raw-lut-source-entry-source">
-                        {resourcesById.get(entry.resourceId)?.label}
-                      </span>
-                      <LutIconButton
-                        label={`Load ${entry.title}`}
-                        onClick={() =>
-                          void onlineLutSources.loadEntry(entry.id)
-                        }
-                      >
-                        <Download aria-hidden="true" />
-                      </LutIconButton>
-                    </div>
-                  ))}
               </div>
             )
           })}
         </div>
       )}
+
+      {openBrowser}
 
       {state.issues.length > 0 && (
         <div className="raw-lut-source-issues" role="status" aria-live="polite">
