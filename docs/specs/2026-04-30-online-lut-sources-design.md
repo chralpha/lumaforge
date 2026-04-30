@@ -110,6 +110,82 @@ The app may infer the source type from the URL suffix and response shape. A URL
 with an unknown suffix can still be fetched once and classified by content type
 and JSON shape.
 
+## URL query resources and sharing
+
+The RAW Lab should also accept online LUT resources from the initial page URL.
+This is a source-sharing mechanism, not a way to embed LUT bytes or RAW files.
+
+Use repeatable `luts` query parameters:
+
+```text
+/raw?luts=https%3A%2F%2Fprofiles.example.com%2Fchannels%2Fstable%2Fcatalog.json
+
+/raw?luts=https%3A%2F%2Fprofiles.example.com%2Fchannels%2Fstable%2Fcatalog.json&luts=https%3A%2F%2Fexample.com%2Fluts%2Flook.cube
+```
+
+Each `luts` value is one encoded resource URL. Supported values are the same as
+user-entered source URLs: catalog URL, entry URL, or direct `.cube` URL.
+
+On first RAW Lab load, the app should:
+
+1. Read all `luts` query parameters.
+2. Decode each value as a resource URL.
+3. Apply the same URL policy used by manually added sources.
+4. Deduplicate by normalized URL.
+5. Add valid resources to the local source manager as query-provided sources.
+6. Classify each resource as a supported catalog, entry, or cube source.
+7. Surface invalid resources as source-level errors without blocking the RAW
+   workspace.
+
+Query-provided sources must be idempotent. Reloading the same URL or navigating
+within the RAW Lab should not duplicate source records. The app should parse the
+initial query once per page load or route entry, then treat accepted resources
+like user-managed local sources.
+
+Successful resource parsing means the URL passes source policy and can be
+classified as a catalog, entry, or direct cube resource. It does not mean a LUT
+asset has been downloaded, hash-verified, parsed, or applied. Catalog and entry
+resources may fetch JSON metadata during classification. Direct cube resources
+should not download cube bytes during query parsing; they should validate bytes
+only when the user selects that LUT source.
+
+The app should not automatically apply a LUT from the query string to the active
+RAW photo. Query resources populate the online source list; the user still
+chooses which LUT to use. This avoids surprise remote fetches becoming visible
+image changes and keeps direct `.cube` URLs aligned with the manual-upload
+contract flow.
+
+After the resource links have been parsed successfully, the source manager
+should offer a share action that creates a URL for the current RAW Lab route
+with canonical `luts` query parameters for the valid source resources. The share
+URL should include:
+
+- valid catalog source URLs,
+- valid entry source URLs,
+- valid direct cube source URLs when they were added as URL resources.
+
+The share URL must not include:
+
+- the user's RAW photo,
+- downloaded LUT bytes,
+- cache keys or storage keys,
+- SHA-256 hashes unless they are already part of the source URL,
+- selected LUT state,
+- user-selected manual contract overrides,
+- local file uploads,
+- source records that failed URL policy validation.
+
+Share should use the Web Share API when available and fall back to copying the
+link. If no valid source resources are available, the share action should stay
+unavailable.
+
+Because query URLs are visible to anyone receiving the link, the UI should not
+encourage users to share source URLs that contain credentials, private tokens, or
+personal signed links. Production URL policy should reject URLs with username or
+password components. Other query parameters inside a source URL are preserved
+because signed public CDN URLs may rely on them, but sharing such URLs is an
+explicit user action.
+
 ## Compatible profile contract
 
 The online loader should accept the existing `lumaforge-profiles` R2/S3 runtime
@@ -216,6 +292,19 @@ File or downloaded bytes
 This requires refactoring the current `loadLUT(file)` hook path into a shared
 byte/source loader rather than duplicating parsing and session updates.
 
+Initial query source:
+
+```text
+user opens /raw?luts=<resource-url>&luts=<resource-url>
+-> parse and normalize luts query values
+-> validate each resource URL against the source URL policy
+-> deduplicate against existing local source records
+-> add valid resources to the source manager
+-> classify accepted resources without downloading direct cube bytes
+-> show source-level errors for invalid resources
+-> enable share-link action once at least one resource is valid
+```
+
 ## Product UI
 
 The LUT tool should make online LUTs the primary path and manual upload the
@@ -264,10 +353,15 @@ The source manager should stay compact:
 - Add source URL.
 - Refresh source.
 - Remove source.
+- Share source link when one or more resource URLs are valid.
 - Show source-level failures, such as CORS blocked or invalid catalog.
 
 It should not expose bucket internals, release object paths, or full manifest
 fields as the normal browsing model.
+
+The share action belongs to the source manager, not to individual entry rows.
+Its job is to share the user's LUT resource setup, not a selected LUT asset or
+the current RAW edit.
 
 ## Contract mapping
 
@@ -344,6 +438,7 @@ The first version should reject:
 - `javascript:`, `data:`, `file:`, `blob:`, and extension-origin URLs entered by
   the user,
 - non-HTTPS production URLs,
+- URLs with username or password components,
 - private browser-only credential flows,
 - responses that exceed the configured catalog, entry, or cube size limits,
 - assets whose computed hash does not match the registry declaration.
@@ -409,6 +504,11 @@ Unit coverage:
 
 - URL classification accepts catalog, entry, and cube URLs.
 - Production URL policy rejects unsafe schemes and non-HTTPS URLs.
+- Production URL policy rejects URLs with username or password components.
+- Query parsing accepts repeated `luts` parameters and deduplicates normalized
+  resource URLs.
+- Share-link serialization emits canonical repeated `luts` parameters for valid
+  source resources and excludes invalid or local-file sources.
 - Catalog validation accepts the current `lumaforge-profiles` release catalog
   shape.
 - Entry validation accepts current release entry documents and rejects
@@ -424,6 +524,8 @@ Hook/service coverage:
 
 - Manual upload and online downloads share the same parse, validation, session
   update, and export invalidation path.
+- Initial `/raw?luts=...` navigation adds valid query resources to the source
+  manager without duplicating existing source records.
 - A complete registry LUT contract loads without opening the contract selector.
 - An incomplete registry LUT enters the existing contract-required state.
 - A CORS or fetch failure leaves the current loaded RAW session intact.
@@ -434,6 +536,8 @@ UI coverage:
   selected state only.
 - The entry row does not display input contract, output contract, license,
   cache state, hash, storage key, or blob URL.
+- The source manager enables a share-link action only after at least one source
+  resource URL is valid.
 - Source-level failures are visible in the source manager.
 - Manual `.cube` upload remains reachable when online fetch fails.
 
@@ -452,6 +556,13 @@ Browser validation:
 - A user can add a compatible entry URL and load that single LUT.
 - A user can add a direct `.cube` URL and load it through the same explicit
   contract flow as manual upload.
+- A user can open `/raw?luts=<encoded-resource-url>` and see the valid resource
+  in the online source manager on first load.
+- After at least one resource URL is valid, the source manager offers a share
+  action that produces a RAW Lab URL with canonical `luts` query parameters.
+- The share URL includes source resource URLs only; it does not include RAW
+  photos, downloaded LUT bytes, cache state, selected entry state, or manual
+  contract overrides.
 - The app verifies SHA-256 for registry assets before parsing and loading.
 - The default online LUT list does not show contract, license, cache, hash, or
   storage details per entry.
