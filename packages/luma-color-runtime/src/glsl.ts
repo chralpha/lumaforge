@@ -35,6 +35,8 @@ export const LUT_TRANSFER_UNIFORMS: Record<TransferFunctionId, number> = {
   acescct: 17,
   'l-log': 18,
   linear: 19,
+  'apple-log': 20,
+  'dji-d-log': 21,
 }
 
 export const LUMA_COLOR_TRANSFER_GLSL = /* glsl */ `
@@ -58,6 +60,8 @@ const int TRANSFER_ACESCC = 16;
 const int TRANSFER_ACESCCT = 17;
 const int TRANSFER_L_LOG = 18;
 const int TRANSFER_LINEAR = 19;
+const int TRANSFER_APPLE_LOG = 20;
+const int TRANSFER_DJI_D_LOG = 21;
 
 vec3 clamp01(vec3 color) {
   return clamp(color, 0.0, 1.0);
@@ -309,18 +313,64 @@ float decodeACEScct(float encodedValue) {
 }
 
 float encodeLLog(float linearValue) {
-  float value = max(linearValue, 0.0);
-  if (value < 0.006) {
-    return 8.0 * value;
+  if (linearValue <= 0.006) {
+    return 8.0 * linearValue + 0.09;
   }
-  return 0.233161 * (log(value / 0.006 + 1.0) / log(10.0)) + 0.048;
+  return 0.27 * (log(1.3 * linearValue + 0.0115) / log(10.0)) + 0.6;
 }
 
 float decodeLLog(float encodedValue) {
-  if (encodedValue < 0.048) {
-    return max(encodedValue / 8.0, 0.0);
+  if (encodedValue <= 0.138) {
+    return (encodedValue - 0.09) / 8.0;
   }
-  return 0.006 * (pow(10.0, (encodedValue - 0.048) / 0.233161) - 1.0);
+  return (pow(10.0, (encodedValue - 0.6) / 0.27) - 0.0115) / 1.3;
+}
+
+float encodeAppleLog(float linearValue) {
+  float r0 = -0.05641088;
+  float rt = 0.01;
+  float c = 47.28711236;
+  float beta = 0.00964052;
+  float gamma = 0.08550479;
+  float delta = 0.69336945;
+  if (linearValue < r0) {
+    return 0.0;
+  }
+  if (linearValue < rt) {
+    return c * pow(linearValue - r0, 2.0);
+  }
+  return gamma * log2(linearValue + beta) + delta;
+}
+
+float decodeAppleLog(float encodedValue) {
+  float r0 = -0.05641088;
+  float rt = 0.01;
+  float c = 47.28711236;
+  float beta = 0.00964052;
+  float gamma = 0.08550479;
+  float delta = 0.69336945;
+  float pt = c * pow(rt - r0, 2.0);
+  if (encodedValue < 0.0) {
+    return r0;
+  }
+  if (encodedValue < pt) {
+    return sqrt(encodedValue / c) + r0;
+  }
+  return pow(2.0, (encodedValue - delta) / gamma) - beta;
+}
+
+float encodeDjiDLog(float linearValue) {
+  if (linearValue <= 0.0078) {
+    return 6.025 * linearValue + 0.0929;
+  }
+  return (log(0.9892 * linearValue + 0.0108) / log(10.0)) * 0.256663 + 0.584555;
+}
+
+float decodeDjiDLog(float encodedValue) {
+  if (encodedValue <= 0.14) {
+    return (encodedValue - 0.0929) / 6.025;
+  }
+  return (pow(10.0, 3.89616 * encodedValue - 2.27752) - 0.0108) / 0.9892;
 }
 
 float encodeTransferChannel(float linearValue, int transfer) {
@@ -344,6 +394,8 @@ float encodeTransferChannel(float linearValue, int transfer) {
   if (transfer == TRANSFER_ACESCC) return encodeACEScc(linearValue);
   if (transfer == TRANSFER_ACESCCT) return encodeACEScct(linearValue);
   if (transfer == TRANSFER_L_LOG) return encodeLLog(linearValue);
+  if (transfer == TRANSFER_APPLE_LOG) return encodeAppleLog(linearValue);
+  if (transfer == TRANSFER_DJI_D_LOG) return encodeDjiDLog(linearValue);
   return linearValue;
 }
 
@@ -368,6 +420,8 @@ float decodeTransferChannel(float encodedValue, int transfer) {
   if (transfer == TRANSFER_ACESCC) return decodeACEScc(encodedValue);
   if (transfer == TRANSFER_ACESCCT) return decodeACEScct(encodedValue);
   if (transfer == TRANSFER_L_LOG) return decodeLLog(encodedValue);
+  if (transfer == TRANSFER_APPLE_LOG) return decodeAppleLog(encodedValue);
+  if (transfer == TRANSFER_DJI_D_LOG) return decodeDjiDLog(encodedValue);
   return encodedValue;
 }
 

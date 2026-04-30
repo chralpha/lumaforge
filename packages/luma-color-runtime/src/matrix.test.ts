@@ -66,6 +66,35 @@ describe('gamut matrix registry integration', () => {
     expect(Array.from(matrix)).not.toEqual(Array.from(mat3Identity()))
   })
 
+  it('covers stable catalog input and output gamut matrix calculations', () => {
+    const catalogInputGamutsWithPublicMath = [
+      'arri-wide-gamut-3',
+      'display-p3',
+      'dji-d-gamut',
+      'f-gamut-c',
+      'rec2020',
+      'red-wide-gamut-rgb',
+      's-gamut',
+      's-gamut3-cine',
+      'srgb-rec709',
+      'v-gamut',
+    ] as const
+
+    for (const gamut of catalogInputGamutsWithPublicMath) {
+      const matrix = getLinearProPhotoToGamutMatrix(gamut)
+
+      expect(Array.from(matrix).every(Number.isFinite), gamut).toBe(true)
+    }
+
+    const catalogOutputGamutsWithPublicMath = ['srgb-rec709'] as const
+
+    for (const gamut of catalogOutputGamutsWithPublicMath) {
+      const matrix = getLinearGamutMatrix(gamut, 'srgb-rec709')
+
+      expect(Array.from(matrix).every(Number.isFinite), gamut).toBe(true)
+    }
+  })
+
   it('keeps unknown gamut fallback behavior unchanged', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 

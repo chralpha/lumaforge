@@ -361,7 +361,19 @@ export function mapProfileLUTContract(
   const outputGamut = resolveGamut(outputGamutValue, 'Output')
   const outputTransfer = resolveTransfer(outputTransferValue, 'Output')
   const outputRange = resolveRange(outputRangeValue, 'Output')
-  const resolvedRole = role.ok ? role.value : undefined
+  let resolvedRole = role.ok ? role.value : undefined
+  if (
+    resolvedRole === 'display-look' &&
+    hasCompleteOutput &&
+    inputGamut.ok &&
+    inputTransfer.ok &&
+    !hasDisplayLikeInput({
+      inputGamut: inputGamut.value,
+      inputTransfer: inputTransfer.value,
+    })
+  ) {
+    resolvedRole = 'combined-look-output'
+  }
   const requiresOutput = resolvedRole !== 'display-look'
   const hasOutput =
     outputGamutValue || outputTransferValue || outputRangeValue !== undefined
@@ -388,7 +400,13 @@ export function mapProfileLUTContract(
     return { ok: false, issues }
   }
 
-  if (!role.ok || !inputGamut.ok || !inputTransfer.ok || !inputRange.ok) {
+  if (
+    !role.ok ||
+    !resolvedRole ||
+    !inputGamut.ok ||
+    !inputTransfer.ok ||
+    !inputRange.ok
+  ) {
     return {
       ok: false,
       issues: [issue('LUT contract is incomplete.')],
@@ -398,7 +416,7 @@ export function mapProfileLUTContract(
   return {
     ok: true,
     value: {
-      role: role.value,
+      role: resolvedRole,
       inputGamut: inputGamut.value,
       inputTransfer: inputTransfer.value,
       inputRange: inputRange.value,

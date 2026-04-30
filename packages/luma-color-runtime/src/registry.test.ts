@@ -67,6 +67,49 @@ describe('color registry', () => {
     expect(getColorGamut('N-Gamut')?.id).toBe('rec2020')
   })
 
+  it('resolves stable catalog LUT contracts backed by public transfer math', () => {
+    const publicStableCatalogContracts = [
+      ['arri-wide-gamut-3', 'arri-logc3', 'arri-wide-gamut-3', 'logc3'],
+      ['display-p3', 'srgb', 'display-p3', 'srgb'],
+      ['dji-d-gamut', 'dji-d-log', 'dji-d-gamut', 'dji-d-log'],
+      ['fujifilm-f-gamut-c', 'fujifilm-f-log2c', 'f-gamut-c', 'f-log2c'],
+      ['leica-l-gamut', 'leica-l-log', 'rec2020', 'l-log'],
+      ['rec2020', 'apple-log', 'rec2020', 'apple-log'],
+      ['rec2020', 'nikon-n-log', 'rec2020', 'n-log'],
+      ['red-wide-gamut-rgb', 'red-log3g10', 'red-wide-gamut-rgb', 'log3g10'],
+      ['sony-s-gamut', 'sony-s-log2', 's-gamut', 's-log2'],
+      ['sony-s-gamut3-cine', 'sony-s-log3', 's-gamut3-cine', 's-log3'],
+      ['v-gamut', 'v-log', 'v-gamut', 'v-log'],
+      ['rec709', 'bt1886', 'srgb-rec709', 'gamma24'],
+      ['rec709', 'gamma-2-4', 'srgb-rec709', 'gamma24'],
+      ['rec709', 'srgb', 'srgb-rec709', 'srgb'],
+    ] as const
+
+    for (const [
+      catalogGamut,
+      catalogTransfer,
+      runtimeGamut,
+      runtimeTransfer,
+    ] of publicStableCatalogContracts) {
+      expect(getColorGamut(catalogGamut)?.id, catalogGamut).toBe(runtimeGamut)
+      expect(getTransferFunction(catalogTransfer)?.id, catalogTransfer).toBe(
+        runtimeTransfer,
+      )
+    }
+  })
+
+  it('keeps stable catalog private curves unresolved until public math exists', () => {
+    for (const transfer of [
+      'insta360-i-log',
+      'om-system-flat',
+      'om-system-om-log400',
+      'om-system-sdr',
+      'om-system-wdr',
+    ]) {
+      expect(getTransferFunction(transfer), transfer).toBeUndefined()
+    }
+  })
+
   it('searches profiles by camera ecosystem, gamut, transfer, and aliases', () => {
     expect(searchLUTColorProfiles('Nikon ZR Log3G10')[0]?.id).toBe(
       'nikon-zr-rwg-log3g10',

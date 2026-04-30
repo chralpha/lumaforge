@@ -151,4 +151,27 @@ describe('trusted LUT metadata mapping', () => {
       },
     })
   })
+
+  it('treats trusted display-look metadata with non-display input and complete output as combined output', () => {
+    const result = mapProfileLUTContract({
+      intent: 'display-look',
+      inputGamut: 'sony-s-gamut3-cine',
+      inputTransfer: 'sony-s-log3',
+      outputGamut: 'rec709',
+      outputTransfer: 'srgb',
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        role: 'combined-look-output',
+        inputGamut: 's-gamut3-cine',
+        inputTransfer: 's-log3',
+        inputRange: 'full',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        outputRange: 'full',
+      },
+    })
+  })
 })

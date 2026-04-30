@@ -30,6 +30,8 @@ export type TransferFunctionId =
   | 'srgb'
   | 'bt709'
   | 'gamma24'
+  | 'apple-log'
+  | 'dji-d-log'
   | 'l-log'
   | 'linear'
 
@@ -80,7 +82,12 @@ const TRANSFER_SOURCE_URLS: Record<TransferFunctionId, string> = {
   bt709: 'https://www.itu.int/rec/R-REC-BT.709',
   gamma24:
     'https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.1886-0-201103-I!!PDF-E.pdf',
-  'l-log': 'https://leica-camera.com/',
+  'apple-log':
+    'https://raw.githubusercontent.com/ampas/aces-dev/528c78fe2c0f4e7eb322581e98aba05de79466cb/transforms/ctl/idt/vendorSupplied/apple/IDT.Apple.AppleLog_BT2020.ctl',
+  'dji-d-log':
+    'https://dl.djicdn.com/downloads/DJI_Ronin_4D/X9_D_Log_D_Gamut_Whitepaper.pdf',
+  'l-log':
+    'https://leica-camera.com/sites/default/files/pm-101409-l-log_reference_manual_v1.4.pdf',
   linear: 'https://en.wikipedia.org/wiki/Linear_light',
 }
 
@@ -402,22 +409,84 @@ export function log3G10Decode(encoded: number): number {
 }
 
 /**
- * L-Log encoding (Leica/Panasonic)
+ * Apple Log Profile encoding
+ */
+const APPLE_LOG_R0 = -0.05641088
+const APPLE_LOG_RT = 0.01
+const APPLE_LOG_C = 47.28711236
+const APPLE_LOG_BETA = 0.00964052
+const APPLE_LOG_GAMMA = 0.08550479
+const APPLE_LOG_DELTA = 0.69336945
+const APPLE_LOG_PT = APPLE_LOG_C * Math.pow(APPLE_LOG_RT - APPLE_LOG_R0, 2)
+
+export function appleLogEncode(linear: number): number {
+  if (linear < APPLE_LOG_R0) {
+    return 0
+  }
+  if (linear < APPLE_LOG_RT) {
+    return APPLE_LOG_C * Math.pow(linear - APPLE_LOG_R0, 2)
+  }
+  return APPLE_LOG_GAMMA * Math.log2(linear + APPLE_LOG_BETA) + APPLE_LOG_DELTA
+}
+
+export function appleLogDecode(encoded: number): number {
+  if (encoded < 0) {
+    return APPLE_LOG_R0
+  }
+  if (encoded < APPLE_LOG_PT) {
+    return Math.sqrt(encoded / APPLE_LOG_C) + APPLE_LOG_R0
+  }
+  return (
+    Math.pow(2, (encoded - APPLE_LOG_DELTA) / APPLE_LOG_GAMMA) - APPLE_LOG_BETA
+  )
+}
+
+/**
+ * DJI D-Log encoding
+ */
+export function djiDLogEncode(linear: number): number {
+  if (linear <= 0.0078) {
+    return 6.025 * linear + 0.0929
+  }
+  return Math.log10(linear * 0.9892 + 0.0108) * 0.256663 + 0.584555
+}
+
+export function djiDLogDecode(encoded: number): number {
+  if (encoded <= 0.14) {
+    return (encoded - 0.0929) / 6.025
+  }
+  return (Math.pow(10, 3.89616 * encoded - 2.27752) - 0.0108) / 0.9892
+}
+
+/**
+ * L-Log encoding (Leica)
  */
 export function lLogEncode(linear: number): number {
-  const cut = 0.006
-  if (linear < cut) {
-    return 8 * linear
+  const a = 8
+  const b = 0.09
+  const c = 0.27
+  const d = 1.3
+  const e = 0.0115
+  const f = 0.6
+
+  if (linear <= 0.006) {
+    return a * linear + b
   }
-  return 0.233161 * Math.log10(linear / 0.006 + 1) + 0.048
+  return c * Math.log10(d * linear + e) + f
 }
 
 export function lLogDecode(encoded: number): number {
-  const cut = 0.048
-  if (encoded < cut) {
-    return encoded / 8
+  const a = 8
+  const b = 0.09
+  const c = 0.27
+  const d = 1.3
+  const e = 0.0115
+  const f = 0.6
+
+  if (encoded <= 0.138) {
+    return (encoded - b) / a
   }
-  return 0.006 * (Math.pow(10, (encoded - 0.048) / 0.233161) - 1)
+  return (Math.pow(10, (encoded - f) / c) - e) / d
 }
 
 const ACES_LOG_A = 17.52
@@ -522,6 +591,8 @@ export const LOG_FUNCTIONS: Record<
   'Arri LogC3': { encode: logC3Encode, decode: logC3Decode },
   'Arri LogC4': { encode: logC4Encode, decode: logC4Decode },
   Log3G10: { encode: log3G10Encode, decode: log3G10Decode },
+  'Apple Log': { encode: appleLogEncode, decode: appleLogDecode },
+  'DJI D-Log': { encode: djiDLogEncode, decode: djiDLogDecode },
   ACEScc: { encode: acesccEncode, decode: acesccDecode },
   ACEScct: { encode: acescctEncode, decode: acescctDecode },
   sRGB: { encode: srgbEncode, decode: srgbDecode },
@@ -771,16 +842,42 @@ export const TRANSFER_FUNCTIONS: Record<
       referencePoint('18% gray', 0.18, gamma24Encode(0.18)),
     ],
   },
+  'apple-log': {
+    id: 'apple-log',
+    label: 'Apple Log',
+    encode: appleLogEncode,
+    decode: appleLogDecode,
+    aliases: ['Apple Log', 'AppleLog', 'apple-log'],
+    source: TRANSFER_SOURCE_URLS['apple-log'],
+    referencePoints: [
+      referencePoint('18% gray', 0.18, 0.48827245852686763),
+      referencePoint('white', 1, 0.6951555328783671),
+    ],
+  },
+  'dji-d-log': {
+    id: 'dji-d-log',
+    label: 'DJI D-Log',
+    encode: djiDLogEncode,
+    decode: djiDLogDecode,
+    aliases: ['DJI D-Log', 'D-Log', 'DLog', 'dji-d-log'],
+    source: TRANSFER_SOURCE_URLS['dji-d-log'],
+    referencePoints: [
+      referencePoint('black', 0, 0.0929),
+      referencePoint('18% gray', 0.18, 408 / 1023),
+      referencePoint('90% reflection', 0.9, 586 / 1023),
+    ],
+  },
   'l-log': {
     id: 'l-log',
     label: 'L-Log',
     encode: lLogEncode,
     decode: lLogDecode,
-    aliases: ['L-Log', 'LLog', 'Leica L-Log'],
+    aliases: ['L-Log', 'LLog', 'Leica L-Log', 'leica-l-log'],
     source: TRANSFER_SOURCE_URLS['l-log'],
     referencePoints: [
-      referencePoint('black', 0, lLogEncode(0)),
-      referencePoint('18% gray sanity', 0.18, lLogEncode(0.18)),
+      referencePoint('black', 0, 0.09),
+      referencePoint('18% gray', 0.18, 445 / 1023),
+      referencePoint('90% reflection', 0.9, 634 / 1023),
     ],
   },
   linear: {

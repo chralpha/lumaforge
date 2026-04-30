@@ -83,11 +83,19 @@ export const COLOR_GAMUTS: Record<ColorGamutId, ColorGamut> = {
   'display-p3': createColorGamut('display-p3', 'Display P3'),
   rec2020: createColorGamut('rec2020', 'Rec.2020 / BT.2020', [
     'N-Log Rec.2020',
+    'Leica L-Gamut',
+    'leica-l-gamut',
+  ]),
+  'dji-d-gamut': createColorGamut('dji-d-gamut', 'DJI D-Gamut', [
+    'D-Gamut',
+    'DJI D-Gamut/D-Log',
   ]),
   's-gamut': createColorGamut('s-gamut', 'S-Gamut'),
   's-gamut3': createColorGamut('s-gamut3', 'S-Gamut3'),
   's-gamut3-cine': createColorGamut('s-gamut3-cine', 'S-Gamut3.Cine', [
     'S-Gamut3Cine',
+    'Sony S-Gamut3.Cine',
+    'sony-s-gamut3-cine',
   ]),
   'v-gamut': createColorGamut('v-gamut', 'V-Gamut'),
   'f-gamut': createColorGamut('f-gamut', 'F-Gamut'),

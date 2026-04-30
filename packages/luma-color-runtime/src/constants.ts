@@ -7,6 +7,7 @@ export type ColorGamutId =
   | 'srgb-rec709'
   | 'display-p3'
   | 'rec2020'
+  | 'dji-d-gamut'
   | 's-gamut'
   | 's-gamut3'
   | 's-gamut3-cine'
@@ -25,6 +26,8 @@ export const COLOR_GAMUT_SOURCE_URLS: Record<ColorGamutId, string> = {
   'display-p3':
     'https://developer.apple.com/documentation/coregraphics/cgcolorspace/displayp3',
   rec2020: 'https://www.itu.int/rec/R-REC-BT.2020/en',
+  'dji-d-gamut':
+    'https://dl.djicdn.com/downloads/DJI_Ronin_4D/X9_D_Log_D_Gamut_Whitepaper.pdf',
   's-gamut': 'https://www.sony.com/electronics/support/articles/00145908',
   's-gamut3':
     'https://pro.sony/s3/cms-static-content/uploadfile/06/1237494271406.pdf',
@@ -174,8 +177,29 @@ export const COLOR_SPACES: Record<string, ColorSpaceDef> = {
     },
     whitePoint: D65_WHITE,
     gamma: 'linear',
-    aliases: ['Rec.2020', 'BT.2020', 'N-Gamut', 'N-Log Rec.2020', 'rec2020'],
+    aliases: [
+      'Rec.2020',
+      'BT.2020',
+      'N-Gamut',
+      'N-Log Rec.2020',
+      'Leica L-Gamut',
+      'leica-l-gamut',
+      'rec2020',
+    ],
     source: COLOR_GAMUT_SOURCE_URLS.rec2020,
+  },
+  'DJI D-Gamut': {
+    id: 'dji-d-gamut',
+    name: 'DJI D-Gamut',
+    primaries: {
+      red: [0.71, 0.31],
+      green: [0.21, 0.88],
+      blue: [0.09, -0.08],
+    },
+    whitePoint: D65_WHITE,
+    gamma: 'linear',
+    aliases: ['D-Gamut', 'DJI D-Gamut/D-Log', 'dji-d-gamut'],
+    source: COLOR_GAMUT_SOURCE_URLS['dji-d-gamut'],
   },
   'S-Gamut': {
     id: 's-gamut',
@@ -187,7 +211,7 @@ export const COLOR_SPACES: Record<string, ColorSpaceDef> = {
     },
     whitePoint: D65_WHITE,
     gamma: 'linear',
-    aliases: ['S-Gamut/S-Log2', 's-gamut'],
+    aliases: ['S-Gamut/S-Log2', 'Sony S-Gamut', 'sony-s-gamut', 's-gamut'],
     source: COLOR_GAMUT_SOURCE_URLS['s-gamut'],
   },
   'S-Gamut3': {
@@ -213,7 +237,13 @@ export const COLOR_SPACES: Record<string, ColorSpaceDef> = {
     },
     whitePoint: D65_WHITE,
     gamma: 'linear',
-    aliases: ['S-Gamut3Cine', 'S-Gamut3.Cine/S-Log3', 's-gamut3-cine'],
+    aliases: [
+      'S-Gamut3Cine',
+      'S-Gamut3.Cine/S-Log3',
+      'Sony S-Gamut3.Cine',
+      'sony-s-gamut3-cine',
+      's-gamut3-cine',
+    ],
     source: COLOR_GAMUT_SOURCE_URLS['s-gamut3-cine'],
   },
   'V-Gamut': {
@@ -252,7 +282,13 @@ export const COLOR_SPACES: Record<string, ColorSpaceDef> = {
     },
     whitePoint: D65_WHITE,
     gamma: 'linear',
-    aliases: ['F-GamutC', 'F-Gamut C/F-Log2C', 'f-gamut-c'],
+    aliases: [
+      'F-GamutC',
+      'F-Gamut C/F-Log2C',
+      'Fujifilm F-Gamut C',
+      'fujifilm-f-gamut-c',
+      'f-gamut-c',
+    ],
     source: COLOR_GAMUT_SOURCE_URLS['f-gamut-c'],
   },
   'Cinema Gamut': {
@@ -358,6 +394,7 @@ export const COLOR_GAMUT_TO_COLOR_SPACE: Record<ColorGamutId, string> = {
   'srgb-rec709': 'sRGB',
   'display-p3': 'Display P3',
   rec2020: 'ITU-R BT.2020',
+  'dji-d-gamut': 'DJI D-Gamut',
   's-gamut': 'S-Gamut',
   's-gamut3': 'S-Gamut3',
   's-gamut3-cine': 'S-Gamut3.Cine',

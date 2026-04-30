@@ -5,16 +5,22 @@ import {
   acesccEncode,
   acescctDecode,
   acescctEncode,
+  appleLogDecode,
+  appleLogEncode,
   bt709Decode,
   bt709Encode,
   canonLog2Decode,
   canonLog2Encode,
   canonLog3Decode,
   canonLog3Encode,
+  djiDLogDecode,
+  djiDLogEncode,
   gamma24Decode,
   gamma24Encode,
   getLogDecoder,
   getLogEncoder,
+  lLogDecode,
+  lLogEncode,
   LOG_FUNCTIONS,
   log3G10Encode,
   logC4Decode,
@@ -56,6 +62,9 @@ describe('transfer function registry', () => {
     'srgb',
     'bt709',
     'gamma24',
+    'apple-log',
+    'dji-d-log',
+    'l-log',
   ] as const
 
   it('exposes metadata, source URLs, and reference points for Tier 1 transfer functions', () => {
@@ -211,6 +220,31 @@ describe('display and ACES transfer functions', () => {
 
     expect(gamma24Encode(0.18)).toBeCloseTo(Math.pow(0.18, 1 / 2.4), 8)
     expect(gamma24Decode(gamma24Encode(0.18))).toBeCloseTo(0.18, 8)
+  })
+
+  it('matches Apple Log reference points', () => {
+    expect(appleLogEncode(0.18)).toBeCloseTo(0.48827245852686763, 8)
+    expect(appleLogDecode(0.48827245852686763)).toBeCloseTo(0.18, 8)
+    expect(appleLogEncode(1)).toBeCloseTo(0.6945529830551911, 8)
+    expect(appleLogDecode(0.6945529830551911)).toBeCloseTo(1, 8)
+  })
+
+  it('matches DJI D-Log reference points', () => {
+    expect(djiDLogEncode(0)).toBeCloseTo(0.0929, 8)
+    expect(djiDLogDecode(0.0929)).toBeCloseTo(0, 8)
+    expect(djiDLogEncode(0.18)).toBeCloseTo(408 / 1023, 3)
+    expect(djiDLogDecode(408 / 1023)).toBeCloseTo(0.18, 2)
+    expect(djiDLogEncode(0.9)).toBeCloseTo(586 / 1023, 3)
+    expect(djiDLogDecode(586 / 1023)).toBeCloseTo(0.9, 2)
+  })
+
+  it('matches Leica L-Log reference points', () => {
+    expect(lLogEncode(0)).toBeCloseTo(0.09, 8)
+    expect(lLogDecode(0.09)).toBeCloseTo(0, 8)
+    expect(lLogEncode(0.18)).toBeCloseTo(445 / 1023, 3)
+    expect(lLogDecode(445 / 1023)).toBeCloseTo(0.18, 2)
+    expect(lLogEncode(0.9)).toBeCloseTo(634 / 1023, 3)
+    expect(lLogDecode(634 / 1023)).toBeCloseTo(0.9, 2)
   })
 
   it('encodes and decodes BT.709 display transfer separately from sRGB and gamma 2.4', () => {
