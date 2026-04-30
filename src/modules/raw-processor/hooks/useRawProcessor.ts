@@ -32,14 +32,21 @@ import type {
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import {
   isSupportedLUT,
-  parseCubeFile,
+  parseCubeLUT,
   toLUTData,
   validateLUT,
 } from '~/lib/lut/cube-parser'
+import type { LUTContractSelection } from '~/lib/lut/profile-resolution'
 import {
   applyLUTContractSelection,
   toLUTContractSelection,
 } from '~/lib/lut/profile-resolution'
+import type { OnlineLUTEntry } from '~/lib/profiles/catalog'
+import {
+  createBrowserOnlineProfileCache,
+  fetchCachedBytesWithLimit,
+  fetchVerifiedCubeAsset,
+} from '~/lib/profiles/fetch'
 import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
 import { isSupportedRaw } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
@@ -89,6 +96,25 @@ import {
 import { classifySupportLevel } from '../services/support-matrix'
 import { useImageSession } from './useImageSession'
 
+const MAX_ONLINE_CUBE_BYTES = 64 * 1024 * 1024
+const onlineProfileCache = createBrowserOnlineProfileCache()
+
+interface LoadLUTContentOptions {
+  content: string
+  sourceName: string
+  trustedContract?: LUTContractSelection
+}
+
+class LUTLoadError extends Error {
+  readonly code: string
+
+  constructor(code: string, message: string) {
+    super(message)
+    this.name = 'LUTLoadError'
+    this.code = code
+  }
+}
+
 function resolveLUTContractProfile(
   profile: LUTColorProfile | string,
 ): LUTColorProfile | undefined {
@@ -121,6 +147,20 @@ function getStableErrorCode(error: unknown) {
   }
 
   return (error as { code?: unknown }).code
+}
+
+function resolveOnlineLUTSourceName(entry: OnlineLUTEntry): string {
+  if (entry.title) return entry.title
+
+  try {
+    const pathname = new URL(entry.cube.url).pathname
+    const fileName = pathname.split('/').filter(Boolean).at(-1)
+    if (fileName) return fileName
+  } catch {
+    // Fall back to the original URL below.
+  }
+
+  return entry.cube.url
 }
 
 function toFullResCapabilityState(capability: LumaRawExportCapability) {
@@ -318,6 +358,10 @@ export interface UseRawProcessorReturn {
   // Actions
   loadFile: (file: File) => Promise<void>
   loadLUT: (file: File) => Promise<void>
+  loadOnlineLUT: (
+    entry: OnlineLUTEntry,
+    options?: { signal?: AbortSignal },
+  ) => Promise<void>
   selectLUTProfile: (profile: LUTColorProfile | string) => void
   selectBuiltinStyle: (id: (typeof BUILTIN_PRESETS)[number]['id']) => void
   selectIntensityLevel: (level: 'off' | 'light' | 'standard' | 'strong') => void
@@ -1153,6 +1197,86 @@ export function useRawProcessor(): UseRawProcessorReturn {
     ],
   )
 
+  const reportLUTLoadFailure = useCallback(
+    (error: unknown) => {
+      const message =
+        error instanceof Error ? error.message : 'Failed to parse LUT'
+      const stableCode = getStableErrorCode(error)
+      const errorCode =
+        toUserFacingErrorCode(stableCode ?? message) === 'RAW_UNKNOWN'
+          ? 'LUT_PARSE_FAILED'
+          : toUserFacingErrorCode(stableCode ?? message)
+
+      setSession((prev) =>
+        prev
+          ? {
+              ...prev,
+              renderState: {
+                ...prev.renderState,
+                lastErrorCode: errorCode,
+              },
+            }
+          : prev,
+      )
+      scheduleToast(() =>
+        toast.error('Failed to load LUT', { description: message }),
+      )
+    },
+    [scheduleToast, setSession],
+  )
+
+  const applyLoadedLUT = useCallback(
+    (parsed: ParsedLUT) => {
+      const style = toCustomStyle(parsed)
+      invalidateExportGraph()
+      setLut(parsed)
+      setSession((prev) =>
+        prev
+          ? clearExportResultState({
+              ...prev,
+              activeStyle: style,
+              lutProfileSelection: buildLUTProfileSelectionState(parsed),
+            })
+          : prev,
+      )
+      setParams((prev) => ({
+        ...prev,
+        styleKind: 'custom',
+        builtinPreset: null,
+        intensity: mapIntensityLevel(style.defaultIntensityLevel),
+      }))
+      scheduleToast(() =>
+        toast.success(`Loaded LUT: ${parsed.title}`, {
+          description: `${parsed.size}³ grid`,
+        }),
+      )
+    },
+    [invalidateExportGraph, scheduleToast, setLut, setParams, setSession],
+  )
+
+  const loadLUTContent = useCallback(
+    async (options: LoadLUTContentOptions) => {
+      const parsed = parseCubeLUT(options.content, {
+        sourceName: options.sourceName,
+      })
+      const contracted = options.trustedContract
+        ? applyLUTContractSelection(parsed, options.trustedContract)
+        : parsed
+      if (!contracted) throw new Error('Unsupported LUT color contract.')
+
+      const validation = validateLUT(contracted)
+      if (!validation.valid) {
+        throw new LUTLoadError(
+          'LUT_INVALID',
+          validation.errors[0] ?? 'Invalid LUT file.',
+        )
+      }
+
+      applyLoadedLUT(contracted)
+    },
+    [applyLoadedLUT],
+  )
+
   // Load LUT file
   const loadLUT = useCallback(
     async (file: File) => {
@@ -1177,75 +1301,46 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
 
       try {
-        const parsed = await parseCubeFile(file)
-        const validation = validateLUT(parsed)
-        if (!validation.valid) {
-          setSession((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  renderState: {
-                    ...prev.renderState,
-                    lastErrorCode: 'LUT_INVALID',
-                  },
-                }
-              : prev,
-          )
-          scheduleToast(() =>
-            toast.error('Failed to load LUT', {
-              description: validation.errors[0] || 'Invalid LUT',
-            }),
-          )
-          return
-        }
-
-        const style = toCustomStyle(parsed)
-        invalidateExportGraph()
-        setLut(parsed)
-        setSession((prev) =>
-          prev
-            ? clearExportResultState({
-                ...prev,
-                activeStyle: style,
-                lutProfileSelection: buildLUTProfileSelectionState(parsed),
-              })
-            : prev,
-        )
-        setParams((prev) => ({
-          ...prev,
-          styleKind: 'custom',
-          builtinPreset: null,
-          intensity: mapIntensityLevel(style.defaultIntensityLevel),
-        }))
-        scheduleToast(() =>
-          toast.success(`Loaded LUT: ${parsed.title}`, {
-            description: `${parsed.size}³ grid`,
-          }),
-        )
+        await loadLUTContent({
+          content: await file.text(),
+          sourceName: file.name,
+        })
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'Failed to parse LUT'
-        const errorCode =
-          toUserFacingErrorCode(message) === 'RAW_UNKNOWN'
-            ? 'LUT_PARSE_FAILED'
-            : toUserFacingErrorCode(message)
-        setSession((prev) =>
-          prev
-            ? {
-                ...prev,
-                renderState: {
-                  ...prev.renderState,
-                  lastErrorCode: errorCode,
-                },
-              }
-            : prev,
-        )
-        scheduleToast(() =>
-          toast.error('Failed to load LUT', { description: message }),
-        )
+        reportLUTLoadFailure(err)
       }
     },
-    [invalidateExportGraph, scheduleToast, setLut, setParams, setSession],
+    [loadLUTContent, reportLUTLoadFailure, scheduleToast, setSession],
+  )
+
+  const loadOnlineLUT = useCallback(
+    async (entry: OnlineLUTEntry, options?: { signal?: AbortSignal }) => {
+      try {
+        const bytes =
+          entry.sourceType === 'catalog-entry'
+            ? await fetchVerifiedCubeAsset(entry.cube, {
+                signal: options?.signal,
+                maxBytes: MAX_ONLINE_CUBE_BYTES,
+                cache: onlineProfileCache,
+              })
+            : await fetchCachedBytesWithLimit(entry.cube.url, {
+                signal: options?.signal,
+                maxBytes: MAX_ONLINE_CUBE_BYTES,
+                cache: onlineProfileCache,
+              })
+
+        await loadLUTContent({
+          content: new TextDecoder().decode(bytes),
+          sourceName: resolveOnlineLUTSourceName(entry),
+          trustedContract:
+            entry.sourceType === 'catalog-entry'
+              ? entry.trustedContract
+              : undefined,
+        })
+      } catch (err) {
+        reportLUTLoadFailure(err)
+      }
+    },
+    [loadLUTContent, reportLUTLoadFailure],
   )
 
   const selectLUTProfile = useCallback(
@@ -1921,6 +2016,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     displaySource,
     loadFile,
     loadLUT,
+    loadOnlineLUT,
     selectLUTProfile,
     selectBuiltinStyle,
     selectIntensityLevel,

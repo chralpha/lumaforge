@@ -11,6 +11,11 @@ import {
   getStoredLUTContractSelection,
   getStoredLUTProfileSelection,
 } from '~/lib/lut/profile-resolution'
+import type { OnlineLUTEntry } from '~/lib/profiles/catalog'
+import {
+  fetchCachedBytesWithLimit,
+  fetchVerifiedCubeAsset,
+} from '~/lib/profiles/fetch'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
 import { currentSessionAtom } from '../state/session.atoms'
@@ -34,6 +39,11 @@ const exportSystemMock = vi.hoisted(() => ({
   runFullResolutionExportJob: vi.fn(),
 }))
 
+const onlineProfileFetchMock = vi.hoisted(() => ({
+  fetchCachedBytesWithLimit: vi.fn(),
+  fetchVerifiedCubeAsset: vi.fn(),
+}))
+
 vi.mock('~/lib/raw/runtime-adapter', () => ({
   rawRuntimeAdapter: rawRuntimeAdapterMock,
 }))
@@ -47,6 +57,15 @@ vi.mock('../services/export-system', async () => {
   return {
     ...actual,
     runFullResolutionExportJob: exportSystemMock.runFullResolutionExportJob,
+  }
+})
+
+vi.mock('~/lib/profiles/fetch', async () => {
+  const actual = await vi.importActual('~/lib/profiles/fetch')
+  return {
+    ...actual,
+    fetchCachedBytesWithLimit: onlineProfileFetchMock.fetchCachedBytesWithLimit,
+    fetchVerifiedCubeAsset: onlineProfileFetchMock.fetchVerifiedCubeAsset,
   }
 })
 
@@ -110,6 +129,29 @@ function createCubeFile(title: string, name: string) {
   return Object.assign(new File([content], name), {
     text: () => Promise.resolve(content),
   })
+}
+
+function encodeCube(title: string) {
+  return new TextEncoder().encode(createCube(title))
+}
+
+function createOnlineLUTEntry(
+  overrides: Partial<OnlineLUTEntry> = {},
+): OnlineLUTEntry {
+  return {
+    id: 'online-lut',
+    title: 'Online Client LUT',
+    sourceUrl: 'https://example.com/catalog.json',
+    sourceType: 'catalog-entry',
+    cube: {
+      url: 'https://example.com/luts/client.cube',
+      sha256: 'a'.repeat(64),
+      bytes: 1024,
+      title: 'client.cube',
+    },
+    tags: [],
+    ...overrides,
+  }
 }
 
 function createTestSession() {
@@ -257,6 +299,8 @@ describe('useRawProcessor embedded preview state', () => {
     rawRuntimeAdapterMock.decodeBoundedHqRaw.mockReset()
     rawRuntimeAdapterMock.probeExportCapability.mockReset()
     exportSystemMock.runFullResolutionExportJob.mockReset()
+    onlineProfileFetchMock.fetchCachedBytesWithLimit.mockReset()
+    onlineProfileFetchMock.fetchVerifiedCubeAsset.mockReset()
     toastMock.success.mockReset()
     toastMock.error.mockReset()
     toastMock.info.mockReset()
@@ -572,6 +616,184 @@ describe('useRawProcessor embedded preview state', () => {
         description: '17³ grid',
       },
     )
+  })
+
+  it('loads direct online CUBE entries through the manual-style unresolved profile path', async () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
+    onlineProfileFetchMock.fetchCachedBytesWithLimit.mockResolvedValue(
+      encodeCube('Direct Online LUT'),
+    )
+    const signal = new AbortController().signal
+    const entry = createOnlineLUTEntry({
+      title: 'Direct Online LUT',
+      sourceType: 'direct-cube',
+      cube: {
+        url: 'https://example.com/direct/online-look.cube',
+        sha256: '',
+      },
+      trustedContract: {
+        role: 'display-look',
+        inputGamut: 'srgb-rec709',
+        inputTransfer: 'srgb',
+        inputRange: 'full',
+      },
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadOnlineLUT(entry, { signal })
+    })
+
+    expect(fetchCachedBytesWithLimit).toHaveBeenCalledWith(
+      'https://example.com/direct/online-look.cube',
+      expect.objectContaining({
+        signal,
+        maxBytes: 64 * 1024 * 1024,
+      }),
+    )
+    expect(fetchVerifiedCubeAsset).not.toHaveBeenCalled()
+    expect(result.current.lut).toMatchObject({
+      title: 'Direct Online LUT',
+      sourceName: 'Direct Online LUT',
+      profileResolution: {
+        kind: 'needs-user-selection',
+        suggestions: [],
+      },
+    })
+    expect(result.current.lutProfileSelection).toMatchObject({
+      status: 'pending',
+      title: 'Direct Online LUT',
+      sourceName: 'Direct Online LUT',
+    })
+  })
+
+  it('loads verified registry CUBE entries and applies trusted contracts', async () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
+    onlineProfileFetchMock.fetchVerifiedCubeAsset.mockResolvedValue(
+      encodeCube('Registry Online LUT'),
+    )
+    const entry = createOnlineLUTEntry({
+      title: 'Registry Online LUT',
+      trustedContract: {
+        role: 'display-look',
+        inputGamut: 'srgb-rec709',
+        inputTransfer: 'srgb',
+        inputRange: 'full',
+      },
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadOnlineLUT(entry)
+    })
+
+    expect(fetchVerifiedCubeAsset).toHaveBeenCalledWith(
+      entry.cube,
+      expect.objectContaining({
+        maxBytes: 64 * 1024 * 1024,
+      }),
+    )
+    expect(fetchCachedBytesWithLimit).not.toHaveBeenCalled()
+    expect(result.current.lut?.profileResolution).toMatchObject({
+      kind: 'resolved',
+      confidence: 'user',
+      profile: {
+        id: 'srgb-rec709-srgb',
+        role: 'display-look',
+        inputGamut: 'srgb-rec709',
+        inputTransfer: 'srgb',
+        inputRange: 'full',
+      },
+    })
+    expect(result.current.lutData?.profileResolution).toMatchObject({
+      kind: 'resolved',
+      profile: { id: 'srgb-rec709-srgb' },
+    })
+    expect(result.current.lutProfileSelection).toMatchObject({
+      status: 'resolved',
+      profileId: 'srgb-rec709-srgb',
+      confidence: 'user',
+    })
+  })
+
+  it('rejects unsupported trusted contracts and leaves the active LUT unchanged', async () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadLUT(
+        createCubeFile('Previous LUT', 'previous.cube'),
+      )
+    })
+
+    const previousLut = result.current.lut
+    const previousStyle = jotaiStore.get(currentSessionAtom)?.activeStyle
+    onlineProfileFetchMock.fetchVerifiedCubeAsset.mockResolvedValue(
+      encodeCube('Rejected Online LUT'),
+    )
+
+    await act(async () => {
+      await result.current.loadOnlineLUT(
+        createOnlineLUTEntry({
+          title: 'Rejected Online LUT',
+          trustedContract: {
+            role: 'display-look',
+            inputGamut: 'arri-wide-gamut-3',
+            inputTransfer: 'logc3',
+            inputRange: 'full',
+          },
+        }),
+      )
+    })
+    await flushScheduledToasts()
+
+    expect(result.current.lut).toBe(previousLut)
+    expect(jotaiStore.get(currentSessionAtom)?.activeStyle).toBe(previousStyle)
+    expect(jotaiStore.get(currentSessionAtom)?.renderState).toMatchObject({
+      lastErrorCode: 'LUT_PARSE_FAILED',
+    })
+    expect(toastMock.error).toHaveBeenCalledWith('Failed to load LUT', {
+      description: 'Unsupported LUT color contract.',
+    })
+  })
+
+  it('rejects online fetch errors and leaves the current RAW session and LUT intact', async () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadLUT(
+        createCubeFile('Previous LUT', 'previous.cube'),
+      )
+    })
+
+    const previousLut = result.current.lut
+    const previousSession = jotaiStore.get(currentSessionAtom)
+    onlineProfileFetchMock.fetchVerifiedCubeAsset.mockRejectedValue(
+      new Error('Hash mismatch'),
+    )
+
+    await act(async () => {
+      await result.current.loadOnlineLUT(createOnlineLUTEntry())
+    })
+    await flushScheduledToasts()
+
+    const nextSession = jotaiStore.get(currentSessionAtom)
+    expect(result.current.lut).toBe(previousLut)
+    expect(nextSession).toMatchObject({
+      id: previousSession?.id,
+      sourceFile: previousSession?.sourceFile,
+      activeStyle: previousSession?.activeStyle,
+      lutProfileSelection: previousSession?.lutProfileSelection,
+      renderState: expect.objectContaining({
+        lastErrorCode: 'LUT_PARSE_FAILED',
+      }),
+    })
+    expect(toastMock.error).toHaveBeenCalledWith('Failed to load LUT', {
+      description: 'Hash mismatch',
+    })
   })
 
   it('stores embedded object URLs, upgrades display source, and revokes on reset', async () => {
