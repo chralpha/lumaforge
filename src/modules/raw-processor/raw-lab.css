@@ -265,8 +265,10 @@
 .raw-lut-source-entry {
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.72fr) 32px;
   gap: 7px;
-  padding: 6px 0 6px 8px;
-  border-left: 1px solid oklch(0.74 0.035 78 / 0.68);
+  padding: 6px 7px;
+  border: 1px solid oklch(0.74 0.035 78 / 0.46);
+  border-radius: 8px;
+  background: oklch(0.964 0.018 86 / 0.36);
 }
 
 .raw-lut-source-entry-title {

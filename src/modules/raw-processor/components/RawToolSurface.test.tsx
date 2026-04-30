@@ -62,7 +62,6 @@ function onlineLutSourcesFixture(
           sourceUrl:
             'https://profiles.example.com/releases/v2026.05.01/entries/kodak-2383-rec709.json',
           sourceType: 'catalog-entry',
-          license: 'NOASSERTION',
           cube: {
             url: 'https://profiles.example.com/blobs/kodak-2383-rec709.cube',
             sha256:
@@ -72,9 +71,10 @@ function onlineLutSourcesFixture(
           },
           tags: [],
           trustedContract: {
+            role: 'combined-look-output',
             inputGamut: 'arri-wide-gamut-3',
             inputTransfer: 'logc3',
-            outputGamut: 'rec709',
+            outputGamut: 'srgb-rec709',
             outputTransfer: 'gamma24',
             outputRange: 'legal',
           },
@@ -221,5 +221,30 @@ describe('rawToolSurface', () => {
     expect(
       screen.getByRole('button', { name: 'Copy LUT source link' }),
     ).toBeEnabled()
+  })
+
+  it('announces online LUT source issues as status updates', () => {
+    render(
+      <RawToolSurface
+        {...baseProps}
+        onlineLutSources={onlineLutSourcesFixture({
+          state: {
+            ...onlineLutSourcesFixture().state,
+            issues: [
+              {
+                code: 'network',
+                message: 'Failed to fetch online profile resource.',
+                resourceId: 'source-1',
+              },
+            ],
+          },
+        })}
+      />,
+    )
+
+    const status = screen.getByRole('status')
+
+    expect(status).toHaveAttribute('aria-live', 'polite')
+    expect(status).toHaveTextContent('Failed to fetch online profile resource.')
   })
 })

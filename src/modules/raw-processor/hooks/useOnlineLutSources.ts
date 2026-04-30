@@ -83,10 +83,14 @@ export function useOnlineLutSources({
 }: UseOnlineLutSourcesOptions): UseOnlineLutSourcesResult {
   const [state, setState] = useState<OnlineLUTSourceState>(emptyState)
   const [sourceUrlInput, setSourceUrlInput] = useState('')
-  const parsedInitialSearchRef = useRef(false)
+  const queryResourceUrlsRef = useRef(new Set<string>())
   const nextResourceIdRef = useRef(1)
   const resourceControllersRef = useRef(new Map<string, AbortController>())
   const loadControllersRef = useRef(new Set<AbortController>())
+
+  const hasShareCapability =
+    typeof navigator !== 'undefined' &&
+    (Boolean(navigator.clipboard?.writeText) || Boolean(navigator.share))
 
   const createResourceId = useCallback(() => {
     const id = `lut-source-${nextResourceIdRef.current}`
@@ -100,6 +104,10 @@ export function useOnlineLutSources({
 
     controller.abort()
     resourceControllersRef.current.delete(resourceId)
+    setState((current) => ({
+      ...current,
+      isLoading: resourceControllersRef.current.size > 0,
+    }))
   }, [])
 
   const resolveResource = useCallback(
@@ -126,19 +134,23 @@ export function useOnlineLutSources({
       if (controller.signal.aborted) return
 
       resourceControllersRef.current.delete(resource.id)
-      setState((current) => mergeOnlineLUTSourceResolution(current, resolution))
+      setState((current) => ({
+        ...mergeOnlineLUTSourceResolution(current, resolution),
+        isLoading: resourceControllersRef.current.size > 0,
+      }))
     },
     [abortResourceRequest],
   )
 
   useEffect(() => {
-    if (parsedInitialSearchRef.current) return
-    parsedInitialSearchRef.current = true
-
     const parsed = parseLUTResourceQuery(search)
-    const resources = parsed.resources.map((resource) =>
-      retargetResource(resource, createResourceId(), true),
-    )
+    const resources = parsed.resources
+      .filter((resource) => !queryResourceUrlsRef.current.has(resource.url))
+      .map((resource) => {
+        queryResourceUrlsRef.current.add(resource.url)
+
+        return retargetResource(resource, createResourceId(), true)
+      })
     const issues = parseIssuesToSourceIssues(parsed.issues)
 
     if (issues.length > 0) {
@@ -235,15 +247,20 @@ export function useOnlineLutSources({
 
   const share = useMemo(
     () => ({
-      enabled: shareResources.length > 0,
+      enabled: shareResources.length > 0 && hasShareCapability,
       url: shareUrl,
       async copy() {
         if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(shareUrl)
+          return
+        }
+
+        if (navigator.share) {
+          await navigator.share({ url: shareUrl })
         }
       },
     }),
-    [shareResources.length, shareUrl],
+    [hasShareCapability, shareResources.length, shareUrl],
   )
 
   return {

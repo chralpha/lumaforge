@@ -19,6 +19,8 @@ const catalogUrl =
   'https://profiles.example.com/releases/v2026.05.01/catalog.json'
 const entryUrl =
   'https://profiles.example.com/releases/v2026.05.01/entries/kodak-2383-rec709.json'
+const secondEntryUrl =
+  'https://profiles.example.com/releases/v2026.05.01/entries/ektachrome-e100.json'
 const cubeUrl = `https://profiles.example.com/blobs/sha256/9c/56/${sha256}.cube`
 
 const primaryAsset = {
@@ -112,6 +114,29 @@ function setupPendingFetchJson() {
   return { signals }
 }
 
+function setupDeferredFetchJson() {
+  const requests: Array<{
+    url: string
+    signal?: AbortSignal
+    resolve: (value: unknown) => void
+    reject: (error: unknown) => void
+  }> = []
+
+  mockedFetchJson.mockImplementation(
+    (url, options) =>
+      new Promise<unknown>((resolve, reject) => {
+        requests.push({
+          url,
+          signal: options.signal,
+          resolve,
+          reject,
+        })
+      }),
+  )
+
+  return { requests }
+}
+
 describe('useOnlineLutSources', () => {
   beforeEach(() => {
     mockedFetchJson.mockReset()
@@ -186,6 +211,39 @@ describe('useOnlineLutSources', () => {
     expect(mockedFetchJson).toHaveBeenCalledTimes(2)
   })
 
+  it('processes newly introduced query resources while mounted without duplicating the same query', async () => {
+    setupFetchJson({
+      [catalogUrl]: catalogDocument(),
+      [entryUrl]: entryManifest(),
+    })
+
+    const loadOnlineLUT = createLoadOnlineLUT()
+    const { result, rerender } = renderHook(
+      ({ search }) =>
+        useOnlineLutSources({
+          search,
+          pathname: '/raw',
+          loadOnlineLUT,
+        }),
+      {
+        initialProps: {
+          search: '',
+        },
+      },
+    )
+
+    expect(result.current.state.resources).toHaveLength(0)
+
+    rerender({ search: `?luts=${encodeURIComponent(catalogUrl)}` })
+    await waitFor(() => expect(result.current.state.entries).toHaveLength(1))
+
+    rerender({ search: `?luts=${encodeURIComponent(catalogUrl)}` })
+
+    expect(result.current.state.resources).toHaveLength(1)
+    expect(result.current.state.entries).toHaveLength(1)
+    expect(mockedFetchJson).toHaveBeenCalledTimes(2)
+  })
+
   it('keeps share disabled when no valid source has entries', () => {
     const { result } = renderHook(() =>
       useOnlineLutSources({
@@ -199,7 +257,27 @@ describe('useOnlineLutSources', () => {
     expect(result.current.share.url).toBe('/raw')
   })
 
-  it('enables share when a valid source has entries', async () => {
+  it('keeps share disabled when no clipboard or Web Share API is available', async () => {
+    vi.stubGlobal('navigator', {})
+    setupFetchJson({
+      [catalogUrl]: catalogDocument(),
+      [entryUrl]: entryManifest(),
+    })
+
+    const { result } = renderHook(() =>
+      useOnlineLutSources({
+        search: `?luts=${encodeURIComponent(catalogUrl)}`,
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    await waitFor(() => expect(result.current.state.entries).toHaveLength(1))
+
+    expect(result.current.share.enabled).toBe(false)
+  })
+
+  it('enables share when a valid source has entries and clipboard is available', async () => {
     setupFetchJson({
       [catalogUrl]: catalogDocument(),
       [entryUrl]: entryManifest(),
@@ -241,6 +319,40 @@ describe('useOnlineLutSources', () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
       `/raw?luts=${encodeURIComponent(catalogUrl)}`,
     )
+  })
+
+  it('keeps isLoading true until all concurrent resource requests settle', async () => {
+    const deferred = setupDeferredFetchJson()
+    const { result } = renderHook(() =>
+      useOnlineLutSources({
+        search: `?luts=${encodeURIComponent(entryUrl)}&luts=${encodeURIComponent(secondEntryUrl)}`,
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    await waitFor(() => expect(deferred.requests).toHaveLength(2))
+    expect(result.current.state.isLoading).toBe(true)
+
+    await act(async () => {
+      deferred.requests[0].resolve(entryManifest())
+    })
+
+    await waitFor(() => expect(result.current.state.entries).toHaveLength(1))
+    expect(result.current.state.isLoading).toBe(true)
+
+    await act(async () => {
+      deferred.requests[1].resolve(
+        entryManifest({
+          id: 'ektachrome-e100',
+          title: 'Ektachrome E100',
+          entryUrl: secondEntryUrl,
+        }),
+      )
+    })
+
+    await waitFor(() => expect(result.current.state.entries).toHaveLength(2))
+    expect(result.current.state.isLoading).toBe(false)
   })
 
   it('preserves invalid query issues while resolving valid query resources', async () => {

@@ -364,7 +364,7 @@ function OnlineLutSourceControls({
       )}
 
       {state.issues.length > 0 && (
-        <div className="raw-lut-source-issues">
+        <div className="raw-lut-source-issues" role="status" aria-live="polite">
           {state.issues.slice(-2).map((issue, index) => (
             <p key={`${issue.code}-${issue.resourceId ?? issue.raw ?? index}`}>
               {issue.message}
