@@ -3,6 +3,13 @@
  * Handles the complete flow from decoded RAW data to display/export.
  */
 
+import type {
+  BuiltinStylePreset,
+  LUTData,
+  LUTProfileResolution,
+  ProcessingParams,
+} from '@lumaforge/luma-color-runtime'
+
 import type { TransferFunctionId } from '~/lib/color/log-encoding'
 import {
   getLinearProPhotoToGamutMatrix,
@@ -49,47 +56,13 @@ import {
   VERTEX_SHADER,
 } from './shaders'
 
-export interface ProcessingParams {
-  intensity: number
-  viewMode: 'processed' | 'original' | 'compare'
-  compareSplit: number
-  styleKind: 'none' | 'builtin' | 'custom'
-  builtinPreset: BuiltinStylePreset | null
-}
-
-export type BuiltinStylePreset =
-  | 'neutral'
-  | 'warm'
-  | 'cool'
-  | 'film-soft'
-  | 'film-contrast'
-  | 'cinematic'
-  | 'fade'
-  | 'mono'
-
-export type LUTInputProfile = 'display-srgb' | 'v-log'
-
-export type LUTProfileResolution =
-  | {
-      kind: 'resolved'
-      profile: LUTColorProfile
-      confidence: 'metadata' | 'user' | 'persisted-user'
-    }
-  | {
-      kind: 'needs-user-selection'
-      suggestions: LUTColorProfile[]
-      reason?: 'unsupported-output'
-    }
-
-export interface LUTData {
-  size: number
-  data: Float32Array
-  domainMin: [number, number, number]
-  domainMax: [number, number, number]
-  title?: string
-  inputProfile: LUTInputProfile
-  profileResolution: LUTProfileResolution
-}
+export type {
+  BuiltinStylePreset,
+  LUTData,
+  LUTInputProfile,
+  LUTProfileResolution,
+  ProcessingParams,
+} from '@lumaforge/luma-color-runtime'
 
 export interface PipelineStats {
   uploadTime: number

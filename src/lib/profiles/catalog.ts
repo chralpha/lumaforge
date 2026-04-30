@@ -1,4 +1,4 @@
-import type { LUTContractSelection } from '~/lib/lut/profile-resolution'
+import type { LUTContractSelection } from '@lumaforge/luma-color-runtime'
 
 import { mapProfileLUTContract } from './lut-contract'
 

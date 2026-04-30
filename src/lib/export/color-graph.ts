@@ -1,3 +1,5 @@
+import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
+
 import type { ColorGamutId } from '~/lib/color/constants'
 import type { TransferFunctionId } from '~/lib/color/log-encoding'
 import type { Mat3 } from '~/lib/color/matrix'
@@ -12,7 +14,6 @@ import type {
   LUTRole,
   SignalRange,
 } from '~/lib/color/registry'
-import type { LUTData, ProcessingParams } from '~/lib/gl/pipeline'
 
 export type ExportColorGraphStep =
   | { kind: 'input-linear-prophoto' }

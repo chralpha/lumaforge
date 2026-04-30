@@ -1,8 +1,8 @@
+import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { act, render, waitFor } from '@testing-library/react'
 import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ProcessingParams } from '~/lib/gl/pipeline'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
 import {

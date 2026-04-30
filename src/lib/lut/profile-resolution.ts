@@ -1,3 +1,10 @@
+import type {
+  LUTContractSelection,
+  LUTInputProfile,
+  LUTProfileResolution,
+  StoredLUTContractSelection,
+} from '@lumaforge/luma-color-runtime'
+
 import type { ColorGamutId } from '~/lib/color/constants'
 import type { TransferFunctionId } from '~/lib/color/log-encoding'
 import type {
@@ -11,9 +18,13 @@ import {
   getTransferFunction,
   inferLUTColorProfileHints,
 } from '~/lib/color/registry'
-import type { LUTInputProfile, LUTProfileResolution } from '~/lib/gl/pipeline'
 
 import type { ParsedLUT } from './cube-parser'
+
+export type {
+  LUTContractSelection,
+  StoredLUTContractSelection,
+} from '@lumaforge/luma-color-runtime'
 
 const LUT_PROFILE_SELECTIONS_STORAGE_KEY = 'lumaforge.lutProfileSelections.v1'
 const DISPLAY_LIKE_INPUT_TRANSFERS = new Set<TransferFunctionId>([
@@ -21,28 +32,6 @@ const DISPLAY_LIKE_INPUT_TRANSFERS = new Set<TransferFunctionId>([
   'bt709',
   'gamma24',
 ])
-
-export interface StoredLUTContractSelection {
-  inputProfile?: string
-  role: LUTColorProfile['role']
-  inputGamut: ColorGamutId
-  inputTransfer: TransferFunctionId
-  inputRange: SignalRange
-  outputGamut?: ColorGamutId
-  outputTransfer?: TransferFunctionId
-  outputRange?: SignalRange
-}
-
-export interface LUTContractSelection {
-  inputProfile?: string
-  role: LUTColorProfile['role']
-  inputGamut?: ColorGamutId
-  inputTransfer?: TransferFunctionId
-  inputRange?: SignalRange
-  outputGamut?: ColorGamutId
-  outputTransfer?: TransferFunctionId
-  outputRange?: SignalRange
-}
 
 function stripCubeExtension(name: string): string {
   return name.replace(/\.cube$/i, '')

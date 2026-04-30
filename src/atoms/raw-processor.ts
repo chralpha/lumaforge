@@ -2,9 +2,10 @@
  * Jotai atoms for RAW processor state management.
  */
 
+import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { atom } from 'jotai'
 
-import type { PipelineStats, ProcessingParams } from '~/lib/gl/pipeline'
+import type { PipelineStats } from '~/lib/gl/pipeline'
 import { createAtomHooks } from '~/lib/jotai'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'

@@ -1,8 +1,8 @@
+import type { LUTData } from '@lumaforge/luma-color-runtime'
 import { describe, expect, it, vi } from 'vitest'
 
 import { getLUTColorProfile } from '~/lib/color/registry'
 
-import type { LUTData } from './pipeline'
 import { RawProcessingPipeline } from './pipeline'
 
 const contextMock = vi.hoisted(() => {

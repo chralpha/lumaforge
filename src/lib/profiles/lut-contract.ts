@@ -1,6 +1,7 @@
+import type { LUTContractSelection } from '@lumaforge/luma-color-runtime'
+
 import type { SignalRange } from '~/lib/color/registry'
 import { getColorGamut, getTransferFunction } from '~/lib/color/registry'
-import type { LUTContractSelection } from '~/lib/lut/profile-resolution'
 
 import type { OnlineProfileIssue, OnlineProfileResult } from './catalog'
 

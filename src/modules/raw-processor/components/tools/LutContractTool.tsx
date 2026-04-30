@@ -1,3 +1,4 @@
+import type { LUTProfileResolution } from '@lumaforge/luma-color-runtime'
 import {
   Download,
   FolderOpen,
@@ -23,7 +24,6 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import type { LUTColorProfile } from '~/lib/color/registry'
 import { searchLUTColorProfiles } from '~/lib/color/registry'
-import type { LUTProfileResolution } from '~/lib/gl/pipeline'
 
 import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
 import type { LUTProfileSelectionState } from '../../model/session'

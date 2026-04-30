@@ -1,3 +1,8 @@
+import type {
+  LUTContractSelection,
+  LUTData,
+  ProcessingParams,
+} from '@lumaforge/luma-color-runtime'
 import type { LumaRawExportCapability } from '@lumaforge/luma-raw-runtime'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -23,12 +28,7 @@ import {
 import type { LUTColorProfile } from '~/lib/color/registry'
 import { getLUTColorProfile } from '~/lib/color/registry'
 import { resolveExportColorGraph } from '~/lib/export/color-graph'
-import type {
-  LUTData,
-  PipelineStats,
-  ProcessingParams,
-  RawProcessingPipeline,
-} from '~/lib/gl/pipeline'
+import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import {
   isSupportedLUT,
@@ -36,7 +36,6 @@ import {
   toLUTData,
   validateLUT,
 } from '~/lib/lut/cube-parser'
-import type { LUTContractSelection } from '~/lib/lut/profile-resolution'
 import {
   applyLUTContractSelection,
   toLUTContractSelection,

@@ -7,7 +7,7 @@ import type {
   LUTData,
   LUTInputProfile,
   LUTProfileResolution,
-} from '~/lib/gl/pipeline'
+} from '@lumaforge/luma-color-runtime'
 
 import { resolveLUTProfile, toCompatInputProfile } from './profile-resolution'
 

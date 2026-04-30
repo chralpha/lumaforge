@@ -1,10 +1,7 @@
+import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
+
 import { clsxm } from '~/lib/cn'
-import type {
-  LUTData,
-  PipelineStats,
-  ProcessingParams,
-  RawProcessingPipeline,
-} from '~/lib/gl/pipeline'
+import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
 import type { DisplaySource } from '../model/session'

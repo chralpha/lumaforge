@@ -2,16 +2,12 @@
  * WebGL canvas component for rendering processed RAW images.
  */
 
+import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { m } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 
 import { clsxm } from '~/lib/cn'
-import type {
-  LUTData,
-  PipelineStats,
-  ProcessingParams,
-  RawUploadInput,
-} from '~/lib/gl/pipeline'
+import type { PipelineStats, RawUploadInput } from '~/lib/gl/pipeline'
 import { RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { DecodedImage } from '~/lib/raw/decoder'
 import { Spring } from '~/lib/spring'

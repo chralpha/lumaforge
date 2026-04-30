@@ -2,6 +2,7 @@
  * Controls panel for style-first RAW editing.
  */
 
+import type { LUTProfileResolution } from '@lumaforge/luma-color-runtime'
 import { useAtomValue } from 'jotai'
 import { m } from 'motion/react'
 import { useId, useMemo, useState } from 'react'
@@ -12,7 +13,6 @@ import { Input } from '~/components/ui/input'
 import { clsxm } from '~/lib/cn'
 import type { LUTColorProfile } from '~/lib/color/registry'
 import { searchLUTColorProfiles } from '~/lib/color/registry'
-import type { LUTProfileResolution } from '~/lib/gl/pipeline'
 import { Spring } from '~/lib/spring'
 
 import type { LUTProfileSelectionState } from '../model/session'
