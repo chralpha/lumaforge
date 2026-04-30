@@ -6,6 +6,7 @@ import type { OnlineProfileIssue, OnlineProfileResult } from './catalog'
 
 type LUTContractRole = LUTContractSelection['role']
 
+const DISPLAY_LIKE_INPUT_TRANSFERS = new Set(['srgb', 'bt709', 'gamma24'])
 const SUPPORTED_INTENT_ROLES = new Set([
   'technical-output',
   'display-look',
@@ -41,6 +42,17 @@ function readString(
 
 function isSignalRange(value: unknown): value is SignalRange {
   return value === 'full' || value === 'legal' || value === 'unknown'
+}
+
+function isDisplayLikeInput(selection: {
+  inputGamut?: LUTContractSelection['inputGamut']
+  inputTransfer?: LUTContractSelection['inputTransfer']
+}): boolean {
+  return Boolean(
+    selection.inputGamut === 'srgb-rec709' &&
+    selection.inputTransfer &&
+    DISPLAY_LIKE_INPUT_TRANSFERS.has(selection.inputTransfer),
+  )
 }
 
 function resolveRole(
@@ -168,6 +180,18 @@ export function mapProfileLUTContract(
     if (!outputRange.ok) issues.push(...outputRange.issues)
   }
 
+  if (
+    resolvedRole === 'display-look' &&
+    inputGamut.ok &&
+    inputTransfer.ok &&
+    !isDisplayLikeInput({
+      inputGamut: inputGamut.value,
+      inputTransfer: inputTransfer.value,
+    })
+  ) {
+    issues.push(issue('Display-look LUT input must be display-like.'))
+  }
+
   if (issues.length > 0) {
     return { ok: false, issues }
   }
@@ -188,7 +212,7 @@ export function mapProfileLUTContract(
       inputRange: inputRange.value,
       outputGamut: outputGamut.ok ? outputGamut.value : undefined,
       outputTransfer: outputTransfer.ok ? outputTransfer.value : undefined,
-      outputRange: outputRange.ok ? outputRange.value : undefined,
+      outputRange: hasOutput && outputRange.ok ? outputRange.value : undefined,
     },
   }
 }

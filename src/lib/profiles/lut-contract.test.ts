@@ -38,6 +38,40 @@ describe('online LUT trusted contract mapping', () => {
     expect(result).toMatchObject({ ok: true, value: { role } })
   })
 
+  it('accepts flat R2 display-look metadata without output for display-like input', () => {
+    const result = mapProfileLUTContract({
+      intent: 'display-look',
+      inputGamut: 'rec709',
+      inputTransfer: 'srgb',
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        role: 'display-look',
+        inputGamut: 'srgb-rec709',
+        inputTransfer: 'srgb',
+        inputRange: 'full',
+        outputGamut: undefined,
+        outputTransfer: undefined,
+        outputRange: undefined,
+      },
+    })
+  })
+
+  it('rejects flat R2 display-look metadata without output for camera log input', () => {
+    const result = mapProfileLUTContract({
+      intent: 'display-look',
+      inputGamut: 'arri-wide-gamut-3',
+      inputTransfer: 'arri-logc3',
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [{ code: 'unsupported-contract' }],
+    })
+  })
+
   it('maps legacy look intent to combined-look-output with output metadata', () => {
     const result = mapProfileLUTContract({
       intent: 'look',

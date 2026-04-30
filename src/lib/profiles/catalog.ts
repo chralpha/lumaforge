@@ -323,10 +323,21 @@ export function parseReleaseCatalog(
     const entryId = readString(entry, 'id')
     const entryIssues: OnlineProfileIssue[] = []
 
-    if (
-      readString(entry, 'kind') !== 'lut' ||
-      entry.redistributionAllowed !== true
-    ) {
+    if (readString(entry, 'kind') !== 'lut') {
+      issues.push(
+        issue('unsupported-entry', 'Only LUT entries are supported.', entryId),
+      )
+      continue
+    }
+
+    if (entry.redistributionAllowed !== true) {
+      issues.push(
+        issue(
+          'unsupported-entry',
+          'Only redistributable entries are supported.',
+          entryId,
+        ),
+      )
       continue
     }
 

@@ -157,6 +157,111 @@ describe('online LUT release catalog parsing', () => {
       ],
     })
   })
+
+  it('returns unsupported-entry issues when every catalog entry is non-LUT', () => {
+    const result = parseReleaseCatalog(
+      {
+        schemaVersion: 1,
+        entries: [
+          {
+            id: 'camera-profile',
+            kind: 'camera-profile',
+            version: '1.0.0',
+            title: 'Camera Profile',
+            license: 'NOASSERTION',
+            redistributionAllowed: true,
+            primaryAsset: {
+              role: 'dcp-profile',
+              mediaType: 'application/octet-stream',
+              size: 12,
+              sha256,
+              url: 'https://profiles.example.com/camera.dcp',
+            },
+            entryUrl:
+              'https://profiles.example.com/releases/v2026.05.01/entries/camera-profile.json',
+          },
+        ],
+      },
+      'https://profiles.example.com/releases/v2026.05.01/catalog.json',
+    )
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [{ code: 'unsupported-entry', entryId: 'camera-profile' }],
+    })
+  })
+
+  it('returns unsupported-entry issues when every LUT entry is non-redistributable', () => {
+    const result = parseReleaseCatalog(
+      {
+        schemaVersion: 1,
+        entries: [
+          {
+            id: entryManifest.id,
+            kind: 'lut',
+            version: entryManifest.version,
+            title: entryManifest.title,
+            license: entryManifest.license,
+            redistributionAllowed: false,
+            primaryAsset,
+            entryUrl: entryManifest.entryUrl,
+          },
+        ],
+      },
+      'https://profiles.example.com/releases/v2026.05.01/catalog.json',
+    )
+
+    expect(result).toMatchObject({
+      ok: false,
+      issues: [{ code: 'unsupported-entry', entryId: 'kodak-2383-rec709' }],
+    })
+  })
+
+  it('preserves asset validation issues when every candidate LUT is malformed', () => {
+    const result = parseReleaseCatalog(
+      {
+        schemaVersion: 1,
+        entries: [
+          {
+            id: entryManifest.id,
+            kind: 'lut',
+            version: entryManifest.version,
+            title: entryManifest.title,
+            license: entryManifest.license,
+            redistributionAllowed: true,
+            primaryAsset: {
+              role: 'thumbnail',
+              mediaType: 'image/png',
+              size: 0,
+              url: 'ftp://profiles.example.com/not-a-cube.png',
+            },
+            entryUrl: entryManifest.entryUrl,
+          },
+        ],
+      },
+      'https://profiles.example.com/releases/v2026.05.01/catalog.json',
+    )
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'missing-sha256',
+            entryId: 'kodak-2383-rec709',
+          }),
+          expect.objectContaining({
+            code: 'invalid-url',
+            entryId: 'kodak-2383-rec709',
+          }),
+          expect.objectContaining({
+            code: 'unsupported-asset',
+            entryId: 'kodak-2383-rec709',
+          }),
+        ]),
+      )
+    }
+  })
 })
 
 describe('online LUT release entry parsing', () => {
