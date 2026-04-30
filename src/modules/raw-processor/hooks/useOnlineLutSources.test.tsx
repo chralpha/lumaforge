@@ -98,6 +98,20 @@ function setupFetchJson(fixtures: Record<string, unknown>) {
   })
 }
 
+function setupPendingFetchJson() {
+  const signals: AbortSignal[] = []
+
+  mockedFetchJson.mockImplementation((_url, options) => {
+    if (options.signal) {
+      signals.push(options.signal)
+    }
+
+    return new Promise<unknown>(() => {})
+  })
+
+  return { signals }
+}
+
 describe('useOnlineLutSources', () => {
   beforeEach(() => {
     mockedFetchJson.mockReset()
@@ -273,5 +287,64 @@ describe('useOnlineLutSources', () => {
       sourceType: 'direct-cube',
       cube: { url: cubeUrl },
     })
+  })
+
+  it('aborts an in-flight metadata request when refreshing the same resource', async () => {
+    const pending = setupPendingFetchJson()
+    const { result } = renderHook(() =>
+      useOnlineLutSources({
+        search: `?luts=${encodeURIComponent(catalogUrl)}`,
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    await waitFor(() => expect(pending.signals).toHaveLength(1))
+    await waitFor(() => expect(result.current.state.resources).toHaveLength(1))
+
+    act(() => {
+      void result.current.refreshSource('lut-source-1')
+    })
+
+    expect(pending.signals[0].aborted).toBe(true)
+    await waitFor(() => expect(pending.signals).toHaveLength(2))
+    expect(pending.signals[1].aborted).toBe(false)
+  })
+
+  it('aborts an in-flight metadata request when removing that resource', async () => {
+    const pending = setupPendingFetchJson()
+    const { result } = renderHook(() =>
+      useOnlineLutSources({
+        search: `?luts=${encodeURIComponent(catalogUrl)}`,
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    await waitFor(() => expect(pending.signals).toHaveLength(1))
+    await waitFor(() => expect(result.current.state.resources).toHaveLength(1))
+
+    act(() => {
+      result.current.removeSource('lut-source-1')
+    })
+
+    expect(pending.signals[0].aborted).toBe(true)
+  })
+
+  it('aborts in-flight metadata requests on unmount', async () => {
+    const pending = setupPendingFetchJson()
+    const { unmount } = renderHook(() =>
+      useOnlineLutSources({
+        search: `?luts=${encodeURIComponent(catalogUrl)}`,
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    await waitFor(() => expect(pending.signals).toHaveLength(1))
+
+    unmount()
+
+    expect(pending.signals[0].aborted).toBe(true)
   })
 })

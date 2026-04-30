@@ -6,7 +6,7 @@
 import './raw-lab.css'
 
 import { useCallback } from 'react'
-import { useLocation } from 'react-router'
+import { useInRouterContext, useLocation } from 'react-router'
 
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
@@ -26,8 +26,53 @@ export interface RawProcessorViewProps {
   className?: string
 }
 
-export function RawProcessorView({ className }: RawProcessorViewProps) {
+interface RawRouteLocation {
+  search: string
+  pathname: string
+}
+
+interface RawProcessorViewInnerProps extends RawProcessorViewProps {
+  rawRouteLocation: RawRouteLocation
+}
+
+const fallbackRawRouteLocation: RawRouteLocation = {
+  pathname: '/raw',
+  search: '',
+}
+
+function RawProcessorViewWithRouterLocation(props: RawProcessorViewProps) {
   const location = useLocation()
+
+  return (
+    <RawProcessorViewInner
+      {...props}
+      rawRouteLocation={{
+        pathname: location.pathname,
+        search: location.search,
+      }}
+    />
+  )
+}
+
+export function RawProcessorView(props: RawProcessorViewProps) {
+  const inRouterContext = useInRouterContext()
+
+  if (inRouterContext) {
+    return <RawProcessorViewWithRouterLocation {...props} />
+  }
+
+  return (
+    <RawProcessorViewInner
+      {...props}
+      rawRouteLocation={fallbackRawRouteLocation}
+    />
+  )
+}
+
+function RawProcessorViewInner({
+  className,
+  rawRouteLocation,
+}: RawProcessorViewInnerProps) {
   const {
     params,
     loadedImage,
@@ -75,8 +120,8 @@ export function RawProcessorView({ className }: RawProcessorViewProps) {
     pipelineRef,
   } = useRawProcessor()
   const onlineLutSources = useOnlineLutSources({
-    search: location.search,
-    pathname: location.pathname,
+    search: rawRouteLocation.search,
+    pathname: rawRouteLocation.pathname,
     loadOnlineLUT,
   })
 
