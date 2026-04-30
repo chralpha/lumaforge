@@ -139,8 +139,10 @@ Entry rows must display only title, short source label, and a load action. They 
 
 Cover these cases:
 
-- `https://example.com/lumaforge-profiles.json` classifies as `catalog`.
-- `https://example.com/profiles/kodak-2383/manifest.json` classifies as `entry`.
+- `https://profiles.example.com/channels/stable/catalog.json` classifies as `catalog`.
+- `https://profiles.example.com/releases/v2026.05.01/catalog.json` classifies as `catalog`.
+- `https://profiles.example.com/releases/v2026.05.01/entries/org.example.lut.look.json` classifies as `entry`.
+- `https://example.com/lumaforge-profiles.json` classifies as `catalog` for compatibility with shared registry index URLs.
 - `https://example.com/kodak-2383.cube` classifies as `cube`.
 - `http://localhost:4173/test.cube` is accepted for local development.
 - `ftp://example.com/test.cube`, `javascript:alert(1)`, and `file:///tmp/test.cube` are rejected.
@@ -149,7 +151,7 @@ Cover these cases:
 
 ```ts
 const result = parseLUTResourceQuery(
-  '?luts=https%3A%2F%2Fexample.com%2Flumaforge-profiles.json&luts=https%3A%2F%2Fexample.com%2Fk.cube',
+  '?luts=https%3A%2F%2Fprofiles.example.com%2Fchannels%2Fstable%2Fcatalog.json&luts=https%3A%2F%2Fexample.com%2Fk.cube',
 )
 
 expect(result.resources).toHaveLength(2)
@@ -175,7 +177,7 @@ expect(result.resources[0]?.url).toBe(
 
 ```ts
 expect(createLUTResourceShareUrl('/raw?image=local', resources)).toBe(
-  '/raw?luts=https%3A%2F%2Fexample.com%2Flumaforge-profiles.json',
+  '/raw?luts=https%3A%2F%2Fprofiles.example.com%2Fchannels%2Fstable%2Fcatalog.json',
 )
 ```
 
@@ -200,23 +202,36 @@ git commit --no-gpg-sign -m "feat: add online LUT source URL parsing"
 
 - [ ] Write failing tests in `src/lib/profiles/catalog.test.ts` and `src/lib/profiles/lut-contract.test.ts`.
 
-Use in-test fixtures that mirror the published profile shape:
+Use in-test fixtures that mirror the R2/S3 runtime release shape:
 
 ```ts
 const entryManifest = {
-  kind: 'lumaforge.profile',
-  version: 1,
+  schemaVersion: 1,
   id: 'kodak-2383-rec709',
+  kind: 'lut',
+  format: 'cube',
+  version: '1.0.0',
   title: 'Kodak 2383 Rec.709',
-  assets: [
-    {
-      kind: 'cube',
-      href: 'Kodak_2383.cube',
-      sha256:
-        '9c56cc51b374c3ba189210d5b6d4bf57790d351c96c47c02190ecf1e430635ab',
-      bytes: 12,
-    },
-  ],
+  description: null,
+  license: 'NOASSERTION',
+  author: 'Unknown',
+  source: 'Unknown',
+  sourceUrl: null,
+  redistributionAllowed: true,
+  targets: {},
+  manifestPath: 'profiles/kodak-2383-rec709/manifest.json',
+  entryUrl:
+    'https://profiles.example.com/releases/v2026.05.01/entries/kodak-2383-rec709.json',
+  primaryAsset: {
+    role: 'cube-lut',
+    mediaType: 'application/x-cube-lut',
+    size: 12,
+    sha256: '9c56cc51b374c3ba189210d5b6d4bf57790d351c96c47c02190ecf1e430635ab',
+    url: 'https://profiles.example.com/blobs/sha256/9c/56/9c56cc51b374c3ba189210d5b6d4bf57790d351c96c47c02190ecf1e430635ab.cube',
+  },
+  assets: [],
+  createdAt: '2026-04-30T00:00:00.000Z',
+  updatedAt: '2026-04-30T00:00:00.000Z',
   lut: {
     intent: 'combined-look-output',
     input: { gamut: 'arri-wide-gamut-3', transfer: 'logc3', range: 'full' },
@@ -228,11 +243,12 @@ const entryManifest = {
 
 Required assertions:
 
-- A catalog with `profiles: [{ id, manifestUrl }]` resolves manifest URLs relative to the catalog URL.
-- A profile entry selects the first CUBE asset with `sha256`.
-- Relative CUBE asset URLs resolve relative to the entry manifest URL.
+- A release catalog with `entries: [{ id, entryUrl, primaryAsset }]` accepts only LUT CUBE entries.
+- Catalog `entryUrl` values remain absolute runtime URLs.
+- A release entry selects `primaryAsset` when its role is `cube-lut` and its media type or URL extension is recognized as CUBE.
+- Additional `assets` entries are accepted only as fallback when `primaryAsset` is absent from a non-release-compatible fixture.
 - Missing `sha256` rejects the entry with a typed validation issue.
-- Unsupported asset kind rejects the entry.
+- Unsupported `kind`, `format`, `primaryAsset.role`, or `redistributionAllowed` rejects the entry.
 - `combined-look-output` maps to `LUTContractSelection` with role `combined-look-output`.
 - `display-look`, `technical-output`, and `scene-creative` map to their same roles.
 - Legacy `look` maps to `combined-look-output` only when an output gamut and transfer are present; otherwise it maps to `scene-creative`.
