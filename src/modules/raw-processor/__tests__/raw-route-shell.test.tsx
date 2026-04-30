@@ -1,10 +1,138 @@
-import { render, screen } from '@testing-library/react'
-import { vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import {
+  getLut,
+  getProcessingParams,
+  resetToDefaults,
+} from '~/atoms/raw-processor'
+import { sha256Hex } from '~/lib/profiles/fetch'
 
 import { Component as RawRoute } from '../../../pages/(main)/raw'
 import { FileFactsTool } from '../components/tools/FileFactsTool'
 import { RawProcessorView } from '../RawProcessorView'
 import { classifySupportLevel } from '../services/support-matrix'
+
+const fetchMock = vi.fn<typeof fetch>()
+
+vi.mock('../hooks/useCapabilityGate', () => ({
+  useCapabilityGate: vi.fn(),
+}))
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+  },
+}))
+
+const mockedUseCapabilityGate = vi.mocked(
+  (await import('../hooks/useCapabilityGate')).useCapabilityGate,
+)
+
+function disableShareCapabilities() {
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: undefined,
+  })
+  Object.defineProperty(navigator, 'share', {
+    configurable: true,
+    value: undefined,
+  })
+}
+
+function installClipboard() {
+  const writeText = vi.fn().mockResolvedValue(undefined)
+
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText },
+  })
+  Object.defineProperty(navigator, 'share', {
+    configurable: true,
+    value: undefined,
+  })
+
+  return writeText
+}
+
+function createCube(title: string, size = 17) {
+  const lines = [`TITLE "${title}"`, `LUT_3D_SIZE ${size}`, '']
+  const step = 1 / (size - 1)
+
+  for (let b = 0; b < size; b += 1) {
+    for (let g = 0; g < size; g += 1) {
+      for (let r = 0; r < size; r += 1) {
+        lines.push(`${r * step} ${g * step} ${b * step}`)
+      }
+    }
+  }
+
+  return lines.join('\n')
+}
+
+function encodeCube(title: string) {
+  return new TextEncoder().encode(createCube(title))
+}
+
+function pendingFetch() {
+  return new Promise<Response>(() => {})
+}
+
+function jsonResponse(body: unknown) {
+  return Promise.resolve(
+    new Response(JSON.stringify(body), {
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  )
+}
+
+function bytesResponse(bytes: Uint8Array) {
+  return Promise.resolve(
+    new Response(bytes.slice().buffer, {
+      headers: { 'Content-Length': String(bytes.byteLength) },
+    }),
+  )
+}
+
+function fetchUrl(input: Parameters<typeof fetch>[0]) {
+  if (typeof input === 'string') return input
+  if (input instanceof URL) return input.href
+
+  return input.url
+}
+
+function fetchUrls() {
+  return fetchMock.mock.calls.map(([input]) => fetchUrl(input))
+}
+
+function renderRawRoute(initialEntry: string) {
+  return render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <RawProcessorView />
+    </MemoryRouter>,
+  )
+}
+
+beforeEach(() => {
+  resetToDefaults()
+  localStorage.clear()
+  disableShareCapabilities()
+
+  fetchMock.mockReset()
+  fetchMock.mockImplementation(pendingFetch)
+  vi.stubGlobal('fetch', fetchMock)
+
+  mockedUseCapabilityGate.mockReset()
+  mockedUseCapabilityGate.mockReturnValue({
+    ready: true,
+    supportStatus: 'supported',
+    reason: null,
+  })
+})
 
 describe('rawProcessorView', () => {
   it('renders the image-first empty RAW Lab workspace', () => {
@@ -94,14 +222,6 @@ describe('rawProcessorView', () => {
   })
 })
 
-vi.mock('../hooks/useCapabilityGate', () => ({
-  useCapabilityGate: vi.fn(),
-}))
-
-const mockedUseCapabilityGate = vi.mocked(
-  (await import('../hooks/useCapabilityGate')).useCapabilityGate,
-)
-
 describe('rawProcessorView shell states', () => {
   it('keeps unsupported WebGL2 state inside the raw route shell contract', () => {
     mockedUseCapabilityGate.mockReturnValue({
@@ -146,6 +266,196 @@ describe('rawProcessorView shell states', () => {
         'Cross-origin isolation is required for pthread RAW decode',
       ),
     ).toBeInTheDocument()
+  })
+})
+
+describe('rawProcessorView online LUT route sources', () => {
+  it('imports a query catalog resource into the source manager', async () => {
+    renderRawRoute(
+      `/raw?luts=${encodeURIComponent(
+        'https://example.com/lumaforge-profiles.json',
+      )}`,
+    )
+
+    expect(
+      await screen.findByText('Catalog from example.com'),
+    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://example.com/lumaforge-profiles.json',
+        expect.objectContaining({ credentials: 'omit' }),
+      ),
+    )
+  })
+
+  it('keeps a valid CUBE query resource and surfaces one rejected source issue', async () => {
+    const { container } = renderRawRoute(
+      `/raw?luts=${encodeURIComponent(
+        'javascript:alert(1)',
+      )}&luts=${encodeURIComponent('https://example.com/valid.cube')}`,
+    )
+
+    await waitFor(() =>
+      expect(
+        container.querySelectorAll('.raw-lut-source-resource'),
+      ).toHaveLength(1),
+    )
+    expect(container.querySelector('.raw-lut-source-label')).toHaveTextContent(
+      'valid.cube',
+    )
+
+    const status = await screen.findByRole('status')
+    expect(status).toHaveTextContent(
+      'Source URL must use HTTPS, or HTTP on localhost for local development.',
+    )
+    expect(status.querySelectorAll('p')).toHaveLength(1)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('copies a canonical LUT source link without unrelated RAW Lab params', async () => {
+    const user = userEvent.setup()
+    const writeText = installClipboard()
+    const validResource = 'https://example.com/shareable.cube'
+
+    renderRawRoute(
+      `/raw?viewMode=original&image=local&luts=${encodeURIComponent(
+        validResource,
+      )}`,
+    )
+
+    const shareButton = screen.getByRole('button', {
+      name: 'Copy LUT source link',
+    })
+    await waitFor(() => expect(shareButton).toBeEnabled())
+
+    await user.click(shareButton)
+
+    expect(writeText).toHaveBeenCalledWith(
+      `/raw?luts=${encodeURIComponent(validResource)}`,
+    )
+    expect(writeText.mock.calls[0]?.[0]).not.toContain('viewMode=')
+    expect(writeText.mock.calls[0]?.[0]).not.toContain('image=')
+  })
+
+  it('does not download a direct CUBE query resource until its load action is clicked', async () => {
+    const user = userEvent.setup()
+    const cubeUrl = 'https://example.com/lazy-direct.cube'
+    fetchMock.mockImplementation((input) => {
+      if (fetchUrl(input) === cubeUrl) {
+        return bytesResponse(encodeCube('Lazy Direct LUT'))
+      }
+
+      return pendingFetch()
+    })
+
+    renderRawRoute(`/raw?luts=${encodeURIComponent(cubeUrl)}`)
+
+    const loadButton = await screen.findByRole('button', {
+      name: 'Load lazy-direct.cube',
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    await user.click(loadButton)
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(fetchMock).toHaveBeenCalledWith(
+      cubeUrl,
+      expect.objectContaining({ credentials: 'omit' }),
+    )
+    await waitFor(() => expect(getLut()?.title).toBe('Lazy Direct LUT'))
+  })
+
+  it('loads a catalog query source through entry manifest, verified CUBE bytes, and active custom LUT state', async () => {
+    const user = userEvent.setup()
+    const catalogUrl = 'https://example.com/lumaforge-profiles.json'
+    const entryUrl =
+      'https://example.com/releases/v2026.05.01/entries/route-flow-lut.json'
+    const cubeUrl = 'https://example.com/blobs/route-flow-lut.cube'
+    const cubeBytes = encodeCube('Route Flow LUT')
+    const sha256 = await sha256Hex(cubeBytes)
+    const primaryAsset = {
+      role: 'cube-lut',
+      mediaType: 'application/x-cube-lut',
+      size: cubeBytes.byteLength,
+      sha256,
+      url: cubeUrl,
+    }
+    const catalog = {
+      schemaVersion: 1,
+      entries: [
+        {
+          id: 'route-flow-lut',
+          kind: 'lut',
+          version: '1.0.0',
+          title: 'Route Flow LUT',
+          license: 'NOASSERTION',
+          redistributionAllowed: true,
+          primaryAsset,
+          entryUrl,
+        },
+      ],
+    }
+    const entryManifest = {
+      schemaVersion: 1,
+      id: 'route-flow-lut',
+      kind: 'lut',
+      format: 'cube',
+      version: '1.0.0',
+      title: 'Route Flow LUT',
+      license: 'NOASSERTION',
+      redistributionAllowed: true,
+      entryUrl,
+      primaryAsset,
+      assets: [],
+      lut: {
+        intent: 'combined-look-output',
+        input: {
+          gamut: 'arri-wide-gamut-3',
+          transfer: 'logc3',
+          range: 'full',
+        },
+        output: { gamut: 'rec709', transfer: 'gamma24', range: 'legal' },
+      },
+      tags: ['route-acceptance'],
+    }
+
+    fetchMock.mockImplementation((input) => {
+      const url = fetchUrl(input)
+
+      if (url === catalogUrl) return jsonResponse(catalog)
+      if (url === entryUrl) return jsonResponse(entryManifest)
+      if (url === cubeUrl) return bytesResponse(cubeBytes)
+
+      return Promise.reject(new Error(`Unexpected URL: ${url}`))
+    })
+
+    renderRawRoute(`/raw?luts=${encodeURIComponent(catalogUrl)}`)
+
+    const loadButton = await screen.findByRole('button', {
+      name: 'Load Route Flow LUT',
+    })
+    expect(fetchUrls()).toEqual([catalogUrl, entryUrl])
+
+    await user.click(loadButton)
+
+    await waitFor(() => expect(fetchUrls()).toContain(cubeUrl))
+    await waitFor(() => expect(getLut()?.title).toBe('Route Flow LUT'))
+    expect(getProcessingParams()).toMatchObject({
+      styleKind: 'custom',
+      builtinPreset: null,
+    })
+    expect(getLut()?.profileResolution).toMatchObject({
+      kind: 'resolved',
+      confidence: 'user',
+      profile: {
+        role: 'combined-look-output',
+        inputGamut: 'arri-wide-gamut-3',
+        inputTransfer: 'logc3',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'gamma24',
+        outputRange: 'legal',
+      },
+    })
   })
 })
 
