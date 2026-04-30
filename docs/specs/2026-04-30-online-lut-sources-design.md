@@ -316,13 +316,31 @@ Recommended structure:
 LUT contract
 -> Online LUTs
    -> source selector / add source
-   -> search
-   -> simple entry list
+   -> collapsed source summaries
+   -> floating entry browser when a source is opened
 -> File upload fallback
 -> Contract status only after a LUT is loaded or needs user input
 ```
 
-The entry list is deliberately simple. A row should show:
+Remote LUT sources are collapsed by default. A source summary should show:
+
+- source label,
+- compatible LUT count when known,
+- loading state,
+- source-level issue state,
+- refresh, share, remove, and open actions where applicable.
+
+Opening a source should show its entries in an anchored floating browser rather
+than pushing the tool panel downward. The floating browser should have a fixed
+maximum height and its own internal scrolling. Large catalogs are supported as
+a browse surface, but the UI should not encourage users to manage many
+catalogs or behave like a general asset library.
+
+Do not add search, filtering, sorting, favorites, or catalog-management
+features in this version. Source URLs remain user-managed compatibility inputs,
+not a curated in-app store.
+
+The floating entry browser is deliberately simple. A row should show:
 
 - LUT title,
 - optional source or collection name when it helps distinguish duplicate titles,
@@ -355,6 +373,12 @@ The source manager should stay compact:
 - Remove source.
 - Share source link when one or more resource URLs are valid.
 - Show source-level failures, such as CORS blocked or invalid catalog.
+
+Desktop interaction should use a click-open anchored floating browser. Hover
+should not open it. `Esc` should close the browser, outside click should close
+it, and focus should return to the source open control. Mobile interaction
+should use a bottom-sheet-like overlay within the RAW tools surface rather than
+a narrow popover.
 
 It should not expose bucket internals, release object paths, or full manifest
 fields as the normal browsing model.
@@ -532,10 +556,15 @@ Hook/service coverage:
 
 UI coverage:
 
-- The online entry list displays title, optional source or collection, and
+- Remote LUT sources render as collapsed summaries by default.
+- Opening a source renders entries in a floating browser with internal
+  scrolling instead of inline panel expansion.
+- The online entry browser displays title, optional source or collection, and
   selected state only.
 - The entry row does not display input contract, output contract, license,
   cache state, hash, storage key, or blob URL.
+- The online source UI does not include search, filtering, sorting, favorites,
+  or catalog-management controls.
 - The source manager enables a share-link action only after at least one source
   resource URL is valid.
 - Source-level failures are visible in the source manager.
@@ -549,6 +578,8 @@ Browser validation:
   same renderable contract as manual loading of the same bytes.
 - Verify that a CORS-blocked source shows the fallback path without clearing the
   active RAW session.
+- Verify that opening a large catalog does not increase the outer RAW Lab page
+  height or force the tool panel to reflow downward.
 
 ## Acceptance criteria
 
@@ -566,6 +597,10 @@ Browser validation:
 - The app verifies SHA-256 for registry assets before parsing and loading.
 - The default online LUT list does not show contract, license, cache, hash, or
   storage details per entry.
+- Remote LUT resources are collapsed by default, and opening a source displays
+  entries in a floating browser with internal scrolling.
+- The online source browser does not include search, filtering, sorting,
+  favorites, or catalog-management controls.
 - Manual upload remains available and unchanged as the fallback path.
 - Unsupported URLs, CORS failures, invalid catalogs, hash mismatches, and
   unsupported contracts fail closed with recoverable product messages.

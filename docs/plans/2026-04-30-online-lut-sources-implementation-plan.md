@@ -470,8 +470,14 @@ Required assertions:
 - The hook exposes a disabled share state when no valid source exists.
 - The hook exposes an enabled share action after at least one valid resource parses.
 - The share action writes the canonical URL to `navigator.clipboard.writeText` when available.
-- Entry rows render title and load action.
+- Remote LUT sources render as collapsed summary rows by default.
+- Source summary rows show source label, compatible LUT count when known, source loading/issue state, and source actions.
+- Opening a source renders entry rows in a floating browser, not inline in the tool stack.
+- The floating browser uses a fixed max height with internal scrolling.
+- Entry rows render title and load action only inside the floating browser.
 - Entry rows do not render `input contract`, `output contract`, `license`, `cache`, `sha256`, or byte count text.
+- The source UI does not include search, filtering, sorting, favorites, or catalog-management controls.
+- `Escape` and outside click close the floating browser, and focus returns to the source open control.
 - Manual upload controls remain visible.
 
 - [ ] Implement `src/modules/raw-processor/hooks/useOnlineLutSources.ts`.
@@ -528,11 +534,16 @@ const onlineLutSources = useOnlineLutSources({
   - Source URL input
   - Add source button
   - Share button, enabled only after valid parsed resources exist
-  - Resource list with refresh and remove actions
-  - Simple entry rows with title, source label, and load action
+  - Collapsed resource summary rows with refresh, remove, and open actions
+  - Source entry counts and source-level loading/issue states in summary rows
+  - A click-open floating entry browser with fixed max height and internal scrolling
+  - Simple entry rows with title, source label, and load action inside the floating browser
+  - Desktop close behavior for `Escape` and outside click, with focus restored to the open control
+  - Mobile bottom-sheet-like overlay behavior instead of a narrow popover
   - Existing manual upload area below or above the online source controls
 - [ ] Use lucide-react icons for add, refresh, remove, share, and download/load buttons.
-- [ ] Update `src/modules/raw-processor/raw-lab.css` with responsive, compact controls. Avoid nested cards and avoid hero-style typography.
+- [ ] Do not add search, filtering, sorting, favorites, or catalog-management controls.
+- [ ] Update `src/modules/raw-processor/raw-lab.css` with responsive, compact controls, anchored floating browser positioning, internal list scrolling, and reduced-motion-safe state transitions. Avoid nested cards and avoid hero-style typography.
 - [ ] Verify:
 
 ```bash
@@ -602,12 +613,15 @@ Open:
 
 Manual acceptance:
 
-- Pasted catalog URL adds a source and lists entries.
+- Pasted catalog URL adds a collapsed source summary with the compatible LUT count.
+- Opening a source shows entries in a floating browser with internal scrolling, without expanding the tool panel downward.
 - Pasted entry manifest URL adds exactly that entry.
 - Pasted direct `.cube` URL adds a direct entry without downloading bytes.
 - Invalid URL produces a clear inline issue and does not remove valid sources.
 - Share button appears after a valid source resource parses and copies a URL containing only `luts` params.
 - Entry rows do not show input contract, output contract, license, cache, hash, or bytes.
+- The online source UI does not show search, filtering, sorting, favorites, or catalog-management controls.
+- `Escape` and outside click close the floating browser and return focus to the source open control.
 - Loading a registry-backed entry fetches, verifies, parses, applies the trusted contract, and activates the LUT.
 - Loading a direct CUBE entry behaves like manual upload.
 - Manual upload still works after adding and removing online sources.
