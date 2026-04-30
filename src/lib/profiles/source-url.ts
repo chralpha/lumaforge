@@ -87,9 +87,14 @@ export function createLUTResourceShareUrl(
 ): string {
   const [pathname] = path.split('?')
   const params = new URLSearchParams()
+  const normalizedUrls = Array.from(
+    new Set(
+      resources.map((resource) => normalizeProfileSourceUrl(resource.url)),
+    ),
+  ).sort((left, right) => left.localeCompare(right, 'en-US'))
 
-  for (const resource of resources) {
-    params.append('luts', normalizeProfileSourceUrl(resource.url))
+  for (const url of normalizedUrls) {
+    params.append('luts', url)
   }
 
   const query = params.toString()
@@ -119,10 +124,6 @@ function parseProfileSourceUrl(value: string): ParsedProfileSourceUrl {
 
 function parseUrl(value: string): URL {
   try {
-    if (typeof window !== 'undefined') {
-      return new URL(value, window.location.origin)
-    }
-
     return new URL(value)
   } catch {
     throw new ProfileSourceUrlError('invalid-url', 'Source URL is invalid.')
@@ -185,7 +186,12 @@ function classifySupportedUrl(url: URL): ProfileSourceType {
 function isLocalHttpHost(hostname: string): boolean {
   const host = hostname.toLowerCase()
 
-  return host === 'localhost' || host === '127.0.0.1' || host === '::1'
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host === '[::1]'
+  )
 }
 
 function createParseIssue(

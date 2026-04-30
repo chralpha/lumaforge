@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import type {ProfileSourceResource} from './source-url';
+import type { ProfileSourceResource } from './source-url'
 import {
   classifyProfileSourceUrl,
   createLUTResourceShareUrl,
   normalizeProfileSourceUrl,
-  parseLUTResourceQuery
+  parseLUTResourceQuery,
 } from './source-url'
 
 describe('profile source URLs', () => {
@@ -45,6 +45,10 @@ describe('profile source URLs', () => {
     expect(classifyProfileSourceUrl('http://localhost:4173/test.cube')).toBe(
       'cube',
     )
+    expect(normalizeProfileSourceUrl('http://[::1]:4173/test.cube')).toBe(
+      'http://[::1]:4173/test.cube',
+    )
+    expect(classifyProfileSourceUrl('http://[::1]:4173/test.cube')).toBe('cube')
   })
 
   it('rejects unsupported schemes', () => {
@@ -67,6 +71,12 @@ describe('profile source URLs', () => {
         '?luts=https%3A%2F%2Fuser%3Apass%40example.com%2Ftest.cube',
       ).issues[0]?.code,
     ).toBe('credentialed-url')
+  })
+
+  it('rejects relative source URLs', () => {
+    expect(
+      parseLUTResourceQuery('?luts=%2Fluts%2Flook.cube').issues[0]?.code,
+    ).toBe('invalid-url')
   })
 
   it('parses repeated luts query params in order and dedupes by normalized URL', () => {
@@ -120,5 +130,41 @@ describe('profile source URLs', () => {
     expect(createLUTResourceShareUrl('/raw?image=local', resources)).toBe(
       '/raw?luts=https%3A%2F%2Fexample.com%2Flumaforge-profiles.json',
     )
+  })
+
+  it('creates share URLs independent of caller resource order', () => {
+    const resources: ProfileSourceResource[] = [
+      {
+        id: 'second',
+        url: 'https://example.com/b.cube',
+        type: 'cube',
+        label: 'B',
+        fromQuery: false,
+      },
+      {
+        id: 'first',
+        url: 'https://example.com/a.cube',
+        type: 'cube',
+        label: 'A',
+        fromQuery: false,
+      },
+      {
+        id: 'duplicate',
+        url: 'https://example.com/b.cube',
+        type: 'cube',
+        label: 'B duplicate',
+        fromQuery: false,
+      },
+    ]
+
+    const expected =
+      '/raw?luts=https%3A%2F%2Fexample.com%2Fa.cube&luts=https%3A%2F%2Fexample.com%2Fb.cube'
+
+    expect(createLUTResourceShareUrl('/raw?image=local', resources)).toBe(
+      expected,
+    )
+    expect(
+      createLUTResourceShareUrl('/raw?image=local', [...resources].reverse()),
+    ).toBe(expected)
   })
 })
