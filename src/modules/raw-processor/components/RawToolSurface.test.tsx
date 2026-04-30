@@ -265,7 +265,7 @@ describe('rawToolSurface', () => {
     expect(within(browser).getByText('Kodak 2383 Rec.709')).toBeInTheDocument()
     expect(
       within(browser).getAllByText('Catalog from profiles.example.com'),
-    ).toHaveLength(2)
+    ).toHaveLength(1)
     expect(
       within(browser).getByRole('button', {
         name: 'Load Kodak 2383 Rec.709',

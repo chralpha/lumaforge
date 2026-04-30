@@ -259,8 +259,7 @@
 .raw-lut-source-label,
 .raw-lut-source-count,
 .raw-lut-source-state,
-.raw-lut-source-entry-title,
-.raw-lut-source-entry-source {
+.raw-lut-source-entry-title {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -369,7 +368,7 @@
   display: grid;
   align-items: center;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.72fr) 32px;
+  grid-template-columns: minmax(0, 1fr) 32px;
   gap: 7px;
   padding: 6px 7px;
   border: 1px solid oklch(0.74 0.035 78 / 0.46);
@@ -381,11 +380,6 @@
   color: var(--raw-ink);
   font-size: 0.74rem;
   font-weight: 650;
-}
-
-.raw-lut-source-entry-source {
-  color: var(--raw-ink-soft);
-  font-size: 0.68rem;
 }
 
 .raw-lut-source-browser-empty {
@@ -438,14 +432,6 @@
 
   .raw-lut-source-browser-list {
     min-height: 0;
-  }
-
-  .raw-lut-source-entry {
-    grid-template-columns: minmax(0, 1fr) 32px;
-  }
-
-  .raw-lut-source-entry-source {
-    display: none;
   }
 }
 

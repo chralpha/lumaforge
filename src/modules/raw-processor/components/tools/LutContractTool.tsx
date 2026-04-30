@@ -616,9 +616,6 @@ function OnlineLutSourceControls({
                   <span className="raw-lut-source-entry-title">
                     {entry.title}
                   </span>
-                  <span className="raw-lut-source-entry-source">
-                    {resourcesById.get(entry.resourceId)?.label}
-                  </span>
                   <LutIconButton
                     label={`Load ${entry.title}`}
                     onClick={() => void onlineLutSources.loadEntry(entry.id)}
