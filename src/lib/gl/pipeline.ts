@@ -5,25 +5,25 @@
 
 import type {
   BuiltinStylePreset,
+  LUTColorProfile,
   LUTData,
   LUTProfileResolution,
+  LUTRole,
   ProcessingParams,
+  TransferFunctionId,
+} from '@lumaforge/luma-color-runtime'
+import {
+  getLinearProPhotoToGamutMatrix,
+  getLUTOutputToTargetMatrix,
+  mat3Identity,
+  mat3ToGLSL,
+  resolveExportColorGraph,
 } from '@lumaforge/luma-color-runtime'
 import {
   LUT_RANGE_UNIFORMS,
   LUT_ROLE_UNIFORMS,
   LUT_TRANSFER_UNIFORMS,
 } from '@lumaforge/luma-color-runtime/glsl'
-
-import type { TransferFunctionId } from '~/lib/color/log-encoding'
-import {
-  getLinearProPhotoToGamutMatrix,
-  getLUTOutputToTargetMatrix,
-  mat3Identity,
-  mat3ToGLSL,
-} from '~/lib/color/matrix'
-import type { LUTColorProfile, LUTRole } from '~/lib/color/registry'
-import { resolveExportColorGraph } from '~/lib/export/color-graph'
 
 import type {
   PipelineCapabilityWarning,

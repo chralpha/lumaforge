@@ -1,15 +1,14 @@
+import type { LUTColorProfile } from '@lumaforge/luma-color-runtime'
+import {
+  getLUTColorProfile,
+  TIER1_LUT_COLOR_PROFILES,
+} from '@lumaforge/luma-color-runtime'
 import {
   LUT_RANGE_UNIFORMS,
   LUT_ROLE_UNIFORMS,
   LUT_TRANSFER_UNIFORMS,
 } from '@lumaforge/luma-color-runtime/glsl'
 import { describe, expect, it } from 'vitest'
-
-import type { LUTColorProfile } from '~/lib/color/registry'
-import {
-  getLUTColorProfile,
-  TIER1_LUT_COLOR_PROFILES,
-} from '~/lib/color/registry'
 
 import {
   isLUTProfileRenderable,

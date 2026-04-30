@@ -1,4 +1,4 @@
-import { getLUTColorProfile } from '~/lib/color/registry'
+import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
 
 import {
   deriveCanEdit,

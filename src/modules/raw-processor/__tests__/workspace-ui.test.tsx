@@ -1,9 +1,8 @@
+import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, vi } from 'vitest'
-
-import { getLUTColorProfile } from '~/lib/color/registry'
 
 import { ComparePreviewStage } from '../components/ComparePreviewStage'
 import { LutDropzone } from '../components/Dropzone'

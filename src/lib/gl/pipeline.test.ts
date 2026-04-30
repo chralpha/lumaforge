@@ -1,7 +1,6 @@
 import type { LUTData } from '@lumaforge/luma-color-runtime'
+import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
 import { describe, expect, it, vi } from 'vitest'
-
-import { getLUTColorProfile } from '~/lib/color/registry'
 
 import { RawProcessingPipeline } from './pipeline'
 

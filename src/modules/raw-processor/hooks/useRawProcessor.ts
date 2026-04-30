@@ -1,7 +1,12 @@
 import type {
+  LUTColorProfile,
   LUTContractSelection,
   LUTData,
   ProcessingParams,
+} from '@lumaforge/luma-color-runtime'
+import {
+  getLUTColorProfile,
+  resolveExportColorGraph,
 } from '@lumaforge/luma-color-runtime'
 import type { LumaRawExportCapability } from '@lumaforge/luma-raw-runtime'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -25,9 +30,6 @@ import {
   useSetProcessingStatus,
   useSetProgress,
 } from '~/atoms/raw-processor'
-import type { LUTColorProfile } from '~/lib/color/registry'
-import { getLUTColorProfile } from '~/lib/color/registry'
-import { resolveExportColorGraph } from '~/lib/export/color-graph'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import {

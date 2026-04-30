@@ -1,11 +1,10 @@
 import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
+import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
 import {
   LUT_ROLE_UNIFORMS,
   LUT_TRANSFER_UNIFORMS,
 } from '@lumaforge/luma-color-runtime/glsl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-import { getLUTColorProfile } from '~/lib/color/registry'
 
 import type { RawUploadInput } from './pipeline'
 import { RawProcessingPipeline } from './pipeline'

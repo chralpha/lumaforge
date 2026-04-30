@@ -1,3 +1,4 @@
+import { resolveRawRenderExposure } from '@lumaforge/luma-color-runtime'
 import type {
   LumaEmbeddedPreview,
   LumaRawErrorCode,
@@ -7,7 +8,6 @@ import type {
   LumaRawRuntime,
 } from '@lumaforge/luma-raw-runtime'
 
-import { resolveRawRenderExposure } from '~/lib/color/raw-render-exposure'
 import { JPEG_RUNTIME_UNAVAILABLE_MESSAGE } from '~/lib/export/jpeg/wasm-row-sink'
 
 import type { DecodedImage, ImageMetadata, ProgressCallback } from './decoder'

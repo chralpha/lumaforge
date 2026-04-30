@@ -1,11 +1,11 @@
+import type { RawRenderExposure } from '@lumaforge/luma-color-runtime'
+import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { Provider } from 'jotai'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetToDefaults } from '~/atoms/raw-processor'
-import type { RawRenderExposure } from '~/lib/color/raw-render-exposure'
-import { getLUTColorProfile } from '~/lib/color/registry'
 import { jotaiStore } from '~/lib/jotai'
 import {
   getStoredLUTContractSelection,

@@ -1,8 +1,9 @@
-import type { LUTProfileResolution } from '@lumaforge/luma-color-runtime'
+import type {
+  LUTColorProfile,
+  LUTProfileResolution,
+} from '@lumaforge/luma-color-runtime'
 import type { ComponentProps } from 'react'
 import { useId, useState } from 'react'
-
-import type { LUTColorProfile } from '~/lib/color/registry'
 
 import type { UseOnlineLutSourcesResult } from '../hooks/useOnlineLutSources'
 import type {

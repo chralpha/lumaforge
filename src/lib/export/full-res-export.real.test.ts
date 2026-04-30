@@ -5,10 +5,11 @@ import { readFile, stat } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import type { RawRenderExposure } from '@lumaforge/luma-color-runtime'
+import { resolveExportColorGraph } from '@lumaforge/luma-color-runtime'
 import { createLumaRawRuntime } from '@lumaforge/luma-raw-runtime'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import type { RawRenderExposure } from '~/lib/color/raw-render-exposure'
 import {
   applyLUTContractSelection,
   parseCubeLUT,
@@ -34,7 +35,6 @@ import type {
   LumaRawNativeFactory,
 } from '../../../packages/luma-raw-runtime/worker/native-types'
 import { createRuntimeCore } from '../../../packages/luma-raw-runtime/worker/runtime-core'
-import { resolveExportColorGraph } from './color-graph'
 import { runFullResolutionJpegExport } from './full-res-export'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
 

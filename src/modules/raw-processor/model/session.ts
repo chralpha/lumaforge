@@ -1,9 +1,8 @@
 import type {
+  LUTColorProfile,
   LUTInputProfile,
   LUTProfileResolution,
 } from '@lumaforge/luma-color-runtime'
-
-import type { LUTColorProfile } from '~/lib/color/registry'
 
 import type { ExportResult } from './export-result'
 

@@ -1,4 +1,8 @@
-import type { LUTProfileResolution } from '@lumaforge/luma-color-runtime'
+import type {
+  LUTColorProfile,
+  LUTProfileResolution,
+} from '@lumaforge/luma-color-runtime'
+import { searchLUTColorProfiles } from '@lumaforge/luma-color-runtime'
 import {
   Download,
   FolderOpen,
@@ -22,8 +26,6 @@ import { createPortal } from 'react-dom'
 
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
-import type { LUTColorProfile } from '~/lib/color/registry'
-import { searchLUTColorProfiles } from '~/lib/color/registry'
 
 import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
 import type { LUTProfileSelectionState } from '../../model/session'

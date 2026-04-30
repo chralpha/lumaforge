@@ -1,11 +1,12 @@
-import type { LUTProfileResolution } from '@lumaforge/luma-color-runtime'
-
-import type { LUTColorProfile } from '~/lib/color/registry'
+import type {
+  LUTColorProfile,
+  LUTProfileResolution,
+} from '@lumaforge/luma-color-runtime'
 import {
   getColorGamut,
   getLUTColorProfile,
   getTransferFunction,
-} from '~/lib/color/registry'
+} from '@lumaforge/luma-color-runtime'
 
 import type { LUTProfileSelectionState } from '../../model/session'
 

@@ -1,6 +1,5 @@
+import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
 import { describe, expect, it, vi } from 'vitest'
-
-import type { ExportColorGraphDescriptor } from '~/lib/export/color-graph'
 
 import {
   buildExportFilename,

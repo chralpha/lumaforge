@@ -1,4 +1,4 @@
-import type { RawRenderExposure } from '~/lib/color/raw-render-exposure'
+import type { RawRenderExposure } from '@lumaforge/luma-color-runtime'
 
 type DecodedImageLayout = 'rgba-float32' | 'rgb-u16'
 
