@@ -295,6 +295,129 @@ describe('online LUT source metadata service', () => {
     expect(state.activeResourceId).toBe('old-source')
   })
 
+  it('retargets synthetic resolution issues to the merged resource id so removal cleans them up', () => {
+    const state = mergeOnlineLUTSourceResolution(emptyState(), {
+      resource: resource({ id: 'issue-source', url: entryUrl, type: 'entry' }),
+      entries: [],
+      issues: [
+        {
+          code: 'invalid-entry',
+          message: 'Release entry shape is invalid.',
+          sourceUrl: entryUrl,
+        },
+      ],
+    })
+
+    expect(state.issues).toEqual([
+      {
+        code: 'invalid-entry',
+        message: 'Release entry shape is invalid.',
+        resourceId: 'issue-source',
+        sourceUrl: entryUrl,
+      },
+    ])
+
+    expect(removeOnlineLUTSourceResource(state, 'issue-source').issues).toEqual(
+      [],
+    )
+  })
+
+  it('removes stale entries and issues for both ids when duplicate URL merges keep the older id', () => {
+    const oldResource = resource({
+      id: 'old-source',
+      url: entryUrl,
+      type: 'entry',
+    })
+    const newResource = resource({
+      id: 'new-source',
+      url: entryUrl,
+      type: 'entry',
+    })
+    const unrelatedResource = resource({
+      id: 'unrelated-source',
+      url: secondEntryUrl,
+      type: 'entry',
+    })
+    const oldEntry: OnlineLUTSourceEntry = {
+      id: 'old-entry',
+      resourceId: 'old-source',
+      title: 'Old Entry',
+      sourceUrl: entryUrl,
+      sourceType: 'catalog-entry',
+      cube: { url: cubeUrl, sha256 },
+      tags: [],
+    }
+    const newEntry: OnlineLUTSourceEntry = {
+      ...oldEntry,
+      id: 'new-entry',
+      resourceId: 'new-source',
+    }
+    const unrelatedEntry: OnlineLUTSourceEntry = {
+      ...oldEntry,
+      id: 'unrelated-entry',
+      resourceId: 'unrelated-source',
+      sourceUrl: secondEntryUrl,
+    }
+    const oldIssue: OnlineLUTSourceIssue = {
+      code: 'network',
+      message: 'Old issue.',
+      resourceId: 'old-source',
+    }
+    const newIssue: OnlineLUTSourceIssue = {
+      code: 'network',
+      message: 'New issue.',
+      resourceId: 'new-source',
+    }
+    const unrelatedIssue: OnlineLUTSourceIssue = {
+      code: 'network',
+      message: 'Unrelated issue.',
+      resourceId: 'unrelated-source',
+    }
+
+    const state = mergeOnlineLUTSourceResolution(
+      emptyState({
+        resources: [oldResource, newResource, unrelatedResource],
+        entries: [oldEntry, newEntry, unrelatedEntry],
+        issues: [oldIssue, newIssue, unrelatedIssue],
+      }),
+      {
+        resource: newResource,
+        entries: [
+          {
+            ...newEntry,
+            id: 'fresh-entry',
+          },
+        ],
+        issues: [
+          {
+            code: 'invalid-entry',
+            message: 'Fresh issue.',
+            resourceId: 'new-source',
+          },
+        ],
+      },
+    )
+
+    expect(state.resources).toEqual([oldResource, unrelatedResource])
+    expect(state.entries).toEqual([
+      unrelatedEntry,
+      {
+        ...newEntry,
+        id: 'fresh-entry',
+        resourceId: 'old-source',
+      },
+    ])
+    expect(state.issues).toEqual([
+      unrelatedIssue,
+      {
+        code: 'invalid-entry',
+        message: 'Fresh issue.',
+        resourceId: 'old-source',
+      },
+    ])
+    expect(state.activeResourceId).toBe('old-source')
+  })
+
   it('removes entries and issues owned only by a removed resource while preserving others', () => {
     const removedEntry: OnlineLUTSourceEntry = {
       id: 'removed',
@@ -364,6 +487,51 @@ describe('online LUT source metadata service', () => {
       entryUrl,
     ])
     expect(refreshed.entries).toHaveLength(1)
+  })
+
+  it('refresh failure removes stale entries and excludes the failed resource from sharing', () => {
+    const validResource = resource({
+      id: 'entry-source',
+      url: entryUrl,
+      type: 'entry',
+    })
+    const entry: OnlineLUTSourceEntry = {
+      id: 'kodak-2383-rec709',
+      resourceId: 'entry-source',
+      title: 'Kodak 2383 Rec.709',
+      sourceUrl: entryUrl,
+      sourceType: 'catalog-entry',
+      cube: { url: cubeUrl, sha256 },
+      tags: [],
+    }
+    const initialState = emptyState({
+      resources: [validResource],
+      entries: [entry],
+    })
+
+    const failedRefresh = mergeOnlineLUTSourceResolution(initialState, {
+      resource: validResource,
+      entries: [],
+      issues: [
+        {
+          code: 'network',
+          message: 'Failed to refresh.',
+          resourceId: 'entry-source',
+          sourceUrl: entryUrl,
+        },
+      ],
+    })
+
+    expect(failedRefresh.entries).toEqual([])
+    expect(failedRefresh.issues).toEqual([
+      {
+        code: 'network',
+        message: 'Failed to refresh.',
+        resourceId: 'entry-source',
+        sourceUrl: entryUrl,
+      },
+    ])
+    expect(getShareableOnlineLUTSourceResources(failedRefresh)).toEqual([])
   })
 
   it('builds share resources from valid source rows only', () => {

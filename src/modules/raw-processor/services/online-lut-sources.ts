@@ -124,9 +124,7 @@ function retargetIssue(
   issue: OnlineLUTSourceIssue,
   resourceId: string,
 ): OnlineLUTSourceIssue {
-  if (!issue.resourceId || issue.resourceId === resourceId) return issue
-
-  return { ...issue, resourceId }
+  return issue.resourceId === resourceId ? issue : { ...issue, resourceId }
 }
 
 export async function resolveProfileSourceResource(
