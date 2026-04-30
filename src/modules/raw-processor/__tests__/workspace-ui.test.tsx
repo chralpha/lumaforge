@@ -401,7 +401,7 @@ describe('rawToolSurface', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('offers searchable full Rec.709 contracts for unannotated LUTs', async () => {
+  it('lets users choose LUT input and output independently for unannotated LUTs', async () => {
     const user = userEvent.setup()
     const onLutProfileSelect = vi.fn()
 
@@ -433,24 +433,31 @@ describe('rawToolSurface', () => {
 
     await user.type(screen.getByLabelText('Search LUT contract'), 'v-log')
 
-    const vLogContractButton = screen.getByRole('button', {
-      name: 'Panasonic V-Gamut / V-Log -> Rec.709 display',
+    const vLogInputButton = screen.getByRole('button', {
+      name: 'Use Panasonic V-Gamut / V-Log as LUT input',
     })
-    expect(vLogContractButton).toBeInTheDocument()
+    expect(vLogInputButton).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Panasonic V-Gamut / V-Log' }),
+      screen.queryByRole('button', {
+        name: 'Panasonic V-Gamut / V-Log -> Rec.709 display',
+      }),
     ).not.toBeInTheDocument()
 
-    await user.click(vLogContractButton)
+    await user.click(vLogInputButton)
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Use Panasonic V-Gamut / V-Log as LUT output',
+      }),
+    )
 
     expect(onLutProfileSelect).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'panasonic-vgamut-vlog',
-        role: 'combined-look-output',
+        role: 'scene-creative',
         inputGamut: 'v-gamut',
         inputTransfer: 'v-log',
-        outputGamut: 'srgb-rec709',
-        outputTransfer: 'bt709',
+        outputGamut: 'v-gamut',
+        outputTransfer: 'v-log',
         outputRange: 'full',
       }),
     )

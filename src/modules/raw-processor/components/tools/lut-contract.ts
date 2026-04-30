@@ -58,12 +58,6 @@ export function getProfileOutputLabel(profile?: LUTColorProfile) {
   return [gamut, transfer].filter(Boolean).join(' / ')
 }
 
-function hasAnyOutputContractField(profile: LUTColorProfile) {
-  return Boolean(
-    profile.outputGamut || profile.outputTransfer || profile.outputRange,
-  )
-}
-
 function hasSelectableOutputContract(profile: LUTColorProfile) {
   if (profile.role === 'display-look' && hasDisplayLikeInput(profile)) {
     return true
@@ -74,22 +68,53 @@ function hasSelectableOutputContract(profile: LUTColorProfile) {
   )
 }
 
-function getDefaultRec709Contract(profile: LUTColorProfile): LUTColorProfile {
-  return {
-    ...profile,
-    role: 'combined-look-output',
-    outputGamut: 'srgb-rec709',
-    outputTransfer: 'bt709',
-    outputRange: 'full',
-  }
-}
-
 export function toSelectableContract(profile: LUTColorProfile) {
   if (hasSelectableOutputContract(profile)) return profile
-  if (!hasAnyOutputContractField(profile) && !hasDisplayLikeInput(profile)) {
-    return getDefaultRec709Contract(profile)
-  }
   return undefined
+}
+
+export function getProfileAsOutputLabel(profile: LUTColorProfile) {
+  if (hasDisplayLikeInput(profile)) return 'Rec.709 display'
+
+  const gamut = getColorGamut(profile.inputGamut)?.label ?? profile.inputGamut
+  const transfer =
+    getTransferFunction(profile.inputTransfer)?.label ?? profile.inputTransfer
+
+  return `${gamut} / ${transfer}`
+}
+
+function getComposedContractRole(
+  inputProfile: LUTColorProfile,
+  outputProfile: LUTColorProfile,
+): LUTColorProfile['role'] {
+  const outputIsDisplayLike = hasDisplayLikeInput(outputProfile)
+  const outputMatchesInput =
+    inputProfile.inputGamut === outputProfile.inputGamut &&
+    inputProfile.inputTransfer === outputProfile.inputTransfer
+
+  if (
+    inputProfile.role === 'display-look' &&
+    hasDisplayLikeInput(inputProfile) &&
+    outputIsDisplayLike
+  ) {
+    return 'display-look'
+  }
+  if (outputIsDisplayLike) return 'combined-look-output'
+  if (outputMatchesInput) return 'scene-creative'
+  return 'technical-output'
+}
+
+export function composeLUTContractProfile(
+  inputProfile: LUTColorProfile,
+  outputProfile: LUTColorProfile,
+): LUTColorProfile {
+  return {
+    ...inputProfile,
+    role: getComposedContractRole(inputProfile, outputProfile),
+    outputGamut: outputProfile.inputGamut,
+    outputTransfer: outputProfile.inputTransfer,
+    outputRange: outputProfile.inputRange,
+  }
 }
 
 export function getProfileContractLabel(profile: LUTColorProfile) {

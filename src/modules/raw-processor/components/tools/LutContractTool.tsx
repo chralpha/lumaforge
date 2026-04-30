@@ -31,6 +31,8 @@ import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
 import type { LUTProfileSelectionState } from '../../model/session'
 import { LutDropzone } from '../Dropzone'
 import {
+  composeLUTContractProfile,
+  getProfileAsOutputLabel,
   getProfileContractLabel,
   getProfileOutputLabel,
   getResolvedProfile,
@@ -157,20 +159,24 @@ function LUTProfileButton({
   profile,
   activeProfileId,
   onSelect,
+  label,
+  ariaLabel,
   highlighted = false,
 }: {
   profile: LUTColorProfile
   activeProfileId?: string
   onSelect: (profile: LUTColorProfile) => void
+  label?: string
+  ariaLabel?: string
   highlighted?: boolean
 }) {
   const isActive = activeProfileId === profile.id
-  const label = getProfileContractLabel(profile)
+  const buttonLabel = label ?? getProfileContractLabel(profile)
 
   return (
     <button
       type="button"
-      aria-label={label}
+      aria-label={ariaLabel ?? buttonLabel}
       aria-pressed={isActive}
       onClick={() => onSelect(profile)}
       className={
@@ -181,7 +187,7 @@ function LUTProfileButton({
             : 'w-full rounded-md border border-border bg-background px-2.5 py-2 text-left text-xs leading-snug text-text-secondary transition-colors hover:border-accent/40 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
       }
     >
-      <span className="block min-w-0 break-words">{label}</span>
+      <span className="block min-w-0 break-words">{buttonLabel}</span>
     </button>
   )
 }
@@ -189,46 +195,84 @@ function LUTProfileButton({
 function LUTProfileSelector({
   suggestions,
   activeProfileId,
+  currentProfile,
   onSelect,
 }: {
   suggestions: LUTColorProfile[]
   activeProfileId?: string
+  currentProfile?: LUTColorProfile
   onSelect: (profile: LUTColorProfile) => void
 }) {
   const searchInputId = useId()
   const [query, setQuery] = useState('')
+  const [draftInputProfile, setDraftInputProfile] =
+    useState<LUTColorProfile | null>(() => currentProfile ?? null)
+  const [draftOutputProfile, setDraftOutputProfile] =
+    useState<LUTColorProfile | null>(null)
+  const hasQuery = query.trim().length > 0
   const searchResults = useMemo(() => searchLUTColorProfiles(query), [query])
   const resultIds = useMemo(
     () => new Set(searchResults.map((profile) => profile.id)),
     [searchResults],
   )
-  const visibleSuggestions = useMemo(
-    () =>
-      suggestions
-        .map(toSelectableContract)
-        .filter((profile): profile is LUTColorProfile => Boolean(profile))
-        .filter(
-          (profile, index, items) =>
-            resultIds.has(profile.id) &&
-            items.findIndex((item) => item.id === profile.id) === index,
-        ),
-    [resultIds, suggestions],
-  )
+  const dedupeProfiles = useCallback((profiles: LUTColorProfile[]) => {
+    const seen = new Set<string>()
+    return profiles.filter((profile) => {
+      if (seen.has(profile.id)) return false
+      seen.add(profile.id)
+      return true
+    })
+  }, [])
+  const visibleSuggestions = useMemo(() => {
+    const selectableSuggestions = suggestions
+      .map(toSelectableContract)
+      .filter((profile): profile is LUTColorProfile => Boolean(profile))
+      .filter((profile) => !hasQuery || resultIds.has(profile.id))
+
+    return dedupeProfiles(selectableSuggestions)
+  }, [dedupeProfiles, hasQuery, resultIds, suggestions])
   const suggestionIds = useMemo(
     () => new Set(visibleSuggestions.map((profile) => profile.id)),
     [visibleSuggestions],
   )
-  const groupedProfiles = useMemo(
+  const candidateProfiles = useMemo(() => {
+    const inputSuggestions = suggestions.filter(
+      (profile) => !toSelectableContract(profile),
+    )
+    return dedupeProfiles([
+      ...inputSuggestions,
+      ...(hasQuery ? searchResults : []),
+    ]).filter((profile) => !hasQuery || resultIds.has(profile.id))
+  }, [dedupeProfiles, hasQuery, resultIds, searchResults, suggestions])
+  const groupedInputProfiles = useMemo(
     () =>
       groupProfiles(
-        searchResults
-          .map(toSelectableContract)
-          .filter((profile): profile is LUTColorProfile => Boolean(profile))
-          .filter((profile) => !suggestionIds.has(profile.id)),
+        candidateProfiles.filter((profile) => !suggestionIds.has(profile.id)),
       ),
-    [searchResults, suggestionIds],
+    [candidateProfiles, suggestionIds],
   )
-  const hasMatches = visibleSuggestions.length > 0 || groupedProfiles.length > 0
+  const groupedOutputProfiles = useMemo(
+    () => (hasQuery ? groupProfiles(searchResults) : []),
+    [hasQuery, searchResults],
+  )
+  const hasMatches =
+    visibleSuggestions.length > 0 ||
+    groupedInputProfiles.length > 0 ||
+    groupedOutputProfiles.length > 0
+  const handleInputSelect = (profile: LUTColorProfile) => {
+    if (draftOutputProfile) {
+      onSelect(composeLUTContractProfile(profile, draftOutputProfile))
+      return
+    }
+    setDraftInputProfile(profile)
+  }
+  const handleOutputSelect = (profile: LUTColorProfile) => {
+    if (draftInputProfile) {
+      onSelect(composeLUTContractProfile(draftInputProfile, profile))
+      return
+    }
+    setDraftOutputProfile(profile)
+  }
 
   return (
     <div className="space-y-2 pt-1">
@@ -264,18 +308,40 @@ function LUTProfileSelector({
           </div>
         )}
 
-        {groupedProfiles.map((group) => (
-          <div key={group.label} className="space-y-1">
+        {groupedInputProfiles.map((group) => (
+          <div key={`input-${group.label}`} className="space-y-1">
             <p className="text-[11px] font-medium uppercase text-text-tertiary">
-              {group.label}
+              {group.label} input
             </p>
             <div className="space-y-1">
               {group.items.map((profile) => (
                 <LUTProfileButton
                   key={profile.id}
                   profile={profile}
-                  activeProfileId={activeProfileId}
-                  onSelect={onSelect}
+                  activeProfileId={draftInputProfile?.id}
+                  label={profile.label}
+                  ariaLabel={`Use ${profile.label} as LUT input`}
+                  onSelect={handleInputSelect}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {groupedOutputProfiles.map((group) => (
+          <div key={`output-${group.label}`} className="space-y-1">
+            <p className="text-[11px] font-medium uppercase text-text-tertiary">
+              {group.label} output
+            </p>
+            <div className="space-y-1">
+              {group.items.map((profile) => (
+                <LUTProfileButton
+                  key={profile.id}
+                  profile={profile}
+                  activeProfileId={draftOutputProfile?.id}
+                  label={getProfileAsOutputLabel(profile)}
+                  ariaLabel={`Use ${profile.label} as LUT output`}
+                  onSelect={handleOutputSelect}
                 />
               ))}
             </div>
@@ -370,6 +436,7 @@ function LUTProfileStatus({
         <LUTProfileSelector
           suggestions={suggestions}
           activeProfileId={activeProfileId}
+          currentProfile={resolvedProfile}
           onSelect={handleSelect}
         />
       )}
