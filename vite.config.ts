@@ -31,6 +31,18 @@ import {
 } from './src/lib/seo'
 
 const ROOT = fileURLToPath(new URL('./', import.meta.url))
+const LUMA_COLOR_RUNTIME_GLSL_SOURCE = resolve(
+  ROOT,
+  './packages/luma-color-runtime/src/glsl.ts',
+)
+const LUMA_COLOR_RUNTIME_TESTING_SOURCE = resolve(
+  ROOT,
+  './packages/luma-color-runtime/src/testing.ts',
+)
+const LUMA_COLOR_RUNTIME_SOURCE = resolve(
+  ROOT,
+  './packages/luma-color-runtime/src/index.ts',
+)
 const LUMA_RAW_RUNTIME_SOURCE = resolve(
   ROOT,
   './packages/luma-raw-runtime/src/index.ts',
@@ -188,6 +200,10 @@ export default defineConfig(() => {
     ],
     resolve: {
       alias: {
+        '@lumaforge/luma-color-runtime/glsl': LUMA_COLOR_RUNTIME_GLSL_SOURCE,
+        '@lumaforge/luma-color-runtime/testing':
+          LUMA_COLOR_RUNTIME_TESTING_SOURCE,
+        '@lumaforge/luma-color-runtime': LUMA_COLOR_RUNTIME_SOURCE,
         '@lumaforge/luma-raw-runtime': LUMA_RAW_RUNTIME_SOURCE,
       },
       tsconfigPaths: true,

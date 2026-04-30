@@ -8,6 +8,15 @@
     "paths": {
       "~/*": ["./src/*"],
       "@pkg": ["./package.json"],
+      "@lumaforge/luma-color-runtime": [
+        "./packages/luma-color-runtime/src/index.ts"
+      ],
+      "@lumaforge/luma-color-runtime/glsl": [
+        "./packages/luma-color-runtime/src/glsl.ts"
+      ],
+      "@lumaforge/luma-color-runtime/testing": [
+        "./packages/luma-color-runtime/src/testing.ts"
+      ],
       "@lumaforge/luma-jpeg-runtime": [
         "./packages/luma-jpeg-runtime/src/index.ts"
       ],

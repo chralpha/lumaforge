@@ -17,6 +17,18 @@ export default defineConfig({
     alias: {
       '~': fileURLToPath(new URL('./src', import.meta.url)),
       '@pkg': fileURLToPath(new URL('./package.json', import.meta.url)),
+      '@lumaforge/luma-color-runtime/glsl': fileURLToPath(
+        new URL('./packages/luma-color-runtime/src/glsl.ts', import.meta.url),
+      ),
+      '@lumaforge/luma-color-runtime/testing': fileURLToPath(
+        new URL(
+          './packages/luma-color-runtime/src/testing.ts',
+          import.meta.url,
+        ),
+      ),
+      '@lumaforge/luma-color-runtime': fileURLToPath(
+        new URL('./packages/luma-color-runtime/src/index.ts', import.meta.url),
+      ),
       '@lumaforge/luma-raw-runtime': fileURLToPath(
         new URL('./packages/luma-raw-runtime/src/index.ts', import.meta.url),
       ),

@@ -1,0 +1,30 @@
+{
+  "name": "@lumaforge/luma-color-runtime",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pure TypeScript color transform contract runtime for LumaForge.",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./glsl": {
+      "types": "./dist/glsl.d.ts",
+      "import": "./dist/glsl.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "vite build --config vite.config.ts && tsc -p tsconfig.json --emitDeclarationOnly",
+    "test": "vitest run src",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

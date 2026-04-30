@@ -11,6 +11,9 @@ importers:
       '@headlessui/react':
         specifier: 2.2.10
         version: 2.2.10(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@lumaforge/luma-color-runtime':
+        specifier: workspace:*
+        version: link:packages/luma-color-runtime
       '@lumaforge/luma-jpeg-runtime':
         specifier: workspace:*
         version: link:packages/luma-jpeg-runtime
@@ -228,6 +231,8 @@ importers:
       wrangler:
         specifier: ^4.85.0
         version: 4.85.0
+
+  packages/luma-color-runtime: {}
 
   packages/luma-jpeg-runtime: {}
 
