@@ -1,12 +1,8 @@
-import type {
-  LUTColorProfile,
-  LUTContractSelection,
-  LUTData,
-  ProcessingParams,
-} from '@lumaforge/luma-color-runtime'
+import type {LUTColorProfile, LUTContractSelection, LUTData, ProcessingParams} from '@lumaforge/luma-color-runtime';
 import {
   getLUTColorProfile,
-  resolveExportColorGraph,
+  normalizeToneParams,
+  resolveExportColorGraph
 } from '@lumaforge/luma-color-runtime'
 import type { LumaRawExportCapability } from '@lumaforge/luma-raw-runtime'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -289,7 +285,12 @@ function changesRenderGraphParams(
       next.styleKind !== current.styleKind) ||
     (Object.hasOwn(next, 'builtinPreset') &&
       next.builtinPreset !== current.builtinPreset) ||
-    (Object.hasOwn(next, 'intensity') && next.intensity !== current.intensity)
+    (Object.hasOwn(next, 'intensity') &&
+      next.intensity !== current.intensity) ||
+    (Object.hasOwn(next, 'userExposureEv') &&
+      next.userExposureEv !== current.userExposureEv) ||
+    (Object.hasOwn(next, 'userContrast') &&
+      next.userContrast !== current.userContrast)
   )
 }
 
@@ -374,6 +375,10 @@ export interface UseRawProcessorReturn {
   setCompareSplit: (split: number) => void
   clearLUT: () => void
   setParams: (params: Partial<ProcessingParams>) => void
+  setToneParams: (
+    params: Partial<Pick<ProcessingParams, 'userExposureEv' | 'userContrast'>>,
+  ) => void
+  resetTone: () => void
   exportImage: (options: {
     quality: 'standard' | 'high'
     fidelity: 'safe' | 'balanced' | 'max'
@@ -1642,6 +1647,25 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [invalidateExportGraph, params, setParams],
   )
 
+  const setToneParams = useCallback(
+    (
+      toneParams: Partial<
+        Pick<ProcessingParams, 'userExposureEv' | 'userContrast'>
+      >,
+    ) => {
+      const normalized = normalizeToneParams({
+        userExposureEv: toneParams.userExposureEv ?? params.userExposureEv,
+        userContrast: toneParams.userContrast ?? params.userContrast,
+      })
+      handleSetParams(normalized)
+    },
+    [handleSetParams, params.userContrast, params.userExposureEv],
+  )
+
+  const resetTone = useCallback(() => {
+    handleSetParams({ userExposureEv: 0, userContrast: 0 })
+  }, [handleSetParams])
+
   // Export image
   const exportImage = useCallback(
     async ({
@@ -1693,6 +1717,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
         builtinPreset: params.builtinPreset,
         lut: lutDataRef.current,
         rawRenderExposure,
+        userExposureEv: params.userExposureEv,
+        userContrast: params.userContrast,
       })
 
       if (!graph.supported) {
@@ -1883,6 +1909,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
       params.builtinPreset,
       params.intensity,
       params.styleKind,
+      params.userContrast,
+      params.userExposureEv,
       scheduleToast,
       session,
       setError,
@@ -2062,6 +2090,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setCompareSplit,
     clearLUT,
     setParams: handleSetParams,
+    setToneParams,
+    resetTone,
     exportImage,
     downloadExportResult,
     shareExportResult,

@@ -148,6 +148,8 @@ function createLoadedProcessorState(
     setCompareSplit: vi.fn(),
     clearLUT: vi.fn(),
     setParams: vi.fn(),
+    setToneParams: vi.fn(),
+    resetTone: vi.fn(),
     exportImage: vi.fn(),
     downloadExportResult: vi.fn(),
     shareExportResult: vi.fn(),

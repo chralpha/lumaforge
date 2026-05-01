@@ -1586,6 +1586,16 @@ describe('useRawProcessor embedded preview state', () => {
         ev: renderExposure.ev,
         multiplier: renderExposure.multiplier,
       },
+      { kind: 'user-exposure', ev: 0, multiplier: 1 },
+      {
+        kind: 'user-contrast',
+        amount: 0,
+        factor: 1,
+        pivot: 0.18,
+        operator: 'linear-prophoto-luminance-scale',
+        luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+        zeroLuminanceMode: 'return-black',
+      },
       { kind: 'output-srgb' },
     ]
 
@@ -1812,6 +1822,124 @@ describe('useRawProcessor embedded preview state', () => {
     expect(
       jotaiStore.get(currentSessionAtom)?.exportState.result,
     ).toBeUndefined()
+  })
+
+  it('clears a ready export when user tone changes', async () => {
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.result).toBeDefined()
+
+    act(() => {
+      result.current.setToneParams({ userExposureEv: 1 })
+    })
+
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.status).toBe('idle')
+    expect(
+      jotaiStore.get(currentSessionAtom)?.exportState.result,
+    ).toBeUndefined()
+  })
+
+  it('resets only tone params from the tone reset action', () => {
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    act(() => {
+      result.current.setParams({
+        userExposureEv: 1,
+        userContrast: 50,
+        styleKind: 'custom',
+        intensity: 0.2,
+      })
+    })
+    act(() => {
+      result.current.resetTone()
+    })
+
+    expect(result.current.params).toMatchObject({
+      userExposureEv: 0,
+      userContrast: 0,
+      styleKind: 'custom',
+      intensity: 0.2,
+    })
+  })
+
+  it('passes user tone into full-resolution export graph', async () => {
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_tone_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    act(() => {
+      result.current.setToneParams({ userExposureEv: 1, userContrast: 50 })
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    const [{ graph }] =
+      exportSystemMock.runFullResolutionExportJob.mock.calls[0]!
+    expect(graph.steps.map((step) => step.kind)).toContain('user-exposure')
+    expect(graph.steps.map((step) => step.kind)).toContain('user-contrast')
+  })
+
+  it('preserves non-neutral tone when a new image loads', async () => {
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    act(() => {
+      result.current.setToneParams({ userExposureEv: 1, userContrast: 50 })
+    })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'first.ARW'))
+    })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'second.ARW'))
+    })
+
+    expect(result.current.params).toMatchObject({
+      userExposureEv: 1,
+      userContrast: 50,
+    })
   })
 
   it('preserves a ready export when controls repeat the active render graph', async () => {

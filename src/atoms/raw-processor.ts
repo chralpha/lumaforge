@@ -34,14 +34,18 @@ export interface LoadedImageState {
 /**
  * Processing parameters atom
  */
-const baseProcessingParamsAtom = atom<ProcessingParams>({
-  userExposureEv: 0,
-  userContrast: 0,
+const DEFAULT_PROCESSING_PARAMS: ProcessingParams = {
   intensity: 0.7,
   viewMode: 'compare',
   compareSplit: 0.5,
   styleKind: 'none',
   builtinPreset: null,
+  userExposureEv: 0,
+  userContrast: 0,
+}
+
+const baseProcessingParamsAtom = atom<ProcessingParams>({
+  ...DEFAULT_PROCESSING_PARAMS,
 })
 
 export const [
@@ -187,13 +191,5 @@ export function resetProcessorState(): void {
 export function resetToDefaults(): void {
   resetProcessorState()
   setLut(null)
-  setProcessingParams({
-    userExposureEv: 0,
-    userContrast: 0,
-    intensity: 0.7,
-    viewMode: 'compare',
-    compareSplit: 0.5,
-    styleKind: 'none',
-    builtinPreset: null,
-  })
+  setProcessingParams({ ...DEFAULT_PROCESSING_PARAMS })
 }
