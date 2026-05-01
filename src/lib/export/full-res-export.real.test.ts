@@ -282,6 +282,8 @@ function createResolvedVLogClassic709Graph(lutContent: string) {
     builtinPreset: null,
     lut: toLUTData(lut),
     rawRenderExposure,
+    userExposureEv: 1,
+    userContrast: 50,
   })
 
   if (!graph.supported) {
@@ -319,15 +321,15 @@ function createResolvedVLogClassic709Graph(lutContent: string) {
   expect(userExposureSteps).toEqual([
     {
       kind: 'user-exposure',
-      ev: 0,
-      multiplier: 1,
+      ev: 1,
+      multiplier: 2,
     },
   ])
   expect(userContrastSteps).toEqual([
     {
       kind: 'user-contrast',
-      amount: 0,
-      factor: 1,
+      amount: 50,
+      factor: Math.pow(2, 50 / 200),
       pivot: 0.18,
       operator: 'linear-prophoto-luminance-scale',
       luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
