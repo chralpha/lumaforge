@@ -23,6 +23,10 @@ const contextMock = vi.hoisted(() => {
     maxVertexUniformVectors: 1024,
     maxFragmentUniformVectors: 1024,
     maxVaryingVectors: 64,
+    fragmentHighFloatPrecision: 23,
+    fragmentHighFloatRangeMin: 127,
+    fragmentHighFloatRangeMax: 127,
+    toneHighPrecision: true,
     rendererInfo: 'Mock Renderer',
     vendorInfo: 'Mock Vendor',
   }
