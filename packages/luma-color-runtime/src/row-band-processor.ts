@@ -64,15 +64,25 @@ function isSimpleNoLutGraph(
       SupportedExportColorGraphDescriptor['steps'][number],
       { kind: 'raw-render-exposure' }
     >,
+    Extract<
+      SupportedExportColorGraphDescriptor['steps'][number],
+      { kind: 'user-exposure' }
+    >,
+    Extract<
+      SupportedExportColorGraphDescriptor['steps'][number],
+      { kind: 'user-contrast' }
+    >,
     { kind: 'output-srgb' },
   ]
 } {
   return (
     graph.lutProfile === null &&
-    graph.steps.length === 3 &&
+    graph.steps.length === 5 &&
     graph.steps[0]?.kind === 'input-linear-prophoto' &&
     graph.steps[1]?.kind === 'raw-render-exposure' &&
-    graph.steps[2]?.kind === 'output-srgb'
+    graph.steps[2]?.kind === 'user-exposure' &&
+    graph.steps[3]?.kind === 'user-contrast' &&
+    graph.steps[4]?.kind === 'output-srgb'
   )
 }
 
@@ -84,6 +94,14 @@ function isSupportedLutGraph(
     Extract<
       SupportedExportColorGraphDescriptor['steps'][number],
       { kind: 'raw-render-exposure' }
+    >,
+    Extract<
+      SupportedExportColorGraphDescriptor['steps'][number],
+      { kind: 'user-exposure' }
+    >,
+    Extract<
+      SupportedExportColorGraphDescriptor['steps'][number],
+      { kind: 'user-contrast' }
     >,
     Extract<
       SupportedExportColorGraphDescriptor['steps'][number],
@@ -105,14 +123,16 @@ function isSupportedLutGraph(
   ]
 } {
   return (
-    graph.steps.length === 7 &&
+    graph.steps.length === 9 &&
     graph.steps[0]?.kind === 'input-linear-prophoto' &&
     graph.steps[1]?.kind === 'raw-render-exposure' &&
-    graph.steps[2]?.kind === 'gamut-to-lut-input' &&
-    graph.steps[3]?.kind === 'encode-lut-transfer' &&
-    graph.steps[4]?.kind === 'lut3d' &&
-    graph.steps[5]?.kind === 'lut-output-to-srgb' &&
-    graph.steps[6]?.kind === 'output-srgb'
+    graph.steps[2]?.kind === 'user-exposure' &&
+    graph.steps[3]?.kind === 'user-contrast' &&
+    graph.steps[4]?.kind === 'gamut-to-lut-input' &&
+    graph.steps[5]?.kind === 'encode-lut-transfer' &&
+    graph.steps[6]?.kind === 'lut3d' &&
+    graph.steps[7]?.kind === 'lut-output-to-srgb' &&
+    graph.steps[8]?.kind === 'output-srgb'
   )
 }
 
@@ -125,6 +145,57 @@ function getRawRenderExposureMultiplier(
   return Number.isFinite(step.multiplier) ? step.multiplier : 1
 }
 
+type UserExposureStep = Extract<
+  SupportedExportColorGraphDescriptor['steps'][number],
+  { kind: 'user-exposure' }
+>
+type UserContrastStep = Extract<
+  SupportedExportColorGraphDescriptor['steps'][number],
+  { kind: 'user-contrast' }
+>
+
+function getUserExposureMultiplier(step: UserExposureStep) {
+  return Number.isFinite(step.multiplier) ? step.multiplier : 1
+}
+
+type MutableRgb = [number, number, number]
+
+function applyUserContrastScalarTo(
+  r: number,
+  g: number,
+  b: number,
+  step: UserContrastStep,
+  out: MutableRgb,
+) {
+  if (step.amount === 0) {
+    out[0] = r
+    out[1] = g
+    out[2] = b
+    return out
+  }
+
+  const positiveR = Math.max(r, 0)
+  const positiveG = Math.max(g, 0)
+  const positiveB = Math.max(b, 0)
+  const y =
+    step.luminanceCoefficients[0] * positiveR +
+    step.luminanceCoefficients[1] * positiveG +
+    step.luminanceCoefficients[2] * positiveB
+  if (y <= 0) {
+    out[0] = 0
+    out[1] = 0
+    out[2] = 0
+    return out
+  }
+
+  const targetY = step.pivot * Math.pow(y / step.pivot, step.factor)
+  const scale = targetY / y
+  out[0] = positiveR * scale
+  out[1] = positiveG * scale
+  out[2] = positiveB * scale
+  return out
+}
+
 type GraphApplier = (linear: Float32Array, bytes: Uint8Array) => void
 
 function compileGraphApplier(
@@ -134,18 +205,34 @@ function compileGraphApplier(
     const rawRenderExposureMultiplier = getRawRenderExposureMultiplier(
       graph.steps[1],
     )
+    const exposureMultiplier = getUserExposureMultiplier(graph.steps[2])
+    const contrastStep = graph.steps[3]
+    const toneScratch: MutableRgb = [0, 0, 0]
 
     return (linear, bytes) => {
       for (let index = 0; index < linear.length; index += 3) {
-        const sceneR = clampMin0(
-          (linear[index] ?? 0) * rawRenderExposureMultiplier,
+        const exposedR =
+          (linear[index] ?? 0) *
+          rawRenderExposureMultiplier *
+          exposureMultiplier
+        const exposedG =
+          (linear[index + 1] ?? 0) *
+          rawRenderExposureMultiplier *
+          exposureMultiplier
+        const exposedB =
+          (linear[index + 2] ?? 0) *
+          rawRenderExposureMultiplier *
+          exposureMultiplier
+        const scene = applyUserContrastScalarTo(
+          exposedR,
+          exposedG,
+          exposedB,
+          contrastStep,
+          toneScratch,
         )
-        const sceneG = clampMin0(
-          (linear[index + 1] ?? 0) * rawRenderExposureMultiplier,
-        )
-        const sceneB = clampMin0(
-          (linear[index + 2] ?? 0) * rawRenderExposureMultiplier,
-        )
+        const sceneR = scene[0]
+        const sceneG = scene[1]
+        const sceneB = scene[2]
         const displayLinearR = clampMin0(
           PROPHOTO_TO_SRGB_MATRIX[0] * sceneR +
             PROPHOTO_TO_SRGB_MATRIX[1] * sceneG +
@@ -175,10 +262,12 @@ function compileGraphApplier(
   const rawRenderExposureMultiplier = getRawRenderExposureMultiplier(
     graph.steps[1],
   )
-  const inputMatrix = graph.steps[2].matrix
-  const encodeStep = graph.steps[3]
-  const lutStep = graph.steps[4]
-  const outputStep = graph.steps[5]
+  const exposureMultiplier = getUserExposureMultiplier(graph.steps[2])
+  const contrastStep = graph.steps[3]
+  const inputMatrix = graph.steps[4].matrix
+  const encodeStep = graph.steps[5]
+  const lutStep = graph.steps[6]
+  const outputStep = graph.steps[7]
   const outputMatrix = outputStep.matrix
   const encodeTransfer = getTransferFunction(encodeStep.transfer)
   const decodeTransfer = getTransferFunction(outputStep.transfer)
@@ -203,19 +292,31 @@ function compileGraphApplier(
     lutStep.domainMax[2] === domainMin[2]
       ? 0
       : 1 / (lutStep.domainMax[2] - domainMin[2])
+  const toneScratch: MutableRgb = [0, 0, 0]
   const lutSample: [number, number, number] = [0, 0, 0]
 
   return (linear, bytes) => {
     for (let index = 0; index < linear.length; index += 3) {
-      const sceneR = clampMin0(
-        (linear[index] ?? 0) * rawRenderExposureMultiplier,
+      const exposedR =
+        (linear[index] ?? 0) * rawRenderExposureMultiplier * exposureMultiplier
+      const exposedG =
+        (linear[index + 1] ?? 0) *
+        rawRenderExposureMultiplier *
+        exposureMultiplier
+      const exposedB =
+        (linear[index + 2] ?? 0) *
+        rawRenderExposureMultiplier *
+        exposureMultiplier
+      const scene = applyUserContrastScalarTo(
+        exposedR,
+        exposedG,
+        exposedB,
+        contrastStep,
+        toneScratch,
       )
-      const sceneG = clampMin0(
-        (linear[index + 1] ?? 0) * rawRenderExposureMultiplier,
-      )
-      const sceneB = clampMin0(
-        (linear[index + 2] ?? 0) * rawRenderExposureMultiplier,
-      )
+      const sceneR = scene[0]
+      const sceneG = scene[1]
+      const sceneB = scene[2]
 
       const baseDisplayLinearR = clampMin0(
         PROPHOTO_TO_SRGB_MATRIX[0] * sceneR +

@@ -10,6 +10,16 @@ const noLutGraph: SupportedExportColorGraphDescriptor = {
   steps: [
     { kind: 'input-linear-prophoto' },
     { kind: 'raw-render-exposure', ev: 0, multiplier: 1 },
+    { kind: 'user-exposure', ev: 0, multiplier: 1 },
+    {
+      kind: 'user-contrast',
+      amount: 0,
+      factor: 1,
+      pivot: 0.18,
+      operator: 'linear-prophoto-luminance-scale',
+      luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+      zeroLuminanceMode: 'return-black',
+    },
     { kind: 'output-srgb' },
   ],
 }
@@ -58,6 +68,16 @@ function makePrecisionProbeGraph(
     steps: [
       { kind: 'input-linear-prophoto' },
       { kind: 'raw-render-exposure', ev: 0, multiplier: 1 },
+      { kind: 'user-exposure', ev: 0, multiplier: 1 },
+      {
+        kind: 'user-contrast',
+        amount: 0,
+        factor: 1,
+        pivot: 0.18,
+        operator: 'linear-prophoto-luminance-scale',
+        luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+        zeroLuminanceMode: 'return-black',
+      },
       {
         kind: 'gamut-to-lut-input',
         matrix: mat3Identity(),
@@ -85,6 +105,68 @@ function makePrecisionProbeGraph(
 }
 
 describe('createRowBandProcessor', () => {
+  it('changes no-lut output when user exposure changes', () => {
+    const graph: SupportedExportColorGraphDescriptor = {
+      ...noLutGraph,
+      steps: noLutGraph.steps.map((step) =>
+        step.kind === 'user-exposure'
+          ? { kind: 'user-exposure', ev: 1, multiplier: 2 }
+          : step,
+      ),
+    }
+    const processor = createRowBandProcessor({
+      width: 1,
+      rowBandRows: 1,
+      graph,
+    })
+    const rows = processor.processFloatRows(
+      new Float32Array([0.1, 0.1, 0.1]),
+      1,
+    )
+
+    expect(rows[0]).toBeGreaterThan(toSrgbByte(0.1))
+  })
+
+  it('keeps neutral tone output equal to the pre-tone no-lut reference', () => {
+    const processor = createRowBandProcessor({
+      width: 1,
+      rowBandRows: 1,
+      graph: noLutGraph,
+    })
+    const rows = processor.processFloatRows(
+      new Float32Array([0.18, 0.18, 0.18]),
+      1,
+    )
+
+    expect(rows).toEqual(
+      new Uint8Array([toSrgbByte(0.18), toSrgbByte(0.18), toSrgbByte(0.18)]),
+    )
+  })
+
+  it('applies user contrast before LUT input sampling', () => {
+    const graph = makePrecisionProbeGraph(0.2, 0.6)
+    const contrastStep = graph.steps.find(
+      (step) => step.kind === 'user-contrast',
+    )
+    if (!contrastStep || contrastStep.kind !== 'user-contrast') {
+      throw new Error('Missing contrast step')
+    }
+    contrastStep.amount = 100
+    contrastStep.factor = Math.SQRT2
+
+    const processor = createRowBandProcessor({
+      width: 1,
+      rowBandRows: 1,
+      graph,
+    })
+    const rows = processor.processFloatRows(
+      new Float32Array([0.36, 0.36, 0.36]),
+      1,
+    )
+
+    expect(rows[0]).toBeGreaterThan(toSrgbByte(0.4))
+  })
+
   it('keeps Uint16 rows in Float32 until LUT sampling and final RGB8 quantization', () => {
     const sourceValue = 32768
     const sourceLinear = Math.fround(sourceValue / 65535)
