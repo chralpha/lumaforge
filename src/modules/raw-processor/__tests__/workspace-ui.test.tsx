@@ -398,9 +398,7 @@ describe('rawToolSurface', () => {
     )
 
     expect(screen.getByLabelText('Search LUT contract')).toHaveValue('')
-    expect(
-      screen.queryByText('ARRI Wide Gamut 4 / LogC4'),
-    ).not.toBeInTheDocument()
+    expect(screen.getByText('ARRI Wide Gamut 4 / LogC4')).toBeInTheDocument()
   })
 
   it('uses a dedicated LUT contract browser with separate input and output panels', async () => {

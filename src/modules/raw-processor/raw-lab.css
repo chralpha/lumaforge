@@ -304,7 +304,6 @@
   top: var(--raw-lut-source-browser-top, 12px);
   left: var(--raw-lut-source-browser-left, 12px);
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
   width: min(var(--raw-lut-source-browser-width, 360px), calc(100svw - 24px));
   max-height: min(
     var(--raw-lut-source-browser-max-height, calc(100svh - 24px)),
@@ -320,6 +319,15 @@
   box-shadow:
     0 18px 42px oklch(0.32 0.04 70 / 0.16),
     0 2px 0 oklch(1 0 0 / 0.78) inset;
+}
+
+.raw-lut-source-browser {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.raw-lut-contract-browser {
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  align-items: start;
 }
 
 .raw-lut-source-browser-heading,
@@ -365,6 +373,7 @@
 .raw-lut-source-browser-list,
 .raw-lut-contract-browser-list {
   display: grid;
+  align-self: stretch;
   min-height: 0;
   gap: 6px;
   overflow-y: auto;
@@ -480,6 +489,7 @@
     position: fixed;
     inset: auto 10px max(10px, env(safe-area-inset-bottom));
     width: auto;
+    height: auto;
     max-height: min(78svh, 520px);
     min-height: min(220px, calc(100svh - 20px));
   }
