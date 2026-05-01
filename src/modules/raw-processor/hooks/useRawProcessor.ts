@@ -1,8 +1,13 @@
-import type {LUTColorProfile, LUTContractSelection, LUTData, ProcessingParams} from '@lumaforge/luma-color-runtime';
+import type {
+  LUTColorProfile,
+  LUTContractSelection,
+  LUTData,
+  ProcessingParams,
+} from '@lumaforge/luma-color-runtime'
 import {
   getLUTColorProfile,
   normalizeToneParams,
-  resolveExportColorGraph
+  resolveExportColorGraph,
 } from '@lumaforge/luma-color-runtime'
 import type { LumaRawExportCapability } from '@lumaforge/luma-raw-runtime'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -1653,13 +1658,21 @@ export function useRawProcessor(): UseRawProcessorReturn {
         Pick<ProcessingParams, 'userExposureEv' | 'userContrast'>
       >,
     ) => {
-      const normalized = normalizeToneParams({
-        userExposureEv: toneParams.userExposureEv ?? params.userExposureEv,
-        userContrast: toneParams.userContrast ?? params.userContrast,
+      let shouldClearExportResult = false
+      setParams((prev) => {
+        const normalized = normalizeToneParams({
+          userExposureEv: toneParams.userExposureEv ?? prev.userExposureEv,
+          userContrast: toneParams.userContrast ?? prev.userContrast,
+        })
+        shouldClearExportResult = changesRenderGraphParams(prev, normalized)
+        return { ...prev, ...normalized }
       })
-      handleSetParams(normalized)
+
+      if (shouldClearExportResult) {
+        invalidateExportGraph()
+      }
     },
-    [handleSetParams, params.userContrast, params.userExposureEv],
+    [invalidateExportGraph, setParams],
   )
 
   const resetTone = useCallback(() => {

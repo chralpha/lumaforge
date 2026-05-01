@@ -1883,6 +1883,20 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
+  it('merges back-to-back partial tone updates before React re-renders', () => {
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    act(() => {
+      result.current.setToneParams({ userExposureEv: 1 })
+      result.current.setToneParams({ userContrast: 50 })
+    })
+
+    expect(result.current.params).toMatchObject({
+      userExposureEv: 1,
+      userContrast: 50,
+    })
+  })
+
   it('passes user tone into full-resolution export graph', async () => {
     rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
     rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
