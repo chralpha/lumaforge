@@ -5,10 +5,8 @@ import type {
   LumaRawProbe,
   LumaRawRuntime,
 } from '../src/types'
-import type {BenchProvenance} from './bench-provenance';
-import {
-  loadBenchmarkProvenance
-} from './bench-provenance'
+import type { BenchProvenance } from './bench-provenance'
+import { loadBenchmarkProvenance } from './bench-provenance'
 
 const QUICK_PREVIEW_MAX_PIXELS = 2_500_000
 const BOUNDED_HQ_MAX_PIXELS = 12_000_000
