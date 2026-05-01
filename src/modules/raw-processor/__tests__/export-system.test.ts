@@ -46,6 +46,13 @@ describe('export-system', () => {
     expect(getConcurrencyForFidelity('max')).toBe(3)
   })
 
+  it('keeps legacy fidelity helper budgets independent of ambient isolation globals', () => {
+    vi.unstubAllGlobals()
+
+    expect(getPreferredRowsForFidelity('max')).toBe(1024)
+    expect(getConcurrencyForFidelity('max')).toBe(3)
+  })
+
   it('selects ios-safe rows for 100MP current-session safe export', () => {
     const plan = selectCurrentExportExecutionPlan({
       fidelity: 'safe',

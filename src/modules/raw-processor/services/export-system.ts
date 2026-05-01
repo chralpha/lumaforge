@@ -59,12 +59,30 @@ export function selectCurrentExportExecutionPlan(input: {
   })
 }
 
+function selectDefaultExportExecutionPlanForFidelity(fidelity: ExportFidelity) {
+  return selectExportExecutionPlan({
+    fidelity,
+    runtime: {
+      lowMemoryAvailable: true,
+      pthreadAvailable: true,
+    },
+    output: {
+      opfsAvailable: false,
+      streamingAvailable: true,
+    },
+    platform: {
+      userAgent: '',
+      touch: false,
+    },
+  })
+}
+
 export function getPreferredRowsForFidelity(fidelity: ExportFidelity) {
-  return selectCurrentExportExecutionPlan({ fidelity }).preferredRows
+  return selectDefaultExportExecutionPlanForFidelity(fidelity).preferredRows
 }
 
 export function getConcurrencyForFidelity(fidelity: ExportFidelity) {
-  return selectCurrentExportExecutionPlan({ fidelity }).concurrency
+  return selectDefaultExportExecutionPlanForFidelity(fidelity).concurrency
 }
 
 export type { ExportExecutionPlan }
