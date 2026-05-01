@@ -152,7 +152,7 @@ describe('createJpegRuntimeCore', () => {
 
   it('emits backend chunks before returning the finish response', async () => {
     const chunk = {
-      bytes: new Uint8Array([0xFF, 0xD8]),
+      bytes: new Uint8Array([255, 216]),
       byteOffset: 0,
       final: false,
     }
@@ -209,7 +209,7 @@ describe('createJpegRuntimeCore', () => {
 
   it('returns an empty finish blob in chunk-only mode after emitting chunks', async () => {
     const chunk = {
-      bytes: new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9]),
+      bytes: new Uint8Array([255, 216, 255, 217]),
       byteOffset: 0,
       final: true,
     }
@@ -272,12 +272,12 @@ describe('createJpegRuntimeCore', () => {
   it('assembles a blob from backend chunks when blob mode receives an empty finish blob', async () => {
     const chunks = [
       {
-        bytes: new Uint8Array([0xFF, 0xD8]),
+        bytes: new Uint8Array([255, 216]),
         byteOffset: 0,
         final: false,
       },
       {
-        bytes: new Uint8Array([0xFF, 0xD9]),
+        bytes: new Uint8Array([255, 217]),
         byteOffset: 2,
         final: true,
       },
@@ -315,7 +315,7 @@ describe('createJpegRuntimeCore', () => {
       throw new Error('expected finish response')
     }
     await expect(readBlobBytes(response.payload.blob)).resolves.toEqual(
-      new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9]).buffer,
+      new Uint8Array([255, 216, 255, 217]).buffer,
     )
   })
 
