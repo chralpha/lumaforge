@@ -1,6 +1,8 @@
 import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createBlobOutputResult } from '~/lib/export/output-sink'
+
 import {
   buildExportFilename,
   getConcurrencyForFidelity,
@@ -68,7 +70,11 @@ describe('export-system', () => {
   it('runs the full-resolution export client and disposes it', async () => {
     const file = new File(['raw'], 'frame.ARW')
     const blob = new Blob(['jpeg'], { type: 'image/jpeg' })
-    const run = vi.fn().mockResolvedValue(blob)
+    const output = createBlobOutputResult({
+      filename: 'frame_neutral_fullres.jpg',
+      blob,
+    })
+    const run = vi.fn().mockResolvedValue(output)
     const dispose = vi.fn()
     const controller = new AbortController()
     const graph: ExportColorGraphDescriptor = {
@@ -118,7 +124,7 @@ describe('export-system', () => {
     expect(dispose).toHaveBeenCalledTimes(1)
     expect(result).toEqual({
       filename: 'frame_neutral_fullres.jpg',
-      blob,
+      output,
     })
   })
 })

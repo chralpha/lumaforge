@@ -69,7 +69,7 @@ class ManualWorker {
       response?.payload ??
       (request.type === 'finish'
         ? {
-            blob: new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], {
+            blob: new Blob([new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9])], {
               type: 'image/jpeg',
             }),
           }
@@ -124,6 +124,17 @@ async function drainMicrotasks() {
   await Promise.resolve()
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve
+    reject = innerReject
+  })
+
+  return { promise, resolve, reject }
+}
+
 async function expectBaselineJpeg(
   blob: Blob,
   dimensions: { width: number; height: number },
@@ -133,23 +144,23 @@ async function expectBaselineJpeg(
   let sof0: { width: number; height: number } | undefined
   let offset = 2
 
-  expect(readWord(bytes, 0)).toBe(0xffd8)
-  expect(readWord(bytes, bytes.length - 2)).toBe(0xffd9)
+  expect(readWord(bytes, 0)).toBe(0xFFD8)
+  expect(readWord(bytes, bytes.length - 2)).toBe(0xFFD9)
 
   while (offset < bytes.length - 2) {
-    if (bytes[offset] !== 0xff) {
+    if (bytes[offset] !== 0xFF) {
       offset += 1
       continue
     }
 
     const marker = bytes[offset + 1]
     markers.add(marker)
-    if (marker === 0xda) {
+    if (marker === 0xDA) {
       break
     }
 
     const segmentLength = readWord(bytes, offset + 2)
-    if (marker === 0xc0) {
+    if (marker === 0xC0) {
       sof0 = {
         height: readWord(bytes, offset + 5),
         width: readWord(bytes, offset + 7),
@@ -158,10 +169,10 @@ async function expectBaselineJpeg(
     offset += 2 + segmentLength
   }
 
-  expect(markers.has(0xdb)).toBe(true)
-  expect(markers.has(0xc0)).toBe(true)
-  expect(markers.has(0xc4)).toBe(true)
-  expect(markers.has(0xda)).toBe(true)
+  expect(markers.has(0xDB)).toBe(true)
+  expect(markers.has(0xC0)).toBe(true)
+  expect(markers.has(0xC4)).toBe(true)
+  expect(markers.has(0xDA)).toBe(true)
   expect(sof0).toEqual(dimensions)
 }
 
@@ -340,7 +351,7 @@ describe('createLumaJpegRuntime', () => {
       ok: true,
       type: 'chunk',
       payload: {
-        bytes: new Uint8Array([0xff, 0xd8]),
+        bytes: new Uint8Array([0xFF, 0xD8]),
         byteOffset: 0,
         final: false,
       },
@@ -351,7 +362,7 @@ describe('createLumaJpegRuntime', () => {
 
     expect(chunks).toEqual([
       {
-        bytes: new Uint8Array([0xff, 0xd8]),
+        bytes: new Uint8Array([0xFF, 0xD8]),
         byteOffset: 0,
         final: false,
       },
@@ -362,6 +373,86 @@ describe('createLumaJpegRuntime', () => {
     await expect(finishPromise).resolves.toMatchObject({
       type: 'image/jpeg',
     })
+    runtime.dispose()
+  })
+
+  it('waits for async chunk handling before resolving finish', async () => {
+    const worker = new ManualWorker()
+    const chunkHandled = deferred<void>()
+    const chunks: LumaJpegChunk[] = []
+    const runtime = createLumaJpegRuntime({
+      workerFactory: () => worker as unknown as Worker,
+      async onChunk(chunk) {
+        chunks.push(chunk)
+        await chunkHandled.promise
+      },
+    })
+    const encoder = runtime.createEncoder({ width: 1, height: 1, quality: 0.9 })
+    worker.respond(worker.posts[0].request)
+    await drainMicrotasks()
+
+    const finishPromise = encoder.finish()
+    let settled = false
+    void finishPromise
+      .finally(() => {
+        settled = true
+      })
+      .catch(() => {})
+    await drainMicrotasks()
+    const finishPost = worker.posts[1]
+    worker.emit({
+      id: finishPost.request.id,
+      ok: true,
+      type: 'chunk',
+      payload: {
+        bytes: new Uint8Array([0xFF, 0xD8]),
+        byteOffset: 0,
+        final: true,
+      },
+    } as WorkerResponse)
+    await drainMicrotasks()
+    worker.respond(finishPost.request)
+    await drainMicrotasks()
+
+    expect(settled).toBe(false)
+    expect(chunks).toHaveLength(1)
+
+    chunkHandled.resolve()
+    await expect(finishPromise).resolves.toMatchObject({
+      type: 'image/jpeg',
+    })
+    runtime.dispose()
+  })
+
+  it('rejects finish when async chunk handling fails', async () => {
+    const worker = new ManualWorker()
+    const runtime = createLumaJpegRuntime({
+      workerFactory: () => worker as unknown as Worker,
+      async onChunk() {
+        throw new Error('OPFS_CHUNK_WRITE_FAILED')
+      },
+    })
+    const encoder = runtime.createEncoder({ width: 1, height: 1, quality: 0.9 })
+    worker.respond(worker.posts[0].request)
+    await drainMicrotasks()
+
+    const finishPromise = encoder.finish()
+    await drainMicrotasks()
+    const finishPost = worker.posts[1]
+    worker.emit({
+      id: finishPost.request.id,
+      ok: true,
+      type: 'chunk',
+      payload: {
+        bytes: new Uint8Array([0xFF, 0xD8]),
+        byteOffset: 0,
+        final: true,
+      },
+    } as WorkerResponse)
+    await drainMicrotasks()
+    worker.respond(finishPost.request)
+
+    await expect(finishPromise).rejects.toThrow('OPFS_CHUNK_WRITE_FAILED')
     runtime.dispose()
   })
 })

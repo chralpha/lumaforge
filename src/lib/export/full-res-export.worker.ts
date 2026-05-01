@@ -7,6 +7,7 @@ import type {
   FullResExportWorkerResponse,
 } from './full-res-export-client'
 import { preserveJpegMetadata } from './jpeg-metadata'
+import { createBlobOutputResult, materializeOutputBlob } from './output-sink'
 
 type ProcessedWindowExportLifecycleInput<Result> = {
   beginProcessedWindowExport?: (signal?: AbortSignal) => Promise<unknown>
@@ -90,7 +91,7 @@ async function handleStart(
       const capability = await exportSession.probeExportCapability(
         controller.signal,
       )
-      const blob = await runProcessedWindowExportLifecycle({
+      const output = await runProcessedWindowExportLifecycle({
         beginProcessedWindowExport: exportSession.beginProcessedWindowExport,
         endProcessedWindowExport: exportSession.endProcessedWindowExport,
         signal: controller.signal,
@@ -130,7 +131,7 @@ async function handleStart(
         },
       })
       const blobWithMetadata = await preserveJpegMetadata({
-        jpeg: blob,
+        jpeg: await materializeOutputBlob(output),
         metadata: session.probe,
         width: capability.width,
         height: capability.height,
@@ -139,7 +140,10 @@ async function handleStart(
       self.postMessage({
         kind: 'success',
         requestId: message.requestId,
-        blob: blobWithMetadata,
+        result: createBlobOutputResult({
+          filename: output.filename,
+          blob: blobWithMetadata,
+        }),
       } satisfies FullResExportWorkerResponse)
     } finally {
       session.dispose()

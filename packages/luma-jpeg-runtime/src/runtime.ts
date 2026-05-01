@@ -73,6 +73,7 @@ export function createLumaJpegRuntime(
     {
       resolve: (response: JpegWorkerResponse) => void
       reject: (error: Error) => void
+      chunkQueue: Promise<void>
     }
   >()
   let nextRequestId = 0
@@ -89,15 +90,26 @@ export function createLumaJpegRuntime(
     if (response.ok) {
       if (response.type === 'chunk') {
         if (options.onChunk) {
-          void Promise.resolve(options.onChunk(response.payload)).catch(
-            () => {},
+          request.chunkQueue = request.chunkQueue.then(() =>
+            options.onChunk!(response.payload),
           )
+          void request.chunkQueue.catch(() => {})
         }
         return
       }
 
       pending.delete(response.id)
-      request.resolve(response)
+      if (response.type === 'finish') {
+        request.chunkQueue.then(
+          () => request.resolve(response),
+          (error) =>
+            request.reject(
+              error instanceof Error ? error : new Error(String(error)),
+            ),
+        )
+      } else {
+        request.resolve(response)
+      }
       return
     }
 
@@ -127,7 +139,7 @@ export function createLumaJpegRuntime(
     const message = { ...request, id } as JpegWorkerRequest
 
     return new Promise<JpegWorkerResponse>((resolve, reject) => {
-      pending.set(id, { resolve, reject })
+      pending.set(id, { resolve, reject, chunkQueue: Promise.resolve() })
       try {
         worker.postMessage(message, transfer)
       } catch (error) {

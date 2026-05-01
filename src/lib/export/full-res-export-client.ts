@@ -1,6 +1,7 @@
 import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
 
 import type { FullResolutionExportProgress } from './full-res-export'
+import type { ExportOutputResult } from './output-sink'
 import type { ExportPerfMetric } from './perf/export-metrics'
 import { normalizeExportConcurrency } from './pipeline-concurrency'
 import { normalizePreferredStripRows } from './strip-scheduler'
@@ -34,7 +35,7 @@ export type FullResExportWorkerProgressMessage = {
 export type FullResExportWorkerSuccessMessage = {
   kind: 'success'
   requestId: string
-  blob: Blob
+  result: ExportOutputResult
 }
 
 export type FullResExportWorkerErrorMessage = {
@@ -67,7 +68,7 @@ export type RunFullResolutionJpegExportInWorkerInput = {
 }
 
 type PendingRequest = {
-  resolve: (value: Blob) => void
+  resolve: (value: ExportOutputResult) => void
   reject: (reason?: unknown) => void
   onProgress?: (progress: FullResolutionExportProgress) => void
   onMetric?: (metric: ExportPerfMetric) => void
@@ -164,7 +165,7 @@ export class FullResolutionExportWorkerClient {
       pending.cleanup()
 
       if (response.kind === 'success') {
-        pending.resolve(response.blob)
+        pending.resolve(response.result)
         return
       }
 
@@ -224,7 +225,7 @@ export class FullResolutionExportWorkerClient {
 
     const requestId = createRequestId()
 
-    return new Promise<Blob>((resolve, reject) => {
+    return new Promise<ExportOutputResult>((resolve, reject) => {
       let worker: Worker
 
       const onAbort = () => {

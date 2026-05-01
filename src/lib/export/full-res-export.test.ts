@@ -14,7 +14,11 @@ import type {
 
 import { runFullResolutionJpegExport } from './full-res-export'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
-import { createBlobOutputResult } from './output-sink'
+import type {FileBackedOutputResult} from './output-sink';
+import {
+  createBlobOutputResult,
+  materializeOutputBlob
+} from './output-sink'
 import { processedWindowToLinearProPhotoTile } from './processed-window-transform'
 
 function makeCapability(
@@ -138,6 +142,12 @@ function makeJpegOutput(parts: BlobPart[] = []) {
     filename: 'test.jpg',
     blob: new Blob(parts, { type: 'image/jpeg' }),
   })
+}
+
+async function runFullResolutionJpegExportBlob(
+  input: Parameters<typeof runFullResolutionJpegExport>[0],
+) {
+  return materializeOutputBlob(await runFullResolutionJpegExport(input))
 }
 
 function makeRgbRampLut() {
@@ -315,7 +325,7 @@ describe('runFullResolutionJpegExport', () => {
       abort: vi.fn(async () => undefined),
     }
 
-    const blob = await runFullResolutionJpegExport({
+    const blob = await runFullResolutionJpegExportBlob({
       capability: makeCapability(),
       graph: {
         supported: true,
@@ -1082,7 +1092,7 @@ describe('runFullResolutionJpegExport', () => {
       abort: vi.fn(async () => undefined),
     }
 
-    const blob = await runFullResolutionJpegExport({
+    const blob = await runFullResolutionJpegExportBlob({
       capability: makeCapability({
         height: 256,
         rawHeight: 256,
@@ -1120,6 +1130,45 @@ describe('runFullResolutionJpegExport', () => {
     expect(
       writtenRows.map((entry) => entry.bytes.length / (entry.rowCount * 3)),
     ).toEqual([4, 4, 4, 4])
+  })
+
+  it('returns file-backed writer output without materializing it', async () => {
+    const openBlob = vi.fn(async () => new Blob(['jpeg']))
+    const output: FileBackedOutputResult = {
+      kind: 'file-backed',
+      exportId: 'export-1',
+      filename: 'frame.jpg',
+      byteLength: 4,
+      mimeType: 'image/jpeg',
+      openBlob,
+    }
+    const writer = {
+      writeRows: vi.fn(async () => undefined),
+      close: vi.fn(async () => output),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await expect(
+      runFullResolutionJpegExport({
+        capability: makeCapability(),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [
+            { kind: 'input-linear-prophoto' },
+            IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            ...neutralToneSteps(),
+            { kind: 'output-srgb' },
+          ],
+        },
+        preferredRows: 4,
+        readProcessedWindow: async (request) => makeProcessedWindow(request),
+        writerFactory: () => writer,
+      }),
+    ).resolves.toBe(output)
+    expect(openBlob).not.toHaveBeenCalled()
   })
 
   it('cancels stale in-flight strip preparation before resource fallback retry', async () => {
@@ -1174,7 +1223,7 @@ describe('runFullResolutionJpegExport', () => {
       },
     )
 
-    const blob = await runFullResolutionJpegExport({
+    const blob = await runFullResolutionJpegExportBlob({
       capability: makeCapability({
         height: 512,
         rawHeight: 512,
@@ -1246,7 +1295,7 @@ describe('runFullResolutionJpegExport', () => {
       },
     )
 
-    const blob = await runFullResolutionJpegExport({
+    const blob = await runFullResolutionJpegExportBlob({
       capability: makeCapability({
         height: 512,
         rawHeight: 512,
@@ -1330,7 +1379,7 @@ describe('runFullResolutionJpegExport', () => {
       abort: vi.fn(async () => undefined),
     }
 
-    const blob = await runFullResolutionJpegExport({
+    const blob = await runFullResolutionJpegExportBlob({
       capability: makeCapability({
         width: 4,
         height: 128,
@@ -1470,7 +1519,7 @@ describe('runFullResolutionJpegExport', () => {
       dispose: vi.fn(),
     }))
 
-    const blob = await runFullResolutionJpegExport({
+    const blob = await runFullResolutionJpegExportBlob({
       capability: makeCapability({
         height: 256,
         rawHeight: 256,

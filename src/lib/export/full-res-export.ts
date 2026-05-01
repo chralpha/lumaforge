@@ -12,7 +12,6 @@ import type {
 import type { JpegRowSink, JpegRowWriter } from './jpeg/row-writer'
 import { createJpegRowWriter } from './jpeg/row-writer'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
-import { materializeOutputBlob } from './output-sink'
 import type { ExportPerfMetric } from './perf/export-metrics'
 import { createExportMetricCollector, nowMs } from './perf/export-metrics'
 import {
@@ -392,7 +391,7 @@ export async function runFullResolutionJpegExport(
           }),
         )
       }
-      return materializeOutputBlob(output)
+      return output
     } catch (error) {
       attemptAbortScope.abort()
 

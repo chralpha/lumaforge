@@ -6,6 +6,7 @@ import {
   FullResolutionExportWorkerClient,
   runFullResolutionJpegExportInWorker,
 } from './full-res-export-client'
+import { createBlobOutputResult } from './output-sink'
 
 class FakeWorker {
   onmessage:
@@ -110,10 +111,17 @@ describe('fullResolutionExportWorkerClient', () => {
     worker.emit({
       kind: 'success',
       requestId: startRequest.requestId,
-      blob: new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      result: createBlobOutputResult({
+        filename: 'sample.jpg',
+        blob: new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      }),
     })
 
-    await expect(promise).resolves.toMatchObject({ type: 'image/jpeg' })
+    await expect(promise).resolves.toMatchObject({
+      kind: 'blob',
+      filename: 'sample.jpg',
+      mimeType: 'image/jpeg',
+    })
     expect(workerFactory).toHaveBeenCalledTimes(1)
     expect(worker.terminate).toHaveBeenCalledTimes(1)
   })
@@ -193,10 +201,13 @@ describe('fullResolutionExportWorkerClient', () => {
     worker.emit({
       kind: 'success',
       requestId: start.requestId,
-      blob: new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      result: createBlobOutputResult({
+        filename: 'sample.jpg',
+        blob: new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      }),
     })
 
-    await expect(run).resolves.toHaveProperty('type', 'image/jpeg')
+    await expect(run).resolves.toMatchObject({ kind: 'blob' })
     expect(metrics).toEqual([metric])
     client.dispose()
   })
@@ -220,10 +231,13 @@ describe('fullResolutionExportWorkerClient', () => {
     worker.emit({
       kind: 'success',
       requestId: start.requestId,
-      blob: new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      result: createBlobOutputResult({
+        filename: 'sample.jpg',
+        blob: new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      }),
     })
 
-    await expect(run).resolves.toHaveProperty('type', 'image/jpeg')
+    await expect(run).resolves.toMatchObject({ kind: 'blob' })
     client.dispose()
   })
 
@@ -290,11 +304,14 @@ describe('fullResolutionExportWorkerClient', () => {
     recoveredWorker.emit({
       kind: 'success',
       requestId: startRequest.requestId,
-      blob: new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      result: createBlobOutputResult({
+        filename: 'sample.jpg',
+        blob: new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
+      }),
     })
 
     await expect(recoveredPromise).resolves.toMatchObject({
-      type: 'image/jpeg',
+      kind: 'blob',
     })
     expect(workerFactory).toHaveBeenCalledTimes(2)
   })

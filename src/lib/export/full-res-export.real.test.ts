@@ -37,7 +37,7 @@ import type {
 import { createRuntimeCore } from '../../../packages/luma-raw-runtime/worker/runtime-core'
 import { runFullResolutionJpegExport } from './full-res-export'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
-import { createBlobOutputResult } from './output-sink'
+import { createBlobOutputResult, materializeOutputBlob } from './output-sink'
 
 type NativeModuleFactory = (options?: {
   locateFile?: (path: string) => string
@@ -481,35 +481,37 @@ describe('full-resolution export real RAW fixtures', () => {
           expect(capability.width).toBeGreaterThan(10_000)
           expect(capability.height).toBeGreaterThan(8_000)
 
-          const blob = await runFullResolutionJpegExport({
-            capability,
-            graph,
-            preferredRows: 512,
-            quality: 0.92,
-            readProcessedWindow: session.readProcessedWindow,
-            onProgress(entry) {
-              progress.push(entry.progress)
-            },
-            writerFactory: () => {
-              let writtenRows = 0
+          const blob = await materializeOutputBlob(
+            await runFullResolutionJpegExport({
+              capability,
+              graph,
+              preferredRows: 512,
+              quality: 0.92,
+              readProcessedWindow: session.readProcessedWindow,
+              onProgress(entry) {
+                progress.push(entry.progress)
+              },
+              writerFactory: () => {
+                let writtenRows = 0
 
-              return {
-                async writeRows(rows, rowCount) {
-                  expect(rows).toBeInstanceOf(Uint8Array)
-                  expect(rows.length).toBe(capability.width * rowCount * 3)
-                  writtenRows += rowCount
-                },
-                async close() {
-                  expect(writtenRows).toBe(capability.height)
-                  finalWrittenRows = writtenRows
-                  return makeJpegOutput([new Uint8Array([1])])
-                },
-                async abort() {
-                  return undefined
-                },
-              }
-            },
-          })
+                return {
+                  async writeRows(rows, rowCount) {
+                    expect(rows).toBeInstanceOf(Uint8Array)
+                    expect(rows.length).toBe(capability.width * rowCount * 3)
+                    writtenRows += rowCount
+                  },
+                  async close() {
+                    expect(writtenRows).toBe(capability.height)
+                    finalWrittenRows = writtenRows
+                    return makeJpegOutput([new Uint8Array([1])])
+                  },
+                  async abort() {
+                    return undefined
+                  },
+                }
+              },
+            }),
+          )
 
           expect(blob.type).toBe('image/jpeg')
           expect(finalWrittenRows).toBe(capability.height)
@@ -547,18 +549,20 @@ describe('full-resolution export real RAW fixtures', () => {
 
           const jpegWidth = 1024
           const jpegHeight = 512
-          const blob = await runFullResolutionJpegExport({
-            capability: {
-              ...capability,
-              width: jpegWidth,
-              height: jpegHeight,
-            },
-            graph,
-            preferredRows: 256,
-            quality: 0.92,
-            readProcessedWindow: session.readProcessedWindow,
-            jpegSink: createRealJpegSink(),
-          })
+          const blob = await materializeOutputBlob(
+            await runFullResolutionJpegExport({
+              capability: {
+                ...capability,
+                width: jpegWidth,
+                height: jpegHeight,
+              },
+              graph,
+              preferredRows: 256,
+              quality: 0.92,
+              readProcessedWindow: session.readProcessedWindow,
+              jpegSink: createRealJpegSink(),
+            }),
+          )
 
           expect(blob.type).toBe('image/jpeg')
           expect(blob.size).toBeGreaterThan(0)

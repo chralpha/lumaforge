@@ -6,7 +6,10 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetToDefaults } from '~/atoms/raw-processor'
-import { createBlobOutputResult } from '~/lib/export/output-sink'
+import type {FileBackedOutputResult} from '~/lib/export/output-sink';
+import {
+  createBlobOutputResult
+} from '~/lib/export/output-sink'
 import { jotaiStore } from '~/lib/jotai'
 import {
   getStoredLUTContractSelection,
@@ -1817,11 +1820,63 @@ describe('useRawProcessor embedded preview state', () => {
 
     expect(click).not.toHaveBeenCalled()
 
-    act(() => {
+    await act(async () => {
       result.current.downloadExportResult()
+      await Promise.resolve()
     })
 
     expect(click).toHaveBeenCalledTimes(1)
+  })
+
+  it('cleans up file-backed export output when resetting the session', async () => {
+    const cleanup = vi.fn(async () => undefined)
+    const output: FileBackedOutputResult = {
+      kind: 'file-backed',
+      exportId: 'export-1',
+      filename: 'frame_neutral_fullres.jpg',
+      byteLength: 4,
+      mimeType: 'image/jpeg',
+      openBlob: vi.fn(async () => new Blob(['jpeg'], { type: 'image/jpeg' })),
+      cleanup,
+    }
+
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      output,
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    expect(result.current.exportResult?.output).toBe(output)
+
+    act(() => {
+      result.current.reset()
+    })
+    await waitFor(() => {
+      expect(cleanup).toHaveBeenCalledTimes(1)
+    })
+
+    act(() => {
+      result.current.reset()
+    })
+    await Promise.resolve()
+    expect(cleanup).toHaveBeenCalledTimes(1)
   })
 
   it('keeps a ready export after share cancellation', async () => {

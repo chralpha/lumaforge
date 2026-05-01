@@ -632,9 +632,23 @@ export function useRawProcessor(): UseRawProcessorReturn {
       owner: 'export-result',
       kind: 'blob',
       estimatedBytes: result.size,
-      dispose: () => undefined,
+      dispose: () =>
+        'cleanup' in result.output ? result.output.cleanup?.() : undefined,
     })
   }, [])
+
+  const disposeExportResultResources = useCallback(async () => {
+    const registry = resourceRegistryRef.current
+    if (!registry) return
+
+    await registry.disposeOwners(['export-result'])
+  }, [])
+
+  const queueExportResultResourceDisposal = useCallback(() => {
+    void disposeExportResultResources().catch((error) => {
+      console.warn('Failed to clean up export result resources:', error)
+    })
+  }, [disposeExportResultResources])
 
   const invalidateExportGraph = useCallback(() => {
     exportGraphVersionRef.current += 1
@@ -645,13 +659,20 @@ export function useRawProcessor(): UseRawProcessorReturn {
       ) || sessionRef.current?.exportState.status === 'exporting'
 
     abortExportWork()
+    queueExportResultResourceDisposal()
     setSession(clearExportResultState)
 
     if (hasActiveExport) {
       setStatus('ready')
       setProgress(0)
     }
-  }, [abortExportWork, setProgress, setSession, setStatus])
+  }, [
+    abortExportWork,
+    queueExportResultResourceDisposal,
+    setProgress,
+    setSession,
+    setStatus,
+  ])
 
   const setDecodedImageRef = useCallback(
     (nextDecoded: DecodedImage | null) => {
@@ -681,6 +702,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       pendingLoadSessionIdRef.current = null
       abortExportWork()
       abortRuntimeWork()
+      queueExportResultResourceDisposal()
       revokeCurrentEmbeddedPreviewUrl()
       if (pendingLoadSessionId) {
         decodedImageRef.current = null
@@ -695,8 +717,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
     }
   }, [
     abortExportWork,
-    revokeCurrentEmbeddedPreviewUrl,
     abortRuntimeWork,
+    queueExportResultResourceDisposal,
+    revokeCurrentEmbeddedPreviewUrl,
     setError,
     setLoadedImage,
     setProgress,
@@ -733,6 +756,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         pendingLoadSessionIdRef.current = null
         abortExportWork()
         abortRuntimeWork()
+        queueExportResultResourceDisposal()
         revokeCurrentEmbeddedPreviewUrl()
         runtimeAbortController = new AbortController()
         runtimeAbortControllerRef.current = runtimeAbortController
@@ -1283,6 +1307,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       abortRuntimeWork,
       disposeRuntimeSession,
       lut,
+      queueExportResultResourceDisposal,
       replaceFile,
       revokeCurrentEmbeddedPreviewUrl,
       scheduleToast,
@@ -1958,12 +1983,25 @@ export function useRawProcessor(): UseRawProcessorReturn {
           return
         }
         const completedCapability = activeSession.exportState.fullResCapability
+        const exportJobResult = result as {
+          filename: string
+          output?: typeof result.output
+          blob?: Blob
+        }
+        const output =
+          exportJobResult.output ??
+          (exportJobResult.blob
+            ? createBlobOutputResult({
+                filename: exportJobResult.filename,
+                blob: exportJobResult.blob,
+              })
+            : undefined)
+        if (!output) {
+          throw new Error('EXPORT_OUTPUT_MISSING')
+        }
 
         const exportResult = createExportResult({
-          output: createBlobOutputResult({
-            blob: result.blob,
-            filename: result.filename,
-          }),
+          output,
           filename: result.filename,
           width: completedCapability.width,
           height: completedCapability.height,
@@ -2146,6 +2184,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     pendingLoadSessionIdRef.current = null
     abortExportWork()
     abortRuntimeWork()
+    queueExportResultResourceDisposal()
     revokeCurrentEmbeddedPreviewUrl()
     setDecodedImageRef(null)
     setLoadedImage({ file: null, decoded: null, metadata: null })
@@ -2157,8 +2196,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
     sessionRef.current = null
   }, [
     abortExportWork,
-    resetSession,
     abortRuntimeWork,
+    queueExportResultResourceDisposal,
+    resetSession,
     revokeCurrentEmbeddedPreviewUrl,
     setDecodedImageRef,
     setError,

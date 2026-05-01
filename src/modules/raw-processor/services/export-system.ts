@@ -150,7 +150,7 @@ export async function runFullResolutionExportJob({
   const client = clientFactory()
 
   try {
-    const blob = await client.run({
+    const output = await client.run({
       file,
       graph,
       quality,
@@ -160,7 +160,7 @@ export async function runFullResolutionExportJob({
       signal,
     })
 
-    return { filename, blob }
+    return { filename, output }
   } finally {
     client.dispose()
   }

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { runFullResolutionJpegExport } from './full-res-export'
 import { runProcessedWindowExportLifecycle } from './full-res-export.worker'
 import type { FullResExportWorkerResponse } from './full-res-export-client'
+import { createBlobOutputResult, materializeOutputBlob } from './output-sink'
 
 vi.mock('@lumaforge/luma-raw-runtime', () => ({
   createLumaRawRuntime: vi.fn(),
@@ -235,7 +236,12 @@ describe('full-resolution export worker lifecycle responses', () => {
       dispose: vi.fn(),
     }
     vi.mocked(createLumaRawRuntime).mockReturnValue(runtime as never)
-    vi.mocked(runFullResolutionJpegExport).mockResolvedValue(makeJfifOnlyJpeg())
+    vi.mocked(runFullResolutionJpegExport).mockResolvedValue(
+      createBlobOutputResult({
+        filename: 'sony.jpg',
+        blob: makeJfifOnlyJpeg(),
+      }),
+    )
 
     self.onmessage?.({
       data: {
@@ -259,7 +265,9 @@ describe('full-resolution export worker lifecycle responses', () => {
       throw new Error('Expected a successful export response.')
     }
 
-    const bytes = await readBlobBytes(response.blob)
+    const bytes = await readBlobBytes(
+      await materializeOutputBlob(response.result),
+    )
     expect(bytesIncludeAscii(bytes, 'Exif\0\0')).toBe(true)
     expect(bytesIncludeAscii(bytes, 'Sony')).toBe(true)
     expect(bytesIncludeAscii(bytes, 'ILCE-7RM5')).toBe(true)
@@ -298,7 +306,10 @@ describe('full-resolution export worker lifecycle responses', () => {
     }
     vi.mocked(createLumaRawRuntime).mockReturnValue(runtime as never)
     vi.mocked(runFullResolutionJpegExport).mockResolvedValue(
-      new Blob(['jpeg'], { type: 'image/jpeg' }),
+      createBlobOutputResult({
+        filename: 'sample.jpg',
+        blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+      }),
     )
 
     self.onmessage?.({
