@@ -37,6 +37,14 @@ export function ProgressOverlay({
   const session = useAtomValue(currentSessionAtom)
   const stripProgress =
     phase === 'exporting' ? session?.exportState.lastProgress : undefined
+  const activePlan =
+    phase === 'exporting' ? session?.exportState.activePlan : undefined
+  const exportProfileCopy =
+    activePlan?.profileName === 'ios-safe'
+      ? `Safe export · ${activePlan.preferredRows} rows · 1 worker`
+      : activePlan
+        ? `High-performance export · ${activePlan.preferredRows} rows · ${activePlan.concurrency} workers`
+        : undefined
   const normalizedProgress =
     typeof progress === 'number' && Number.isFinite(progress)
       ? Math.min(100, Math.max(0, progress))
@@ -118,6 +126,12 @@ export function ProgressOverlay({
                 <p className="mt-2 text-xs tabular-nums text-[oklch(0.91_0.02_86_/_0.82)]">
                   Strip {stripProgress.completedStrips} of{' '}
                   {stripProgress.totalStrips}
+                </p>
+              )}
+
+              {exportProfileCopy && (
+                <p className="mt-2 text-xs tabular-nums text-[oklch(0.91_0.02_86_/_0.82)]">
+                  {exportProfileCopy}
                 </p>
               )}
 

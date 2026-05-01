@@ -6,10 +6,8 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetToDefaults } from '~/atoms/raw-processor'
-import type {FileBackedOutputResult} from '~/lib/export/output-sink';
-import {
-  createBlobOutputResult
-} from '~/lib/export/output-sink'
+import type { FileBackedOutputResult } from '~/lib/export/output-sink'
+import { createBlobOutputResult } from '~/lib/export/output-sink'
 import { jotaiStore } from '~/lib/jotai'
 import {
   getStoredLUTContractSelection,
@@ -1608,8 +1606,10 @@ describe('useRawProcessor embedded preview state', () => {
       expect.objectContaining({
         file: expect.any(File),
         filename: 'frame_neutral_fullres.jpg',
-        preferredRows: 1024,
-        concurrency: 3,
+        executionPlan: expect.objectContaining({
+          preferredRows: expect.any(Number),
+          concurrency: expect.any(Number),
+        }),
         quality: 0.92,
         graph: expect.objectContaining({
           steps: expectedExportGraphSteps,
@@ -1637,6 +1637,85 @@ describe('useRawProcessor embedded preview state', () => {
     expect(remove).not.toHaveBeenCalled()
     expect(append).not.toHaveBeenCalled()
     expect(revokeObjectURL).not.toHaveBeenCalled()
+  })
+
+  it('records ios-safe active plan and checkpoint durability while full-resolution export is running', async () => {
+    const pendingExport = deferred<{ filename: string; blob: Blob }>()
+
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+      maxTouchPoints: 1,
+      storage: {},
+      hardwareConcurrency: 4,
+    })
+    vi.stubGlobal('crossOriginIsolated', false)
+
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    rawRuntimeAdapterMock.probeExportCapability.mockResolvedValue(
+      createSupportedCapability(),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockReturnValue(
+      pendingExport.promise,
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    let exportPromise!: Promise<void>
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    await act(async () => {
+      exportPromise = result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+      await Promise.resolve()
+    })
+
+    const exportState = jotaiStore.get(currentSessionAtom)?.exportState
+    expect(exportState).toMatchObject({
+      status: 'exporting',
+      activePlan: {
+        profileName: 'ios-safe',
+        preferredRows: 128,
+        concurrency: 1,
+        runtimeMemoryProfile: 'low-memory',
+        outputSink: 'streaming',
+        checkpointMode: 'safe-retry',
+      },
+      checkpointDurable: false,
+      retryRecommended: false,
+    })
+    expect(exportState?.result).toBeUndefined()
+    expect(exportState?.lastProgress).toBeUndefined()
+
+    expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        executionPlan: expect.objectContaining({
+          profile: expect.objectContaining({ name: 'ios-safe' }),
+          preferredRows: 128,
+          concurrency: 1,
+          runtimeMemoryProfile: 'low-memory',
+          outputSink: 'streaming',
+          checkpointMode: 'safe-retry',
+        }),
+      }),
+    )
+
+    await act(async () => {
+      pendingExport.resolve({
+        filename: 'frame_neutral_fullres.jpg',
+        blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+      })
+      await exportPromise
+    })
   })
 
   it('evacuates preview resources and clears stale export result before full-resolution export', async () => {

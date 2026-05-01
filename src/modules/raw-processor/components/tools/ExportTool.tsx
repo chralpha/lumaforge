@@ -1,9 +1,16 @@
+import { useAtomValue } from 'jotai'
+
 import { Button } from '~/components/ui/button'
 
 import type {
   ExportResult,
   ExportShareCapability,
 } from '../../model/export-result'
+import type {
+  ActiveExportPlanState,
+  ExportRecoveryState,
+} from '../../model/session'
+import { currentSessionAtom } from '../../state/session.atoms'
 import { ToolSection } from './ToolSection'
 
 function formatBytes(bytes: number) {
@@ -22,6 +29,9 @@ export function ExportTool({
   onShareExport,
   onDownloadExport,
   onCopyExport,
+  activePlan,
+  recovery,
+  checkpointDurable,
 }: {
   canExport: boolean
   disabledReason?: string
@@ -35,7 +45,15 @@ export function ExportTool({
   onShareExport: () => void | Promise<void>
   onDownloadExport: () => void
   onCopyExport: () => void | Promise<void>
+  activePlan?: ActiveExportPlanState
+  recovery?: ExportRecoveryState
+  checkpointDurable?: boolean
 }) {
+  const session = useAtomValue(currentSessionAtom)
+  const currentActivePlan = activePlan ?? session?.exportState.activePlan
+  const currentRecovery = recovery ?? session?.exportState.recovery
+  const currentCheckpointDurable =
+    checkpointDurable ?? session?.exportState.checkpointDurable
   const unavailableReason =
     disabledReason || 'Full-resolution export source is still loading.'
 
@@ -103,6 +121,22 @@ export function ExportTool({
         </div>
       ) : (
         <>
+          {currentActivePlan?.profileName === 'ios-safe' && (
+            <p className="raw-tool-note">
+              This device is using low-memory export mode. Export may take
+              longer.
+            </p>
+          )}
+          {currentCheckpointDurable === false &&
+            currentActivePlan?.profileName === 'ios-safe' && (
+              <p className="raw-tool-note">
+                This browser cannot store export progress. Keep the tab open
+                while the JPEG is being written.
+              </p>
+            )}
+          {currentRecovery?.status === 'source-required' && (
+            <p className="raw-tool-note">{currentRecovery.message}</p>
+          )}
           <Button
             variant="primary"
             size="sm"

@@ -4,6 +4,13 @@ import type {
   LUTProfileResolution,
 } from '@lumaforge/luma-color-runtime'
 
+import type {
+  ExportCheckpointMode,
+  ExportExecutionProfileName,
+  ExportOutputSink,
+  ExportRuntimeMemoryProfile,
+} from '~/lib/export/execution-profile'
+
 import type { ExportResult } from './export-result'
 
 export type SupportLevel = 'official' | 'experimental' | 'unsupported'
@@ -16,6 +23,29 @@ export type FullResExportCapabilityState =
   | { status: 'probing' }
   | { status: 'supported'; width: number; height: number }
   | { status: 'unsupported'; reason: string }
+
+export type ExportRecoveryState =
+  | { status: 'none' }
+  | {
+      status: 'source-required'
+      exportId: string
+      message: string
+      expectedFileName: string
+    }
+  | {
+      status: 'ready-to-retry'
+      exportId: string
+      message: string
+    }
+
+export type ActiveExportPlanState = {
+  profileName: ExportExecutionProfileName
+  preferredRows: number
+  concurrency: number
+  runtimeMemoryProfile: ExportRuntimeMemoryProfile
+  outputSink: ExportOutputSink
+  checkpointMode: ExportCheckpointMode
+}
 
 export type LUTProfileSelectionState =
   | {
@@ -110,6 +140,9 @@ export type ImageSession = {
     qualityPreset: 'standard' | 'high'
     fidelityLevel: ExportFidelity
     fullResCapability: FullResExportCapabilityState
+    activePlan?: ActiveExportPlanState
+    recovery?: ExportRecoveryState
+    checkpointDurable?: boolean
     result?: ExportResult
     lastProgress?: {
       completedStrips: number

@@ -122,4 +122,34 @@ describe('exportTool', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Download' })).toBeEnabled()
   })
+
+  it('shows low-memory and non-durable checkpoint copy for ios-safe export', () => {
+    render(
+      <ExportTool
+        canExport
+        isProcessing={false}
+        onExport={vi.fn()}
+        exportResult={null}
+        exportShareCapability={{ available: false, reason: 'Export first.' }}
+        onShareExport={vi.fn()}
+        onDownloadExport={vi.fn()}
+        onCopyExport={vi.fn()}
+        activePlan={{
+          profileName: 'ios-safe',
+          preferredRows: 64,
+          concurrency: 1,
+          runtimeMemoryProfile: 'low-memory',
+          outputSink: 'blob-handoff',
+          checkpointMode: 'safe-retry',
+        }}
+        checkpointDurable={false}
+        recovery={{ status: 'none' }}
+      />,
+    )
+
+    expect(screen.getByText(/low-memory export mode/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/cannot store export progress/i),
+    ).toBeInTheDocument()
+  })
 })

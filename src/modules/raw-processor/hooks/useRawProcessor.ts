@@ -89,10 +89,9 @@ import {
 } from '../services/export-result-actions'
 import {
   buildExportFilename,
-  getConcurrencyForFidelity,
-  getPreferredRowsForFidelity,
   recommendRetryLevel,
   runFullResolutionExportJob,
+  selectCurrentExportExecutionPlan,
 } from '../services/export-system'
 import { runPreviewPipeline } from '../services/preview-pipeline'
 import { decideBoundedHqPreview } from '../services/preview-resolution-policy'
@@ -1856,6 +1855,19 @@ export function useRawProcessor(): UseRawProcessorReturn {
         setStatus('exporting')
         setProgress(0)
         setError(null)
+        const executionPlan = selectCurrentExportExecutionPlan({
+          fidelity,
+          sourceWidth: session.exportState.fullResCapability.width,
+          sourceHeight: session.exportState.fullResCapability.height,
+        })
+        const activePlan = {
+          profileName: executionPlan.profile.name,
+          preferredRows: executionPlan.preferredRows,
+          concurrency: executionPlan.concurrency,
+          runtimeMemoryProfile: executionPlan.runtimeMemoryProfile,
+          outputSink: executionPlan.outputSink,
+          checkpointMode: executionPlan.checkpointMode,
+        }
 
         setSession((prev) =>
           prev && prev.id === exportSessionId
@@ -1866,6 +1878,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
                   status: 'exporting',
                   qualityPreset: quality,
                   fidelityLevel: fidelity,
+                  activePlan,
+                  checkpointDurable: executionPlan.outputSink === 'opfs-file',
+                  recovery: { status: 'none' },
                   result: undefined,
                   lastProgress: undefined,
                   retryRecommended: false,
@@ -1939,8 +1954,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
           file: loadedImage.file,
           filename,
           quality: quality === 'high' ? 0.92 : 0.86,
-          preferredRows: getPreferredRowsForFidelity(fidelity),
-          concurrency: getConcurrencyForFidelity(fidelity),
+          executionPlan,
           graph,
           onProgress: (entry) => {
             if (
