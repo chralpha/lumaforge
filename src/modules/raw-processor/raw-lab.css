@@ -425,6 +425,19 @@
   text-transform: uppercase;
 }
 
+.raw-lut-source-family-group {
+  display: grid;
+  gap: 6px;
+}
+
+.raw-lut-source-family-heading {
+  margin: 0;
+  color: var(--raw-ink-soft);
+  font-size: 0.68rem;
+  font-weight: 730;
+  text-transform: uppercase;
+}
+
 .raw-lut-source-entry {
   display: grid;
   align-items: center;

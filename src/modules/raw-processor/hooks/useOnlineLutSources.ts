@@ -98,7 +98,7 @@ function mergeEntryResolution(
     entries: state.entries.map((entry) =>
       entry.resourceId === requestedEntry.resourceId &&
       entry.id === requestedEntry.id
-        ? resolvedEntry
+        ? { ...resolvedEntry, family: resolvedEntry.family ?? entry.family }
         : entry,
     ),
     issues: [

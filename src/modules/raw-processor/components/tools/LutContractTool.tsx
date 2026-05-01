@@ -1011,19 +1011,58 @@ function OnlineLutSourceControls({
             data-lut-source-scroll="internal"
           >
             {openEntries.length > 0 ? (
-              openEntries.map((entry) => (
-                <div key={entry.id} className="raw-lut-source-entry">
-                  <span className="raw-lut-source-entry-title">
-                    {entry.title}
-                  </span>
-                  <LutIconButton
-                    label={`Load ${entry.title}`}
-                    onClick={() => void onlineLutSources.loadEntry(entry.id)}
-                  >
-                    <Download aria-hidden="true" />
-                  </LutIconButton>
-                </div>
-              ))
+              (() => {
+                const familyGroups = new Map<string, typeof openEntries>()
+                const ungrouped: typeof openEntries = []
+
+                for (const entry of openEntries) {
+                  if (entry.family) {
+                    const group = familyGroups.get(entry.family)
+                    if (group) {
+                      group.push(entry)
+                    } else {
+                      familyGroups.set(entry.family, [entry])
+                    }
+                  } else {
+                    ungrouped.push(entry)
+                  }
+                }
+
+                const renderEntry = (entry: (typeof openEntries)[number]) => (
+                  <div key={entry.id} className="raw-lut-source-entry">
+                    <span className="raw-lut-source-entry-title">
+                      {entry.title}
+                    </span>
+                    <LutIconButton
+                      label={`Load ${entry.title}`}
+                      onClick={() => void onlineLutSources.loadEntry(entry.id)}
+                    >
+                      <Download aria-hidden="true" />
+                    </LutIconButton>
+                  </div>
+                )
+
+                return (
+                  <>
+                    {Array.from(familyGroups, ([family, entries]) => (
+                      <div key={family} className="raw-lut-source-family-group">
+                        <div className="raw-lut-source-family-heading">
+                          {family}
+                        </div>
+                        {entries.map(renderEntry)}
+                      </div>
+                    ))}
+                    {ungrouped.length > 0 && (
+                      <div className="raw-lut-source-family-group">
+                        <div className="raw-lut-source-family-heading">
+                          Others
+                        </div>
+                        {ungrouped.map(renderEntry)}
+                      </div>
+                    )}
+                  </>
+                )
+              })()
             ) : (
               <p className="raw-lut-source-browser-empty">
                 {openIssues.length > 0

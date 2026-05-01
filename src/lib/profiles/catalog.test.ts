@@ -84,6 +84,49 @@ describe('online LUT release catalog parsing', () => {
     })
   })
 
+  it('parses the family field from catalog entries', () => {
+    const result = parseReleaseCatalog(
+      {
+        schemaVersion: 1,
+        entries: [
+          {
+            id: entryManifest.id,
+            kind: 'lut',
+            version: entryManifest.version,
+            title: entryManifest.title,
+            license: entryManifest.license,
+            redistributionAllowed: true,
+            primaryAsset,
+            entryUrl: entryManifest.entryUrl,
+            family: 'Kodak Vision3',
+          },
+        ],
+      },
+      'https://profiles.example.com/releases/v2026.05.01/catalog.json',
+    )
+
+    expect(result).toEqual({
+      ok: true,
+      value: [
+        {
+          id: 'kodak-2383-rec709',
+          title: 'Kodak 2383 Rec.709',
+          sourceUrl:
+            'https://profiles.example.com/releases/v2026.05.01/entries/kodak-2383-rec709.json',
+          sourceType: 'catalog-entry',
+          cube: {
+            url: primaryAsset.url,
+            sha256,
+            bytes: 12,
+            title: 'Kodak 2383 Rec.709',
+          },
+          tags: [],
+          family: 'Kodak Vision3',
+        },
+      ],
+    })
+  })
+
   it('rejects release catalog entries with relative entry URLs', () => {
     const result = parseReleaseCatalog(
       {

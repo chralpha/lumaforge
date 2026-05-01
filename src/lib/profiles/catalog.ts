@@ -36,6 +36,7 @@ export interface OnlineLUTEntry {
   cube: OnlineLUTAsset
   trustedContract?: LUTContractSelection
   tags: string[]
+  family?: string
 }
 
 export type OnlineCatalogEntry = OnlineLUTEntry
@@ -286,6 +287,7 @@ function buildEntry(
     },
     trustedContract,
     tags: readTags(entry.tags),
+    family: readString(entry, 'family'),
   }
 }
 
