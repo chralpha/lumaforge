@@ -35,7 +35,6 @@ export function ToneTool({
           </output>
           <input
             id={exposureId}
-            aria-label="Exposure"
             type="range"
             min={-5}
             max={5}
@@ -52,7 +51,6 @@ export function ToneTool({
           <output aria-hidden="true">{Math.round(value.userContrast)}</output>
           <input
             id={contrastId}
-            aria-label="Contrast"
             type="range"
             min={-100}
             max={100}

@@ -172,7 +172,7 @@ describe('rawToolSurface', () => {
     ).toBeTruthy()
   })
 
-  it('sends normalized tone changes and resets only tone', async () => {
+  it('sends normalized tone changes and calls tone reset', async () => {
     const user = userEvent.setup()
     const onToneChange = vi.fn()
     const onToneReset = vi.fn()
@@ -193,6 +193,14 @@ describe('rawToolSurface', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reset tone' }))
     expect(onToneReset).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables tone controls before upload', () => {
+    render(<RawToolSurface {...baseProps} />)
+
+    expect(screen.getByLabelText('Exposure')).toBeDisabled()
+    expect(screen.getByLabelText('Contrast')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Reset tone' })).toBeDisabled()
   })
 
   it('shows preserved tone state for non-neutral tone', () => {

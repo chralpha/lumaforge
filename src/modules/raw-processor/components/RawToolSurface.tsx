@@ -18,8 +18,8 @@ import { FinishTool } from './tools/FinishTool'
 import { LutContractTool } from './tools/LutContractTool'
 import type { StrengthLevel } from './tools/StrengthControl'
 import { StrengthControl } from './tools/StrengthControl'
-import type {ToneValue} from './tools/ToneTool';
-import { ToneTool  } from './tools/ToneTool'
+import type { ToneValue } from './tools/ToneTool'
+import { ToneTool } from './tools/ToneTool'
 import { ToolSection } from './tools/ToolSection'
 
 export function RawToolSurface(props: {
