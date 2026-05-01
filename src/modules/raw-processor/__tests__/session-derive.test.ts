@@ -39,6 +39,8 @@ const baseSession: ImageSession = {
     qualityPreset: 'high',
     fidelityLevel: 'balanced',
     fullResCapability: { status: 'unknown' },
+    recovery: { status: 'none' },
+    checkpointDurable: false,
     retryRecommended: false,
   },
 }

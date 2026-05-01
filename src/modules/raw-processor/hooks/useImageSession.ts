@@ -47,6 +47,8 @@ function createEmptySession(
       qualityPreset: 'high',
       fidelityLevel: 'balanced',
       fullResCapability: { status: 'unknown' },
+      recovery: { status: 'none' },
+      checkpointDurable: false,
       retryRecommended: false,
     },
   }

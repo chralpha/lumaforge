@@ -141,8 +141,8 @@ export type ImageSession = {
     fidelityLevel: ExportFidelity
     fullResCapability: FullResExportCapabilityState
     activePlan?: ActiveExportPlanState
-    recovery?: ExportRecoveryState
-    checkpointDurable?: boolean
+    recovery: ExportRecoveryState
+    checkpointDurable: boolean
     result?: ExportResult
     lastProgress?: {
       completedStrips: number

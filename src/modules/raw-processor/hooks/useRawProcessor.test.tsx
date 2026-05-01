@@ -192,6 +192,8 @@ function createTestSession() {
         width: 4000,
         height: 3000,
       },
+      recovery: { status: 'none' as const },
+      checkpointDurable: false,
       retryRecommended: false,
     },
   }
