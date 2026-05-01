@@ -29,6 +29,7 @@ export function ExportTool({
   onShareExport,
   onDownloadExport,
   onCopyExport,
+  onRecoverExportSource,
   activePlan,
   recovery,
   checkpointDurable,
@@ -45,6 +46,7 @@ export function ExportTool({
   onShareExport: () => void | Promise<void>
   onDownloadExport: () => void
   onCopyExport: () => void | Promise<void>
+  onRecoverExportSource?: () => void
   activePlan?: ActiveExportPlanState
   recovery?: ExportRecoveryState
   checkpointDurable?: boolean
@@ -136,7 +138,18 @@ export function ExportTool({
             </p>
           )}
           {currentRecovery?.status === 'source-required' && (
-            <p className="raw-tool-note">{currentRecovery.message}</p>
+            <>
+              <p className="raw-tool-note">{currentRecovery.message}</p>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full"
+                disabled={!onRecoverExportSource || isProcessing}
+                onClick={onRecoverExportSource}
+              >
+                Reselect RAW and retry
+              </Button>
+            </>
           )}
           <Button
             variant="primary"

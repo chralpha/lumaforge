@@ -47,6 +47,7 @@ export function RawToolSurface(props: {
   onShareExport: () => void
   onDownloadExport: () => void
   onCopyExport: () => void
+  onRecoverExportSource?: () => void
   hasImage: boolean
   currentLutName?: string | null
   lutProfileSelection?: LUTProfileSelectionState | null
@@ -121,6 +122,7 @@ export function RawToolSurface(props: {
           onShareExport={props.onShareExport}
           onDownloadExport={props.onDownloadExport}
           onCopyExport={props.onCopyExport}
+          onRecoverExportSource={props.onRecoverExportSource}
         />
         <FileFactsTool
           supportLevel={props.supportLevel}

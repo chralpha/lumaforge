@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
 import { createBlobOutputResult } from '~/lib/export/output-sink'
 
 import type { ExportResult } from '../../model/export-result'
@@ -26,6 +27,35 @@ function createResult(overrides: Partial<ExportResult> = {}): ExportResult {
       reason: 'This browser cannot copy full-resolution JPEG files.',
     },
     ...overrides,
+  }
+}
+
+function createCheckpointManifest(): ExportCheckpointManifest {
+  return {
+    version: 1,
+    exportId: 'export-1',
+    sourceFingerprint: {
+      name: 'frame.RAF',
+      size: 3,
+      lastModified: 123,
+      hashPrefixHex: 'abc',
+    },
+    fileName: 'frame.RAF',
+    sourceSize: 3,
+    sourceLastModified: 123,
+    outputWidth: 11662,
+    outputHeight: 8746,
+    graphFingerprint: 'graph-1',
+    profile: 'ios-safe',
+    attempt: 1,
+    preferredRows: 64,
+    totalRows: 8746,
+    recoveryMode: 'safe-retry',
+    outputSink: 'opfs-file',
+    sourceReacquisition: 'user-reselect-required',
+    completedRowsForDiagnostics: 64,
+    jpegState: 'restart-required',
+    updatedAt: '2026-05-01T00:00:00.000Z',
   }
 }
 
@@ -181,5 +211,40 @@ describe('exportTool', () => {
     expect(
       screen.getByText(/cannot store export progress/i),
     ).toBeInTheDocument()
+  })
+
+  it('shows recovery source reselect action', async () => {
+    const user = userEvent.setup()
+    const onRecoverExportSource = vi.fn()
+
+    render(
+      <ExportTool
+        canExport={false}
+        isProcessing={false}
+        onExport={vi.fn()}
+        exportResult={null}
+        exportShareCapability={{ available: false, reason: 'Export first.' }}
+        onShareExport={vi.fn()}
+        onDownloadExport={vi.fn()}
+        onCopyExport={vi.fn()}
+        onRecoverExportSource={onRecoverExportSource}
+        recovery={{
+          status: 'source-required',
+          exportId: 'export-1',
+          expectedFileName: 'frame.RAF',
+          manifest: createCheckpointManifest(),
+          message:
+            'The browser interrupted the previous export. Please reselect the same RAW file so LumaForge can retry with a safer setting.',
+        }}
+      />,
+    )
+
+    expect(screen.getByText(/reselect the same RAW file/i)).toBeInTheDocument()
+
+    await user.click(
+      screen.getByRole('button', { name: 'Reselect RAW and retry' }),
+    )
+
+    expect(onRecoverExportSource).toHaveBeenCalledTimes(1)
   })
 })

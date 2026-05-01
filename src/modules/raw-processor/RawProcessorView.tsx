@@ -112,6 +112,7 @@ function RawProcessorViewInner({
     setCompareSplit,
     clearLUT,
     exportImage,
+    recoverInterruptedExport,
     downloadExportResult,
     shareExportResult,
     copyExportResult,
@@ -171,6 +172,20 @@ function RawProcessorViewInner({
     }
     input.click()
   }, [loadFile])
+
+  const handleRecoveryFileSelect = useCallback(() => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept =
+      '.cr2,.cr3,.nef,.arw,.raf,.rw2,.orf,.dng,.pef,.srw,.3fr,.fff,.iiq,.raw'
+    input.onchange = () => {
+      const nextFile = input.files?.[0]
+      if (nextFile) {
+        void recoverInterruptedExport(nextFile)
+      }
+    }
+    input.click()
+  }, [recoverInterruptedExport])
 
   // Handle stats update from canvas
   const handleStatsUpdate = useCallback(
@@ -322,6 +337,7 @@ function RawProcessorViewInner({
           onShareExport={shareExportResult}
           onDownloadExport={downloadExportResult}
           onCopyExport={copyExportResult}
+          onRecoverExportSource={handleRecoveryFileSelect}
           hasImage={hasImage}
           supportLevel={supportLevel}
           metadata={toolMetadata}

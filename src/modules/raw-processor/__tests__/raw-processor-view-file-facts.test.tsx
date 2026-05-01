@@ -151,6 +151,7 @@ function createLoadedProcessorState(
     setToneParams: vi.fn(),
     resetTone: vi.fn(),
     exportImage: vi.fn(),
+    recoverInterruptedExport: vi.fn(),
     downloadExportResult: vi.fn(),
     shareExportResult: vi.fn(),
     copyExportResult: vi.fn(),

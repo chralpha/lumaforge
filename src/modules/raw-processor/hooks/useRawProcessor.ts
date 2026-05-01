@@ -31,6 +31,10 @@ import {
   useSetProcessingStatus,
   useSetProgress,
 } from '~/atoms/raw-processor'
+import {
+  createCheckpointStore,
+  createOpfsCheckpointBackend,
+} from '~/lib/export/checkpoint-store'
 import { createBlobOutputResult } from '~/lib/export/output-sink'
 import type { ResourceRegistry } from '~/lib/export/resource-registry'
 import { createResourceRegistry } from '~/lib/export/resource-registry'
@@ -79,6 +83,10 @@ import {
   createPreExportSnapshot,
   evacuateBeforeExport,
 } from '../services/export-evacuation'
+import {
+  createInterruptedExportRecovery,
+  validateRecoveryReselection,
+} from '../services/export-recovery'
 import {
   copyCanvasToClipboard,
   copyExportResultToClipboard,
@@ -407,6 +415,7 @@ export interface UseRawProcessorReturn {
     quality: 'standard' | 'high'
     fidelity: 'safe' | 'balanced' | 'max'
   }) => Promise<void>
+  recoverInterruptedExport: (file: File) => Promise<void>
   downloadExportResult: () => Promise<void>
   shareExportResult: () => Promise<void>
   copyExportResult: () => Promise<void>
@@ -445,6 +454,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const isMountedRef = useRef(false)
   const runtimeWorkSessionIdRef = useRef<string | null>(null)
   const pendingLoadSessionIdRef = useRef<string | null>(null)
+  const pendingRecoveryRetryRef = useRef(false)
   const runtimeSessionRef = useRef<RawRuntimeSession | null>(null)
   const runtimeAbortControllerRef = useRef<AbortController | null>(null)
   const exportAbortControllerRef = useRef<AbortController | null>(null)
@@ -692,6 +702,45 @@ export function useRawProcessor(): UseRawProcessorReturn {
   useEffect(() => {
     sessionRef.current = session
   }, [session])
+
+  useEffect(() => {
+    let cancelled = false
+
+    try {
+      const store = createCheckpointStore(createOpfsCheckpointBackend())
+
+      void store
+        .listSafeRetryCandidates()
+        .then((manifests) => {
+          if (cancelled || manifests.length === 0) return
+
+          const manifest = manifests[0]
+          if (!manifest) return
+
+          const recovery = createInterruptedExportRecovery(manifest)
+          setSession((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  exportState: {
+                    ...prev.exportState,
+                    recovery,
+                  },
+                }
+              : prev,
+          )
+        })
+        .catch(() => undefined)
+    } catch {
+      return () => {
+        cancelled = true
+      }
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [setSession])
 
   useEffect(() => {
     isMountedRef.current = true
@@ -2151,6 +2200,48 @@ export function useRawProcessor(): UseRawProcessorReturn {
     ],
   )
 
+  useEffect(() => {
+    if (!pendingRecoveryRetryRef.current) return
+
+    if (status === 'error') {
+      pendingRecoveryRetryRef.current = false
+      return
+    }
+
+    if (!canExport || status !== 'ready') {
+      return
+    }
+
+    pendingRecoveryRetryRef.current = false
+    void exportImage({ quality: 'high', fidelity: 'safe' })
+  }, [canExport, exportImage, status])
+
+  const recoverInterruptedExport = useCallback(
+    async (file: File) => {
+      const recovery = sessionRef.current?.exportState.recovery
+      if (!recovery || recovery.status !== 'source-required') {
+        return
+      }
+
+      const validation = await validateRecoveryReselection(
+        file,
+        recovery.manifest,
+      )
+      if (!validation.ok) {
+        scheduleToast(() =>
+          toast.error('RAW file does not match', {
+            description: validation.reason,
+          }),
+        )
+        return
+      }
+
+      pendingRecoveryRetryRef.current = true
+      await loadFile(file)
+    },
+    [loadFile, scheduleToast],
+  )
+
   const downloadExportResult = useCallback(async () => {
     const result = sessionRef.current?.exportState.result
     if (!result) return
@@ -2334,6 +2425,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setToneParams,
     resetTone,
     exportImage,
+    recoverInterruptedExport,
     downloadExportResult,
     shareExportResult,
     copyExportResult,

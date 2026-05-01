@@ -4,6 +4,7 @@ import type {
   LUTProfileResolution,
 } from '@lumaforge/luma-color-runtime'
 
+import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
 import type {
   ExportCheckpointMode,
   ExportExecutionProfileName,
@@ -31,6 +32,7 @@ export type ExportRecoveryState =
       exportId: string
       message: string
       expectedFileName: string
+      manifest: ExportCheckpointManifest
     }
   | {
       status: 'ready-to-retry'
