@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type {LargeResourceOwner} from './resource-registry';
-import {
-  createResourceRegistry
-} from './resource-registry'
+import type { LargeResourceOwner } from './resource-registry'
+import { createResourceRegistry } from './resource-registry'
 
 describe('resource registry', () => {
   it('registers resources and reports a deterministic owner snapshot', () => {

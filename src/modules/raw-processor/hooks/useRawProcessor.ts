@@ -31,10 +31,8 @@ import {
   useSetProcessingStatus,
   useSetProgress,
 } from '~/atoms/raw-processor'
-import type {ResourceRegistry} from '~/lib/export/resource-registry';
-import {
-  createResourceRegistry
-} from '~/lib/export/resource-registry'
+import type { ResourceRegistry } from '~/lib/export/resource-registry'
+import { createResourceRegistry } from '~/lib/export/resource-registry'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import {

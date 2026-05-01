@@ -104,8 +104,9 @@ export function createResourceRegistry() {
     },
 
     snapshot(): ResourceRegistrySnapshot {
-      const live = Array.from(resources.values(), toLiveResource)
-        .sort(compareLiveResources)
+      const live = Array.from(resources.values(), toLiveResource).sort(
+        compareLiveResources,
+      )
       const liveByOwner: Partial<Record<LargeResourceOwner, number>> = {}
       const estimatedBytesByOwner: Partial<Record<LargeResourceOwner, number>> =
         {}
