@@ -291,10 +291,18 @@ function createResolvedVLogClassic709Graph(lutContent: string) {
   const rawExposureSteps = graph.steps.filter(
     (step) => step.kind === 'raw-render-exposure',
   )
+  const userExposureSteps = graph.steps.filter(
+    (step) => step.kind === 'user-exposure',
+  )
+  const userContrastSteps = graph.steps.filter(
+    (step) => step.kind === 'user-contrast',
+  )
 
   expect(graph.steps.map((step) => step.kind)).toEqual([
     'input-linear-prophoto',
     'raw-render-exposure',
+    'user-exposure',
+    'user-contrast',
     'gamut-to-lut-input',
     'encode-lut-transfer',
     'lut3d',
@@ -306,6 +314,24 @@ function createResolvedVLogClassic709Graph(lutContent: string) {
       kind: 'raw-render-exposure',
       ev: rawRenderExposure.ev,
       multiplier: rawRenderExposure.multiplier,
+    },
+  ])
+  expect(userExposureSteps).toEqual([
+    {
+      kind: 'user-exposure',
+      ev: 0,
+      multiplier: 1,
+    },
+  ])
+  expect(userContrastSteps).toEqual([
+    {
+      kind: 'user-contrast',
+      amount: 0,
+      factor: 1,
+      pivot: 0.18,
+      operator: 'linear-prophoto-luminance-scale',
+      luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+      zeroLuminanceMode: 'return-black',
     },
   ])
   expect(graph.lutProfile).toMatchObject({
