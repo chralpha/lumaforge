@@ -22,6 +22,7 @@ export interface PreviewCanvasProps {
   lutDataVersion: number
   embeddedPreviewUrl?: string | null
   displaySource?: DisplaySource
+  suspended?: boolean
   onStatsUpdate?: (stats: PipelineStats) => void
   onPipelineChange?: (pipeline: RawProcessingPipeline | null) => void
   className?: string
@@ -122,6 +123,7 @@ export function PreviewCanvas({
   lutDataVersion,
   embeddedPreviewUrl,
   displaySource = 'none',
+  suspended = false,
   onStatsUpdate,
   onPipelineChange,
   className,
@@ -140,26 +142,46 @@ export function PreviewCanvas({
 
   // Initialize pipeline
   useEffect(() => {
+    if (suspended) {
+      pipelineRef.current = null
+      onPipelineChange?.(null)
+      setIsInitialized(false)
+      return
+    }
+
     const canvas = canvasRef.current
     if (!canvas) return
 
     let pipeline: RawProcessingPipeline | null = null
+    let originalDispose: RawProcessingPipeline['dispose'] | null = null
     let cancelled = false
     let disposed = false
 
-    const disposePipeline = () => {
+    const disposePipeline = (
+      options?: Parameters<RawProcessingPipeline['dispose']>[0],
+    ) => {
       if (!pipeline || disposed) {
         return
       }
 
-      pipeline.dispose()
+      const disposedPipeline = pipeline
       pipeline = null
       disposed = true
+      if (pipelineRef.current === disposedPipeline) {
+        pipelineRef.current = null
+        onPipelineChange?.(null)
+      }
+      setIsInitialized(false)
+      ;(originalDispose ?? disposedPipeline.dispose)(options)
     }
 
     const init = async () => {
       try {
         pipeline = new RawProcessingPipeline(canvas)
+        originalDispose = pipeline.dispose.bind(pipeline)
+        pipeline.dispose = (options) => {
+          disposePipeline(options)
+        }
         await pipeline.initialize()
         if (cancelled) {
           disposePipeline()
@@ -186,11 +208,11 @@ export function PreviewCanvas({
 
     return () => {
       cancelled = true
-      disposePipeline()
+      disposePipeline({ releaseContext: true })
       pipelineRef.current = null
       onPipelineChange?.(null)
     }
-  }, [onPipelineChange])
+  }, [onPipelineChange, suspended])
 
   // Handle canvas resize
   useEffect(() => {

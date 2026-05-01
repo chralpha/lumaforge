@@ -1725,6 +1725,67 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
+  it('does not mark a reset session as exporting when reset aborts during evacuation', async () => {
+    const pipelineDispose = deferred<void>()
+    const runExport = deferred<{ filename: string; blob: Blob }>()
+    const disposePreviewPipeline = vi.fn(() => pipelineDispose.promise)
+
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockReturnValue(
+      runExport.promise,
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+
+    act(() => {
+      result.current.pipelineRef.current = {
+        dispose: disposePreviewPipeline,
+      } as never
+    })
+
+    let exportPromise!: Promise<void>
+    await act(async () => {
+      exportPromise = result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      expect(disposePreviewPipeline).toHaveBeenCalledWith({
+        releaseContext: true,
+      })
+    })
+
+    await act(async () => {
+      result.current.reset()
+    })
+
+    await act(async () => {
+      pipelineDispose.resolve()
+      runExport.resolve({
+        filename: 'late_fullres.jpg',
+        blob: new Blob(['late'], { type: 'image/jpeg' }),
+      })
+      await exportPromise
+    })
+
+    expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
+    expect(jotaiStore.get(currentSessionAtom)).toBeNull()
+    expect(result.current.status).toBe('idle')
+  })
+
   it('downloads a ready export only when downloadExportResult is called', async () => {
     rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
     rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(

@@ -115,6 +115,35 @@ describe('resource registry', () => {
     expect(registry.assertZeroLive(['bounded-hq'])).toEqual({ ok: true })
   })
 
+  it('keeps a resource live when disposal fails so evacuation cannot hide it', async () => {
+    const registry = createResourceRegistry()
+    const dispose = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('release failed'))
+      .mockResolvedValueOnce(undefined)
+
+    const tracked = registry.register({
+      id: 'preview-worker',
+      owner: 'preview',
+      kind: 'worker',
+      dispose,
+    })
+
+    await expect(tracked.dispose()).rejects.toThrow('release failed')
+
+    expect(tracked.disposed).toBe(false)
+    expect(registry.assertZeroLive(['preview'])).toEqual({
+      ok: false,
+      live: [{ id: 'preview-worker', owner: 'preview', kind: 'worker' }],
+    })
+
+    await tracked.dispose()
+
+    expect(dispose).toHaveBeenCalledTimes(2)
+    expect(tracked.disposed).toBe(true)
+    expect(registry.assertZeroLive(['preview'])).toEqual({ ok: true })
+  })
+
   it('disposes matching owners in deterministic id order', async () => {
     const registry = createResourceRegistry()
     const disposed: string[] = []

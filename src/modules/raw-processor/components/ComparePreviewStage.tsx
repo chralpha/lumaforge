@@ -19,6 +19,7 @@ export interface ComparePreviewStageProps {
   lutDataVersion: number
   embeddedPreviewUrl?: string | null
   displaySource?: DisplaySource
+  previewSuspended?: boolean
   split: number
   isProcessing: boolean
   progress: number
@@ -86,6 +87,7 @@ export function ComparePreviewStage({
   lutDataVersion,
   embeddedPreviewUrl,
   displaySource = 'none',
+  previewSuspended = false,
   split,
   isProcessing,
   progress,
@@ -123,6 +125,7 @@ export function ComparePreviewStage({
                 lutDataVersion={lutDataVersion}
                 embeddedPreviewUrl={embeddedPreviewUrl}
                 displaySource={displaySource}
+                suspended={previewSuspended}
                 onStatsUpdate={onStatsUpdate}
                 onPipelineChange={onPipelineChange}
               />

@@ -266,6 +266,7 @@ function RawProcessorViewInner({
           lutDataVersion={lutDataVersion}
           embeddedPreviewUrl={embeddedPreviewUrl}
           displaySource={displaySource}
+          previewSuspended={status === 'exporting'}
           split={compareSplit}
           onSplitChange={setCompareSplit}
           onSplitPreviewChange={handleCompareSplitPreviewChange}

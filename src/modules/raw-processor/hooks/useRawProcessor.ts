@@ -272,6 +272,19 @@ function clearExportResultState<T extends ImageSession | null>(session: T): T {
   }
 }
 
+function clearExportResultForActiveExport(session: ImageSession): ImageSession {
+  return {
+    ...session,
+    exportState: {
+      ...session.exportState,
+      result: undefined,
+      lastProgress: undefined,
+      retryRecommended: false,
+      recommendedRetryLevel: undefined,
+    },
+  }
+}
+
 function hasSameRawRenderExposure(
   current: DecodedImage['renderExposure'] | null | undefined,
   next: DecodedImage['renderExposure'] | null | undefined,
@@ -604,7 +617,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         if (pipelineRef.current === pipeline) {
           pipelineRef.current = null
         }
-        pipeline.dispose({ releaseContext: true })
+        return pipeline.dispose({ releaseContext: true })
       },
     })
   }, [])
@@ -1807,7 +1820,35 @@ export function useRawProcessor(): UseRawProcessorReturn {
       const exportAbortController = new AbortController()
       exportAbortControllerRef.current = exportAbortController
 
+      const isCurrentExport = () =>
+        isMountedRef.current &&
+        !exportAbortController.signal.aborted &&
+        exportGraphVersionRef.current === exportGraphVersion &&
+        sessionRef.current?.id === exportSessionId
+
       try {
+        setStatus('exporting')
+        setProgress(0)
+        setError(null)
+
+        setSession((prev) =>
+          prev && prev.id === exportSessionId
+            ? {
+                ...prev,
+                exportState: {
+                  ...prev.exportState,
+                  status: 'exporting',
+                  qualityPreset: quality,
+                  fidelityLevel: fidelity,
+                  result: undefined,
+                  lastProgress: undefined,
+                  retryRecommended: false,
+                  recommendedRetryLevel: undefined,
+                },
+              }
+            : prev,
+        )
+
         registerCurrentPreviewPipelineForEvacuation()
         const snapshot = createPreExportSnapshot({
           file: loadedImage.file,
@@ -1842,9 +1883,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
           },
           abortBoundedHq: abortRuntimeWork,
           releasePreviousExportResult() {
-            setSession(clearExportResultState)
+            setSession((prev) =>
+              prev && prev.id === exportSessionId
+                ? clearExportResultForActiveExport(prev)
+                : prev,
+            )
           },
         })
+
+        if (!isCurrentExport()) {
+          return
+        }
 
         if (!evacuation.registryCheck.ok) {
           throw Object.assign(
@@ -1854,28 +1903,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
             },
           )
         }
-
-        setStatus('exporting')
-        setProgress(0)
-        setError(null)
-
-        setSession((prev) =>
-          prev
-            ? {
-                ...prev,
-                exportState: {
-                  ...prev.exportState,
-                  status: 'exporting',
-                  qualityPreset: quality,
-                  fidelityLevel: fidelity,
-                  result: undefined,
-                  lastProgress: undefined,
-                  retryRecommended: false,
-                  recommendedRetryLevel: undefined,
-                },
-              }
-            : prev,
-        )
 
         const filename = buildExportFilename(
           session.sourceFile.name,

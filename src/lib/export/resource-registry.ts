@@ -79,6 +79,7 @@ export function createResourceRegistry() {
       }
 
       let disposed = false
+      let disposing: Promise<void> | null = null
       const tracked: TrackedLargeResource = {
         id: record.id,
         owner: record.owner,
@@ -89,12 +90,20 @@ export function createResourceRegistry() {
         },
         async dispose() {
           if (disposed) return
+          if (disposing) return disposing
 
-          disposed = true
-          try {
+          disposing = (async () => {
             await record.dispose()
-          } finally {
+            disposed = true
             resources.delete(record.id)
+          })()
+
+          try {
+            await disposing
+          } finally {
+            if (!disposed) {
+              disposing = null
+            }
           }
         },
       }

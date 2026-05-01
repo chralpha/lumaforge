@@ -15,6 +15,7 @@ const pipelineMock = vi.hoisted(() => ({
   instances: [] as Array<{
     initialize: ReturnType<typeof vi.fn>
     dispose: ReturnType<typeof vi.fn>
+    disposeMock: ReturnType<typeof vi.fn>
     resize: ReturnType<typeof vi.fn>
     render: ReturnType<typeof vi.fn>
     clearImage: ReturnType<typeof vi.fn>
@@ -28,9 +29,11 @@ const pipelineMock = vi.hoisted(() => ({
 
 vi.mock('~/lib/gl/pipeline', () => ({
   RawProcessingPipeline: vi.fn().mockImplementation(() => {
+    const disposeMock = vi.fn()
     const instance = {
       initialize: pipelineMock.initialize,
-      dispose: vi.fn(),
+      dispose: disposeMock,
+      disposeMock,
       resize: vi.fn(),
       render: vi.fn(() => ({ renderMs: 1 })),
       clearImage: vi.fn(),
@@ -315,8 +318,56 @@ describe('preview canvas upload descriptor', () => {
       await Promise.resolve()
     })
 
-    expect(pipeline.dispose).toHaveBeenCalledTimes(1)
+    expect(pipeline.disposeMock).toHaveBeenCalledTimes(1)
     expect(onPipelineChange).toHaveBeenCalledWith(null)
     expect(onPipelineChange).not.toHaveBeenCalledWith(pipeline)
+  })
+
+  it('disposes the preview pipeline while suspended and recovers after resume', async () => {
+    const onPipelineChange = vi.fn()
+
+    const props = {
+      imageRef: { current: null },
+      imageVersion: 0,
+      params: defaultParams,
+      lutDataRef: { current: null },
+      lutDataVersion: 0,
+      onPipelineChange,
+    }
+    const { rerender } = render(
+      createElement(PreviewCanvas, {
+        ...props,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(onPipelineChange).toHaveBeenCalledWith(pipelineMock.instances[0])
+    })
+
+    const firstPipeline = pipelineMock.instances[0]!
+
+    rerender(
+      createElement(PreviewCanvas, {
+        ...props,
+        suspended: true,
+      }),
+    )
+
+    expect(firstPipeline.disposeMock).toHaveBeenCalledWith({
+      releaseContext: true,
+    })
+    expect(onPipelineChange).toHaveBeenCalledWith(null)
+    expect(pipelineMock.instances).toHaveLength(1)
+
+    rerender(
+      createElement(PreviewCanvas, {
+        ...props,
+        suspended: false,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(onPipelineChange).toHaveBeenCalledWith(pipelineMock.instances[1])
+    })
   })
 })
