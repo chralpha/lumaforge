@@ -28,6 +28,7 @@ export type NativeJpegEncoderFactoryInput = {
   width: number
   height: number
   quality: number
+  finishMode?: 'blob' | 'chunks'
 }
 
 function createJpegBlob(bytes: Uint8Array) {
@@ -39,6 +40,36 @@ function createJpegBlob(bytes: Uint8Array) {
   if (typeof blob.arrayBuffer !== 'function') {
     Object.defineProperty(blob, 'arrayBuffer', {
       value: async () => byteBuffer.slice(0),
+    })
+  }
+  return blob
+}
+
+function createJpegBlobFromChunks(chunks: readonly JpegWorkerChunk[]) {
+  const parts = chunks.map((chunk) => {
+    const byteBuffer = chunk.bytes.buffer.slice(
+      chunk.bytes.byteOffset,
+      chunk.bytes.byteOffset + chunk.bytes.byteLength,
+    ) as ArrayBuffer
+    return byteBuffer
+  })
+  const blob = new Blob(parts, { type: 'image/jpeg' })
+  if (typeof blob.arrayBuffer !== 'function') {
+    Object.defineProperty(blob, 'arrayBuffer', {
+      value: async () => {
+        const buffers = parts.map((part) => new Uint8Array(part))
+        const byteLength = buffers.reduce(
+          (total, buffer) => total + buffer.byteLength,
+          0,
+        )
+        const bytes = new Uint8Array(byteLength)
+        let offset = 0
+        for (const buffer of buffers) {
+          bytes.set(buffer, offset)
+          offset += buffer.byteLength
+        }
+        return bytes.buffer
+      },
     })
   }
   return blob
@@ -126,6 +157,13 @@ export function createNativeJpegEncoderFactory(module: NativeJpegModule) {
         }
         finished = true
         deleteNativeEncoder(encoder)
+        if (
+          input.finishMode !== 'chunks' &&
+          bytes.byteLength === 0 &&
+          pendingChunks.length > 0
+        ) {
+          return createJpegBlobFromChunks(pendingChunks)
+        }
         return createJpegBlob(bytes)
       },
       drainChunks() {

@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -26,6 +27,18 @@ void errorExit(j_common_ptr cinfo) {
   (*cinfo->err->format_message)(cinfo, manager->message);
   longjmp(manager->jump, 1);
 }
+
+class LumaJpegEncoder;
+
+struct LumaJpegDestination {
+  jpeg_destination_mgr pub;
+  LumaJpegEncoder* owner = nullptr;
+};
+
+struct LumaJpegChunk {
+  size_t byte_offset = 0;
+  std::vector<uint8_t> bytes;
+};
 
 class LumaJpegEncoder {
  public:
@@ -48,7 +61,11 @@ class LumaJpegEncoder {
 
     jpeg_create_compress(&cinfo_);
     created_ = true;
-    jpeg_mem_dest(&cinfo_, &out_buffer_, &out_size_);
+    destination_.owner = this;
+    destination_.pub.init_destination = initDestination;
+    destination_.pub.empty_output_buffer = emptyOutputBuffer;
+    destination_.pub.term_destination = termDestination;
+    cinfo_.dest = &destination_.pub;
     cinfo_.image_width = static_cast<JDIMENSION>(width_);
     cinfo_.image_height = static_cast<JDIMENSION>(height_);
     cinfo_.input_components = 3;
@@ -112,10 +129,36 @@ class LumaJpegEncoder {
 
     jpeg_finish_compress(&cinfo_);
     finished_ = true;
-    val bytes =
-        val::global("Uint8Array").new_(typed_memory_view(out_size_, out_buffer_));
+    val bytes = val::global("Uint8Array").new_(0);
     cleanup();
     return bytes;
+  }
+
+  val drainChunks() {
+    val output = val::array();
+    size_t offset = 0;
+    const size_t last_index = chunks_.empty() ? 0 : chunks_.size() - 1;
+
+    for (size_t index = 0; index < chunks_.size(); ++index) {
+      const auto& chunk = chunks_[index];
+      val bytes = val::global("Uint8Array").new_(chunk.bytes.size());
+      if (!chunk.bytes.empty()) {
+        bytes.call<void>(
+            "set",
+            val(typed_memory_view(chunk.bytes.size(), chunk.bytes.data())));
+      }
+
+      val entry = val::object();
+      entry.set("bytes", bytes);
+      entry.set("byteOffset", chunk.byte_offset);
+      entry.set("final", index == last_index);
+      output.call<void>("push", entry);
+      offset += chunk.bytes.size();
+    }
+
+    chunks_.clear();
+    next_byte_offset_ = offset;
+    return output;
   }
 
   void abort() {
@@ -124,6 +167,45 @@ class LumaJpegEncoder {
   }
 
  private:
+  static constexpr size_t kOutputBufferSize = 64 * 1024;
+
+  static void initDestination(j_compress_ptr cinfo) {
+    auto* destination = reinterpret_cast<LumaJpegDestination*>(cinfo->dest);
+    destination->owner->output_buffer_.assign(kOutputBufferSize, 0);
+    destination->pub.next_output_byte =
+        reinterpret_cast<JOCTET*>(destination->owner->output_buffer_.data());
+    destination->pub.free_in_buffer =
+        destination->owner->output_buffer_.size();
+  }
+
+  static boolean emptyOutputBuffer(j_compress_ptr cinfo) {
+    auto* destination = reinterpret_cast<LumaJpegDestination*>(cinfo->dest);
+    destination->owner->appendOutputChunk(kOutputBufferSize);
+    destination->pub.next_output_byte =
+        reinterpret_cast<JOCTET*>(destination->owner->output_buffer_.data());
+    destination->pub.free_in_buffer =
+        destination->owner->output_buffer_.size();
+    return TRUE;
+  }
+
+  static void termDestination(j_compress_ptr cinfo) {
+    auto* destination = reinterpret_cast<LumaJpegDestination*>(cinfo->dest);
+    const size_t used =
+        destination->owner->output_buffer_.size() -
+        destination->pub.free_in_buffer;
+    destination->owner->appendOutputChunk(used);
+  }
+
+  void appendOutputChunk(size_t used) {
+    if (used == 0) return;
+
+    LumaJpegChunk chunk;
+    chunk.byte_offset = next_byte_offset_;
+    chunk.bytes.assign(output_buffer_.begin(), output_buffer_.begin() + used);
+    next_byte_offset_ += used;
+    chunks_.push_back(std::move(chunk));
+  }
+
   void cleanup() {
     if (cleaned_) return;
     cleaned_ = true;
@@ -131,11 +213,8 @@ class LumaJpegEncoder {
       jpeg_destroy_compress(&cinfo_);
       created_ = false;
     }
-    if (out_buffer_ != nullptr) {
-      free(out_buffer_);
-      out_buffer_ = nullptr;
-      out_size_ = 0;
-    }
+    output_buffer_.clear();
+    output_buffer_.shrink_to_fit();
   }
 
   int width_;
@@ -147,8 +226,10 @@ class LumaJpegEncoder {
   bool created_ = false;
   jpeg_compress_struct cinfo_{};
   JpegErrorManager error_{};
-  unsigned char* out_buffer_ = nullptr;
-  unsigned long out_size_ = 0;
+  LumaJpegDestination destination_{};
+  std::vector<uint8_t> output_buffer_;
+  std::vector<LumaJpegChunk> chunks_;
+  size_t next_byte_offset_ = 0;
   std::vector<uint8_t> row_buffer_;
 };
 
@@ -159,5 +240,6 @@ EMSCRIPTEN_BINDINGS(luma_jpeg_runtime) {
       .constructor<int, int, double>()
       .function("writeRows", &LumaJpegEncoder::writeRows)
       .function("finish", &LumaJpegEncoder::finish)
+      .function("drainChunks", &LumaJpegEncoder::drainChunks)
       .function("abort", &LumaJpegEncoder::abort);
 }

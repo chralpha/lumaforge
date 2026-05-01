@@ -9,14 +9,14 @@ import type {
   FullResWorkerOutputResult,
 } from './full-res-export-client'
 import type { JpegRowSink } from './jpeg/row-writer'
-import type {JpegExportMetadata} from './jpeg-metadata';
+import type { JpegExportMetadata } from './jpeg-metadata'
 import { preserveJpegMetadata } from './jpeg-metadata'
-import type {ExportOutputResult} from './output-sink';
+import type { ExportOutputResult } from './output-sink'
 import {
   createBlobOutputResult,
   createOpfsFileBackedOutputResult,
   createOpfsOutputWritable,
-  materializeOutputBlob
+  materializeOutputBlob,
 } from './output-sink'
 
 type ProcessedWindowExportLifecycleInput<Result> = {
@@ -71,7 +71,12 @@ function createOpfsJpegRowSink(input: {
           byteLength += chunk.bytes.byteLength
         },
       })
-      const encoder = runtime.createEncoder({ width, height, quality })
+      const encoder = runtime.createEncoder({
+        width,
+        height,
+        quality,
+        finishMode: 'chunks',
+      })
 
       function assertOpen() {
         if (state === 'aborted') {
@@ -124,12 +129,8 @@ function createOpfsJpegRowSink(input: {
         async close() {
           assertOpen()
           try {
-            const fallbackBlob = await encoder.finish()
+            await encoder.finish()
             const writable = await writablePromise
-            if (byteLength === 0 && fallbackBlob.size > 0) {
-              await writable.write(fallbackBlob)
-              byteLength = fallbackBlob.size
-            }
             await writable.close()
             state = 'closed'
             runtime.dispose()

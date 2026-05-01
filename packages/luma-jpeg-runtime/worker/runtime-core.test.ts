@@ -152,7 +152,7 @@ describe('createJpegRuntimeCore', () => {
 
   it('emits backend chunks before returning the finish response', async () => {
     const chunk = {
-      bytes: new Uint8Array([0xff, 0xd8]),
+      bytes: new Uint8Array([0xFF, 0xD8]),
       byteOffset: 0,
       final: false,
     }
@@ -205,6 +205,152 @@ describe('createJpegRuntimeCore', () => {
       ok: true,
       type: 'finish',
     })
+  })
+
+  it('returns an empty finish blob in chunk-only mode after emitting chunks', async () => {
+    const chunk = {
+      bytes: new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9]),
+      byteOffset: 0,
+      final: true,
+    }
+    const emitted: unknown[] = []
+    const core = createJpegRuntimeCore(
+      async () => () => ({
+        async writeRows() {},
+        async finish() {
+          return new Blob([], { type: 'image/jpeg' })
+        },
+        drainChunks() {
+          return [chunk]
+        },
+        abort() {},
+      }),
+      {
+        onResponse: (response) => {
+          emitted.push(response)
+        },
+      },
+    )
+
+    await core.handleRequest({
+      id: 'create-chunk-only',
+      type: 'create',
+      payload: {
+        width: 1,
+        height: 1,
+        quality: 0.9,
+        finishMode: 'chunks',
+      },
+    })
+    await core.handleRequest({
+      id: 'rows-before-chunk-only',
+      type: 'rows',
+      payload: { rows: new Uint8Array([255, 255, 255]), rowCount: 1 },
+    })
+
+    const response = await core.handleRequest({
+      id: 'finish-chunk-only',
+      type: 'finish',
+      payload: {},
+    })
+
+    expect(emitted).toEqual([
+      {
+        id: 'finish-chunk-only',
+        ok: true,
+        type: 'chunk',
+        payload: chunk,
+      },
+    ])
+    expect(response.type).toBe('finish')
+    if (response.type !== 'finish') {
+      throw new Error('expected finish response')
+    }
+    expect(response.payload.blob.size).toBe(0)
+  })
+
+  it('assembles a blob from backend chunks when blob mode receives an empty finish blob', async () => {
+    const chunks = [
+      {
+        bytes: new Uint8Array([0xFF, 0xD8]),
+        byteOffset: 0,
+        final: false,
+      },
+      {
+        bytes: new Uint8Array([0xFF, 0xD9]),
+        byteOffset: 2,
+        final: true,
+      },
+    ]
+    const core = createJpegRuntimeCore(async () => () => ({
+      async writeRows() {},
+      async finish() {
+        return new Blob([], { type: 'image/jpeg' })
+      },
+      drainChunks() {
+        return chunks
+      },
+      abort() {},
+    }))
+
+    await core.handleRequest({
+      id: 'create-blob-from-chunks',
+      type: 'create',
+      payload: { width: 1, height: 1, quality: 0.9 },
+    })
+    await core.handleRequest({
+      id: 'rows-before-blob-from-chunks',
+      type: 'rows',
+      payload: { rows: new Uint8Array([255, 255, 255]), rowCount: 1 },
+    })
+
+    const response = await core.handleRequest({
+      id: 'finish-blob-from-chunks',
+      type: 'finish',
+      payload: {},
+    })
+
+    expect(response.type).toBe('finish')
+    if (response.type !== 'finish') {
+      throw new Error('expected finish response')
+    }
+    await expect(readBlobBytes(response.payload.blob)).resolves.toEqual(
+      new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9]).buffer,
+    )
+  })
+
+  it('rejects chunk-only finish when the backend emits no chunks', async () => {
+    const core = createJpegRuntimeCore(async () => () => ({
+      async writeRows() {},
+      async finish() {
+        return new Blob(['jpeg'], { type: 'image/jpeg' })
+      },
+      abort() {},
+    }))
+
+    await core.handleRequest({
+      id: 'create-missing-chunks',
+      type: 'create',
+      payload: {
+        width: 1,
+        height: 1,
+        quality: 0.9,
+        finishMode: 'chunks',
+      },
+    })
+    await core.handleRequest({
+      id: 'rows-before-missing-chunks',
+      type: 'rows',
+      payload: { rows: new Uint8Array([255, 255, 255]), rowCount: 1 },
+    })
+
+    await expect(
+      core.handleRequest({
+        id: 'finish-missing-chunks',
+        type: 'finish',
+        payload: {},
+      }),
+    ).rejects.toThrow('JPEG_RUNTIME_CHUNKS_UNAVAILABLE')
   })
 
   it('rejects finish before create', async () => {

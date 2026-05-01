@@ -7,6 +7,7 @@ export type LumaJpegEncoderOptions = {
   width: number
   height: number
   quality: number
+  finishMode?: 'blob' | 'chunks'
 }
 
 export type LumaJpegEncoder = {
