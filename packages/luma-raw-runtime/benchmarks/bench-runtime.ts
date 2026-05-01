@@ -5,6 +5,10 @@ import type {
   LumaRawProbe,
   LumaRawRuntime,
 } from '../src/types'
+import type {BenchProvenance} from './bench-provenance';
+import {
+  loadBenchmarkProvenance
+} from './bench-provenance'
 
 const QUICK_PREVIEW_MAX_PIXELS = 2_500_000
 const BOUNDED_HQ_MAX_PIXELS = 12_000_000
@@ -21,10 +25,6 @@ type BenchRuntime = 'luma'
 type BenchTimings = Record<string, number | undefined>
 type BenchHeap = Record<string, number | undefined>
 type BenchMetric = number | null
-
-type BenchProvenance = {
-  sourceLockSha256: string | null
-}
 
 type BenchRecord = {
   runtime: BenchRuntime
@@ -111,7 +111,6 @@ const runButton = required<HTMLButtonElement>('#run')
 const copyButton = required<HTMLButtonElement>('#copy')
 const copyStatus = required<HTMLSpanElement>('#copy-status')
 const output = required<HTMLPreElement>('#output')
-const provenanceUrl = new URL('../dist/native/provenance.json', import.meta.url)
 
 function targetStatus(
   stage: BenchStage,
@@ -283,29 +282,6 @@ function printLumaStage(
   )
 }
 
-function asProvenance(value: unknown): BenchProvenance {
-  if (value && typeof value === 'object') {
-    const sourceLockSha256 = (value as { sourceLockSha256?: unknown })
-      .sourceLockSha256
-    if (typeof sourceLockSha256 === 'string' && sourceLockSha256.length > 0) {
-      return { sourceLockSha256 }
-    }
-  }
-
-  return { sourceLockSha256: null }
-}
-
-async function loadProvenance(): Promise<BenchProvenance> {
-  try {
-    const response = await fetch(provenanceUrl, { cache: 'no-store' })
-    if (!response.ok) return { sourceLockSha256: null }
-
-    return asProvenance(await response.json())
-  } catch {
-    return { sourceLockSha256: null }
-  }
-}
-
 async function benchLuma(file: File, provenance: BenchProvenance) {
   const runtime = createLumaRawRuntime({ requireCrossOriginIsolation: false })
   let session: LumaRawSession | undefined
@@ -399,7 +375,7 @@ async function run() {
 
   runButton.disabled = true
   try {
-    const provenance = await loadProvenance()
+    const provenance = await loadBenchmarkProvenance()
     for (const file of files) {
       await benchLuma(file, provenance)
     }
