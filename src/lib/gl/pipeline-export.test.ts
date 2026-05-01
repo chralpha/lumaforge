@@ -210,6 +210,8 @@ describe('rawProcessingPipeline export rendering', () => {
     const pipeline = await createSourcePipeline(createRawInput(2, 2))
     const lutData = createLUTData()
     const params: ProcessingParams = {
+      userExposureEv: 0,
+      userContrast: 0,
       intensity: 0.42,
       viewMode: 'compare',
       compareSplit: 0.82,
@@ -251,6 +253,8 @@ describe('rawProcessingPipeline export rendering', () => {
     async (viewMode) => {
       const pipeline = await createSourcePipeline(createRawInput(2, 2))
       const params: ProcessingParams = {
+        userExposureEv: 0,
+        userContrast: 0,
         intensity: 0.35,
         viewMode,
         compareSplit: 0.91,
@@ -266,6 +270,8 @@ describe('rawProcessingPipeline export rendering', () => {
       await pipeline.renderToHiddenCanvas({ width: 2, height: 2 })
 
       expect(setParamsSpy).toHaveBeenCalledWith({
+        userExposureEv: 0,
+        userContrast: 0,
         intensity: 0.35,
         viewMode: 'processed',
         compareSplit: 0.5,

@@ -56,6 +56,8 @@ function compareStageProps(
     imageRef: { current: null },
     imageVersion: 0,
     params: {
+      userExposureEv: 0,
+      userContrast: 0,
       intensity: 0.7,
       viewMode: 'compare',
       compareSplit: 0.5,
@@ -579,6 +581,8 @@ describe('rawToolSurface', () => {
         imageRef={{ current: null }}
         imageVersion={0}
         params={{
+          userExposureEv: 0,
+          userContrast: 0,
           intensity: 0.7,
           viewMode: 'processed',
           compareSplit: 0.5,
@@ -632,6 +636,8 @@ describe('rawToolSurface', () => {
         imageRef={{ current: null }}
         imageVersion={0}
         params={{
+          userExposureEv: 0,
+          userContrast: 0,
           intensity: 0.7,
           viewMode: 'processed',
           compareSplit: 0.5,
@@ -777,6 +783,8 @@ describe('rawToolSurface', () => {
           imageRef={{ current: null }}
           imageVersion={0}
           params={{
+            userExposureEv: 0,
+            userContrast: 0,
             intensity: 0.7,
             viewMode: 'processed',
             compareSplit: 0.5,

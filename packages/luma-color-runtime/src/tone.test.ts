@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   applyUserContrastRgb,
+  applyUserContrastRgbInto,
   applyUserExposureRgb,
+  applyUserExposureRgbInto,
+  applyUserToneRgb,
+  applyUserToneRgbInto,
   contrastFactorFromAmount,
   normalizeToneParams,
   resolveToneParams,
@@ -58,6 +62,13 @@ describe('tone math', () => {
     expectRgbClose(applyUserExposureRgb([-0.25, 0.5, 2], 2), [-0.5, 1, 4])
   })
 
+  it('writes exposure into a caller-owned RGB tuple', () => {
+    const out: [number, number, number] = [Number.NaN, Number.NaN, Number.NaN]
+
+    expect(applyUserExposureRgbInto([-0.25, 0.5, 2], 2, out)).toBe(out)
+    expectRgbClose(out, [-0.5, 1, 4])
+  })
+
   it('keeps neutral contrast as exact passthrough including negative channels', () => {
     const tone = resolveToneParams({ userExposureEv: 0, userContrast: 0 })
     expectRgbClose(applyUserContrastRgb([-0.25, 0.5, 2], tone), [-0.25, 0.5, 2])
@@ -66,6 +77,14 @@ describe('tone math', () => {
   it('clips negative channels only at non-neutral contrast entry', () => {
     const tone = resolveToneParams({ userExposureEv: 0, userContrast: 50 })
     expectRgbClose(applyUserContrastRgb([-0.1, -0.2, -0.3], tone), [0, 0, 0])
+  })
+
+  it('writes contrast into a caller-owned RGB tuple', () => {
+    const tone = resolveToneParams({ userExposureEv: 0, userContrast: 50 })
+    const out: [number, number, number] = [Number.NaN, Number.NaN, Number.NaN]
+
+    expect(applyUserContrastRgbInto([0.32, 0.16, 0.08], tone, out)).toBe(out)
+    expectRgbClose(out, applyUserContrastRgb([0.32, 0.16, 0.08], tone))
   })
 
   it('leaves black and 18 percent luminance stable under contrast', () => {
@@ -98,6 +117,26 @@ describe('tone math', () => {
 
     expect(actual[0] / actual[1]).toBeCloseTo(2, 12)
     expect(actual[1] / actual[2]).toBeCloseTo(2, 12)
+  })
+
+  it('applies user tone as exposure then contrast', () => {
+    const tone = resolveToneParams({ userExposureEv: 1, userContrast: 60 })
+    const rgb = [0.12, 0.24, 0.48] as const
+    const exposed = applyUserExposureRgb(rgb, tone.userExposureMultiplier)
+
+    expectRgbClose(
+      applyUserToneRgb(rgb, tone),
+      applyUserContrastRgb(exposed, tone),
+    )
+  })
+
+  it('writes full user tone into a caller-owned RGB tuple', () => {
+    const tone = resolveToneParams({ userExposureEv: 1, userContrast: 60 })
+    const rgb = [0.12, 0.24, 0.48] as const
+    const out: [number, number, number] = [Number.NaN, Number.NaN, Number.NaN]
+
+    expect(applyUserToneRgbInto(rgb, tone, out)).toBe(out)
+    expectRgbClose(out, applyUserToneRgb(rgb, tone))
   })
 
   it.each([

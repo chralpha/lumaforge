@@ -57,6 +57,8 @@ function createLoadedProcessorState(
 ): UseRawProcessorReturn {
   return {
     params: {
+      userExposureEv: 0,
+      userContrast: 0,
       intensity: 0.7,
       viewMode: 'compare',
       compareSplit: 0.5,

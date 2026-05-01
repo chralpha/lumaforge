@@ -196,6 +196,8 @@ function getExportFailureMessage(error: unknown): string {
 }
 
 const DEFAULT_PARAMS: ProcessingParams = {
+  userExposureEv: 0,
+  userContrast: 0,
   intensity: 0.7,
   viewMode: 'compare',
   compareSplit: 0.5,
