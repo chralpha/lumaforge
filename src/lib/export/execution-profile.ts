@@ -171,7 +171,7 @@ export function selectExportExecutionPlan(input: {
   const profile = EXPORT_EXECUTION_PROFILES[profileName]
   const megapixels = getImageMegapixels(input.sourceWidth, input.sourceHeight)
   const preferredRows =
-    megapixels >= 80
+    megapixels >= 100
       ? profile.preferredRowsFor100Mp
       : profile.preferredRowsBelow100Mp
   const outputSink = chooseOutputSink({

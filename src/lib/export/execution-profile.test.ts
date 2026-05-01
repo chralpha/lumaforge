@@ -1,7 +1,7 @@
-import type {ExportExecutionProfileName} from './execution-profile';
+import type { ExportExecutionProfileName } from './execution-profile'
 import {
   getExportModeCopy,
-  selectExportExecutionPlan
+  selectExportExecutionPlan,
 } from './execution-profile'
 
 describe('export execution profile selection', () => {
@@ -51,8 +51,8 @@ describe('export execution profile selection', () => {
     (expectedProfile, expectedRows, expectedConcurrency) => {
       const plan = selectExportExecutionPlan({
         fidelity: expectedProfile === 'desktop-fast' ? 'max' : 'balanced',
-        sourceWidth: expectedProfile === 'desktop-fast' ? 9504 : 6000,
-        sourceHeight: expectedProfile === 'desktop-fast' ? 6336 : 4000,
+        sourceWidth: 10000,
+        sourceHeight: 9000,
         runtime: { lowMemoryAvailable: true, pthreadAvailable: true },
         output: { opfsAvailable: false, streamingAvailable: true },
         platform: {
