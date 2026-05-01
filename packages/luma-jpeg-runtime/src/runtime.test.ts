@@ -455,4 +455,77 @@ describe('createLumaJpegRuntime', () => {
     await expect(finishPromise).rejects.toThrow('OPFS_CHUNK_WRITE_FAILED')
     runtime.dispose()
   })
+
+  it('rejects finish when dispose wins during async chunk handling', async () => {
+    const worker = new ManualWorker()
+    const chunkHandled = deferred<void>()
+    const runtime = createLumaJpegRuntime({
+      workerFactory: () => worker as unknown as Worker,
+      async onChunk() {
+        await chunkHandled.promise
+      },
+    })
+    const encoder = runtime.createEncoder({ width: 1, height: 1, quality: 0.9 })
+    worker.respond(worker.posts[0].request)
+    await drainMicrotasks()
+
+    const finishPromise = encoder.finish()
+    await drainMicrotasks()
+    const finishPost = worker.posts[1]
+    worker.emit({
+      id: finishPost.request.id,
+      ok: true,
+      type: 'chunk',
+      payload: {
+        bytes: new Uint8Array([0xFF, 0xD8]),
+        byteOffset: 0,
+        final: true,
+      },
+    } as WorkerResponse)
+    await drainMicrotasks()
+    worker.respond(finishPost.request)
+    await drainMicrotasks()
+
+    runtime.dispose()
+    chunkHandled.resolve()
+
+    await expect(finishPromise).rejects.toThrow('JPEG_RUNTIME_DISPOSED')
+  })
+
+  it('rejects finish when abort wins during async chunk handling', async () => {
+    const worker = new ManualWorker()
+    const chunkHandled = deferred<void>()
+    const runtime = createLumaJpegRuntime({
+      workerFactory: () => worker as unknown as Worker,
+      async onChunk() {
+        await chunkHandled.promise
+      },
+    })
+    const encoder = runtime.createEncoder({ width: 1, height: 1, quality: 0.9 })
+    worker.respond(worker.posts[0].request)
+    await drainMicrotasks()
+
+    const finishPromise = encoder.finish()
+    await drainMicrotasks()
+    const finishPost = worker.posts[1]
+    worker.emit({
+      id: finishPost.request.id,
+      ok: true,
+      type: 'chunk',
+      payload: {
+        bytes: new Uint8Array([0xFF, 0xD8]),
+        byteOffset: 0,
+        final: true,
+      },
+    } as WorkerResponse)
+    await drainMicrotasks()
+    worker.respond(finishPost.request)
+    await drainMicrotasks()
+
+    encoder.abort()
+    chunkHandled.resolve()
+
+    await expect(finishPromise).rejects.toThrow('JPEG_RUNTIME_ABORTED')
+    runtime.dispose()
+  })
 })

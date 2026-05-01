@@ -98,16 +98,27 @@ export function createLumaJpegRuntime(
         return
       }
 
-      pending.delete(response.id)
       if (response.type === 'finish') {
         request.chunkQueue.then(
-          () => request.resolve(response),
-          (error) =>
+          () => {
+            if (pending.get(response.id) !== request) {
+              return
+            }
+            pending.delete(response.id)
+            request.resolve(response)
+          },
+          (error) => {
+            if (pending.get(response.id) !== request) {
+              return
+            }
+            pending.delete(response.id)
             request.reject(
               error instanceof Error ? error : new Error(String(error)),
-            ),
+            )
+          },
         )
       } else {
+        pending.delete(response.id)
         request.resolve(response)
       }
       return
@@ -201,6 +212,7 @@ export function createLumaJpegRuntime(
             type: 'finish',
             payload: {},
           })
+          assertOpen()
           if (response.type !== 'finish') {
             throw new Error('JPEG_RUNTIME_UNEXPECTED_RESPONSE')
           }
