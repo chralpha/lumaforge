@@ -430,6 +430,8 @@ describe('rawProcessingPipeline export rendering', () => {
     })
 
     expect(setParamsSpy).toHaveBeenCalledWith({
+      userExposureEv: 0,
+      userContrast: 0,
       intensity: 0.6,
       viewMode: 'processed',
       compareSplit: 0.5,
