@@ -10,7 +10,10 @@ import type {
   ExportResult,
   ExportShareCapability,
 } from '../model/export-result'
-import type { LUTProfileSelectionState } from '../model/session'
+import type {
+  ExportRecoveryState,
+  LUTProfileSelectionState,
+} from '../model/session'
 import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
 import { FileFactsTool } from './tools/FileFactsTool'
@@ -44,6 +47,7 @@ export function RawToolSurface(props: {
   isProcessing: boolean
   exportResult: ExportResult | null
   exportShareCapability: ExportShareCapability
+  recovery?: ExportRecoveryState
   onShareExport: () => void
   onDownloadExport: () => void
   onCopyExport: () => void
@@ -119,6 +123,7 @@ export function RawToolSurface(props: {
           onExport={props.onExport}
           exportResult={props.exportResult}
           exportShareCapability={props.exportShareCapability}
+          recovery={props.recovery}
           onShareExport={props.onShareExport}
           onDownloadExport={props.onDownloadExport}
           onCopyExport={props.onCopyExport}

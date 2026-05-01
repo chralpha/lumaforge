@@ -226,4 +226,22 @@ describe('checkpoint store', () => {
     ])
     expect(active.entriesByName.has(current.exportId)).toBe(false)
   })
+
+  it('removes only OPFS manifest files when preserving file-backed output', async () => {
+    const root = new MockDirectoryHandle('root')
+    const backend = createOpfsCheckpointBackend(storageFor(root))
+    const store = createCheckpointStore(backend)
+    const active = root.directory('.lumaforge-exports').directory('active')
+    const current = manifest({ exportId: 'export-opfs' })
+
+    await store.writeActive(current)
+    active.directory('export-opfs').file('output.jpg', 'jpeg')
+
+    await store.removeActiveManifest('export-opfs')
+
+    await expect(store.listActive()).resolves.toEqual([])
+    expect(
+      active.directory('export-opfs').entriesByName.get('output.jpg'),
+    ).toBeDefined()
+  })
 })

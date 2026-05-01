@@ -125,6 +125,7 @@ function createLoadedProcessorState(
       available: false,
       reason: 'Export a JPEG before sharing.',
     },
+    exportRecovery: { status: 'none' },
     activeStyle: null,
     lutProfileSelection: null,
     activePresetId: null,

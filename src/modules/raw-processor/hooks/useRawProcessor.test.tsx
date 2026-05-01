@@ -47,9 +47,12 @@ const checkpointStoreMock = vi.hoisted(() => ({
   createCheckpointStore: vi.fn(),
   createOpfsCheckpointBackend: vi.fn(),
   listSafeRetryCandidates: vi.fn(),
+  writeActive: vi.fn(),
+  removeActiveManifest: vi.fn(),
 }))
 
 const sourceFingerprintMock = vi.hoisted(() => ({
+  createSourceFingerprint: vi.fn(),
   sourceFingerprintMatches: vi.fn(),
 }))
 
@@ -88,6 +91,7 @@ vi.mock('~/lib/export/source-fingerprint', async () => {
   const actual = await vi.importActual('~/lib/export/source-fingerprint')
   return {
     ...actual,
+    createSourceFingerprint: sourceFingerprintMock.createSourceFingerprint,
     sourceFingerprintMatches: sourceFingerprintMock.sourceFingerprintMatches,
   }
 })
@@ -368,6 +372,9 @@ describe('useRawProcessor embedded preview state', () => {
     checkpointStoreMock.createCheckpointStore.mockReset()
     checkpointStoreMock.createOpfsCheckpointBackend.mockReset()
     checkpointStoreMock.listSafeRetryCandidates.mockReset()
+    checkpointStoreMock.writeActive.mockReset()
+    checkpointStoreMock.removeActiveManifest.mockReset()
+    sourceFingerprintMock.createSourceFingerprint.mockReset()
     sourceFingerprintMock.sourceFingerprintMatches.mockReset()
     onlineProfileFetchMock.fetchCachedBytesWithLimit.mockReset()
     onlineProfileFetchMock.fetchVerifiedCubeAsset.mockReset()
@@ -405,8 +412,20 @@ describe('useRawProcessor embedded preview state', () => {
     )
     checkpointStoreMock.createCheckpointStore.mockReturnValue({
       listSafeRetryCandidates: checkpointStoreMock.listSafeRetryCandidates,
+      writeActive: checkpointStoreMock.writeActive,
+      removeActiveManifest: checkpointStoreMock.removeActiveManifest,
     })
     checkpointStoreMock.listSafeRetryCandidates.mockResolvedValue([])
+    checkpointStoreMock.writeActive.mockResolvedValue(undefined)
+    checkpointStoreMock.removeActiveManifest.mockResolvedValue(undefined)
+    sourceFingerprintMock.createSourceFingerprint.mockResolvedValue({
+      name: 'frame.ARW',
+      size: 3,
+      lastModified: 123,
+      width: 6048,
+      height: 4024,
+      hashPrefixHex: 'abc',
+    })
     sourceFingerprintMock.sourceFingerprintMatches.mockResolvedValue(true)
   })
 
@@ -442,6 +461,27 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
+  it('preserves discovered interrupted checkpoints before a session exists', async () => {
+    const checkpointManifest = createCheckpointManifest()
+    checkpointStoreMock.listSafeRetryCandidates.mockResolvedValue([
+      checkpointManifest,
+    ])
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await waitFor(() => {
+      expect(result.current.exportRecovery).toEqual(
+        expect.objectContaining({
+          status: 'source-required',
+          exportId: 'export-1',
+          expectedFileName: 'frame.ARW',
+          manifest: checkpointManifest,
+        }),
+      )
+    })
+    expect(jotaiStore.get(currentSessionAtom)).toBeNull()
+  })
+
   it('rejects recovery RAW reselection when the source fingerprint mismatches', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
     checkpointStoreMock.listSafeRetryCandidates.mockResolvedValue([
@@ -475,7 +515,6 @@ describe('useRawProcessor embedded preview state', () => {
   it('loads a matching recovery RAW and retries export with safe fidelity', async () => {
     vi.stubGlobal('crossOriginIsolated', true)
     const checkpointManifest = createCheckpointManifest()
-    jotaiStore.set(currentSessionAtom, createTestSession())
     checkpointStoreMock.listSafeRetryCandidates.mockResolvedValue([
       checkpointManifest,
     ])
@@ -487,9 +526,7 @@ describe('useRawProcessor embedded preview state', () => {
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
 
     await waitFor(() => {
-      expect(
-        jotaiStore.get(currentSessionAtom)?.exportState.recovery.status,
-      ).toBe('source-required')
+      expect(result.current.exportRecovery.status).toBe('source-required')
     })
 
     await act(async () => {
@@ -516,6 +553,57 @@ describe('useRawProcessor embedded preview state', () => {
         }),
       )
     })
+  })
+
+  it('does not auto-export a superseded recovery load', async () => {
+    const recoverySession =
+      deferred<Awaited<ReturnType<typeof rawRuntimeAdapterMock.openSession>>>()
+    const checkpointManifest = createCheckpointManifest()
+    checkpointStoreMock.listSafeRetryCandidates.mockResolvedValue([
+      checkpointManifest,
+    ])
+    rawRuntimeAdapterMock.openSession
+      .mockReturnValueOnce(recoverySession.promise)
+      .mockResolvedValueOnce({
+        sourceDimensions: defaultSourceDimensions,
+        extractEmbeddedPreview: rawRuntimeAdapterMock.extractEmbeddedPreview,
+        decodeQuickRaw: rawRuntimeAdapterMock.decodeQuickRaw,
+        decodeBoundedHqRaw: rawRuntimeAdapterMock.decodeBoundedHqRaw,
+        probeExportCapability: rawRuntimeAdapterMock.probeExportCapability,
+        dispose: vi.fn(),
+      })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await waitFor(() => {
+      expect(result.current.exportRecovery.status).toBe('source-required')
+    })
+
+    let recoverPromise!: Promise<void>
+    await act(async () => {
+      recoverPromise = result.current.recoverInterruptedExport(
+        new File(['raw'], 'frame.ARW', { lastModified: 123 }),
+      )
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['other'], 'other.ARW'))
+    })
+
+    await act(async () => {
+      recoverySession.resolve({
+        sourceDimensions: defaultSourceDimensions,
+        extractEmbeddedPreview: rawRuntimeAdapterMock.extractEmbeddedPreview,
+        decodeQuickRaw: rawRuntimeAdapterMock.decodeQuickRaw,
+        decodeBoundedHqRaw: rawRuntimeAdapterMock.decodeBoundedHqRaw,
+        probeExportCapability: rawRuntimeAdapterMock.probeExportCapability,
+        dispose: vi.fn(),
+      })
+      await recoverPromise
+    })
+
+    expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
   })
 
   it('exposes pending LUT profile selection and applies a user-selected profile', async () => {
@@ -1891,6 +1979,80 @@ describe('useRawProcessor embedded preview state', () => {
       })
       await exportPromise
     })
+  })
+
+  it('writes OPFS safe-retry checkpoint manifests for durable ios-safe exports', async () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+      maxTouchPoints: 1,
+      storage: { getDirectory: vi.fn() },
+      hardwareConcurrency: 4,
+    })
+    vi.stubGlobal('crossOriginIsolated', false)
+
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    rawRuntimeAdapterMock.probeExportCapability.mockResolvedValue(
+      createSupportedCapability(),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const file = new File(['raw'], 'frame.ARW', { lastModified: 123 })
+
+    await act(async () => {
+      await result.current.loadFile(file)
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    expect(sourceFingerprintMock.createSourceFingerprint).toHaveBeenCalledWith(
+      file,
+      { width: 6048, height: 4024 },
+    )
+    expect(checkpointStoreMock.writeActive).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: 1,
+        fileName: 'frame.ARW',
+        profile: 'ios-safe',
+        preferredRows: 128,
+        recoveryMode: 'safe-retry',
+        outputSink: 'opfs-file',
+        sourceReacquisition: 'user-reselect-required',
+        completedRowsForDiagnostics: 0,
+        jpegState: 'restart-required',
+      }),
+    )
+    expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        executionPlan: expect.objectContaining({
+          profile: expect.objectContaining({ name: 'ios-safe' }),
+          outputSink: 'opfs-file',
+        }),
+        checkpoint: expect.objectContaining({
+          graphFingerprint: expect.any(String),
+          sourceFingerprint: expect.objectContaining({
+            hashPrefixHex: 'abc',
+          }),
+        }),
+      }),
+    )
+    expect(checkpointStoreMock.removeActiveManifest).toHaveBeenCalledWith(
+      expect.any(String),
+    )
   })
 
   it('evacuates preview resources and clears stale export result before full-resolution export', async () => {

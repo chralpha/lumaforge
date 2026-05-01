@@ -31,13 +31,19 @@ import {
   useSetProcessingStatus,
   useSetProgress,
 } from '~/atoms/raw-processor'
+import type {ExportCheckpointManifest} from '~/lib/export/checkpoint-store';
 import {
   createCheckpointStore,
-  createOpfsCheckpointBackend,
+  createOpfsCheckpointBackend
 } from '~/lib/export/checkpoint-store'
+import type {
+  FullResWorkerCheckpointConfig,
+  FullResWorkerCheckpointMetric,
+} from '~/lib/export/full-res-export-client'
 import { createBlobOutputResult } from '~/lib/export/output-sink'
 import type { ResourceRegistry } from '~/lib/export/resource-registry'
 import { createResourceRegistry } from '~/lib/export/resource-registry'
+import { createSourceFingerprint } from '~/lib/export/source-fingerprint'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import {
@@ -74,6 +80,7 @@ import type {
 import { createExportResult } from '../model/export-result'
 import type {
   DisplaySource,
+  ExportRecoveryState,
   ImageSession,
   LUTProfileSelectionState,
   StyleAsset,
@@ -253,6 +260,57 @@ function enqueuePostCommitTask(task: () => void) {
   setTimeout(task, 0)
 }
 
+function createExportId() {
+  return globalThis.crypto?.randomUUID?.() ?? `export-${Date.now()}`
+}
+
+function createSafeRetryManifest(input: {
+  exportId: string
+  file: File
+  sourceFingerprint: ExportCheckpointManifest['sourceFingerprint']
+  outputWidth: number
+  outputHeight: number
+  graphFingerprint: string
+  profile: ExportCheckpointManifest['profile']
+  preferredRows: number
+  outputSink: ExportCheckpointManifest['outputSink']
+  completedRowsForDiagnostics?: number
+  updatedAt?: string
+}): ExportCheckpointManifest {
+  return {
+    version: 1,
+    exportId: input.exportId,
+    sourceFingerprint: input.sourceFingerprint,
+    fileName: input.file.name,
+    sourceSize: input.file.size,
+    sourceLastModified: input.file.lastModified,
+    outputWidth: input.outputWidth,
+    outputHeight: input.outputHeight,
+    graphFingerprint: input.graphFingerprint,
+    profile: input.profile,
+    attempt: 1,
+    preferredRows: input.preferredRows,
+    totalRows: input.outputHeight,
+    recoveryMode: 'safe-retry',
+    outputSink: input.outputSink,
+    sourceReacquisition: 'user-reselect-required',
+    completedRowsForDiagnostics: input.completedRowsForDiagnostics ?? 0,
+    jpegState: 'restart-required',
+    updatedAt: input.updatedAt ?? new Date().toISOString(),
+  }
+}
+
+function isCheckpointMetric(
+  metric: unknown,
+): metric is FullResWorkerCheckpointMetric {
+  return (
+    typeof metric === 'object' &&
+    metric !== null &&
+    'kind' in metric &&
+    metric.kind === 'checkpoint'
+  )
+}
+
 function clearExportResultState<T extends ImageSession | null>(session: T): T {
   if (
     !session?.exportState.result &&
@@ -379,6 +437,7 @@ export interface UseRawProcessorReturn {
   exportDisabledReason?: string
   exportResult: ExportResult | null
   exportShareCapability: ExportShareCapability
+  exportRecovery: ExportRecoveryState
   activeStyle: StyleAsset | null
   lutProfileSelection: LUTProfileSelectionState | null
   activePresetId: (typeof BUILTIN_PRESETS)[number]['id'] | null
@@ -428,6 +487,13 @@ export interface UseRawProcessorReturn {
   pipelineRef: React.RefObject<RawProcessingPipeline | null>
 }
 
+type PendingRecoveryRetry = {
+  sessionId: string
+  fileName: string
+  size: number
+  lastModified: number
+}
+
 export function useRawProcessor(): UseRawProcessorReturn {
   const params = useProcessingParamsValue()
   const setParams = useSetProcessingParams()
@@ -455,7 +521,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const isMountedRef = useRef(false)
   const runtimeWorkSessionIdRef = useRef<string | null>(null)
   const pendingLoadSessionIdRef = useRef<string | null>(null)
-  const pendingRecoveryRetryRef = useRef(false)
   const runtimeSessionRef = useRef<RawRuntimeSession | null>(null)
   const runtimeAbortControllerRef = useRef<AbortController | null>(null)
   const exportAbortControllerRef = useRef<AbortController | null>(null)
@@ -467,9 +532,21 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const [decodedImageVersion, setDecodedImageVersion] = useState(0)
   const lutDataRef = useRef<LUTData | null>(null)
   const [lutDataVersion, setLutDataVersion] = useState(0)
+  const discoveredRecoveryRef = useRef<ExportRecoveryState>({ status: 'none' })
+  const [discoveredRecovery, setDiscoveredRecovery] =
+    useState<ExportRecoveryState>({ status: 'none' })
+  const [pendingRecoveryRetry, setPendingRecoveryRetry] =
+    useState<PendingRecoveryRetry | null>(null)
   if (!resourceRegistryRef.current) {
     resourceRegistryRef.current = createResourceRegistry()
   }
+  const setDiscoveredRecoveryState = useCallback(
+    (next: ExportRecoveryState) => {
+      discoveredRecoveryRef.current = next
+      setDiscoveredRecovery(next)
+    },
+    [],
+  )
   const hasImage = session ? deriveCanEdit(session) : false
   const rawRenderExposure = decodedImageRef.current?.renderExposure ?? null
   const canExport = session
@@ -719,6 +796,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
           if (!manifest) return
 
           const recovery = createInterruptedExportRecovery(manifest)
+          setDiscoveredRecoveryState(recovery)
           setSession((prev) =>
             prev
               ? {
@@ -741,7 +819,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     return () => {
       cancelled = true
     }
-  }, [setSession])
+  }, [setDiscoveredRecoveryState, setSession])
 
   useEffect(() => {
     isMountedRef.current = true
@@ -806,6 +884,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       try {
         runtimeWorkSessionIdRef.current = null
         pendingLoadSessionIdRef.current = null
+        setPendingRecoveryRetry(null)
         abortExportWork()
         abortRuntimeWork()
         queueExportResultResourceDisposal()
@@ -1863,6 +1942,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         )
         return
       }
+      const exportCapability = session.exportState.fullResCapability
 
       const graph = resolveExportColorGraph({
         styleKind: params.styleKind,
@@ -1894,6 +1974,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         )
         return
       }
+      const graphFingerprint = JSON.stringify(graph.steps)
 
       const exportSessionId = session.id
       const exportGraphVersion = exportGraphVersionRef.current
@@ -1914,17 +1995,76 @@ export function useRawProcessor(): UseRawProcessorReturn {
         previewCopyCanvasRef.current = null
         const executionPlan = selectCurrentExportExecutionPlan({
           fidelity,
-          sourceWidth: session.exportState.fullResCapability.width,
-          sourceHeight: session.exportState.fullResCapability.height,
+          sourceWidth: exportCapability.width,
+          sourceHeight: exportCapability.height,
           previousInterrupted,
         })
+        let jobExecutionPlan = executionPlan
+        let checkpointStore: ReturnType<typeof createCheckpointStore> | null =
+          null
+        let checkpointManifest: ExportCheckpointManifest | null = null
+        let checkpoint: FullResWorkerCheckpointConfig | undefined
+
+        if (
+          executionPlan.profile.checkpointOutput &&
+          executionPlan.outputSink === 'opfs-file'
+        ) {
+          try {
+            checkpointStore = createCheckpointStore(
+              createOpfsCheckpointBackend(),
+            )
+            const exportId = createExportId()
+            const sourceFingerprint = await createSourceFingerprint(
+              loadedImage.file,
+              {
+                width: exportCapability.width,
+                height: exportCapability.height,
+              },
+            )
+            checkpointManifest = createSafeRetryManifest({
+              exportId,
+              file: loadedImage.file,
+              sourceFingerprint,
+              outputWidth: exportCapability.width,
+              outputHeight: exportCapability.height,
+              graphFingerprint,
+              profile: executionPlan.profile.name,
+              preferredRows: executionPlan.preferredRows,
+              outputSink: executionPlan.outputSink,
+            })
+            await checkpointStore.writeActive(checkpointManifest)
+            checkpoint = {
+              exportId,
+              graphFingerprint,
+              sourceFingerprint,
+            }
+          } catch {
+            checkpointStore = null
+            checkpointManifest = null
+          }
+        }
+
+        if (!isCurrentExport()) {
+          return
+        }
+
+        if (executionPlan.outputSink === 'opfs-file' && !checkpoint) {
+          jobExecutionPlan = {
+            ...executionPlan,
+            outputSink: 'blob-handoff',
+            productCopy: 'non-durable-checkpoint',
+          }
+        }
+        if (previousInterrupted) {
+          setDiscoveredRecoveryState({ status: 'none' })
+        }
         const activePlan = {
-          profileName: executionPlan.profile.name,
-          preferredRows: executionPlan.preferredRows,
-          concurrency: executionPlan.concurrency,
-          runtimeMemoryProfile: executionPlan.runtimeMemoryProfile,
-          outputSink: executionPlan.outputSink,
-          checkpointMode: executionPlan.checkpointMode,
+          profileName: jobExecutionPlan.profile.name,
+          preferredRows: jobExecutionPlan.preferredRows,
+          concurrency: jobExecutionPlan.concurrency,
+          runtimeMemoryProfile: jobExecutionPlan.runtimeMemoryProfile,
+          outputSink: jobExecutionPlan.outputSink,
+          checkpointMode: jobExecutionPlan.checkpointMode,
         }
 
         setSession((prev) =>
@@ -1937,7 +2077,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                   qualityPreset: quality,
                   fidelityLevel: fidelity,
                   activePlan,
-                  checkpointDurable: executionPlan.outputSink === 'opfs-file',
+                  checkpointDurable: Boolean(checkpoint),
                   recovery: { status: 'none' },
                   result: undefined,
                   lastProgress: undefined,
@@ -1982,7 +2122,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
           file: loadedImage.file,
           metadata: loadedImage.metadata,
           graph,
-          graphFingerprint: JSON.stringify(graph.steps),
+          graphFingerprint,
           lutTitle:
             session.activeStyle?.kind === 'custom'
               ? session.activeStyle.name
@@ -2041,8 +2181,28 @@ export function useRawProcessor(): UseRawProcessorReturn {
           file: loadedImage.file,
           filename,
           quality: quality === 'high' ? 0.92 : 0.86,
-          executionPlan,
+          executionPlan: jobExecutionPlan,
+          checkpoint,
           graph,
+          onMetric: (metric) => {
+            if (
+              !checkpointStore ||
+              !checkpointManifest ||
+              !isCheckpointMetric(metric)
+            ) {
+              return
+            }
+
+            checkpointManifest = {
+              ...checkpointManifest,
+              completedRowsForDiagnostics: metric.completedRowsForDiagnostics,
+              totalRows: metric.totalRows,
+              updatedAt: metric.timestamp,
+            }
+            void checkpointStore
+              .writeActive(checkpointManifest)
+              .catch(() => undefined)
+          },
           onProgress: (entry) => {
             if (
               !isMountedRef.current ||
@@ -2099,6 +2259,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
             : undefined)
         if (!output) {
           throw new Error('EXPORT_OUTPUT_MISSING')
+        }
+
+        if (checkpointStore && checkpoint) {
+          await checkpointStore
+            .removeActiveManifest(checkpoint.exportId)
+            .catch(() => undefined)
         }
 
         const exportResult = createExportResult({
@@ -2196,6 +2362,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       revokeCurrentEmbeddedPreviewUrl,
       scheduleToast,
       session,
+      setDiscoveredRecoveryState,
       setError,
       setProgress,
       setSession,
@@ -2205,10 +2372,24 @@ export function useRawProcessor(): UseRawProcessorReturn {
   )
 
   useEffect(() => {
-    if (!pendingRecoveryRetryRef.current) return
+    if (!pendingRecoveryRetry) return
 
     if (status === 'error') {
-      pendingRecoveryRetryRef.current = false
+      setPendingRecoveryRetry(null)
+      return
+    }
+
+    const activeSession = sessionRef.current
+    const activeFile = loadedImage.file
+    if (
+      !activeSession ||
+      activeSession.id !== pendingRecoveryRetry.sessionId ||
+      !activeFile ||
+      activeFile.name !== pendingRecoveryRetry.fileName ||
+      activeFile.size !== pendingRecoveryRetry.size ||
+      activeFile.lastModified !== pendingRecoveryRetry.lastModified
+    ) {
+      setPendingRecoveryRetry(null)
       return
     }
 
@@ -2216,17 +2397,23 @@ export function useRawProcessor(): UseRawProcessorReturn {
       return
     }
 
-    pendingRecoveryRetryRef.current = false
+    setPendingRecoveryRetry(null)
     void exportImage({
       quality: 'high',
       fidelity: 'safe',
       previousInterrupted: true,
     })
-  }, [canExport, exportImage, status])
+  }, [canExport, exportImage, loadedImage.file, pendingRecoveryRetry, status])
 
   const recoverInterruptedExport = useCallback(
     async (file: File) => {
-      const recovery = sessionRef.current?.exportState.recovery
+      const sessionRecovery = sessionRef.current?.exportState.recovery
+      const recovery =
+        sessionRecovery?.status === 'source-required'
+          ? sessionRecovery
+          : discoveredRecoveryRef.current.status === 'source-required'
+            ? discoveredRecoveryRef.current
+            : null
       if (!recovery || recovery.status !== 'source-required') {
         return
       }
@@ -2244,8 +2431,22 @@ export function useRawProcessor(): UseRawProcessorReturn {
         return
       }
 
-      pendingRecoveryRetryRef.current = true
       await loadFile(file)
+
+      const activeSession = sessionRef.current
+      if (
+        activeSession?.sourceFile.name !== file.name ||
+        activeSession.sourceFile.sizeBytes !== file.size
+      ) {
+        return
+      }
+
+      setPendingRecoveryRetry({
+        sessionId: activeSession.id,
+        fileName: file.name,
+        size: file.size,
+        lastModified: file.lastModified,
+      })
     },
     [loadFile, scheduleToast],
   )
@@ -2338,6 +2539,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const reset = useCallback(() => {
     runtimeWorkSessionIdRef.current = null
     pendingLoadSessionIdRef.current = null
+    setPendingRecoveryRetry(null)
     abortExportWork()
     abortRuntimeWork()
     queueExportResultResourceDisposal()
@@ -2385,6 +2587,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const exportShareCapability = exportResult
     ? resolveExportShareCapability(exportResult)
     : { available: false as const, reason: 'Export a JPEG before sharing.' }
+  const sessionRecovery = session?.exportState.recovery
+  const exportRecovery =
+    sessionRecovery && sessionRecovery.status !== 'none'
+      ? sessionRecovery
+      : discoveredRecovery
 
   return {
     params,
@@ -2407,6 +2614,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     exportDisabledReason,
     exportResult,
     exportShareCapability,
+    exportRecovery,
     activeStyle,
     lutProfileSelection,
     activePresetId,

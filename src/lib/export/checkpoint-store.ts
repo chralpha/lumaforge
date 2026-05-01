@@ -48,6 +48,7 @@ export type CheckpointBackend = {
   write: (exportId: string, manifest: ExportCheckpointManifest) => Promise<void>
   list: () => Promise<ExportCheckpointManifest[]>
   remove: (exportId: string) => Promise<void>
+  removeManifest?: (exportId: string) => Promise<void>
 }
 
 type OpfsStorage = Pick<StorageManager, 'getDirectory'>
@@ -198,6 +199,9 @@ export function createMemoryCheckpointBackend(): CheckpointBackend {
     async remove(exportId) {
       manifests.delete(exportId)
     },
+    async removeManifest(exportId) {
+      manifests.delete(exportId)
+    },
   }
 }
 
@@ -243,6 +247,11 @@ export function createOpfsCheckpointBackend(
       const active = await getActiveDirectory(storage)
       await active.removeEntry(exportId, { recursive: true })
     },
+    async removeManifest(exportId) {
+      const active = await getActiveDirectory(storage)
+      const exportDirectory = await active.getDirectoryHandle(exportId)
+      await exportDirectory.removeEntry('manifest.json')
+    },
   }
 }
 
@@ -282,6 +291,11 @@ export function createCheckpointStore(backend: CheckpointBackend) {
     },
     remove(exportId: string) {
       return backend.remove(exportId)
+    },
+    removeActiveManifest(exportId: string) {
+      return backend.removeManifest
+        ? backend.removeManifest(exportId)
+        : backend.remove(exportId)
     },
   }
 }

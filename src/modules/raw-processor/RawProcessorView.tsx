@@ -89,6 +89,7 @@ function RawProcessorViewInner({
     exportDisabledReason,
     exportResult,
     exportShareCapability,
+    exportRecovery,
     activeStyle,
     lutProfileSelection,
     activePresetId,
@@ -334,6 +335,7 @@ function RawProcessorViewInner({
           isProcessing={isProcessing}
           exportResult={exportResult}
           exportShareCapability={exportShareCapability}
+          recovery={exportRecovery}
           onShareExport={shareExportResult}
           onDownloadExport={downloadExportResult}
           onCopyExport={copyExportResult}
