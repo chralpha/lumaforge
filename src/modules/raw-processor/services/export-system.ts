@@ -138,6 +138,17 @@ function errorLooksLikeFreshWorkerRetry(error: unknown) {
   )
 }
 
+function getFreshWorkerRetryRows(error: unknown) {
+  if (typeof error !== 'object' || !error || !('nextRows' in error)) {
+    return undefined
+  }
+
+  const nextRows = (error as { nextRows?: unknown }).nextRows
+  return typeof nextRows === 'number' && Number.isFinite(nextRows)
+    ? nextRows
+    : undefined
+}
+
 function toWorkerExecutionPlan(
   plan: ExportExecutionPlan,
 ): FullResWorkerExecutionPlan {
@@ -161,6 +172,7 @@ export async function runFullResolutionExportJob({
   executionPlan,
   checkpoint,
   onProgress,
+  onMetric,
   signal,
   clientFactory = createFullResolutionExportClient,
 }: {
@@ -173,6 +185,7 @@ export async function runFullResolutionExportJob({
   executionPlan?: ExportExecutionPlan
   checkpoint?: FullResWorkerCheckpointConfig
   onProgress?: (progress: FullResolutionExportProgress) => void
+  onMetric?: RunFullResolutionJpegExportInWorkerInput['onMetric']
   signal?: AbortSignal
   clientFactory?: () => FullResolutionExportWorkerClient
 }) {
@@ -186,6 +199,7 @@ export async function runFullResolutionExportJob({
     try {
       const output = await client.run({
         file,
+        filename,
         graph,
         quality,
         preferredRows: plan?.preferredRows ?? preferredRows,
@@ -193,6 +207,7 @@ export async function runFullResolutionExportJob({
         executionPlan: plan ? toWorkerExecutionPlan(plan) : undefined,
         checkpoint: plan?.profile.checkpointOutput ? checkpoint : undefined,
         onProgress,
+        onMetric,
         signal,
       })
 
@@ -206,11 +221,14 @@ export async function runFullResolutionExportJob({
         throw error
       }
 
+      const nextRows =
+        getFreshWorkerRetryRows(error) ?? Math.floor(plan.preferredRows / 2)
+
       plan = {
         ...plan,
-        preferredRows: Math.max(
-          plan.profile.minRows,
-          Math.floor(plan.preferredRows / 2),
+        preferredRows: Math.min(
+          plan.profile.maxRows,
+          Math.max(plan.profile.minRows, nextRows),
         ),
         concurrency: 1,
         productCopy: 'resource-retry',

@@ -4,7 +4,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { runFullResolutionJpegExport } from './full-res-export'
 import { runProcessedWindowExportLifecycle } from './full-res-export.worker'
 import type { FullResExportWorkerResponse } from './full-res-export-client'
-import { createBlobOutputResult, materializeOutputBlob } from './output-sink'
+import {
+  createBlobOutputResult,
+  createMemoryFileBackedOutputResult,
+  materializeOutputBlob,
+} from './output-sink'
 
 vi.mock('@lumaforge/luma-raw-runtime', () => ({
   createLumaRawRuntime: vi.fn(),
@@ -282,6 +286,7 @@ describe('full-resolution export worker lifecycle responses', () => {
         preferredRows: 64,
         concurrency: 1,
         quality: 0.9,
+        jpegSink: expect.any(Object),
         retryPolicy: 'surface-resource-failure',
         onCheckpoint: expect.any(Function),
       }),
@@ -299,6 +304,159 @@ describe('full-resolution export worker lifecycle responses', () => {
         }),
       }),
     )
+  })
+
+  it('returns file-backed worker results without materializing them', async () => {
+    const terminalResponse = new Promise<FullResExportWorkerResponse>(
+      (resolve) => {
+        vi.spyOn(self, 'postMessage').mockImplementation((message) => {
+          const response = message as FullResExportWorkerResponse
+          if (response.kind === 'success' || response.kind === 'error') {
+            resolve(response)
+          }
+        })
+      },
+    )
+    const session = {
+      probe: {
+        width: 4,
+        height: 4,
+        supportLevel: 'full',
+        timings: { total: 1 },
+      },
+      probeExportCapability: vi.fn(async () => ({
+        supported: true,
+        width: 4,
+        height: 4,
+      })),
+      readProcessedWindow: vi.fn(),
+      beginProcessedWindowExport: vi.fn(async () => undefined),
+      endProcessedWindowExport: vi.fn(async () => undefined),
+      dispose: vi.fn(),
+    }
+    const runtime = {
+      init: vi.fn(async () => undefined),
+      openSession: vi.fn(async () => session),
+      dispose: vi.fn(),
+    }
+    const output = createMemoryFileBackedOutputResult({
+      exportId: 'export-1',
+      filename: 'safe-output.jpg',
+      mimeType: 'image/jpeg',
+      bytes: new Uint8Array([1, 2, 3]),
+    })
+    const openBlob = vi.spyOn(output, 'openBlob')
+    vi.mocked(createLumaRawRuntime).mockReturnValue(runtime as never)
+    vi.mocked(runFullResolutionJpegExport).mockResolvedValue(output)
+
+    self.onmessage?.({
+      data: {
+        kind: 'start',
+        requestId: 'request-file-backed',
+        file: new File(['raw'], 'sample.RAF'),
+        filename: 'safe-output.jpg',
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        },
+        executionPlan: {
+          profileName: 'ios-safe',
+          preferredRows: 64,
+          concurrency: 1,
+          runtimeMemoryProfile: 'low-memory',
+          outputSink: 'opfs-file',
+          checkpointMode: 'safe-retry',
+        },
+        checkpoint: {
+          exportId: 'export-1',
+          graphFingerprint: 'graph-1',
+          sourceFingerprint: {
+            name: 'sample.RAF',
+            size: 3,
+            lastModified: 0,
+            hashPrefixHex: 'abc',
+          },
+        },
+        collectMetrics: false,
+      },
+    } as MessageEvent)
+
+    const response = await terminalResponse
+
+    expect(openBlob).not.toHaveBeenCalled()
+    expect(response).toMatchObject({
+      kind: 'success',
+      requestId: 'request-file-backed',
+      result: {
+        kind: 'file-backed',
+        storage: 'opfs',
+        exportId: 'export-1',
+        filename: 'safe-output.jpg',
+        byteLength: 3,
+        mimeType: 'image/jpeg',
+      },
+    })
+  })
+
+  it('includes next row hints when worker resource retry fails', async () => {
+    const terminalResponse = new Promise<FullResExportWorkerResponse>(
+      (resolve) => {
+        vi.spyOn(self, 'postMessage').mockImplementation((message) => {
+          const response = message as FullResExportWorkerResponse
+          if (response.kind === 'success' || response.kind === 'error') {
+            resolve(response)
+          }
+        })
+      },
+    )
+    const session = {
+      probeExportCapability: vi.fn(async () => ({
+        supported: true,
+        width: 1,
+        height: 1,
+      })),
+      readProcessedWindow: vi.fn(),
+      beginProcessedWindowExport: vi.fn(async () => undefined),
+      endProcessedWindowExport: vi.fn(async () => undefined),
+      dispose: vi.fn(),
+    }
+    const runtime = {
+      init: vi.fn(async () => undefined),
+      openSession: vi.fn(async () => session),
+      dispose: vi.fn(),
+    }
+    vi.mocked(createLumaRawRuntime).mockReturnValue(runtime as never)
+    vi.mocked(runFullResolutionJpegExport).mockRejectedValue(
+      Object.assign(new Error('FULL_RES_EXPORT_RESOURCE_FAILURE'), {
+        nextRows: 96,
+      }),
+    )
+
+    self.onmessage?.({
+      data: {
+        kind: 'start',
+        requestId: 'request-resource-failure',
+        file: new File(['raw'], 'sample.RAF'),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        },
+        collectMetrics: false,
+      },
+    } as MessageEvent)
+
+    await expect(terminalResponse).resolves.toEqual({
+      kind: 'error',
+      requestId: 'request-resource-failure',
+      message: 'FULL_RES_EXPORT_RESOURCE_FAILURE',
+      nextRows: 96,
+    })
   })
 
   it('keeps desktop runtime cross-origin isolation requirement by default', async () => {
@@ -444,6 +602,9 @@ describe('full-resolution export worker lifecycle responses', () => {
       throw new Error('Expected a successful export response.')
     }
 
+    if (response.result.kind !== 'blob') {
+      throw new Error('Expected metadata test to return a blob result.')
+    }
     const bytes = await readBlobBytes(
       await materializeOutputBlob(response.result),
     )

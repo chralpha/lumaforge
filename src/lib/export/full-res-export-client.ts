@@ -7,7 +7,10 @@ import type {
   ExportRuntimeMemoryProfile,
 } from './execution-profile'
 import type { FullResolutionExportProgress } from './full-res-export'
-import type { ExportOutputResult } from './output-sink'
+import type {BlobOutputResult, ExportOutputResult} from './output-sink';
+import {
+  createOpfsFileBackedOutputResult
+} from './output-sink'
 import type { ExportPerfMetric } from './perf/export-metrics'
 import { normalizeExportConcurrency } from './pipeline-concurrency'
 import type { SourceFingerprint } from './source-fingerprint'
@@ -28,10 +31,25 @@ export type FullResWorkerCheckpointConfig = {
   sourceFingerprint: SourceFingerprint
 }
 
+export type FullResWorkerFileBackedOutputReference = {
+  kind: 'file-backed'
+  storage: 'opfs'
+  exportId: string
+  filename: string
+  byteLength: number
+  mimeType: string
+  outputFileName?: string
+}
+
+export type FullResWorkerOutputResult =
+  | BlobOutputResult
+  | FullResWorkerFileBackedOutputReference
+
 export type FullResExportWorkerStartMessage = {
   kind: 'start'
   requestId: string
   file: File
+  filename?: string
   graph: ExportColorGraphDescriptor
   executionPlan?: FullResWorkerExecutionPlan
   checkpoint?: FullResWorkerCheckpointConfig
@@ -59,7 +77,7 @@ export type FullResExportWorkerProgressMessage = {
 export type FullResExportWorkerSuccessMessage = {
   kind: 'success'
   requestId: string
-  result: ExportOutputResult
+  result: FullResWorkerOutputResult
 }
 
 export type FullResWorkerCheckpointMetric = {
@@ -75,6 +93,7 @@ export type FullResExportWorkerErrorMessage = {
   kind: 'error'
   requestId: string
   message: string
+  nextRows?: number
 }
 
 export type FullResExportWorkerMetricMessage = {
@@ -91,6 +110,7 @@ export type FullResExportWorkerResponse =
 
 export type RunFullResolutionJpegExportInWorkerInput = {
   file: File
+  filename?: string
   graph: ExportColorGraphDescriptor
   preferredRows?: number
   concurrency?: number
@@ -138,6 +158,25 @@ function createWorkerPostError(error: unknown) {
   }
 
   return new Error('FULL_RES_EXPORT_WORKER_ERROR')
+}
+
+function createWorkerResponseError(response: FullResExportWorkerErrorMessage) {
+  const error = new Error(response.message)
+  if (typeof response.nextRows === 'number') {
+    Object.assign(error, { nextRows: response.nextRows })
+  }
+  return error
+}
+
+function hydrateWorkerOutputResult(
+  result: FullResWorkerOutputResult,
+): ExportOutputResult {
+  if (result.kind === 'blob') {
+    return result
+  }
+
+  const { storage: _storage, ...opfsReference } = result
+  return createOpfsFileBackedOutputResult(opfsReference)
 }
 
 function createRequestId() {
@@ -200,11 +239,11 @@ export class FullResolutionExportWorkerClient {
       pending.cleanup()
 
       if (response.kind === 'success') {
-        pending.resolve(response.result)
+        pending.resolve(hydrateWorkerOutputResult(response.result))
         return
       }
 
-      pending.reject(new Error(response.message))
+      pending.reject(createWorkerResponseError(response))
     }
 
     worker.onerror = () => handleWorkerFailure()
@@ -302,6 +341,7 @@ export class FullResolutionExportWorkerClient {
           kind: 'start',
           requestId,
           file: input.file,
+          filename: input.filename,
           graph: input.graph,
           executionPlan: input.executionPlan,
           checkpoint: input.checkpoint,

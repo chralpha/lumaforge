@@ -1,3 +1,4 @@
+import { createLumaJpegRuntime } from '@lumaforge/luma-jpeg-runtime'
 import { createLumaRawRuntime } from '@lumaforge/luma-raw-runtime'
 
 import { createRawExportSession } from '../raw/export-runtime-adapter'
@@ -5,9 +6,18 @@ import { runFullResolutionJpegExport } from './full-res-export'
 import type {
   FullResExportWorkerRequest,
   FullResExportWorkerResponse,
+  FullResWorkerOutputResult,
 } from './full-res-export-client'
+import type { JpegRowSink } from './jpeg/row-writer'
+import type {JpegExportMetadata} from './jpeg-metadata';
 import { preserveJpegMetadata } from './jpeg-metadata'
-import { createBlobOutputResult, materializeOutputBlob } from './output-sink'
+import type {ExportOutputResult} from './output-sink';
+import {
+  createBlobOutputResult,
+  createOpfsFileBackedOutputResult,
+  createOpfsOutputWritable,
+  materializeOutputBlob
+} from './output-sink'
 
 type ProcessedWindowExportLifecycleInput<Result> = {
   beginProcessedWindowExport?: (signal?: AbortSignal) => Promise<unknown>
@@ -22,6 +32,159 @@ function toErrorMessage(error: unknown) {
   }
 
   return 'FULL_RES_EXPORT_FAILED'
+}
+
+function getErrorNextRows(error: unknown) {
+  if (typeof error === 'object' && error && 'nextRows' in error) {
+    const nextRows = (error as { nextRows?: unknown }).nextRows
+    if (typeof nextRows === 'number') {
+      return nextRows
+    }
+  }
+
+  return undefined
+}
+
+function createOpfsJpegRowSink(input: {
+  exportId: string
+  filename: string
+  outputFileName?: string
+}): JpegRowSink {
+  const outputFileName = input.outputFileName ?? 'output.jpg'
+
+  return {
+    createSession({ width, height, quality }) {
+      let byteLength = 0
+      let state: 'open' | 'closed' | 'aborted' = 'open'
+      const writablePromise = createOpfsOutputWritable({
+        exportId: input.exportId,
+        outputFileName,
+      })
+      const runtime = createLumaJpegRuntime({
+        async onChunk(chunk) {
+          const writable = await writablePromise
+          const byteBuffer = chunk.bytes.buffer.slice(
+            chunk.bytes.byteOffset,
+            chunk.bytes.byteOffset + chunk.bytes.byteLength,
+          ) as ArrayBuffer
+          await writable.write(byteBuffer)
+          byteLength += chunk.bytes.byteLength
+        },
+      })
+      const encoder = runtime.createEncoder({ width, height, quality })
+
+      function assertOpen() {
+        if (state === 'aborted') {
+          throw new Error('JPEG_WRITER_ABORTED')
+        }
+        if (state === 'closed') {
+          throw new Error('JPEG_WRITER_CLOSED')
+        }
+      }
+
+      async function abortWritable() {
+        try {
+          const writable = await writablePromise
+          if ('abort' in writable && typeof writable.abort === 'function') {
+            await writable.abort()
+          }
+        } catch {
+          // Preserve the primary encoder/export failure.
+        }
+      }
+
+      async function abortSession() {
+        if (state === 'aborted' || state === 'closed') {
+          return
+        }
+
+        state = 'aborted'
+        try {
+          encoder.abort()
+        } finally {
+          await abortWritable()
+          runtime.dispose()
+        }
+      }
+
+      return {
+        async writeRows(rows, rowCount) {
+          assertOpen()
+          try {
+            await encoder.writeRows(rows, rowCount)
+          } catch (error) {
+            try {
+              await abortSession()
+            } catch {
+              // Preserve the original encoder failure.
+            }
+            throw error
+          }
+        },
+        async close() {
+          assertOpen()
+          try {
+            const fallbackBlob = await encoder.finish()
+            const writable = await writablePromise
+            if (byteLength === 0 && fallbackBlob.size > 0) {
+              await writable.write(fallbackBlob)
+              byteLength = fallbackBlob.size
+            }
+            await writable.close()
+            state = 'closed'
+            runtime.dispose()
+            return createOpfsFileBackedOutputResult({
+              exportId: input.exportId,
+              filename: input.filename,
+              byteLength,
+              mimeType: 'image/jpeg',
+              outputFileName,
+            })
+          } catch (error) {
+            try {
+              await abortSession()
+            } catch {
+              // Preserve the original finish failure.
+            }
+            throw error
+          }
+        },
+        async abort() {
+          await abortSession()
+        },
+      }
+    },
+  }
+}
+
+async function prepareSuccessOutput(input: {
+  output: ExportOutputResult
+  metadata: unknown
+  width: number
+  height: number
+}): Promise<FullResWorkerOutputResult> {
+  if (input.output.kind === 'file-backed') {
+    return {
+      kind: 'file-backed',
+      storage: 'opfs',
+      exportId: input.output.exportId,
+      filename: input.output.filename,
+      byteLength: input.output.byteLength,
+      mimeType: input.output.mimeType,
+    }
+  }
+
+  const blobWithMetadata = await preserveJpegMetadata({
+    jpeg: await materializeOutputBlob(input.output),
+    metadata: input.metadata as JpegExportMetadata | null | undefined,
+    width: input.width,
+    height: input.height,
+  })
+
+  return createBlobOutputResult({
+    filename: input.output.filename,
+    blob: blobWithMetadata,
+  })
 }
 
 const activeRequests = new Map<string, AbortController>()
@@ -93,6 +256,14 @@ async function handleStart(
       const capability = await exportSession.probeExportCapability(
         controller.signal,
       )
+      const jpegSink =
+        message.executionPlan?.outputSink === 'opfs-file' && message.checkpoint
+          ? createOpfsJpegRowSink({
+              exportId: message.checkpoint.exportId,
+              filename:
+                message.filename ?? `${message.checkpoint.exportId}.jpg`,
+            })
+          : undefined
       const output = await runProcessedWindowExportLifecycle({
         beginProcessedWindowExport: exportSession.beginProcessedWindowExport,
         endProcessedWindowExport: exportSession.endProcessedWindowExport,
@@ -106,6 +277,7 @@ async function handleStart(
             concurrency:
               message.executionPlan?.concurrency ?? message.concurrency,
             quality: message.quality,
+            jpegSink,
             signal: controller.signal,
             readProcessedWindow: exportSession.readProcessedWindow,
             retryPolicy:
@@ -155,29 +327,27 @@ async function handleStart(
           })
         },
       })
-      const blobWithMetadata = await preserveJpegMetadata({
-        jpeg: await materializeOutputBlob(output),
-        metadata: session.probe,
-        width: capability.width,
-        height: capability.height,
-      })
 
       self.postMessage({
         kind: 'success',
         requestId: message.requestId,
-        result: createBlobOutputResult({
-          filename: output.filename,
-          blob: blobWithMetadata,
+        result: await prepareSuccessOutput({
+          output,
+          metadata: session.probe,
+          width: capability.width,
+          height: capability.height,
         }),
       } satisfies FullResExportWorkerResponse)
     } finally {
       session.dispose()
     }
   } catch (error) {
+    const nextRows = getErrorNextRows(error)
     self.postMessage({
       kind: 'error',
       requestId: message.requestId,
       message: toErrorMessage(error),
+      ...(nextRows === undefined ? {} : { nextRows }),
     } satisfies FullResExportWorkerResponse)
   } finally {
     activeRequests.delete(message.requestId)

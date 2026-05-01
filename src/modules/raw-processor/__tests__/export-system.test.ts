@@ -112,15 +112,18 @@ describe('export-system', () => {
       ev: 0,
       multiplier: 1,
     })
-    expect(run).toHaveBeenCalledWith({
-      file,
-      graph,
-      onProgress: undefined,
-      preferredRows: 1024,
-      concurrency: 3,
-      quality: 0.92,
-      signal: controller.signal,
-    })
+    expect(run).toHaveBeenCalledWith(
+      expect.objectContaining({
+        file,
+        filename: 'frame_neutral_fullres.jpg',
+        graph,
+        onProgress: undefined,
+        preferredRows: 1024,
+        concurrency: 3,
+        quality: 0.92,
+        signal: controller.signal,
+      }),
+    )
     expect(dispose).toHaveBeenCalledTimes(1)
     expect(result).toEqual({
       filename: 'frame_neutral_fullres.jpg',
@@ -181,6 +184,74 @@ describe('export-system', () => {
     })
   })
 
+  it('passes checkpoint metrics through the worker job wrapper', async () => {
+    const file = new File(['raw'], 'frame.ARW')
+    const output = createBlobOutputResult({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+    const checkpointMetric = {
+      kind: 'checkpoint' as const,
+      requestId: 'request-1',
+      completedRowsForDiagnostics: 64,
+      totalRows: 128,
+      stripRows: 64,
+      timestamp: '2026-05-01T00:00:00.000Z',
+    }
+    const run = vi.fn(async (request) => {
+      request.onMetric?.(checkpointMetric)
+      return output
+    })
+    const dispose = vi.fn()
+    const onMetric = vi.fn()
+    const graph: ExportColorGraphDescriptor = {
+      supported: true,
+      outputGamut: 'srgb-rec709',
+      outputTransfer: 'srgb',
+      lutProfile: null,
+      steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+    }
+    const executionPlan = selectCurrentExportExecutionPlan({
+      fidelity: 'safe',
+      sourceWidth: 11662,
+      sourceHeight: 8746,
+    })
+
+    await runFullResolutionExportJob({
+      file,
+      filename: 'frame_neutral_fullres.jpg',
+      graph,
+      executionPlan,
+      checkpoint: {
+        exportId: 'export-1',
+        graphFingerprint: 'graph-1',
+        sourceFingerprint: {
+          name: 'frame.ARW',
+          size: 3,
+          lastModified: 0,
+          hashPrefixHex: 'abc',
+        },
+      },
+      onMetric,
+      clientFactory: () =>
+        ({
+          run,
+          dispose,
+        }) as never,
+    })
+
+    expect(run).toHaveBeenCalledWith(
+      expect.objectContaining({
+        checkpoint: expect.objectContaining({
+          exportId: 'export-1',
+          graphFingerprint: 'graph-1',
+        }),
+        onMetric,
+      }),
+    )
+    expect(onMetric).toHaveBeenCalledWith(checkpointMetric)
+  })
+
   it('retries fresh workers for resource failures and disposes each client once', async () => {
     const file = new File(['raw'], 'frame.ARW')
     const output = createBlobOutputResult({
@@ -239,5 +310,58 @@ describe('export-system', () => {
       output,
       attempts: 2,
     })
+  })
+
+  it('uses worker-provided nextRows when retrying a fresh worker', async () => {
+    const file = new File(['raw'], 'frame.ARW')
+    const output = createBlobOutputResult({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+    const graph: ExportColorGraphDescriptor = {
+      supported: true,
+      outputGamut: 'srgb-rec709',
+      outputTransfer: 'srgb',
+      lutProfile: null,
+      steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+    }
+    const executionPlan = selectCurrentExportExecutionPlan({
+      fidelity: 'max',
+      sourceWidth: 11662,
+      sourceHeight: 8746,
+      previousResourceFailure: true,
+    })
+    const first = {
+      run: vi.fn().mockRejectedValue(
+        Object.assign(new Error('FULL_RES_EXPORT_RESOURCE_FAILURE'), {
+          nextRows: 96,
+        }),
+      ),
+      dispose: vi.fn(),
+    }
+    const second = {
+      run: vi.fn().mockResolvedValue(output),
+      dispose: vi.fn(),
+    }
+    const clientFactory = vi
+      .fn()
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second)
+
+    await runFullResolutionExportJob({
+      file,
+      filename: 'frame_neutral_fullres.jpg',
+      graph,
+      executionPlan,
+      clientFactory: clientFactory as never,
+    })
+
+    expect(executionPlan.preferredRows).toBe(128)
+    expect(second.run).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preferredRows: 96,
+        concurrency: 1,
+      }),
+    )
   })
 })

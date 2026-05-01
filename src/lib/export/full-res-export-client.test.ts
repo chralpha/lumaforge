@@ -187,6 +187,47 @@ describe('fullResolutionExportWorkerClient', () => {
     expect(worker.terminate).toHaveBeenCalledTimes(1)
   })
 
+  it('rehydrates file-backed worker output references on success', async () => {
+    const worker = new FakeWorker()
+    const client = new FullResolutionExportWorkerClient(
+      () => worker as unknown as Worker,
+    )
+
+    const run = client.run({
+      file: new File(['raw'], 'sample.ARW'),
+      graph: supportedGraph,
+    })
+    const startRequest = worker.requests[0]
+
+    if (!startRequest || startRequest.kind !== 'start') {
+      throw new Error('Expected a start request.')
+    }
+
+    worker.emit({
+      kind: 'success',
+      requestId: startRequest.requestId,
+      result: {
+        kind: 'file-backed',
+        storage: 'opfs',
+        exportId: 'export-1',
+        filename: 'sample.jpg',
+        byteLength: 42,
+        mimeType: 'image/jpeg',
+      },
+    })
+
+    await expect(run).resolves.toMatchObject({
+      kind: 'file-backed',
+      exportId: 'export-1',
+      filename: 'sample.jpg',
+      byteLength: 42,
+      mimeType: 'image/jpeg',
+      openBlob: expect.any(Function),
+      cleanup: expect.any(Function),
+    })
+    client.dispose()
+  })
+
   it('rejects with the worker error message', async () => {
     const worker = new FakeWorker()
     const client = new FullResolutionExportWorkerClient(
@@ -212,6 +253,35 @@ describe('fullResolutionExportWorkerClient', () => {
     await expect(promise).rejects.toThrow(
       'FULL_RES_EXPORT_UNSUPPORTED_PIPELINE',
     )
+  })
+
+  it('preserves worker retry row hints on error responses', async () => {
+    const worker = new FakeWorker()
+    const client = new FullResolutionExportWorkerClient(
+      () => worker as unknown as Worker,
+    )
+
+    const promise = client.run({
+      file: new File(['raw'], 'sample.ARW'),
+      graph: supportedGraph,
+    })
+    const startRequest = worker.requests[0]
+
+    if (!startRequest || startRequest.kind !== 'start') {
+      throw new Error('Expected a start request.')
+    }
+
+    worker.emit({
+      kind: 'error',
+      requestId: startRequest.requestId,
+      message: 'FULL_RES_EXPORT_RESOURCE_FAILURE',
+      nextRows: 96,
+    })
+
+    await expect(promise).rejects.toMatchObject({
+      message: 'FULL_RES_EXPORT_RESOURCE_FAILURE',
+      nextRows: 96,
+    })
   })
 
   it('forwards worker metric messages to the caller', async () => {
