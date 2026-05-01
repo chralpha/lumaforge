@@ -1,5 +1,6 @@
 import type { LumaRawErrorCode } from '../src/errors'
 import { normalizeRawRuntimeError } from '../src/errors'
+import type { LumaRawRuntimeMemoryProfile } from '../src/types'
 import type {
   LumaRawWorkerRequest,
   LumaRawWorkerResponse,
@@ -8,11 +9,15 @@ import { collectTransferables } from '../src/worker-protocol'
 import { loadNativeFactory } from './load-native-module'
 import { createRuntimeCore } from './runtime-core'
 
-let corePromise: ReturnType<typeof createCore> | undefined
+const corePromises = new Map<
+  LumaRawRuntimeMemoryProfile,
+  ReturnType<typeof createCore>
+>()
+let activeMemoryProfile: LumaRawRuntimeMemoryProfile = 'desktop'
 
-async function createCore() {
-  const nativeFactory = await loadNativeFactory()
-  return createRuntimeCore(nativeFactory)
+async function createCore(memoryProfile: LumaRawRuntimeMemoryProfile) {
+  const nativeFactory = await loadNativeFactory({ memoryProfile })
+  return createRuntimeCore(nativeFactory, { memoryProfile })
 }
 
 function failureResponse(
@@ -36,13 +41,21 @@ function failureResponse(
 self.onmessage = async (event: MessageEvent<LumaRawWorkerRequest>) => {
   const request = event.data
   let response: LumaRawWorkerResponse
+  const memoryProfile =
+    request.type === 'init'
+      ? request.payload.memoryProfile
+      : activeMemoryProfile
 
   let core: Awaited<ReturnType<typeof createCore>>
   try {
-    corePromise ??= createCore()
+    let corePromise = corePromises.get(memoryProfile)
+    if (!corePromise) {
+      corePromise = createCore(memoryProfile)
+      corePromises.set(memoryProfile, corePromise)
+    }
     core = await corePromise
   } catch (error) {
-    corePromise = undefined
+    corePromises.delete(memoryProfile)
     response = failureResponse(request, error, 'RAW_RUNTIME_UNAVAILABLE')
     postResponse(request, response)
     return
@@ -50,6 +63,9 @@ self.onmessage = async (event: MessageEvent<LumaRawWorkerRequest>) => {
 
   try {
     response = await core.handleRequest(request)
+    if (request.type === 'init' && response.ok) {
+      activeMemoryProfile = memoryProfile
+    }
   } catch (error) {
     response = failureResponse(request, error, 'RAW_WORKER_PROTOCOL_ERROR')
   }

@@ -39,6 +39,7 @@ class RecordingWorker {
                 pthreads: true,
                 crossOriginIsolated: true,
                 memoryTier: 'normal',
+                memoryProfile: 'desktop',
                 workerPoolSize: 2,
               },
             },
@@ -311,10 +312,49 @@ describe('createLumaRawRuntime', () => {
         type: 'init',
         payload: {
           requireCrossOriginIsolation: false,
+          memoryProfile: 'desktop',
         },
       },
       [],
     )
+
+    runtime.dispose()
+  })
+
+  it('does not require cross-origin isolation for low-memory runtime profile', async () => {
+    const requests: LumaRawWorkerRequest[] = []
+    const worker = new EchoWorker((request) => {
+      requests.push(request)
+
+      return {
+        runtime: 'luma',
+        version: '0.1.0',
+        simd: true,
+        pthreads: false,
+        crossOriginIsolated: false,
+        memoryTier: 'low',
+        memoryProfile: 'low-memory',
+        workerPoolSize: 1,
+      }
+    })
+
+    const runtime = createLumaRawRuntime({
+      memoryProfile: 'low-memory',
+      workerFactory: () => worker as unknown as Worker,
+    })
+
+    await expect(runtime.init()).resolves.toMatchObject({
+      memoryProfile: 'low-memory',
+      pthreads: false,
+      memoryTier: 'low',
+    })
+    expect(requests[0]).toMatchObject({
+      type: 'init',
+      payload: {
+        requireCrossOriginIsolation: false,
+        memoryProfile: 'low-memory',
+      },
+    })
 
     runtime.dispose()
   })
@@ -633,6 +673,7 @@ describe('createLumaRawRuntime', () => {
           pthreads: true,
           crossOriginIsolated: true,
           memoryTier: 'normal',
+          memoryProfile: 'desktop',
           workerPoolSize: 1,
         }
       }

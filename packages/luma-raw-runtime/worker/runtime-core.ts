@@ -7,6 +7,7 @@ import type {
   LumaRawMetadata,
   LumaRawProbe,
   LumaRawRuntimeInfo,
+  LumaRawRuntimeMemoryProfile,
   LumaRawSessionInfo,
   LumaRawTimings,
 } from '../src/types'
@@ -61,6 +62,10 @@ type RuntimeSession = {
   maxOutputPixels?: number
 }
 
+type RuntimeCoreOptions = {
+  memoryProfile?: LumaRawRuntimeMemoryProfile
+}
+
 function now() {
   return globalThis.performance?.now() ?? Date.now()
 }
@@ -89,12 +94,17 @@ function createTimer(): Timer {
   }
 }
 
-function getRuntimeInfo(): LumaRawRuntimeInfo {
+function getRuntimeInfo(
+  memoryProfile: LumaRawRuntimeMemoryProfile,
+): LumaRawRuntimeInfo {
   const hardwareConcurrency =
     typeof globalThis.navigator?.hardwareConcurrency === 'number'
       ? globalThis.navigator.hardwareConcurrency
       : 1
-  const workerPoolSize = Math.max(1, Math.min(4, hardwareConcurrency))
+  const workerPoolSize =
+    memoryProfile === 'low-memory'
+      ? 1
+      : Math.max(1, Math.min(4, hardwareConcurrency))
   const isolated =
     'crossOriginIsolated' in globalThis
       ? Boolean(globalThis.crossOriginIsolated)
@@ -104,9 +114,10 @@ function getRuntimeInfo(): LumaRawRuntimeInfo {
     runtime: 'luma',
     version: '0.1.0',
     simd: true,
-    pthreads: true,
+    pthreads: memoryProfile === 'desktop',
     crossOriginIsolated: isolated,
-    memoryTier: 'normal',
+    memoryTier: memoryProfile === 'low-memory' ? 'low' : 'normal',
+    memoryProfile,
     workerPoolSize,
   }
 }
@@ -362,7 +373,11 @@ function unsupportedRawWindowCapability(): LumaRawExportCapability {
   }
 }
 
-export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
+export function createRuntimeCore(
+  nativeFactory: LumaRawNativeFactory,
+  options: RuntimeCoreOptions = {},
+) {
+  const memoryProfile = options.memoryProfile ?? 'desktop'
   const cancelledJobIds = new Set<string>()
   const cancelledJobQueue: string[] = []
   const sessions = new Map<string, RuntimeSession>()
@@ -904,7 +919,9 @@ export function createRuntimeCore(nativeFactory: LumaRawNativeFactory) {
               id: request.id,
               ok: true,
               type: request.type,
-              payload: getRuntimeInfo(),
+              payload: getRuntimeInfo(
+                request.payload.memoryProfile ?? memoryProfile,
+              ),
             }
           case 'cancel':
             if (!disposeSessionForOpenRequest(request.payload.targetJobId)) {

@@ -1,4 +1,5 @@
 import { LumaRawRuntimeError } from '../src/errors'
+import type { LumaRawRuntimeMemoryProfile } from '../src/types'
 import { createNativeFactory } from './native-adapter'
 import type {
   LumaRawNativeDecodeOptions,
@@ -9,13 +10,22 @@ type NativeModuleFactory = (options?: {
   locateFile?: (path: string) => string
 }) => Promise<unknown>
 
-function nativeAssetUrl(fileName: string) {
+export type LoadNativeFactoryOptions = {
+  memoryProfile?: LumaRawRuntimeMemoryProfile
+}
+
+function nativeAssetUrl(
+  fileName: string,
+  memoryProfile: LumaRawRuntimeMemoryProfile,
+) {
   const currentUrl = new URL(import.meta.url)
   const pathParts = currentUrl.pathname.split('/').filter(Boolean)
   const inBuiltWorkerAssets =
     pathParts.at(-1)?.startsWith('runtime.worker') &&
     pathParts.at(-2) === 'assets'
-  const nativeDir = inBuiltWorkerAssets ? '../native/' : '../dist/native/'
+  const nativeDir = inBuiltWorkerAssets
+    ? `../native/${memoryProfile}/`
+    : `../dist/native/${memoryProfile}/`
 
   return new URL(`${nativeDir}${fileName}`, import.meta.url).href
 }
@@ -28,9 +38,11 @@ function createMissingNativeAssetsError(cause: unknown) {
   )
 }
 
-export async function loadNativeFactory(): Promise<LumaRawNativeFactory> {
-  const moduleUrl = nativeAssetUrl('luma_raw.js')
-  const wasmUrl = nativeAssetUrl('luma_raw.wasm')
+export async function loadNativeFactory({
+  memoryProfile = 'desktop',
+}: LoadNativeFactoryOptions = {}): Promise<LumaRawNativeFactory> {
+  const moduleUrl = nativeAssetUrl('luma_raw.js', memoryProfile)
+  const wasmUrl = nativeAssetUrl('luma_raw.wasm', memoryProfile)
   let moduleImport: { default: NativeModuleFactory }
 
   try {

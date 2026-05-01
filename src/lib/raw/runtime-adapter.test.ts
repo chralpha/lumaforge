@@ -23,6 +23,7 @@ function makeRuntimeInfo(): LumaRawRuntimeInfo {
     pthreads: true,
     crossOriginIsolated: true,
     memoryTier: 'normal',
+    memoryProfile: 'desktop',
     workerPoolSize: 2,
   }
 }

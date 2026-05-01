@@ -28,6 +28,7 @@ export type {
   LumaRawQuickOptions,
   LumaRawRuntime,
   LumaRawRuntimeInfo,
+  LumaRawRuntimeMemoryProfile,
   LumaRawSensorLayout,
   LumaRawSessionInfo,
   LumaRawSupportLevel,

@@ -1,5 +1,7 @@
 export type LumaRawMemoryTier = 'low' | 'normal' | 'high'
 
+export type LumaRawRuntimeMemoryProfile = 'desktop' | 'low-memory'
+
 export type LumaRawSupportLevel = 'official' | 'experimental' | 'unsupported'
 
 export type LumaRawTimings = {
@@ -251,6 +253,7 @@ export type LumaRawRuntimeInfo = {
   pthreads: boolean
   crossOriginIsolated: boolean
   memoryTier: LumaRawMemoryTier
+  memoryProfile: LumaRawRuntimeMemoryProfile
   workerPoolSize: number
 }
 

@@ -32,7 +32,9 @@
   ],
   "scripts": {
     "build": "vite build --config vite.config.ts && tsc -p tsconfig.build.json",
-    "build:native": "bash native/build-libraw.sh",
+    "build:native": "LUMA_RAW_MEMORY_PROFILE=desktop bash native/build-libraw.sh && LUMA_RAW_MEMORY_PROFILE=low-memory bash native/build-libraw.sh",
+    "build:native:desktop": "LUMA_RAW_MEMORY_PROFILE=desktop bash native/build-libraw.sh",
+    "build:native:low-memory": "LUMA_RAW_MEMORY_PROFILE=low-memory bash native/build-libraw.sh",
     "fixtures:fetch-public": "node fixtures/scripts/fetch-public-fixtures.mjs",
     "native:fetch": "node native/scripts/fetch-sources.mjs",
     "native:verify": "node native/scripts/verify-native-artifacts.mjs && pnpm --filter @lumaforge/luma-raw-runtime native:verify-baseline",

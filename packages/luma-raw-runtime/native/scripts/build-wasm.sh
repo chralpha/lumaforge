@@ -6,12 +6,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NATIVE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PACKAGE_DIR="$(cd "${NATIVE_DIR}/.." && pwd)"
 SYSROOT_DIR="${NATIVE_DIR}/build/sysroot"
-OUTPUT_DIR="${PACKAGE_DIR}/dist/native"
+PROFILE="${LUMA_RAW_MEMORY_PROFILE:-desktop}"
+OUTPUT_DIR="${PACKAGE_DIR}/dist/native/${PROFILE}"
 OUTPUT_JS="${OUTPUT_DIR}/luma_raw.js"
 
 source "${NATIVE_DIR}/emcc-flags.sh"
 
-if ! command -v emcc >/dev/null 2>&1; then
+if ! command -v emcc > /dev/null 2>&1; then
   echo "emcc is required. Activate the Emscripten SDK before running build:native." >&2
   exit 1
 fi
@@ -40,6 +41,6 @@ emcc \
   "${SYSROOT_DIR}/lib/liblcms2.a" \
   -o "${OUTPUT_JS}"
 
-node "${SCRIPT_DIR}/verify-native-artifacts.mjs" --write-provenance
+node "${SCRIPT_DIR}/verify-native-artifacts.mjs" --write-provenance --profile "${PROFILE}"
 
 echo "Built Luma RAW native runtime into ${OUTPUT_DIR}"

@@ -49,15 +49,27 @@ const LUMA_RAW_RUNTIME_SOURCE = resolve(
 )
 const NATIVE_RUNTIME_ASSETS = [
   {
-    label: 'Luma RAW runtime',
+    label: 'Luma RAW runtime desktop',
     packageName: '@lumaforge/luma-raw-runtime',
-    sourceDir: resolve(ROOT, './packages/luma-raw-runtime/dist/native'),
+    sourceDir: resolve(ROOT, './packages/luma-raw-runtime/dist/native/desktop'),
+    targetDir: 'native/desktop',
+    files: ['luma_raw.js', 'luma_raw.wasm'],
+  },
+  {
+    label: 'Luma RAW runtime low-memory',
+    packageName: '@lumaforge/luma-raw-runtime',
+    sourceDir: resolve(
+      ROOT,
+      './packages/luma-raw-runtime/dist/native/low-memory',
+    ),
+    targetDir: 'native/low-memory',
     files: ['luma_raw.js', 'luma_raw.wasm'],
   },
   {
     label: 'Luma JPEG runtime',
     packageName: '@lumaforge/luma-jpeg-runtime',
     sourceDir: resolve(ROOT, './packages/luma-jpeg-runtime/dist/native'),
+    targetDir: 'native',
     files: ['luma_jpeg.js', 'luma_jpeg.wasm'],
   },
 ] as const
@@ -118,10 +130,10 @@ function nativeRuntimeAssetsPlugin(): Plugin {
       const outputDir = options.dir
         ? resolve(ROOT, options.dir)
         : resolve(ROOT, 'dist')
-      const nativeOutputDir = resolve(outputDir, 'native')
-      mkdirSync(nativeOutputDir, { recursive: true })
-
       for (const assetSet of NATIVE_RUNTIME_ASSETS) {
+        const nativeOutputDir = resolve(outputDir, assetSet.targetDir)
+        mkdirSync(nativeOutputDir, { recursive: true })
+
         for (const fileName of assetSet.files) {
           copyFileSync(
             resolve(assetSet.sourceDir, fileName),

@@ -9,6 +9,7 @@ import type {
   LumaRawQuickOptions,
   LumaRawRuntime,
   LumaRawRuntimeInfo,
+  LumaRawRuntimeMemoryProfile,
   LumaRawSessionInfo,
   LumaRawTimings,
 } from './types'
@@ -16,6 +17,7 @@ import { LumaRawWorkerClient } from './worker-client'
 
 export type LumaRawRuntimeOptions = {
   requireCrossOriginIsolation?: boolean
+  memoryProfile?: LumaRawRuntimeMemoryProfile
   workerFactory?: () => Worker
 }
 
@@ -188,8 +190,9 @@ function assertCrossOriginIsolation(required: boolean) {
 export function createLumaRawRuntime(
   options: LumaRawRuntimeOptions = {},
 ): LumaRawRuntime {
+  const memoryProfile = options.memoryProfile ?? 'desktop'
   const requireCrossOriginIsolation =
-    options.requireCrossOriginIsolation ?? true
+    options.requireCrossOriginIsolation ?? memoryProfile === 'desktop'
   const client = new LumaRawWorkerClient(
     options.workerFactory ?? defaultWorkerFactory,
   )
@@ -309,7 +312,10 @@ export function createLumaRawRuntime(
   return {
     async init(): Promise<LumaRawRuntimeInfo> {
       assertCrossOriginIsolation(requireCrossOriginIsolation)
-      return client.request('init', { requireCrossOriginIsolation })
+      return client.request('init', {
+        requireCrossOriginIsolation,
+        memoryProfile,
+      })
     },
 
     openSession,

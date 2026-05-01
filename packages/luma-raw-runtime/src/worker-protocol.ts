@@ -7,6 +7,7 @@ import type {
   LumaRawProcessedWindow,
   LumaRawProcessedWindowRequest,
   LumaRawRuntimeInfo,
+  LumaRawRuntimeMemoryProfile,
   LumaRawSessionInfo,
   LumaRawWindow,
   LumaRawWindowRect,
@@ -62,7 +63,10 @@ export type LumaRawWorkerBoundedHqSessionPayload = {
 }
 
 export type LumaRawWorkerRequestPayloadByType = {
-  init: { requireCrossOriginIsolation: boolean }
+  init: {
+    requireCrossOriginIsolation: boolean
+    memoryProfile: LumaRawRuntimeMemoryProfile
+  }
   openSession: LumaRawWorkerFilePayload & { maxOutputPixels?: number }
   extractEmbeddedPreviewFromSession: LumaRawWorkerSessionPayload
   decodeQuickFromSession: LumaRawWorkerQuickSessionPayload

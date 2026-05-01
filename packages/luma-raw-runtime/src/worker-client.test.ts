@@ -207,6 +207,7 @@ describe('lumaRawWorkerClient', () => {
 
     const promise = client.request('init', {
       requireCrossOriginIsolation: false,
+      memoryProfile: 'desktop',
     })
     const request = fakeWorker.requests[0]
 
@@ -221,6 +222,7 @@ describe('lumaRawWorkerClient', () => {
         pthreads: true,
         crossOriginIsolated: true,
         memoryTier: 'normal',
+        memoryProfile: 'desktop',
         workerPoolSize: 2,
       },
     })
@@ -373,6 +375,7 @@ describe('lumaRawWorkerClient', () => {
     await expect(
       client.request('init', {
         requireCrossOriginIsolation: false,
+        memoryProfile: 'desktop',
       }),
     ).rejects.toMatchObject({
       code: 'RAW_WORKER_PROTOCOL_ERROR',

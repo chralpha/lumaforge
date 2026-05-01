@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { LumaRawRuntimeError } from '../src/errors'
+import type { LumaRawExportCapability } from '../src/types'
 import type { LumaRawNativeFactory } from './native-types'
 import { createRuntimeCore } from './runtime-core'
 
@@ -83,6 +84,31 @@ const makeNativeFactory = (): LumaRawNativeFactory => ({
 })
 
 describe('runtime-core', () => {
+  it('reports low-memory runtime info when initialized with low-memory profile', async () => {
+    const core = createRuntimeCore(makeNativeFactory(), {
+      memoryProfile: 'low-memory',
+    })
+
+    await expect(
+      core.handleRequest({
+        id: 'init-low',
+        type: 'init',
+        payload: {
+          requireCrossOriginIsolation: false,
+          memoryProfile: 'low-memory',
+        },
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      payload: {
+        pthreads: false,
+        memoryTier: 'low',
+        memoryProfile: 'low-memory',
+        workerPoolSize: 1,
+      },
+    })
+  })
+
   it('returns probe metadata without maker-note bulk', async () => {
     const core = createRuntimeCore(makeNativeFactory())
 
@@ -1390,7 +1416,7 @@ describe('runtime-core', () => {
     let sensorFactsAvailable = false
     let openWithSettingsCount = 0
 
-    const supportedCapability = {
+    const supportedCapability: LumaRawExportCapability = {
       supported: true,
       strategy: 'libraw-processed-window' as const,
       width: 4000,
@@ -1430,7 +1456,7 @@ describe('runtime-core', () => {
       },
       reasons: [],
     }
-    const unsupportedCapability = {
+    const unsupportedCapability: LumaRawExportCapability = {
       ...supportedCapability,
       supported: false,
       cfa: {

@@ -277,6 +277,7 @@ describe('luma raw runtime public contract', () => {
       pthreads: true,
       crossOriginIsolated: true,
       memoryTier: 'normal',
+      memoryProfile: 'desktop',
       workerPoolSize: 2,
     }
 
