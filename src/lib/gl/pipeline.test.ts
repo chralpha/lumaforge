@@ -18,6 +18,10 @@ const contextMock = vi.hoisted(() => {
     maxVertexUniformVectors: 1024,
     maxFragmentUniformVectors: 1024,
     maxVaryingVectors: 64,
+    fragmentHighFloatPrecision: 23,
+    fragmentHighFloatRangeMin: 127,
+    fragmentHighFloatRangeMax: 127,
+    toneHighPrecision: true,
     rendererInfo: 'Mock Renderer',
     vendorInfo: 'Mock Vendor',
   }
@@ -229,6 +233,37 @@ describe('rawProcessingPipeline render uniforms', () => {
     expect(contextMock.gl.uniform1f).toHaveBeenCalledWith(
       'u_rawRenderExposureMultiplier',
       1,
+    )
+  })
+
+  it('sends normalized user tone uniforms to the process shader', async () => {
+    contextMock.reset()
+    const pipeline = new RawProcessingPipeline(document.createElement('canvas'))
+    await pipeline.initialize()
+
+    pipeline.uploadImage({
+      data: new Uint16Array([1024, 1024, 1024]),
+      width: 1,
+      height: 1,
+      layout: 'rgb-u16',
+      colorSpace: 'linear-prophoto-rgb',
+      renderExposureEv: 0,
+      renderExposureMultiplier: 1,
+    })
+    pipeline.setParams({ userExposureEv: 1, userContrast: 50 })
+    pipeline.render()
+
+    expect(contextMock.gl.uniform1f).toHaveBeenCalledWith(
+      'u_userExposureMultiplier',
+      2,
+    )
+    expect(contextMock.gl.uniform1f).toHaveBeenCalledWith(
+      'u_userContrastAmount',
+      50,
+    )
+    expect(contextMock.gl.uniform1f).toHaveBeenCalledWith(
+      'u_userContrastFactor',
+      Math.pow(2, 50 / 200),
     )
   })
 

@@ -16,6 +16,10 @@ export interface WebGLCapabilities {
   maxVertexUniformVectors: number
   maxFragmentUniformVectors: number
   maxVaryingVectors: number
+  fragmentHighFloatPrecision: number
+  fragmentHighFloatRangeMin: number
+  fragmentHighFloatRangeMax: number
+  toneHighPrecision: boolean
   rendererInfo: string
   vendorInfo: string
 }
@@ -110,6 +114,10 @@ export function detectCapabilities(
       maxVertexUniformVectors: 0,
       maxFragmentUniformVectors: 0,
       maxVaryingVectors: 0,
+      fragmentHighFloatPrecision: 0,
+      fragmentHighFloatRangeMin: 0,
+      fragmentHighFloatRangeMax: 0,
+      toneHighPrecision: false,
       rendererInfo: 'Unknown',
       vendorInfo: 'Unknown',
     }
@@ -128,6 +136,16 @@ export function detectCapabilities(
     tempGl.getExtension('OES_texture_float_linear') !== null
   const halfFloatTexturesLinear =
     tempGl.getExtension('OES_texture_half_float_linear') !== null
+
+  const highFloat = tempGl.getShaderPrecisionFormat(
+    tempGl.FRAGMENT_SHADER,
+    tempGl.HIGH_FLOAT,
+  )
+  const fragmentHighFloatPrecision = highFloat?.precision ?? 0
+  const fragmentHighFloatRangeMin = highFloat?.rangeMin ?? 0
+  const fragmentHighFloatRangeMax = highFloat?.rangeMax ?? 0
+  const toneHighPrecision =
+    fragmentHighFloatPrecision >= 16 && fragmentHighFloatRangeMax >= 62
 
   // Get renderer info
   const debugInfo = tempGl.getExtension('WEBGL_debug_renderer_info')
@@ -159,6 +177,10 @@ export function detectCapabilities(
       tempGl.MAX_FRAGMENT_UNIFORM_VECTORS,
     ),
     maxVaryingVectors: tempGl.getParameter(tempGl.MAX_VARYING_VECTORS),
+    fragmentHighFloatPrecision,
+    fragmentHighFloatRangeMin,
+    fragmentHighFloatRangeMax,
+    toneHighPrecision,
     rendererInfo,
     vendorInfo,
   }

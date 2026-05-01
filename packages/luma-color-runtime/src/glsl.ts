@@ -507,3 +507,44 @@ vec3 applyCombinedOutputLut(vec3 sceneLinearProPhoto) {
   return linearToSrgb(displayLinear);
 }
 `
+
+export const LUMA_COLOR_TONE_GLSL = /* glsl */ `
+const vec3 LINEAR_PROPHOTO_LUMINANCE = vec3(0.2880402, 0.7118741, 0.0000857);
+const float USER_CONTRAST_PIVOT = 0.18;
+
+vec3 applyUserExposure(vec3 sceneLinear, float exposureMultiplier) {
+  return sceneLinear * exposureMultiplier;
+}
+
+vec3 applyUserContrast(
+  vec3 exposedSceneLinear,
+  float contrastAmount,
+  float contrastFactor
+) {
+  if (contrastAmount == 0.0) {
+    return exposedSceneLinear;
+  }
+
+  vec3 contrastInput = max(exposedSceneLinear, vec3(0.0));
+  float y = dot(contrastInput, LINEAR_PROPHOTO_LUMINANCE);
+  if (y <= 0.0) {
+    return vec3(0.0);
+  }
+
+  float targetY = USER_CONTRAST_PIVOT * pow(y / USER_CONTRAST_PIVOT, contrastFactor);
+  return contrastInput * (targetY / y);
+}
+
+vec3 applyUserTone(
+  vec3 sceneLinear,
+  float exposureMultiplier,
+  float contrastAmount,
+  float contrastFactor
+) {
+  return applyUserContrast(
+    applyUserExposure(sceneLinear, exposureMultiplier),
+    contrastAmount,
+    contrastFactor
+  );
+}
+`

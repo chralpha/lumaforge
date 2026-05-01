@@ -1,6 +1,7 @@
 import {
   LUMA_COLOR_LUT_GLSL,
   LUMA_COLOR_RANGE_GLSL,
+  LUMA_COLOR_TONE_GLSL,
   LUMA_COLOR_TRANSFER_GLSL,
 } from '@lumaforge/luma-color-runtime/glsl'
 
@@ -43,6 +44,9 @@ uniform vec3 u_lutDomainMin;
 uniform vec3 u_lutDomainMax;
 uniform float u_intensity;
 uniform float u_rawRenderExposureMultiplier;
+uniform float u_userExposureMultiplier;
+uniform float u_userContrastAmount;
+uniform float u_userContrastFactor;
 uniform int u_viewMode;
 uniform float u_compareSplit;
 uniform int u_styleKind;
@@ -67,6 +71,7 @@ const int STYLE_CUSTOM = 2;
 ${LUMA_COLOR_TRANSFER_GLSL}
 ${LUMA_COLOR_RANGE_GLSL}
 ${LUMA_COLOR_LUT_GLSL}
+${LUMA_COLOR_TONE_GLSL}
 
 float luminance709(vec3 color) {
   return dot(color, vec3(0.2126, 0.7152, 0.0722));
@@ -128,31 +133,42 @@ vec3 applyBuiltinStyle(vec3 displayColor) {
   return linearToSrgb(color);
 }
 void main() {
-  vec3 baseSceneLinearProPhoto = max(readInputSceneLinearProPhoto(v_texCoord) * u_rawRenderExposureMultiplier, vec3(0.0));
-  vec3 baseDisplayLinear = linearProPhotoToLinearSrgb(baseSceneLinearProPhoto);
-  vec3 baseDisplayColor = linearToSrgb(baseDisplayLinear);
-  vec3 styledColor = baseDisplayColor;
+  vec3 technicalBaseSceneLinearProPhoto =
+    readInputSceneLinearProPhoto(v_texCoord) * u_rawRenderExposureMultiplier;
+  vec3 editedBaseSceneLinearProPhoto = applyUserTone(
+    technicalBaseSceneLinearProPhoto,
+    u_userExposureMultiplier,
+    u_userContrastAmount,
+    u_userContrastFactor
+  );
+  vec3 technicalBaseDisplayLinear =
+    linearProPhotoToLinearSrgb(max(technicalBaseSceneLinearProPhoto, vec3(0.0)));
+  vec3 editedBaseDisplayLinear =
+    linearProPhotoToLinearSrgb(max(editedBaseSceneLinearProPhoto, vec3(0.0)));
+  vec3 technicalBaseDisplayColor = linearToSrgb(technicalBaseDisplayLinear);
+  vec3 editedBaseDisplayColor = linearToSrgb(editedBaseDisplayLinear);
+  vec3 styledColor = editedBaseDisplayColor;
   float intensity = clamp(u_intensity, 0.0, 1.0);
 
   if (u_styleKind == STYLE_BUILTIN) {
-    styledColor = mix(baseDisplayColor, applyBuiltinStyle(baseDisplayColor), intensity);
+    styledColor = mix(editedBaseDisplayColor, applyBuiltinStyle(editedBaseDisplayColor), intensity);
   } else if (u_styleKind == STYLE_CUSTOM && u_useLut) {
     if (isSceneCreativeLut()) {
-      vec3 styledDisplayLinear = applySceneLutToDisplayLinear(baseSceneLinearProPhoto);
-      vec3 mixedDisplayLinear = mix(baseDisplayLinear, styledDisplayLinear, intensity);
+      vec3 styledDisplayLinear = applySceneLutToDisplayLinear(editedBaseSceneLinearProPhoto);
+      vec3 mixedDisplayLinear = mix(editedBaseDisplayLinear, styledDisplayLinear, intensity);
       styledColor = linearToSrgb(mixedDisplayLinear);
     } else if (isOutputLut()) {
-      styledColor = mix(baseDisplayColor, applyCombinedOutputLut(baseSceneLinearProPhoto), intensity);
+      styledColor = mix(editedBaseDisplayColor, applyCombinedOutputLut(editedBaseSceneLinearProPhoto), intensity);
     } else {
-      styledColor = mix(baseDisplayColor, applyDisplayLut(baseSceneLinearProPhoto), intensity);
+      styledColor = mix(editedBaseDisplayColor, applyDisplayLut(editedBaseSceneLinearProPhoto), intensity);
     }
   }
 
   if (u_viewMode == VIEW_MODE_ORIGINAL) {
-    styledColor = baseDisplayColor;
+    styledColor = technicalBaseDisplayColor;
   } else if (u_viewMode == VIEW_MODE_COMPARE) {
     float finalSide = step(clamp(u_compareSplit, 0.0, 1.0), v_texCoord.x);
-    styledColor = mix(baseDisplayColor, styledColor, finalSide);
+    styledColor = mix(technicalBaseDisplayColor, styledColor, finalSide);
   }
 
   fragColor = vec4(clamp01(styledColor), 1.0);

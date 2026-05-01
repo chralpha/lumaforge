@@ -18,6 +18,7 @@ import {
   mat3Identity,
   mat3ToGLSL,
   resolveExportColorGraph,
+  resolveToneParams,
 } from '@lumaforge/luma-color-runtime'
 import {
   LUT_RANGE_UNIFORMS,
@@ -196,13 +197,13 @@ function getExportFailureMessage(error: unknown): string {
 }
 
 const DEFAULT_PARAMS: ProcessingParams = {
-  userExposureEv: 0,
-  userContrast: 0,
   intensity: 0.7,
   viewMode: 'compare',
   compareSplit: 0.5,
   styleKind: 'none',
   builtinPreset: null,
+  userExposureEv: 0,
+  userContrast: 0,
 }
 
 const VIEW_MODE_UNIFORMS: Record<ProcessingParams['viewMode'], number> = {
@@ -483,6 +484,18 @@ export class RawProcessingPipeline {
         program,
         'u_rawRenderExposureMultiplier',
       ),
+      u_userExposureMultiplier: gl.getUniformLocation(
+        program,
+        'u_userExposureMultiplier',
+      ),
+      u_userContrastAmount: gl.getUniformLocation(
+        program,
+        'u_userContrastAmount',
+      ),
+      u_userContrastFactor: gl.getUniformLocation(
+        program,
+        'u_userContrastFactor',
+      ),
       u_viewMode: gl.getUniformLocation(program, 'u_viewMode'),
       u_compareSplit: gl.getUniformLocation(program, 'u_compareSplit'),
       u_styleKind: gl.getUniformLocation(program, 'u_styleKind'),
@@ -725,6 +738,8 @@ export class RawProcessingPipeline {
       intensity: this.params.intensity,
       builtinPreset: this.params.builtinPreset,
       lut: this.lutData,
+      userExposureEv: this.params.userExposureEv,
+      userContrast: this.params.userContrast,
     })
     const resolvedProfile = exportGraph.supported
       ? exportGraph.lutProfile
@@ -849,6 +864,16 @@ export class RawProcessingPipeline {
       processUniforms.u_rawRenderExposureMultiplier,
       this.rawRenderExposureMultiplier,
     )
+    const tone = resolveToneParams({
+      userExposureEv: params.userExposureEv,
+      userContrast: params.userContrast,
+    })
+    gl.uniform1f(
+      processUniforms.u_userExposureMultiplier,
+      tone.userExposureMultiplier,
+    )
+    gl.uniform1f(processUniforms.u_userContrastAmount, tone.userContrast)
+    gl.uniform1f(processUniforms.u_userContrastFactor, tone.userContrastFactor)
     gl.uniform1i(
       processUniforms.u_styleKind,
       STYLE_KIND_UNIFORMS[params.styleKind],

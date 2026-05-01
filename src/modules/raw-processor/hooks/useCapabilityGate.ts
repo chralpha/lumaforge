@@ -14,6 +14,15 @@ export function useCapabilityGate() {
       }
     }
 
+    if (!caps.toneHighPrecision) {
+      return {
+        ready: true,
+        supportStatus: 'unsupported' as const,
+        reason:
+          'High precision fragment shader math is required for RAW tone controls',
+      }
+    }
+
     if (
       typeof globalThis.crossOriginIsolated === 'boolean' &&
       !globalThis.crossOriginIsolated

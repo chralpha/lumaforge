@@ -1,6 +1,7 @@
 import {
   LUMA_COLOR_LUT_GLSL,
   LUMA_COLOR_RANGE_GLSL,
+  LUMA_COLOR_TONE_GLSL,
   LUMA_COLOR_TRANSFER_GLSL,
 } from '@lumaforge/luma-color-runtime/glsl'
 import { describe, expect, it } from 'vitest'
@@ -60,6 +61,7 @@ describe('process shader style path', () => {
       expect(shader).toContain(LUMA_COLOR_TRANSFER_GLSL)
       expect(shader).toContain(LUMA_COLOR_RANGE_GLSL)
       expect(shader).toContain(LUMA_COLOR_LUT_GLSL)
+      expect(shader).toContain(LUMA_COLOR_TONE_GLSL)
     },
   )
 
@@ -114,7 +116,21 @@ describe('process shader style path', () => {
         'float finalSide = step(clamp(u_compareSplit, 0.0, 1.0), v_texCoord.x)',
       )
       expect(shader).toContain(
-        'styledColor = mix(baseDisplayColor, styledColor, finalSide)',
+        'styledColor = mix(technicalBaseDisplayColor, styledColor, finalSide)',
+      )
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant applies user tone only to processed side',
+    (_name, shader) => {
+      expect(shader).toContain('uniform float u_userExposureMultiplier')
+      expect(shader).toContain('uniform float u_userContrastAmount')
+      expect(shader).toContain('uniform float u_userContrastFactor')
+      expect(shader).toContain('vec3 technicalBaseSceneLinearProPhoto')
+      expect(shader).toContain('vec3 editedBaseSceneLinearProPhoto')
+      expect(shader).toContain(
+        'styledColor = mix(technicalBaseDisplayColor, styledColor, finalSide)',
       )
     },
   )
@@ -124,7 +140,7 @@ describe('process shader style path', () => {
     (_name, shader) => {
       expect(shader).toContain('const int VIEW_MODE_ORIGINAL = 1')
       expect(shader).toContain('if (u_viewMode == VIEW_MODE_ORIGINAL)')
-      expect(shader).toContain('styledColor = baseDisplayColor')
+      expect(shader).toContain('styledColor = technicalBaseDisplayColor')
     },
   )
 
@@ -334,19 +350,17 @@ describe('process shader style path', () => {
       )?.[0]
       expect(sceneMain).toBeDefined()
       expect(sceneMain).toContain(
-        'vec3 styledDisplayLinear = applySceneLutToDisplayLinear(baseSceneLinearProPhoto)',
+        'vec3 styledDisplayLinear = applySceneLutToDisplayLinear(editedBaseSceneLinearProPhoto)',
       )
       expect(sceneMain).toContain(
-        'vec3 mixedDisplayLinear = mix(baseDisplayLinear, styledDisplayLinear, intensity)',
+        'vec3 mixedDisplayLinear = mix(editedBaseDisplayLinear, styledDisplayLinear, intensity)',
       )
       expect(sceneMain).toContain(
         'styledColor = linearToSrgb(mixedDisplayLinear)',
       )
-      expect(sceneMain).not.toContain('mix(baseDisplayColor, styledColor')
+      expect(sceneMain).not.toContain('mix(editedBaseDisplayColor, styledColor')
 
-      expect(shader).toContain(
-        'vec3 baseDisplayLinear = linearProPhotoToLinearSrgb(baseSceneLinearProPhoto)',
-      )
+      expect(shader).toContain('vec3 editedBaseDisplayLinear =')
       expect(shader).toContain('fragColor = vec4(clamp01(styledColor), 1.0)')
     },
   )
@@ -359,7 +373,7 @@ describe('process shader style path', () => {
       )?.[0]
       expect(builtinMain).toBeDefined()
       expect(builtinMain).toContain(
-        'styledColor = mix(baseDisplayColor, applyBuiltinStyle(baseDisplayColor), intensity)',
+        'styledColor = mix(editedBaseDisplayColor, applyBuiltinStyle(editedBaseDisplayColor), intensity)',
       )
     },
   )
@@ -368,13 +382,13 @@ describe('process shader style path', () => {
     '%s variant keeps display-domain intensity mixing for display and combined-output paths',
     (_name, shader) => {
       expect(shader).toContain(
-        'vec3 baseSceneLinearProPhoto = max(readInputSceneLinearProPhoto',
+        'vec3 editedBaseSceneLinearProPhoto = applyUserTone',
       )
       expect(shader).toContain(
-        'styledColor = mix(baseDisplayColor, applyCombinedOutputLut(baseSceneLinearProPhoto), intensity)',
+        'styledColor = mix(editedBaseDisplayColor, applyCombinedOutputLut(editedBaseSceneLinearProPhoto), intensity)',
       )
       expect(shader).toContain(
-        'styledColor = mix(baseDisplayColor, applyDisplayLut(baseSceneLinearProPhoto), intensity)',
+        'styledColor = mix(editedBaseDisplayColor, applyDisplayLut(editedBaseSceneLinearProPhoto), intensity)',
       )
     },
   )
@@ -384,7 +398,7 @@ describe('process shader style path', () => {
     (_name, shader) => {
       expect(shader).toContain('uniform float u_rawRenderExposureMultiplier')
       expect(shader).toContain(
-        'vec3 baseSceneLinearProPhoto = max(readInputSceneLinearProPhoto(v_texCoord) * u_rawRenderExposureMultiplier, vec3(0.0))',
+        'readInputSceneLinearProPhoto(v_texCoord) * u_rawRenderExposureMultiplier',
       )
     },
   )
