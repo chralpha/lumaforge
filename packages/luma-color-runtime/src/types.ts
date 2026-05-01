@@ -1,6 +1,7 @@
 import type { ColorGamutId } from './constants'
 import type { TransferFunctionId } from './log-encoding'
 import type { LUTColorProfile, SignalRange } from './registry'
+import type { LumaColorToneParams } from './tone'
 
 export type BuiltinStylePreset =
   | 'neutral'
@@ -12,7 +13,7 @@ export type BuiltinStylePreset =
   | 'fade'
   | 'mono'
 
-export interface LumaColorProcessingParams {
+export interface LumaColorProcessingParams extends LumaColorToneParams {
   intensity: number
   viewMode: 'processed' | 'original' | 'compare'
   compareSplit: number
