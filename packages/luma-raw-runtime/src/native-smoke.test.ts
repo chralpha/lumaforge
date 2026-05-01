@@ -24,8 +24,21 @@ type NativeModuleFactory = (options?: {
 }) => Promise<unknown>
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const nativeJsPath = join(packageDir, 'dist', 'native', 'luma_raw.js')
-const nativeWasmPath = join(packageDir, 'dist', 'native', 'luma_raw.wasm')
+const nativeProfile = 'desktop'
+const nativeJsPath = join(
+  packageDir,
+  'dist',
+  'native',
+  nativeProfile,
+  'luma_raw.js',
+)
+const nativeWasmPath = join(
+  packageDir,
+  'dist',
+  'native',
+  nativeProfile,
+  'luma_raw.wasm',
+)
 const publicRawFixturePath = join(
   packageDir,
   'fixtures',

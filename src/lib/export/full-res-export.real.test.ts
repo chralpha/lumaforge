@@ -58,8 +58,21 @@ const packageDir = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '../../../packages/luma-raw-runtime',
 )
-const nativeJsPath = join(packageDir, 'dist', 'native', 'luma_raw.js')
-const nativeWasmPath = join(packageDir, 'dist', 'native', 'luma_raw.wasm')
+const nativeProfile = 'desktop'
+const nativeJsPath = join(
+  packageDir,
+  'dist',
+  'native',
+  nativeProfile,
+  'luma_raw.js',
+)
+const nativeWasmPath = join(
+  packageDir,
+  'dist',
+  'native',
+  nativeProfile,
+  'luma_raw.wasm',
+)
 const gfxRawPath =
   '/workspaces/LumaForge/test-images/Fujifilm - GFX100RF - 16bit lossless compressed (4_3).RAF'
 const vLogLutPath =

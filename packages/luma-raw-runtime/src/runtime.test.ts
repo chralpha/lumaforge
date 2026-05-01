@@ -282,10 +282,14 @@ class EchoWorker {
   })
 }
 
-function createRuntime(worker = new RecordingWorker()) {
+function createRuntime(
+  worker = new RecordingWorker(),
+  memoryProfile: 'desktop' | 'low-memory' = 'desktop',
+) {
   return {
     runtime: createLumaRawRuntime({
       requireCrossOriginIsolation: false,
+      memoryProfile,
       workerFactory: () => worker as unknown as Worker,
     }),
     worker,
@@ -352,6 +356,24 @@ describe('createLumaRawRuntime', () => {
       type: 'init',
       payload: {
         requireCrossOriginIsolation: false,
+        memoryProfile: 'low-memory',
+      },
+    })
+
+    runtime.dispose()
+  })
+
+  it('tags direct low-memory session requests before explicit init', async () => {
+    const { runtime, worker } = createRuntime(
+      new RecordingWorker(),
+      'low-memory',
+    )
+
+    await runtime.probe(new File(['raw'], 'sample.ARW'))
+
+    expect(worker.requests[0]).toMatchObject({
+      type: 'openSession',
+      payload: {
         memoryProfile: 'low-memory',
       },
     })
@@ -790,6 +812,7 @@ describe('createLumaRawRuntime', () => {
     })
     expect(seenProcessedWindowRequests).toEqual([
       {
+        memoryProfile: 'desktop',
         sessionId: 's1',
         request: processedWindowRequest,
       },

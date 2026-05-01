@@ -6,7 +6,11 @@ const REQUIRED_ISOLATION_HEADERS = {
   'cross-origin-embedder-policy': 'require-corp',
 }
 
-const WASM_ASSETS = ['native/luma_raw.wasm', 'native/luma_jpeg.wasm']
+const WASM_ASSETS = [
+  'native/desktop/luma_raw.wasm',
+  'native/low-memory/luma_raw.wasm',
+  'native/luma_jpeg.wasm',
+]
 
 function normalizeDeployUrl(url) {
   const value = url?.trim()

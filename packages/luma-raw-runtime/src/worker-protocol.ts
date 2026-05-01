@@ -36,30 +36,36 @@ export type LumaRawWorkerFilePayload = {
   fileName: string
   fileSize: number
   sessionId?: string
+  memoryProfile?: LumaRawRuntimeMemoryProfile
 }
 
 export type LumaRawWorkerSessionPayload = {
   sessionId: string
+  memoryProfile?: LumaRawRuntimeMemoryProfile
 }
 
 export type LumaRawWorkerRawWindowPayload = {
   sessionId: string
   rect: LumaRawWindowRect
+  memoryProfile?: LumaRawRuntimeMemoryProfile
 }
 
 export type LumaRawWorkerProcessedWindowPayload = {
   sessionId: string
   request: LumaRawProcessedWindowRequest
+  memoryProfile?: LumaRawRuntimeMemoryProfile
 }
 
 export type LumaRawWorkerQuickSessionPayload = {
   sessionId: string
   maxOutputPixels?: number
+  memoryProfile?: LumaRawRuntimeMemoryProfile
 }
 
 export type LumaRawWorkerBoundedHqSessionPayload = {
   sessionId: string
   maxOutputPixels: number
+  memoryProfile?: LumaRawRuntimeMemoryProfile
 }
 
 export type LumaRawWorkerRequestPayloadByType = {
@@ -81,7 +87,10 @@ export type LumaRawWorkerRequestPayloadByType = {
   extractEmbeddedPreview: LumaRawWorkerFilePayload
   decodeQuick: LumaRawWorkerFilePayload
   decodeBoundedHq: LumaRawWorkerFilePayload & { maxOutputPixels: number }
-  cancel: { targetJobId: string }
+  cancel: {
+    targetJobId: string
+    memoryProfile?: LumaRawRuntimeMemoryProfile
+  }
 }
 
 export type LumaRawWorkerRequest<

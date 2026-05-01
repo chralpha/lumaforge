@@ -1,8 +1,10 @@
 export default {
   outputDir: 'dist',
   nativeAssets: [
-    'native/luma_raw.js',
-    'native/luma_raw.wasm',
+    'native/desktop/luma_raw.js',
+    'native/desktop/luma_raw.wasm',
+    'native/low-memory/luma_raw.js',
+    'native/low-memory/luma_raw.wasm',
     'native/luma_jpeg.js',
     'native/luma_jpeg.wasm',
   ],

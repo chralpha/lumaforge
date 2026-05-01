@@ -260,6 +260,43 @@ describe('lumaRawWorkerClient', () => {
     })
   })
 
+  it('tags cancel requests with the configured memory profile', async () => {
+    const fakeWorker = new FakeWorker()
+    const client = new LumaRawWorkerClient(
+      () => fakeWorker as unknown as Worker,
+      { memoryProfile: 'low-memory' },
+    )
+    const controller = new AbortController()
+
+    const promise = client.request(
+      'decodeQuick',
+      {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+      [new ArrayBuffer(1)],
+      controller.signal,
+    )
+
+    const decodeRequest = fakeWorker.requests[0]
+    controller.abort()
+
+    await expect(promise).rejects.toMatchObject({
+      code: 'RAW_JOB_CANCELLED',
+    })
+    expect(decodeRequest.payload).toMatchObject({
+      memoryProfile: 'low-memory',
+    })
+    expect(fakeWorker.requests[1]).toMatchObject({
+      type: 'cancel',
+      payload: {
+        targetJobId: decodeRequest.id,
+        memoryProfile: 'low-memory',
+      },
+    })
+  })
+
   it('normalizes worker error responses', async () => {
     const fakeWorker = new FakeWorker()
     const client = new LumaRawWorkerClient(

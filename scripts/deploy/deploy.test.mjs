@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -44,6 +44,7 @@ async function writeFixtureDist(root, { includeSeoArtifacts = true } = {}) {
   }
 
   for (const asset of config.nativeAssets) {
+    await mkdir(dirname(join(config.outputDir, asset)), { recursive: true })
     await writeFile(join(config.outputDir, asset), asset)
   }
 
@@ -57,6 +58,22 @@ afterEach(async () => {
 })
 
 describe('deploy configuration', () => {
+  it('requires both RAW runtime memory-profile artifact sets', () => {
+    expect(createDeployConfig().nativeAssets).toEqual(
+      expect.arrayContaining([
+        'native/desktop/luma_raw.js',
+        'native/desktop/luma_raw.wasm',
+        'native/low-memory/luma_raw.js',
+        'native/low-memory/luma_raw.wasm',
+        'native/luma_jpeg.js',
+        'native/luma_jpeg.wasm',
+      ]),
+    )
+    expect(createDeployConfig().nativeAssets).not.toContain(
+      'native/luma_raw.wasm',
+    )
+  })
+
   it('requires a single supported deploy target from DEPLOY_TARGET', () => {
     expect(
       resolveDeployOptions({
@@ -126,10 +143,10 @@ describe('deploy artifact checks', () => {
   it('fails when a required native runtime asset is missing', async () => {
     const root = await makeTempProject()
     const config = await writeFixtureDist(root)
-    await rm(join(config.outputDir, 'native/luma_raw.wasm'))
+    await rm(join(config.outputDir, 'native/desktop/luma_raw.wasm'))
 
     await expect(checkDeployArtifact(config)).rejects.toThrow(
-      'Missing deploy artifact: native/luma_raw.wasm',
+      'Missing deploy artifact: native/desktop/luma_raw.wasm',
     )
   })
 
@@ -418,7 +435,11 @@ describe('deployed artifact smoke checks', () => {
       redirect: 'follow',
     })
     expect(fetch).toHaveBeenCalledWith(
-      'https://preview.example.com/native/luma_raw.wasm',
+      'https://preview.example.com/native/desktop/luma_raw.wasm',
+      { method: 'HEAD', redirect: 'follow' },
+    )
+    expect(fetch).toHaveBeenCalledWith(
+      'https://preview.example.com/native/low-memory/luma_raw.wasm',
       { method: 'HEAD', redirect: 'follow' },
     )
     expect(fetch).toHaveBeenCalledWith(

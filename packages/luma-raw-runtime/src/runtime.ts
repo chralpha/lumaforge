@@ -195,6 +195,7 @@ export function createLumaRawRuntime(
     options.requireCrossOriginIsolation ?? memoryProfile === 'desktop'
   const client = new LumaRawWorkerClient(
     options.workerFactory ?? defaultWorkerFactory,
+    { memoryProfile },
   )
 
   async function openSession(

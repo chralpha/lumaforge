@@ -38,13 +38,19 @@ function failureResponse(
   } as LumaRawWorkerResponse
 }
 
+function getRequestMemoryProfile(
+  request: LumaRawWorkerRequest,
+): LumaRawRuntimeMemoryProfile {
+  return (
+    (request.payload as { memoryProfile?: LumaRawRuntimeMemoryProfile })
+      .memoryProfile ?? activeMemoryProfile
+  )
+}
+
 self.onmessage = async (event: MessageEvent<LumaRawWorkerRequest>) => {
   const request = event.data
   let response: LumaRawWorkerResponse
-  const memoryProfile =
-    request.type === 'init'
-      ? request.payload.memoryProfile
-      : activeMemoryProfile
+  const memoryProfile = getRequestMemoryProfile(request)
 
   let core: Awaited<ReturnType<typeof createCore>>
   try {
@@ -63,7 +69,7 @@ self.onmessage = async (event: MessageEvent<LumaRawWorkerRequest>) => {
 
   try {
     response = await core.handleRequest(request)
-    if (request.type === 'init' && response.ok) {
+    if (response.ok) {
       activeMemoryProfile = memoryProfile
     }
   } catch (error) {
