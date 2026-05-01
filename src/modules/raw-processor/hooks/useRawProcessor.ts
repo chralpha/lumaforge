@@ -31,6 +31,10 @@ import {
   useSetProcessingStatus,
   useSetProgress,
 } from '~/atoms/raw-processor'
+import type {ResourceRegistry} from '~/lib/export/resource-registry';
+import {
+  createResourceRegistry
+} from '~/lib/export/resource-registry'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import {
@@ -72,6 +76,10 @@ import type {
   StyleAsset,
 } from '../model/session'
 import { BUILTIN_PRESETS } from '../services/builtin-presets'
+import {
+  createPreExportSnapshot,
+  evacuateBeforeExport,
+} from '../services/export-evacuation'
 import {
   copyBlobToClipboard,
   copyCanvasToClipboard,
@@ -417,6 +425,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const { session, replaceFile, resetSession, setSession } = useImageSession()
 
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
+  const resourceRegistryRef = useRef<ResourceRegistry | null>(null)
+  const previewPipelineResourceIdRef = useRef(0)
+  const exportResultResourceIdRef = useRef(0)
   const sessionRef = useRef(session)
   const embeddedPreviewUrlRef = useRef<string | null>(null)
   const isMountedRef = useRef(false)
@@ -433,6 +444,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const [decodedImageVersion, setDecodedImageVersion] = useState(0)
   const lutDataRef = useRef<LUTData | null>(null)
   const [lutDataVersion, setLutDataVersion] = useState(0)
+  if (!resourceRegistryRef.current) {
+    resourceRegistryRef.current = createResourceRegistry()
+  }
   const hasImage = session ? deriveCanEdit(session) : false
   const rawRenderExposure = decodedImageRef.current?.renderExposure ?? null
   const canExport = session
@@ -574,6 +588,40 @@ export function useRawProcessor(): UseRawProcessorReturn {
       controller.abort()
     }
     exportAbortControllerRef.current = null
+  }, [])
+
+  const registerCurrentPreviewPipelineForEvacuation = useCallback(() => {
+    const pipeline = pipelineRef.current
+    const registry = resourceRegistryRef.current
+    if (!pipeline || !registry || typeof pipeline.dispose !== 'function') {
+      return
+    }
+
+    const id = `webgl-pipeline-${++previewPipelineResourceIdRef.current}`
+    registry.register({
+      id,
+      owner: 'webgl',
+      kind: 'webgl-pipeline',
+      dispose: () => {
+        if (pipelineRef.current === pipeline) {
+          pipelineRef.current = null
+        }
+        pipeline.dispose({ releaseContext: true })
+      },
+    })
+  }, [])
+
+  const registerExportResultResource = useCallback((result: ExportResult) => {
+    const registry = resourceRegistryRef.current
+    if (!registry) return
+
+    registry.register({
+      id: `export-result-${++exportResultResourceIdRef.current}`,
+      owner: 'export-result',
+      kind: 'blob',
+      estimatedBytes: result.size,
+      dispose: () => undefined,
+    })
   }, [])
 
   const invalidateExportGraph = useCallback(() => {
@@ -1762,6 +1810,53 @@ export function useRawProcessor(): UseRawProcessorReturn {
       exportAbortControllerRef.current = exportAbortController
 
       try {
+        registerCurrentPreviewPipelineForEvacuation()
+        const snapshot = createPreExportSnapshot({
+          file: loadedImage.file,
+          metadata: loadedImage.metadata,
+          graph,
+          graphFingerprint: JSON.stringify(graph.steps),
+          lutTitle:
+            session.activeStyle?.kind === 'custom'
+              ? session.activeStyle.name
+              : undefined,
+          quickPreviewReady:
+            session.previewBundle.quickDecodePreview.status === 'ready',
+          tone: {
+            userExposureEv: params.userExposureEv,
+            userContrast: params.userContrast,
+          },
+          style: session.activeStyle,
+        })
+        const registry = resourceRegistryRef.current
+        if (!registry) {
+          throw Object.assign(new Error('EXPORT_RESOURCE_REGISTRY_MISSING'), {
+            code: 'EXPORT_RESOURCE_REGISTRY_MISSING',
+          })
+        }
+
+        const evacuation = await evacuateBeforeExport({
+          registry,
+          snapshot,
+          abortPreview: () => {
+            abortRuntimeWork()
+            revokeCurrentEmbeddedPreviewUrl()
+          },
+          abortBoundedHq: abortRuntimeWork,
+          releasePreviousExportResult() {
+            setSession(clearExportResultState)
+          },
+        })
+
+        if (!evacuation.registryCheck.ok) {
+          throw Object.assign(
+            new Error('EXPORT_RESOURCE_EVICTION_INCOMPLETE'),
+            {
+              code: 'EXPORT_RESOURCE_EVICTION_INCOMPLETE',
+            },
+          )
+        }
+
         setStatus('exporting')
         setProgress(0)
         setError(null)
@@ -1845,6 +1940,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
           height: completedCapability.height,
           copyCapability: resolveExportCopyCapability(),
         })
+        registerExportResultResource(exportResult)
 
         setSession((prev) =>
           prev && prev.id === exportSessionId
@@ -1918,12 +2014,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
     },
     [
       abortExportWork,
+      abortRuntimeWork,
       loadedImage.file,
+      loadedImage.metadata,
       params.builtinPreset,
       params.intensity,
       params.styleKind,
       params.userContrast,
       params.userExposureEv,
+      registerCurrentPreviewPipelineForEvacuation,
+      registerExportResultResource,
+      revokeCurrentEmbeddedPreviewUrl,
       scheduleToast,
       session,
       setError,

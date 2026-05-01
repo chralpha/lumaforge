@@ -1635,6 +1635,96 @@ describe('useRawProcessor embedded preview state', () => {
     expect(revokeObjectURL).not.toHaveBeenCalled()
   })
 
+  it('evacuates preview resources and clears stale export result before full-resolution export', async () => {
+    const boundedHqDecode = deferred<DecodedImage>()
+    const runtimeDispose = vi.fn()
+    const pipelineDispose = vi.fn()
+    let boundedHqSignal: AbortSignal | undefined
+
+    rawRuntimeAdapterMock.openSession.mockResolvedValue({
+      sourceDimensions: defaultSourceDimensions,
+      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+      decodeQuickRaw: vi.fn().mockResolvedValue(createDecodedImage('quick')),
+      decodeBoundedHqRaw: vi.fn((_options, _progress, signal) => {
+        boundedHqSignal = signal
+        return boundedHqDecode.promise
+      }),
+      probeExportCapability: vi
+        .fn()
+        .mockResolvedValue(createSupportedCapability()),
+      dispose: runtimeDispose,
+    })
+    exportSystemMock.runFullResolutionExportJob.mockImplementation(async () => {
+      expect(boundedHqSignal?.aborted).toBe(true)
+      expect(runtimeDispose).toHaveBeenCalledTimes(1)
+      expect(pipelineDispose).toHaveBeenCalledWith({
+        releaseContext: true,
+      })
+      expect(
+        jotaiStore.get(currentSessionAtom)?.exportState.result,
+      ).toBeUndefined()
+
+      return {
+        filename: 'frame_neutral_fullres.jpg',
+        blob: new Blob(['new'], { type: 'image/jpeg' }),
+      }
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+
+    act(() => {
+      result.current.pipelineRef.current = {
+        dispose: pipelineDispose,
+      } as never
+      const activeSession = jotaiStore.get(currentSessionAtom)!
+      jotaiStore.set(currentSessionAtom, {
+        ...activeSession,
+        exportState: {
+          ...activeSession.exportState,
+          status: 'ready',
+          result: {
+            blob: new Blob(['old'], { type: 'image/jpeg' }),
+            filename: 'stale_fullres.jpg',
+            width: 6048,
+            height: 4024,
+            size: 3,
+            createdAt: 1,
+            copyCapability: {
+              mode: 'unavailable',
+              reason: 'test stale result',
+            },
+          },
+        },
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.exportResult?.filename).toBe('stale_fullres.jpg')
+    })
+
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledTimes(1)
+    expect(result.current.pipelineRef.current).toBeNull()
+    expect(result.current.exportResult?.filename).toBe(
+      'frame_neutral_fullres.jpg',
+    )
+
+    await act(async () => {
+      boundedHqDecode.resolve(createDecodedImage('bounded-hq'))
+      await flushPromises()
+    })
+  })
+
   it('downloads a ready export only when downloadExportResult is called', async () => {
     rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
     rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
