@@ -152,4 +152,34 @@ describe('exportTool', () => {
       screen.getByText(/cannot store export progress/i),
     ).toBeInTheDocument()
   })
+
+  it('shows low-memory and non-durable checkpoint copy for mobile-balanced export', () => {
+    render(
+      <ExportTool
+        canExport
+        isProcessing={false}
+        onExport={vi.fn()}
+        exportResult={null}
+        exportShareCapability={{ available: false, reason: 'Export first.' }}
+        onShareExport={vi.fn()}
+        onDownloadExport={vi.fn()}
+        onCopyExport={vi.fn()}
+        activePlan={{
+          profileName: 'mobile-balanced',
+          preferredRows: 256,
+          concurrency: 2,
+          runtimeMemoryProfile: 'low-memory',
+          outputSink: 'streaming',
+          checkpointMode: 'safe-retry',
+        }}
+        checkpointDurable={false}
+        recovery={{ status: 'none' }}
+      />,
+    )
+
+    expect(screen.getByText(/low-memory export mode/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/cannot store export progress/i),
+    ).toBeInTheDocument()
+  })
 })

@@ -26,6 +26,10 @@ const phaseLabels: Record<ProgressOverlayProps['phase'], string> = {
   exporting: 'Preparing JPEG export...',
 }
 
+function formatWorkerCount(count: number) {
+  return count === 1 ? '1 worker' : `${count} workers`
+}
+
 export function ProgressOverlay({
   visible,
   phase,
@@ -40,10 +44,10 @@ export function ProgressOverlay({
   const activePlan =
     phase === 'exporting' ? session?.exportState.activePlan : undefined
   const exportProfileCopy =
-    activePlan?.profileName === 'ios-safe'
-      ? `Safe export · ${activePlan.preferredRows} rows · 1 worker`
+    activePlan?.runtimeMemoryProfile === 'low-memory'
+      ? `Safe export · ${activePlan.preferredRows} rows · ${formatWorkerCount(activePlan.concurrency)}`
       : activePlan
-        ? `High-performance export · ${activePlan.preferredRows} rows · ${activePlan.concurrency} workers`
+        ? `High-performance export · ${activePlan.preferredRows} rows · ${formatWorkerCount(activePlan.concurrency)}`
         : undefined
   const normalizedProgress =
     typeof progress === 'number' && Number.isFinite(progress)

@@ -439,6 +439,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const resourceRegistryRef = useRef<ResourceRegistry | null>(null)
   const previewPipelineResourceIdRef = useRef(0)
   const exportResultResourceIdRef = useRef(0)
+  const previewCopyCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const sessionRef = useRef(session)
   const embeddedPreviewUrlRef = useRef<string | null>(null)
   const isMountedRef = useRef(false)
@@ -651,6 +652,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   const invalidateExportGraph = useCallback(() => {
     exportGraphVersionRef.current += 1
+    previewCopyCanvasRef.current = null
     const hasActiveExport =
       Boolean(
         exportAbortControllerRef.current &&
@@ -703,6 +705,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       abortRuntimeWork()
       queueExportResultResourceDisposal()
       revokeCurrentEmbeddedPreviewUrl()
+      previewCopyCanvasRef.current = null
       if (pendingLoadSessionId) {
         decodedImageRef.current = null
         setLoadedImage({ file: null, decoded: null, metadata: null })
@@ -757,6 +760,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         abortRuntimeWork()
         queueExportResultResourceDisposal()
         revokeCurrentEmbeddedPreviewUrl()
+        previewCopyCanvasRef.current = null
         runtimeAbortController = new AbortController()
         runtimeAbortControllerRef.current = runtimeAbortController
         const runtimeSignal = runtimeAbortController.signal
@@ -1855,6 +1859,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         setStatus('exporting')
         setProgress(0)
         setError(null)
+        previewCopyCanvasRef.current = null
         const executionPlan = selectCurrentExportExecutionPlan({
           fidelity,
           sourceWidth: session.exportState.fullResCapability.width,
@@ -1889,6 +1894,35 @@ export function useRawProcessor(): UseRawProcessorReturn {
               }
             : prev,
         )
+
+        let copyCapability = resolveExportCopyCapability()
+        let previewCopyCanvas: HTMLCanvasElement | null = null
+        if (copyCapability.mode === 'preview-size') {
+          const pipeline = pipelineRef.current
+          const previewSize = stats?.previewSize
+
+          if (pipeline && previewSize) {
+            try {
+              previewCopyCanvas = await pipeline.renderToHiddenCanvas({
+                width: previewSize.width,
+                height: previewSize.height,
+              })
+            } catch {
+              previewCopyCanvas = null
+            }
+          }
+
+          if (!isCurrentExport()) {
+            return
+          }
+
+          if (!previewCopyCanvas) {
+            copyCapability = {
+              mode: 'unavailable',
+              reason: 'Preview image is not ready to copy.',
+            }
+          }
+        }
 
         registerCurrentPreviewPipelineForEvacuation()
         const snapshot = createPreExportSnapshot({
@@ -2019,8 +2053,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
           filename: result.filename,
           width: completedCapability.width,
           height: completedCapability.height,
-          copyCapability: resolveExportCopyCapability(),
+          copyCapability,
         })
+        previewCopyCanvasRef.current = previewCopyCanvas
         registerExportResultResource(exportResult)
 
         setSession((prev) =>
@@ -2112,6 +2147,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       setProgress,
       setSession,
       setStatus,
+      stats?.previewSize,
     ],
   )
 
@@ -2165,6 +2201,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
 
       if (result.copyCapability.mode === 'preview-size') {
+        const previewCopyCanvas = previewCopyCanvasRef.current
+        if (previewCopyCanvas) {
+          await copyCanvasToClipboard(previewCopyCanvas)
+          scheduleToast(() => toast.success('Preview-size image copied'))
+          return
+        }
+
         const pipeline = pipelineRef.current
         const previewSize = stats?.previewSize
         if (!pipeline || !previewSize) {
@@ -2200,6 +2243,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     abortRuntimeWork()
     queueExportResultResourceDisposal()
     revokeCurrentEmbeddedPreviewUrl()
+    previewCopyCanvasRef.current = null
     setDecodedImageRef(null)
     setLoadedImage({ file: null, decoded: null, metadata: null })
     setStatus('idle')

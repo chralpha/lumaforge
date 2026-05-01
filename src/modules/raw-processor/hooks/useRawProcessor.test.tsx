@@ -2425,6 +2425,7 @@ describe('useRawProcessor embedded preview state', () => {
   it('copies a preview-size export through a hidden processed preview canvas', async () => {
     const clipboardWrite = vi.fn().mockResolvedValue(undefined)
     const renderToHiddenCanvas = vi.fn()
+    const dispose = vi.fn()
     const fakeCanvas = {
       toBlob: vi.fn((callback: BlobCallback, type?: string) => {
         callback(new Blob(['png'], { type: type ?? 'image/png' }))
@@ -2479,6 +2480,7 @@ describe('useRawProcessor embedded preview state', () => {
       })
       result.current.pipelineRef.current = {
         renderToHiddenCanvas,
+        dispose,
       } as never
     })
     await act(async () => {
@@ -2487,6 +2489,9 @@ describe('useRawProcessor embedded preview state', () => {
         fidelity: 'balanced',
       })
     })
+    expect(result.current.pipelineRef.current).toBeNull()
+    expect(dispose).toHaveBeenCalledWith({ releaseContext: true })
+
     await act(async () => {
       await result.current.copyExportResult()
     })
@@ -2495,6 +2500,7 @@ describe('useRawProcessor embedded preview state', () => {
     expect(result.current.exportResult?.copyCapability).toMatchObject({
       mode: 'preview-size',
     })
+    expect(renderToHiddenCanvas).toHaveBeenCalledTimes(1)
     expect(renderToHiddenCanvas).toHaveBeenCalledWith({
       width: 640,
       height: 480,

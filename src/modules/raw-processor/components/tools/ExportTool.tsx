@@ -54,6 +54,8 @@ export function ExportTool({
   const currentRecovery = recovery ?? session?.exportState.recovery
   const currentCheckpointDurable =
     checkpointDurable ?? session?.exportState.checkpointDurable
+  const isLowMemoryPlan =
+    currentActivePlan?.runtimeMemoryProfile === 'low-memory'
   const unavailableReason =
     disabledReason || 'Full-resolution export source is still loading.'
 
@@ -121,19 +123,18 @@ export function ExportTool({
         </div>
       ) : (
         <>
-          {currentActivePlan?.profileName === 'ios-safe' && (
+          {isLowMemoryPlan && (
             <p className="raw-tool-note">
               This device is using low-memory export mode. Export may take
               longer.
             </p>
           )}
-          {currentCheckpointDurable === false &&
-            currentActivePlan?.profileName === 'ios-safe' && (
-              <p className="raw-tool-note">
-                This browser cannot store export progress. Keep the tab open
-                while the JPEG is being written.
-              </p>
-            )}
+          {currentCheckpointDurable === false && isLowMemoryPlan && (
+            <p className="raw-tool-note">
+              This browser cannot store export progress. Keep the tab open while
+              the JPEG is being written.
+            </p>
+          )}
           {currentRecovery?.status === 'source-required' && (
             <p className="raw-tool-note">{currentRecovery.message}</p>
           )}
