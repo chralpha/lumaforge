@@ -1096,6 +1096,15 @@ function OnlineLutSourceControls({
           onChange={(event) =>
             onlineLutSources.setSourceUrlInput(event.currentTarget.value)
           }
+          onKeyDown={(event) => {
+            if (
+              event.key === 'Enter' &&
+              onlineLutSources.sourceUrlInput.trim()
+            ) {
+              event.preventDefault()
+              void onlineLutSources.addSourceFromInput()
+            }
+          }}
           inputClassName="h-8 text-xs"
         />
         <LutIconButton
