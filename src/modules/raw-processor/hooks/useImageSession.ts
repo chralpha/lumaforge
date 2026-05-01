@@ -1,10 +1,20 @@
 import { useAtom } from 'jotai'
 import { useCallback } from 'react'
 
-import type { ImageSession, StyleAsset } from '../model/session'
+import type {
+  ImageSession,
+  LUTProfileSelectionState,
+  StyleAsset,
+} from '../model/session'
 import { currentSessionAtom } from '../state/session.atoms'
 
-function createEmptySession(file: File): ImageSession {
+function createEmptySession(
+  file: File,
+  retained?: {
+    activeStyle?: StyleAsset | null
+    lutProfileSelection?: LUTProfileSelectionState
+  },
+): ImageSession {
   return {
     id: globalThis.crypto.randomUUID(),
     createdAt: Date.now(),
@@ -21,7 +31,8 @@ function createEmptySession(file: File): ImageSession {
       displaySource: 'none',
       boundedHqRequiredForExport: false,
     },
-    activeStyle: null,
+    activeStyle: retained?.activeStyle ?? null,
+    lutProfileSelection: retained?.lutProfileSelection,
     viewState: {
       mode: 'compare',
       compareSplit: 0.5,
@@ -45,8 +56,14 @@ export function useImageSession() {
   const [session, setSession] = useAtom(currentSessionAtom)
 
   const replaceFile = useCallback(
-    (file: File) => {
-      const nextSession = createEmptySession(file)
+    (
+      file: File,
+      retained?: {
+        activeStyle?: StyleAsset | null
+        lutProfileSelection?: LUTProfileSelectionState
+      },
+    ) => {
+      const nextSession = createEmptySession(file, retained)
       setSession(nextSession)
       return nextSession
     },

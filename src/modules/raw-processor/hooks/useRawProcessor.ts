@@ -439,8 +439,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
         rawRenderExposure,
       })
     : undefined
-  const activeStyle = session?.activeStyle || null
-  const lutProfileSelection = session?.lutProfileSelection || null
+  const detachedStyle =
+    !session && lut
+      ? {
+          ...toCustomStyle(lut),
+          currentIntensityLevel: 'standard' as const,
+        }
+      : null
+  const activeStyle = session?.activeStyle || detachedStyle
+  const lutProfileSelection =
+    session?.lutProfileSelection ||
+    (lut ? buildLUTProfileSelectionState(lut) : null)
   const activePresetId =
     activeStyle?.kind === 'builtin'
       ? (BUILTIN_PRESETS.find((preset) => preset.name === activeStyle.name)
@@ -661,8 +670,23 @@ export function useRawProcessor(): UseRawProcessorReturn {
         const preservedCompareSplit = clampCompareSplit(
           getProcessingParams().compareSplit ?? 0.5,
         )
+        const preservedCustomStyle = lut
+          ? {
+              ...toCustomStyle(lut),
+              currentIntensityLevel:
+                activeStyle?.kind === 'custom'
+                  ? activeStyle.currentIntensityLevel
+                  : ('standard' as const),
+            }
+          : null
+        const preservedLutProfileSelection = lut
+          ? buildLUTProfileSelectionState(lut)
+          : undefined
 
-        const nextSession = replaceFile(file)
+        const nextSession = replaceFile(file, {
+          activeStyle: preservedCustomStyle,
+          lutProfileSelection: preservedLutProfileSelection,
+        })
         loadSessionId = nextSession.id
         let quickPreview: DecodedImage | null = null
         let boundedHqPreview: DecodedImage | null = null
@@ -675,14 +699,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
         setStatus('loading')
         setProgress(0)
         setError(null)
-        setLut(null)
-        setLutDataRef(null)
         setParams((prev) => ({
           ...prev,
-          intensity: 0.7,
+          intensity: preservedCustomStyle
+            ? mapIntensityLevel(preservedCustomStyle.currentIntensityLevel)
+            : 0.7,
           viewMode: 'compare',
           compareSplit: preservedCompareSplit,
-          styleKind: 'none',
+          styleKind: preservedCustomStyle ? 'custom' : 'none',
           builtinPreset: null,
         }))
 
@@ -1184,17 +1208,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
     },
     [
+      activeStyle,
       abortExportWork,
       abortRuntimeWork,
       disposeRuntimeSession,
+      lut,
       replaceFile,
       revokeCurrentEmbeddedPreviewUrl,
       scheduleToast,
       setDecodedImageRef,
       setError,
       setLoadedImage,
-      setLut,
-      setLutDataRef,
       setParams,
       setProgress,
       setSession,

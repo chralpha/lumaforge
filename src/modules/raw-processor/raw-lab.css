@@ -297,7 +297,8 @@
   color: oklch(0.42 0.095 57);
 }
 
-.raw-lut-source-browser {
+.raw-lut-source-browser,
+.raw-lut-contract-browser {
   position: fixed;
   z-index: 60;
   top: var(--raw-lut-source-browser-top, 12px);
@@ -321,7 +322,8 @@
     0 2px 0 oklch(1 0 0 / 0.78) inset;
 }
 
-.raw-lut-source-browser-heading {
+.raw-lut-source-browser-heading,
+.raw-lut-contract-browser-heading {
   display: flex;
   min-width: 0;
   align-items: center;
@@ -329,39 +331,89 @@
   gap: 10px;
 }
 
-.raw-lut-source-browser-heading div {
+.raw-lut-source-browser-heading div,
+.raw-lut-contract-browser-heading div {
   min-width: 0;
 }
 
 .raw-lut-source-browser-heading span,
-.raw-lut-source-browser-heading p {
+.raw-lut-source-browser-heading p,
+.raw-lut-contract-browser-heading span,
+.raw-lut-contract-browser-heading p {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.raw-lut-source-browser-heading span {
+.raw-lut-source-browser-heading span,
+.raw-lut-contract-browser-heading span {
   display: block;
   color: var(--raw-ink);
   font-size: 0.74rem;
   font-weight: 740;
 }
 
-.raw-lut-source-browser-heading p {
+.raw-lut-source-browser-heading p,
+.raw-lut-contract-browser-heading p {
   margin: 2px 0 0;
   color: var(--raw-ink-soft);
   font-size: 0.66rem;
   line-height: 1.2;
 }
 
-.raw-lut-source-browser-list {
+.raw-lut-source-browser-list,
+.raw-lut-contract-browser-list {
   display: grid;
   min-height: 0;
   gap: 6px;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 2px;
+}
+
+.raw-lut-contract-browser-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.raw-lut-contract-browser-tab {
+  min-height: 32px;
+  border: 1px solid oklch(0.74 0.035 78 / 0.58);
+  border-radius: 8px;
+  background: oklch(0.964 0.018 86 / 0.42);
+  color: var(--raw-ink-soft);
+  font-size: 0.72rem;
+  font-weight: 720;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.raw-lut-contract-browser-tab[aria-selected='true'] {
+  border-color: oklch(0.59 0.15 153 / 0.46);
+  background: oklch(0.59 0.15 153 / 0.12);
+  color: var(--raw-green-deep);
+}
+
+.raw-lut-contract-browser-tab:hover {
+  border-color: oklch(0.59 0.15 153 / 0.34);
+}
+
+.raw-lut-contract-browser-tab:focus-visible {
+  outline: 2px solid var(--raw-green);
+  outline-offset: 2px;
+}
+
+.raw-lut-contract-browser-group {
+  margin: 0;
+  color: var(--raw-ink-soft);
+  font-size: 0.68rem;
+  font-weight: 730;
+  text-transform: uppercase;
 }
 
 .raw-lut-source-entry {
@@ -382,7 +434,8 @@
   font-weight: 650;
 }
 
-.raw-lut-source-browser-empty {
+.raw-lut-source-browser-empty,
+.raw-lut-contract-browser-empty {
   margin: 0;
   color: var(--raw-ink-soft);
   font-size: 0.72rem;
@@ -422,7 +475,8 @@
     flex-wrap: wrap;
   }
 
-  .raw-lut-source-browser {
+  .raw-lut-source-browser,
+  .raw-lut-contract-browser {
     position: fixed;
     inset: auto 10px max(10px, env(safe-area-inset-bottom));
     width: auto;
@@ -430,7 +484,8 @@
     min-height: min(220px, calc(100svh - 20px));
   }
 
-  .raw-lut-source-browser-list {
+  .raw-lut-source-browser-list,
+  .raw-lut-contract-browser-list {
     min-height: 0;
   }
 }

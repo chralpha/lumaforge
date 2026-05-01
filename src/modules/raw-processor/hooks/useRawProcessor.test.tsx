@@ -444,6 +444,70 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
+  it('keeps a detached LUT loaded before RAW upload and preserves it across RAW replacement', async () => {
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadLUT(
+        createCubeFile('Client Secret Sauce', 'unknown-look.cube'),
+      )
+    })
+
+    const detachedFingerprint = result.current.lut?.fingerprint
+
+    expect(result.current.currentLutName).toBe('Client Secret Sauce')
+    expect(result.current.lutProfileSelection).toMatchObject({
+      status: 'pending',
+      fingerprint: detachedFingerprint,
+      title: 'Client Secret Sauce',
+    })
+    expect(result.current.params.styleKind).toBe('custom')
+    expect(jotaiStore.get(currentSessionAtom)).toBeNull()
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw-one'], 'frame-1.ARW'))
+    })
+
+    await waitFor(() => {
+      expect(result.current.currentLutName).toBe('Client Secret Sauce')
+    })
+    expect(result.current.lut?.fingerprint).toBe(detachedFingerprint)
+    expect(jotaiStore.get(currentSessionAtom)).toMatchObject({
+      activeStyle: {
+        kind: 'custom',
+        name: 'Client Secret Sauce',
+      },
+      lutProfileSelection: {
+        status: 'pending',
+        fingerprint: detachedFingerprint,
+        title: 'Client Secret Sauce',
+      },
+    })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw-two'], 'frame-2.ARW'))
+    })
+
+    await waitFor(() => {
+      expect(result.current.currentLutName).toBe('Client Secret Sauce')
+    })
+    expect(result.current.lut?.fingerprint).toBe(detachedFingerprint)
+    expect(jotaiStore.get(currentSessionAtom)).toMatchObject({
+      sourceFile: {
+        name: 'frame-2.ARW',
+      },
+      activeStyle: {
+        kind: 'custom',
+        name: 'Client Secret Sauce',
+      },
+      lutProfileSelection: {
+        status: 'pending',
+        fingerprint: detachedFingerprint,
+        title: 'Client Secret Sauce',
+      },
+    })
+  })
+
   it('rejects raw registry scene-creative LUT profile selections without output metadata', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
 

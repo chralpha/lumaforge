@@ -92,7 +92,7 @@ export function RawToolSurface(props: {
         />
         <LutContractTool
           currentLutName={props.currentLutName}
-          disabled={disabled}
+          disabled={props.isProcessing}
           onLutLoad={props.onLutLoad}
           onLutClear={props.onLutClear}
           lutProfileSelection={props.lutProfileSelection}

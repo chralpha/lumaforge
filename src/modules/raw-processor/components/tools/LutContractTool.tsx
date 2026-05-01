@@ -12,7 +12,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import type { CSSProperties, ReactNode, Ref } from 'react'
+import type { CSSProperties, ReactNode, Ref, RefObject } from 'react'
 import {
   useCallback,
   useEffect,
@@ -192,169 +192,495 @@ function LUTProfileButton({
   )
 }
 
-function LUTProfileSelector({
+type LUTContractBrowserStep = 'input' | 'output'
+
+type LUTOutputOption = {
+  id: string
+  label: string
+  gamut: LUTColorProfile['inputGamut']
+  transfer: LUTColorProfile['inputTransfer']
+  range: LUTColorProfile['inputRange']
+  sourceProfile: LUTColorProfile
+}
+
+function dedupeProfiles(profiles: LUTColorProfile[]) {
+  const seen = new Set<string>()
+  return profiles.filter((profile) => {
+    if (seen.has(profile.id)) return false
+    seen.add(profile.id)
+    return true
+  })
+}
+
+function dedupeOutputOptions(options: LUTOutputOption[]) {
+  const seen = new Set<string>()
+  return options.filter((option) => {
+    if (seen.has(option.id)) return false
+    seen.add(option.id)
+    return true
+  })
+}
+
+function getOutputGroupLabel(profile: LUTColorProfile) {
+  if (profile.role === 'display-look') return 'Output'
+  if (profile.label.startsWith('ARRI')) return 'ARRI'
+  if (profile.label.startsWith('RED')) return 'RED'
+  if (profile.label.startsWith('Nikon')) return 'Nikon'
+  if (profile.label.startsWith('Sony')) return 'Sony'
+  if (profile.label.startsWith('Canon')) return 'Canon'
+  if (profile.label.startsWith('Fujifilm')) return 'Fujifilm'
+  if (profile.label.startsWith('Panasonic')) return 'Panasonic'
+  if (profile.label.startsWith('ACES')) return 'ACES'
+  return 'Other'
+}
+
+function toDeclaredOutputOption(
+  profile: LUTColorProfile,
+): LUTOutputOption | undefined {
+  const selectable = toSelectableContract(profile)
+  if (
+    !selectable?.outputGamut ||
+    !selectable.outputTransfer ||
+    !selectable.outputRange
+  ) {
+    return undefined
+  }
+
+  return {
+    id: `${profile.id}:declared-output`,
+    label:
+      getProfileOutputLabel(selectable) ?? getProfileAsOutputLabel(profile),
+    gamut: selectable.outputGamut,
+    transfer: selectable.outputTransfer,
+    range: selectable.outputRange,
+    sourceProfile: profile,
+  }
+}
+
+function toSearchOutputOption(profile: LUTColorProfile): LUTOutputOption {
+  return {
+    id: `${profile.id}:search-output`,
+    label: profile.label,
+    gamut: profile.inputGamut,
+    transfer: profile.inputTransfer,
+    range: profile.inputRange,
+    sourceProfile: profile,
+  }
+}
+
+function toOutputCarrierProfile(option: LUTOutputOption): LUTColorProfile {
+  return {
+    ...option.sourceProfile,
+    inputGamut: option.gamut,
+    inputTransfer: option.transfer,
+    inputRange: option.range,
+    outputGamut: undefined,
+    outputTransfer: undefined,
+    outputRange: undefined,
+  }
+}
+
+function groupOutputOptions(options: LUTOutputOption[]) {
+  const groups = new Map<string, LUTOutputOption[]>()
+
+  for (const option of options) {
+    const group = getOutputGroupLabel(option.sourceProfile)
+    groups.set(group, [...(groups.get(group) ?? []), option])
+  }
+
+  return Array.from(groups.entries()).map(([label, items]) => ({
+    label,
+    items,
+  }))
+}
+
+function LUTOutputOptionButton({
+  option,
+  activeOptionId,
+  onSelect,
+  highlighted = false,
+}: {
+  option: LUTOutputOption
+  activeOptionId?: string
+  onSelect: (option: LUTOutputOption) => void
+  highlighted?: boolean
+}) {
+  const isActive = activeOptionId === option.id
+
+  return (
+    <button
+      type="button"
+      aria-label={`Use ${option.label} as LUT output`}
+      aria-pressed={isActive}
+      onClick={() => onSelect(option)}
+      className={
+        isActive
+          ? 'w-full rounded-md border border-accent bg-accent/10 px-2.5 py-2 text-left text-xs leading-snug text-text transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+          : highlighted
+            ? 'w-full rounded-md border border-accent/40 bg-fill px-2.5 py-2 text-left text-xs leading-snug text-text transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+            : 'w-full rounded-md border border-border bg-background px-2.5 py-2 text-left text-xs leading-snug text-text-secondary transition-colors hover:border-accent/40 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+      }
+    >
+      <span className="block min-w-0 break-words">{option.label}</span>
+    </button>
+  )
+}
+
+function LUTContractBrowser({
+  open,
+  onClose,
   suggestions,
-  activeProfileId,
   currentProfile,
   onSelect,
+  triggerRef,
 }: {
+  open: boolean
+  onClose: (options?: { restoreFocus?: boolean }) => void
   suggestions: LUTColorProfile[]
-  activeProfileId?: string
   currentProfile?: LUTColorProfile
   onSelect: (profile: LUTColorProfile) => void
+  triggerRef: RefObject<HTMLButtonElement | null>
 }) {
   const searchInputId = useId()
+  const browserId = useId()
+  const browserRef = useRef<HTMLDivElement | null>(null)
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null)
+  const [browserLayout, setBrowserLayout] =
+    useState<OnlineLutBrowserLayout | null>(null)
   const [query, setQuery] = useState('')
+  const [step, setStep] = useState<LUTContractBrowserStep>('input')
   const [draftInputProfile, setDraftInputProfile] =
-    useState<LUTColorProfile | null>(() => currentProfile ?? null)
-  const [draftOutputProfile, setDraftOutputProfile] =
-    useState<LUTColorProfile | null>(null)
+    useState<LUTColorProfile | null>(currentProfile ?? null)
   const hasQuery = query.trim().length > 0
   const searchResults = useMemo(() => searchLUTColorProfiles(query), [query])
   const resultIds = useMemo(
     () => new Set(searchResults.map((profile) => profile.id)),
     [searchResults],
   )
-  const dedupeProfiles = useCallback((profiles: LUTColorProfile[]) => {
-    const seen = new Set<string>()
-    return profiles.filter((profile) => {
-      if (seen.has(profile.id)) return false
-      seen.add(profile.id)
-      return true
-    })
-  }, [])
-  const visibleSuggestions = useMemo(() => {
-    const selectableSuggestions = suggestions
-      .map(toSelectableContract)
-      .filter((profile): profile is LUTColorProfile => Boolean(profile))
-      .filter((profile) => !hasQuery || resultIds.has(profile.id))
 
-    return dedupeProfiles(selectableSuggestions)
-  }, [dedupeProfiles, hasQuery, resultIds, suggestions])
+  useEffect(() => {
+    if (!open) return
+
+    setQuery('')
+    setStep('input')
+    setDraftInputProfile(currentProfile ?? null)
+    setBrowserLayout(
+      getViewportBoundedBrowserLayout(triggerRef.current ?? undefined),
+    )
+  }, [currentProfile, open, triggerRef])
+
+  const updateBrowserLayout = useCallback(() => {
+    if (!open) return
+    setBrowserLayout(
+      getViewportBoundedBrowserLayout(triggerRef.current ?? undefined),
+    )
+  }, [open, triggerRef])
+
+  useLayoutEffect(() => {
+    updateBrowserLayout()
+  }, [open, query, step, updateBrowserLayout])
+
+  useEffect(() => {
+    if (!open) return
+
+    closeButtonRef.current?.focus()
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+
+      event.preventDefault()
+      onClose({ restoreFocus: true })
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+
+      if (!(target instanceof Node)) return
+      if (browserRef.current?.contains(target)) return
+      if (triggerRef.current?.contains(target)) return
+
+      onClose({ restoreFocus: true })
+    }
+    const handleViewportChange = () => {
+      updateBrowserLayout()
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('pointerdown', handlePointerDown)
+    window.addEventListener('resize', handleViewportChange)
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('pointerdown', handlePointerDown)
+      window.removeEventListener('resize', handleViewportChange)
+    }
+  }, [onClose, open, triggerRef, updateBrowserLayout])
+
+  const visibleSuggestions = useMemo(
+    () =>
+      dedupeProfiles(suggestions).filter(
+        (profile) => !hasQuery || resultIds.has(profile.id),
+      ),
+    [hasQuery, resultIds, suggestions],
+  )
   const suggestionIds = useMemo(
     () => new Set(visibleSuggestions.map((profile) => profile.id)),
     [visibleSuggestions],
   )
-  const candidateProfiles = useMemo(() => {
-    const inputSuggestions = suggestions.filter(
-      (profile) => !toSelectableContract(profile),
-    )
-    return dedupeProfiles([
-      ...inputSuggestions,
-      ...(hasQuery ? searchResults : []),
-    ]).filter((profile) => !hasQuery || resultIds.has(profile.id))
-  }, [dedupeProfiles, hasQuery, resultIds, searchResults, suggestions])
   const groupedInputProfiles = useMemo(
     () =>
       groupProfiles(
-        candidateProfiles.filter((profile) => !suggestionIds.has(profile.id)),
+        dedupeProfiles(hasQuery ? searchResults : []).filter(
+          (profile) => !suggestionIds.has(profile.id),
+        ),
       ),
-    [candidateProfiles, suggestionIds],
+    [hasQuery, searchResults, suggestionIds],
   )
-  const groupedOutputProfiles = useMemo(
-    () => (hasQuery ? groupProfiles(searchResults) : []),
-    [hasQuery, searchResults],
+  const suggestedOutputOptions = useMemo(
+    () =>
+      dedupeOutputOptions(
+        visibleSuggestions
+          .map(
+            (profile) =>
+              toDeclaredOutputOption(profile) ?? toSearchOutputOption(profile),
+          )
+          .filter(Boolean) as LUTOutputOption[],
+      ),
+    [visibleSuggestions],
   )
-  const hasMatches =
-    visibleSuggestions.length > 0 ||
-    groupedInputProfiles.length > 0 ||
-    groupedOutputProfiles.length > 0
+  const groupedOutputOptions = useMemo(
+    () =>
+      groupOutputOptions(
+        dedupeOutputOptions(
+          (hasQuery ? searchResults : [])
+            .filter((profile) => !suggestionIds.has(profile.id))
+            .map(toSearchOutputOption),
+        ),
+      ),
+    [hasQuery, searchResults, suggestionIds],
+  )
+  const activeOutputOptionId = useMemo(() => {
+    if (
+      !currentProfile?.outputGamut ||
+      !currentProfile.outputTransfer ||
+      !currentProfile.outputRange
+    ) {
+      return undefined
+    }
+
+    return `${currentProfile.id}:declared-output`
+  }, [currentProfile])
+
   const handleInputSelect = (profile: LUTColorProfile) => {
-    if (draftOutputProfile) {
-      onSelect(composeLUTContractProfile(profile, draftOutputProfile))
-      return
-    }
     setDraftInputProfile(profile)
-  }
-  const handleOutputSelect = (profile: LUTColorProfile) => {
-    if (draftInputProfile) {
-      onSelect(composeLUTContractProfile(draftInputProfile, profile))
-      return
-    }
-    setDraftOutputProfile(profile)
+    setStep('output')
   }
 
-  return (
-    <div className="space-y-2 pt-1">
-      <label htmlFor={searchInputId} className="sr-only">
-        Search LUT contract
-      </label>
-      <Input
-        id={searchInputId}
-        type="search"
-        value={query}
-        placeholder="Search camera/log or output"
-        onChange={(event) => setQuery(event.currentTarget.value)}
-        inputClassName="h-8 text-xs"
-      />
+  const handleOutputSelect = (option: LUTOutputOption) => {
+    if (!draftInputProfile) return
 
-      <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
-        {visibleSuggestions.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-[11px] font-medium uppercase text-text-tertiary">
-              Suggested
-            </p>
-            <div className="space-y-1">
-              {visibleSuggestions.map((profile) => (
-                <LUTProfileButton
-                  key={profile.id}
-                  profile={profile}
-                  activeProfileId={activeProfileId}
-                  onSelect={onSelect}
-                  highlighted
-                />
-              ))}
-            </div>
-          </div>
-        )}
+    onSelect(
+      composeLUTContractProfile(
+        draftInputProfile,
+        toOutputCarrierProfile(option),
+      ),
+    )
+    onClose({ restoreFocus: true })
+  }
 
-        {groupedInputProfiles.map((group) => (
-          <div key={`input-${group.label}`} className="space-y-1">
-            <p className="text-[11px] font-medium uppercase text-text-tertiary">
-              {group.label} input
-            </p>
-            <div className="space-y-1">
-              {group.items.map((profile) => (
-                <LUTProfileButton
-                  key={profile.id}
-                  profile={profile}
-                  activeProfileId={draftInputProfile?.id}
-                  label={profile.label}
-                  ariaLabel={`Use ${profile.label} as LUT input`}
-                  onSelect={handleInputSelect}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
+  const hasInputMatches =
+    visibleSuggestions.length > 0 || groupedInputProfiles.length > 0
+  const hasOutputMatches =
+    suggestedOutputOptions.length > 0 || groupedOutputOptions.length > 0
 
-        {groupedOutputProfiles.map((group) => (
-          <div key={`output-${group.label}`} className="space-y-1">
-            <p className="text-[11px] font-medium uppercase text-text-tertiary">
-              {group.label} output
-            </p>
-            <div className="space-y-1">
-              {group.items.map((profile) => (
-                <LUTProfileButton
-                  key={profile.id}
-                  profile={profile}
-                  activeProfileId={draftOutputProfile?.id}
-                  label={getProfileAsOutputLabel(profile)}
-                  ariaLabel={`Use ${profile.label} as LUT output`}
-                  onSelect={handleOutputSelect}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
+  if (!open || !browserLayout) return null
 
-        {!hasMatches && (
-          <p className="text-xs text-text-tertiary">
-            No matching LUT contract.
+  const browser = (
+    <div
+      id={browserId}
+      ref={browserRef}
+      className="raw-lut-contract-browser"
+      role="dialog"
+      aria-label="LUT contract browser"
+      data-lut-source-placement={browserLayout.placement}
+      style={toBrowserStyle(browserLayout)}
+    >
+      <div className="raw-lut-contract-browser-heading">
+        <div>
+          <span>LUT contract browser</span>
+          <p>
+            {draftInputProfile
+              ? `Input: ${draftInputProfile.label}`
+              : 'Choose input first, then output'}
           </p>
+        </div>
+        <LutIconButton
+          label="Close LUT contract browser"
+          buttonRef={closeButtonRef}
+          onClick={() => onClose({ restoreFocus: true })}
+        >
+          <X aria-hidden="true" />
+        </LutIconButton>
+      </div>
+
+      <div
+        className="raw-lut-contract-browser-tabs"
+        role="tablist"
+        aria-label="LUT contract panels"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={step === 'input'}
+          className="raw-lut-contract-browser-tab"
+          onClick={() => setStep('input')}
+        >
+          Input
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={step === 'output'}
+          className="raw-lut-contract-browser-tab"
+          onClick={() => setStep('output')}
+        >
+          Output
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor={searchInputId} className="sr-only">
+          Search LUT contract
+        </label>
+        <Input
+          id={searchInputId}
+          type="search"
+          value={query}
+          placeholder="Search camera/log or output"
+          onChange={(event) => setQuery(event.currentTarget.value)}
+          inputClassName="h-8 text-xs"
+        />
+      </div>
+
+      <div
+        className="raw-lut-contract-browser-list"
+        data-lut-contract-step={step}
+      >
+        {step === 'input' ? (
+          <>
+            {visibleSuggestions.length > 0 && (
+              <div className="space-y-1">
+                <p className="raw-lut-contract-browser-group">
+                  Suggested input
+                </p>
+                <div className="space-y-1">
+                  {visibleSuggestions.map((profile) => (
+                    <LUTProfileButton
+                      key={profile.id}
+                      profile={profile}
+                      activeProfileId={draftInputProfile?.id}
+                      label={profile.label}
+                      ariaLabel={`Use ${profile.label} as LUT input`}
+                      onSelect={handleInputSelect}
+                      highlighted
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {groupedInputProfiles.map((group) => (
+              <div key={`input-${group.label}`} className="space-y-1">
+                <p className="raw-lut-contract-browser-group">
+                  {group.label} input
+                </p>
+                <div className="space-y-1">
+                  {group.items.map((profile) => (
+                    <LUTProfileButton
+                      key={profile.id}
+                      profile={profile}
+                      activeProfileId={draftInputProfile?.id}
+                      label={profile.label}
+                      ariaLabel={`Use ${profile.label} as LUT input`}
+                      onSelect={handleInputSelect}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {!hasInputMatches && (
+              <p className="raw-lut-contract-browser-empty">
+                No matching LUT input.
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            {!draftInputProfile ? (
+              <p className="raw-lut-contract-browser-empty">
+                Choose a LUT input first.
+              </p>
+            ) : (
+              <>
+                {suggestedOutputOptions.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="raw-lut-contract-browser-group">
+                      Suggested output
+                    </p>
+                    <div className="space-y-1">
+                      {suggestedOutputOptions.map((option) => (
+                        <LUTOutputOptionButton
+                          key={option.id}
+                          option={option}
+                          activeOptionId={activeOutputOptionId}
+                          onSelect={handleOutputSelect}
+                          highlighted
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {groupedOutputOptions.map((group) => (
+                  <div key={`output-${group.label}`} className="space-y-1">
+                    <p className="raw-lut-contract-browser-group">
+                      {group.label} output
+                    </p>
+                    <div className="space-y-1">
+                      {group.items.map((option) => (
+                        <LUTOutputOptionButton
+                          key={option.id}
+                          option={option}
+                          activeOptionId={activeOutputOptionId}
+                          onSelect={handleOutputSelect}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {!hasOutputMatches && (
+                  <p className="raw-lut-contract-browser-empty">
+                    No matching LUT output.
+                  </p>
+                )}
+              </>
+            )}
+          </>
         )}
       </div>
     </div>
+  )
+
+  if (typeof document === 'undefined') return browser
+
+  return createPortal(
+    browser,
+    document.querySelector('.raw-lab') ?? document.body,
   )
 }
 
@@ -376,16 +702,8 @@ function LUTProfileStatus({
     resolution.reason === 'unsupported-output'
   const suggestions =
     selection?.status === 'pending' ? selection.suggestions : []
-  const activeProfileId =
-    selection?.status === 'resolved' ? selection.profileId : resolvedProfile?.id
-  const [selectorOpen, setSelectorOpen] = useState(
-    !isUnsupportedOutput && isPending,
-  )
-  const showSelector = !isUnsupportedOutput && selectorOpen
-  const handleSelect = (profile: LUTColorProfile) => {
-    onSelect(profile)
-    setSelectorOpen(false)
-  }
+  const [browserOpen, setBrowserOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
 
   if (!selection && !resolution) return null
 
@@ -421,25 +739,32 @@ function LUTProfileStatus({
               Choose the LUT output before preview or export.
             </p>
           )}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setSelectorOpen((value) => !value)}
-            className="mt-1"
-          >
-            Change LUT contract
-          </Button>
         </div>
       ) : null}
 
-      {showSelector && (
-        <LUTProfileSelector
-          suggestions={suggestions}
-          activeProfileId={activeProfileId}
-          currentProfile={resolvedProfile}
-          onSelect={handleSelect}
-        />
-      )}
+      <Button
+        ref={triggerRef}
+        variant="secondary"
+        size="sm"
+        onClick={() => setBrowserOpen(true)}
+      >
+        Change LUT contract
+      </Button>
+
+      <LUTContractBrowser
+        open={browserOpen}
+        onClose={(options) => {
+          setBrowserOpen(false)
+
+          if (options?.restoreFocus) {
+            queueMicrotask(() => triggerRef.current?.focus())
+          }
+        }}
+        suggestions={suggestions}
+        currentProfile={resolvedProfile}
+        onSelect={onSelect}
+        triggerRef={triggerRef}
+      />
     </div>
   )
 }
@@ -881,7 +1206,7 @@ export function LutContractTool({
         />
       ) : (
         <p className="raw-tool-note">
-          Add a .cube LUT only when its input and output contract is known.
+          Add a .cube LUT now, it stays staged until a RAW file is loaded.
         </p>
       )}
     </ToolSection>

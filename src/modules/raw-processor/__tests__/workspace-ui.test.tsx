@@ -1,5 +1,5 @@
 import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, vi } from 'vitest'
@@ -128,12 +128,12 @@ describe('rawToolSurface', () => {
     expect(screen.queryByText('Log Space')).not.toBeInTheDocument()
   })
 
-  it('disables preset and LUT loading controls before upload', () => {
+  it('disables presets before upload but keeps LUT loading available', () => {
     render(<RawToolSurface {...rawToolSurfaceProps({ hasImage: false })} />)
 
     expect(screen.getByRole('button', { name: 'Neutral' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Warm' })).toBeDisabled()
-    expect(screen.getByLabelText(/drop \.cube lut file/i)).toBeDisabled()
+    expect(screen.getByLabelText(/drop \.cube lut file/i)).toBeEnabled()
   })
 
   it('keeps LUT upload backed by a native file input for mobile tap upload', () => {
@@ -209,7 +209,7 @@ describe('rawToolSurface', () => {
     expect(onCompareReset).toHaveBeenCalledTimes(1)
   })
 
-  it('opens the selector by default for pending LUT profile suggestions', async () => {
+  it('keeps pending LUT suggestions collapsed until the contract browser opens', async () => {
     const user = userEvent.setup()
     const onLutProfileSelect = vi.fn()
     const profile = {
@@ -245,29 +245,31 @@ describe('rawToolSurface', () => {
       ),
     ).toBeInTheDocument()
     expect(
-      screen.getAllByText('Sony S-Gamut3.Cine / S-Log3 -> Rec.709 display')
-        .length,
-    ).toBeGreaterThanOrEqual(1)
-    expect(screen.getByLabelText('Search LUT contract')).toBeInTheDocument()
-    expect(
-      screen.getByPlaceholderText('Search camera/log or output'),
+      screen.getByRole('button', { name: 'Change LUT contract' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', {
-        name: 'Sony S-Gamut3.Cine / S-Log3 -> Rec.709 display',
-      }),
-    ).toBeInTheDocument()
+      screen.queryByRole('dialog', { name: 'LUT contract browser' }),
+    ).not.toBeInTheDocument()
     expect(
-      screen.queryByText('ARRI Wide Gamut 4 / LogC4'),
+      screen.queryByText('Sony S-Gamut3.Cine / S-Log3 -> Rec.709 display'),
     ).not.toBeInTheDocument()
 
     await user.click(
-      screen.getByRole('button', {
-        name: 'Sony S-Gamut3.Cine / S-Log3 -> Rec.709 display',
-      }),
+      screen.getByRole('button', { name: 'Change LUT contract' }),
     )
 
-    expect(onLutProfileSelect).toHaveBeenCalledWith(profile)
+    const browser = screen.getByRole('dialog', { name: 'LUT contract browser' })
+    expect(
+      within(browser).getAllByText('Sony S-Gamut3.Cine / S-Log3').length,
+    ).toBeGreaterThanOrEqual(1)
+    expect(
+      within(browser).getByLabelText('Search LUT contract'),
+    ).toBeInTheDocument()
+    expect(
+      within(browser).getByRole('button', {
+        name: 'Use Sony S-Gamut3.Cine / S-Log3 as LUT input',
+      }),
+    ).toBeInTheDocument()
   })
 
   it('shows resolved LUT input and output contracts', () => {
@@ -401,7 +403,7 @@ describe('rawToolSurface', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('lets users choose LUT input and output independently for unannotated LUTs', async () => {
+  it('uses a dedicated LUT contract browser with separate input and output panels', async () => {
     const user = userEvent.setup()
     const onLutProfileSelect = vi.fn()
 
@@ -431,21 +433,42 @@ describe('rawToolSurface', () => {
       ),
     ).toBeInTheDocument()
 
-    await user.type(screen.getByLabelText('Search LUT contract'), 'v-log')
+    await user.click(
+      screen.getByRole('button', { name: 'Change LUT contract' }),
+    )
 
-    const vLogInputButton = screen.getByRole('button', {
+    const browser = screen.getByRole('dialog', { name: 'LUT contract browser' })
+    expect(browser).toBeInTheDocument()
+    expect(
+      within(browser).getByRole('tab', { name: 'Input', selected: true }),
+    ).toBeInTheDocument()
+    expect(
+      within(browser).getByRole('tab', { name: 'Output', selected: false }),
+    ).toBeInTheDocument()
+
+    await user.type(
+      within(browser).getByLabelText('Search LUT contract'),
+      'v-log',
+    )
+
+    const vLogInputButton = within(browser).getByRole('button', {
       name: 'Use Panasonic V-Gamut / V-Log as LUT input',
     })
     expect(vLogInputButton).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', {
+      within(browser).queryByRole('button', {
         name: 'Panasonic V-Gamut / V-Log -> Rec.709 display',
       }),
     ).not.toBeInTheDocument()
 
     await user.click(vLogInputButton)
+
+    expect(
+      within(browser).getByRole('tab', { name: 'Output', selected: true }),
+    ).toBeInTheDocument()
+
     await user.click(
-      screen.getByRole('button', {
+      within(browser).getByRole('button', {
         name: 'Use Panasonic V-Gamut / V-Log as LUT output',
       }),
     )
@@ -461,6 +484,9 @@ describe('rawToolSurface', () => {
         outputRange: 'full',
       }),
     )
+    expect(
+      screen.queryByRole('dialog', { name: 'LUT contract browser' }),
+    ).not.toBeInTheDocument()
   })
 
   it('passes the full suggested LUT contract when a LUT input is chosen', async () => {
@@ -494,8 +520,18 @@ describe('rawToolSurface', () => {
     )
 
     await user.click(
-      screen.getByRole('button', {
-        name: 'Sony S-Gamut3.Cine / S-Log3 -> Rec.709 display',
+      screen.getByRole('button', { name: 'Change LUT contract' }),
+    )
+
+    const browser = screen.getByRole('dialog', { name: 'LUT contract browser' })
+    await user.click(
+      within(browser).getByRole('button', {
+        name: 'Use Sony S-Gamut3.Cine / S-Log3 as LUT input',
+      }),
+    )
+    await user.click(
+      within(browser).getByRole('button', {
+        name: 'Use Rec.709 display as LUT output',
       }),
     )
 
