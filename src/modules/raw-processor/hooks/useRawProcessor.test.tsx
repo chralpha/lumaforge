@@ -8,7 +8,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetToDefaults } from '~/atoms/raw-processor'
 import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
 import type { FileBackedOutputResult } from '~/lib/export/output-sink'
-import { createBlobOutputResult } from '~/lib/export/output-sink'
+import {
+  createBlobOutputResult,
+  createMemoryFileBackedOutputResult,
+  materializeOutputBlob,
+} from '~/lib/export/output-sink'
 import { jotaiStore } from '~/lib/jotai'
 import {
   getStoredLUTContractSelection,
@@ -165,6 +169,36 @@ function createCubeFile(title: string, name: string) {
   return Object.assign(new File([content], name), {
     text: () => Promise.resolve(content),
   })
+}
+
+function makeJfifOnlyJpegBytes() {
+  return new Uint8Array([
+    255, 216, 255, 224, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0,
+    255, 217,
+  ])
+}
+
+async function readBlobBytes(blob: Blob) {
+  if (typeof blob.arrayBuffer === 'function') {
+    return new Uint8Array(await blob.arrayBuffer())
+  }
+
+  const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(reader.error)
+    reader.onload = () => resolve(reader.result as ArrayBuffer)
+    reader.readAsArrayBuffer(blob)
+  })
+
+  return new Uint8Array(buffer)
+}
+
+function bytesIncludeAscii(bytes: Uint8Array, value: string) {
+  const needle = Array.from(value, (character) => character.charCodeAt(0))
+
+  return bytes.some((_byte, index) =>
+    needle.every((byte, offset) => bytes[index + offset] === byte),
+  )
 }
 
 function encodeCube(title: string) {
@@ -2055,6 +2089,113 @@ describe('useRawProcessor embedded preview state', () => {
     )
   })
 
+  it('drains checkpoint metric writes before removing a successful manifest', async () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+      maxTouchPoints: 1,
+      storage: { getDirectory: vi.fn() },
+      hardwareConcurrency: 4,
+    })
+    vi.stubGlobal('crossOriginIsolated', false)
+    const metricWrite = deferred<void>()
+
+    checkpointStoreMock.writeActive
+      .mockResolvedValueOnce(undefined)
+      .mockReturnValueOnce(metricWrite.promise)
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    rawRuntimeAdapterMock.probeExportCapability.mockResolvedValue(
+      createSupportedCapability(),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockImplementation(
+      async (request) => {
+        request.onMetric?.({
+          kind: 'checkpoint',
+          requestId: 'request-1',
+          completedRowsForDiagnostics: 128,
+          totalRows: 4024,
+          stripRows: 128,
+          timestamp: '2026-05-01T00:00:01.000Z',
+        })
+        return {
+          filename: 'frame_neutral_fullres.jpg',
+          blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+        }
+      },
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(
+        new File(['raw'], 'frame.ARW', { lastModified: 123 }),
+      )
+    })
+
+    let exportPromise!: Promise<void>
+    await act(async () => {
+      exportPromise = result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+      await Promise.resolve()
+    })
+    await waitFor(() => {
+      expect(checkpointStoreMock.writeActive).toHaveBeenCalledTimes(2)
+    })
+
+    expect(checkpointStoreMock.removeActiveManifest).not.toHaveBeenCalled()
+
+    await act(async () => {
+      metricWrite.resolve()
+      await exportPromise
+    })
+
+    expect(checkpointStoreMock.removeActiveManifest).toHaveBeenCalledTimes(1)
+  })
+
+  it('removes the original interrupted manifest after a successful recovery retry', async () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+      maxTouchPoints: 1,
+      storage: { getDirectory: vi.fn() },
+      hardwareConcurrency: 4,
+    })
+    vi.stubGlobal('crossOriginIsolated', false)
+    const checkpointManifest = createCheckpointManifest({
+      exportId: 'interrupted-export',
+    })
+    checkpointStoreMock.listSafeRetryCandidates.mockResolvedValue([
+      checkpointManifest,
+    ])
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await waitFor(() => {
+      expect(result.current.exportRecovery.status).toBe('source-required')
+    })
+
+    await act(async () => {
+      await result.current.recoverInterruptedExport(
+        new File(['raw'], 'frame.ARW', { lastModified: 123 }),
+      )
+    })
+
+    expect(checkpointStoreMock.removeActiveManifest).toHaveBeenCalledWith(
+      'interrupted-export',
+    )
+  })
+
   it('evacuates preview resources and clears stale export result before full-resolution export', async () => {
     const boundedHqDecode = deferred<DecodedImage>()
     const runtimeDispose = vi.fn()
@@ -2279,7 +2420,11 @@ describe('useRawProcessor embedded preview state', () => {
       })
     })
 
-    expect(result.current.exportResult?.output).toBe(output)
+    expect(result.current.exportResult?.output).toMatchObject({
+      kind: 'file-backed',
+      exportId: 'export-1',
+      filename: 'frame_neutral_fullres.jpg',
+    })
 
     act(() => {
       result.current.reset()
@@ -2293,6 +2438,48 @@ describe('useRawProcessor embedded preview state', () => {
     })
     await Promise.resolve()
     expect(cleanup).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves metadata lazily for file-backed export output', async () => {
+    const output = createMemoryFileBackedOutputResult({
+      exportId: 'export-1',
+      filename: 'frame_neutral_fullres.jpg',
+      mimeType: 'image/jpeg',
+      bytes: makeJfifOnlyJpegBytes(),
+    })
+
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      output,
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    const exportResult = result.current.exportResult
+    if (!exportResult) throw new Error('missing export result')
+
+    const bytes = await readBlobBytes(
+      await materializeOutputBlob(exportResult.output),
+    )
+    expect(bytesIncludeAscii(bytes, 'Exif\0\0')).toBe(true)
+    expect(bytesIncludeAscii(bytes, 'Sony')).toBe(true)
+    expect(bytesIncludeAscii(bytes, 'A7')).toBe(true)
   })
 
   it('keeps a ready export after share cancellation', async () => {

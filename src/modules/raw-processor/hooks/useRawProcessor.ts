@@ -31,15 +31,18 @@ import {
   useSetProcessingStatus,
   useSetProgress,
 } from '~/atoms/raw-processor'
-import type {ExportCheckpointManifest} from '~/lib/export/checkpoint-store';
+import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
 import {
   createCheckpointStore,
-  createOpfsCheckpointBackend
+  createOpfsCheckpointBackend,
 } from '~/lib/export/checkpoint-store'
 import type {
   FullResWorkerCheckpointConfig,
   FullResWorkerCheckpointMetric,
 } from '~/lib/export/full-res-export-client'
+import type { JpegExportMetadata } from '~/lib/export/jpeg-metadata'
+import { preserveJpegMetadata } from '~/lib/export/jpeg-metadata'
+import type { ExportOutputResult } from '~/lib/export/output-sink'
 import { createBlobOutputResult } from '~/lib/export/output-sink'
 import type { ResourceRegistry } from '~/lib/export/resource-registry'
 import { createResourceRegistry } from '~/lib/export/resource-registry'
@@ -311,6 +314,30 @@ function isCheckpointMetric(
   )
 }
 
+function withLazyJpegMetadata(input: {
+  output: ExportOutputResult
+  metadata: unknown
+  width: number
+  height: number
+}): ExportOutputResult {
+  if (input.output.kind !== 'file-backed') {
+    return input.output
+  }
+
+  const output = input.output
+  return {
+    ...output,
+    async openBlob() {
+      return preserveJpegMetadata({
+        jpeg: await output.openBlob(),
+        metadata: input.metadata as JpegExportMetadata | null | undefined,
+        width: input.width,
+        height: input.height,
+      })
+    },
+  }
+}
+
 function clearExportResultState<T extends ImageSession | null>(session: T): T {
   if (
     !session?.exportState.result &&
@@ -474,6 +501,7 @@ export interface UseRawProcessorReturn {
     quality: 'standard' | 'high'
     fidelity: 'safe' | 'balanced' | 'max'
     previousInterrupted?: boolean
+    recoveredExportId?: string
   }) => Promise<void>
   recoverInterruptedExport: (file: File) => Promise<void>
   downloadExportResult: () => Promise<void>
@@ -488,6 +516,7 @@ export interface UseRawProcessorReturn {
 }
 
 type PendingRecoveryRetry = {
+  sourceExportId: string
   sessionId: string
   fileName: string
   size: number
@@ -1902,10 +1931,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
       quality,
       fidelity,
       previousInterrupted,
+      recoveredExportId,
     }: {
       quality: 'standard' | 'high'
       fidelity: 'safe' | 'balanced' | 'max'
       previousInterrupted?: boolean
+      recoveredExportId?: string
     }) => {
       const rawRenderExposure = decodedImageRef.current?.renderExposure ?? null
       if (
@@ -2004,6 +2035,23 @@ export function useRawProcessor(): UseRawProcessorReturn {
           null
         let checkpointManifest: ExportCheckpointManifest | null = null
         let checkpoint: FullResWorkerCheckpointConfig | undefined
+        let checkpointWritesClosed = false
+        let checkpointWriteChain: Promise<void> = Promise.resolve()
+
+        const enqueueCheckpointWrite = (manifest: ExportCheckpointManifest) => {
+          if (!checkpointStore || checkpointWritesClosed) {
+            return
+          }
+
+          const nextManifest = manifest
+          checkpointWriteChain = checkpointWriteChain
+            .catch(() => undefined)
+            .then(() => checkpointStore?.writeActive(nextManifest))
+            .then(
+              () => undefined,
+              () => undefined,
+            )
+        }
 
         if (
           executionPlan.profile.checkpointOutput &&
@@ -2188,6 +2236,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
             if (
               !checkpointStore ||
               !checkpointManifest ||
+              checkpointWritesClosed ||
               !isCheckpointMetric(metric)
             ) {
               return
@@ -2199,9 +2248,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
               totalRows: metric.totalRows,
               updatedAt: metric.timestamp,
             }
-            void checkpointStore
-              .writeActive(checkpointManifest)
-              .catch(() => undefined)
+            enqueueCheckpointWrite(checkpointManifest)
           },
           onProgress: (entry) => {
             if (
@@ -2262,13 +2309,27 @@ export function useRawProcessor(): UseRawProcessorReturn {
         }
 
         if (checkpointStore && checkpoint) {
+          checkpointWritesClosed = true
+          await checkpointWriteChain.catch(() => undefined)
           await checkpointStore
             .removeActiveManifest(checkpoint.exportId)
             .catch(() => undefined)
+          if (recoveredExportId && recoveredExportId !== checkpoint.exportId) {
+            await checkpointStore
+              .removeActiveManifest(recoveredExportId)
+              .catch(() => undefined)
+          }
         }
 
-        const exportResult = createExportResult({
+        const outputWithMetadata = withLazyJpegMetadata({
           output,
+          metadata: loadedImage.metadata,
+          width: completedCapability.width,
+          height: completedCapability.height,
+        })
+
+        const exportResult = createExportResult({
+          output: outputWithMetadata,
           filename: result.filename,
           width: completedCapability.width,
           height: completedCapability.height,
@@ -2402,6 +2463,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       quality: 'high',
       fidelity: 'safe',
       previousInterrupted: true,
+      recoveredExportId: pendingRecoveryRetry.sourceExportId,
     })
   }, [canExport, exportImage, loadedImage.file, pendingRecoveryRetry, status])
 
@@ -2442,6 +2504,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
 
       setPendingRecoveryRetry({
+        sourceExportId: recovery.exportId,
         sessionId: activeSession.id,
         fileName: file.name,
         size: file.size,
