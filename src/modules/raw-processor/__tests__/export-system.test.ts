@@ -1,5 +1,5 @@
 import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   buildExportFilename,
@@ -7,9 +7,18 @@ import {
   getPreferredRowsForFidelity,
   recommendRetryLevel,
   runFullResolutionExportJob,
+  selectCurrentExportExecutionPlan,
 } from '../services/export-system'
 
 describe('export-system', () => {
+  beforeEach(() => {
+    vi.stubGlobal('crossOriginIsolated', true)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('generates filenames for builtin and custom styles', () => {
     expect(buildExportFilename('frame.ARW', 'Neutral')).toBe(
       'frame_Neutral_fullres.jpg',
@@ -25,19 +34,28 @@ describe('export-system', () => {
     expect(recommendRetryLevel('safe')).toBe(null)
   })
 
-  it('maps fidelity levels to monotonic preferred row budgets', () => {
-    expect(getPreferredRowsForFidelity('safe')).toBeLessThan(
-      getPreferredRowsForFidelity('balanced'),
-    )
-    expect(getPreferredRowsForFidelity('balanced')).toBeLessThan(
-      getPreferredRowsForFidelity('max'),
-    )
+  it('maps fidelity levels to profile-backed preferred row budgets', () => {
+    expect(getPreferredRowsForFidelity('safe')).toBe(256)
+    expect(getPreferredRowsForFidelity('balanced')).toBe(1024)
+    expect(getPreferredRowsForFidelity('max')).toBe(1024)
   })
 
   it('maps fidelity levels to bounded pipeline concurrency', () => {
     expect(getConcurrencyForFidelity('safe')).toBe(1)
     expect(getConcurrencyForFidelity('balanced')).toBe(2)
     expect(getConcurrencyForFidelity('max')).toBe(3)
+  })
+
+  it('selects ios-safe rows for 100MP current-session safe export', () => {
+    const plan = selectCurrentExportExecutionPlan({
+      fidelity: 'safe',
+      sourceWidth: 11662,
+      sourceHeight: 8746,
+    })
+
+    expect(plan.preferredRows).toBeLessThanOrEqual(128)
+    expect(plan.concurrency).toBe(1)
+    expect(plan.checkpointMode).toBe('safe-retry')
   })
 
   it('runs the full-resolution export client and disposes it', async () => {

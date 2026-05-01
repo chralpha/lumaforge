@@ -1,29 +1,73 @@
 import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
 
+import type {ExportExecutionPlan} from '~/lib/export/execution-profile';
+import {
+  selectExportExecutionPlan
+} from '~/lib/export/execution-profile'
 import type { FullResolutionExportProgress } from '~/lib/export/full-res-export'
 import type { RunFullResolutionJpegExportInWorkerInput } from '~/lib/export/full-res-export-client'
 import { FullResolutionExportWorkerClient } from '~/lib/export/full-res-export-client'
-import { normalizeExportConcurrency } from '~/lib/export/pipeline-concurrency'
 import type { ExportFidelity } from '~/lib/gl/export'
-
-const PREFERRED_ROWS_BY_FIDELITY: Record<ExportFidelity, number> = {
-  safe: 256,
-  balanced: 512,
-  max: 1024,
-}
 
 export function buildExportFilename(inputName: string, styleName: string) {
   const basename = inputName.replace(/\.[^.]+$/, '')
   return `${basename}_${styleName}_fullres.jpg`
 }
 
+function isOpfsAvailable() {
+  if (typeof navigator === 'undefined') return false
+
+  return Boolean(
+    (navigator.storage as { getDirectory?: () => unknown } | undefined)
+      ?.getDirectory,
+  )
+}
+
+export function selectCurrentExportExecutionPlan(input: {
+  fidelity: ExportFidelity
+  sourceWidth?: number
+  sourceHeight?: number
+  previousInterrupted?: boolean
+  previousResourceFailure?: boolean
+}) {
+  return selectExportExecutionPlan({
+    ...input,
+    runtime: {
+      lowMemoryAvailable: true,
+      pthreadAvailable:
+        typeof globalThis.crossOriginIsolated === 'boolean'
+          ? globalThis.crossOriginIsolated
+          : false,
+    },
+    output: {
+      opfsAvailable: isOpfsAvailable(),
+      streamingAvailable:
+        typeof WritableStream !== 'undefined' &&
+        typeof ReadableStream !== 'undefined',
+    },
+    platform: {
+      userAgent: typeof navigator === 'undefined' ? '' : navigator.userAgent,
+      touch:
+        typeof navigator !== 'undefined' &&
+        navigator.maxTouchPoints !== undefined &&
+        navigator.maxTouchPoints > 0,
+      hardwareConcurrency:
+        typeof navigator === 'undefined'
+          ? undefined
+          : navigator.hardwareConcurrency,
+    },
+  })
+}
+
 export function getPreferredRowsForFidelity(fidelity: ExportFidelity) {
-  return PREFERRED_ROWS_BY_FIDELITY[fidelity]
+  return selectCurrentExportExecutionPlan({ fidelity }).preferredRows
 }
 
 export function getConcurrencyForFidelity(fidelity: ExportFidelity) {
-  return normalizeExportConcurrency(undefined, fidelity)
+  return selectCurrentExportExecutionPlan({ fidelity }).concurrency
 }
+
+export type { ExportExecutionPlan }
 
 export function recommendRetryLevel(
   level: ExportFidelity,
