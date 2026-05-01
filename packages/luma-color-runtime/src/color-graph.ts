@@ -8,11 +8,23 @@ import {
 } from './matrix'
 import type { RawRenderExposure } from './raw-render-exposure'
 import type { LUTColorProfile, LUTRole, SignalRange } from './registry'
+import type { LumaColorToneParams } from './tone'
+import { resolveToneParams } from './tone'
 import type { LUTData, ProcessingParams } from './types'
 
 export type ExportColorGraphStep =
   | { kind: 'input-linear-prophoto' }
   | { kind: 'raw-render-exposure'; ev: number; multiplier: number }
+  | { kind: 'user-exposure'; ev: number; multiplier: number }
+  | {
+      kind: 'user-contrast'
+      amount: number
+      factor: number
+      pivot: number
+      operator: 'linear-prophoto-luminance-scale'
+      luminanceCoefficients: readonly [number, number, number]
+      zeroLuminanceMode: 'return-black'
+    }
   | { kind: 'gamut-to-lut-input'; matrix: Mat3; gamut: ColorGamutId }
   | {
       kind: 'encode-lut-transfer'
@@ -111,15 +123,35 @@ export function resolveExportColorGraph(input: {
   builtinPreset: ProcessingParams['builtinPreset']
   lut: LUTData | null
   rawRenderExposure?: RawRenderExposure
+  userExposureEv?: LumaColorToneParams['userExposureEv']
+  userContrast?: LumaColorToneParams['userContrast']
 }): ExportColorGraphDescriptor {
   const rawRenderExposure =
     input.rawRenderExposure ?? IDENTITY_RAW_RENDER_EXPOSURE
+  const tone = resolveToneParams({
+    userExposureEv: input.userExposureEv,
+    userContrast: input.userContrast,
+  })
   const base: ExportColorGraphStep[] = [
     { kind: 'input-linear-prophoto' },
     {
       kind: 'raw-render-exposure',
       ev: rawRenderExposure.ev,
       multiplier: rawRenderExposure.multiplier,
+    },
+    {
+      kind: 'user-exposure',
+      ev: tone.userExposureEv,
+      multiplier: tone.userExposureMultiplier,
+    },
+    {
+      kind: 'user-contrast',
+      amount: tone.userContrast,
+      factor: tone.userContrastFactor,
+      pivot: tone.contrastPivot,
+      operator: 'linear-prophoto-luminance-scale',
+      luminanceCoefficients: tone.luminanceCoefficients,
+      zeroLuminanceMode: 'return-black',
     },
   ]
 
@@ -222,6 +254,8 @@ export type ResolveColorGraphInput = {
   builtinPreset: ProcessingParams['builtinPreset']
   lut: LUTData | null
   rawRenderExposure?: RawRenderExposure
+  userExposureEv?: number
+  userContrast?: number
 }
 
 export function resolveColorGraph(input: ResolveColorGraphInput): ColorGraph {

@@ -21,6 +21,8 @@ describe('resolveExportColorGraph', () => {
     expect(graph.steps.map((step) => step.kind)).toEqual([
       'input-linear-prophoto',
       'raw-render-exposure',
+      'user-exposure',
+      'user-contrast',
       'output-srgb',
     ])
     expect(graph.steps[1]).toMatchObject({
@@ -44,9 +46,115 @@ describe('resolveExportColorGraph', () => {
       steps: [
         { kind: 'input-linear-prophoto' },
         { kind: 'raw-render-exposure', ev: 1, multiplier: 2 },
+        { kind: 'user-exposure', ev: 0, multiplier: 1 },
+        { kind: 'user-contrast', amount: 0, factor: 1 },
         { kind: 'output-srgb' },
       ],
     })
+  })
+
+  it('inserts neutral user tone steps in no-lut export graphs', () => {
+    const graph = resolveExportColorGraph({
+      styleKind: 'none',
+      intensity: 0.7,
+      builtinPreset: null,
+      lut: null,
+    })
+
+    expect(graph.supported).toBe(true)
+    if (!graph.supported) throw new Error('Expected supported graph')
+    expect(graph.steps.map((step) => step.kind)).toEqual([
+      'input-linear-prophoto',
+      'raw-render-exposure',
+      'user-exposure',
+      'user-contrast',
+      'output-srgb',
+    ])
+    expect(graph.steps[2]).toMatchObject({
+      kind: 'user-exposure',
+      ev: 0,
+      multiplier: 1,
+    })
+    expect(graph.steps[3]).toMatchObject({
+      kind: 'user-contrast',
+      amount: 0,
+      factor: 1,
+      pivot: 0.18,
+      operator: 'linear-prophoto-luminance-scale',
+      luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+      zeroLuminanceMode: 'return-black',
+    })
+  })
+
+  it('places user tone before LUT input conversion', () => {
+    const profile = getLUTColorProfile('sony-sgamut3cine-slog3')
+    if (!profile) throw new Error('Missing profile')
+
+    const graph = resolveExportColorGraph({
+      styleKind: 'custom',
+      intensity: 0.7,
+      builtinPreset: null,
+      userExposureEv: 1,
+      userContrast: 50,
+      lut: {
+        size: 2,
+        data: new Float32Array(24),
+        domainMin: [0, 0, 0],
+        domainMax: [1, 1, 1],
+        inputProfile: 'v-log',
+        profileResolution: {
+          kind: 'resolved',
+          confidence: 'user',
+          profile: {
+            ...profile,
+            outputGamut: 's-gamut3-cine',
+            outputTransfer: 's-log3',
+            outputRange: 'full',
+          },
+        },
+      },
+    })
+
+    expect(graph.supported).toBe(true)
+    if (!graph.supported) throw new Error('Expected supported graph')
+    expect(graph.steps.map((step) => step.kind)).toEqual([
+      'input-linear-prophoto',
+      'raw-render-exposure',
+      'user-exposure',
+      'user-contrast',
+      'gamut-to-lut-input',
+      'encode-lut-transfer',
+      'lut3d',
+      'lut-output-to-srgb',
+      'output-srgb',
+    ])
+    expect(graph.steps[2]).toMatchObject({
+      kind: 'user-exposure',
+      ev: 1,
+      multiplier: 2,
+    })
+    expect(graph.steps[3]).toMatchObject({
+      kind: 'user-contrast',
+      amount: 50,
+      factor: Math.pow(2, 50 / 200),
+    })
+  })
+
+  it('keeps built-in style export failure pointed at built-in style support', () => {
+    const graph = resolveExportColorGraph({
+      styleKind: 'builtin',
+      intensity: 0.7,
+      builtinPreset: 'warm',
+      userExposureEv: 1,
+      userContrast: 50,
+      lut: null,
+    })
+
+    expect(graph.supported).toBe(false)
+    if (graph.supported) throw new Error('Expected unsupported graph')
+    expect(graph.message).toBe(
+      'Built-in styles are not supported by full-resolution JPEG export.',
+    )
   })
 
   it('fails closed for built-in styles', () => {
@@ -104,18 +212,20 @@ describe('resolveExportColorGraph', () => {
     expect(graph.steps.map((step) => step.kind)).toEqual([
       'input-linear-prophoto',
       'raw-render-exposure',
+      'user-exposure',
+      'user-contrast',
       'gamut-to-lut-input',
       'encode-lut-transfer',
       'lut3d',
       'lut-output-to-srgb',
       'output-srgb',
     ])
-    expect(graph.steps[4]).toMatchObject({
+    expect(graph.steps[6]).toMatchObject({
       kind: 'lut3d',
       domainMin: [0, 0, 0],
       domainMax: [1, 1, 1],
     })
-    expect(graph.steps[5]).toMatchObject({
+    expect(graph.steps[7]).toMatchObject({
       kind: 'lut-output-to-srgb',
       transfer: 's-log3',
       range: 'full',
@@ -193,7 +303,7 @@ describe('resolveExportColorGraph', () => {
     if (!graph.supported) {
       throw new Error('Expected supported graph')
     }
-    expect(graph.steps[5]).toMatchObject({
+    expect(graph.steps[7]).toMatchObject({
       kind: 'lut-output-to-srgb',
       transfer: 'gamma24',
       range: 'full',
