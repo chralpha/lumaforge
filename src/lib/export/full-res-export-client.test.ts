@@ -79,6 +79,67 @@ const supportedGraph = {
 }
 
 describe('fullResolutionExportWorkerClient', () => {
+  it('passes execution plan and checkpoint config to the worker', async () => {
+    const worker = new FakeWorker()
+    const client = new FullResolutionExportWorkerClient(
+      () => worker as unknown as Worker,
+    )
+
+    const run = client.run({
+      file: new File(['raw'], 'sample.RAF'),
+      graph: supportedGraph,
+      executionPlan: {
+        profileName: 'ios-safe',
+        preferredRows: 64,
+        concurrency: 1,
+        runtimeMemoryProfile: 'low-memory',
+        outputSink: 'opfs-file',
+        checkpointMode: 'safe-retry',
+      },
+      checkpoint: {
+        exportId: 'export-1',
+        graphFingerprint: 'graph-1',
+        sourceFingerprint: {
+          name: 'sample.RAF',
+          size: 3,
+          lastModified: 0,
+          hashPrefixHex: 'abc',
+        },
+      },
+    })
+
+    const start = worker.requests[0]
+    expect(start).toMatchObject({
+      kind: 'start',
+      executionPlan: {
+        profileName: 'ios-safe',
+        preferredRows: 64,
+        runtimeMemoryProfile: 'low-memory',
+      },
+      checkpoint: {
+        exportId: 'export-1',
+        graphFingerprint: 'graph-1',
+      },
+    })
+
+    if (!start || start.kind !== 'start')
+      throw new Error('missing start request')
+    worker.emit({
+      kind: 'success',
+      requestId: start.requestId,
+      result: {
+        kind: 'blob',
+        filename: 'sample.jpg',
+        blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+        byteLength: 4,
+        mimeType: 'image/jpeg',
+      },
+    })
+
+    await expect(run).resolves.toMatchObject({ kind: 'blob' })
+    client.dispose()
+  })
+
   it('streams progress, resolves success, and the one-shot helper disposes its worker', async () => {
     const worker = new FakeWorker()
     const workerFactory = vi.fn(() => worker as unknown as Worker)

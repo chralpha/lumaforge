@@ -75,8 +75,10 @@ async function handleStart(
 ) {
   const controller = new AbortController()
   activeRequests.set(message.requestId, controller)
+  const memoryProfile = message.executionPlan?.runtimeMemoryProfile ?? 'desktop'
   const runtime = createLumaRawRuntime({
-    requireCrossOriginIsolation: true,
+    memoryProfile,
+    requireCrossOriginIsolation: memoryProfile === 'desktop',
   })
 
   try {
@@ -99,11 +101,34 @@ async function handleStart(
           return runFullResolutionJpegExport({
             capability,
             graph: message.graph,
-            preferredRows: message.preferredRows,
-            concurrency: message.concurrency,
+            preferredRows:
+              message.executionPlan?.preferredRows ?? message.preferredRows,
+            concurrency:
+              message.executionPlan?.concurrency ?? message.concurrency,
             quality: message.quality,
             signal: controller.signal,
             readProcessedWindow: exportSession.readProcessedWindow,
+            retryPolicy:
+              message.executionPlan?.profileName === 'ios-safe'
+                ? 'surface-resource-failure'
+                : 'in-process',
+            onCheckpoint: message.checkpoint
+              ? async (entry) => {
+                  self.postMessage({
+                    kind: 'metric',
+                    requestId: message.requestId,
+                    metric: {
+                      kind: 'checkpoint',
+                      requestId: message.requestId,
+                      completedRowsForDiagnostics:
+                        entry.completedRowsForDiagnostics,
+                      totalRows: entry.totalRows,
+                      stripRows: entry.stripRows,
+                      timestamp: new Date().toISOString(),
+                    },
+                  } satisfies FullResExportWorkerResponse)
+                }
+              : undefined,
             onProgress(progress) {
               self.postMessage({
                 kind: 'progress',

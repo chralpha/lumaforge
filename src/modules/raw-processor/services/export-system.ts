@@ -3,7 +3,11 @@ import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
 import type { ExportExecutionPlan } from '~/lib/export/execution-profile'
 import { selectExportExecutionPlan } from '~/lib/export/execution-profile'
 import type { FullResolutionExportProgress } from '~/lib/export/full-res-export'
-import type { RunFullResolutionJpegExportInWorkerInput } from '~/lib/export/full-res-export-client'
+import type {
+  FullResWorkerCheckpointConfig,
+  FullResWorkerExecutionPlan,
+  RunFullResolutionJpegExportInWorkerInput,
+} from '~/lib/export/full-res-export-client'
 import { FullResolutionExportWorkerClient } from '~/lib/export/full-res-export-client'
 import type { ExportFidelity } from '~/lib/gl/export'
 
@@ -126,6 +130,27 @@ export function createFullResolutionExportClient() {
   return new FullResolutionExportWorkerClient()
 }
 
+function errorLooksLikeFreshWorkerRetry(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.message === 'FULL_RES_EXPORT_RESOURCE_FAILURE' ||
+      error.message === 'FULL_RES_EXPORT_WORKER_FAILED')
+  )
+}
+
+function toWorkerExecutionPlan(
+  plan: ExportExecutionPlan,
+): FullResWorkerExecutionPlan {
+  return {
+    profileName: plan.profile.name,
+    preferredRows: plan.preferredRows,
+    concurrency: plan.concurrency,
+    runtimeMemoryProfile: plan.runtimeMemoryProfile,
+    outputSink: plan.outputSink,
+    checkpointMode: plan.checkpointMode,
+  }
+}
+
 export async function runFullResolutionExportJob({
   file,
   filename,
@@ -133,6 +158,8 @@ export async function runFullResolutionExportJob({
   quality,
   preferredRows,
   concurrency,
+  executionPlan,
+  checkpoint,
   onProgress,
   signal,
   clientFactory = createFullResolutionExportClient,
@@ -143,25 +170,53 @@ export async function runFullResolutionExportJob({
   quality?: RunFullResolutionJpegExportInWorkerInput['quality']
   preferredRows?: RunFullResolutionJpegExportInWorkerInput['preferredRows']
   concurrency?: RunFullResolutionJpegExportInWorkerInput['concurrency']
+  executionPlan?: ExportExecutionPlan
+  checkpoint?: FullResWorkerCheckpointConfig
   onProgress?: (progress: FullResolutionExportProgress) => void
   signal?: AbortSignal
   clientFactory?: () => FullResolutionExportWorkerClient
 }) {
-  const client = clientFactory()
+  let plan = executionPlan
+  let attempts = 0
 
-  try {
-    const output = await client.run({
-      file,
-      graph,
-      quality,
-      preferredRows,
-      concurrency,
-      onProgress,
-      signal,
-    })
+  while (true) {
+    attempts += 1
+    const client = clientFactory()
 
-    return { filename, output }
-  } finally {
-    client.dispose()
+    try {
+      const output = await client.run({
+        file,
+        graph,
+        quality,
+        preferredRows: plan?.preferredRows ?? preferredRows,
+        concurrency: plan?.concurrency ?? concurrency,
+        executionPlan: plan ? toWorkerExecutionPlan(plan) : undefined,
+        checkpoint: plan?.profile.checkpointOutput ? checkpoint : undefined,
+        onProgress,
+        signal,
+      })
+
+      return { filename, output, attempts }
+    } catch (error) {
+      if (
+        !plan?.profile.restartWorkerOnResourceRetry ||
+        attempts >= 3 ||
+        !errorLooksLikeFreshWorkerRetry(error)
+      ) {
+        throw error
+      }
+
+      plan = {
+        ...plan,
+        preferredRows: Math.max(
+          plan.profile.minRows,
+          Math.floor(plan.preferredRows / 2),
+        ),
+        concurrency: 1,
+        productCopy: 'resource-retry',
+      }
+    } finally {
+      client.dispose()
+    }
   }
 }

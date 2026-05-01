@@ -1,16 +1,40 @@
 import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
 
+import type {
+  ExportCheckpointMode,
+  ExportExecutionProfileName,
+  ExportOutputSink,
+  ExportRuntimeMemoryProfile,
+} from './execution-profile'
 import type { FullResolutionExportProgress } from './full-res-export'
 import type { ExportOutputResult } from './output-sink'
 import type { ExportPerfMetric } from './perf/export-metrics'
 import { normalizeExportConcurrency } from './pipeline-concurrency'
+import type { SourceFingerprint } from './source-fingerprint'
 import { normalizePreferredStripRows } from './strip-scheduler'
+
+export type FullResWorkerExecutionPlan = {
+  profileName: ExportExecutionProfileName
+  preferredRows: number
+  concurrency: number
+  runtimeMemoryProfile: ExportRuntimeMemoryProfile
+  outputSink: ExportOutputSink
+  checkpointMode: ExportCheckpointMode
+}
+
+export type FullResWorkerCheckpointConfig = {
+  exportId: string
+  graphFingerprint: string
+  sourceFingerprint: SourceFingerprint
+}
 
 export type FullResExportWorkerStartMessage = {
   kind: 'start'
   requestId: string
   file: File
   graph: ExportColorGraphDescriptor
+  executionPlan?: FullResWorkerExecutionPlan
+  checkpoint?: FullResWorkerCheckpointConfig
   preferredRows?: number
   concurrency?: number
   quality?: number
@@ -38,6 +62,15 @@ export type FullResExportWorkerSuccessMessage = {
   result: ExportOutputResult
 }
 
+export type FullResWorkerCheckpointMetric = {
+  kind: 'checkpoint'
+  requestId: string
+  completedRowsForDiagnostics: number
+  totalRows: number
+  stripRows: number
+  timestamp: string
+}
+
 export type FullResExportWorkerErrorMessage = {
   kind: 'error'
   requestId: string
@@ -47,7 +80,7 @@ export type FullResExportWorkerErrorMessage = {
 export type FullResExportWorkerMetricMessage = {
   kind: 'metric'
   requestId: string
-  metric: ExportPerfMetric
+  metric: ExportPerfMetric | FullResWorkerCheckpointMetric
 }
 
 export type FullResExportWorkerResponse =
@@ -62,16 +95,18 @@ export type RunFullResolutionJpegExportInWorkerInput = {
   preferredRows?: number
   concurrency?: number
   quality?: number
+  executionPlan?: FullResWorkerExecutionPlan
+  checkpoint?: FullResWorkerCheckpointConfig
   signal?: AbortSignal
   onProgress?: (progress: FullResolutionExportProgress) => void
-  onMetric?: (metric: ExportPerfMetric) => void
+  onMetric?: (metric: ExportPerfMetric | FullResWorkerCheckpointMetric) => void
 }
 
 type PendingRequest = {
   resolve: (value: ExportOutputResult) => void
   reject: (reason?: unknown) => void
   onProgress?: (progress: FullResolutionExportProgress) => void
-  onMetric?: (metric: ExportPerfMetric) => void
+  onMetric?: (metric: ExportPerfMetric | FullResWorkerCheckpointMetric) => void
   cleanup: () => void
 }
 
@@ -268,6 +303,8 @@ export class FullResolutionExportWorkerClient {
           requestId,
           file: input.file,
           graph: input.graph,
+          executionPlan: input.executionPlan,
+          checkpoint: input.checkpoint,
           preferredRows,
           concurrency,
           quality: input.quality,

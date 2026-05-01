@@ -192,6 +192,185 @@ describe('runProcessedWindowExportLifecycle', () => {
 })
 
 describe('full-resolution export worker lifecycle responses', () => {
+  it('uses execution plan runtime profile and emits checkpoint metrics', async () => {
+    const responses: FullResExportWorkerResponse[] = []
+    vi.spyOn(self, 'postMessage').mockImplementation((message) => {
+      responses.push(message as FullResExportWorkerResponse)
+    })
+    const session = {
+      probe: {
+        width: 4,
+        height: 4,
+        supportLevel: 'full',
+        timings: { total: 1 },
+      },
+      probeExportCapability: vi.fn(async () => ({
+        supported: true,
+        width: 4,
+        height: 4,
+      })),
+      readProcessedWindow: vi.fn(),
+      beginProcessedWindowExport: vi.fn(async () => undefined),
+      endProcessedWindowExport: vi.fn(async () => undefined),
+      dispose: vi.fn(),
+    }
+    const runtime = {
+      init: vi.fn(async () => undefined),
+      openSession: vi.fn(async () => session),
+      dispose: vi.fn(),
+    }
+    vi.mocked(createLumaRawRuntime).mockReturnValue(runtime as never)
+    vi.mocked(runFullResolutionJpegExport).mockImplementation(async (input) => {
+      await input.onCheckpoint?.({
+        completedRowsForDiagnostics: 64,
+        totalRows: 128,
+        stripRows: 64,
+      })
+      return createBlobOutputResult({
+        filename: 'sample.jpg',
+        blob: makeJfifOnlyJpeg(),
+      })
+    })
+
+    self.onmessage?.({
+      data: {
+        kind: 'start',
+        requestId: 'request-low-memory',
+        file: new File(['raw'], 'sample.RAF'),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        },
+        executionPlan: {
+          profileName: 'ios-safe',
+          preferredRows: 64,
+          concurrency: 1,
+          runtimeMemoryProfile: 'low-memory',
+          outputSink: 'opfs-file',
+          checkpointMode: 'safe-retry',
+        },
+        checkpoint: {
+          exportId: 'export-1',
+          graphFingerprint: 'graph-1',
+          sourceFingerprint: {
+            name: 'sample.RAF',
+            size: 3,
+            lastModified: 0,
+            hashPrefixHex: 'abc',
+          },
+        },
+        quality: 0.9,
+        collectMetrics: false,
+      },
+    } as MessageEvent)
+
+    await vi.waitFor(() => {
+      expect(responses.some((response) => response.kind === 'success')).toBe(
+        true,
+      )
+    })
+
+    expect(createLumaRawRuntime).toHaveBeenCalledWith({
+      memoryProfile: 'low-memory',
+      requireCrossOriginIsolation: false,
+    })
+    expect(runFullResolutionJpegExport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preferredRows: 64,
+        concurrency: 1,
+        quality: 0.9,
+        retryPolicy: 'surface-resource-failure',
+        onCheckpoint: expect.any(Function),
+      }),
+    )
+    expect(responses).toContainEqual(
+      expect.objectContaining({
+        kind: 'metric',
+        requestId: 'request-low-memory',
+        metric: expect.objectContaining({
+          kind: 'checkpoint',
+          requestId: 'request-low-memory',
+          completedRowsForDiagnostics: 64,
+          totalRows: 128,
+          stripRows: 64,
+        }),
+      }),
+    )
+  })
+
+  it('keeps desktop runtime cross-origin isolation requirement by default', async () => {
+    const terminalResponse = new Promise<FullResExportWorkerResponse>(
+      (resolve) => {
+        vi.spyOn(self, 'postMessage').mockImplementation((message) => {
+          const response = message as FullResExportWorkerResponse
+          if (response.kind === 'success' || response.kind === 'error') {
+            resolve(response)
+          }
+        })
+      },
+    )
+    const session = {
+      probe: {
+        width: 4,
+        height: 4,
+        supportLevel: 'full',
+        timings: { total: 1 },
+      },
+      probeExportCapability: vi.fn(async () => ({
+        supported: true,
+        width: 4,
+        height: 4,
+      })),
+      readProcessedWindow: vi.fn(),
+      beginProcessedWindowExport: vi.fn(async () => undefined),
+      endProcessedWindowExport: vi.fn(async () => undefined),
+      dispose: vi.fn(),
+    }
+    const runtime = {
+      init: vi.fn(async () => undefined),
+      openSession: vi.fn(async () => session),
+      dispose: vi.fn(),
+    }
+    vi.mocked(createLumaRawRuntime).mockReturnValue(runtime as never)
+    vi.mocked(runFullResolutionJpegExport).mockResolvedValue(
+      createBlobOutputResult({
+        filename: 'sample.jpg',
+        blob: makeJfifOnlyJpeg(),
+      }),
+    )
+
+    self.onmessage?.({
+      data: {
+        kind: 'start',
+        requestId: 'request-desktop',
+        file: new File(['raw'], 'sample.RAF'),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        },
+        collectMetrics: false,
+      },
+    } as MessageEvent)
+
+    await expect(terminalResponse).resolves.toMatchObject({ kind: 'success' })
+    expect(createLumaRawRuntime).toHaveBeenCalledWith({
+      memoryProfile: 'desktop',
+      requireCrossOriginIsolation: true,
+    })
+    expect(runFullResolutionJpegExport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        retryPolicy: 'in-process',
+        onCheckpoint: undefined,
+      }),
+    )
+  })
+
   it('writes EXIF metadata into the successful JPEG response', async () => {
     const terminalResponse = new Promise<FullResExportWorkerResponse>(
       (resolve) => {

@@ -52,6 +52,22 @@ export type RunFullResolutionJpegExportInput = {
   quality?: number
   jpegSink?: JpegRowSink
   writerFactory?: () => JpegRowWriter
+  retryPolicy?: 'in-process' | 'surface-resource-failure'
+  onCheckpoint?: (entry: {
+    completedRowsForDiagnostics: number
+    totalRows: number
+    stripRows: number
+  }) => void | Promise<void>
+}
+
+export class FullResExportResourceFailure extends Error {
+  readonly nextRows: number
+
+  constructor(nextRows: number) {
+    super('FULL_RES_EXPORT_RESOURCE_FAILURE')
+    this.name = 'FullResExportResourceFailure'
+    this.nextRows = nextRows
+  }
 }
 
 type PreparedStrip = {
@@ -360,6 +376,14 @@ export async function runFullResolutionJpegExport(
           }
 
           completedStrips += 1
+          await input.onCheckpoint?.({
+            completedRowsForDiagnostics: Math.min(
+              input.capability.height,
+              completedStrips * stripRows,
+            ),
+            totalRows: input.capability.height,
+            stripRows,
+          })
           input.onProgress?.({
             completedStrips,
             totalStrips: strips.length,
@@ -410,6 +434,10 @@ export async function runFullResolutionJpegExport(
       }
 
       const nextStripRows = reduceStripRows(stripRows, MIN_EXPORT_STRIP_ROWS)
+
+      if (input.retryPolicy === 'surface-resource-failure') {
+        throw new FullResExportResourceFailure(nextStripRows)
+      }
 
       if (nextStripRows >= stripRows && concurrency <= 1) {
         throw new Error('FULL_RES_EXPORT_RESOURCE_FAILURE')

@@ -12,13 +12,11 @@ import type {
   LumaRawProcessedWindowRequest,
 } from '@lumaforge/luma-raw-runtime'
 
+import type { FullResExportResourceFailure } from './full-res-export'
 import { runFullResolutionJpegExport } from './full-res-export'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
-import type {FileBackedOutputResult} from './output-sink';
-import {
-  createBlobOutputResult,
-  materializeOutputBlob
-} from './output-sink'
+import type { FileBackedOutputResult } from './output-sink'
+import { createBlobOutputResult, materializeOutputBlob } from './output-sink'
 import { processedWindowToLinearProPhotoTile } from './processed-window-transform'
 
 function makeCapability(
@@ -1268,6 +1266,93 @@ describe('runFullResolutionJpegExport', () => {
     expect(secondWriter.writeRows).toHaveBeenCalledTimes(8)
     expect(secondWriter.close).toHaveBeenCalledTimes(1)
     expect(secondWriter.abort).not.toHaveBeenCalled()
+  })
+
+  it('surfaces resource failures for caller-managed fresh-worker retry', async () => {
+    const writer = {
+      writeRows: vi.fn(async () => undefined),
+      close: vi.fn(),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await expect(
+      runFullResolutionJpegExport({
+        capability: makeCapability({
+          height: 512,
+          rawHeight: 512,
+          visibleCrop: { x: 0, y: 0, width: 4, height: 512 },
+        }),
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [
+            { kind: 'input-linear-prophoto' },
+            IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            ...neutralToneSteps(),
+            { kind: 'output-srgb' },
+          ],
+        },
+        preferredRows: 256,
+        concurrency: 2,
+        retryPolicy: 'surface-resource-failure',
+        readProcessedWindow: vi
+          .fn()
+          .mockRejectedValue(new Error('RESOURCE_ALLOCATION_FAILED')),
+        writerFactory: () => writer,
+      }),
+    ).rejects.toMatchObject({
+      name: 'FullResExportResourceFailure',
+      message: 'FULL_RES_EXPORT_RESOURCE_FAILURE',
+      nextRows: 128,
+    } satisfies Partial<FullResExportResourceFailure>)
+
+    expect(writer.abort).toHaveBeenCalledTimes(1)
+  })
+
+  it('emits a checkpoint after each committed strip', async () => {
+    const checkpoints: unknown[] = []
+    const writer = {
+      writeRows: vi.fn(async () => undefined),
+      close: vi.fn(async () => makeJpegOutput([new Uint8Array([1])])),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await runFullResolutionJpegExport({
+      capability: makeCapability({
+        height: 130,
+        rawHeight: 130,
+        visibleCrop: { x: 0, y: 0, width: 4, height: 130 },
+      }),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
+          { kind: 'output-srgb' },
+        ],
+      },
+      preferredRows: 64,
+      concurrency: 1,
+      readProcessedWindow: vi.fn((request: LumaRawProcessedWindowRequest) =>
+        Promise.resolve(makeProcessedWindow(request)),
+      ),
+      writerFactory: () => writer,
+      onCheckpoint(entry) {
+        checkpoints.push(entry)
+      },
+    })
+
+    expect(checkpoints).toEqual([
+      { completedRowsForDiagnostics: 64, totalRows: 130, stripRows: 64 },
+      { completedRowsForDiagnostics: 128, totalRows: 130, stripRows: 64 },
+      { completedRowsForDiagnostics: 130, totalRows: 130, stripRows: 64 },
+    ])
   })
 
   it('retries with a fresh writer after a resource failure and emits performance metrics only for the successful attempt', async () => {
