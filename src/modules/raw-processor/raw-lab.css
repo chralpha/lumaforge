@@ -602,6 +602,34 @@
   color: var(--raw-ink);
 }
 
+.raw-tone-control {
+  display: grid;
+  gap: 10px;
+}
+
+.raw-tone-control-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 10px;
+}
+
+.raw-tone-control label {
+  color: var(--raw-ink);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.raw-tone-control output {
+  color: var(--raw-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.raw-tone-control input[type='range'] {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: var(--raw-green);
+}
+
 .raw-strength-control {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

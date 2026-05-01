@@ -19,8 +19,14 @@ function rawToolSurfaceProps(
     ],
     activePresetId: 'neutral',
     activeIntensity: 'standard',
+    tone: {
+      userExposureEv: 0,
+      userContrast: 0,
+    },
     onPresetSelect: () => {},
     onIntensitySelect: () => {},
+    onToneChange: () => {},
+    onToneReset: () => {},
     onCompareReset: () => {},
     onLutLoad: () => {},
     onLutClear: () => {},
@@ -123,10 +129,11 @@ describe('rawToolSurface', () => {
     render(<RawToolSurface {...rawToolSurfaceProps()} />)
 
     expect(screen.getByRole('region', { name: 'Finish' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Tone' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Strength' })).toBeInTheDocument()
     expect(screen.getByText('Neutral')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Standard' })).toBeInTheDocument()
-    expect(screen.queryByText('Exposure')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Exposure')).toBeInTheDocument()
     expect(screen.queryByText('Log Space')).not.toBeInTheDocument()
   })
 

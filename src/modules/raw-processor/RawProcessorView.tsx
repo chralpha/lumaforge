@@ -107,6 +107,7 @@ function RawProcessorViewInner({
     selectLUTProfile,
     selectBuiltinStyle,
     selectIntensityLevel,
+    setToneParams,
     setViewMode,
     setCompareSplit,
     clearLUT,
@@ -115,6 +116,7 @@ function RawProcessorViewInner({
     shareExportResult,
     copyExportResult,
     reset,
+    resetTone,
     dismissError,
     updateStats,
     pipelineRef,
@@ -288,10 +290,16 @@ function RawProcessorViewInner({
           presetOptions={presetOptions.map(({ id, name }) => ({ id, name }))}
           activePresetId={activePresetId}
           activeIntensity={activeIntensity}
+          tone={{
+            userExposureEv: params.userExposureEv,
+            userContrast: params.userContrast,
+          }}
           onPresetSelect={(id) =>
             selectBuiltinStyle(id as (typeof presetOptions)[number]['id'])
           }
           onIntensitySelect={selectIntensityLevel}
+          onToneChange={setToneParams}
+          onToneReset={resetTone}
           onCompareReset={handleCompareReset}
           onLutLoad={handleLutDrop}
           onLutClear={clearLUT}

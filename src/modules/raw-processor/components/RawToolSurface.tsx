@@ -18,14 +18,19 @@ import { FinishTool } from './tools/FinishTool'
 import { LutContractTool } from './tools/LutContractTool'
 import type { StrengthLevel } from './tools/StrengthControl'
 import { StrengthControl } from './tools/StrengthControl'
+import type {ToneValue} from './tools/ToneTool';
+import { ToneTool  } from './tools/ToneTool'
 import { ToolSection } from './tools/ToolSection'
 
 export function RawToolSurface(props: {
   presetOptions: Array<{ id: string; name: string }>
   activePresetId: string | null
   activeIntensity: StrengthLevel
+  tone: ToneValue
   onPresetSelect: (id: string) => void
   onIntensitySelect: (level: StrengthLevel) => void
+  onToneChange: (value: Partial<ToneValue>) => void
+  onToneReset: () => void
   onCompareReset: () => void
   onLutLoad: (files: File[]) => void
   onLutClear: () => void
@@ -78,6 +83,12 @@ export function RawToolSurface(props: {
           activePresetId={props.activePresetId}
           disabled={disabled}
           onPresetSelect={props.onPresetSelect}
+        />
+        <ToneTool
+          value={props.tone}
+          disabled={disabled}
+          onChange={props.onToneChange}
+          onReset={props.onToneReset}
         />
         <ToolSection title="Strength">
           <StrengthControl

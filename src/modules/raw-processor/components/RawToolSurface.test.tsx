@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -13,8 +13,14 @@ const baseProps = {
   ],
   activePresetId: 'neutral',
   activeIntensity: 'standard' as const,
+  tone: {
+    userExposureEv: 0,
+    userContrast: 0,
+  },
   onPresetSelect: vi.fn(),
   onIntensitySelect: vi.fn(),
+  onToneChange: vi.fn(),
+  onToneReset: vi.fn(),
   onCompareReset: vi.fn(),
   onLutLoad: vi.fn(),
   onLutClear: vi.fn(),
@@ -150,6 +156,55 @@ describe('rawToolSurface', () => {
     expect(
       screen.getByText('Full-resolution export source is still loading.'),
     ).toBeInTheDocument()
+  })
+
+  it('renders tone controls before strength', async () => {
+    render(<RawToolSurface {...baseProps} hasImage />)
+
+    const tone = screen.getByRole('region', { name: 'Tone' })
+    const strength = screen.getByRole('region', { name: 'Strength' })
+
+    expect(within(tone).getByLabelText('Exposure')).toBeInTheDocument()
+    expect(within(tone).getByLabelText('Contrast')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Tone' })).toBeInTheDocument()
+    expect(
+      tone.compareDocumentPosition(strength) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('sends normalized tone changes and resets only tone', async () => {
+    const user = userEvent.setup()
+    const onToneChange = vi.fn()
+    const onToneReset = vi.fn()
+    render(
+      <RawToolSurface
+        {...baseProps}
+        hasImage
+        tone={{ userExposureEv: 0, userContrast: 0 }}
+        onToneChange={onToneChange}
+        onToneReset={onToneReset}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Exposure'), {
+      target: { value: '1.25' },
+    })
+    expect(onToneChange).toHaveBeenLastCalledWith({ userExposureEv: 1.25 })
+
+    await user.click(screen.getByRole('button', { name: 'Reset tone' }))
+    expect(onToneReset).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows preserved tone state for non-neutral tone', () => {
+    render(
+      <RawToolSurface
+        {...baseProps}
+        hasImage
+        tone={{ userExposureEv: 1, userContrast: 50 }}
+      />,
+    )
+
+    expect(screen.getByText('Tone settings preserved')).toBeInTheDocument()
   })
 
   it('opens and closes the mobile tool sheet without relying on page scroll', async () => {
