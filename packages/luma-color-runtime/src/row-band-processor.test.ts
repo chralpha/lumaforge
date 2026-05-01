@@ -1,15 +1,10 @@
 import type { SupportedExportColorGraphDescriptor } from './color-graph'
 import { mat3Identity } from './matrix'
+import type { LUTColorProfile } from './registry'
 import { createRowBandProcessor } from './row-band-processor'
 
-const noLutGraph: SupportedExportColorGraphDescriptor = {
-  supported: true,
-  outputGamut: 'srgb-rec709',
-  outputTransfer: 'srgb',
-  lutProfile: null,
-  steps: [
-    { kind: 'input-linear-prophoto' },
-    { kind: 'raw-render-exposure', ev: 0, multiplier: 1 },
+function neutralToneSteps(): SupportedExportColorGraphDescriptor['steps'] {
+  return [
     { kind: 'user-exposure', ev: 0, multiplier: 1 },
     {
       kind: 'user-contrast',
@@ -20,6 +15,31 @@ const noLutGraph: SupportedExportColorGraphDescriptor = {
       luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
       zeroLuminanceMode: 'return-black',
     },
+  ]
+}
+
+const PRECISION_PROBE_LUT_PROFILE: LUTColorProfile = {
+  id: 'test-linear-prophoto-probe',
+  label: 'Test Linear ProPhoto Probe',
+  role: 'scene-creative',
+  inputGamut: 'prophoto-rgb',
+  inputTransfer: 'linear',
+  inputRange: 'full',
+  outputGamut: 'srgb-rec709',
+  outputTransfer: 'linear',
+  outputRange: 'full',
+  aliases: [],
+}
+
+const noLutGraph: SupportedExportColorGraphDescriptor = {
+  supported: true,
+  outputGamut: 'srgb-rec709',
+  outputTransfer: 'srgb',
+  lutProfile: null,
+  steps: [
+    { kind: 'input-linear-prophoto' },
+    { kind: 'raw-render-exposure', ev: 0, multiplier: 1 },
+    ...neutralToneSteps(),
     { kind: 'output-srgb' },
   ],
 }
@@ -64,20 +84,11 @@ function makePrecisionProbeGraph(
     supported: true,
     outputGamut: 'srgb-rec709',
     outputTransfer: 'srgb',
-    lutProfile: null,
+    lutProfile: PRECISION_PROBE_LUT_PROFILE,
     steps: [
       { kind: 'input-linear-prophoto' },
       { kind: 'raw-render-exposure', ev: 0, multiplier: 1 },
-      { kind: 'user-exposure', ev: 0, multiplier: 1 },
-      {
-        kind: 'user-contrast',
-        amount: 0,
-        factor: 1,
-        pivot: 0.18,
-        operator: 'linear-prophoto-luminance-scale',
-        luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
-        zeroLuminanceMode: 'return-black',
-      },
+      ...neutralToneSteps(),
       {
         kind: 'gamut-to-lut-input',
         matrix: mat3Identity(),
@@ -144,7 +155,10 @@ describe('createRowBandProcessor', () => {
   })
 
   it('applies user contrast before LUT input sampling', () => {
-    const graph = makePrecisionProbeGraph(0.2, 0.6)
+    const domainMin = 0.4
+    const domainMax = 0.8
+    const sourceLinear = 0.36
+    const graph = makePrecisionProbeGraph(domainMin, domainMax)
     const contrastStep = graph.steps.find(
       (step) => step.kind === 'user-contrast',
     )
@@ -160,11 +174,28 @@ describe('createRowBandProcessor', () => {
       graph,
     })
     const rows = processor.processFloatRows(
-      new Float32Array([0.36, 0.36, 0.36]),
+      new Float32Array([sourceLinear, sourceLinear, sourceLinear]),
       1,
     )
+    const tonedLinear =
+      contrastStep.pivot *
+      Math.pow(sourceLinear / contrastStep.pivot, contrastStep.factor)
+    const normalizedTonedInput = clamp01(
+      (tonedLinear - domainMin) / (domainMax - domainMin),
+    )
+    const normalizedUntonedInput = clamp01(
+      (sourceLinear - domainMin) / (domainMax - domainMin),
+    )
 
-    expect(rows[0]).toBeGreaterThan(toSrgbByte(0.4))
+    expect(normalizedUntonedInput).toBe(0)
+    expect(rows).toEqual(
+      new Uint8Array([
+        toSrgbByte(normalizedTonedInput),
+        toSrgbByte(normalizedTonedInput),
+        toSrgbByte(normalizedTonedInput),
+      ]),
+    )
+    expect(rows[0]).not.toBe(0)
   })
 
   it('keeps Uint16 rows in Float32 until LUT sampling and final RGB8 quantization', () => {

@@ -1,4 +1,7 @@
-import type { SupportedExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
+import type {
+  ExportColorGraphStep,
+  SupportedExportColorGraphDescriptor,
+} from '@lumaforge/luma-color-runtime'
 import {
   createRowBandProcessor,
   mat3Identity,
@@ -152,6 +155,21 @@ const IDENTITY_RAW_RENDER_EXPOSURE_STEP = {
   multiplier: 1,
 }
 
+function neutralToneSteps(): ExportColorGraphStep[] {
+  return [
+    { kind: 'user-exposure', ev: 0, multiplier: 1 },
+    {
+      kind: 'user-contrast',
+      amount: 0,
+      factor: 1,
+      pivot: 0.18,
+      operator: 'linear-prophoto-luminance-scale',
+      luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+      zeroLuminanceMode: 'return-black',
+    },
+  ]
+}
+
 describe('runFullResolutionJpegExport', () => {
   it('throws FULL_RES_EXPORT_UNSUPPORTED_SOURCE before opening writer or reading windows', async () => {
     const readProcessedWindow = vi.fn()
@@ -175,6 +193,7 @@ describe('runFullResolutionJpegExport', () => {
           steps: [
             { kind: 'input-linear-prophoto' },
             IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            ...neutralToneSteps(),
             { kind: 'output-srgb' },
           ],
         },
@@ -257,6 +276,7 @@ describe('runFullResolutionJpegExport', () => {
             steps: [
               { kind: 'input-linear-prophoto' },
               IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+              ...neutralToneSteps(),
               { kind: 'output-srgb' },
             ],
           },
@@ -300,6 +320,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
           { kind: 'output-srgb' },
         ],
       },
@@ -331,6 +352,7 @@ describe('runFullResolutionJpegExport', () => {
       steps: [
         { kind: 'input-linear-prophoto' },
         { kind: 'raw-render-exposure', ev: 0.1375, multiplier: 1.1 },
+        ...neutralToneSteps(),
         {
           kind: 'gamut-to-lut-input',
           matrix: mat3Identity(),
@@ -454,6 +476,7 @@ describe('runFullResolutionJpegExport', () => {
           steps: [
             { kind: 'input-linear-prophoto' },
             IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            ...neutralToneSteps(),
             { kind: 'output-srgb' },
           ],
         },
@@ -508,6 +531,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
           { kind: 'output-srgb' },
         ],
       },
@@ -555,6 +579,7 @@ describe('runFullResolutionJpegExport', () => {
           steps: [
             { kind: 'input-linear-prophoto' },
             IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            ...neutralToneSteps(),
             { kind: 'output-srgb' },
           ],
         },
@@ -608,6 +633,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
           {
             kind: 'gamut-to-lut-input',
             matrix: mat3Identity(),
@@ -674,6 +700,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           { kind: 'raw-render-exposure', ev: 1, multiplier: 2 },
+          ...neutralToneSteps(),
           { kind: 'output-srgb' },
         ],
       },
@@ -723,6 +750,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           { kind: 'raw-render-exposure', ev: 1, multiplier: 2 },
+          ...neutralToneSteps(),
           {
             kind: 'gamut-to-lut-input',
             matrix: mat3Identity(),
@@ -793,6 +821,7 @@ describe('runFullResolutionJpegExport', () => {
             steps: [
               { kind: 'input-linear-prophoto' },
               IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+              ...neutralToneSteps(),
               { kind: 'output-srgb' },
             ],
           },
@@ -829,6 +858,7 @@ describe('runFullResolutionJpegExport', () => {
             steps: [
               { kind: 'input-linear-prophoto' },
               IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+              ...neutralToneSteps(),
               { kind: 'output-srgb' },
             ],
           },
@@ -872,6 +902,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
           { kind: 'output-srgb' },
         ],
       },
@@ -918,6 +949,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
           { kind: 'output-srgb' },
         ],
       },
@@ -962,6 +994,7 @@ describe('runFullResolutionJpegExport', () => {
           steps: [
             { kind: 'input-linear-prophoto' },
             IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            ...neutralToneSteps(),
             { kind: 'output-srgb' },
           ],
         },
@@ -1005,6 +1038,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
           { kind: 'output-srgb' },
         ],
       },
@@ -1070,6 +1104,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
           { kind: 'output-srgb' },
         ],
       },
@@ -1163,6 +1198,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
           { kind: 'output-srgb' },
         ],
       },
@@ -1236,6 +1272,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
           { kind: 'output-srgb' },
         ],
       },
@@ -1322,6 +1359,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
           { kind: 'output-srgb' },
         ],
       },
@@ -1375,6 +1413,7 @@ describe('runFullResolutionJpegExport', () => {
           steps: [
             { kind: 'input-linear-prophoto' },
             IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            ...neutralToneSteps(),
             { kind: 'output-srgb' },
           ],
         },
@@ -1402,6 +1441,7 @@ describe('runFullResolutionJpegExport', () => {
           steps: [
             { kind: 'input-linear-prophoto' },
             IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            ...neutralToneSteps(),
             { kind: 'output-srgb' },
           ],
         },
@@ -1458,6 +1498,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
           { kind: 'output-srgb' },
         ],
       },
@@ -1498,6 +1539,7 @@ describe('runFullResolutionJpegExport', () => {
           steps: [
             { kind: 'input-linear-prophoto' },
             IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            ...neutralToneSteps(),
             { kind: 'output-srgb' },
           ],
         },
@@ -1536,6 +1578,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
           { kind: 'output-srgb' },
         ],
       },
@@ -1587,6 +1630,7 @@ describe('runFullResolutionJpegExport', () => {
         steps: [
           { kind: 'input-linear-prophoto' },
           IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
           {
             kind: 'gamut-to-lut-input',
             matrix: mat3Identity(),
@@ -1658,6 +1702,7 @@ describe('runFullResolutionJpegExport', () => {
           steps: [
             { kind: 'input-linear-prophoto' },
             IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            ...neutralToneSteps(),
             { kind: 'output-srgb' },
           ],
         },
@@ -1689,6 +1734,7 @@ describe('runFullResolutionJpegExport', () => {
           steps: [
             { kind: 'input-linear-prophoto' },
             IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            ...neutralToneSteps(),
             {
               kind: 'lut-output-to-srgb',
               matrix: mat3Identity(),
@@ -1727,6 +1773,7 @@ describe('runFullResolutionJpegExport', () => {
           steps: [
             { kind: 'input-linear-prophoto' },
             IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+            ...neutralToneSteps(),
             {
               kind: 'gamut-to-lut-input',
               matrix: mat3Identity(),
