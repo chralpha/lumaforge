@@ -1912,8 +1912,22 @@ describe('useRawProcessor embedded preview state', () => {
 
     const [{ graph }] =
       exportSystemMock.runFullResolutionExportJob.mock.calls[0]!
-    expect(graph.steps.map((step) => step.kind)).toContain('user-exposure')
-    expect(graph.steps.map((step) => step.kind)).toContain('user-contrast')
+    const userExposureStep = graph.steps.find(
+      (step) => step.kind === 'user-exposure',
+    )
+    const userContrastStep = graph.steps.find(
+      (step) => step.kind === 'user-contrast',
+    )
+    expect(userExposureStep).toMatchObject({
+      kind: 'user-exposure',
+      ev: 1,
+      multiplier: 2,
+    })
+    expect(userContrastStep).toMatchObject({
+      kind: 'user-contrast',
+      amount: 50,
+      factor: Math.pow(2, 50 / 200),
+    })
   })
 
   it('preserves non-neutral tone when a new image loads', async () => {
