@@ -414,6 +414,7 @@ export interface UseRawProcessorReturn {
   exportImage: (options: {
     quality: 'standard' | 'high'
     fidelity: 'safe' | 'balanced' | 'max'
+    previousInterrupted?: boolean
   }) => Promise<void>
   recoverInterruptedExport: (file: File) => Promise<void>
   downloadExportResult: () => Promise<void>
@@ -1821,9 +1822,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
     async ({
       quality,
       fidelity,
+      previousInterrupted,
     }: {
       quality: 'standard' | 'high'
       fidelity: 'safe' | 'balanced' | 'max'
+      previousInterrupted?: boolean
     }) => {
       const rawRenderExposure = decodedImageRef.current?.renderExposure ?? null
       if (
@@ -1913,6 +1916,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
           fidelity,
           sourceWidth: session.exportState.fullResCapability.width,
           sourceHeight: session.exportState.fullResCapability.height,
+          previousInterrupted,
         })
         const activePlan = {
           profileName: executionPlan.profile.name,
@@ -2213,7 +2217,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
     }
 
     pendingRecoveryRetryRef.current = false
-    void exportImage({ quality: 'high', fidelity: 'safe' })
+    void exportImage({
+      quality: 'high',
+      fidelity: 'safe',
+      previousInterrupted: true,
+    })
   }, [canExport, exportImage, status])
 
   const recoverInterruptedExport = useCallback(

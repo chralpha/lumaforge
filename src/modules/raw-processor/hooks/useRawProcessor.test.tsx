@@ -511,7 +511,7 @@ describe('useRawProcessor embedded preview state', () => {
         expect.objectContaining({
           quality: 0.92,
           executionPlan: expect.objectContaining({
-            profile: expect.objectContaining({ name: 'mobile-balanced' }),
+            profile: expect.objectContaining({ name: 'ios-safe' }),
           }),
         }),
       )
