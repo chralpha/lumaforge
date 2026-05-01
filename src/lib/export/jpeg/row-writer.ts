@@ -1,6 +1,8 @@
+import type { ExportOutputResult } from '../output-sink'
+
 export type JpegRowSinkSession = {
   writeRows: (rgbRows: Uint8Array, rowCount: number) => Promise<void>
-  close: () => Promise<Blob>
+  close: () => Promise<ExportOutputResult>
   abort: () => Promise<void> | void
 }
 
@@ -14,7 +16,7 @@ export type JpegRowSink = {
 
 export type JpegRowWriter = {
   writeRows: (rgbRows: Uint8Array, rowCount: number) => Promise<void>
-  close: () => Promise<Blob>
+  close: () => Promise<ExportOutputResult>
   abort: () => Promise<void>
 }
 

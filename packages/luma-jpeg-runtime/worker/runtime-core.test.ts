@@ -150,6 +150,63 @@ describe('createJpegRuntimeCore', () => {
     await expectBaselineJpeg(response.payload.blob, { width: 3, height: 5 })
   })
 
+  it('emits backend chunks before returning the finish response', async () => {
+    const chunk = {
+      bytes: new Uint8Array([0xff, 0xd8]),
+      byteOffset: 0,
+      final: false,
+    }
+    const emitted: unknown[] = []
+    const core = createJpegRuntimeCore(
+      async () => () => ({
+        async writeRows() {},
+        async finish() {
+          return new Blob(['jpeg'], { type: 'image/jpeg' })
+        },
+        drainChunks() {
+          return [chunk]
+        },
+        abort() {},
+      }),
+      {
+        onResponse: (response) => {
+          emitted.push(response)
+        },
+      },
+    )
+
+    await core.handleRequest({
+      id: 'create-chunked-finish',
+      type: 'create',
+      payload: { width: 1, height: 1, quality: 0.9 },
+    })
+    await core.handleRequest({
+      id: 'rows-before-chunked-finish',
+      type: 'rows',
+      payload: { rows: new Uint8Array([255, 255, 255]), rowCount: 1 },
+    })
+
+    const response = await core.handleRequest({
+      id: 'finish-chunked',
+      type: 'finish',
+      payload: {},
+    })
+
+    expect(emitted).toEqual([
+      {
+        id: 'finish-chunked',
+        ok: true,
+        type: 'chunk',
+        payload: chunk,
+      },
+    ])
+    expect(response).toMatchObject({
+      id: 'finish-chunked',
+      ok: true,
+      type: 'finish',
+    })
+  })
+
   it('rejects finish before create', async () => {
     const core = createBaselineRuntime()
 

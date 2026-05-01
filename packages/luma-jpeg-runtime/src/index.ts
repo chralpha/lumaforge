@@ -1,4 +1,5 @@
 export type {
+  LumaJpegChunk,
   LumaJpegEncoder,
   LumaJpegEncoderOptions,
   LumaJpegRuntime,

@@ -4,6 +4,7 @@ import type {
   JpegWorkerResponse,
 } from '../worker/runtime-core'
 import { createJpegRuntimeCore } from '../worker/runtime-core'
+import type { LumaJpegChunk } from './runtime'
 import { createLumaJpegRuntime } from './runtime'
 
 type JpegWorkerErrorResponse = {
@@ -68,7 +69,7 @@ class ManualWorker {
       response?.payload ??
       (request.type === 'finish'
         ? {
-            blob: new Blob([new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9])], {
+            blob: new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], {
               type: 'image/jpeg',
             }),
           }
@@ -86,6 +87,14 @@ class ManualWorker {
           type: request.type,
           payload,
         } as JpegWorkerResponse,
+      } as MessageEvent<WorkerResponse>)
+    })
+  }
+
+  emit(response: WorkerResponse) {
+    queueMicrotask(() => {
+      this.onmessage?.({
+        data: response,
       } as MessageEvent<WorkerResponse>)
     })
   }
@@ -124,23 +133,23 @@ async function expectBaselineJpeg(
   let sof0: { width: number; height: number } | undefined
   let offset = 2
 
-  expect(readWord(bytes, 0)).toBe(0xFFD8)
-  expect(readWord(bytes, bytes.length - 2)).toBe(0xFFD9)
+  expect(readWord(bytes, 0)).toBe(0xffd8)
+  expect(readWord(bytes, bytes.length - 2)).toBe(0xffd9)
 
   while (offset < bytes.length - 2) {
-    if (bytes[offset] !== 0xFF) {
+    if (bytes[offset] !== 0xff) {
       offset += 1
       continue
     }
 
     const marker = bytes[offset + 1]
     markers.add(marker)
-    if (marker === 0xDA) {
+    if (marker === 0xda) {
       break
     }
 
     const segmentLength = readWord(bytes, offset + 2)
-    if (marker === 0xC0) {
+    if (marker === 0xc0) {
       sof0 = {
         height: readWord(bytes, offset + 5),
         width: readWord(bytes, offset + 7),
@@ -149,10 +158,10 @@ async function expectBaselineJpeg(
     offset += 2 + segmentLength
   }
 
-  expect(markers.has(0xDB)).toBe(true)
-  expect(markers.has(0xC0)).toBe(true)
-  expect(markers.has(0xC4)).toBe(true)
-  expect(markers.has(0xDA)).toBe(true)
+  expect(markers.has(0xdb)).toBe(true)
+  expect(markers.has(0xc0)).toBe(true)
+  expect(markers.has(0xc4)).toBe(true)
+  expect(markers.has(0xda)).toBe(true)
   expect(sof0).toEqual(dimensions)
 }
 
@@ -301,6 +310,58 @@ describe('createLumaJpegRuntime', () => {
     expect(slicedPost.transfer).toEqual([
       slicedPost.request.payload.rows.buffer,
     ])
+    runtime.dispose()
+  })
+
+  it('routes chunk responses to onChunk without resolving the active request', async () => {
+    const worker = new ManualWorker()
+    const chunks: LumaJpegChunk[] = []
+    const runtime = createLumaJpegRuntime({
+      workerFactory: () => worker as unknown as Worker,
+      onChunk: (chunk) => {
+        chunks.push(chunk)
+      },
+    })
+    const encoder = runtime.createEncoder({ width: 1, height: 1, quality: 0.9 })
+    worker.respond(worker.posts[0].request)
+    await drainMicrotasks()
+
+    const finishPromise = encoder.finish()
+    let settled = false
+    void finishPromise
+      .finally(() => {
+        settled = true
+      })
+      .catch(() => {})
+    await drainMicrotasks()
+    const finishPost = worker.posts[1]
+    worker.emit({
+      id: finishPost.request.id,
+      ok: true,
+      type: 'chunk',
+      payload: {
+        bytes: new Uint8Array([0xff, 0xd8]),
+        byteOffset: 0,
+        final: false,
+      },
+    } as WorkerResponse)
+    await drainMicrotasks()
+
+    await drainMicrotasks()
+
+    expect(chunks).toEqual([
+      {
+        bytes: new Uint8Array([0xff, 0xd8]),
+        byteOffset: 0,
+        final: false,
+      },
+    ])
+    expect(settled).toBe(false)
+
+    worker.respond(finishPost.request)
+    await expect(finishPromise).resolves.toMatchObject({
+      type: 'image/jpeg',
+    })
     runtime.dispose()
   })
 })

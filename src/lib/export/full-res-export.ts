@@ -12,6 +12,7 @@ import type {
 import type { JpegRowSink, JpegRowWriter } from './jpeg/row-writer'
 import { createJpegRowWriter } from './jpeg/row-writer'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
+import { materializeOutputBlob } from './output-sink'
 import type { ExportPerfMetric } from './perf/export-metrics'
 import { createExportMetricCollector, nowMs } from './perf/export-metrics'
 import {
@@ -373,7 +374,7 @@ export async function runFullResolutionJpegExport(
         },
       )
 
-      const blob = await writer.close()
+      const output = await writer.close()
       closed = true
       if (metricCollector) {
         for (const metric of attemptStripMetrics) {
@@ -387,11 +388,11 @@ export async function runFullResolutionJpegExport(
             retries,
             concurrency,
             totalMs: nowMs() - exportStart,
-            outputBytes: blob.size,
+            outputBytes: output.byteLength,
           }),
         )
       }
-      return blob
+      return materializeOutputBlob(output)
     } catch (error) {
       attemptAbortScope.abort()
 

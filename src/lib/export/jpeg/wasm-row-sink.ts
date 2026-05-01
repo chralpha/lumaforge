@@ -1,8 +1,7 @@
-import {
-  createLumaJpegRuntime,
-  type LumaJpegRuntime,
-} from '@lumaforge/luma-jpeg-runtime'
+import type { LumaJpegRuntime } from '@lumaforge/luma-jpeg-runtime'
+import { createLumaJpegRuntime } from '@lumaforge/luma-jpeg-runtime'
 
+import { createBlobOutputResult } from '../output-sink'
 import type { JpegRowSink } from './row-writer'
 
 export const JPEG_RUNTIME_UNAVAILABLE_MESSAGE =
@@ -110,7 +109,10 @@ export function createWasmJpegRowSink(
             const blob = await encoder.finish()
             state = 'closed'
             disposeRuntime()
-            return blob
+            return createBlobOutputResult({
+              filename: 'export.jpg',
+              blob,
+            })
           } catch (error) {
             try {
               await abortEncoder()

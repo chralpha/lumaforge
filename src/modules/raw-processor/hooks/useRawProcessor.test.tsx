@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetToDefaults } from '~/atoms/raw-processor'
+import { createBlobOutputResult } from '~/lib/export/output-sink'
 import { jotaiStore } from '~/lib/jotai'
 import {
   getStoredLUTContractSelection,
@@ -1687,7 +1688,10 @@ describe('useRawProcessor embedded preview state', () => {
           ...activeSession.exportState,
           status: 'ready',
           result: {
-            blob: new Blob(['old'], { type: 'image/jpeg' }),
+            output: createBlobOutputResult({
+              blob: new Blob(['old'], { type: 'image/jpeg' }),
+              filename: 'stale_fullres.jpg',
+            }),
             filename: 'stale_fullres.jpg',
             width: 6048,
             height: 4024,

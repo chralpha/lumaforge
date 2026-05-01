@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+import { createBlobOutputResult } from '~/lib/export/output-sink'
+
 import type { ExportResult } from '../../model/export-result'
 import { ExportTool } from './ExportTool'
 
@@ -9,7 +11,10 @@ function createResult(overrides: Partial<ExportResult> = {}): ExportResult {
   const blob = new Blob(['jpeg'], { type: 'image/jpeg' })
 
   return {
-    blob,
+    output: createBlobOutputResult({
+      blob,
+      filename: 'frame_neutral_fullres.jpg',
+    }),
     filename: 'frame_neutral_fullres.jpg',
     width: 6048,
     height: 4024,

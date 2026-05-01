@@ -36,9 +36,18 @@ describe('createWasmJpegRowSink', () => {
     })
 
     await session.writeRows(new Uint8Array([255, 255, 255]), 1)
-    const blob = await session.close()
+    const output = await session.close()
 
-    expect(blob.type).toBe('image/jpeg')
+    expect(output).toMatchObject({
+      kind: 'blob',
+      filename: 'export.jpg',
+      mimeType: 'image/jpeg',
+      byteLength: 4,
+    })
+    if (output.kind !== 'blob') {
+      throw new Error('expected blob-backed output')
+    }
+    expect(output.blob.type).toBe('image/jpeg')
     expect(calls).toEqual(['rows', 'finish', 'dispose'])
   })
 
@@ -65,7 +74,7 @@ describe('createWasmJpegRowSink', () => {
         },
         dispose() {
           calls.push(`dispose:${runtimeId}`)
-        }
+        },
       }
     })
 
@@ -78,7 +87,13 @@ describe('createWasmJpegRowSink', () => {
     await second.abort()
 
     expect(runtimeCount).toBe(2)
-    expect(calls).toEqual(['rows:1', 'abort:1', 'dispose:1', 'abort:2', 'dispose:2'])
+    expect(calls).toEqual([
+      'rows:1',
+      'abort:1',
+      'dispose:1',
+      'abort:2',
+      'dispose:2',
+    ])
   })
 
   it('disposes the runtime if encoder creation fails during session construction', () => {

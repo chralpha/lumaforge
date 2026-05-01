@@ -39,7 +39,11 @@ self.onmessage = async (event: MessageEvent<JpegWorkerRequest>) => {
   const request = event.data
 
   try {
-    core ??= createJpegRuntimeCore(loadNativeJpegEncoderFactory)
+    core ??= createJpegRuntimeCore(loadNativeJpegEncoderFactory, {
+      onResponse(response) {
+        self.postMessage(response)
+      },
+    })
     const response: JpegWorkerResponse = await core.handleRequest(request)
     self.postMessage(response)
   } catch (error) {

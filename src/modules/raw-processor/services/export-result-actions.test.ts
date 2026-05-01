@@ -1,18 +1,31 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import type { ExportOutputResult } from '~/lib/export/output-sink'
+import {
+  createBlobOutputResult,
+  createMemoryFileBackedOutputResult,
+} from '~/lib/export/output-sink'
+
 import { createExportResult } from '../model/export-result'
 import {
-  copyBlobToClipboard,
   copyCanvasToClipboard,
+  copyExportResultToClipboard,
   downloadExportResult,
   resolveExportCopyCapability,
   resolveExportShareCapability,
   shareExportResult,
 } from './export-result-actions'
 
-function createResult() {
-  return createExportResult({
+function createResult({
+  output = createBlobOutputResult({
     blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    filename: 'frame_neutral_fullres.jpg',
+  }),
+}: {
+  output?: ExportOutputResult
+} = {}) {
+  return createExportResult({
+    output,
     filename: 'frame_neutral_fullres.jpg',
     width: 6048,
     height: 4024,
@@ -81,6 +94,8 @@ describe('export result actions', () => {
       expect(result.height).toBe(4024)
       expect(result.size).toBe(4)
       expect(result.createdAt).toBe(123)
+      expect(result.output.kind).toBe('blob')
+      expect('blob' in result).toBe(false)
       expect('file' in result).toBe(false)
       expect(fileConstructions).toHaveLength(0)
     } finally {
@@ -88,7 +103,7 @@ describe('export result actions', () => {
     }
   })
 
-  it('downloads the stored full-resolution blob only when the action is called', () => {
+  it('downloads the stored full-resolution blob only when the action is called', async () => {
     vi.useFakeTimers()
     const result = createResult()
     const click = vi.fn()
@@ -105,9 +120,15 @@ describe('export result actions', () => {
     } as unknown as typeof URL
 
     try {
-      downloadExportResult(result, { document: documentLike, URL: urlLike })
+      await downloadExportResult(result, {
+        document: documentLike,
+        URL: urlLike,
+      })
 
-      expect(urlLike.createObjectURL).toHaveBeenCalledWith(result.blob)
+      if (result.output.kind !== 'blob') {
+        throw new Error('expected blob-backed result')
+      }
+      expect(urlLike.createObjectURL).toHaveBeenCalledWith(result.output.blob)
       expect(link.href).toBe('blob:export')
       expect(link.download).toBe('frame_neutral_fullres.jpg')
       expect(append).toHaveBeenCalledWith(link)
@@ -121,6 +142,35 @@ describe('export result actions', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('does not materialize file-backed output while resolving share capability', () => {
+    const openBlob = vi.fn(
+      async () => new Blob(['jpeg'], { type: 'image/jpeg' }),
+    )
+    const result = createResult({
+      output: {
+        kind: 'file-backed',
+        exportId: 'export-1',
+        filename: 'frame_neutral_fullres.jpg',
+        byteLength: 4,
+        mimeType: 'image/jpeg',
+        openBlob,
+      },
+    })
+    const canShare = vi.fn((_data?: ShareData) => true)
+    const navigatorLike = {
+      canShare,
+      share: vi.fn(),
+    } as unknown as Navigator
+
+    expect(resolveExportShareCapability(result, navigatorLike)).toEqual({
+      available: true,
+    })
+    expect(openBlob).not.toHaveBeenCalled()
+    const files = canShare.mock.calls[0]?.[0]?.files ?? []
+    expect(files[0]).toBeInstanceOf(File)
+    expect(files[0].size).toBe(0)
   })
 
   it('enables share only when the browser can share the JPEG file', () => {
@@ -168,7 +218,14 @@ describe('export result actions', () => {
   })
 
   it('creates the full-resolution share file only from user action handlers', async () => {
-    const result = createResult()
+    const result = createResult({
+      output: createMemoryFileBackedOutputResult({
+        exportId: 'export-1',
+        filename: 'frame_neutral_fullres.jpg',
+        mimeType: 'image/jpeg',
+        bytes: new Uint8Array([1, 2, 3, 4]),
+      }),
+    })
     const canShare = vi.fn((_data?: ShareData) => true)
     const share = vi.fn().mockResolvedValue(undefined)
     const navigatorLike = {
@@ -254,10 +311,13 @@ describe('export result actions', () => {
       ClipboardItem: ClipboardItemMock,
     }
 
-    await copyBlobToClipboard(result.blob, environment)
+    await copyExportResultToClipboard(result, environment)
 
+    if (result.output.kind !== 'blob') {
+      throw new Error('expected blob-backed result')
+    }
     expect(ClipboardItemMock).toHaveBeenCalledWith({
-      'image/jpeg': result.blob,
+      'image/jpeg': result.output.blob,
     })
     expect(write).toHaveBeenCalledWith([
       ClipboardItemMock.mock.results[0].value,

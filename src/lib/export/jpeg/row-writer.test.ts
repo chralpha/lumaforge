@@ -1,8 +1,10 @@
+import { createBlobOutputResult } from '../output-sink'
 import { createJpegRowWriter } from './row-writer'
 
 describe('createJpegRowWriter', () => {
-  it('writes rows incrementally and closes to a JPEG blob', async () => {
-    const calls: Array<{ type: string; rowCount?: number; rows?: Uint8Array }> = []
+  it('writes rows incrementally and closes to a JPEG output result', async () => {
+    const calls: Array<{ type: string; rowCount?: number; rows?: Uint8Array }> =
+      []
     const writer = createJpegRowWriter({
       width: 2,
       height: 2,
@@ -15,8 +17,11 @@ describe('createJpegRowWriter', () => {
             },
             async close() {
               calls.push({ type: 'close' })
-              return new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], {
-                type: 'image/jpeg',
+              return createBlobOutputResult({
+                filename: 'frame.jpg',
+                blob: new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], {
+                  type: 'image/jpeg',
+                }),
               })
             },
             async abort() {
@@ -30,7 +35,12 @@ describe('createJpegRowWriter', () => {
     await writer.writeRows(new Uint8Array([255, 0, 0, 0, 255, 0]), 1)
     await writer.writeRows(new Uint8Array([0, 0, 255, 255, 255, 255]), 1)
 
-    await expect(writer.close()).resolves.toMatchObject({ type: 'image/jpeg' })
+    await expect(writer.close()).resolves.toMatchObject({
+      kind: 'blob',
+      filename: 'frame.jpg',
+      mimeType: 'image/jpeg',
+      byteLength: 4,
+    })
     expect(calls).toEqual([
       {
         type: 'rows',
@@ -56,7 +66,10 @@ describe('createJpegRowWriter', () => {
           return {
             async writeRows() {},
             async close() {
-              return new Blob()
+              return createBlobOutputResult({
+                filename: 'frame.jpg',
+                blob: new Blob(),
+              })
             },
             async abort() {},
           }
@@ -66,9 +79,9 @@ describe('createJpegRowWriter', () => {
 
     await writer.writeRows(new Uint8Array([0, 0, 0]), 1)
 
-    await expect(writer.writeRows(new Uint8Array([0, 0, 0]), 1)).rejects.toThrow(
-      'JPEG_ROW_COUNT_EXCEEDED',
-    )
+    await expect(
+      writer.writeRows(new Uint8Array([0, 0, 0]), 1),
+    ).rejects.toThrow('JPEG_ROW_COUNT_EXCEEDED')
   })
 
   it('aborts the sink session when close is attempted before the image is complete', async () => {
@@ -85,7 +98,10 @@ describe('createJpegRowWriter', () => {
             },
             async close() {
               calls.push('close')
-              return new Blob()
+              return createBlobOutputResult({
+                filename: 'frame.jpg',
+                blob: new Blob(),
+              })
             },
             async abort() {
               calls.push('abort')

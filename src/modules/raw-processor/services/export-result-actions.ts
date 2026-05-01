@@ -1,3 +1,5 @@
+import { materializeOutputBlob } from '~/lib/export/output-sink'
+
 import type {
   ExportCopyCapability,
   ExportResult,
@@ -18,14 +20,15 @@ type ClipboardEnvironment = {
 
 function createShareProbeFile(result: ExportResult) {
   return new File([], result.filename, {
-    type: result.blob.type || 'image/jpeg',
+    type: result.output.mimeType || 'image/jpeg',
     lastModified: result.createdAt,
   })
 }
 
-function createShareFile(result: ExportResult) {
-  return new File([result.blob], result.filename, {
-    type: result.blob.type || 'image/jpeg',
+async function createShareFile(result: ExportResult) {
+  const blob = await materializeOutputBlob(result.output)
+  return new File([blob], result.filename, {
+    type: blob.type || result.output.mimeType || 'image/jpeg',
     lastModified: result.createdAt,
   })
 }
@@ -57,14 +60,14 @@ export async function shareExportResult(
     throw new Error(capability.reason)
   }
 
-  const file = createShareFile(result)
+  const file = await createShareFile(result)
   await navigatorLike.share({
     files: [file],
     title: result.filename,
   })
 }
 
-export function downloadExportResult(
+export async function downloadExportResult(
   result: ExportResult,
   environment: {
     document?: Document
@@ -73,7 +76,8 @@ export function downloadExportResult(
 ) {
   const documentLike = environment.document ?? document
   const urlLike = environment.URL ?? URL
-  const url = urlLike.createObjectURL(result.blob)
+  const blob = await materializeOutputBlob(result.output)
+  const url = urlLike.createObjectURL(blob)
   const link = documentLike.createElement('a')
 
   link.href = url
@@ -133,6 +137,14 @@ export async function copyBlobToClipboard(
 
   const type = blob.type || 'image/jpeg'
   await clipboard.write([new ClipboardItemCtor({ [type]: blob })])
+}
+
+export async function copyExportResultToClipboard(
+  result: ExportResult,
+  environment: ClipboardEnvironment = globalThis,
+) {
+  const blob = await materializeOutputBlob(result.output)
+  await copyBlobToClipboard(blob, environment)
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, type: string) {

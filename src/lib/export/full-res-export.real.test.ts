@@ -37,6 +37,7 @@ import type {
 import { createRuntimeCore } from '../../../packages/luma-raw-runtime/worker/runtime-core'
 import { runFullResolutionJpegExport } from './full-res-export'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
+import { createBlobOutputResult } from './output-sink'
 
 type NativeModuleFactory = (options?: {
   locateFile?: (path: string) => string
@@ -388,6 +389,13 @@ async function readBlobBytes(blob: Blob) {
   })
 }
 
+function makeJpegOutput(parts: BlobPart[] = []) {
+  return createBlobOutputResult({
+    filename: 'test.jpg',
+    blob: new Blob(parts, { type: 'image/jpeg' }),
+  })
+}
+
 function readWord(bytes: Uint8Array, offset: number) {
   return (bytes[offset] << 8) | bytes[offset + 1]
 }
@@ -494,9 +502,7 @@ describe('full-resolution export real RAW fixtures', () => {
                 async close() {
                   expect(writtenRows).toBe(capability.height)
                   finalWrittenRows = writtenRows
-                  return new Blob([new Uint8Array([1])], {
-                    type: 'image/jpeg',
-                  })
+                  return makeJpegOutput([new Uint8Array([1])])
                 },
                 async abort() {
                   return undefined

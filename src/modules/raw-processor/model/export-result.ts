@@ -1,3 +1,5 @@
+import type { ExportOutputResult } from '~/lib/export/output-sink'
+
 export type ExportCopyCapability =
   | { mode: 'full-resolution'; label: 'Copy full-resolution image' }
   | {
@@ -12,7 +14,7 @@ export type ExportShareCapability =
   | { available: false; reason: string }
 
 export type ExportResult = {
-  blob: Blob
+  output: ExportOutputResult
   filename: string
   width: number
   height: number
@@ -22,15 +24,15 @@ export type ExportResult = {
 }
 
 export function createExportResult({
-  blob,
-  filename,
+  output,
+  filename = output.filename,
   width,
   height,
   now = () => Date.now(),
   copyCapability,
 }: {
-  blob: Blob
-  filename: string
+  output: ExportOutputResult
+  filename?: string
   width: number
   height: number
   now?: () => number
@@ -39,11 +41,11 @@ export function createExportResult({
   const createdAt = now()
 
   return {
-    blob,
+    output,
     filename,
     width,
     height,
-    size: blob.size,
+    size: output.byteLength,
     createdAt,
     copyCapability,
   }

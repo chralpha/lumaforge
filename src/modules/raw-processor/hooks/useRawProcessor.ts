@@ -31,6 +31,7 @@ import {
   useSetProcessingStatus,
   useSetProgress,
 } from '~/atoms/raw-processor'
+import { createBlobOutputResult } from '~/lib/export/output-sink'
 import type { ResourceRegistry } from '~/lib/export/resource-registry'
 import { createResourceRegistry } from '~/lib/export/resource-registry'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
@@ -79,8 +80,8 @@ import {
   evacuateBeforeExport,
 } from '../services/export-evacuation'
 import {
-  copyBlobToClipboard,
   copyCanvasToClipboard,
+  copyExportResultToClipboard,
   downloadExportResult as downloadStoredExportResult,
   resolveExportCopyCapability,
   resolveExportShareCapability,
@@ -407,7 +408,7 @@ export interface UseRawProcessorReturn {
     quality: 'standard' | 'high'
     fidelity: 'safe' | 'balanced' | 'max'
   }) => Promise<void>
-  downloadExportResult: () => void
+  downloadExportResult: () => Promise<void>
   shareExportResult: () => Promise<void>
   copyExportResult: () => Promise<void>
   reset: () => void
@@ -1959,7 +1960,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
         const completedCapability = activeSession.exportState.fullResCapability
 
         const exportResult = createExportResult({
-          blob: result.blob,
+          output: createBlobOutputResult({
+            blob: result.blob,
+            filename: result.filename,
+          }),
           filename: result.filename,
           width: completedCapability.width,
           height: completedCapability.height,
@@ -2059,12 +2063,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
     ],
   )
 
-  const downloadExportResult = useCallback(() => {
+  const downloadExportResult = useCallback(async () => {
     const result = sessionRef.current?.exportState.result
     if (!result) return
 
     try {
-      downloadStoredExportResult(result)
+      await downloadStoredExportResult(result)
     } catch (err) {
       const description =
         err instanceof Error ? err.message : 'Download action failed.'
@@ -2103,7 +2107,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
     try {
       if (result.copyCapability.mode === 'full-resolution') {
-        await copyBlobToClipboard(result.blob)
+        await copyExportResultToClipboard(result)
         scheduleToast(() => toast.success('Full-resolution image copied'))
         return
       }

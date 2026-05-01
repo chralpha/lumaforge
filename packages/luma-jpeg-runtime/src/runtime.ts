@@ -15,6 +15,12 @@ export type LumaJpegEncoder = {
   abort: () => void
 }
 
+export type LumaJpegChunk = {
+  bytes: Uint8Array
+  byteOffset: number
+  final: boolean
+}
+
 export type LumaJpegRuntime = {
   createEncoder: (options: LumaJpegEncoderOptions) => LumaJpegEncoder
   dispose: () => void
@@ -22,6 +28,7 @@ export type LumaJpegRuntime = {
 
 export type LumaJpegRuntimeOptions = {
   workerFactory?: () => Worker
+  onChunk?: (chunk: LumaJpegChunk) => void | Promise<void>
 }
 
 type JpegWorkerErrorResponse = {
@@ -79,14 +86,25 @@ export function createLumaJpegRuntime(
       return
     }
 
-    pending.delete(response.id)
-
     if (response.ok) {
+      if (response.type === 'chunk') {
+        if (options.onChunk) {
+          void Promise.resolve(options.onChunk(response.payload)).catch(
+            () => {},
+          )
+        }
+        return
+      }
+
+      pending.delete(response.id)
       request.resolve(response)
       return
     }
 
-    request.reject(new Error(response.error.message || 'JPEG_RUNTIME_WORKER_ERROR'))
+    pending.delete(response.id)
+    request.reject(
+      new Error(response.error.message || 'JPEG_RUNTIME_WORKER_ERROR'),
+    )
   }
 
   worker.onerror = (event) => {
@@ -152,10 +170,13 @@ export function createLumaJpegRuntime(
           assertOpen()
 
           const rowTransfer = createRowTransfer(rows)
-          await sendRequest({
-            type: 'rows',
-            payload: { rows: rowTransfer.rows, rowCount },
-          }, rowTransfer.transfer)
+          await sendRequest(
+            {
+              type: 'rows',
+              payload: { rows: rowTransfer.rows, rowCount },
+            },
+            rowTransfer.transfer,
+          )
         },
 
         async finish() {

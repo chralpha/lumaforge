@@ -14,6 +14,7 @@ import type {
 
 import { runFullResolutionJpegExport } from './full-res-export'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
+import { createBlobOutputResult } from './output-sink'
 import { processedWindowToLinearProPhotoTile } from './processed-window-transform'
 
 function makeCapability(
@@ -130,6 +131,13 @@ function concatByteRows(rows: Uint8Array[]) {
   }
 
   return output
+}
+
+function makeJpegOutput(parts: BlobPart[] = []) {
+  return createBlobOutputResult({
+    filename: 'test.jpg',
+    blob: new Blob(parts, { type: 'image/jpeg' }),
+  })
 }
 
 function makeRgbRampLut() {
@@ -303,10 +311,7 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
         writtenRows.push({ rowCount, bytes: new Uint8Array(bytes) })
       }),
-      close: vi.fn(
-        async () =>
-          new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }),
-      ),
+      close: vi.fn(async () => makeJpegOutput([new Uint8Array([1, 2, 3])])),
       abort: vi.fn(async () => undefined),
     }
 
@@ -395,9 +400,7 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
         writtenRows.push({ bytes: new Uint8Array(bytes), rowCount })
       }),
-      close: vi.fn(
-        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
-      ),
+      close: vi.fn(async () => makeJpegOutput([new Uint8Array([1])])),
       abort: vi.fn(async () => undefined),
     }
 
@@ -447,9 +450,7 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
         writtenRows.push({ bytes: new Uint8Array(bytes), rowCount })
       }),
-      close: vi.fn(
-        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
-      ),
+      close: vi.fn(async () => makeJpegOutput([new Uint8Array([1])])),
       abort: vi.fn(async () => undefined),
     }
 
@@ -509,9 +510,7 @@ describe('runFullResolutionJpegExport', () => {
         snapshots.push(new Uint8Array(bytes))
         rowCounts.push(rowCount)
       }),
-      close: vi.fn(
-        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
-      ),
+      close: vi.fn(async () => makeJpegOutput([new Uint8Array([1])])),
       abort: vi.fn(async () => undefined),
     }
 
@@ -555,9 +554,7 @@ describe('runFullResolutionJpegExport', () => {
     const metrics: unknown[] = []
     const writer = {
       writeRows: vi.fn(async () => undefined),
-      close: vi.fn(
-        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
-      ),
+      close: vi.fn(async () => makeJpegOutput([new Uint8Array([1])])),
       abort: vi.fn(async () => undefined),
     }
     let now = 0
@@ -613,7 +610,7 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
         writtenRows.push({ bytes: new Uint8Array(bytes), rowCount })
       }),
-      close: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
+      close: vi.fn(async () => makeJpegOutput()),
       abort: vi.fn(async () => undefined),
     }
 
@@ -686,7 +683,7 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (bytes: Uint8Array) => {
         writtenRows.push({ bytes: new Uint8Array(bytes) })
       }),
-      close: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
+      close: vi.fn(async () => makeJpegOutput()),
       abort: vi.fn(async () => undefined),
     }
 
@@ -736,7 +733,7 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (bytes: Uint8Array) => {
         writtenRows.push({ bytes: new Uint8Array(bytes) })
       }),
-      close: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
+      close: vi.fn(async () => makeJpegOutput()),
       abort: vi.fn(async () => undefined),
     }
 
@@ -884,7 +881,7 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (_bytes: Uint8Array, rowCount: number) => {
         writtenRows.push(rowCount)
       }),
-      close: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
+      close: vi.fn(async () => makeJpegOutput()),
       abort: vi.fn(async () => undefined),
     }
 
@@ -929,7 +926,7 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (_bytes: Uint8Array, rowCount: number) => {
         writtenRows.push(rowCount)
       }),
-      close: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
+      close: vi.fn(async () => makeJpegOutput()),
       abort: vi.fn(async () => undefined),
     }
 
@@ -1018,9 +1015,7 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (bytes: Uint8Array) => {
         writtenFirstBytes.push(bytes[0] ?? -1)
       }),
-      close: vi.fn(
-        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
-      ),
+      close: vi.fn(async () => makeJpegOutput([new Uint8Array([1])])),
       abort: vi.fn(async () => undefined),
     }
 
@@ -1083,10 +1078,7 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
         writtenRows.push({ rowCount, bytes: new Uint8Array(bytes) })
       }),
-      close: vi.fn(
-        async () =>
-          new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }),
-      ),
+      close: vi.fn(async () => makeJpegOutput([new Uint8Array([1, 2, 3])])),
       abort: vi.fn(async () => undefined),
     }
 
@@ -1140,9 +1132,7 @@ describe('runFullResolutionJpegExport', () => {
     }
     const secondWriter = {
       writeRows: vi.fn(async () => undefined),
-      close: vi.fn(
-        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
-      ),
+      close: vi.fn(async () => makeJpegOutput([new Uint8Array([1])])),
       abort: vi.fn(async () => undefined),
     }
     const attemptWriters = [firstWriter, secondWriter]
@@ -1240,9 +1230,7 @@ describe('runFullResolutionJpegExport', () => {
     }
     const secondWriter = {
       writeRows: vi.fn(async () => undefined),
-      close: vi.fn(
-        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
-      ),
+      close: vi.fn(async () => makeJpegOutput([new Uint8Array([1])])),
       abort: vi.fn(async () => undefined),
     }
     const attemptWriters = [firstWriter, secondWriter]
@@ -1338,9 +1326,7 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
         writtenRows.push({ rowCount, bytes: new Uint8Array(bytes) })
       }),
-      close: vi.fn(
-        async () => new Blob([new Uint8Array([1])], { type: 'image/jpeg' }),
-      ),
+      close: vi.fn(async () => makeJpegOutput([new Uint8Array([1])])),
       abort: vi.fn(async () => undefined),
     }
 
@@ -1564,7 +1550,7 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
         writtenRows.push({ rowCount, bytes: new Uint8Array(bytes) })
       }),
-      close: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
+      close: vi.fn(async () => makeJpegOutput()),
       abort: vi.fn(async () => undefined),
     }
 
@@ -1616,7 +1602,7 @@ describe('runFullResolutionJpegExport', () => {
       writeRows: vi.fn(async (bytes: Uint8Array, rowCount: number) => {
         writtenRows.push({ rowCount, bytes: new Uint8Array(bytes) })
       }),
-      close: vi.fn(async () => new Blob([], { type: 'image/jpeg' })),
+      close: vi.fn(async () => makeJpegOutput()),
       abort: vi.fn(async () => undefined),
     }
 

@@ -1,8 +1,15 @@
-import type { InternalJpegEncoder } from './runtime-core'
+import type { InternalJpegEncoder, JpegWorkerChunk } from './runtime-core'
+
+type NativeJpegChunk = {
+  bytes: Uint8Array
+  byteOffset: number
+  final: boolean
+}
 
 type NativeJpegEncoder = {
   writeRows: (rows: Uint8Array, rowCount: number) => number | void
   finish: () => Uint8Array
+  drainChunks?: () => NativeJpegChunk[]
   abort: () => void
   delete?: () => void
 }
@@ -67,6 +74,15 @@ function deleteNativeEncoder(encoder: NativeJpegEncoder) {
   }
 }
 
+function normalizeNativeChunks(encoder: NativeJpegEncoder): JpegWorkerChunk[] {
+  const chunks = encoder.drainChunks?.() ?? []
+  return chunks.map((chunk) => ({
+    bytes: new Uint8Array(chunk.bytes),
+    byteOffset: chunk.byteOffset,
+    final: chunk.final,
+  }))
+}
+
 export function createNativeJpegEncoderFactory(module: NativeJpegModule) {
   return (input: NativeJpegEncoderFactoryInput): InternalJpegEncoder => {
     let encoder: NativeJpegEncoder
@@ -82,6 +98,7 @@ export function createNativeJpegEncoderFactory(module: NativeJpegModule) {
 
     let aborted = false
     let finished = false
+    let pendingChunks: JpegWorkerChunk[] = []
 
     return {
       async writeRows(rows, rowCount) {
@@ -101,6 +118,7 @@ export function createNativeJpegEncoderFactory(module: NativeJpegModule) {
         let bytes: Uint8Array
         try {
           bytes = encoder.finish()
+          pendingChunks = normalizeNativeChunks(encoder)
         } catch (error) {
           finished = true
           deleteNativeEncoder(encoder)
@@ -109,6 +127,11 @@ export function createNativeJpegEncoderFactory(module: NativeJpegModule) {
         finished = true
         deleteNativeEncoder(encoder)
         return createJpegBlob(bytes)
+      },
+      drainChunks() {
+        const chunks = pendingChunks
+        pendingChunks = []
+        return chunks
       },
       abort() {
         if (aborted || finished) return

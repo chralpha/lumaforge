@@ -12,6 +12,12 @@ export type JpegWorkerRequest =
   | { id: string; type: 'finish'; payload: Record<string, never> }
   | { id: string; type: 'abort'; payload: Record<string, never> }
 
+export type JpegWorkerChunk = {
+  bytes: Uint8Array
+  byteOffset: number
+  final: boolean
+}
+
 export type JpegWorkerResponse =
   | {
       id: string
@@ -34,6 +40,12 @@ export type JpegWorkerResponse =
   | {
       id: string
       ok: true
+      type: 'chunk'
+      payload: JpegWorkerChunk
+    }
+  | {
+      id: string
+      ok: true
       type: 'abort'
       payload: { aborted: true }
     }
@@ -41,6 +53,9 @@ export type JpegWorkerResponse =
 export type InternalJpegEncoder = {
   writeRows: (rows: Uint8Array, rowCount: number) => Promise<void>
   finish: () => Promise<Blob>
+  drainChunks?: () =>
+    | readonly JpegWorkerChunk[]
+    | Promise<readonly JpegWorkerChunk[]>
   abort: () => void
 }
 
@@ -53,6 +68,10 @@ export type InternalJpegEncoderFactory = (input: {
 export type InternalJpegEncoderFactoryLoader =
   () => Promise<InternalJpegEncoderFactory>
 
+export type JpegRuntimeCoreOptions = {
+  onResponse?: (response: JpegWorkerResponse) => void | Promise<void>
+}
+
 function isPositiveInteger(value: number) {
   return Number.isInteger(value) && value > 0
 }
@@ -63,6 +82,7 @@ function isValidJpegQuality(value: number) {
 
 export function createJpegRuntimeCore(
   loadEncoderFactory: InternalJpegEncoderFactoryLoader,
+  options: JpegRuntimeCoreOptions = {},
 ) {
   let width = 0
   let height = 0
@@ -101,6 +121,25 @@ export function createJpegRuntimeCore(
     writtenRows = 0
     state = 'failed'
     encoder = null
+  }
+
+  async function emitChunks(
+    requestId: string,
+    activeEncoder: InternalJpegEncoder,
+  ) {
+    const chunks = await activeEncoder.drainChunks?.()
+    if (!chunks) {
+      return
+    }
+
+    for (const chunk of chunks) {
+      await options.onResponse?.({
+        id: requestId,
+        ok: true,
+        type: 'chunk',
+        payload: chunk,
+      })
+    }
   }
 
   return {
@@ -193,6 +232,8 @@ export function createJpegRuntimeCore(
           }
           throw error
         }
+        assertReady()
+        await emitChunks(request.id, activeEncoder)
         assertReady()
         state = 'finished'
         encoder = null
