@@ -3114,7 +3114,7 @@ git commit -m "test(export): add webkit ios-safe preflight"
 - Modify: `docs/specs/2026-04-22-phase1-test-matrix.md`
 - Modify: `docs/plans/2026-05-01-ios-safari-100mp-export-compatibility-implementation-plan.md`
 
-- [ ] **Step 1: Add acceptance rows to the test matrix**
+- [x] **Step 1: Add acceptance rows to the test matrix**
 
 Edit `docs/specs/2026-04-22-phase1-test-matrix.md` with:
 
@@ -3135,7 +3135,7 @@ Edit `docs/specs/2026-04-22-phase1-test-matrix.md` with:
 | Unsupported LUT contract             | supported RAW plus unresolved LUT | fail-closed LUT contract copy remains intact                                   |
 ```
 
-- [ ] **Step 2: Run targeted unit suites**
+- [x] **Step 2: Run targeted unit suites**
 
 Run:
 
@@ -3157,7 +3157,7 @@ pnpm test:run src/lib/export/execution-profile.test.ts \
 
 Expected: PASS.
 
-- [ ] **Step 3: Run package runtime tests**
+- [x] **Step 3: Run package runtime tests**
 
 Run:
 
@@ -3170,7 +3170,7 @@ pnpm --filter @lumaforge/luma-jpeg-runtime typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Run native build gates**
+- [x] **Step 4: Run native build gates**
 
 Run:
 
@@ -3197,7 +3197,7 @@ git diff --check
 
 Expected: PASS.
 
-- [ ] **Step 6: Run browser preflight**
+- [x] **Step 6: Run browser preflight**
 
 Run:
 
@@ -3211,7 +3211,7 @@ Expected:
 - WebKit preflight records `ios-safe`, `safe-retry`, low-memory runtime, and concurrency `1`.
 - Chromium desktop preflight records `desktop-fast` when the fixture and runtime support it.
 
-- [ ] **Step 7: Record manual real-device acceptance**
+- [x] **Step 7: Record manual real-device acceptance**
 
 Create a local validation note outside the implementation commit or append to the PR description. Use this exact checklist:
 
@@ -3239,6 +3239,69 @@ git add docs/specs/2026-04-22-phase1-test-matrix.md \
   docs/plans/2026-05-01-ios-safari-100mp-export-compatibility-implementation-plan.md
 git commit -m "docs(export): add ios safari export acceptance plan"
 ```
+
+### Task 10 Verification Notes
+
+Task 10 is a documentation acceptance update. These notes do not claim real-device
+iOS Safari production support.
+
+Task 9 / review-fix evidence already run before Task 10:
+
+- PASS: `pnpm test:run src/lib/export/execution-profile.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx` (`69` tests).
+- PASS: `pnpm test:run src/modules/raw-processor/hooks/useRawProcessor.test.tsx` (`64` tests) after the review fix.
+- PASS: `pnpm exec tsc --noEmit --pretty false`.
+- SKIPPED: `pnpm test:browser:webkit` (`1` skipped) in the current local Playwright WebKit because processed-window full-resolution export is unavailable in this browser build.
+- PASS: `pnpm test:browser --project=chromium-desktop` (`1` test).
+- PASS: targeted eslint/prettier checks and `git diff --check`.
+- NOTE: A prior full `pnpm test:run` failed outside this task area in `scripts/deploy/deploy.test.mjs` because the expected preview URL was `https://feat-prod-preview.luma.ichr.me` and the actual URL was `https://feat-prod-preview.lumaforge.pages.dev`; do not classify that as a Task 10 regression without a fresh rerun/investigation.
+
+Task 10 final verification status:
+
+- PASS: Step 2 targeted unit suites:
+  `pnpm test:run src/lib/export/execution-profile.test.ts src/lib/export/resource-registry.test.ts src/lib/export/source-fingerprint.test.ts src/lib/export/checkpoint-store.test.ts src/lib/export/output-sink.test.ts src/lib/export/full-res-export.test.ts src/lib/export/full-res-export-client.test.ts src/lib/export/full-res-export.worker.test.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/services/export-recovery.test.ts src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/components/tools/ExportTool.test.tsx`
+  (`13` files, `186` tests).
+- PASS: Step 3 package runtime tests:
+  `pnpm --filter @lumaforge/luma-raw-runtime test` (`5` files, `128`
+  tests), `pnpm --filter @lumaforge/luma-jpeg-runtime test` (`4` files,
+  `40` tests), `pnpm --filter @lumaforge/luma-raw-runtime typecheck`, and
+  `pnpm --filter @lumaforge/luma-jpeg-runtime typecheck`.
+- PASS: Step 4 native build gates after activating the cached Emscripten SDK:
+  `pnpm --filter @lumaforge/luma-raw-runtime build:native`,
+  `pnpm --filter @lumaforge/luma-raw-runtime native:verify`,
+  `pnpm --filter @lumaforge/luma-jpeg-runtime build:native`, and
+  `pnpm --filter @lumaforge/luma-jpeg-runtime native:verify`. RAW `desktop`,
+  RAW `low-memory`, and JPEG native artifacts were verified.
+- PARTIAL: Step 5 repo-wide checks. `pnpm exec tsc --noEmit --pretty false`
+  passed. `pnpm build` passed with the existing route-builder undefined
+  `loader` warning and chunk-size warning. The docs Prettier check and
+  `git diff --check` passed. `pnpm test:run` failed only in the pre-existing
+  deploy URL assertion after commit `2940b66` excluded Playwright specs from
+  Vitest and `@lumaforge/luma-jpeg-runtime` JS artifacts were rebuilt: `78`
+  files passed, `937` tests passed, `1` deploy test failed
+  (`scripts/deploy/deploy.test.mjs` expected
+  `https://feat-prod-preview.luma.ichr.me`, received
+  `https://feat-prod-preview.lumaforge.pages.dev`).
+- PASS/SKIP: Step 6 browser preflight reruns. `pnpm test:browser:webkit`
+  skipped `1` test in the current local Playwright WebKit because
+  processed-window full-resolution export is unavailable in this browser build.
+  `pnpm test:browser --project=chromium-desktop` passed `1` test and recorded
+  the desktop profile path.
+
+Real-device iOS Safari acceptance:
+
+- iPhone low-RAM class, normal Safari: PENDING / Not run
+- Newer iPhone 6GB/8GB class, normal Safari: PENDING / Not run
+- iPad 8GB+ class, normal Safari: PENDING / Not run
+- Private Browsing / storage disabled: PENDING / Not run
+- Low storage quota / near-full device: PENDING / Not run
+- Background tab / screen lock / app switch during export: PENDING / Not run
+- Reload after first checkpoint: PENDING / Not run
+- Injected worker/native resource failure: PENDING / Not run
+- Unsupported RAW: PENDING / Not run
+- Unsupported LUT contract: PENDING / Not run
+
+Do not claim iOS production support until at least the iPhone low-RAM, newer
+iPhone, and reload-after-checkpoint rows have concrete results.
 
 ## Self-Review Checklist
 
