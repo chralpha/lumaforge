@@ -8,6 +8,40 @@ type ExportDebugEvent = {
   payload: Record<string, unknown>
 }
 
+type ExpectedProjectPlan = {
+  profile: string
+  preferredRows: number[]
+  concurrency: number
+  runtimeMemoryProfile: string
+  checkpointMode: string
+  outputSink: string
+  checkpointExpected: boolean
+}
+
+function getExpectedProjectPlan(projectName: string): ExpectedProjectPlan {
+  if (projectName === 'chromium-desktop') {
+    return {
+      profile: 'desktop-fast',
+      preferredRows: [512, 1024],
+      concurrency: 2,
+      runtimeMemoryProfile: 'desktop',
+      checkpointMode: 'safe-retry',
+      outputSink: 'streaming',
+      checkpointExpected: false,
+    }
+  }
+
+  return {
+    profile: 'ios-safe',
+    preferredRows: [64, 128],
+    concurrency: 1,
+    runtimeMemoryProfile: 'low-memory',
+    checkpointMode: 'safe-retry',
+    outputSink: 'opfs-file',
+    checkpointExpected: true,
+  }
+}
+
 async function collectExportEvents(page: Page) {
   return (await page.evaluate(() => {
     return (
@@ -27,10 +61,11 @@ async function openRawToolsIfCollapsed(page: Page) {
   }
 }
 
-test('WebKit mobile preflight selects ios-safe before export', async ({
+test('browser preflight records expected export profile before export', async ({
   page,
 }, testInfo) => {
   const fixture = resolveRawFixture(testInfo)
+  const expectedPlan = getExpectedProjectPlan(testInfo.project.name)
 
   await page.addInitScript(() => {
     window.addEventListener('lumaforge-export-debug', (event) => {
@@ -91,19 +126,45 @@ test('WebKit mobile preflight selects ios-safe before export', async ({
 
   try {
     await expect
+      .poll(async () => {
+        return (
+          (await collectExportEvents(page)).find(
+            (event) => event.type === 'export-plan-selected',
+          )?.payload ?? null
+        )
+      })
+      .toMatchObject({
+        profile: expectedPlan.profile,
+        concurrency: expectedPlan.concurrency,
+        runtimeMemoryProfile: expectedPlan.runtimeMemoryProfile,
+        checkpointMode: expectedPlan.checkpointMode,
+        outputSink: expectedPlan.outputSink,
+      })
+
+    const planPayload = (await collectExportEvents(page)).find(
+      (event) => event.type === 'export-plan-selected',
+    )?.payload
+    expect(expectedPlan.preferredRows).toContain(planPayload?.preferredRows)
+
+    if (expectedPlan.checkpointExpected) {
+      await expect
+        .poll(async () => collectExportEvents(page))
+        .toContainEqual(
+          expect.objectContaining({
+            type: 'checkpoint-written',
+          }),
+        )
+    }
+
+    await expect
       .poll(async () => collectExportEvents(page))
       .toContainEqual(
         expect.objectContaining({
-          type: 'export-plan-selected',
-          payload: expect.objectContaining({
-            profile: 'ios-safe',
-            concurrency: 1,
-            checkpointMode: 'safe-retry',
-          }),
+          type: 'resource-evacuated',
         }),
       )
   } finally {
-    testInfo.attach('export-events.json', {
+    await testInfo.attach('export-events.json', {
       body: JSON.stringify(await collectExportEvents(page), null, 2),
       contentType: 'application/json',
     })

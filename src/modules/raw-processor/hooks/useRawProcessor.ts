@@ -45,7 +45,10 @@ import type { JpegExportMetadata } from '~/lib/export/jpeg-metadata'
 import { preserveJpegMetadata } from '~/lib/export/jpeg-metadata'
 import type { ExportOutputResult } from '~/lib/export/output-sink'
 import { createBlobOutputResult } from '~/lib/export/output-sink'
-import type { ResourceRegistry } from '~/lib/export/resource-registry'
+import type {
+  ResourceRegistry,
+  ResourceRegistryCheck,
+} from '~/lib/export/resource-registry'
 import { createResourceRegistry } from '~/lib/export/resource-registry'
 import { createSourceFingerprint } from '~/lib/export/source-fingerprint'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
@@ -313,6 +316,19 @@ function isCheckpointMetric(
     'kind' in metric &&
     metric.kind === 'checkpoint'
   )
+}
+
+function toDebugRegistryCheck(check: ResourceRegistryCheck) {
+  if (check.ok) return { ok: true }
+
+  return {
+    ok: false,
+    live: check.live.map(({ id, owner, kind }) => ({
+      id,
+      owner,
+      kind,
+    })),
+  }
 }
 
 function withLazyJpegMetadata(input: {
@@ -2252,7 +2268,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
           type: 'resource-evacuated',
           payload: {
             profile: jobExecutionPlan.profile.name,
-            registryCheck: evacuation.registryCheck,
+            registryCheck: toDebugRegistryCheck(evacuation.registryCheck),
             evacuatedAt: evacuation.evacuatedAt,
           },
         })
