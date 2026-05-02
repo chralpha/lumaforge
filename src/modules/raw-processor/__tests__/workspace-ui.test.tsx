@@ -142,7 +142,7 @@ describe('rawToolSurface', () => {
 
     expect(screen.getByRole('button', { name: 'Neutral' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Warm' })).toBeDisabled()
-    expect(screen.getByLabelText(/drop \.cube lut file/i)).toBeEnabled()
+    expect(screen.getByLabelText(/add \.cube lut/i)).toBeEnabled()
   })
 
   it('keeps LUT upload backed by a native file input for mobile tap upload', () => {
@@ -153,7 +153,7 @@ describe('rawToolSurface', () => {
 
     render(<LutDropzone onFileDrop={onFileDrop} />)
 
-    const input = screen.getByLabelText(/drop \.cube lut file/i)
+    const input = screen.getByLabelText(/add \.cube lut/i)
     expect(input).toHaveAttribute('type', 'file')
     expect(input).toHaveAttribute('accept', '.cube')
     expect(input).not.toBeDisabled()

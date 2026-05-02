@@ -196,6 +196,9 @@ describe('rawToolSurface', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reset tone' }))
     expect(onToneReset).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Reset tone' })).toHaveClass(
+      'raw-tool-reset-button',
+    )
   })
 
   it('disables tone controls before upload', () => {
@@ -204,6 +207,17 @@ describe('rawToolSurface', () => {
     expect(screen.getByLabelText('Exposure')).toBeDisabled()
     expect(screen.getByLabelText('Contrast')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Reset tone' })).toBeDisabled()
+  })
+
+  it('uses Raw Lab-specific reset controls for tone and compare', () => {
+    render(<RawToolSurface {...baseProps} hasImage />)
+
+    expect(screen.getByRole('button', { name: 'Reset tone' })).toHaveClass(
+      'raw-tool-reset-button',
+    )
+    expect(
+      screen.getByRole('button', { name: 'Reset compare view' }),
+    ).toHaveClass('raw-tool-reset-button')
   })
 
   it('shows preserved tone state for non-neutral tone', () => {
@@ -238,7 +252,7 @@ describe('rawToolSurface', () => {
 
     render(<LutDropzone currentLut={currentLut} onFileDrop={vi.fn()} />)
 
-    const label = screen.getByLabelText(/drop \.cube lut file/i)
+    const label = screen.getByLabelText(/add \.cube lut/i)
     const frame = label.closest('label')
     const fileName = screen.getByText(currentLut)
     const row = fileName.parentElement?.parentElement
@@ -546,7 +560,7 @@ describe('rawToolSurface', () => {
       />,
     )
 
-    expect(screen.getByLabelText(/drop \.cube lut file/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/add \.cube lut/i)).toBeInTheDocument()
   })
 
   it('reflects online LUT share availability on the share button', () => {
