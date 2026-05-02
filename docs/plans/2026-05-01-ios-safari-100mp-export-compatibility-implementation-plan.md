@@ -3232,7 +3232,7 @@ Real-device iOS Safari acceptance:
 
 Do not claim iOS production support until at least the iPhone low-RAM, newer iPhone, and reload-after-checkpoint rows have concrete results.
 
-- [ ] **Step 8: Commit Task 10**
+- [x] **Step 8: Commit Task 10**
 
 ```bash
 git add docs/specs/2026-04-22-phase1-test-matrix.md \
