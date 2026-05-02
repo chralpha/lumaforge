@@ -36,6 +36,7 @@ import {
   createCheckpointStore,
   createOpfsCheckpointBackend,
 } from '~/lib/export/checkpoint-store'
+import { emitExportDebugEvent } from '~/lib/export/execution-profile'
 import type {
   FullResWorkerCheckpointConfig,
   FullResWorkerCheckpointMetric,
@@ -2047,6 +2048,18 @@ export function useRawProcessor(): UseRawProcessorReturn {
           checkpointWriteChain = checkpointWriteChain
             .catch(() => undefined)
             .then(() => checkpointStore?.writeActive(nextManifest))
+            .then(() => {
+              emitExportDebugEvent({
+                type: 'checkpoint-written',
+                payload: {
+                  exportId: nextManifest.exportId,
+                  completedRowsForDiagnostics:
+                    nextManifest.completedRowsForDiagnostics,
+                  totalRows: nextManifest.totalRows,
+                  updatedAt: nextManifest.updatedAt,
+                },
+              })
+            })
             .then(
               () => undefined,
               () => undefined,
@@ -2081,6 +2094,18 @@ export function useRawProcessor(): UseRawProcessorReturn {
               outputSink: executionPlan.outputSink,
             })
             await checkpointStore.writeActive(checkpointManifest)
+            if (isCurrentExport()) {
+              emitExportDebugEvent({
+                type: 'checkpoint-written',
+                payload: {
+                  exportId,
+                  completedRowsForDiagnostics:
+                    checkpointManifest.completedRowsForDiagnostics,
+                  totalRows: checkpointManifest.totalRows,
+                  updatedAt: checkpointManifest.updatedAt,
+                },
+              })
+            }
             checkpoint = {
               exportId,
               graphFingerprint,
@@ -2114,6 +2139,18 @@ export function useRawProcessor(): UseRawProcessorReturn {
           outputSink: jobExecutionPlan.outputSink,
           checkpointMode: jobExecutionPlan.checkpointMode,
         }
+
+        emitExportDebugEvent({
+          type: 'export-plan-selected',
+          payload: {
+            profile: jobExecutionPlan.profile.name,
+            preferredRows: jobExecutionPlan.preferredRows,
+            concurrency: jobExecutionPlan.concurrency,
+            runtimeMemoryProfile: jobExecutionPlan.runtimeMemoryProfile,
+            checkpointMode: jobExecutionPlan.checkpointMode,
+            outputSink: jobExecutionPlan.outputSink,
+          },
+        })
 
         setSession((prev) =>
           prev && prev.id === exportSessionId
@@ -2210,6 +2247,15 @@ export function useRawProcessor(): UseRawProcessorReturn {
         if (!isCurrentExport()) {
           return
         }
+
+        emitExportDebugEvent({
+          type: 'resource-evacuated',
+          payload: {
+            profile: jobExecutionPlan.profile.name,
+            registryCheck: evacuation.registryCheck,
+            evacuatedAt: evacuation.evacuatedAt,
+          },
+        })
 
         if (!evacuation.registryCheck.ok) {
           throw Object.assign(

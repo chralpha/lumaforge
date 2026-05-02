@@ -9,6 +9,11 @@ export type ExportCheckpointMode = 'safe-retry' | 'row-resume'
 export type ExportOutputSink = 'opfs-file' | 'streaming' | 'blob-handoff'
 export type ExportRuntimeMemoryProfile = 'low-memory' | 'desktop'
 
+export type ExportDebugEvent = {
+  type: 'export-plan-selected' | 'resource-evacuated' | 'checkpoint-written'
+  payload: unknown
+}
+
 export type ExportExecutionProfile = {
   name: ExportExecutionProfileName
   minRows: number
@@ -100,6 +105,14 @@ export const EXPORT_EXECUTION_PROFILES: Record<
     checkpointOutput: false,
     checkpointMode: 'safe-retry',
   },
+}
+
+export function emitExportDebugEvent(event: ExportDebugEvent) {
+  if (typeof window === 'undefined') return
+
+  window.dispatchEvent(
+    new CustomEvent('lumaforge-export-debug', { detail: event }),
+  )
 }
 
 export function getImageMegapixels(width?: number, height?: number) {
