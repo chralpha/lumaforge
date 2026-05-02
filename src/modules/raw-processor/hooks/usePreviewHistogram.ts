@@ -58,6 +58,17 @@ function getPreviousReady(
   return null
 }
 
+function hasExpectedRgb16DataLength(image: DecodedImage) {
+  if (!(image.data instanceof Uint16Array)) return false
+
+  const expectedLength = image.width * image.height * 3
+  return (
+    Number.isSafeInteger(expectedLength) &&
+    expectedLength > 0 &&
+    image.data.length === expectedLength
+  )
+}
+
 function createHistogramJob({
   imageRef,
   imageVersion,
@@ -105,7 +116,7 @@ function createHistogramJob({
   if (
     image.layout !== 'rgb-u16' ||
     image.colorSpace !== 'linear-prophoto-rgb' ||
-    !(image.data instanceof Uint16Array) ||
+    !hasExpectedRgb16DataLength(image) ||
     (image.source !== 'quick' && image.source !== 'bounded-hq')
   ) {
     return {
@@ -248,7 +259,10 @@ export function usePreviewHistogram(
     )
 
     let chunkTimer: number | null = null
-    const debounceTimer = window.setTimeout(() => {
+    const computeDelayMs =
+      previous && previous.source === job.image.source ? COMPUTE_DEBOUNCE_MS : 0
+
+    const computeTimer = window.setTimeout(() => {
       if (versionRef.current !== runVersion) return
 
       setState({ state: 'computing', previous })
@@ -263,9 +277,7 @@ export function usePreviewHistogram(
       let nextRow = 0
       let processedRows = 0
 
-      const processNextBand = () => {
-        if (versionRef.current !== runVersion) return
-
+      const finishReady = () => {
         if (nextRow >= image.height) {
           const ready = processor.finish({
             source: image.source,
@@ -278,9 +290,10 @@ export function usePreviewHistogram(
           if (versionRef.current === runVersion) {
             setState(ready)
           }
-          return
         }
+      }
 
+      const processOneBand = () => {
         if (rowStep === 1) {
           const rowCount = Math.min(ROW_BAND_ROWS, image.height - nextRow)
           const start = nextRow * image.width * 3
@@ -299,15 +312,33 @@ export function usePreviewHistogram(
             rowsThisChunk += 1
           }
         }
+      }
 
+      const processNextBand = () => {
+        if (versionRef.current !== runVersion) return
+
+        if (nextRow >= image.height) {
+          finishReady()
+          return
+        }
+
+        processOneBand()
         chunkTimer = scheduleChunk(runVersion, versionRef, processNextBand)
       }
 
+      if (previous === null && image.source === 'quick') {
+        while (versionRef.current === runVersion && nextRow < image.height) {
+          processOneBand()
+        }
+        finishReady()
+        return
+      }
+
       processNextBand()
-    }, COMPUTE_DEBOUNCE_MS)
+    }, computeDelayMs)
 
     return () => {
-      window.clearTimeout(debounceTimer)
+      window.clearTimeout(computeTimer)
       if (chunkTimer !== null) {
         window.clearTimeout(chunkTimer)
       }

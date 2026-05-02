@@ -131,6 +131,20 @@ async function runChunkedWorkUntilReady(
   }
 }
 
+async function runImmediateChunkedWorkUntilReady(
+  result: ReturnType<typeof renderPreviewHistogram>['result'],
+) {
+  for (
+    let attempt = 0;
+    attempt < 128 && result.current.state !== 'ready';
+    attempt += 1
+  ) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+  }
+}
+
 describe('usePreviewHistogram', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -218,6 +232,23 @@ describe('usePreviewHistogram', () => {
     expect(sliceSpy).not.toHaveBeenCalled()
   })
 
+  it('publishes a large quick preview histogram before debounce can be cancelled by HQ', async () => {
+    const width = 1000
+    const height = 501
+    const data = new Uint16Array(width * height * 3)
+    data.fill(32768)
+    const image = createImage('quick', { width, height, data })
+
+    const { result } = renderPreviewHistogram({ image })
+
+    await runImmediateChunkedWorkUntilReady(result)
+
+    expect(result.current).toMatchObject({
+      state: 'ready',
+      source: 'quick',
+    })
+  })
+
   it('reports embedded-only preview as unavailable', () => {
     const { result } = renderPreviewHistogram({
       image: null,
@@ -227,6 +258,23 @@ describe('usePreviewHistogram', () => {
     expect(result.current).toEqual({
       state: 'unavailable',
       reason: 'embedded-only',
+    })
+  })
+
+  it('reports preview data with mismatched dimensions as unsupported', async () => {
+    const { result } = renderPreviewHistogram({
+      image: createImage('quick', {
+        width: 800,
+        height: 600,
+        data: new Uint16Array([0, 1024, 65535]),
+      }),
+    })
+
+    await runAllWork()
+
+    expect(result.current).toEqual({
+      state: 'unsupported',
+      reason: 'Preview histogram requires RGB16 Linear ProPhoto preview data.',
     })
   })
 
