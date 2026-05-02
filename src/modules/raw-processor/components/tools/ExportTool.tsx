@@ -1,6 +1,5 @@
 import { useAtomValue } from 'jotai'
-
-import { Button } from '~/components/ui/button'
+import { Copy, Download, FolderOpen, Share2 } from 'lucide-react'
 
 import type {
   ExportResult,
@@ -82,36 +81,41 @@ export function ExportTool({
             </div>
           </dl>
           <div className="raw-export-actions">
-            <Button
-              variant="primary"
-              size="sm"
-              className="w-full"
+            <button
+              type="button"
+              className="raw-export-button raw-export-button-primary"
               disabled={!exportShareCapability.available}
               onClick={onShareExport}
             >
+              <Share2 aria-hidden="true" />
               Share
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="w-full"
+            </button>
+            <button
+              type="button"
+              className="raw-export-button raw-export-button-secondary"
               onClick={onDownloadExport}
             >
+              <Download aria-hidden="true" />
               Download
-            </Button>
+            </button>
             {exportResult.copyCapability.mode === 'unavailable' ? (
-              <Button variant="secondary" size="sm" className="w-full" disabled>
+              <button
+                type="button"
+                className="raw-export-button raw-export-button-secondary"
+                disabled
+              >
+                <Copy aria-hidden="true" />
                 Copy
-              </Button>
+              </button>
             ) : (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full"
+              <button
+                type="button"
+                className="raw-export-button raw-export-button-secondary"
                 onClick={onCopyExport}
               >
+                <Copy aria-hidden="true" />
                 {exportResult.copyCapability.label}
-              </Button>
+              </button>
             )}
           </div>
           {!exportShareCapability.available && (
@@ -140,26 +144,26 @@ export function ExportTool({
           {currentRecovery?.status === 'source-required' && (
             <>
               <p className="raw-tool-note">{currentRecovery.message}</p>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full"
+              <button
+                type="button"
+                className="raw-export-button raw-export-button-secondary"
                 disabled={!onRecoverExportSource || isProcessing}
                 onClick={onRecoverExportSource}
               >
+                <FolderOpen aria-hidden="true" />
                 Reselect RAW and retry
-              </Button>
+              </button>
             </>
           )}
-          <Button
-            variant="primary"
-            size="sm"
-            className="w-full"
+          <button
+            type="button"
+            className="raw-export-button raw-export-button-primary"
             disabled={!canExport || isProcessing}
             onClick={() => onExport({ quality: 'high', fidelity: 'balanced' })}
           >
+            <Download aria-hidden="true" />
             {isProcessing ? 'Preparing JPEG...' : 'Export full-resolution JPEG'}
-          </Button>
+          </button>
           <p className="raw-tool-note">
             {canExport
               ? 'Exports from the LibRaw processed-window path.'
