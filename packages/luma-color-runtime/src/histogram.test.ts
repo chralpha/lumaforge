@@ -123,4 +123,94 @@ describe('createPreviewHistogramProcessor', () => {
       'PREVIEW_HISTOGRAM_INVALID_ROW_COUNT',
     )
   })
+
+  it('rejects finish when processed rows do not match total rows', () => {
+    const processor = createPreviewHistogramProcessor({
+      width: 2,
+      rowBandRows: 1,
+      graph: noLutGraph,
+    })
+
+    processor.processUint16Rows(new Uint16Array([0, 0, 0, 0, 0, 0]), 1)
+
+    expect(() =>
+      processor.finish({
+        source: 'quick',
+        width: 2,
+        height: 2,
+        totalRows: 2,
+        ownership: 'main-thread-chunked-no-copy',
+        inputByteLength: 12,
+      }),
+    ).toThrow('PREVIEW_HISTOGRAM_ROW_COUNT_MISMATCH')
+    expect(() =>
+      processor.finish({
+        source: 'quick',
+        width: 2,
+        height: 1,
+        totalRows: 2,
+        ownership: 'main-thread-chunked-no-copy',
+        inputByteLength: 12,
+      }),
+    ).toThrow('PREVIEW_HISTOGRAM_INVALID_ROW_COUNT')
+  })
+
+  it('rejects finish when output width does not match processor width', () => {
+    const processor = createPreviewHistogramProcessor({
+      width: 2,
+      rowBandRows: 1,
+      graph: noLutGraph,
+    })
+
+    processor.processUint16Rows(new Uint16Array([0, 0, 0, 0, 0, 0]), 1)
+
+    expect(() =>
+      processor.finish({
+        source: 'quick',
+        width: 1,
+        height: 1,
+        totalRows: 1,
+        ownership: 'main-thread-chunked-no-copy',
+        inputByteLength: 12,
+      }),
+    ).toThrow('PREVIEW_HISTOGRAM_INVALID_WIDTH')
+  })
+
+  it('returns finished bins and clipping that do not mutate after later processor use', () => {
+    const processor = createPreviewHistogramProcessor({
+      width: 1,
+      rowBandRows: 1,
+      graph: noLutGraph,
+    })
+
+    processor.processUint16Rows(new Uint16Array([0, 0, 0]), 1)
+    const first = processor.finish({
+      source: 'quick',
+      width: 1,
+      height: 1,
+      totalRows: 1,
+      ownership: 'main-thread-chunked-no-copy',
+      inputByteLength: 6,
+    })
+    processor.processUint16Rows(new Uint16Array([65535, 65535, 65535]), 1)
+    const second = processor.finish({
+      source: 'quick',
+      width: 1,
+      height: 2,
+      totalRows: 2,
+      ownership: 'main-thread-chunked-no-copy',
+      inputByteLength: 12,
+    })
+
+    expect(first.sampledPixels).toBe(1)
+    expect(first.bins.red[0]).toBe(1)
+    expect(first.bins.red[255]).toBe(0)
+    expect(first.bins.luma[255]).toBe(0)
+    expect(first.clipping.shadowAnyChannel).toBe(1)
+    expect(first.clipping.highlightAnyChannel).toBe(0)
+    expect(second.sampledPixels).toBe(2)
+    expect(second.bins.red[0]).toBe(1)
+    expect(second.bins.red[255]).toBe(1)
+    expect(second.clipping.highlightAnyChannel).toBe(1)
+  })
 })

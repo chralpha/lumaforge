@@ -76,6 +76,19 @@ function lumaByte(red: number, green: number, blue: number) {
   return Math.round(0.2126 * red + 0.7152 * green + 0.0722 * blue)
 }
 
+function copyBins(bins: ReadyPreviewHistogram['bins']) {
+  return {
+    luma: new Uint32Array(bins.luma),
+    red: new Uint32Array(bins.red),
+    green: new Uint32Array(bins.green),
+    blue: new Uint32Array(bins.blue),
+  }
+}
+
+function copyClipping(clipping: ReadyPreviewHistogram['clipping']) {
+  return { ...clipping }
+}
+
 export function createPreviewHistogramProcessor({
   width,
   rowBandRows,
@@ -101,6 +114,7 @@ export function createPreviewHistogramProcessor({
     highlightLuma: 0,
   }
   let sampledPixels = 0
+  let processedRows = 0
 
   function accumulateRgb8Rows(rows: Uint8Array) {
     for (let index = 0; index < rows.length; index += 3) {
@@ -143,6 +157,7 @@ export function createPreviewHistogramProcessor({
       validateRows(source, rowCount)
       const rgb8Rows = rowBandProcessor.processUint16Rows(source, rowCount)
       accumulateRgb8Rows(rgb8Rows)
+      processedRows += rowCount
     },
     finish(input: FinishPreviewHistogramInput): ReadyPreviewHistogram {
       assertPositiveSafeInteger(input.width, 'PREVIEW_HISTOGRAM_INVALID_WIDTH')
@@ -154,6 +169,15 @@ export function createPreviewHistogramProcessor({
         input.totalRows,
         'PREVIEW_HISTOGRAM_INVALID_ROW_COUNT',
       )
+      if (input.width !== width) {
+        throw new Error('PREVIEW_HISTOGRAM_INVALID_WIDTH')
+      }
+      if (input.totalRows > input.height) {
+        throw new Error('PREVIEW_HISTOGRAM_INVALID_ROW_COUNT')
+      }
+      if (processedRows !== input.totalRows) {
+        throw new Error('PREVIEW_HISTOGRAM_ROW_COUNT_MISMATCH')
+      }
 
       const totalPixels = input.width * input.height
       return {
@@ -163,8 +187,8 @@ export function createPreviewHistogramProcessor({
         height: input.height,
         sampledPixels,
         totalPixels,
-        bins,
-        clipping,
+        bins: copyBins(bins),
+        clipping: copyClipping(clipping),
         diagnostics: {
           ownership: input.ownership,
           copiedInputBytes:
