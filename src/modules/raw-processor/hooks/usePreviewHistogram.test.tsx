@@ -249,6 +249,96 @@ describe('usePreviewHistogram', () => {
     })
   })
 
+  it('yields between chunks while computing the first large quick preview', async () => {
+    const width = 1000
+    const height = 501
+    const data = new Uint16Array(width * height * 3)
+    data.fill(32768)
+    const image = createImage('quick', { width, height, data })
+    const subarraySpy = vi.spyOn(Uint16Array.prototype, 'subarray')
+
+    const { result } = renderPreviewHistogram({ image })
+
+    await act(async () => {
+      await vi.advanceTimersToNextTimerAsync()
+    })
+
+    expect(result.current).toEqual({ state: 'computing', previous: null })
+    expect(subarraySpy.mock.calls.length).toBeGreaterThan(0)
+    expect(subarraySpy.mock.calls.length).toBeLessThan(Math.ceil(height / 2))
+
+    await runImmediateChunkedWorkUntilReady(result)
+
+    expect(result.current).toMatchObject({
+      state: 'ready',
+      source: 'quick',
+    })
+  })
+
+  it('keeps a superseded first quick histogram observable before bounded-HQ is ready', async () => {
+    const quickWidth = 1000
+    const quickHeight = 501
+    const hqWidth = 1000
+    const hqHeight = 1001
+    const quickData = new Uint16Array(quickWidth * quickHeight * 3)
+    const hqData = new Uint16Array(hqWidth * hqHeight * 3)
+    quickData.fill(32768)
+    hqData.fill(49152)
+    const quick = createImage('quick', {
+      width: quickWidth,
+      height: quickHeight,
+      data: quickData,
+    })
+    const boundedHq = createImage('bounded-hq', {
+      width: hqWidth,
+      height: hqHeight,
+      data: hqData,
+    })
+    const { result, rerender, imageRef, lutDataRef } = renderPreviewHistogram({
+      image: quick,
+    })
+
+    imageRef.current = boundedHq
+    rerender({
+      imageRef,
+      imageVersion: 2,
+      params: defaultParams,
+      lutDataRef,
+      lutDataVersion: 0,
+      displaySource: 'bounded-hq',
+    })
+
+    let observedQuick = false
+    for (let attempt = 0; attempt < 128 && !observedQuick; attempt += 1) {
+      await act(async () => {
+        await vi.advanceTimersToNextTimerAsync()
+      })
+      observedQuick =
+        result.current.state === 'ready' && result.current.source === 'quick'
+    }
+
+    expect(observedQuick).toBe(true)
+
+    for (
+      let attempt = 0;
+      attempt < 128 &&
+      !(
+        result.current.state === 'ready' &&
+        result.current.source === 'bounded-hq'
+      );
+      attempt += 1
+    ) {
+      await act(async () => {
+        await vi.advanceTimersToNextTimerAsync()
+      })
+    }
+
+    expect(result.current).toMatchObject({
+      state: 'ready',
+      source: 'bounded-hq',
+    })
+  })
+
   it('reports embedded-only preview as unavailable', () => {
     const { result } = renderPreviewHistogram({
       image: null,

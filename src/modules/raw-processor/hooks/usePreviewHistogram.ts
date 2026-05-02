@@ -48,6 +48,8 @@ type HistogramJob =
       graph: Parameters<typeof createPreviewHistogramProcessor>[0]['graph']
     }
 
+type ComputeHistogramJob = Extract<HistogramJob, { kind: 'compute' }>
+
 function getPreviousReady(
   state: PreviewHistogramState,
 ): ReadyPreviewHistogram | null {
@@ -66,6 +68,19 @@ function hasExpectedRgb16DataLength(image: DecodedImage) {
     Number.isSafeInteger(expectedLength) &&
     expectedLength > 0 &&
     image.data.length === expectedLength
+  )
+}
+
+function isBoundedHqSupersedingQuick(
+  quickJob: ComputeHistogramJob,
+  nextJob: HistogramJob,
+  state: PreviewHistogramState,
+) {
+  return (
+    quickJob.image.source === 'quick' &&
+    nextJob.kind === 'compute' &&
+    nextJob.image.source === 'bounded-hq' &&
+    getPreviousReady(state) === null
   )
 }
 
@@ -163,15 +178,8 @@ function createInitialState(job: HistogramJob): PreviewHistogramState {
   return { state: 'computing', previous: null }
 }
 
-function scheduleChunk(
-  runVersion: number,
-  activeVersionRef: RefObject<number>,
-  work: () => void,
-) {
-  return window.setTimeout(() => {
-    if (activeVersionRef.current !== runVersion) return
-    work()
-  }, 0)
+function scheduleChunk(work: () => void) {
+  return window.setTimeout(work, 0)
 }
 
 function getPreviewHistogramRowStep(width: number, height: number) {
@@ -235,7 +243,9 @@ export function usePreviewHistogram(
   )
   const stateRef = useRef(state)
   const jobKeyRef = useRef(job.key)
+  const latestJobRef = useRef(job)
   const versionRef = useRef(0)
+  latestJobRef.current = job
 
   useEffect(() => {
     stateRef.current = state
@@ -245,14 +255,18 @@ export function usePreviewHistogram(
     const runVersion = versionRef.current + 1
     versionRef.current = runVersion
     jobKeyRef.current = job.key
+    const commitState = (nextState: PreviewHistogramState) => {
+      stateRef.current = nextState
+      setState(nextState)
+    }
 
     if (job.kind !== 'compute') {
-      setState(job.state)
+      commitState(job.state)
       return
     }
 
     const previous = getPreviousReady(stateRef.current)
-    setState(
+    commitState(
       previous
         ? { state: 'stale', previous }
         : { state: 'computing', previous: null },
@@ -261,11 +275,18 @@ export function usePreviewHistogram(
     let chunkTimer: number | null = null
     const computeDelayMs =
       previous && previous.source === job.image.source ? COMPUTE_DEBOUNCE_MS : 0
+    const isFirstQuickRun = previous === null && job.image.source === 'quick'
+    const bandsPerChunk = isFirstQuickRun ? 4 : 1
+    const canCompleteSupersededQuick = () =>
+      isFirstQuickRun &&
+      isBoundedHqSupersedingQuick(job, latestJobRef.current, stateRef.current)
+    const canContinueRun = () =>
+      versionRef.current === runVersion || canCompleteSupersededQuick()
 
     const computeTimer = window.setTimeout(() => {
-      if (versionRef.current !== runVersion) return
+      if (!canContinueRun()) return
 
-      setState({ state: 'computing', previous })
+      commitState({ state: 'computing', previous })
 
       const { image } = job
       const processor = createPreviewHistogramProcessor({
@@ -287,8 +308,8 @@ export function usePreviewHistogram(
             ownership: 'main-thread-chunked-no-copy',
             inputByteLength: image.data.buffer.byteLength,
           })
-          if (versionRef.current === runVersion) {
-            setState(ready)
+          if (canContinueRun()) {
+            commitState(ready)
           }
         }
       }
@@ -315,32 +336,42 @@ export function usePreviewHistogram(
       }
 
       const processNextBand = () => {
-        if (versionRef.current !== runVersion) return
+        if (!canContinueRun()) return
 
         if (nextRow >= image.height) {
           finishReady()
           return
         }
 
-        processOneBand()
-        chunkTimer = scheduleChunk(runVersion, versionRef, processNextBand)
-      }
-
-      if (previous === null && image.source === 'quick') {
-        while (versionRef.current === runVersion && nextRow < image.height) {
+        for (
+          let band = 0;
+          band < bandsPerChunk && nextRow < image.height;
+          band += 1
+        ) {
           processOneBand()
         }
-        finishReady()
-        return
+
+        if (nextRow >= image.height && isFirstQuickRun) {
+          finishReady()
+        } else {
+          chunkTimer = scheduleChunk(processNextBand)
+        }
       }
 
       processNextBand()
     }, computeDelayMs)
 
     return () => {
-      window.clearTimeout(computeTimer)
-      if (chunkTimer !== null) {
-        window.clearTimeout(chunkTimer)
+      const mayBecomeBoundedHqHandoff =
+        isFirstQuickRun &&
+        latestJobRef.current !== job &&
+        getPreviousReady(stateRef.current) === null
+
+      if (!mayBecomeBoundedHqHandoff) {
+        window.clearTimeout(computeTimer)
+        if (chunkTimer !== null) {
+          window.clearTimeout(chunkTimer)
+        }
       }
     }
   }, [job])
