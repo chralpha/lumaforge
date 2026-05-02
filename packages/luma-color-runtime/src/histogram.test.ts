@@ -68,9 +68,11 @@ describe('createPreviewHistogramProcessor', () => {
     const graph: SupportedExportColorGraphDescriptor = {
       ...noLutGraph,
       steps: noLutGraph.steps.map((step) =>
-        step.kind === 'user-exposure'
-          ? { kind: 'user-exposure', ev: 1, multiplier: 2 }
-          : step,
+        step.kind === 'raw-render-exposure'
+          ? { kind: 'raw-render-exposure', ev: 1, multiplier: 2 }
+          : step.kind === 'user-exposure'
+            ? { kind: 'user-exposure', ev: 1, multiplier: 2 }
+            : step,
       ),
     }
     const processor = createPreviewHistogramProcessor({
@@ -93,7 +95,7 @@ describe('createPreviewHistogramProcessor', () => {
       ([, count]) => count > 0,
     )
     expect(nonZeroLumaBins).toHaveLength(1)
-    expect(nonZeroLumaBins[0]![0]).toBeGreaterThan(99)
+    expect(nonZeroLumaBins[0]![0]).toBeGreaterThan(150)
   })
 
   it('never detaches or copies the source buffer in the default path', () => {
