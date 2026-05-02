@@ -468,8 +468,8 @@ describe('useRawProcessor embedded preview state', () => {
       resetToDefaults()
       jotaiStore.set(currentSessionAtom, null)
     })
-    vi.useRealTimers()
     vi.unstubAllGlobals()
+    vi.useRealTimers()
     localStorage.clear()
   })
 
