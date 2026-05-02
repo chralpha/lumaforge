@@ -1,4 +1,4 @@
-import { Button } from '~/components/ui/button'
+import { RotateCcw } from 'lucide-react'
 
 import { ToolSection } from './ToolSection'
 
@@ -12,14 +12,15 @@ export function CompareTool({
   return (
     <ToolSection title="Compare" eyebrow="Split">
       <p className="raw-tool-note">Drag the split directly on the image.</p>
-      <Button
-        variant="secondary"
-        size="sm"
+      <button
+        type="button"
+        className="raw-tool-reset-button"
         disabled={disabled}
         onClick={onCompareReset}
       >
+        <RotateCcw aria-hidden="true" />
         Reset compare view
-      </Button>
+      </button>
     </ToolSection>
   )
 }
