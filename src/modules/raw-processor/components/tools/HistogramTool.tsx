@@ -9,10 +9,15 @@ const VIEWBOX_WIDTH = 128
 const VIEWBOX_HEIGHT = 40
 
 function makePath(bins: Uint32Array) {
-  const max = Math.max(1, ...bins)
+  let max = 1
+  for (const value of bins) {
+    max = Math.max(max, value)
+  }
+
+  const lastBinIndex = Math.max(1, bins.length - 1)
 
   return Array.from(bins, (value, index) => {
-    const x = (index / 255) * VIEWBOX_WIDTH
+    const x = (index / lastBinIndex) * VIEWBOX_WIDTH
     const y = VIEWBOX_HEIGHT - (value / max) * (VIEWBOX_HEIGHT - 2) - 1
 
     return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`

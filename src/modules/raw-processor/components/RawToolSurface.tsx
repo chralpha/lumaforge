@@ -49,7 +49,7 @@ export function RawToolSurface(props: {
   isProcessing: boolean
   exportResult: ExportResult | null
   exportShareCapability: ExportShareCapability
-  histogram?: PreviewHistogramState
+  histogram: PreviewHistogramState
   recovery?: ExportRecoveryState
   onShareExport: () => void
   onDownloadExport: () => void
@@ -67,10 +67,6 @@ export function RawToolSurface(props: {
   const [open, setOpen] = useState(false)
   const toolStackId = useId()
   const disabled = !props.hasImage || props.isProcessing
-  const histogram = props.histogram ?? {
-    state: 'unavailable',
-    reason: 'no-image',
-  }
 
   return (
     <aside
@@ -102,7 +98,7 @@ export function RawToolSurface(props: {
           onChange={props.onToneChange}
           onReset={props.onToneReset}
         />
-        <HistogramTool histogram={histogram} />
+        <HistogramTool histogram={props.histogram} />
         <ToolSection title="Strength">
           <StrengthControl
             value={props.activeIntensity}
