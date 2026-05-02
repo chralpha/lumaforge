@@ -103,9 +103,5 @@ jobs:
       - name: Build app
         run: pnpm run build
 
-      - name: Verify app native assets
-        run: |
-          test -f dist/native/luma_raw.js
-          test -f dist/native/luma_raw.wasm
-          test -f dist/native/luma_jpeg.js
-          test -f dist/native/luma_jpeg.wasm
+      - name: Verify app build artifact
+        run: pnpm run deploy:check
