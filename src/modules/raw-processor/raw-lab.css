@@ -165,6 +165,56 @@
   line-height: 1.45;
 }
 
+.raw-tool-reset-button {
+  display: inline-flex;
+  min-height: 34px;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid oklch(0.68 0.042 78 / 0.74);
+  border-radius: 8px;
+  padding: 7px 11px;
+  background: oklch(0.902 0.034 82 / 0.9);
+  color: var(--raw-ink-soft);
+  font-size: 0.72rem;
+  font-weight: 740;
+  line-height: 1.1;
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.raw-tool-reset-button svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  stroke-width: 2.1;
+}
+
+.raw-tool-reset-button:hover:not(:disabled) {
+  border-color: oklch(0.56 0.12 153 / 0.42);
+  background: oklch(0.882 0.046 82);
+  color: var(--raw-green-deep);
+  transform: translateY(-1px);
+}
+
+.raw-tool-reset-button:focus-visible {
+  outline: 2px solid var(--raw-green);
+  outline-offset: 2px;
+}
+
+.raw-tool-reset-button:disabled {
+  cursor: not-allowed;
+  border-color: oklch(0.72 0.028 78 / 0.48);
+  background: oklch(0.86 0.024 82 / 0.62);
+  color: oklch(0.46 0.028 75 / 0.58);
+}
+
 .raw-lut-source-controls {
   display: grid;
   gap: 8px;
@@ -177,16 +227,15 @@
 }
 
 .raw-lut-dropzone {
-  min-height: 42px;
+  min-height: 38px;
   border-width: 1px;
   border-style: solid;
-  border-color: oklch(0.72 0.05 78 / 0.72);
+  border-color: oklch(0.68 0.042 78 / 0.72);
   border-radius: 8px;
-  padding: 8px 10px;
-  background:
-    linear-gradient(180deg, oklch(0.944 0.026 84), oklch(0.918 0.03 84)),
-    var(--raw-paper-low);
-  color: var(--raw-ink);
+  padding: 6px 8px;
+  background: oklch(0.902 0.034 82 / 0.76);
+  color: var(--raw-ink-soft);
+  box-shadow: inset 0 1px 0 oklch(0.98 0.012 86 / 0.45);
   transition:
     border-color 160ms ease,
     background 160ms ease,
@@ -194,10 +243,9 @@
 }
 
 .raw-lut-dropzone:hover:not([aria-disabled='true']) {
-  border-color: oklch(0.56 0.12 153 / 0.46);
-  background:
-    linear-gradient(180deg, oklch(0.932 0.034 84), oklch(0.9 0.044 84)),
-    var(--raw-paper-warm);
+  border-color: oklch(0.56 0.12 153 / 0.4);
+  background: oklch(0.882 0.046 82);
+  color: var(--raw-green-deep);
 }
 
 .raw-lut-dropzone:focus-within {
@@ -207,28 +255,39 @@
 
 .raw-lut-dropzone-content {
   height: 100%;
+  gap: 8px;
 }
 
 .raw-lut-dropzone-icon {
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   flex: 0 0 auto;
   place-items: center;
-  border: 1px solid oklch(0.59 0.15 153 / 0.24);
+  border: 1px solid oklch(0.68 0.042 78 / 0.56);
   border-radius: 7px;
-  background: oklch(0.59 0.15 153 / 0.1);
+  background: oklch(0.86 0.03 80 / 0.56);
+  color: var(--raw-ink-soft);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.raw-lut-dropzone:hover:not([aria-disabled='true']) .raw-lut-dropzone-icon {
+  border-color: oklch(0.56 0.12 153 / 0.28);
+  background: oklch(0.59 0.15 153 / 0.08);
   color: var(--raw-green-deep);
 }
 
 .raw-lut-dropzone-icon svg {
-  width: 15px;
-  height: 15px;
+  width: 13px;
+  height: 13px;
   stroke-width: 2.2;
 }
 
 .raw-lut-dropzone-name {
-  color: var(--raw-ink);
+  color: currentColor;
   font-size: 0.76rem;
   font-weight: 720;
   line-height: 1.15;
@@ -236,20 +295,20 @@
 
 .raw-lut-clear-button {
   display: inline-flex;
-  min-height: 42px;
-  width: 42px;
+  min-height: 38px;
+  width: 38px;
   align-items: center;
   justify-content: center;
-  border: 1px solid oklch(0.72 0.05 78 / 0.62);
+  border: 1px solid oklch(0.68 0.042 78 / 0.66);
   border-radius: 8px;
   padding: 0;
-  background: oklch(0.936 0.028 84);
+  background: oklch(0.902 0.034 82 / 0.9);
   color: var(--raw-ink-soft);
 }
 
 .raw-lut-clear-button:hover {
-  border-color: oklch(0.56 0.12 153 / 0.42);
-  background: oklch(0.9 0.05 84);
+  border-color: oklch(0.56 0.12 153 / 0.38);
+  background: oklch(0.882 0.046 82);
   color: var(--raw-green-deep);
 }
 

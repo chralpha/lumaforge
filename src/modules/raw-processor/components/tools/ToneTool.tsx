@@ -1,7 +1,6 @@
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
+import { RotateCcw } from 'lucide-react'
 import { useId } from 'react'
-
-import { Button } from '~/components/ui/button'
 
 import { ToolSection } from './ToolSection'
 
@@ -67,14 +66,15 @@ export function ToneTool({
         Applies before LUT conversion and full-resolution export.
       </p>
       {!isNeutral && <p className="raw-tool-note">Tone settings preserved</p>}
-      <Button
-        variant="secondary"
-        size="sm"
+      <button
+        type="button"
+        className="raw-tool-reset-button"
         disabled={disabled}
         onClick={onReset}
       >
+        <RotateCcw aria-hidden="true" />
         Reset tone
-      </Button>
+      </button>
     </ToolSection>
   )
 }
