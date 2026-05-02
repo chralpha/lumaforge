@@ -97,6 +97,7 @@ export function createJpegRuntimeCore(
   let writtenRows = 0
   let state: 'idle' | 'ready' | 'finished' | 'aborted' | 'failed' = 'idle'
   let finishMode: JpegWorkerFinishMode = 'blob'
+  let emittedChunk = false
   let encoderFactoryPromise: Promise<InternalJpegEncoderFactory> | null = null
   let encoder: InternalJpegEncoder | null = null
 
@@ -137,6 +138,9 @@ export function createJpegRuntimeCore(
     activeEncoder: InternalJpegEncoder,
   ) {
     const chunks = (await activeEncoder.drainChunks?.()) ?? []
+    if (chunks.length > 0) {
+      emittedChunk = true
+    }
 
     for (const chunk of chunks) {
       await options.onResponse?.({
@@ -188,6 +192,7 @@ export function createJpegRuntimeCore(
         height = request.payload.height
         writtenRows = 0
         finishMode = request.payload.finishMode ?? 'blob'
+        emittedChunk = false
         encoder = encoderFactory(request.payload)
         state = 'ready'
 
@@ -228,6 +233,10 @@ export function createJpegRuntimeCore(
         }
         assertReady()
         writtenRows += request.payload.rowCount
+        if (finishMode === 'chunks') {
+          await collectChunks(request.id, activeEncoder)
+          assertReady()
+        }
 
         return {
           id: request.id,
@@ -257,7 +266,7 @@ export function createJpegRuntimeCore(
         const chunks = await collectChunks(request.id, activeEncoder)
         assertReady()
         if (finishMode === 'chunks') {
-          if (chunks.length === 0) {
+          if (!emittedChunk) {
             state = 'failed'
             encoder = null
             throw new Error('JPEG_RUNTIME_CHUNKS_UNAVAILABLE')

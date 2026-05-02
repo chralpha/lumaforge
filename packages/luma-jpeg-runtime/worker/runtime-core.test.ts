@@ -207,6 +207,90 @@ describe('createJpegRuntimeCore', () => {
     })
   })
 
+  it('emits chunk-only backend chunks during row writes before finish', async () => {
+    const chunks = [
+      {
+        bytes: new Uint8Array([255, 216]),
+        byteOffset: 0,
+        final: false,
+      },
+      {
+        bytes: new Uint8Array([255, 217]),
+        byteOffset: 2,
+        final: true,
+      },
+    ]
+    const emitted: unknown[] = []
+    const core = createJpegRuntimeCore(
+      async () => () => {
+        let drainCount = 0
+        return {
+          async writeRows() {},
+          async finish() {
+            return new Blob([], { type: 'image/jpeg' })
+          },
+          drainChunks() {
+            return drainCount < chunks.length ? [chunks[drainCount++]] : []
+          },
+          abort() {},
+        }
+      },
+      {
+        onResponse: (response) => {
+          emitted.push(response)
+        },
+      },
+    )
+
+    await core.handleRequest({
+      id: 'create-row-chunks',
+      type: 'create',
+      payload: {
+        width: 1,
+        height: 2,
+        quality: 0.9,
+        finishMode: 'chunks',
+      },
+    })
+    await core.handleRequest({
+      id: 'rows-row-chunks-1',
+      type: 'rows',
+      payload: { rows: new Uint8Array([255, 255, 255]), rowCount: 1 },
+    })
+    await core.handleRequest({
+      id: 'rows-row-chunks-2',
+      type: 'rows',
+      payload: { rows: new Uint8Array([0, 0, 0]), rowCount: 1 },
+    })
+
+    expect(emitted).toEqual([
+      {
+        id: 'rows-row-chunks-1',
+        ok: true,
+        type: 'chunk',
+        payload: chunks[0],
+      },
+      {
+        id: 'rows-row-chunks-2',
+        ok: true,
+        type: 'chunk',
+        payload: chunks[1],
+      },
+    ])
+
+    const response = await core.handleRequest({
+      id: 'finish-row-chunks',
+      type: 'finish',
+      payload: {},
+    })
+
+    expect(response.type).toBe('finish')
+    if (response.type !== 'finish') {
+      throw new Error('expected finish response')
+    }
+    expect(response.payload.blob.size).toBe(0)
+  })
+
   it('returns an empty finish blob in chunk-only mode after emitting chunks', async () => {
     const chunk = {
       bytes: new Uint8Array([255, 216, 255, 217]),
@@ -214,6 +298,7 @@ describe('createJpegRuntimeCore', () => {
       final: true,
     }
     const emitted: unknown[] = []
+    let drainCount = 0
     const core = createJpegRuntimeCore(
       async () => () => ({
         async writeRows() {},
@@ -221,7 +306,8 @@ describe('createJpegRuntimeCore', () => {
           return new Blob([], { type: 'image/jpeg' })
         },
         drainChunks() {
-          return [chunk]
+          drainCount += 1
+          return drainCount === 2 ? [chunk] : []
         },
         abort() {},
       }),

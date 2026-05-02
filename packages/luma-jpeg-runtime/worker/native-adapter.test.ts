@@ -56,6 +56,62 @@ describe('createNativeJpegEncoderFactory', () => {
     await expect(encoder.finish()).rejects.toThrow('JPEG_RUNTIME_FINISHED')
   })
 
+  it('drains chunk-mode native chunks after row writes before finish', async () => {
+    const drainedOffsets: number[] = []
+    const factory = createNativeJpegEncoderFactory({
+      LumaJpegEncoder: class extends FakeNativeEncoder {
+        private nextOffset = 0
+        private readonly chunks: Array<{
+          bytes: Uint8Array
+          byteOffset: number
+          final: boolean
+        }> = []
+
+        override writeRows(rows: Uint8Array, rowCount: number) {
+          const result = super.writeRows(rows, rowCount)
+          this.chunks.push({
+            bytes: new Uint8Array([rowCount]),
+            byteOffset: this.nextOffset,
+            final: false,
+          })
+          this.nextOffset += 1
+          return result
+        }
+
+        drainChunks() {
+          const chunks = this.chunks.splice(0)
+          drainedOffsets.push(...chunks.map((chunk) => chunk.byteOffset))
+          return chunks
+        }
+      },
+    })
+    const encoder = factory({
+      width: 1,
+      height: 2,
+      quality: 0.92,
+      finishMode: 'chunks',
+    })
+
+    await encoder.writeRows(new Uint8Array([255, 0, 0]), 1)
+    expect(encoder.drainChunks?.()).toEqual([
+      {
+        bytes: new Uint8Array([1]),
+        byteOffset: 0,
+        final: false,
+      },
+    ])
+
+    await encoder.writeRows(new Uint8Array([0, 255, 0]), 1)
+    expect(encoder.drainChunks?.()).toEqual([
+      {
+        bytes: new Uint8Array([1]),
+        byteOffset: 1,
+        final: false,
+      },
+    ])
+    expect(drainedOffsets).toEqual([0, 1])
+  })
+
   it('aborts the native encoder', async () => {
     let deleted = false
     const factory = createNativeJpegEncoderFactory({

@@ -137,6 +137,9 @@ export function createNativeJpegEncoderFactory(module: NativeJpegModule) {
         if (finished) throw new Error('JPEG_RUNTIME_FINISHED')
         try {
           encoder.writeRows(rows, rowCount)
+          if (input.finishMode === 'chunks') {
+            pendingChunks.push(...normalizeNativeChunks(encoder))
+          }
         } catch (error) {
           aborted = true
           deleteNativeEncoder(encoder)
@@ -149,7 +152,7 @@ export function createNativeJpegEncoderFactory(module: NativeJpegModule) {
         let bytes: Uint8Array
         try {
           bytes = encoder.finish()
-          pendingChunks = normalizeNativeChunks(encoder)
+          pendingChunks.push(...normalizeNativeChunks(encoder))
         } catch (error) {
           finished = true
           deleteNativeEncoder(encoder)

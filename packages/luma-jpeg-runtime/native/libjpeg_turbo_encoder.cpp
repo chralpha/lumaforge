@@ -157,7 +157,6 @@ class LumaJpegEncoder {
     }
 
     chunks_.clear();
-    next_byte_offset_ = offset;
     return output;
   }
 
