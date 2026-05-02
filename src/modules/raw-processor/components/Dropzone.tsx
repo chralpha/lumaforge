@@ -303,8 +303,8 @@ export function LutDropzone({
   disabled?: boolean
 }) {
   const label = currentLut
-    ? `Selected LUT: ${currentLut}. Drop .cube LUT file to replace.`
-    : 'Drop .cube LUT file'
+    ? `Selected LUT: ${currentLut}. Add .cube LUT to replace.`
+    : 'Add .cube LUT'
 
   return (
     <div className="raw-lut-dropzone-shell flex min-w-0 max-w-full items-center gap-2 overflow-hidden">
@@ -314,17 +314,17 @@ export function LutDropzone({
         disabled={disabled}
         interactiveMotion={false}
         aria-label={label}
-        className="raw-lut-dropzone min-w-0 flex-1 px-4 py-3"
+        className="raw-lut-dropzone min-w-0 flex-1"
       >
         <div className="raw-lut-dropzone-content flex min-w-0 items-center gap-3">
           <span className="raw-lut-dropzone-icon" aria-hidden="true">
             <Upload />
           </span>
           <span
-            className="raw-lut-dropzone-name block min-w-0 max-w-full truncate text-sm text-text"
+            className="raw-lut-dropzone-name block min-w-0 max-w-full truncate"
             title={currentLut ?? undefined}
           >
-            {currentLut || 'Drop .cube LUT file'}
+            {currentLut || 'Add .cube LUT'}
           </span>
         </div>
       </Dropzone>
@@ -335,7 +335,7 @@ export function LutDropzone({
             e.stopPropagation()
             onClear()
           }}
-          className="raw-lut-clear-button shrink-0 rounded-lg p-2 text-text-secondary transition-colors hover:bg-fill hover:text-text"
+          className="raw-lut-clear-button shrink-0"
           aria-label="Clear LUT"
           title="Clear LUT"
         >
