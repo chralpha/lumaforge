@@ -192,6 +192,10 @@ export function selectExportExecutionPlan(input: {
     profile: profileName,
     output: input.output,
   })
+  const cannotSafelyComplete =
+    profileName === 'ios-safe' &&
+    megapixels >= 100 &&
+    outputSink === 'blob-handoff'
   const runtimeMemoryProfile: ExportRuntimeMemoryProfile =
     profileName === 'desktop-fast' && input.runtime.pthreadAvailable
       ? 'desktop'
@@ -208,8 +212,11 @@ export function selectExportExecutionPlan(input: {
     runtimeMemoryProfile,
     outputSink,
     checkpointMode: profile.checkpointMode,
-    productCopy:
-      profileName === 'desktop-fast' ? 'high-performance' : 'safe-export',
+    productCopy: cannotSafelyComplete
+      ? 'cannot-safely-complete'
+      : profileName === 'desktop-fast'
+        ? 'high-performance'
+        : 'safe-export',
   }
 }
 

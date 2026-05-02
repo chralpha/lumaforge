@@ -36,7 +36,10 @@ import {
   createCheckpointStore,
   createOpfsCheckpointBackend,
 } from '~/lib/export/checkpoint-store'
-import { emitExportDebugEvent } from '~/lib/export/execution-profile'
+import {
+  emitExportDebugEvent,
+  getExportModeCopy,
+} from '~/lib/export/execution-profile'
 import type {
   FullResWorkerCheckpointConfig,
   FullResWorkerCheckpointMetric,
@@ -431,6 +434,24 @@ function changesRenderGraphParams(
 const MISSING_RAW_RENDER_EXPOSURE_EXPORT_REASON =
   'RAW preview exposure is still being prepared.'
 
+function getUnsafeFullResExportReason(input: {
+  session: ImageSession
+  fidelity?: 'safe' | 'balanced' | 'max'
+}) {
+  const capability = input.session.exportState.fullResCapability
+  if (capability.status !== 'supported') return undefined
+
+  const plan = selectCurrentExportExecutionPlan({
+    fidelity: input.fidelity ?? 'balanced',
+    sourceWidth: capability.width,
+    sourceHeight: capability.height,
+  })
+
+  return plan.productCopy === 'cannot-safely-complete'
+    ? getExportModeCopy(plan.productCopy)
+    : undefined
+}
+
 function isFullResExportRunnable(input: {
   sourceFile: File | null
   session: ImageSession
@@ -439,7 +460,8 @@ function isFullResExportRunnable(input: {
   return (
     Boolean(input.sourceFile) &&
     Boolean(input.rawRenderExposure) &&
-    deriveCanExport(input.session)
+    deriveCanExport(input.session) &&
+    !getUnsafeFullResExportReason({ session: input.session })
   )
 }
 
@@ -458,6 +480,9 @@ function resolveHookExportDisabledReason(input: {
   if (!input.rawRenderExposure) {
     return MISSING_RAW_RENDER_EXPOSURE_EXPORT_REASON
   }
+
+  const unsafeReason = getUnsafeFullResExportReason({ session: input.session })
+  if (unsafeReason) return unsafeReason
 
   return undefined
 }

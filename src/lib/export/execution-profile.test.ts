@@ -43,6 +43,47 @@ describe('export execution profile selection', () => {
     expect(plan.preferredRows).toBe(64)
   })
 
+  it('marks iPhone WebKit 100MP blob handoff as unable to complete safely', () => {
+    const plan = selectExportExecutionPlan({
+      fidelity: 'balanced',
+      sourceWidth: 11662,
+      sourceHeight: 8746,
+      runtime: { lowMemoryAvailable: true, pthreadAvailable: false },
+      output: { opfsAvailable: false, streamingAvailable: false },
+      platform: {
+        userAgent:
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+        touch: true,
+      },
+    })
+
+    expect(plan.profile.name).toBe('ios-safe')
+    expect(plan.outputSink).toBe('blob-handoff')
+    expect(plan.productCopy).toBe('cannot-safely-complete')
+    expect(getExportModeCopy(plan.productCopy)).toMatch(
+      /cannot safely complete a 100MP local full-resolution export/i,
+    )
+  })
+
+  it('keeps smaller iPhone WebKit blob handoff exports allowed', () => {
+    const plan = selectExportExecutionPlan({
+      fidelity: 'balanced',
+      sourceWidth: 6048,
+      sourceHeight: 4024,
+      runtime: { lowMemoryAvailable: true, pthreadAvailable: false },
+      output: { opfsAvailable: false, streamingAvailable: false },
+      platform: {
+        userAgent:
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+        touch: true,
+      },
+    })
+
+    expect(plan.profile.name).toBe('ios-safe')
+    expect(plan.outputSink).toBe('blob-handoff')
+    expect(plan.productCopy).toBe('safe-export')
+  })
+
   it('uses ios-safe for iPadOS Safari desktop-mode user agents with touch', () => {
     const plan = selectExportExecutionPlan({
       fidelity: 'max',

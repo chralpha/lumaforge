@@ -2015,6 +2015,58 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
+  it('does not start unsafe 100MP iOS WebKit blob-handoff export without a durable sink', async () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+      maxTouchPoints: 1,
+      storage: {},
+      hardwareConcurrency: 4,
+    })
+    vi.stubGlobal('crossOriginIsolated', false)
+
+    rawRuntimeAdapterMock.probeExportCapability.mockResolvedValue({
+      ...createSupportedCapability(),
+      width: 11662,
+      height: 8746,
+      rawWidth: 11662,
+      rawHeight: 8746,
+    })
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.RAF'))
+    })
+
+    expect(result.current.canExport).toBe(false)
+    expect(result.current.exportDisabledReason).toMatch(
+      /cannot safely complete a 100MP local full-resolution export/i,
+    )
+
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+    await flushScheduledToasts()
+
+    expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
+    expect(toastMock.error).toHaveBeenCalledWith(
+      'Full-resolution export is not ready',
+      expect.objectContaining({
+        description: expect.stringMatching(
+          /cannot safely complete a 100MP local full-resolution export/i,
+        ),
+      }),
+    )
+  })
+
   it('writes OPFS safe-retry checkpoint manifests for durable ios-safe exports', async () => {
     vi.stubGlobal('navigator', {
       userAgent:
