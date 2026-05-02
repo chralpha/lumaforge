@@ -43,6 +43,26 @@ describe('export execution profile selection', () => {
     expect(plan.preferredRows).toBe(64)
   })
 
+  it('uses ios-safe for iPadOS Safari desktop-mode user agents with touch', () => {
+    const plan = selectExportExecutionPlan({
+      fidelity: 'max',
+      sourceWidth: 11662,
+      sourceHeight: 8746,
+      runtime: { lowMemoryAvailable: true, pthreadAvailable: true },
+      output: { opfsAvailable: true, streamingAvailable: false },
+      platform: {
+        userAgent:
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+        touch: true,
+      },
+    })
+
+    expect(plan.profile.name).toBe('ios-safe')
+    expect(plan.preferredRows).toBe(64)
+    expect(plan.concurrency).toBe(1)
+    expect(plan.runtimeMemoryProfile).toBe('low-memory')
+  })
+
   it.each([
     ['mobile-balanced', 256, 2],
     ['desktop-fast', 1024, 3],

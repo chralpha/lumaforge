@@ -25,6 +25,12 @@ function isOpfsAvailable() {
   )
 }
 
+function isJpegStreamingOutputSinkAvailable() {
+  // Web Streams alone are not an export sink; only return true once a bounded
+  // JPEG streaming handoff is wired into the worker path.
+  return false
+}
+
 export function selectCurrentExportExecutionPlan(input: {
   fidelity: ExportFidelity
   sourceWidth?: number
@@ -43,9 +49,7 @@ export function selectCurrentExportExecutionPlan(input: {
     },
     output: {
       opfsAvailable: isOpfsAvailable(),
-      streamingAvailable:
-        typeof WritableStream !== 'undefined' &&
-        typeof ReadableStream !== 'undefined',
+      streamingAvailable: isJpegStreamingOutputSinkAvailable(),
     },
     platform: {
       userAgent: typeof navigator === 'undefined' ? '' : navigator.userAgent,
@@ -70,7 +74,7 @@ function selectDefaultExportExecutionPlanForFidelity(fidelity: ExportFidelity) {
     },
     output: {
       opfsAvailable: false,
-      streamingAvailable: true,
+      streamingAvailable: false,
     },
     platform: {
       userAgent: '',

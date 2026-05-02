@@ -26,7 +26,7 @@ function getExpectedProjectPlan(projectName: string): ExpectedProjectPlan {
       concurrency: 2,
       runtimeMemoryProfile: 'desktop',
       checkpointMode: 'safe-retry',
-      outputSink: 'streaming',
+      outputSink: 'blob-handoff',
       checkpointExpected: false,
     }
   }

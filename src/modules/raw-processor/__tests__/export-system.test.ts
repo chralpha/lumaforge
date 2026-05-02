@@ -67,6 +67,28 @@ describe('export-system', () => {
     expect(plan.checkpointMode).toBe('safe-retry')
   })
 
+  it('does not report a streaming output sink from ambient Web Streams alone', () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/537.36 Chrome/126 Safari/537.36',
+      maxTouchPoints: 0,
+      storage: {},
+      hardwareConcurrency: 8,
+    })
+    vi.stubGlobal('WritableStream', class WritableStream {})
+    vi.stubGlobal('ReadableStream', class ReadableStream {})
+    vi.stubGlobal('crossOriginIsolated', true)
+
+    const plan = selectCurrentExportExecutionPlan({
+      fidelity: 'max',
+      sourceWidth: 11662,
+      sourceHeight: 8746,
+    })
+
+    expect(plan.profile.name).toBe('desktop-fast')
+    expect(plan.outputSink).toBe('blob-handoff')
+  })
+
   it('runs the full-resolution export client and disposes it', async () => {
     const file = new File(['raw'], 'frame.ARW')
     const blob = new Blob(['jpeg'], { type: 'image/jpeg' })

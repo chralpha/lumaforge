@@ -126,9 +126,10 @@ export function isKnownRiskWebKitMobile(input: {
 }) {
   const ua = input.userAgent ?? ''
   const isiOS = /\b(?:iPhone|iPad|iPod)\b/i.test(ua)
+  const isIPadOsDesktopMode = /\bMacintosh\b/i.test(ua) && input.touch === true
   const webKit = /\bAppleWebKit\b/i.test(ua)
   const mobile = input.touch === true || /\bMobile\b/i.test(ua)
-  return isiOS && webKit && mobile
+  return (isiOS || isIPadOsDesktopMode) && webKit && mobile
 }
 
 function chooseProfile(input: {
