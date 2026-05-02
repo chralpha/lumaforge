@@ -103,6 +103,7 @@ function RawProcessorViewInner({
     presetOptions,
     embeddedPreviewUrl,
     displaySource,
+    histogram,
     loadFile,
     loadLUT,
     loadOnlineLUT,
@@ -345,6 +346,7 @@ function RawProcessorViewInner({
           supportLevel={supportLevel}
           metadata={toolMetadata}
           stats={toolStats}
+          histogram={histogram}
         />
       </div>
 

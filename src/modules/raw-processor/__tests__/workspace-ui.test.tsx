@@ -8,6 +8,20 @@ import { ComparePreviewStage } from '../components/ComparePreviewStage'
 import { LutDropzone } from '../components/Dropzone'
 import { PreviewCanvas } from '../components/PreviewCanvas'
 import { RawToolSurface } from '../components/RawToolSurface'
+import type { UseRawProcessorReturn } from '../hooks/useRawProcessor'
+import { RawProcessorView } from '../RawProcessorView'
+import { BUILTIN_PRESETS } from '../services/builtin-presets'
+
+const mockUseRawProcessor = vi.hoisted(() => vi.fn())
+const mockUseCapabilityGate = vi.hoisted(() => vi.fn())
+
+vi.mock('../hooks', () => ({
+  useRawProcessor: mockUseRawProcessor,
+}))
+
+vi.mock('../hooks/useCapabilityGate', () => ({
+  useCapabilityGate: mockUseCapabilityGate,
+}))
 
 function rawToolSurfaceProps(
   overrides: Partial<ComponentProps<typeof RawToolSurface>> = {},
@@ -50,6 +64,7 @@ function rawToolSurfaceProps(
     supportLevel: 'experimental',
     metadata: null,
     stats: null,
+    histogram: { state: 'unavailable' as const, reason: 'no-image' as const },
     ...overrides,
   }
 }
@@ -84,6 +99,79 @@ function compareStageProps(
   }
 }
 
+function rawProcessorViewState(
+  overrides: Partial<UseRawProcessorReturn> = {},
+): UseRawProcessorReturn {
+  return {
+    params: {
+      userExposureEv: 0,
+      userContrast: 0,
+      intensity: 0.7,
+      viewMode: 'compare',
+      compareSplit: 0.5,
+      styleKind: 'none',
+      builtinPreset: null,
+    },
+    loadedImage: { file: null, metadata: null },
+    decodedImageRef: { current: null },
+    decodedImageVersion: 0,
+    status: 'idle',
+    error: null,
+    progress: 0,
+    lut: null,
+    lutData: null,
+    lutDataRef: { current: null },
+    lutDataVersion: 0,
+    stats: null,
+    hasImage: false,
+    canExport: false,
+    exportDisabledReason: 'Full-resolution export source is still loading.',
+    exportResult: null,
+    exportShareCapability: {
+      available: false,
+      reason: 'Export a JPEG before sharing.',
+    },
+    exportRecovery: { status: 'none' },
+    activeStyle: null,
+    lutProfileSelection: null,
+    activePresetId: null,
+    activeIntensity: 'standard',
+    viewMode: 'compare',
+    compareSplit: 0.5,
+    currentLutName: null,
+    sourceFileName: '',
+    supportLevel: 'experimental',
+    progressRecoveryHint: undefined,
+    presetOptions: BUILTIN_PRESETS,
+    embeddedPreviewUrl: null,
+    displaySource: 'none',
+    histogram: { state: 'unavailable', reason: 'no-image' },
+    previewSuspended: false,
+    loadFile: vi.fn(),
+    loadLUT: vi.fn(),
+    loadOnlineLUT: vi.fn(),
+    selectLUTProfile: vi.fn(),
+    selectBuiltinStyle: vi.fn(),
+    selectIntensityLevel: vi.fn(),
+    setViewMode: vi.fn(),
+    setCompareSplit: vi.fn(),
+    clearLUT: vi.fn(),
+    setParams: vi.fn(),
+    setToneParams: vi.fn(),
+    resetTone: vi.fn(),
+    exportImage: vi.fn(),
+    recoverInterruptedExport: vi.fn(),
+    downloadExportResult: vi.fn(),
+    shareExportResult: vi.fn(),
+    copyExportResult: vi.fn(),
+    reset: vi.fn(),
+    dismissError: vi.fn(),
+    updateStats: vi.fn(),
+    pipelineRef: { current: null },
+    ...overrides,
+  }
+}
+
 vi.mock('~/lib/gl/pipeline', async (importOriginal) => {
   const actual = await importOriginal<typeof import('~/lib/gl/pipeline')>()
 
@@ -110,6 +198,12 @@ vi.mock('~/lib/gl/pipeline', async (importOriginal) => {
 })
 
 beforeEach(() => {
+  mockUseCapabilityGate.mockReturnValue({
+    ready: true,
+    supportStatus: 'supported',
+    reason: null,
+  })
+
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -124,13 +218,31 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+describe('rawProcessorView', () => {
+  it('passes hook histogram state into RAW tools with Histogram', async () => {
+    mockUseRawProcessor.mockReturnValue(rawProcessorViewState())
+
+    await act(async () => {
+      render(<RawProcessorView />)
+      await Promise.resolve()
+    })
+
+    expect(
+      screen.getByRole('region', { name: 'Histogram' }),
+    ).toBeInTheDocument()
+  })
+})
+
 describe('rawToolSurface', () => {
-  it('presents task-grouped RAW finishing tools', () => {
+  it('presents task-grouped RAW tools with Histogram', () => {
     render(<RawToolSurface {...rawToolSurfaceProps()} />)
 
     expect(screen.getByRole('region', { name: 'Finish' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Tone' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Strength' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('region', { name: 'Histogram' }),
+    ).toBeInTheDocument()
     expect(screen.getByText('Neutral')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Standard' })).toBeInTheDocument()
     expect(screen.getByLabelText('Exposure')).toBeInTheDocument()
