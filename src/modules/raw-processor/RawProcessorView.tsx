@@ -98,6 +98,7 @@ function RawProcessorViewInner({
     sourceFileName,
     supportLevel,
     progressRecoveryHint,
+    previewSuspended,
     compareSplit,
     presetOptions,
     embeddedPreviewUrl,
@@ -282,7 +283,7 @@ function RawProcessorViewInner({
           lutDataVersion={lutDataVersion}
           embeddedPreviewUrl={embeddedPreviewUrl}
           displaySource={displaySource}
-          previewSuspended={status === 'exporting'}
+          previewSuspended={previewSuspended}
           split={compareSplit}
           onSplitChange={setCompareSplit}
           onSplitPreviewChange={handleCompareSplitPreviewChange}

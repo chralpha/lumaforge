@@ -139,6 +139,7 @@ function createLoadedProcessorState(
     presetOptions: BUILTIN_PRESETS,
     embeddedPreviewUrl: null,
     displaySource: 'bounded-hq',
+    previewSuspended: false,
     loadFile: vi.fn(),
     loadLUT: vi.fn(),
     loadOnlineLUT: vi.fn(),

@@ -197,7 +197,6 @@ export function PreviewCanvas({
           return
         }
 
-        console.error('Failed to initialize WebGL pipeline:', err)
         setError(
           err instanceof Error ? err.message : 'WebGL initialization failed',
         )
@@ -208,7 +207,7 @@ export function PreviewCanvas({
 
     return () => {
       cancelled = true
-      disposePipeline({ releaseContext: true })
+      disposePipeline({ releaseContext: false })
       pipelineRef.current = null
       onPipelineChange?.(null)
     }
@@ -393,11 +392,13 @@ export function PreviewCanvas({
           transition={Spring.presets.smooth}
         >
           <div className="flex flex-col items-center gap-4 text-center p-8">
-            <div className="size-16 rounded-full bg-red/10 flex items-center justify-center">
-              <i className="i-mingcute-warning-line text-3xl text-red" />
+            <div className="size-16 rounded-full bg-[oklch(0.78_0.16_63_/_0.14)] flex items-center justify-center">
+              <i className="i-mingcute-warning-line text-3xl text-[oklch(0.78_0.16_63)]" />
             </div>
             <div>
-              <h3 className="text-lg font-medium text-text">WebGL Error</h3>
+              <h3 className="text-lg font-medium text-text">
+                Preview unavailable
+              </h3>
               <p className="text-sm text-text-secondary mt-1">{error}</p>
             </div>
           </div>

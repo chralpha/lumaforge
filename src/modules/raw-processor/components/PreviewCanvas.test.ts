@@ -1,5 +1,5 @@
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
-import { act, render, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -247,6 +247,28 @@ describe('preview canvas upload descriptor', () => {
     expect(setError).toHaveBeenCalledWith(null)
   })
 
+  it('describes preview initialization failures without exposing a WebGL error panel', async () => {
+    pipelineMock.initialize.mockRejectedValueOnce(
+      new Error('Context restore failed'),
+    )
+
+    render(
+      createElement(PreviewCanvas, {
+        imageRef: { current: null },
+        imageVersion: 0,
+        params: defaultParams,
+        lutDataRef: { current: null },
+        lutDataVersion: 0,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Preview unavailable')).toBeTruthy()
+    })
+    expect(screen.queryByText('WebGL Error')).toBeNull()
+    expect(screen.getByText('Context restore failed')).toBeTruthy()
+  })
+
   it('uploads decoded image render exposure through the component path', async () => {
     const data = new Uint16Array([1024, 1024, 1024])
     const image: DecodedImage = {
@@ -354,7 +376,7 @@ describe('preview canvas upload descriptor', () => {
     )
 
     expect(firstPipeline.disposeMock).toHaveBeenCalledWith({
-      releaseContext: true,
+      releaseContext: false,
     })
     expect(onPipelineChange).toHaveBeenCalledWith(null)
     expect(pipelineMock.instances).toHaveLength(1)

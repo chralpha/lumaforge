@@ -38,6 +38,7 @@ import {
 } from '~/lib/export/checkpoint-store'
 import {
   emitExportDebugEvent,
+  EXPORT_EXECUTION_PROFILES,
   getExportModeCopy,
 } from '~/lib/export/execution-profile'
 import type {
@@ -520,6 +521,7 @@ export interface UseRawProcessorReturn {
   presetOptions: typeof BUILTIN_PRESETS
   embeddedPreviewUrl: string | null
   displaySource: DisplaySource
+  previewSuspended: boolean
 
   // Actions
   loadFile: (file: File) => Promise<void>
@@ -777,7 +779,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         if (pipelineRef.current === pipeline) {
           pipelineRef.current = null
         }
-        return pipeline.dispose({ releaseContext: true })
+        return pipeline.dispose({ releaseContext: false })
       },
     })
   }, [])
@@ -2243,7 +2245,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
           }
         }
 
-        registerCurrentPreviewPipelineForEvacuation()
+        if (jobExecutionPlan.profile.releasePreviewPipelineBeforeExport) {
+          registerCurrentPreviewPipelineForEvacuation()
+        }
         const snapshot = createPreExportSnapshot({
           file: loadedImage.file,
           metadata: loadedImage.metadata,
@@ -2742,6 +2746,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
     sessionRecovery && sessionRecovery.status !== 'none'
       ? sessionRecovery
       : discoveredRecovery
+  const activeExportProfileName =
+    session?.exportState.status === 'exporting'
+      ? session.exportState.activePlan?.profileName
+      : undefined
+  const previewSuspended =
+    status === 'exporting' &&
+    Boolean(
+      activeExportProfileName &&
+      EXPORT_EXECUTION_PROFILES[activeExportProfileName]
+        .releasePreviewPipelineBeforeExport,
+    )
 
   return {
     params,
@@ -2778,6 +2793,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     presetOptions: BUILTIN_PRESETS,
     embeddedPreviewUrl,
     displaySource,
+    previewSuspended,
     loadFile,
     loadLUT,
     loadOnlineLUT,

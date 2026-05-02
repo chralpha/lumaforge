@@ -1992,6 +1992,7 @@ describe('useRawProcessor embedded preview state', () => {
     })
     expect(exportState?.result).toBeUndefined()
     expect(exportState?.lastProgress).toBeUndefined()
+    expect(result.current.previewSuspended).toBe(true)
 
     expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -2005,6 +2006,65 @@ describe('useRawProcessor embedded preview state', () => {
         }),
       }),
     )
+
+    await act(async () => {
+      pendingExport.resolve({
+        filename: 'frame_neutral_fullres.jpg',
+        blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+      })
+      await exportPromise
+    })
+  })
+
+  it('keeps the desktop-fast preview pipeline mounted during export', async () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+      maxTouchPoints: 0,
+      storage: {},
+      hardwareConcurrency: 8,
+    })
+    vi.stubGlobal('crossOriginIsolated', true)
+
+    const pipelineDispose = vi.fn()
+    const pipeline = {
+      dispose: pipelineDispose,
+    } as never
+
+    const pendingExport = deferred<{ filename: string; blob: Blob }>()
+    exportSystemMock.runFullResolutionExportJob.mockReturnValue(
+      pendingExport.promise,
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+
+    act(() => {
+      result.current.pipelineRef.current = pipeline
+    })
+
+    let exportPromise!: Promise<void>
+    await act(async () => {
+      exportPromise = result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+      await Promise.resolve()
+    })
+
+    expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        executionPlan: expect.objectContaining({
+          profile: expect.objectContaining({ name: 'desktop-fast' }),
+        }),
+      }),
+    )
+    expect(result.current.previewSuspended).toBe(false)
+    expect(pipelineDispose).not.toHaveBeenCalled()
+    expect(result.current.pipelineRef.current).toBe(pipeline)
 
     await act(async () => {
       pendingExport.resolve({
@@ -2271,7 +2331,7 @@ describe('useRawProcessor embedded preview state', () => {
       expect(boundedHqSignal?.aborted).toBe(true)
       expect(runtimeDispose).toHaveBeenCalledTimes(1)
       expect(pipelineDispose).toHaveBeenCalledWith({
-        releaseContext: true,
+        releaseContext: false,
       })
       expect(
         jotaiStore.get(currentSessionAtom)?.exportState.result,
@@ -2380,7 +2440,7 @@ describe('useRawProcessor embedded preview state', () => {
 
     await waitFor(() => {
       expect(disposePreviewPipeline).toHaveBeenCalledWith({
-        releaseContext: true,
+        releaseContext: false,
       })
     })
 
@@ -3064,7 +3124,7 @@ describe('useRawProcessor embedded preview state', () => {
       })
     })
     expect(result.current.pipelineRef.current).toBeNull()
-    expect(dispose).toHaveBeenCalledWith({ releaseContext: true })
+    expect(dispose).toHaveBeenCalledWith({ releaseContext: false })
 
     await act(async () => {
       await result.current.copyExportResult()
