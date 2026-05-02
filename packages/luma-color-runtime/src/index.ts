@@ -1,5 +1,6 @@
 export * from './color-graph'
 export * from './constants'
+export * from './histogram'
 export * from './log-encoding'
 export * from './lut-contract'
 export * from './lut3d'

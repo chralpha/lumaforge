@@ -42,4 +42,10 @@ describe('luma color runtime package boundary', () => {
 
     expect(violations).toEqual([])
   })
+
+  it('exports preview histogram API from the package root', async () => {
+    const runtime = await import('./index')
+
+    expect(runtime).toHaveProperty('createPreviewHistogramProcessor')
+  })
 })
