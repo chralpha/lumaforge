@@ -116,6 +116,21 @@ async function runAllWork() {
   })
 }
 
+async function runChunkedWorkUntilReady(
+  result: ReturnType<typeof renderPreviewHistogram>['result'],
+) {
+  await runDebouncedWork()
+  for (
+    let attempt = 0;
+    attempt < 128 && result.current.state !== 'ready';
+    attempt += 1
+  ) {
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync()
+    })
+  }
+}
+
 describe('usePreviewHistogram', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -162,6 +177,44 @@ describe('usePreviewHistogram', () => {
       ).toBe(4)
     }
     expect(image.data.byteLength).toBe(24)
+    expect(sliceSpy).not.toHaveBeenCalled()
+  })
+
+  it('bounds large preview sampling without copying the active buffer', async () => {
+    const width = 1000
+    const height = 501
+    const data = new Uint16Array(width * height * 3)
+    data.fill(32768)
+    const image = createImage('quick', { width, height, data })
+    const sliceSpy = vi
+      .spyOn(Uint16Array.prototype, 'slice')
+      .mockImplementation(() => {
+        throw new Error('copying source preview data is forbidden')
+      })
+
+    const { result } = renderPreviewHistogram({ image })
+
+    await runChunkedWorkUntilReady(result)
+
+    expect(result.current.state).toBe('ready')
+    expect(result.current).toMatchObject({
+      state: 'ready',
+      source: 'quick',
+      totalPixels: width * height,
+      diagnostics: {
+        ownership: 'main-thread-chunked-no-copy',
+        copiedInputBytes: 0,
+        transferredInput: false,
+        inputByteLength: data.buffer.byteLength,
+      },
+    })
+    if (result.current.state === 'ready') {
+      expect(result.current.sampledPixels).toBeLessThan(
+        result.current.totalPixels,
+      )
+      expect(result.current.sampledPixels).toBeGreaterThan(0)
+    }
+    expect(data.buffer.byteLength).toBe(width * height * 3 * 2)
     expect(sliceSpy).not.toHaveBeenCalled()
   })
 

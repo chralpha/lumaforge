@@ -17,6 +17,7 @@ import type { DisplaySource } from '../model/session'
 
 const ROW_BAND_ROWS = 32
 const COMPUTE_DEBOUNCE_MS = 150
+const MAX_HISTOGRAM_SAMPLED_PIXELS = 500_000
 const UNSUPPORTED_PREVIEW_REASON =
   'Preview histogram requires RGB16 Linear ProPhoto preview data.'
 
@@ -162,6 +163,18 @@ function scheduleChunk(
   }, 0)
 }
 
+function getPreviewHistogramRowStep(width: number, height: number) {
+  const totalPixels = width * height
+  if (
+    !Number.isSafeInteger(totalPixels) ||
+    totalPixels <= MAX_HISTOGRAM_SAMPLED_PIXELS
+  ) {
+    return 1
+  }
+
+  return Math.max(1, Math.ceil(totalPixels / MAX_HISTOGRAM_SAMPLED_PIXELS))
+}
+
 export function usePreviewHistogram(
   input: PreviewHistogramInput,
 ): PreviewHistogramState {
@@ -246,7 +259,9 @@ export function usePreviewHistogram(
         rowBandRows: ROW_BAND_ROWS,
         graph: job.graph,
       })
+      const rowStep = getPreviewHistogramRowStep(image.width, image.height)
       let nextRow = 0
+      let processedRows = 0
 
       const processNextBand = () => {
         if (versionRef.current !== runVersion) return
@@ -256,7 +271,7 @@ export function usePreviewHistogram(
             source: image.source,
             width: image.width,
             height: image.height,
-            totalRows: image.height,
+            totalRows: processedRows,
             ownership: 'main-thread-chunked-no-copy',
             inputByteLength: image.data.buffer.byteLength,
           })
@@ -266,11 +281,25 @@ export function usePreviewHistogram(
           return
         }
 
-        const rowCount = Math.min(ROW_BAND_ROWS, image.height - nextRow)
-        const start = nextRow * image.width * 3
-        const end = start + rowCount * image.width * 3
-        processor.processUint16Rows(image.data.subarray(start, end), rowCount)
-        nextRow += rowCount
+        if (rowStep === 1) {
+          const rowCount = Math.min(ROW_BAND_ROWS, image.height - nextRow)
+          const start = nextRow * image.width * 3
+          const end = start + rowCount * image.width * 3
+          processor.processUint16Rows(image.data.subarray(start, end), rowCount)
+          nextRow += rowCount
+          processedRows += rowCount
+        } else {
+          let rowsThisChunk = 0
+          while (rowsThisChunk < ROW_BAND_ROWS && nextRow < image.height) {
+            const start = nextRow * image.width * 3
+            const end = start + image.width * 3
+            processor.processUint16Rows(image.data.subarray(start, end), 1)
+            nextRow += rowStep
+            processedRows += 1
+            rowsThisChunk += 1
+          }
+        }
+
         chunkTimer = scheduleChunk(runVersion, versionRef, processNextBand)
       }
 
