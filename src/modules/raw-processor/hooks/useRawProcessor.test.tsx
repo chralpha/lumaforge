@@ -468,6 +468,7 @@ describe('useRawProcessor embedded preview state', () => {
       resetToDefaults()
       jotaiStore.set(currentSessionAtom, null)
     })
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     localStorage.clear()
   })
@@ -1299,6 +1300,96 @@ describe('useRawProcessor embedded preview state', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:embedded-preview')
     expect(result.current.embeddedPreviewUrl).toBeNull()
     expect(result.current.displaySource).toBe('none')
+  })
+
+  it('publishes the active decoded preview histogram after load', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
+      window.setTimeout(() => callback(performance.now()), 0),
+    )
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick', {
+        width: 2,
+        height: 1,
+        data: new Uint16Array([0, 0, 0, 65535, 65535, 65535]),
+      }),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq', {
+        width: 2,
+        height: 1,
+        data: new Uint16Array([65535, 0, 0, 0, 0, 65535]),
+      }),
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      const loadPromise = result.current.loadFile(
+        new File(['raw'], 'frame.ARW'),
+      )
+      await Promise.resolve()
+      await vi.runAllTimersAsync()
+      await loadPromise
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200)
+      await vi.runOnlyPendingTimersAsync()
+    })
+
+    expect(result.current.histogram.state).toBe('ready')
+    if (result.current.histogram.state !== 'ready') {
+      throw new Error('Expected histogram')
+    }
+    expect(result.current.histogram.source).toBe('bounded-hq')
+    expect(result.current.histogram.diagnostics.ownership).toBe(
+      'main-thread-chunked-no-copy',
+    )
+  })
+
+  it('keeps histogram independent from compare split changes', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
+      window.setTimeout(() => callback(performance.now()), 0),
+    )
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick', {
+        width: 2,
+        height: 1,
+        data: new Uint16Array([0, 0, 0, 65535, 65535, 65535]),
+      }),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq', {
+        width: 2,
+        height: 1,
+        data: new Uint16Array([0, 0, 0, 65535, 65535, 65535]),
+      }),
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      const loadPromise = result.current.loadFile(
+        new File(['raw'], 'frame.ARW'),
+      )
+      await Promise.resolve()
+      await vi.runAllTimersAsync()
+      await loadPromise
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200)
+      await vi.runOnlyPendingTimersAsync()
+    })
+    expect(result.current.histogram.state).toBe('ready')
+    const histogram = result.current.histogram
+
+    act(() => {
+      result.current.setCompareSplit(0.8)
+    })
+
+    expect(result.current.histogram).toBe(histogram)
   })
 
   it('opens one runtime session for a load and disposes it after preview completion', async () => {

@@ -2,6 +2,7 @@ import type {
   LUTColorProfile,
   LUTContractSelection,
   LUTData,
+  PreviewHistogramState,
   ProcessingParams,
 } from '@lumaforge/luma-color-runtime'
 import {
@@ -129,6 +130,7 @@ import {
 } from '../services/style-system'
 import { classifySupportLevel } from '../services/support-matrix'
 import { useImageSession } from './useImageSession'
+import { usePreviewHistogram } from './usePreviewHistogram'
 
 const MAX_ONLINE_CUBE_BYTES = 64 * 1024 * 1024
 const onlineProfileCache = createBrowserOnlineProfileCache()
@@ -521,6 +523,7 @@ export interface UseRawProcessorReturn {
   presetOptions: typeof BUILTIN_PRESETS
   embeddedPreviewUrl: string | null
   displaySource: DisplaySource
+  histogram: PreviewHistogramState
   previewSuspended: boolean
 
   // Actions
@@ -667,6 +670,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const embeddedPreviewUrl =
     session?.previewBundle.embeddedPreview.objectUrl || null
   const displaySource = session?.previewBundle.displaySource || 'none'
+  const histogram = usePreviewHistogram({
+    imageRef: decodedImageRef,
+    imageVersion: decodedImageVersion,
+    params,
+    lutDataRef,
+    lutDataVersion,
+    displaySource,
+  })
   const scheduleToast = useCallback((notify: () => void) => {
     // Sonner uses flushSync internally; move RAW-workspace toasts out of the
     // current commit so dev-only tooling does not crash on the same render pass.
@@ -2793,6 +2804,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     presetOptions: BUILTIN_PRESETS,
     embeddedPreviewUrl,
     displaySource,
+    histogram,
     previewSuspended,
     loadFile,
     loadLUT,
