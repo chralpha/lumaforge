@@ -1,5 +1,6 @@
 .raw-lab {
   --raw-paper: oklch(0.964 0.018 86);
+  --raw-paper-high: oklch(0.948 0.022 86);
   --raw-paper-low: oklch(0.918 0.026 86);
   --raw-paper-warm: oklch(0.9 0.034 82);
   --raw-ink: oklch(0.18 0.018 76);
@@ -7,7 +8,9 @@
   --raw-hairline: oklch(0.74 0.035 78);
   --raw-green: oklch(0.59 0.15 153);
   --raw-green-deep: oklch(0.37 0.105 155);
+  --raw-green-soft: oklch(0.84 0.09 145);
   --raw-amber: oklch(0.78 0.16 63);
+  --raw-amber-soft: oklch(0.9 0.055 76);
   --raw-dark: oklch(0.18 0.02 76);
   --raw-hero-ink: oklch(0.97 0.014 86);
   display: grid;
@@ -169,11 +172,119 @@
   margin-bottom: 10px;
 }
 
+.raw-lut-dropzone-shell {
+  align-items: stretch;
+}
+
+.raw-lut-dropzone {
+  min-height: 42px;
+  border-width: 1px;
+  border-style: solid;
+  border-color: oklch(0.72 0.05 78 / 0.72);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background:
+    linear-gradient(180deg, oklch(0.944 0.026 84), oklch(0.918 0.03 84)),
+    var(--raw-paper-low);
+  color: var(--raw-ink);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.raw-lut-dropzone:hover:not([aria-disabled='true']) {
+  border-color: oklch(0.56 0.12 153 / 0.46);
+  background:
+    linear-gradient(180deg, oklch(0.932 0.034 84), oklch(0.9 0.044 84)),
+    var(--raw-paper-warm);
+}
+
+.raw-lut-dropzone:focus-within {
+  outline: 2px solid var(--raw-green);
+  outline-offset: 2px;
+}
+
+.raw-lut-dropzone-content {
+  height: 100%;
+}
+
+.raw-lut-dropzone-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid oklch(0.59 0.15 153 / 0.24);
+  border-radius: 7px;
+  background: oklch(0.59 0.15 153 / 0.1);
+  color: var(--raw-green-deep);
+}
+
+.raw-lut-dropzone-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.2;
+}
+
+.raw-lut-dropzone-name {
+  color: var(--raw-ink);
+  font-size: 0.76rem;
+  font-weight: 720;
+  line-height: 1.15;
+}
+
+.raw-lut-clear-button {
+  display: inline-flex;
+  min-height: 42px;
+  width: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid oklch(0.72 0.05 78 / 0.62);
+  border-radius: 8px;
+  padding: 0;
+  background: oklch(0.936 0.028 84);
+  color: var(--raw-ink-soft);
+}
+
+.raw-lut-clear-button:hover {
+  border-color: oklch(0.56 0.12 153 / 0.42);
+  background: oklch(0.9 0.05 84);
+  color: var(--raw-green-deep);
+}
+
+.raw-lut-clear-button:focus-visible {
+  outline: 2px solid var(--raw-green);
+  outline-offset: 2px;
+}
+
+.raw-lut-clear-button svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.2;
+}
+
 .raw-lut-source-input-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 32px 32px;
   gap: 6px;
   min-width: 0;
+}
+
+.raw-lut-input {
+  border-color: oklch(0.7 0.04 78 / 0.74);
+  background: oklch(0.948 0.022 86 / 0.9);
+  color: var(--raw-ink);
+  box-shadow: none;
+}
+
+.raw-lut-input::placeholder {
+  color: oklch(0.5 0.035 75 / 0.72);
+}
+
+.raw-lut-input:focus {
+  border-color: oklch(0.5 0.12 153 / 0.86);
+  box-shadow: 0 0 0 2px oklch(0.59 0.15 153 / 0.16);
 }
 
 .raw-lut-source-icon-button {
@@ -315,10 +426,10 @@
   border: 1px solid oklch(0.67 0.04 78 / 0.72);
   border-radius: 8px;
   padding: 9px;
-  background: oklch(0.988 0.012 86 / 0.98);
+  background: oklch(0.948 0.022 86 / 0.98);
   box-shadow:
     0 18px 42px oklch(0.32 0.04 70 / 0.16),
-    0 2px 0 oklch(1 0 0 / 0.78) inset;
+    0 2px 0 oklch(0.98 0.018 86 / 0.72) inset;
 }
 
 .raw-lut-source-browser {
@@ -419,10 +530,136 @@
 
 .raw-lut-contract-browser-group {
   margin: 0;
-  color: var(--raw-ink-soft);
+  color: oklch(0.47 0.085 68);
   font-size: 0.68rem;
   font-weight: 730;
   text-transform: uppercase;
+}
+
+.raw-lut-contract-option {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid oklch(0.74 0.035 78 / 0.64);
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: oklch(0.954 0.02 86 / 0.72);
+  color: var(--raw-ink-soft);
+  font-size: 0.72rem;
+  line-height: 1.3;
+  text-align: left;
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.raw-lut-contract-option:hover {
+  border-color: oklch(0.56 0.12 153 / 0.5);
+  background: oklch(0.93 0.035 84 / 0.86);
+  color: var(--raw-ink);
+  transform: translateY(-1px);
+}
+
+.raw-lut-contract-option:focus-visible {
+  outline: 2px solid var(--raw-green);
+  outline-offset: 2px;
+}
+
+.raw-lut-contract-option-suggested {
+  border-color: oklch(0.78 0.16 63 / 0.38);
+  background: oklch(0.93 0.05 78 / 0.82);
+  color: var(--raw-ink);
+}
+
+.raw-lut-contract-option-active {
+  border-color: oklch(0.54 0.14 153);
+  background: var(--raw-green-soft);
+  color: var(--raw-ink);
+}
+
+.raw-lut-contract-status {
+  margin: 0;
+  border: 1px solid oklch(0.78 0.16 63 / 0.38);
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--raw-ink-soft);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.raw-lut-contract-status-amber {
+  background:
+    linear-gradient(180deg, oklch(0.93 0.05 78 / 0.78), var(--raw-amber-soft)),
+    var(--raw-paper-warm);
+}
+
+.raw-lut-contract-facts {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: var(--raw-ink);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.raw-lut-contract-fact {
+  display: grid;
+  grid-template-columns: 4.9rem minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+
+.raw-lut-contract-term {
+  color: oklch(0.47 0.085 68);
+  font-weight: 720;
+}
+
+.raw-lut-contract-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--raw-ink);
+  font-weight: 650;
+}
+
+.raw-lut-contract-change-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid oklch(0.72 0.05 78 / 0.78);
+  border-radius: 8px;
+  padding: 7px 11px;
+  background: oklch(0.934 0.03 84 / 0.92);
+  color: var(--raw-ink);
+  font-size: 0.72rem;
+  font-weight: 740;
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.raw-lut-contract-change-button svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.1;
+}
+
+.raw-lut-contract-change-button:hover {
+  border-color: oklch(0.56 0.12 153 / 0.5);
+  background: oklch(0.9 0.05 84 / 0.95);
+  color: var(--raw-green-deep);
+  transform: translateY(-1px);
+}
+
+.raw-lut-contract-change-button:focus-visible {
+  outline: 2px solid var(--raw-green);
+  outline-offset: 2px;
 }
 
 .raw-lut-source-family-group {
@@ -517,6 +754,12 @@
   display: grid;
   gap: 10px;
   min-width: 0;
+  border: 1px solid oklch(0.74 0.035 78 / 0.58);
+  border-radius: 8px;
+  padding: 10px;
+  background:
+    linear-gradient(180deg, oklch(0.942 0.026 84), oklch(0.91 0.034 82)),
+    var(--raw-paper-warm);
 }
 
 .raw-export-result-heading {
@@ -551,6 +794,10 @@
 
 .raw-export-result-facts div {
   min-width: 0;
+  border: 1px solid oklch(0.74 0.035 78 / 0.42);
+  border-radius: 7px;
+  padding: 7px 8px;
+  background: oklch(0.962 0.018 86 / 0.58);
 }
 
 .raw-export-result-facts dt {
@@ -570,6 +817,71 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
+}
+
+.raw-export-button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 36px;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid oklch(0.72 0.05 78 / 0.78);
+  border-radius: 8px;
+  padding: 8px 11px;
+  color: var(--raw-ink);
+  font-size: 0.74rem;
+  font-weight: 760;
+  line-height: 1.1;
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.raw-export-button svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  stroke-width: 2.1;
+}
+
+.raw-export-button-primary {
+  border-color: oklch(0.54 0.14 153);
+  background: var(--raw-green);
+}
+
+.raw-export-button-secondary {
+  background: oklch(0.936 0.028 84);
+}
+
+.raw-export-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.raw-export-button-primary:hover:not(:disabled) {
+  border-color: oklch(0.5 0.13 153);
+  background: oklch(0.66 0.16 153);
+}
+
+.raw-export-button-secondary:hover:not(:disabled) {
+  border-color: oklch(0.56 0.12 153 / 0.48);
+  background: oklch(0.9 0.05 84);
+  color: var(--raw-green-deep);
+}
+
+.raw-export-button:focus-visible {
+  outline: 2px solid var(--raw-green);
+  outline-offset: 2px;
+}
+
+.raw-export-button:disabled {
+  cursor: not-allowed;
+  border-color: oklch(0.73 0.028 78 / 0.55);
+  background: oklch(0.87 0.026 82 / 0.72);
+  color: oklch(0.46 0.028 75 / 0.68);
 }
 
 .raw-finish-grid {

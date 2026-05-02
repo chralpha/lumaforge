@@ -156,6 +156,9 @@ describe('rawToolSurface', () => {
     expect(
       screen.getByText('Full-resolution export source is still loading.'),
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Export full-resolution JPEG' }),
+    ).toHaveClass('raw-export-button', 'raw-export-button-primary')
   })
 
   it('renders tone controls before strength', async () => {
@@ -241,7 +244,7 @@ describe('rawToolSurface', () => {
     const row = fileName.parentElement?.parentElement
 
     expect(row).toHaveClass('min-w-0')
-    expect(frame).toHaveClass('min-w-0')
+    expect(frame).toHaveClass('min-w-0', 'raw-lut-dropzone')
     expect(fileName).toHaveClass('min-w-0', 'truncate')
     expect(fileName).toHaveAttribute('title', currentLut)
   })
@@ -570,6 +573,34 @@ describe('rawToolSurface', () => {
     expect(
       screen.getByRole('button', { name: 'Copy LUT source link' }),
     ).toBeEnabled()
+  })
+
+  it('uses Raw Lab-specific materials for LUT contract controls', () => {
+    render(
+      <RawToolSurface
+        {...baseProps}
+        currentLutName="Unknown Look.cube"
+        lutProfileSelection={{
+          status: 'pending',
+          fingerprint: 'lut-contract-materials',
+          title: 'Unknown Look',
+          suggestions: [],
+        }}
+        lutProfileResolution={{
+          kind: 'needs-user-selection',
+          suggestions: [],
+        }}
+      />,
+    )
+
+    expect(
+      screen.getByText(
+        'Choose the LUT input and output contract before preview or export.',
+      ),
+    ).toHaveClass('raw-lut-contract-status', 'raw-lut-contract-status-amber')
+    expect(
+      screen.getByRole('button', { name: 'Change LUT contract' }),
+    ).toHaveClass('raw-lut-contract-change-button')
   })
 
   it('shows a busy refresh affordance while an online LUT source is loading', () => {

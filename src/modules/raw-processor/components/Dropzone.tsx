@@ -2,6 +2,7 @@
  * Dropzone component for loading RAW files and LUTs via drag and drop.
  */
 
+import { Upload, X } from 'lucide-react'
 import { m } from 'motion/react'
 import { useCallback, useId, useRef, useState } from 'react'
 
@@ -38,6 +39,7 @@ export interface DropzoneProps {
       }) => React.ReactNode)
   disabled?: boolean
   clickToOpen?: boolean
+  interactiveMotion?: boolean
   'aria-label'?: string
   variant?: 'default' | 'stage'
 }
@@ -59,6 +61,7 @@ export function Dropzone({
   children,
   disabled = false,
   clickToOpen = true,
+  interactiveMotion = true,
   'aria-label': ariaLabel,
   variant = 'default',
 }: DropzoneProps) {
@@ -198,12 +201,13 @@ export function Dropzone({
     className,
   )
 
-  const motionProps = isClickTarget
-    ? {
-        whileHover: { scale: 1.01 },
-        whileTap: { scale: 0.99 },
-      }
-    : {}
+  const motionProps =
+    isClickTarget && interactiveMotion
+      ? {
+          whileHover: { scale: 1.01 },
+          whileTap: { scale: 0.99 },
+        }
+      : {}
 
   if (clickToOpen) {
     return (
@@ -303,18 +307,21 @@ export function LutDropzone({
     : 'Drop .cube LUT file'
 
   return (
-    <div className="flex min-w-0 max-w-full items-center gap-2 overflow-hidden">
+    <div className="raw-lut-dropzone-shell flex min-w-0 max-w-full items-center gap-2 overflow-hidden">
       <Dropzone
         onFileDrop={onFileDrop}
         accept={['.cube']}
         disabled={disabled}
+        interactiveMotion={false}
         aria-label={label}
-        className="min-w-0 flex-1 px-4 py-3"
+        className="raw-lut-dropzone min-w-0 flex-1 px-4 py-3"
       >
-        <div className="flex min-w-0 items-center gap-3">
-          <i className="i-mingcute-palette-2-line shrink-0 text-lg text-text-secondary" />
+        <div className="raw-lut-dropzone-content flex min-w-0 items-center gap-3">
+          <span className="raw-lut-dropzone-icon" aria-hidden="true">
+            <Upload />
+          </span>
           <span
-            className="block min-w-0 max-w-full truncate text-sm text-text"
+            className="raw-lut-dropzone-name block min-w-0 max-w-full truncate text-sm text-text"
             title={currentLut ?? undefined}
           >
             {currentLut || 'Drop .cube LUT file'}
@@ -328,10 +335,11 @@ export function LutDropzone({
             e.stopPropagation()
             onClear()
           }}
-          className="shrink-0 rounded-lg p-2 text-text-secondary transition-colors hover:bg-fill hover:text-text"
+          className="raw-lut-clear-button shrink-0 rounded-lg p-2 text-text-secondary transition-colors hover:bg-fill hover:text-text"
+          aria-label="Clear LUT"
           title="Clear LUT"
         >
-          <i className="i-mingcute-close-line text-lg" />
+          <X aria-hidden="true" />
         </button>
       )}
     </div>

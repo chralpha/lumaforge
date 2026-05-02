@@ -9,6 +9,7 @@ import {
   Plus,
   RefreshCw,
   Share2,
+  SlidersHorizontal,
   Trash2,
   X,
 } from 'lucide-react'
@@ -24,7 +25,6 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 
-import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 
 import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
@@ -182,10 +182,10 @@ function LUTProfileButton({
       onClick={() => onSelect(profile)}
       className={
         isActive
-          ? 'w-full rounded-md border border-accent bg-accent/10 px-2.5 py-1 text-left text-xs leading-snug text-text transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+          ? 'raw-lut-contract-option raw-lut-contract-option-active'
           : highlighted
-            ? 'w-full rounded-md border border-accent/40 bg-fill px-2.5 py-1 text-left text-xs leading-snug text-text transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
-            : 'w-full rounded-md border border-border bg-background px-2.5 py-1 text-left text-xs leading-snug text-text-secondary transition-colors hover:border-accent/40 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+            ? 'raw-lut-contract-option raw-lut-contract-option-suggested'
+            : 'raw-lut-contract-option'
       }
     >
       <span className="block min-w-0 break-words">{buttonLabel}</span>
@@ -316,10 +316,10 @@ function LUTOutputOptionButton({
       onClick={() => onSelect(option)}
       className={
         isActive
-          ? 'w-full rounded-md border border-accent bg-accent/10 px-2.5 py-1 text-left text-xs leading-snug text-text transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+          ? 'raw-lut-contract-option raw-lut-contract-option-active'
           : highlighted
-            ? 'w-full rounded-md border border-accent/40 bg-fill px-2.5 py-1 text-left text-xs leading-snug text-text transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
-            : 'w-full rounded-md border border-border bg-background px-2.5 py-1 text-left text-xs leading-snug text-text-secondary transition-colors hover:border-accent/40 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+            ? 'raw-lut-contract-option raw-lut-contract-option-suggested'
+            : 'raw-lut-contract-option'
       }
     >
       <span className="block min-w-0 break-words">{option.label}</span>
@@ -569,7 +569,7 @@ function LUTContractBrowser({
         value={query}
         placeholder="Search camera/log or output"
         onChange={(event) => setQuery(event.currentTarget.value)}
-        inputClassName="h-8 text-xs"
+        inputClassName="raw-lut-input h-8 text-xs"
       />
 
       <div
@@ -716,42 +716,40 @@ function LUTProfileStatus({
   return (
     <div className="space-y-2 pt-1">
       {isUnsupportedOutput ? (
-        <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs leading-relaxed text-text-secondary">
+        <p className="raw-lut-contract-status raw-lut-contract-status-amber">
           This LUT output is not supported yet. Use a Rec.709 display LUT for
           this build.
         </p>
       ) : isPending ? (
-        <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs leading-relaxed text-text-secondary">
+        <p className="raw-lut-contract-status raw-lut-contract-status-amber">
           {UNKNOWN_LUT_COPY}
         </p>
       ) : resolvedProfile ? (
-        <div className="space-y-1.5 text-xs leading-relaxed">
-          <p className="grid grid-cols-[4.7rem_minmax(0,1fr)] gap-2">
-            <span className="text-text-tertiary">LUT input:</span>
-            <span className="min-w-0 break-words text-text">
+        <div className="raw-lut-contract-facts">
+          <p className="raw-lut-contract-fact">
+            <span className="raw-lut-contract-term">LUT input:</span>
+            <span className="raw-lut-contract-value">
               {resolvedProfile.label}
             </span>
           </p>
           {outputLabel && (
-            <p className="grid grid-cols-[4.7rem_minmax(0,1fr)] gap-2">
-              <span className="text-text-tertiary">LUT output:</span>
-              <span className="min-w-0 break-words text-text">
-                {outputLabel}
-              </span>
+            <p className="raw-lut-contract-fact">
+              <span className="raw-lut-contract-term">LUT output:</span>
+              <span className="raw-lut-contract-value">{outputLabel}</span>
             </p>
           )}
           {needsOutputContract && (
-            <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs leading-relaxed text-text-secondary">
+            <p className="raw-lut-contract-status raw-lut-contract-status-amber">
               Choose the LUT output before preview or export.
             </p>
           )}
         </div>
       ) : null}
 
-      <Button
+      <button
         ref={triggerRef}
-        variant="secondary"
-        size="sm"
+        type="button"
+        className="raw-lut-contract-change-button"
         onClick={() => {
           if (browserOpen) {
             handleClose({ restoreFocus: true })
@@ -760,8 +758,9 @@ function LUTProfileStatus({
           }
         }}
       >
+        <SlidersHorizontal aria-hidden="true" />
         Change LUT contract
-      </Button>
+      </button>
 
       <LUTContractBrowser
         open={browserOpen}
@@ -1105,7 +1104,7 @@ function OnlineLutSourceControls({
               void onlineLutSources.addSourceFromInput()
             }
           }}
-          inputClassName="h-8 text-xs"
+          inputClassName="raw-lut-input h-8 text-xs"
         />
         <LutIconButton
           label="Add LUT source"
