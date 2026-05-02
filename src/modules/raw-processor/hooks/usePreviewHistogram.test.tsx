@@ -339,6 +339,64 @@ describe('usePreviewHistogram', () => {
     })
   })
 
+  it('cancels superseded first quick work when look inputs change before bounded-HQ is ready', async () => {
+    const quickWidth = 1000
+    const quickHeight = 501
+    const hqWidth = 1000
+    const hqHeight = 1001
+    const quickData = new Uint16Array(quickWidth * quickHeight * 3)
+    const hqData = new Uint16Array(hqWidth * hqHeight * 3)
+    quickData.fill(32768)
+    hqData.fill(49152)
+    const quick = createImage('quick', {
+      width: quickWidth,
+      height: quickHeight,
+      data: quickData,
+    })
+    const boundedHq = createImage('bounded-hq', {
+      width: hqWidth,
+      height: hqHeight,
+      data: hqData,
+    })
+    const { result, rerender, imageRef, lutDataRef } = renderPreviewHistogram({
+      image: quick,
+    })
+
+    imageRef.current = boundedHq
+    rerender({
+      imageRef,
+      imageVersion: 2,
+      params: { ...defaultParams, userExposureEv: 1 },
+      lutDataRef,
+      lutDataVersion: 0,
+      displaySource: 'bounded-hq',
+    })
+
+    let observedQuick = false
+    for (
+      let attempt = 0;
+      attempt < 128 &&
+      !(
+        result.current.state === 'ready' &&
+        result.current.source === 'bounded-hq'
+      );
+      attempt += 1
+    ) {
+      await act(async () => {
+        await vi.advanceTimersToNextTimerAsync()
+      })
+      observedQuick =
+        observedQuick ||
+        (result.current.state === 'ready' && result.current.source === 'quick')
+    }
+
+    expect(observedQuick).toBe(false)
+    expect(result.current).toMatchObject({
+      state: 'ready',
+      source: 'bounded-hq',
+    })
+  })
+
   it('reports embedded-only preview as unavailable', () => {
     const { result } = renderPreviewHistogram({
       image: null,

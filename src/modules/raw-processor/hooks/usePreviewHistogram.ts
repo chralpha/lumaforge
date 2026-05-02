@@ -24,6 +24,7 @@ const UNSUPPORTED_PREVIEW_REASON =
 type PreviewHistogramInput = {
   imageRef: RefObject<DecodedImage | null>
   imageVersion: number
+  imageIdentity?: string
   params: ProcessingParams
   lutDataRef: RefObject<LUTData | null>
   lutDataVersion: number
@@ -44,6 +45,7 @@ type HistogramJob =
   | {
       kind: 'compute'
       key: string
+      handoffKey: string
       image: ValidHistogramImage
       graph: Parameters<typeof createPreviewHistogramProcessor>[0]['graph']
     }
@@ -79,7 +81,9 @@ function isBoundedHqSupersedingQuick(
   return (
     quickJob.image.source === 'quick' &&
     nextJob.kind === 'compute' &&
-    nextJob.image.source === 'bounded-hq' &&
+    (nextJob.image.source === 'quick' ||
+      nextJob.image.source === 'bounded-hq') &&
+    nextJob.handoffKey === quickJob.handoffKey &&
     getPreviousReady(state) === null
   )
 }
@@ -87,12 +91,14 @@ function isBoundedHqSupersedingQuick(
 function createHistogramJob({
   imageRef,
   imageVersion,
+  imageIdentity = 'unscoped-preview',
   params,
   lutDataRef,
   lutDataVersion,
   displaySource,
 }: PreviewHistogramInput): HistogramJob {
   const image = imageRef.current
+  const imageIdentityKey = imageIdentity
   const toneKey = [
     params.styleKind,
     params.intensity,
@@ -122,11 +128,13 @@ function createHistogramJob({
   ].join(':')
   const key = [
     'compute',
+    imageIdentityKey,
     imageKey,
     displaySource,
     toneKey,
     lutDataVersion,
   ].join('|')
+  const handoffKey = [imageIdentityKey, toneKey, lutDataVersion].join('|')
 
   if (
     image.layout !== 'rgb-u16' ||
@@ -168,6 +176,7 @@ function createHistogramJob({
   return {
     kind: 'compute',
     key,
+    handoffKey,
     image: image as ValidHistogramImage,
     graph,
   }
@@ -200,6 +209,7 @@ export function usePreviewHistogram(
   const {
     imageRef,
     imageVersion,
+    imageIdentity,
     params,
     lutDataRef,
     lutDataVersion,
@@ -223,6 +233,7 @@ export function usePreviewHistogram(
     () =>
       createHistogramJob({
         imageRef,
+        imageIdentity,
         imageVersion,
         params: histogramParams,
         lutDataRef,
@@ -233,6 +244,7 @@ export function usePreviewHistogram(
       displaySource,
       histogramParams,
       imageRef,
+      imageIdentity,
       imageVersion,
       lutDataRef,
       lutDataVersion,
@@ -364,8 +376,7 @@ export function usePreviewHistogram(
     return () => {
       const mayBecomeBoundedHqHandoff =
         isFirstQuickRun &&
-        latestJobRef.current !== job &&
-        getPreviousReady(stateRef.current) === null
+        isBoundedHqSupersedingQuick(job, latestJobRef.current, stateRef.current)
 
       if (!mayBecomeBoundedHqHandoff) {
         window.clearTimeout(computeTimer)

@@ -673,6 +673,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const histogram = usePreviewHistogram({
     imageRef: decodedImageRef,
     imageVersion: decodedImageVersion,
+    imageIdentity: session?.id ?? pendingLoadSessionIdRef.current ?? undefined,
     params,
     lutDataRef,
     lutDataVersion,
