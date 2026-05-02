@@ -1,0 +1,316 @@
+import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
+import { act, renderHook } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { DecodedImage } from '~/lib/raw/decoder'
+
+import type { DisplaySource } from '../model/session'
+import { usePreviewHistogram } from './usePreviewHistogram'
+
+const defaultParams: ProcessingParams = {
+  userExposureEv: 0,
+  userContrast: 0,
+  intensity: 0.7,
+  viewMode: 'processed',
+  compareSplit: 0.5,
+  styleKind: 'none',
+  builtinPreset: null,
+}
+
+function mutableRef<T>(current: T) {
+  return { current }
+}
+
+function createImage(
+  source: 'quick' | 'bounded-hq',
+  overrides: Partial<DecodedImage> = {},
+): DecodedImage {
+  const width = overrides.width ?? 2
+  const height = overrides.height ?? 2
+  const data =
+    overrides.data ??
+    new Uint16Array([
+      0, 0, 0, 65535, 65535, 65535, 32768, 32768, 32768, 16384, 16384, 16384,
+    ])
+
+  return {
+    width,
+    height,
+    channels: 3,
+    bitsPerChannel: 16,
+    data,
+    layout: 'rgb-u16',
+    colorSpace: 'linear-prophoto-rgb',
+    source,
+    metadata: { width, height },
+    renderExposure: { ev: 0, multiplier: 1, source: 'identity' },
+    ...overrides,
+  }
+}
+
+function createLutData(): LUTData {
+  return {
+    size: 2,
+    data: new Float32Array([
+      0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1,
+    ]),
+    domainMin: [0, 0, 0],
+    domainMax: [1, 1, 1],
+    inputProfile: 'v-log',
+    profileResolution: {
+      kind: 'resolved',
+      confidence: 'metadata',
+      profile: {
+        id: 'test-vlog',
+        label: 'Test V-Log',
+        role: 'scene-creative',
+        inputGamut: 'prophoto-rgb',
+        inputTransfer: 'linear',
+        inputRange: 'full',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        outputRange: 'full',
+        aliases: [],
+      },
+    },
+  }
+}
+
+function renderPreviewHistogram(options: {
+  image: DecodedImage | null
+  imageVersion?: number
+  params?: ProcessingParams
+  lutData?: LUTData | null
+  lutDataVersion?: number
+  displaySource?: DisplaySource
+}) {
+  const imageRef = mutableRef<DecodedImage | null>(options.image)
+  const lutDataRef = mutableRef<LUTData | null>(options.lutData ?? null)
+  const props = {
+    imageRef,
+    imageVersion: options.imageVersion ?? 1,
+    params: options.params ?? defaultParams,
+    lutDataRef,
+    lutDataVersion: options.lutDataVersion ?? 0,
+    displaySource: options.displaySource ?? 'quick',
+  }
+
+  const hook = renderHook(
+    (currentProps: typeof props) => usePreviewHistogram(currentProps),
+    { initialProps: props },
+  )
+
+  return { ...hook, imageRef, lutDataRef }
+}
+
+async function runDebouncedWork(ms = 150) {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms)
+  })
+}
+
+async function runAllWork() {
+  await runDebouncedWork()
+  await act(async () => {
+    await vi.runOnlyPendingTimersAsync()
+  })
+}
+
+describe('usePreviewHistogram', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('computes a quick histogram without copying/detaching the active buffer', async () => {
+    const image = createImage('quick')
+    const sliceSpy = vi
+      .spyOn(Uint16Array.prototype, 'slice')
+      .mockImplementation(() => {
+        throw new Error('copying source preview data is forbidden')
+      })
+
+    const { result } = renderPreviewHistogram({ image })
+
+    expect(result.current).toEqual({ state: 'computing', previous: null })
+
+    await runAllWork()
+
+    expect(result.current.state).toBe('ready')
+    expect(result.current).toMatchObject({
+      state: 'ready',
+      source: 'quick',
+      width: 2,
+      height: 2,
+      sampledPixels: 4,
+      totalPixels: 4,
+      diagnostics: {
+        ownership: 'main-thread-chunked-no-copy',
+        copiedInputBytes: 0,
+        transferredInput: false,
+        inputByteLength: image.data.buffer.byteLength,
+        rowBandRows: 32,
+      },
+    })
+    if (result.current.state === 'ready') {
+      expect(
+        result.current.bins.luma.reduce((sum, value) => sum + value, 0),
+      ).toBe(4)
+    }
+    expect(image.data.byteLength).toBe(24)
+    expect(sliceSpy).not.toHaveBeenCalled()
+  })
+
+  it('reports embedded-only preview as unavailable', () => {
+    const { result } = renderPreviewHistogram({
+      image: null,
+      displaySource: 'embedded',
+    })
+
+    expect(result.current).toEqual({
+      state: 'unavailable',
+      reason: 'embedded-only',
+    })
+  })
+
+  it('replaces quick histogram with bounded-HQ after source replacement', async () => {
+    const quick = createImage('quick')
+    const boundedHq = createImage('bounded-hq', {
+      data: new Uint16Array([
+        65535, 0, 0, 0, 65535, 0, 0, 0, 65535, 65535, 65535, 65535,
+      ]),
+    })
+    const { result, rerender, imageRef, lutDataRef } = renderPreviewHistogram({
+      image: quick,
+    })
+
+    await runAllWork()
+    expect(result.current.state).toBe('ready')
+    expect(result.current).toMatchObject({ state: 'ready', source: 'quick' })
+
+    imageRef.current = boundedHq
+    rerender({
+      imageRef,
+      imageVersion: 2,
+      params: defaultParams,
+      lutDataRef,
+      lutDataVersion: 0,
+      displaySource: 'bounded-hq',
+    })
+
+    expect(result.current).toMatchObject({
+      state: 'stale',
+      previous: { state: 'ready', source: 'quick' },
+    })
+
+    await runAllWork()
+
+    expect(result.current.state).toBe('ready')
+    expect(result.current).toMatchObject({
+      state: 'ready',
+      source: 'bounded-hq',
+      sampledPixels: 4,
+    })
+  })
+
+  it('does not recompute on compare split changes', async () => {
+    const { result, rerender, imageRef, lutDataRef } = renderPreviewHistogram({
+      image: createImage('quick'),
+    })
+
+    await runAllWork()
+    expect(result.current.state).toBe('ready')
+    const ready = result.current
+
+    rerender({
+      imageRef,
+      imageVersion: 1,
+      params: { ...defaultParams, viewMode: 'compare', compareSplit: 0.82 },
+      lutDataRef,
+      lutDataVersion: 0,
+      displaySource: 'quick',
+    })
+
+    expect(result.current).toBe(ready)
+    await runAllWork()
+    expect(result.current).toBe(ready)
+  })
+
+  it('keeps previous bins as stale while tone recomputation is pending', async () => {
+    const { result, rerender, imageRef, lutDataRef } = renderPreviewHistogram({
+      image: createImage('quick'),
+    })
+
+    await runAllWork()
+    expect(result.current.state).toBe('ready')
+    const previous = result.current
+
+    rerender({
+      imageRef,
+      imageVersion: 1,
+      params: { ...defaultParams, userExposureEv: 1 },
+      lutDataRef,
+      lutDataVersion: 0,
+      displaySource: 'quick',
+    })
+
+    expect(result.current).toEqual({ state: 'stale', previous })
+
+    await runDebouncedWork(149)
+    expect(result.current).toEqual({ state: 'stale', previous })
+
+    await runDebouncedWork(1)
+    expect(result.current).toEqual({ state: 'computing', previous })
+
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync()
+    })
+    expect(result.current.state).toBe('ready')
+  })
+
+  it('fails closed for built-in styles', () => {
+    const { result } = renderPreviewHistogram({
+      image: createImage('quick'),
+      params: {
+        ...defaultParams,
+        styleKind: 'builtin',
+        builtinPreset: 'cinematic',
+      },
+    })
+
+    expect(result.current).toEqual({
+      state: 'unsupported',
+      reason:
+        'Built-in styles are not supported by full-resolution JPEG export.',
+    })
+  })
+
+  it('recomputes when LUT data changes', async () => {
+    const { result, rerender, imageRef, lutDataRef } = renderPreviewHistogram({
+      image: createImage('quick'),
+    })
+
+    await runAllWork()
+    expect(result.current.state).toBe('ready')
+    const previous = result.current
+
+    lutDataRef.current = createLutData()
+    rerender({
+      imageRef,
+      imageVersion: 1,
+      params: { ...defaultParams, styleKind: 'custom' },
+      lutDataRef,
+      lutDataVersion: 1,
+      displaySource: 'quick',
+    })
+
+    expect(result.current).toEqual({ state: 'stale', previous })
+    await runAllWork()
+    expect(result.current.state).toBe('ready')
+    expect(result.current).not.toBe(previous)
+  })
+})
