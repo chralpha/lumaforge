@@ -1001,6 +1001,60 @@
   accent-color: var(--raw-green);
 }
 
+.raw-histogram {
+  display: grid;
+  gap: 8px;
+}
+
+.raw-histogram-plot {
+  display: block;
+  width: 100%;
+  height: 48px;
+  overflow: visible;
+  border: 1px solid oklch(0.74 0.035 78 / 0.62);
+  border-radius: 8px;
+  background: oklch(0.16 0.018 78 / 0.86);
+}
+
+.raw-histogram-channel,
+.raw-histogram-luma {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.raw-histogram-channel {
+  stroke-width: 0.9;
+  opacity: 0.46;
+}
+
+.raw-histogram-channel-red {
+  stroke: oklch(0.72 0.18 28);
+}
+
+.raw-histogram-channel-green {
+  stroke: oklch(0.74 0.16 145);
+}
+
+.raw-histogram-channel-blue {
+  stroke: oklch(0.72 0.14 250);
+}
+
+.raw-histogram-luma {
+  stroke: oklch(0.96 0.018 86);
+  stroke-width: 1.35;
+  opacity: 0.9;
+}
+
+.raw-histogram-clipping {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--raw-ink-soft);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .raw-strength-control {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -1,6 +1,7 @@
 import type {
   LUTColorProfile,
   LUTProfileResolution,
+  PreviewHistogramState,
 } from '@lumaforge/luma-color-runtime'
 import type { ComponentProps } from 'react'
 import { useId, useState } from 'react'
@@ -18,6 +19,7 @@ import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
 import { FileFactsTool } from './tools/FileFactsTool'
 import { FinishTool } from './tools/FinishTool'
+import { HistogramTool } from './tools/HistogramTool'
 import { LutContractTool } from './tools/LutContractTool'
 import type { StrengthLevel } from './tools/StrengthControl'
 import { StrengthControl } from './tools/StrengthControl'
@@ -47,6 +49,7 @@ export function RawToolSurface(props: {
   isProcessing: boolean
   exportResult: ExportResult | null
   exportShareCapability: ExportShareCapability
+  histogram?: PreviewHistogramState
   recovery?: ExportRecoveryState
   onShareExport: () => void
   onDownloadExport: () => void
@@ -64,6 +67,10 @@ export function RawToolSurface(props: {
   const [open, setOpen] = useState(false)
   const toolStackId = useId()
   const disabled = !props.hasImage || props.isProcessing
+  const histogram = props.histogram ?? {
+    state: 'unavailable',
+    reason: 'no-image',
+  }
 
   return (
     <aside
@@ -95,6 +102,7 @@ export function RawToolSurface(props: {
           onChange={props.onToneChange}
           onReset={props.onToneReset}
         />
+        <HistogramTool histogram={histogram} />
         <ToolSection title="Strength">
           <StrengthControl
             value={props.activeIntensity}

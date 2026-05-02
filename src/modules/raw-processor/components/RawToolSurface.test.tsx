@@ -34,6 +34,7 @@ const baseProps = {
     available: false as const,
     reason: 'Export a JPEG before sharing.',
   },
+  histogram: { state: 'unavailable' as const, reason: 'no-image' as const },
   onShareExport: vi.fn(),
   onDownloadExport: vi.fn(),
   onCopyExport: vi.fn(),
@@ -173,6 +174,89 @@ describe('rawToolSurface', () => {
     expect(
       tone.compareDocumentPosition(strength) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
+  })
+
+  it('renders histogram near tone controls', () => {
+    const luma = new Uint32Array(256)
+    const red = new Uint32Array(256)
+    luma[0] = 1
+    luma[255] = 1
+    red[0] = 1
+    red[255] = 1
+
+    render(
+      <RawToolSurface
+        {...baseProps}
+        hasImage
+        histogram={{
+          state: 'ready',
+          source: 'quick',
+          width: 2,
+          height: 1,
+          sampledPixels: 2,
+          totalPixels: 2,
+          bins: {
+            luma,
+            red,
+            green: new Uint32Array(256),
+            blue: new Uint32Array(256),
+          },
+          clipping: {
+            shadowAnyChannel: 1,
+            highlightAnyChannel: 1,
+            shadowLuma: 1,
+            highlightLuma: 1,
+          },
+          diagnostics: {
+            ownership: 'main-thread-chunked-no-copy',
+            copiedInputBytes: 0,
+            transferredInput: false,
+            inputByteLength: 12,
+            rowBandRows: 32,
+          },
+        }}
+      />,
+    )
+
+    const tone = screen.getByRole('region', { name: 'Tone' })
+    const histogram = screen.getByRole('region', { name: 'Histogram' })
+    const strength = screen.getByRole('region', { name: 'Strength' })
+
+    expect(
+      tone.compareDocumentPosition(histogram) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      histogram.compareDocumentPosition(strength) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(within(histogram).getByText('Quick preview')).toBeInTheDocument()
+    expect(
+      within(histogram).getByLabelText('Preview luminance and RGB histogram'),
+    ).toBeInTheDocument()
+    expect(within(histogram).getByText('Shadows 1')).toBeInTheDocument()
+    expect(within(histogram).getByText('Highlights 1')).toBeInTheDocument()
+  })
+
+  it('shows unsupported histogram state without stale bins', () => {
+    render(
+      <RawToolSurface
+        {...baseProps}
+        hasImage
+        histogram={{
+          state: 'unsupported',
+          reason:
+            'Built-in styles are not supported by full-resolution JPEG export.',
+        }}
+      />,
+    )
+
+    const histogram = screen.getByRole('region', { name: 'Histogram' })
+
+    expect(within(histogram).getByText('Unsupported')).toBeInTheDocument()
+    expect(
+      within(histogram).queryByLabelText('Preview luminance and RGB histogram'),
+    ).not.toBeInTheDocument()
   })
 
   it('sends normalized tone changes and calls tone reset', async () => {
