@@ -108,6 +108,17 @@ export type FullResolutionExportAttemptEvent = {
   priorClientDisposed?: boolean
 }
 
+function emitFullResolutionExportAttempt(
+  onAttempt: ((event: FullResolutionExportAttemptEvent) => void) | undefined,
+  event: FullResolutionExportAttemptEvent,
+) {
+  try {
+    onAttempt?.(event)
+  } catch {
+    // Attempt diagnostics must not affect export control flow.
+  }
+}
+
 export function recommendRetryLevel(
   level: ExportFidelity,
 ): Exclude<ExportFidelity, 'max'> | null {
@@ -218,16 +229,16 @@ export async function runFullResolutionExportJob({
     const client = clientFactory()
     const attemptPlan = plan
 
-    onAttempt?.({
-      attempt: attempts,
-      profile: attemptPlan?.profile.name,
-      preferredRows: attemptPlan?.preferredRows ?? preferredRows,
-      concurrency: attemptPlan?.concurrency ?? concurrency,
-      phase: 'started',
-      freshWorker: true,
-    })
-
     try {
+      emitFullResolutionExportAttempt(onAttempt, {
+        attempt: attempts,
+        profile: attemptPlan?.profile.name,
+        preferredRows: attemptPlan?.preferredRows ?? preferredRows,
+        concurrency: attemptPlan?.concurrency ?? concurrency,
+        phase: 'started',
+        freshWorker: true,
+      })
+
       const output = await client.run({
         file,
         filename,
@@ -264,7 +275,7 @@ export async function runFullResolutionExportJob({
         Math.max(attemptPlan.profile.minRows, nextRows),
       )
 
-      onAttempt?.({
+      emitFullResolutionExportAttempt(onAttempt, {
         attempt: attempts,
         profile: attemptPlan.profile.name,
         preferredRows: attemptPlan.preferredRows,
@@ -290,7 +301,7 @@ export async function runFullResolutionExportJob({
       }
     } finally {
       client.dispose()
-      onAttempt?.({
+      emitFullResolutionExportAttempt(onAttempt, {
         attempt: attempts,
         profile: attemptPlan?.profile.name,
         preferredRows: attemptPlan?.preferredRows ?? preferredRows,

@@ -423,7 +423,7 @@ describe('export-system', () => {
       .mockReturnValueOnce(second)
     const onAttempt = vi.fn()
 
-    await runFullResolutionExportJob({
+    const result = await runFullResolutionExportJob({
       file,
       filename: 'frame_neutral_fullres.jpg',
       graph,
@@ -471,5 +471,86 @@ describe('export-system', () => {
       phase: 'started',
       freshWorker: true,
     })
+    expect(first.dispose).toHaveBeenCalledTimes(1)
+    expect(second.dispose).toHaveBeenCalledTimes(1)
+    expect(result).toEqual({
+      filename: 'frame_neutral_fullres.jpg',
+      output,
+      attempts: 2,
+    })
+  })
+
+  it('ignores attempt diagnostics failures during successful export and disposes client', async () => {
+    const file = new File(['raw'], 'frame.ARW')
+    const output = createBlobOutputResult({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+    const run = vi.fn().mockResolvedValue(output)
+    const dispose = vi.fn()
+    const graph: ExportColorGraphDescriptor = {
+      supported: true,
+      outputGamut: 'srgb-rec709',
+      outputTransfer: 'srgb',
+      lutProfile: null,
+      steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+    }
+    const onAttempt = vi.fn(() => {
+      throw new Error('DIAGNOSTICS_FAILED')
+    })
+
+    const result = await runFullResolutionExportJob({
+      file,
+      filename: 'frame_neutral_fullres.jpg',
+      graph,
+      onAttempt,
+      clientFactory: () =>
+        ({
+          run,
+          dispose,
+        }) as never,
+    })
+
+    expect(result).toEqual({
+      filename: 'frame_neutral_fullres.jpg',
+      output,
+      attempts: 1,
+    })
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves original non-retry export error when attempt diagnostics fail and disposes client', async () => {
+    const file = new File(['raw'], 'frame.ARW')
+    const exportError = new Error('FULL_RES_EXPORT_FATAL_FAILURE')
+    const run = vi.fn().mockRejectedValue(exportError)
+    const dispose = vi.fn()
+    const graph: ExportColorGraphDescriptor = {
+      supported: true,
+      outputGamut: 'srgb-rec709',
+      outputTransfer: 'srgb',
+      lutProfile: null,
+      steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+    }
+    const onAttempt = vi.fn(() => {
+      throw new Error('DIAGNOSTICS_FAILED')
+    })
+
+    await expect(
+      runFullResolutionExportJob({
+        file,
+        filename: 'frame_neutral_fullres.jpg',
+        graph,
+        onAttempt,
+        clientFactory: () =>
+          ({
+            run,
+            dispose,
+          }) as never,
+      }),
+    ).rejects.toBe(exportError)
+
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(dispose).toHaveBeenCalledTimes(1)
   })
 })
