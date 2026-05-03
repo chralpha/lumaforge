@@ -37,6 +37,7 @@ import {
   createCheckpointStore,
   createOpfsCheckpointBackend,
 } from '~/lib/export/checkpoint-store'
+import type { ExportExecutionPlan } from '~/lib/export/execution-profile'
 import {
   emitExportDebugEvent,
   EXPORT_EXECUTION_PROFILES,
@@ -101,6 +102,7 @@ import { BUILTIN_PRESETS } from '../services/builtin-presets'
 import {
   createPreExportSnapshot,
   evacuateBeforeExport,
+  getPreExportEvacuationOwners,
 } from '../services/export-evacuation'
 import {
   createInterruptedExportRecovery,
@@ -324,7 +326,9 @@ function isCheckpointMetric(
   )
 }
 
-function toDebugRegistryCheck(check: ResourceRegistryCheck) {
+function toDebugRegistryCheck(
+  check: ResourceRegistryCheck,
+): ResourceRegistryCheck {
   if (check.ok) return { ok: true }
 
   return {
@@ -334,6 +338,29 @@ function toDebugRegistryCheck(check: ResourceRegistryCheck) {
       owner,
       kind,
     })),
+  }
+}
+
+function toResourceEvacuatedDebugPayload(input: {
+  profile: ExportExecutionPlan['profile']['name']
+  evacuation: Awaited<ReturnType<typeof evacuateBeforeExport>>
+}) {
+  return {
+    profile: input.profile,
+    requiredOwners: input.evacuation.requiredOwners,
+    disposedOwners: input.evacuation.disposedOwners,
+    registryCheck: toDebugRegistryCheck(input.evacuation.registryCheck),
+    remainingLive: input.evacuation.remainingLive.map(
+      ({ id, owner, kind, estimatedBytes }) => ({
+        id,
+        owner,
+        kind,
+        estimatedBytes,
+      }),
+    ),
+    estimatedBytesByOwner: input.evacuation.estimatedBytesByOwner,
+    totalEstimatedBytes: input.evacuation.totalEstimatedBytes,
+    evacuatedAt: input.evacuation.evacuatedAt,
   }
 }
 
@@ -2204,6 +2231,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
             runtimeMemoryProfile: jobExecutionPlan.runtimeMemoryProfile,
             checkpointMode: jobExecutionPlan.checkpointMode,
             outputSink: jobExecutionPlan.outputSink,
+            checkpointDurableExpected:
+              jobExecutionPlan.profile.checkpointOutput &&
+              jobExecutionPlan.outputSink === 'opfs-file',
           },
         })
 
@@ -2284,9 +2314,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
           })
         }
 
+        const evacuationOwners = getPreExportEvacuationOwners(
+          jobExecutionPlan.profile.name,
+        )
         const evacuation = await evacuateBeforeExport({
           registry,
           snapshot,
+          owners: evacuationOwners,
           abortPreview: () => {
             abortRuntimeWork()
             revokeCurrentEmbeddedPreviewUrl()
@@ -2299,6 +2333,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 : prev,
             )
           },
+          stopLutFetches() {
+            // Online LUT fetches already use per-request abort signals. This hook keeps
+            // the owner contract explicit for future registered LUT fetch resources.
+          },
         })
 
         if (!isCurrentExport()) {
@@ -2307,11 +2345,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
         emitExportDebugEvent({
           type: 'resource-evacuated',
-          payload: {
+          payload: toResourceEvacuatedDebugPayload({
             profile: jobExecutionPlan.profile.name,
-            registryCheck: toDebugRegistryCheck(evacuation.registryCheck),
-            evacuatedAt: evacuation.evacuatedAt,
-          },
+            evacuation,
+          }),
         })
 
         if (!evacuation.registryCheck.ok) {
