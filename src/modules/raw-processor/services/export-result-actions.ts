@@ -40,14 +40,18 @@ function reportMaterialized(
   diagnostics: MaterializationDiagnostics | undefined,
   cleanup: ExportOutputMaterializationEvent['cleanup'],
 ) {
-  diagnostics?.onMaterialize?.({
-    action,
-    outputKind: result.output.kind,
-    filename: result.filename,
-    byteLength: result.size,
-    materializedAt: diagnostics.now?.() ?? new Date().toISOString(),
-    cleanup,
-  })
+  try {
+    diagnostics?.onMaterialize?.({
+      action,
+      outputKind: result.output.kind,
+      filename: result.filename,
+      byteLength: result.size,
+      materializedAt: diagnostics.now?.() ?? new Date().toISOString(),
+      cleanup,
+    })
+  } catch {
+    // Materialization diagnostics must not affect user actions.
+  }
 }
 
 function createShareProbeFile(result: ExportResult) {

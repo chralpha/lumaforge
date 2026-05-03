@@ -146,20 +146,63 @@ describe('export result actions', () => {
 
   it('reports file-backed output materialization only inside user actions', async () => {
     vi.useFakeTimers()
-    const openBlob = vi.fn(
-      async () => new Blob(['jpeg'], { type: 'image/jpeg' }),
-    )
-    const onMaterialize = vi.fn()
-    const result = createResult({
-      output: {
-        kind: 'file-backed',
-        exportId: 'export-1',
+    try {
+      const openBlob = vi.fn(
+        async () => new Blob(['jpeg'], { type: 'image/jpeg' }),
+      )
+      const onMaterialize = vi.fn()
+      const result = createResult({
+        output: {
+          kind: 'file-backed',
+          exportId: 'export-1',
+          filename: 'frame_neutral_fullres.jpg',
+          byteLength: 4,
+          mimeType: 'image/jpeg',
+          openBlob,
+        },
+      })
+      const click = vi.fn()
+      const remove = vi.fn()
+      const append = vi.fn()
+      const link = { href: '', download: '', click, remove }
+      const documentLike = {
+        createElement: vi.fn(() => link),
+        body: { append },
+      } as unknown as Document
+      const urlLike = {
+        createObjectURL: vi.fn(() => 'blob:export'),
+        revokeObjectURL: vi.fn(),
+      } as unknown as typeof URL
+
+      expect(openBlob).not.toHaveBeenCalled()
+
+      await downloadExportResult(result, {
+        document: documentLike,
+        URL: urlLike,
+        onMaterialize,
+        now: () => '2026-05-03T00:00:00.000Z',
+      })
+
+      expect(openBlob).toHaveBeenCalledTimes(1)
+      expect(onMaterialize).toHaveBeenCalledWith({
+        action: 'download',
+        outputKind: 'file-backed',
         filename: 'frame_neutral_fullres.jpg',
         byteLength: 4,
-        mimeType: 'image/jpeg',
-        openBlob,
-      },
-    })
+        materializedAt: '2026-05-03T00:00:00.000Z',
+        cleanup: 'scheduled',
+      })
+
+      vi.runOnlyPendingTimers()
+      expect(urlLike.revokeObjectURL).toHaveBeenCalledWith('blob:export')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('continues download when materialization diagnostics throws', async () => {
+    vi.useFakeTimers()
+    const result = createResult()
     const click = vi.fn()
     const remove = vi.fn()
     const append = vi.fn()
@@ -173,28 +216,63 @@ describe('export result actions', () => {
       revokeObjectURL: vi.fn(),
     } as unknown as typeof URL
 
-    expect(openBlob).not.toHaveBeenCalled()
+    try {
+      await expect(
+        downloadExportResult(result, {
+          document: documentLike,
+          URL: urlLike,
+          onMaterialize: vi.fn(() => {
+            throw new Error('diagnostics failed')
+          }),
+        }),
+      ).resolves.toBeUndefined()
 
-    await downloadExportResult(result, {
-      document: documentLike,
-      URL: urlLike,
-      onMaterialize,
-      now: () => '2026-05-03T00:00:00.000Z',
-    })
+      expect(urlLike.createObjectURL).toHaveBeenCalledTimes(1)
+      expect(click).toHaveBeenCalledTimes(1)
+      vi.runOnlyPendingTimers()
+      expect(urlLike.revokeObjectURL).toHaveBeenCalledWith('blob:export')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 
-    expect(openBlob).toHaveBeenCalledTimes(1)
-    expect(onMaterialize).toHaveBeenCalledWith({
-      action: 'download',
-      outputKind: 'file-backed',
-      filename: 'frame_neutral_fullres.jpg',
-      byteLength: 4,
-      materializedAt: '2026-05-03T00:00:00.000Z',
-      cleanup: 'scheduled',
-    })
+  it('continues share when materialization diagnostics throws', async () => {
+    const result = createResult()
+    const share = vi.fn().mockResolvedValue(undefined)
+    const navigatorLike = {
+      canShare: vi.fn((_data?: ShareData) => true),
+      share,
+    } as unknown as Navigator
 
-    vi.runOnlyPendingTimers()
-    expect(urlLike.revokeObjectURL).toHaveBeenCalledWith('blob:export')
-    vi.useRealTimers()
+    await expect(
+      shareExportResult(result, navigatorLike, {
+        onMaterialize: vi.fn(() => {
+          throw new Error('diagnostics failed')
+        }),
+      }),
+    ).resolves.toBeUndefined()
+
+    expect(share).toHaveBeenCalledTimes(1)
+  })
+
+  it('continues copy when materialization diagnostics throws', async () => {
+    const result = createResult()
+    const write = vi.fn().mockResolvedValue(undefined)
+    const ClipboardItemMock = createClipboardItemMock(() => false)
+    const environment = {
+      navigator: { clipboard: { write } },
+      ClipboardItem: ClipboardItemMock,
+    }
+
+    await expect(
+      copyExportResultToClipboard(result, environment, {
+        onMaterialize: vi.fn(() => {
+          throw new Error('diagnostics failed')
+        }),
+      }),
+    ).resolves.toBeUndefined()
+
+    expect(write).toHaveBeenCalledTimes(1)
   })
 
   it('does not materialize file-backed output while resolving share capability', () => {
