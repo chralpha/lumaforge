@@ -129,6 +129,21 @@ test('browser preflight records expected export profile before export', async ({
   await exportButton.click()
 
   try {
+    const requiredEventTypes = [
+      'export-plan-selected',
+      'resource-evacuated',
+      'export-worker-attempt',
+      ...(expectedPlan.checkpointExpected ? ['checkpoint-written'] : []),
+    ]
+    await expect
+      .poll(async () => {
+        const eventTypes = new Set(
+          (await collectExportEvents(page)).map((event) => event.type),
+        )
+        return requiredEventTypes.every((type) => eventTypes.has(type))
+      })
+      .toBe(true)
+
     const events = await collectExportEvents(page)
     const planPayload = eventPayload(events, 'export-plan-selected')
     expect(planPayload).toMatchObject({
