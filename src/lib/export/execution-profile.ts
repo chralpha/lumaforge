@@ -1,5 +1,10 @@
 import type { ExportFidelity } from '~/lib/gl/export'
 
+import type {
+  LargeResourceOwner,
+  ResourceRegistryCheck,
+} from './resource-registry'
+
 export type ExportExecutionProfileName =
   | 'ios-safe'
   | 'mobile-balanced'
@@ -9,10 +14,84 @@ export type ExportCheckpointMode = 'safe-retry' | 'row-resume'
 export type ExportOutputSink = 'opfs-file' | 'streaming' | 'blob-handoff'
 export type ExportRuntimeMemoryProfile = 'low-memory' | 'desktop'
 
-export type ExportDebugEvent = {
-  type: 'export-plan-selected' | 'resource-evacuated' | 'checkpoint-written'
-  payload: unknown
+export type ExportPlanSelectedDebugPayload = {
+  profile: ExportExecutionProfileName
+  preferredRows: number
+  concurrency: number
+  runtimeMemoryProfile: ExportRuntimeMemoryProfile
+  outputSink: ExportOutputSink
+  checkpointMode: ExportCheckpointMode
+  checkpointDurableExpected: boolean
 }
+
+export type ExportResourceEvacuatedDebugPayload = {
+  profile: ExportExecutionProfileName
+  requiredOwners: LargeResourceOwner[]
+  disposedOwners: LargeResourceOwner[]
+  registryCheck: ResourceRegistryCheck
+  remainingLive: Array<{
+    id: string
+    owner: LargeResourceOwner
+    kind: string
+    estimatedBytes?: number
+  }>
+  estimatedBytesByOwner: Partial<Record<LargeResourceOwner, number>>
+  totalEstimatedBytes: number
+  evacuatedAt: string
+}
+
+export type ExportCheckpointWrittenDebugPayload = {
+  exportId: string
+  completedRowsForDiagnostics: number
+  totalRows: number
+  updatedAt: string
+}
+
+export type ExportWorkerAttemptDebugPayload = {
+  attempt: number
+  profile?: ExportExecutionProfileName
+  preferredRows?: number
+  concurrency?: number
+  phase: 'started' | 'retry-scheduled' | 'disposed'
+  retryReason?: string
+  previousRows?: number
+  nextRows?: number
+  previousConcurrency?: number
+  nextConcurrency?: number
+  freshWorker: boolean
+  priorClientDisposed?: boolean
+}
+
+export type ExportOutputMaterializedDebugPayload = {
+  action: 'download' | 'share' | 'copy'
+  outputKind: ExportOutputSink | 'blob' | 'file-backed'
+  filename: string
+  byteLength: number
+  materializedAt: string
+  cleanup: 'scheduled' | 'not-needed' | 'completed'
+}
+
+export type ExportDebugEvent =
+  | {
+      type: 'export-plan-selected'
+      payload: ExportPlanSelectedDebugPayload
+    }
+  | {
+      type: 'resource-evacuated'
+      payload: ExportResourceEvacuatedDebugPayload
+    }
+  | {
+      type: 'checkpoint-written'
+      payload: ExportCheckpointWrittenDebugPayload
+    }
+  | {
+      type: 'export-worker-attempt'
+      payload: ExportWorkerAttemptDebugPayload
+    }
+  | {
+      type: 'output-materialized'
+      payload: ExportOutputMaterializedDebugPayload
+    }
 
 export type ExportExecutionProfile = {
   name: ExportExecutionProfileName

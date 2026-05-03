@@ -1,5 +1,6 @@
 import type { ExportExecutionProfileName } from './execution-profile'
 import {
+  emitExportDebugEvent,
   getExportModeCopy,
   selectExportExecutionPlan,
 } from './execution-profile'
@@ -139,5 +140,103 @@ describe('export execution profile selection', () => {
     expect(getExportModeCopy('interrupted-source-needed')).not.toMatch(
       /resume/i,
     )
+  })
+
+  it('emits typed export debug events with machine-checkable payloads', () => {
+    const events: unknown[] = []
+    const listener = (event: Event) => {
+      events.push((event as CustomEvent).detail)
+    }
+
+    window.addEventListener('lumaforge-export-debug', listener)
+    try {
+      emitExportDebugEvent({
+        type: 'resource-evacuated',
+        payload: {
+          profile: 'ios-safe',
+          requiredOwners: ['preview', 'bounded-hq', 'webgl', 'export-result'],
+          disposedOwners: ['preview', 'bounded-hq', 'webgl', 'export-result'],
+          registryCheck: { ok: true },
+          remainingLive: [],
+          estimatedBytesByOwner: { preview: 1024, webgl: 2048 },
+          totalEstimatedBytes: 3072,
+          evacuatedAt: '2026-05-03T00:00:00.000Z',
+        },
+      })
+      emitExportDebugEvent({
+        type: 'export-worker-attempt',
+        payload: {
+          attempt: 2,
+          profile: 'ios-safe',
+          preferredRows: 64,
+          concurrency: 1,
+          phase: 'retry-scheduled',
+          retryReason: 'FULL_RES_EXPORT_RESOURCE_FAILURE',
+          previousRows: 128,
+          nextRows: 64,
+          previousConcurrency: 1,
+          nextConcurrency: 1,
+          freshWorker: true,
+          priorClientDisposed: true,
+        },
+      })
+      emitExportDebugEvent({
+        type: 'output-materialized',
+        payload: {
+          action: 'download',
+          outputKind: 'file-backed',
+          filename: 'frame_fullres.jpg',
+          byteLength: 42,
+          materializedAt: '2026-05-03T00:00:01.000Z',
+          cleanup: 'scheduled',
+        },
+      })
+    } finally {
+      window.removeEventListener('lumaforge-export-debug', listener)
+    }
+
+    expect(events).toEqual([
+      {
+        type: 'resource-evacuated',
+        payload: {
+          profile: 'ios-safe',
+          requiredOwners: ['preview', 'bounded-hq', 'webgl', 'export-result'],
+          disposedOwners: ['preview', 'bounded-hq', 'webgl', 'export-result'],
+          registryCheck: { ok: true },
+          remainingLive: [],
+          estimatedBytesByOwner: { preview: 1024, webgl: 2048 },
+          totalEstimatedBytes: 3072,
+          evacuatedAt: '2026-05-03T00:00:00.000Z',
+        },
+      },
+      {
+        type: 'export-worker-attempt',
+        payload: {
+          attempt: 2,
+          profile: 'ios-safe',
+          preferredRows: 64,
+          concurrency: 1,
+          phase: 'retry-scheduled',
+          retryReason: 'FULL_RES_EXPORT_RESOURCE_FAILURE',
+          previousRows: 128,
+          nextRows: 64,
+          previousConcurrency: 1,
+          nextConcurrency: 1,
+          freshWorker: true,
+          priorClientDisposed: true,
+        },
+      },
+      {
+        type: 'output-materialized',
+        payload: {
+          action: 'download',
+          outputKind: 'file-backed',
+          filename: 'frame_fullres.jpg',
+          byteLength: 42,
+          materializedAt: '2026-05-03T00:00:01.000Z',
+          cleanup: 'scheduled',
+        },
+      },
+    ])
   })
 })
