@@ -130,7 +130,9 @@ export async function loadNativeFactory({ packageDir, profile = 'desktop' }) {
     typeof createModule === 'function'
       ? await createModule({
           locateFile(file) {
-            return file === 'luma_raw.wasm' ? wasmPath : file
+            return file === 'luma_raw.wasm'
+              ? pathToFileURL(wasmPath).href
+              : file
           },
         })
       : createModule
