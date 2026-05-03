@@ -18,6 +18,38 @@ type ClipboardEnvironment = {
   }
 }
 
+export type ExportOutputMaterializationAction = 'download' | 'share' | 'copy'
+
+export type ExportOutputMaterializationEvent = {
+  action: ExportOutputMaterializationAction
+  outputKind: ExportResult['output']['kind']
+  filename: string
+  byteLength: number
+  materializedAt: string
+  cleanup: 'scheduled' | 'not-needed' | 'completed'
+}
+
+type MaterializationDiagnostics = {
+  onMaterialize?: (event: ExportOutputMaterializationEvent) => void
+  now?: () => string
+}
+
+function reportMaterialized(
+  result: ExportResult,
+  action: ExportOutputMaterializationAction,
+  diagnostics: MaterializationDiagnostics | undefined,
+  cleanup: ExportOutputMaterializationEvent['cleanup'],
+) {
+  diagnostics?.onMaterialize?.({
+    action,
+    outputKind: result.output.kind,
+    filename: result.filename,
+    byteLength: result.size,
+    materializedAt: diagnostics.now?.() ?? new Date().toISOString(),
+    cleanup,
+  })
+}
+
 function createShareProbeFile(result: ExportResult) {
   return new File([], result.filename, {
     type: result.output.mimeType || 'image/jpeg',
@@ -54,6 +86,7 @@ export function resolveExportShareCapability(
 export async function shareExportResult(
   result: ExportResult,
   navigatorLike: Navigator = navigator,
+  diagnostics?: MaterializationDiagnostics,
 ) {
   const capability = resolveExportShareCapability(result, navigatorLike)
   if (!capability.available) {
@@ -61,6 +94,7 @@ export async function shareExportResult(
   }
 
   const file = await createShareFile(result)
+  reportMaterialized(result, 'share', diagnostics, 'not-needed')
   await navigatorLike.share({
     files: [file],
     title: result.filename,
@@ -72,11 +106,12 @@ export async function downloadExportResult(
   environment: {
     document?: Document
     URL?: typeof URL
-  } = {},
+  } & MaterializationDiagnostics = {},
 ) {
   const documentLike = environment.document ?? document
   const urlLike = environment.URL ?? URL
   const blob = await materializeOutputBlob(result.output)
+  reportMaterialized(result, 'download', environment, 'scheduled')
   const url = urlLike.createObjectURL(blob)
   const link = documentLike.createElement('a')
 
@@ -142,8 +177,10 @@ export async function copyBlobToClipboard(
 export async function copyExportResultToClipboard(
   result: ExportResult,
   environment: ClipboardEnvironment = globalThis,
+  diagnostics?: MaterializationDiagnostics,
 ) {
   const blob = await materializeOutputBlob(result.output)
+  reportMaterialized(result, 'copy', diagnostics, 'not-needed')
   await copyBlobToClipboard(blob, environment)
 }
 

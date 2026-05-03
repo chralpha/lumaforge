@@ -2717,6 +2717,67 @@ describe('useRawProcessor embedded preview state', () => {
     expect(click).toHaveBeenCalledTimes(1)
   })
 
+  it('does not open file-backed export output until a result action runs', async () => {
+    const events: unknown[] = []
+    const debugListener = (event: Event) => {
+      events.push((event as CustomEvent).detail)
+    }
+    window.addEventListener('lumaforge-export-debug', debugListener)
+    const openBlob = vi.fn(
+      async () => new Blob(['jpeg'], { type: 'image/jpeg' }),
+    )
+    const output: FileBackedOutputResult = {
+      kind: 'file-backed',
+      exportId: 'export-1',
+      filename: 'frame_neutral_fullres.jpg',
+      byteLength: 4,
+      mimeType: 'image/jpeg',
+      openBlob,
+    }
+
+    try {
+      exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+        filename: 'frame_neutral_fullres.jpg',
+        output,
+      })
+      const { click } = stubDownloadLink()
+
+      const { result } = renderHook(() => useRawProcessor(), { wrapper })
+      await act(async () => {
+        await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+      })
+      await act(async () => {
+        await result.current.exportImage({
+          quality: 'high',
+          fidelity: 'balanced',
+        })
+      })
+
+      expect(openBlob).not.toHaveBeenCalled()
+      expect(result.current.exportResult?.output.kind).toBe('file-backed')
+
+      await act(async () => {
+        await result.current.downloadExportResult()
+      })
+
+      expect(openBlob).toHaveBeenCalledTimes(1)
+      expect(click).toHaveBeenCalledTimes(1)
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: 'output-materialized',
+          payload: expect.objectContaining({
+            action: 'download',
+            outputKind: 'file-backed',
+            filename: 'frame_neutral_fullres.jpg',
+            byteLength: 4,
+          }),
+        }),
+      )
+    } finally {
+      window.removeEventListener('lumaforge-export-debug', debugListener)
+    }
+  })
+
   it('cleans up file-backed export output when resetting the session', async () => {
     const cleanup = vi.fn(async () => undefined)
     const output: FileBackedOutputResult = {

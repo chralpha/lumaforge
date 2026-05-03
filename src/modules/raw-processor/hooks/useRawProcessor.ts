@@ -2662,12 +2662,37 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [loadFile, scheduleToast],
   )
 
+  const createMaterializationDiagnostics = useCallback(
+    (action: 'download' | 'share' | 'copy') => ({
+      onMaterialize(event: {
+        action: 'download' | 'share' | 'copy'
+        outputKind: 'blob' | 'file-backed'
+        filename: string
+        byteLength: number
+        materializedAt: string
+        cleanup: 'scheduled' | 'not-needed' | 'completed'
+      }) {
+        emitExportDebugEvent({
+          type: 'output-materialized',
+          payload: {
+            ...event,
+            action,
+          },
+        })
+      },
+    }),
+    [],
+  )
+
   const downloadExportResult = useCallback(async () => {
     const result = sessionRef.current?.exportState.result
     if (!result) return
 
     try {
-      await downloadStoredExportResult(result)
+      await downloadStoredExportResult(
+        result,
+        createMaterializationDiagnostics('download'),
+      )
     } catch (err) {
       const description =
         err instanceof Error ? err.message : 'Download action failed.'
@@ -2677,14 +2702,18 @@ export function useRawProcessor(): UseRawProcessorReturn {
         }),
       )
     }
-  }, [scheduleToast])
+  }, [createMaterializationDiagnostics, scheduleToast])
 
   const shareExportResult = useCallback(async () => {
     const result = sessionRef.current?.exportState.result
     if (!result) return
 
     try {
-      await shareStoredExportResult(result)
+      await shareStoredExportResult(
+        result,
+        navigator,
+        createMaterializationDiagnostics('share'),
+      )
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         return
@@ -2698,7 +2727,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         }),
       )
     }
-  }, [scheduleToast])
+  }, [createMaterializationDiagnostics, scheduleToast])
 
   const copyExportResult = useCallback(async () => {
     const result = sessionRef.current?.exportState.result
@@ -2706,7 +2735,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
     try {
       if (result.copyCapability.mode === 'full-resolution') {
-        await copyExportResultToClipboard(result)
+        await copyExportResultToClipboard(
+          result,
+          globalThis,
+          createMaterializationDiagnostics('copy'),
+        )
         scheduleToast(() => toast.success('Full-resolution image copied'))
         return
       }
@@ -2744,7 +2777,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         }),
       )
     }
-  }, [scheduleToast, stats?.previewSize])
+  }, [createMaterializationDiagnostics, scheduleToast, stats?.previewSize])
 
   // Reset state
   const reset = useCallback(() => {

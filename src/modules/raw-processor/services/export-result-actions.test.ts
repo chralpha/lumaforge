@@ -144,6 +144,59 @@ describe('export result actions', () => {
     }
   })
 
+  it('reports file-backed output materialization only inside user actions', async () => {
+    vi.useFakeTimers()
+    const openBlob = vi.fn(
+      async () => new Blob(['jpeg'], { type: 'image/jpeg' }),
+    )
+    const onMaterialize = vi.fn()
+    const result = createResult({
+      output: {
+        kind: 'file-backed',
+        exportId: 'export-1',
+        filename: 'frame_neutral_fullres.jpg',
+        byteLength: 4,
+        mimeType: 'image/jpeg',
+        openBlob,
+      },
+    })
+    const click = vi.fn()
+    const remove = vi.fn()
+    const append = vi.fn()
+    const link = { href: '', download: '', click, remove }
+    const documentLike = {
+      createElement: vi.fn(() => link),
+      body: { append },
+    } as unknown as Document
+    const urlLike = {
+      createObjectURL: vi.fn(() => 'blob:export'),
+      revokeObjectURL: vi.fn(),
+    } as unknown as typeof URL
+
+    expect(openBlob).not.toHaveBeenCalled()
+
+    await downloadExportResult(result, {
+      document: documentLike,
+      URL: urlLike,
+      onMaterialize,
+      now: () => '2026-05-03T00:00:00.000Z',
+    })
+
+    expect(openBlob).toHaveBeenCalledTimes(1)
+    expect(onMaterialize).toHaveBeenCalledWith({
+      action: 'download',
+      outputKind: 'file-backed',
+      filename: 'frame_neutral_fullres.jpg',
+      byteLength: 4,
+      materializedAt: '2026-05-03T00:00:00.000Z',
+      cleanup: 'scheduled',
+    })
+
+    vi.runOnlyPendingTimers()
+    expect(urlLike.revokeObjectURL).toHaveBeenCalledWith('blob:export')
+    vi.useRealTimers()
+  })
+
   it('does not materialize file-backed output while resolving share capability', () => {
     const openBlob = vi.fn(
       async () => new Blob(['jpeg'], { type: 'image/jpeg' }),
