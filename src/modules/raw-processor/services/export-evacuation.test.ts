@@ -2,8 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createResourceRegistry } from '~/lib/export/resource-registry'
 
-import type {
-  ExportEvacuationError} from './export-evacuation';
+import type { ExportEvacuationError } from './export-evacuation'
 import {
   createPreExportSnapshot,
   evacuateBeforeExport,
@@ -57,7 +56,9 @@ describe('export evacuation', () => {
       id: 'stale-result',
       owner: 'export-result',
       kind: 'blob',
-      dispose: () => events.push('dispose-stale-result'),
+      dispose: () => {
+        events.push('dispose-stale-result')
+      },
     })
 
     const result = await evacuateBeforeExport({
@@ -87,21 +88,27 @@ describe('export evacuation', () => {
       owner: 'preview',
       kind: 'worker',
       estimatedBytes: 1024,
-      dispose: () => events.push('dispose-preview-worker'),
+      dispose: () => {
+        events.push('dispose-preview-worker')
+      },
     })
     registry.register({
       id: 'bounded-hq-buffer',
       owner: 'bounded-hq',
       kind: 'array-buffer',
       estimatedBytes: 2048,
-      dispose: () => events.push('dispose-bounded-hq-buffer'),
+      dispose: () => {
+        events.push('dispose-bounded-hq-buffer')
+      },
     })
     registry.register({
       id: 'webgl-pipeline',
       owner: 'webgl',
       kind: 'webgl-pipeline',
       estimatedBytes: 4096,
-      dispose: () => events.push('dispose-webgl-pipeline'),
+      dispose: () => {
+        events.push('dispose-webgl-pipeline')
+      },
     })
 
     const result = await evacuateBeforeExport({
