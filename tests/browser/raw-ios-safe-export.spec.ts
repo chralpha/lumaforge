@@ -51,6 +51,10 @@ async function collectExportEvents(page: Page) {
   })) as ExportDebugEvent[]
 }
 
+function eventPayload(events: ExportDebugEvent[], type: string) {
+  return events.find((event) => event.type === type)?.payload ?? null
+}
+
 async function openRawToolsIfCollapsed(page: Page) {
   const rawToolsToggle = page.getByRole('button', { name: /^raw tools$/i })
   if (await rawToolsToggle.isVisible()) {
@@ -125,44 +129,51 @@ test('browser preflight records expected export profile before export', async ({
   await exportButton.click()
 
   try {
-    await expect
-      .poll(async () => {
-        return (
-          (await collectExportEvents(page)).find(
-            (event) => event.type === 'export-plan-selected',
-          )?.payload ?? null
-        )
-      })
-      .toMatchObject({
-        profile: expectedPlan.profile,
-        concurrency: expectedPlan.concurrency,
-        runtimeMemoryProfile: expectedPlan.runtimeMemoryProfile,
-        checkpointMode: expectedPlan.checkpointMode,
-        outputSink: expectedPlan.outputSink,
-      })
-
-    const planPayload = (await collectExportEvents(page)).find(
-      (event) => event.type === 'export-plan-selected',
-    )?.payload
+    const events = await collectExportEvents(page)
+    const planPayload = eventPayload(events, 'export-plan-selected')
+    expect(planPayload).toMatchObject({
+      profile: expectedPlan.profile,
+      concurrency: expectedPlan.concurrency,
+      runtimeMemoryProfile: expectedPlan.runtimeMemoryProfile,
+      checkpointMode: expectedPlan.checkpointMode,
+      outputSink: expectedPlan.outputSink,
+    })
     expect(expectedPlan.preferredRows).toContain(planPayload?.preferredRows)
 
-    if (expectedPlan.checkpointExpected) {
-      await expect
-        .poll(async () => collectExportEvents(page))
-        .toContainEqual(
-          expect.objectContaining({
-            type: 'checkpoint-written',
-          }),
-        )
+    const evacuationPayload = eventPayload(events, 'resource-evacuated')
+    expect(evacuationPayload).toMatchObject({
+      profile: expectedPlan.profile,
+      registryCheck: { ok: true },
+      remainingLive: [],
+    })
+
+    if (expectedPlan.profile === 'desktop-fast') {
+      expect(evacuationPayload?.requiredOwners).toEqual(['export-result'])
+    } else {
+      expect(evacuationPayload?.requiredOwners).toEqual([
+        'preview',
+        'bounded-hq',
+        'webgl',
+        'export-result',
+        'lut-fetch',
+      ])
     }
 
-    await expect
-      .poll(async () => collectExportEvents(page))
-      .toContainEqual(
+    const workerAttemptPayload = eventPayload(events, 'export-worker-attempt')
+    expect(workerAttemptPayload).toMatchObject({
+      attempt: 1,
+      profile: expectedPlan.profile,
+      phase: 'started',
+      freshWorker: true,
+    })
+
+    if (expectedPlan.checkpointExpected) {
+      expect(events).toContainEqual(
         expect.objectContaining({
-          type: 'resource-evacuated',
+          type: 'checkpoint-written',
         }),
       )
+    }
   } finally {
     await testInfo.attach('export-events.json', {
       body: JSON.stringify(await collectExportEvents(page), null, 2),
