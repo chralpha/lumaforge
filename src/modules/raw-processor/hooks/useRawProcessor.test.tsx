@@ -2494,78 +2494,96 @@ describe('useRawProcessor embedded preview state', () => {
 
   it('emits enriched low-memory evacuation diagnostics before full-resolution export', async () => {
     const events: unknown[] = []
-    window.addEventListener('lumaforge-export-debug', (event) => {
+    const debugListener = (event: Event) => {
       events.push((event as CustomEvent).detail)
-    })
+    }
+    window.addEventListener('lumaforge-export-debug', debugListener)
     const boundedHqDecode = deferred<DecodedImage>()
+    let boundedHqSettled = false
     let boundedHqSignal: AbortSignal | undefined
     const runtimeDispose = vi.fn()
     const pipelineDispose = vi.fn()
 
-    rawRuntimeAdapterMock.openSession.mockResolvedValue({
-      sourceDimensions: defaultSourceDimensions,
-      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
-      decodeQuickRaw: vi.fn().mockResolvedValue(createDecodedImage('quick')),
-      decodeBoundedHqRaw: vi.fn((_options, _progress, signal) => {
-        boundedHqSignal = signal
-        return boundedHqDecode.promise
-      }),
-      probeExportCapability: vi
-        .fn()
-        .mockResolvedValue(createSupportedCapability()),
-      dispose: runtimeDispose,
-    })
-    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
-      filename: 'frame_neutral_fullres.jpg',
-      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
-    })
-
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
-
-    await act(async () => {
-      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
-    })
-    act(() => {
-      result.current.pipelineRef.current = {
-        dispose: pipelineDispose,
-      } as never
-    })
-    await act(async () => {
-      await result.current.exportImage({
-        quality: 'high',
-        fidelity: 'balanced',
+    try {
+      rawRuntimeAdapterMock.openSession.mockResolvedValue({
+        sourceDimensions: defaultSourceDimensions,
+        extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+        decodeQuickRaw: vi.fn().mockResolvedValue(createDecodedImage('quick')),
+        decodeBoundedHqRaw: vi.fn((_options, _progress, signal) => {
+          boundedHqSignal = signal
+          return boundedHqDecode.promise
+        }),
+        probeExportCapability: vi
+          .fn()
+          .mockResolvedValue(createSupportedCapability()),
+        dispose: runtimeDispose,
       })
-    })
+      exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+        filename: 'frame_neutral_fullres.jpg',
+        blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+      })
 
-    const evacuation = events.find(
-      (event) =>
-        typeof event === 'object' &&
-        event !== null &&
-        (event as { type?: string }).type === 'resource-evacuated',
-    ) as { payload?: Record<string, unknown> } | undefined
+      const { result } = renderHook(() => useRawProcessor(), { wrapper })
 
-    expect(evacuation?.payload).toMatchObject({
-      profile: 'mobile-balanced',
-      requiredOwners: [
-        'preview',
-        'bounded-hq',
-        'webgl',
-        'export-result',
-        'lut-fetch',
-      ],
-      disposedOwners: [
-        'preview',
-        'bounded-hq',
-        'webgl',
-        'export-result',
-        'lut-fetch',
-      ],
-      registryCheck: { ok: true },
-      remainingLive: [],
-    })
-    expect(boundedHqSignal?.aborted).toBe(true)
-    expect(runtimeDispose).toHaveBeenCalledTimes(1)
-    expect(pipelineDispose).toHaveBeenCalledWith({ releaseContext: false })
+      await act(async () => {
+        await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+      })
+      act(() => {
+        result.current.pipelineRef.current = {
+          dispose: pipelineDispose,
+        } as never
+      })
+      await act(async () => {
+        await result.current.exportImage({
+          quality: 'high',
+          fidelity: 'balanced',
+        })
+      })
+
+      const evacuation = events.find(
+        (event) =>
+          typeof event === 'object' &&
+          event !== null &&
+          (event as { type?: string }).type === 'resource-evacuated',
+      ) as { payload?: Record<string, unknown> } | undefined
+
+      expect(evacuation?.payload).toMatchObject({
+        profile: 'mobile-balanced',
+        requiredOwners: [
+          'preview',
+          'bounded-hq',
+          'webgl',
+          'export-result',
+          'lut-fetch',
+        ],
+        disposedOwners: [
+          'preview',
+          'bounded-hq',
+          'webgl',
+          'export-result',
+          'lut-fetch',
+        ],
+        registryCheck: { ok: true },
+        remainingLive: [],
+      })
+      expect(boundedHqSignal?.aborted).toBe(true)
+      expect(runtimeDispose).toHaveBeenCalledTimes(1)
+      expect(pipelineDispose).toHaveBeenCalledWith({ releaseContext: false })
+
+      await act(async () => {
+        boundedHqSettled = true
+        boundedHqDecode.resolve(createDecodedImage('bounded-hq'))
+        await flushPromises()
+      })
+    } finally {
+      window.removeEventListener('lumaforge-export-debug', debugListener)
+
+      if (!boundedHqSettled) {
+        boundedHqSettled = true
+        boundedHqDecode.resolve(createDecodedImage('bounded-hq'))
+        await flushPromises()
+      }
+    }
   })
 
   it('fails before starting the export worker when required evacuation throws', async () => {
