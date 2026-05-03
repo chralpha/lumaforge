@@ -2390,6 +2390,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
             }
             enqueueCheckpointWrite(checkpointManifest)
           },
+          onAttempt: (attempt) => {
+            if (!isCurrentExport()) return
+
+            emitExportDebugEvent({
+              type: 'export-worker-attempt',
+              payload: attempt,
+            })
+          },
           onProgress: (entry) => {
             if (
               !isMountedRef.current ||

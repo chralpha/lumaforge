@@ -93,6 +93,21 @@ export function getConcurrencyForFidelity(fidelity: ExportFidelity) {
 
 export type { ExportExecutionPlan }
 
+export type FullResolutionExportAttemptEvent = {
+  attempt: number
+  profile?: ExportExecutionPlan['profile']['name']
+  preferredRows?: number
+  concurrency?: number
+  phase: 'started' | 'retry-scheduled' | 'disposed'
+  retryReason?: string
+  previousRows?: number
+  nextRows?: number
+  previousConcurrency?: number
+  nextConcurrency?: number
+  freshWorker: boolean
+  priorClientDisposed?: boolean
+}
+
 export function recommendRetryLevel(
   level: ExportFidelity,
 ): Exclude<ExportFidelity, 'max'> | null {
@@ -177,6 +192,7 @@ export async function runFullResolutionExportJob({
   checkpoint,
   onProgress,
   onMetric,
+  onAttempt,
   signal,
   clientFactory = createFullResolutionExportClient,
 }: {
@@ -190,6 +206,7 @@ export async function runFullResolutionExportJob({
   checkpoint?: FullResWorkerCheckpointConfig
   onProgress?: (progress: FullResolutionExportProgress) => void
   onMetric?: RunFullResolutionJpegExportInWorkerInput['onMetric']
+  onAttempt?: (event: FullResolutionExportAttemptEvent) => void
   signal?: AbortSignal
   clientFactory?: () => FullResolutionExportWorkerClient
 }) {
@@ -199,6 +216,16 @@ export async function runFullResolutionExportJob({
   while (true) {
     attempts += 1
     const client = clientFactory()
+    const attemptPlan = plan
+
+    onAttempt?.({
+      attempt: attempts,
+      profile: attemptPlan?.profile.name,
+      preferredRows: attemptPlan?.preferredRows ?? preferredRows,
+      concurrency: attemptPlan?.concurrency ?? concurrency,
+      phase: 'started',
+      freshWorker: true,
+    })
 
     try {
       const output = await client.run({
@@ -206,10 +233,14 @@ export async function runFullResolutionExportJob({
         filename,
         graph,
         quality,
-        preferredRows: plan?.preferredRows ?? preferredRows,
-        concurrency: plan?.concurrency ?? concurrency,
-        executionPlan: plan ? toWorkerExecutionPlan(plan) : undefined,
-        checkpoint: plan?.profile.checkpointOutput ? checkpoint : undefined,
+        preferredRows: attemptPlan?.preferredRows ?? preferredRows,
+        concurrency: attemptPlan?.concurrency ?? concurrency,
+        executionPlan: attemptPlan
+          ? toWorkerExecutionPlan(attemptPlan)
+          : undefined,
+        checkpoint: attemptPlan?.profile.checkpointOutput
+          ? checkpoint
+          : undefined,
         onProgress,
         onMetric,
         signal,
@@ -218,7 +249,7 @@ export async function runFullResolutionExportJob({
       return { filename, output, attempts }
     } catch (error) {
       if (
-        !plan?.profile.restartWorkerOnResourceRetry ||
+        !attemptPlan?.profile.restartWorkerOnResourceRetry ||
         attempts >= 3 ||
         !errorLooksLikeFreshWorkerRetry(error)
       ) {
@@ -226,19 +257,48 @@ export async function runFullResolutionExportJob({
       }
 
       const nextRows =
-        getFreshWorkerRetryRows(error) ?? Math.floor(plan.preferredRows / 2)
+        getFreshWorkerRetryRows(error) ??
+        Math.floor(attemptPlan.preferredRows / 2)
+      const normalizedNextRows = Math.min(
+        attemptPlan.profile.maxRows,
+        Math.max(attemptPlan.profile.minRows, nextRows),
+      )
+
+      onAttempt?.({
+        attempt: attempts,
+        profile: attemptPlan.profile.name,
+        preferredRows: attemptPlan.preferredRows,
+        concurrency: attemptPlan.concurrency,
+        phase: 'retry-scheduled',
+        retryReason:
+          error instanceof Error
+            ? error.message
+            : 'FULL_RES_EXPORT_WORKER_FAILED',
+        previousRows: attemptPlan.preferredRows,
+        nextRows: normalizedNextRows,
+        previousConcurrency: attemptPlan.concurrency,
+        nextConcurrency: 1,
+        freshWorker: true,
+        priorClientDisposed: false,
+      })
 
       plan = {
-        ...plan,
-        preferredRows: Math.min(
-          plan.profile.maxRows,
-          Math.max(plan.profile.minRows, nextRows),
-        ),
+        ...attemptPlan,
+        preferredRows: normalizedNextRows,
         concurrency: 1,
         productCopy: 'resource-retry',
       }
     } finally {
       client.dispose()
+      onAttempt?.({
+        attempt: attempts,
+        profile: attemptPlan?.profile.name,
+        preferredRows: attemptPlan?.preferredRows ?? preferredRows,
+        concurrency: attemptPlan?.concurrency ?? concurrency,
+        phase: 'disposed',
+        freshWorker: false,
+        priorClientDisposed: true,
+      })
     }
   }
 }

@@ -386,4 +386,90 @@ describe('export-system', () => {
       }),
     )
   })
+
+  it('reports fresh worker attempt lifecycle during resource retry', async () => {
+    const file = new File(['raw'], 'frame.ARW')
+    const output = createBlobOutputResult({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+    const graph: ExportColorGraphDescriptor = {
+      supported: true,
+      outputGamut: 'srgb-rec709',
+      outputTransfer: 'srgb',
+      lutProfile: null,
+      steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+    }
+    const executionPlan = selectCurrentExportExecutionPlan({
+      fidelity: 'safe',
+      sourceWidth: 11662,
+      sourceHeight: 8746,
+    })
+    const first = {
+      run: vi.fn().mockRejectedValue(
+        Object.assign(new Error('FULL_RES_EXPORT_RESOURCE_FAILURE'), {
+          nextRows: 64,
+        }),
+      ),
+      dispose: vi.fn(),
+    }
+    const second = {
+      run: vi.fn().mockResolvedValue(output),
+      dispose: vi.fn(),
+    }
+    const clientFactory = vi
+      .fn()
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second)
+    const onAttempt = vi.fn()
+
+    await runFullResolutionExportJob({
+      file,
+      filename: 'frame_neutral_fullres.jpg',
+      graph,
+      executionPlan,
+      onAttempt,
+      clientFactory: clientFactory as never,
+    })
+
+    expect(onAttempt).toHaveBeenNthCalledWith(1, {
+      attempt: 1,
+      profile: executionPlan.profile.name,
+      preferredRows: executionPlan.preferredRows,
+      concurrency: executionPlan.concurrency,
+      phase: 'started',
+      freshWorker: true,
+    })
+    expect(onAttempt).toHaveBeenNthCalledWith(2, {
+      attempt: 1,
+      profile: executionPlan.profile.name,
+      preferredRows: executionPlan.preferredRows,
+      concurrency: executionPlan.concurrency,
+      phase: 'retry-scheduled',
+      retryReason: 'FULL_RES_EXPORT_RESOURCE_FAILURE',
+      previousRows: executionPlan.preferredRows,
+      nextRows: 64,
+      previousConcurrency: executionPlan.concurrency,
+      nextConcurrency: 1,
+      freshWorker: true,
+      priorClientDisposed: false,
+    })
+    expect(onAttempt).toHaveBeenNthCalledWith(3, {
+      attempt: 1,
+      profile: executionPlan.profile.name,
+      preferredRows: executionPlan.preferredRows,
+      concurrency: executionPlan.concurrency,
+      phase: 'disposed',
+      freshWorker: false,
+      priorClientDisposed: true,
+    })
+    expect(onAttempt).toHaveBeenNthCalledWith(4, {
+      attempt: 2,
+      profile: executionPlan.profile.name,
+      preferredRows: 64,
+      concurrency: 1,
+      phase: 'started',
+      freshWorker: true,
+    })
+  })
 })
