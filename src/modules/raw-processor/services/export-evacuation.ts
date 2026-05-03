@@ -1,9 +1,11 @@
 import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
 
+import type { ExportExecutionProfileName } from '~/lib/export/execution-profile'
 import type {
   LargeResourceOwner,
   ResourceRegistry,
   ResourceRegistryCheck,
+  ResourceRegistrySnapshot,
 } from '~/lib/export/resource-registry'
 
 export type PreExportSnapshot = {
@@ -17,13 +19,25 @@ export type PreExportSnapshot = {
   style: unknown
 }
 
-export type ExportEvacuationResult = {
-  snapshot: PreExportSnapshot
-  registryCheck: ResourceRegistryCheck
-  evacuatedAt: string
+export function createPreExportSnapshot(
+  input: PreExportSnapshot,
+): PreExportSnapshot {
+  return { ...input }
 }
 
-const PRE_EXPORT_DISPOSABLE_OWNERS: LargeResourceOwner[] = [
+export class ExportEvacuationError extends Error {
+  readonly code = 'EXPORT_RESOURCE_EVICTION_INCOMPLETE'
+
+  constructor(
+    message = 'Export resources could not be evacuated.',
+    cause?: unknown,
+  ) {
+    super(message, { cause })
+    this.name = 'ExportEvacuationError'
+  }
+}
+
+const LOW_MEMORY_PRE_EXPORT_DISPOSABLE_OWNERS: LargeResourceOwner[] = [
   'preview',
   'bounded-hq',
   'webgl',
@@ -31,31 +45,77 @@ const PRE_EXPORT_DISPOSABLE_OWNERS: LargeResourceOwner[] = [
   'lut-fetch',
 ]
 
-export function createPreExportSnapshot(
-  input: PreExportSnapshot,
-): PreExportSnapshot {
-  return { ...input }
+const DESKTOP_PRE_EXPORT_DISPOSABLE_OWNERS: LargeResourceOwner[] = [
+  'export-result',
+]
+
+export function getPreExportEvacuationOwners(
+  profile: ExportExecutionProfileName,
+): LargeResourceOwner[] {
+  return profile === 'desktop-fast'
+    ? [...DESKTOP_PRE_EXPORT_DISPOSABLE_OWNERS]
+    : [...LOW_MEMORY_PRE_EXPORT_DISPOSABLE_OWNERS]
+}
+
+export type ExportEvacuationResult = {
+  snapshot: PreExportSnapshot
+  registryCheck: ResourceRegistryCheck
+  requiredOwners: LargeResourceOwner[]
+  disposedOwners: LargeResourceOwner[]
+  remainingLive: ResourceRegistrySnapshot['live']
+  estimatedBytesByOwner: ResourceRegistrySnapshot['estimatedBytesByOwner']
+  totalEstimatedBytes: number
+  evacuatedAt: string
+}
+
+function hasOwner(owners: LargeResourceOwner[], owner: LargeResourceOwner) {
+  return owners.includes(owner)
 }
 
 export async function evacuateBeforeExport(input: {
   registry: ResourceRegistry
   snapshot: PreExportSnapshot
-  abortPreview: () => void
-  abortBoundedHq: () => void
-  releasePreviousExportResult: () => void
+  owners: LargeResourceOwner[]
+  abortPreview?: () => void
+  abortBoundedHq?: () => void
+  releasePreviousExportResult?: () => void
+  stopLutFetches?: () => void
 }): Promise<ExportEvacuationResult> {
-  input.abortPreview()
-  input.abortBoundedHq()
-  input.releasePreviousExportResult()
+  const owners = [...input.owners]
 
-  await input.registry.disposeOwners(PRE_EXPORT_DISPOSABLE_OWNERS)
-  const registryCheck = input.registry.assertZeroLive(
-    PRE_EXPORT_DISPOSABLE_OWNERS,
-  )
+  try {
+    if (hasOwner(owners, 'preview') || hasOwner(owners, 'webgl')) {
+      input.abortPreview?.()
+    }
+    if (hasOwner(owners, 'bounded-hq')) {
+      input.abortBoundedHq?.()
+    }
+    if (hasOwner(owners, 'export-result')) {
+      input.releasePreviousExportResult?.()
+    }
+    if (hasOwner(owners, 'lut-fetch')) {
+      input.stopLutFetches?.()
+    }
+
+    await input.registry.disposeOwners(owners)
+  } catch (error) {
+    throw new ExportEvacuationError(
+      'Export resources could not be evacuated before worker start.',
+      error,
+    )
+  }
+
+  const registryCheck = input.registry.assertZeroLive(owners)
+  const snapshot = input.registry.snapshot()
 
   return {
     snapshot: input.snapshot,
     registryCheck,
+    requiredOwners: owners,
+    disposedOwners: owners,
+    remainingLive: snapshot.live,
+    estimatedBytesByOwner: snapshot.estimatedBytesByOwner,
+    totalEstimatedBytes: snapshot.totalEstimatedBytes,
     evacuatedAt: new Date().toISOString(),
   }
 }
