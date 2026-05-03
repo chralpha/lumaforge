@@ -1,8 +1,15 @@
+// @vitest-environment node
+
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import {
   createProcessorSession,
   hqSettings,
+  loadNativeFactory,
   normalizeMetadata,
   quickSettings,
   readNativeStage,
@@ -54,6 +61,25 @@ describe('native diagnostics runtime bridge', () => {
       orientation: 1,
       baselineExposure: 0.25,
       thumbnail: { width: 640, height: 480, format: 'jpeg' },
+    })
+  })
+
+  it('strips thumbnail payloads from normalized metadata', () => {
+    expect(
+      normalizeMetadata({
+        thumbnail: {
+          width: 640,
+          height: 480,
+          format: 'jpeg',
+          data: new Uint8Array([1]),
+        },
+      }),
+    ).toEqual({
+      thumbnail: {
+        width: 640,
+        height: 480,
+        format: 'jpeg',
+      },
     })
   })
 
@@ -109,5 +135,46 @@ describe('native diagnostics runtime bridge', () => {
       ['openWithSettings', quickSettings],
       ['delete'],
     ])
+  })
+
+  it('loads native factories with a local file URL wasm fetch fallback', async () => {
+    const packageDir = await mkdtemp(
+      path.join(os.tmpdir(), 'luma-raw-native-loader-'),
+    )
+    const nativeDir = path.join(packageDir, 'dist/native/desktop')
+    const originalFetch = globalThis.fetch
+
+    try {
+      await mkdir(nativeDir, { recursive: true })
+      await writeFile(
+        path.join(nativeDir, 'luma_raw.wasm'),
+        new Uint8Array([0]),
+      )
+      await writeFile(
+        path.join(nativeDir, 'luma_raw.js'),
+        `
+export default async function createModule(options) {
+  await fetch(options.locateFile('luma_raw.wasm')).then((response) =>
+    response.arrayBuffer(),
+  )
+
+  return {
+    LumaRawProcessor: class LumaRawProcessor {},
+  }
+}
+`,
+      )
+
+      const nativeFactory = await loadNativeFactory({
+        packageDir,
+        profile: 'desktop',
+      })
+
+      expect(nativeFactory.createProcessor()).toBeInstanceOf(Object)
+      expect(globalThis.fetch).toBe(originalFetch)
+    } finally {
+      expect(globalThis.fetch).toBe(originalFetch)
+      await rm(packageDir, { recursive: true, force: true })
+    }
   })
 })

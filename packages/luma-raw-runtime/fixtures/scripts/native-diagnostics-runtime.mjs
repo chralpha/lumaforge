@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { captureStage, stageError, stageOk } from './compatibility-report.mjs'
 
@@ -54,6 +54,18 @@ function pickFinite(target, source, key) {
   }
 }
 
+function normalizeThumbnail(thumbnail) {
+  if (!thumbnail || typeof thumbnail !== 'object') {
+    return undefined
+  }
+
+  return {
+    ...(thumbnail.width !== undefined ? { width: thumbnail.width } : {}),
+    ...(thumbnail.height !== undefined ? { height: thumbnail.height } : {}),
+    ...(thumbnail.format !== undefined ? { format: thumbnail.format } : {}),
+  }
+}
+
 export function normalizeMetadata(metadata) {
   if (!metadata || typeof metadata !== 'object') {
     return undefined
@@ -79,7 +91,10 @@ export function normalizeMetadata(metadata) {
   }
 
   if (metadata.thumbnail !== undefined) {
-    normalized.thumbnail = metadata.thumbnail
+    const thumbnail = normalizeThumbnail(metadata.thumbnail)
+    if (thumbnail !== undefined) {
+      normalized.thumbnail = thumbnail
+    }
   } else if (metadata.thumbWidth && metadata.thumbHeight) {
     normalized.thumbnail = {
       width: metadata.thumbWidth,
@@ -89,6 +104,20 @@ export function normalizeMetadata(metadata) {
   }
 
   return normalized
+}
+
+async function fetchWithFileUrlFallback(originalFetch, resource, options) {
+  const url = typeof resource === 'string' ? resource : resource?.url
+
+  if (typeof url === 'string' && url.startsWith('file://')) {
+    const bytes = await readFile(fileURLToPath(url))
+    return new Response(new Uint8Array(bytes), {
+      status: 200,
+      statusText: 'OK',
+    })
+  }
+
+  return originalFetch(resource, options)
 }
 
 export function readNativeStage(callback) {
@@ -126,16 +155,24 @@ export async function loadNativeFactory({ packageDir, profile = 'desktop' }) {
   )
   const nativeModule = await import(pathToFileURL(jsPath).href)
   const createModule = nativeModule.default ?? nativeModule
-  const module =
-    typeof createModule === 'function'
-      ? await createModule({
-          locateFile(file) {
-            return file === 'luma_raw.wasm'
-              ? pathToFileURL(wasmPath).href
-              : file
-          },
-        })
-      : createModule
+  let module = createModule
+
+  if (typeof createModule === 'function') {
+    const originalFetch = globalThis.fetch
+
+    globalThis.fetch = (resource, options) =>
+      fetchWithFileUrlFallback(originalFetch, resource, options)
+
+    try {
+      module = await createModule({
+        locateFile(file) {
+          return file === 'luma_raw.wasm' ? pathToFileURL(wasmPath).href : file
+        },
+      })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  }
 
   return {
     createProcessor() {
