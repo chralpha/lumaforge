@@ -7,7 +7,47 @@
       "url": "https://raw.pixls.us/data/Apple/iPhone%20SE/A4973FFB-9CBD-4ED8-805D-E30F4AE08A95.dng",
       "sha256": "7a2a9747a0cb1537007233ce7e8b7233c5ee641d683b7b3da29e22387994a0d7",
       "license": "CC0/public-domain declaration on raw.pixls.us upload flow",
-      "purpose": "CI smoke decode only"
+      "source": "raw.pixls.us",
+      "deviceBrand": "Apple",
+      "deviceModel": "iPhone SE",
+      "rawFamily": "apple-dng",
+      "purpose": "ci-smoke"
+    },
+    {
+      "name": "raw-pixls-iphone-12-pro-dng",
+      "file": "raw-pixls-iphone-12-pro.dng",
+      "url": "https://raw.pixls.us/data/Apple/iPhone%2012%20Pro/IMG_1361.DNG",
+      "sha256": "e91e77a4533ed7cce551d83330676ea5c47dd5e55fb38adda7819366afdbdfc2",
+      "license": "CC0/public-domain declaration on raw.pixls.us upload flow",
+      "source": "raw.pixls.us",
+      "deviceBrand": "Apple",
+      "deviceModel": "iPhone 12 Pro",
+      "rawFamily": "apple-proraw-dng",
+      "purpose": "local-compatibility"
+    },
+    {
+      "name": "raw-pixls-pixel-8-pro-dng",
+      "file": "raw-pixls-pixel-8-pro.dng",
+      "url": "https://raw.pixls.us/data/Google/Pixel%208%20Pro/PXL_20240415_103400204.RAW-02.ORIGINAL.dng",
+      "sha256": "45420c595401547cca950ae58d552bc82b32d31ce1d58c082df33004016197f5",
+      "license": "CC0/public-domain declaration on raw.pixls.us upload flow",
+      "source": "raw.pixls.us",
+      "deviceBrand": "Google",
+      "deviceModel": "Pixel 8 Pro",
+      "rawFamily": "android-dng",
+      "purpose": "local-compatibility"
+    },
+    {
+      "name": "raw-pixls-galaxy-s23-ultra-dng",
+      "file": "raw-pixls-galaxy-s23-ultra.dng",
+      "url": "https://raw.pixls.us/data/Samsung/Galaxy%20S23%20Ultra/20230817_120455.dng",
+      "sha256": "4f9d1b085b328b6c7ae21437c4106889cb38d52fab604a786091bf5fe5ef3da4",
+      "license": "CC0/public-domain declaration on raw.pixls.us upload flow",
+      "source": "raw.pixls.us",
+      "deviceBrand": "Samsung",
+      "deviceModel": "Galaxy S23 Ultra",
+      "rawFamily": "android-dng",
+      "purpose": "local-compatibility"
     }
   ]
 }

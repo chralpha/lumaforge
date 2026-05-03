@@ -6,14 +6,19 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { fileURLToPath } from 'node:url'
 
+import {
+  fixtureCacheDir,
+  fixtureCachePath,
+  readFixtureLock,
+  selectFixtures,
+} from './fixture-registry.mjs'
+
 const scriptPath = fileURLToPath(import.meta.url)
 const scriptDir = path.dirname(scriptPath)
 const fixturesDir = path.dirname(scriptDir)
 const lockPath = path.join(fixturesDir, 'public.lock.json')
-const cacheDir = path.join(fixturesDir, '.cache', 'public')
+const cacheDir = fixtureCacheDir(fixturesDir)
 const downloadTimeoutMs = 120_000
-const sha256Pattern = /^[0-9a-f]{64}$/
-const fixtureFields = ['name', 'file', 'url', 'sha256', 'license', 'purpose']
 
 async function pathExists(absolutePath) {
   try {
@@ -70,7 +75,7 @@ function hashMismatchError(fixture, actual) {
 }
 
 async function ensureFixture(fixture) {
-  const fixturePath = path.join(cacheDir, fixture.file)
+  const fixturePath = fixtureCachePath(fixturesDir, fixture)
 
   if (await pathExists(fixturePath)) {
     const cachedHash = await sha256File(fixturePath)
@@ -92,96 +97,37 @@ async function ensureFixture(fixture) {
   return fixturePath
 }
 
-function isObject(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function validateBasenameOnlyField(fixture, index, field) {
-  const value = fixture[field]
-  if (
-    value.length === 0 ||
-    value === '.' ||
-    value === '..' ||
-    path.posix.isAbsolute(value) ||
-    path.win32.isAbsolute(value) ||
-    value.includes('/') ||
-    value.includes('\\')
-  ) {
-    throw new TypeError(
-      `Invalid public fixture lockfile: fixtures[${index}].${field} must be a basename-only relative name`,
-    )
-  }
-}
-
-function validateFixture(fixture, index) {
-  if (!isObject(fixture)) {
-    throw new TypeError(
-      `Invalid public fixture lockfile: fixtures[${index}] must be an object`,
-    )
-  }
-
-  for (const field of fixtureFields) {
-    if (typeof fixture[field] !== 'string' || fixture[field].length === 0) {
-      throw new TypeError(
-        `Invalid public fixture lockfile: fixtures[${index}].${field} must be a non-empty string`,
-      )
+function parseArgs(argv) {
+  const result = { all: false, purpose: undefined }
+  for (const arg of argv) {
+    if (arg === '--all') {
+      result.all = true
+      continue
     }
-  }
-
-  if (!sha256Pattern.test(fixture.sha256)) {
+    if (arg.startsWith('--purpose=')) {
+      result.purpose = arg.slice('--purpose='.length)
+      continue
+    }
     throw new TypeError(
-      `Invalid public fixture lockfile: fixtures[${index}].sha256 must be 64 lowercase hex characters`,
+      `Unknown fetch-public-fixtures argument: ${arg}. Use --all or --purpose=<purpose>.`,
     )
   }
-
-  let url
-  try {
-    url = new URL(fixture.url)
-  } catch {
-    throw new TypeError(
-      `Invalid public fixture lockfile: fixtures[${index}].url must be a valid URL`,
-    )
+  if (result.all && result.purpose) {
+    throw new TypeError('Use either --all or --purpose=<purpose>, not both.')
   }
-
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new TypeError(
-      `Invalid public fixture lockfile: fixtures[${index}].url must use http or https`,
-    )
-  }
-
-  validateBasenameOnlyField(fixture, index, 'file')
-}
-
-function validateLockfile(lock) {
-  if (!isObject(lock)) {
-    throw new TypeError(`Invalid public fixture lockfile: ${lockPath}`)
-  }
-  if (lock.schemaVersion !== 1) {
-    throw new TypeError(
-      'Invalid public fixture lockfile: schemaVersion must be 1',
-    )
-  }
-  if (!Array.isArray(lock.fixtures) || lock.fixtures.length === 0) {
-    throw new TypeError(
-      'Invalid public fixture lockfile: fixtures must be a non-empty array',
-    )
-  }
-
-  lock.fixtures.forEach(validateFixture)
-}
-
-async function readLockfile() {
-  const lock = JSON.parse(await fs.readFile(lockPath, 'utf8'))
-  validateLockfile(lock)
-  return lock
+  return result
 }
 
 try {
-  const lock = await readLockfile()
+  const lock = await readFixtureLock(lockPath)
+  const selectedFixtures = selectFixtures(
+    lock.fixtures,
+    parseArgs(process.argv.slice(2)),
+  )
 
   await fs.mkdir(cacheDir, { recursive: true })
 
-  for (const fixture of lock.fixtures) {
+  for (const fixture of selectedFixtures) {
     await ensureFixture(fixture)
     console.log(`Fetched ${fixture.name}`)
   }

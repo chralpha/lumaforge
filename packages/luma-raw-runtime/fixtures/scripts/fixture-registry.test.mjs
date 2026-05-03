@@ -1,7 +1,11 @@
+// @vitest-environment node
+import { fileURLToPath } from 'node:url'
+
 import { describe, expect, it } from 'vitest'
 
 import {
   fixtureCachePath,
+  readFixtureLock,
   selectFixtures,
   validateFixtureLock,
 } from './fixture-registry.mjs'
@@ -113,5 +117,31 @@ describe('fixture registry', () => {
     ).toBe(
       '/repo/packages/luma-raw-runtime/fixtures/.cache/public/raw-pixls-iphone-se.dng',
     )
+  })
+
+  it('validates the checked-in public fixture lockfile and phone RAW family split', async () => {
+    const publicLockPath = fileURLToPath(
+      new URL('../public.lock.json', import.meta.url),
+    )
+    const lock = await readFixtureLock(publicLockPath)
+
+    expect(lock.fixtures.map((fixture) => fixture.name)).toEqual([
+      'raw-pixls-iphone-se-dng',
+      'raw-pixls-iphone-12-pro-dng',
+      'raw-pixls-pixel-8-pro-dng',
+      'raw-pixls-galaxy-s23-ultra-dng',
+    ])
+    expect(lock.fixtures.map((fixture) => fixture.rawFamily)).toEqual([
+      'apple-dng',
+      'apple-proraw-dng',
+      'android-dng',
+      'android-dng',
+    ])
+    expect(selectFixtures(lock.fixtures, { purpose: 'ci-smoke' })).toHaveLength(
+      1,
+    )
+    expect(
+      selectFixtures(lock.fixtures, { purpose: 'local-compatibility' }),
+    ).toHaveLength(3)
   })
 })
