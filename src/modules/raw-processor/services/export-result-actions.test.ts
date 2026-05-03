@@ -148,7 +148,7 @@ describe('export result actions', () => {
     vi.useFakeTimers()
     try {
       const openBlob = vi.fn(
-        async () => new Blob(['jpeg'], { type: 'image/jpeg' }),
+        async () => new Blob(['jpeg-with-exif'], { type: 'image/jpeg' }),
       )
       const onMaterialize = vi.fn()
       const result = createResult({
@@ -188,7 +188,7 @@ describe('export result actions', () => {
         action: 'download',
         outputKind: 'file-backed',
         filename: 'frame_neutral_fullres.jpg',
-        byteLength: 4,
+        byteLength: 14,
         materializedAt: '2026-05-03T00:00:00.000Z',
         cleanup: 'scheduled',
       })

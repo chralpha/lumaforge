@@ -37,6 +37,7 @@ type MaterializationDiagnostics = {
 function reportMaterialized(
   result: ExportResult,
   action: ExportOutputMaterializationAction,
+  byteLength: number,
   diagnostics: MaterializationDiagnostics | undefined,
   cleanup: ExportOutputMaterializationEvent['cleanup'],
 ) {
@@ -45,7 +46,7 @@ function reportMaterialized(
       action,
       outputKind: result.output.kind,
       filename: result.filename,
-      byteLength: result.size,
+      byteLength,
       materializedAt: diagnostics.now?.() ?? new Date().toISOString(),
       cleanup,
     })
@@ -98,7 +99,7 @@ export async function shareExportResult(
   }
 
   const file = await createShareFile(result)
-  reportMaterialized(result, 'share', diagnostics, 'not-needed')
+  reportMaterialized(result, 'share', file.size, diagnostics, 'not-needed')
   await navigatorLike.share({
     files: [file],
     title: result.filename,
@@ -115,7 +116,7 @@ export async function downloadExportResult(
   const documentLike = environment.document ?? document
   const urlLike = environment.URL ?? URL
   const blob = await materializeOutputBlob(result.output)
-  reportMaterialized(result, 'download', environment, 'scheduled')
+  reportMaterialized(result, 'download', blob.size, environment, 'scheduled')
   const url = urlLike.createObjectURL(blob)
   const link = documentLike.createElement('a')
 
@@ -184,7 +185,7 @@ export async function copyExportResultToClipboard(
   diagnostics?: MaterializationDiagnostics,
 ) {
   const blob = await materializeOutputBlob(result.output)
-  reportMaterialized(result, 'copy', diagnostics, 'not-needed')
+  reportMaterialized(result, 'copy', blob.size, diagnostics, 'not-needed')
   await copyBlobToClipboard(blob, environment)
 }
 
