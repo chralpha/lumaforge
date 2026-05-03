@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { buildReportEntry } from './compatibility-report.mjs'
 import {
@@ -95,8 +95,8 @@ async function pathExists(absolutePath) {
   }
 }
 
-async function requireCachedFixture(fixture) {
-  const absolutePath = fixtureCachePath(fixturesDir, fixture)
+async function requireCachedFixture(fixture, rootFixturesDir = fixturesDir) {
+  const absolutePath = fixtureCachePath(rootFixturesDir, fixture)
   if (await pathExists(absolutePath)) {
     return absolutePath
   }
@@ -106,20 +106,72 @@ async function requireCachedFixture(fixture) {
   )
 }
 
+export async function preflightCachedFixtures(
+  fixtures,
+  rootFixturesDir = fixturesDir,
+) {
+  const selectedFixtures = []
+
+  for (const fixture of fixtures) {
+    selectedFixtures.push({
+      fixture,
+      fixturePath: await requireCachedFixture(fixture, rootFixturesDir),
+    })
+  }
+
+  return selectedFixtures
+}
+
+export function nativeArtifactPaths({
+  packageDir: rootPackageDir = packageDir,
+  profile,
+}) {
+  const nativeDir = path.join(rootPackageDir, 'dist', 'native', profile)
+
+  return {
+    jsPath: path.join(nativeDir, 'luma_raw.js'),
+    wasmPath: path.join(nativeDir, 'luma_raw.wasm'),
+  }
+}
+
+export async function requireNativeArtifacts({
+  packageDir: rootPackageDir = packageDir,
+  profile,
+}) {
+  const artifacts = nativeArtifactPaths({
+    packageDir: rootPackageDir,
+    profile,
+  })
+
+  for (const absolutePath of [artifacts.jsPath, artifacts.wasmPath]) {
+    if (await pathExists(absolutePath)) {
+      continue
+    }
+
+    throw new Error(
+      `Missing native diagnostics artifact: ${absolutePath}\nRun pnpm --filter @lumaforge/luma-raw-runtime build:native:${profile} before diagnostics.`,
+    )
+  }
+
+  return artifacts
+}
+
 export async function runDiagnostics(options) {
   const lock = await readFixtureLock(lockPath)
   const fixtures = selectFixtures(lock.fixtures, {
     all: options.all,
     purpose: options.purpose,
   })
+  const selectedFixtures = await preflightCachedFixtures(fixtures)
+  await requireNativeArtifacts({ profile: options.profile })
+
   const nativeFactory = await loadNativeFactory({
     packageDir,
     profile: options.profile,
   })
   const entries = []
 
-  for (const fixture of fixtures) {
-    const fixturePath = await requireCachedFixture(fixture)
+  for (const { fixture, fixturePath } of selectedFixtures) {
     const raw = await diagnoseNativeFixture({
       fixture,
       fixturePath,
@@ -148,7 +200,7 @@ export async function runDiagnostics(options) {
   return output
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   try {
     await runDiagnostics(parseArgs(process.argv.slice(2)))
   } catch (error) {
