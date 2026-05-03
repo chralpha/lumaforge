@@ -234,6 +234,22 @@ describe('rawToolSurface', () => {
     expect(
       within(histogram).getByLabelText('Preview luminance and RGB histogram'),
     ).toBeInTheDocument()
+    expect(
+      histogram.querySelectorAll('.raw-histogram-channel-fill'),
+    ).toHaveLength(3)
+    expect(
+      histogram.querySelectorAll('.raw-histogram-channel-line'),
+    ).toHaveLength(1)
+    expect(
+      histogram.querySelector('.raw-histogram-channel-line-red'),
+    ).toBeInTheDocument()
+    expect(
+      histogram.querySelector('.raw-histogram-channel-line-green'),
+    ).not.toBeInTheDocument()
+    expect(
+      histogram.querySelector('.raw-histogram-channel-line-blue'),
+    ).not.toBeInTheDocument()
+    expect(histogram.querySelector('.raw-histogram-luma')).toBeInTheDocument()
     expect(within(histogram).getByText('Shadows 1')).toBeInTheDocument()
     expect(within(histogram).getByText('Highlights 1')).toBeInTheDocument()
   })
