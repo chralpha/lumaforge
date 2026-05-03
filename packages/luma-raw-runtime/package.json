@@ -35,13 +35,15 @@
     "build:native": "LUMA_RAW_MEMORY_PROFILE=desktop bash native/build-libraw.sh && LUMA_RAW_MEMORY_PROFILE=low-memory bash native/build-libraw.sh",
     "build:native:desktop": "LUMA_RAW_MEMORY_PROFILE=desktop bash native/build-libraw.sh",
     "build:native:low-memory": "LUMA_RAW_MEMORY_PROFILE=low-memory bash native/build-libraw.sh",
+    "fixtures:diagnose-mobile-raw": "node fixtures/scripts/diagnose-raw-compatibility.mjs --all",
+    "fixtures:diagnose-mobile-raw:ci": "node fixtures/scripts/diagnose-raw-compatibility.mjs --purpose=ci-smoke",
     "fixtures:fetch-public": "node fixtures/scripts/fetch-public-fixtures.mjs --purpose=ci-smoke",
     "fixtures:fetch-public:all": "node fixtures/scripts/fetch-public-fixtures.mjs --all",
     "native:fetch": "node native/scripts/fetch-sources.mjs",
     "native:verify": "node native/scripts/verify-native-artifacts.mjs && pnpm --filter @lumaforge/luma-raw-runtime native:verify-baseline",
     "native:verify-baseline": "node native/scripts/verify-no-baseline-deps.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run src worker --exclude src/native-smoke.test.ts",
+    "test": "vitest run src worker fixtures/scripts --exclude src/native-smoke.test.ts",
     "test:native-smoke": "vitest run src/native-smoke.test.ts --environment jsdom",
     "bench:serve": "vite --host 0.0.0.0 --port 4174 --config vite.config.ts"
   }
