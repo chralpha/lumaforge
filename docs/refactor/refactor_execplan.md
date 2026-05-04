@@ -355,6 +355,34 @@ Validation:
 - `pnpm exec vitest run src/modules/raw-processor/services/raw-load-preparation.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/services/view-session-state.test.ts --exclude '.worktrees/**'`
 - `pnpm exec eslint src/modules/raw-processor/services/raw-load-preparation.ts src/modules/raw-processor/services/raw-load-preparation.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
 
+### M11: Extract Workflow Status and Error Helpers
+
+Intended internal change:
+Move pure status/error classification helpers out of `useRawProcessor.ts` into `workflow-status.ts`.
+The hook should continue to own when errors are stored, when toasts are scheduled, and how status/progress atoms are mutated.
+
+Expected behavior:
+User-facing error-code stabilization still preserves `LUT_`, `EXPORT_`, `FULL_RES_EXPORT_`, and `RAW_` codes while mapping unknown values to `RAW_UNKNOWN`.
+Stable error-code extraction still returns an object's `code` property without coercion and returns `undefined` for primitives or objects without `code`.
+Abort handling still recognizes only `DOMException` instances named `AbortError`.
+Progress recovery hints remain byte-for-byte identical for loading/decoding, processing, exporting, and absent for other statuses.
+Retryable full-resolution export failures remain limited to `FULL_RES_EXPORT_RESOURCE_FAILURE` and `FULL_RES_EXPORT_WORKER_FAILED`.
+
+Test-first work:
+Add characterization tests for the pure workflow-status helper before moving hook-local functions.
+
+Target files:
+
+- Create `src/modules/raw-processor/services/workflow-status.test.ts`
+- Create `src/modules/raw-processor/services/workflow-status.ts`
+- Modify `src/modules/raw-processor/hooks/useRawProcessor.ts`
+
+Validation:
+
+- `pnpm exec vitest run src/modules/raw-processor/services/workflow-status.test.ts`
+- `pnpm exec vitest run src/modules/raw-processor/services/workflow-status.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'`
+- `pnpm exec eslint src/modules/raw-processor/services/workflow-status.ts src/modules/raw-processor/services/workflow-status.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
+
 ## Validation Gates
 
 Every milestone must pass its targeted tests or record a pre-existing failure.
@@ -388,6 +416,7 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Select look/LUT session state transitions as the next full-lifecycle seam because style application is a render-affecting user action currently mixed with hook side effects, but its session mutation rules are pure and already partially characterized by hook tests.
 - 2026-05-04: Select view/session state transitions as the next seam because compare/view interactions are view-only lifecycle behavior, already share split math, and can be isolated without touching preview rendering or export invalidation.
 - 2026-05-04: Select RAW load preparation as the next seam because upload/replacement behavior mixes compare, detached LUT, retained custom intensity, and initial processing param patches inside `loadFile`, but those rules are pure and can be characterized without touching async runtime or cleanup behavior.
+- 2026-05-04: Select workflow status/error helpers as the next seam because error-code stabilization, abort classification, retryability, and progress recovery hints are pure cross-lifecycle rules currently buried in the hook.
 
 ## Rollback Plan
 
@@ -494,3 +523,11 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Post-M10 `pnpm test:run` still fails only on recorded baseline blockers. Current totals: 89 passed files, 1 skipped file, 1051 passed tests, 8 skipped tests, with 3 baseline failures: missing JPEG native artifact, missing RAW native artifact, and deploy URL assertion mismatch in `scripts/deploy/deploy.test.mjs`.
 - 2026-05-04: Post-M10 `pnpm exec eslint .` still fails on recorded repo-wide baseline lint issues, with 415 errors concentrated in Markdown formatting/license docs plus existing test style issues.
 - 2026-05-04: Post-M10 `pnpm build` still fails closed on recorded missing native RAW/JPEG runtime assets.
+- 2026-05-04: Added M11 for pure workflow status/error helpers while leaving toast/status/progress mutations in `useRawProcessor.ts`.
+- 2026-05-04: Added RED characterization tests for workflow status/error helpers in `workflow-status.test.ts`; first run failed because the helper module did not exist.
+- 2026-05-04: Extracted user-facing error-code normalization, stable error-code extraction, abort classification, progress recovery hints, and full-resolution export retryability into `workflow-status.ts`.
+- 2026-05-04: M11 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/workflow-status.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'` with 79 passing tests.
+- 2026-05-04: M11 changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/workflow-status.ts src/modules/raw-processor/services/workflow-status.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.
+- 2026-05-04: M11 combined lifecycle/export targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/workflow-status.test.ts src/modules/raw-processor/services/raw-load-preparation.test.ts src/modules/raw-processor/services/view-session-state.test.ts src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts src/modules/raw-processor/__tests__/style-system.test.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts --exclude '.worktrees/**'` with 193 passing tests.
+- 2026-05-04: `pnpm exec tsc --noEmit --pretty false` after M11 remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence.
+- 2026-05-04: M11 behavior/architecture review found no regressions. Reviewer noted the remaining obvious low-risk pure seams are `resolveOnlineLUTSourceName` and `resolveLUTContractProfile`; other remaining hook helpers mostly own async lifecycle or side effects and are not good extraction targets without a narrower behavior-specific milestone.

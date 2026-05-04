@@ -146,6 +146,13 @@ import {
   applyCompareSplitToSession,
   applyViewModeToSession,
 } from '../services/view-session-state'
+import {
+  getProgressRecoveryHint,
+  getStableErrorCode,
+  isAbortError,
+  isRetryableFullResExportFailure,
+  toUserFacingErrorCode,
+} from '../services/workflow-status'
 import { useImageSession } from './useImageSession'
 import { usePreviewHistogram } from './usePreviewHistogram'
 
@@ -184,24 +191,6 @@ function resolveLUTContractProfile(
   return getLUTColorProfile(profile)
 }
 
-function toUserFacingErrorCode(code: unknown) {
-  if (typeof code === 'string' && code.startsWith('LUT_')) return code
-  if (typeof code === 'string' && code.startsWith('EXPORT_')) return code
-  if (typeof code === 'string' && code.startsWith('FULL_RES_EXPORT_')) {
-    return code
-  }
-  if (typeof code === 'string' && code.startsWith('RAW_')) return code
-  return 'RAW_UNKNOWN'
-}
-
-function getStableErrorCode(error: unknown) {
-  if (typeof error !== 'object' || !error || !('code' in error)) {
-    return undefined
-  }
-
-  return (error as { code?: unknown }).code
-}
-
 function resolveOnlineLUTSourceName(entry: OnlineLUTEntry): string {
   if (entry.title) return entry.title
 
@@ -214,33 +203,6 @@ function resolveOnlineLUTSourceName(entry: OnlineLUTEntry): string {
   }
 
   return entry.cube.url
-}
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === 'AbortError'
-}
-
-function getProgressRecoveryHint(status: ProcessingStatus) {
-  if (status === 'loading' || status === 'decoding') {
-    return 'If HQ preview cannot finish, the first visible preview stays available while full-resolution export depends on processed-window support instead.'
-  }
-
-  if (status === 'processing') {
-    return 'If the current render step fails, keep the session and retry the look without reloading the browser.'
-  }
-
-  if (status === 'exporting') {
-    return 'Full-resolution export runs in strips. Keep this tab open until the JPEG finishes, then retry from the current session if needed.'
-  }
-
-  return undefined
-}
-
-function isRetryableFullResExportFailure(code: string) {
-  return (
-    code === 'FULL_RES_EXPORT_RESOURCE_FAILURE' ||
-    code === 'FULL_RES_EXPORT_WORKER_FAILED'
-  )
 }
 
 function copyToArrayBuffer(data: Uint8Array) {
