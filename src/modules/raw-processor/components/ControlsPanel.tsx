@@ -32,11 +32,8 @@ import {
 type ViewMode = 'processed' | 'original' | 'compare'
 
 export interface ControlsPanelProps {
-  presetOptions: Array<{ id: string; name: string }>
-  activePresetId: string | null
   activeIntensity: 'off' | 'light' | 'standard' | 'strong'
   viewMode: ViewMode
-  onPresetSelect: (id: string) => void
   onIntensitySelect: (level: 'off' | 'light' | 'standard' | 'strong') => void
   onCompareReset: () => void
   onLutLoad: (files: File[]) => void
@@ -286,10 +283,7 @@ function LUTProfileStatus({
 }
 
 export function ControlsPanel({
-  presetOptions,
-  activePresetId,
   activeIntensity,
-  onPresetSelect,
   onIntensitySelect,
   onCompareReset,
   onLutLoad,
@@ -323,29 +317,6 @@ export function ControlsPanel({
       transition={Spring.presets.smooth}
     >
       <div className="raw-lab-controls-grid space-y-6">
-        <section className="space-y-3">
-          <label className="text-sm font-medium text-text">Builtin looks</label>
-          <div className="grid grid-cols-2 gap-2">
-            {presetOptions.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => onPresetSelect(preset.id)}
-                disabled={!hasImage || isProcessing}
-                className={
-                  activePresetId === preset.id
-                    ? 'rounded-xl border border-accent bg-accent/10 px-3 py-3 text-left text-sm text-text'
-                    : 'rounded-xl border border-border bg-background px-3 py-3 text-left text-sm text-text-secondary'
-                }
-              >
-                {preset.name}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <Divider />
-
         <section className="space-y-3">
           <label className="text-sm font-medium text-text">Intensity</label>
           <IntensityChips

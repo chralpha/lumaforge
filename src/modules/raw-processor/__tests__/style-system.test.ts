@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import { parseCubeLUT } from '~/lib/lut/cube-parser'
 
 import {
-  buildBuiltinStyle,
   buildLUTProfileSelectionState,
   mapIntensityLevel,
   toCustomStyle,
@@ -28,13 +27,6 @@ function makeCube(title: string, comments: string[] = []) {
 }
 
 describe('style-system', () => {
-  it('builds builtin styles with an input prep profile', () => {
-    const style = buildBuiltinStyle('film-soft')
-
-    expect(style.kind).toBe('builtin')
-    expect(style.inputPrepProfile?.profileId).toBe('normalized-film-soft')
-  })
-
   it('maps finite intensity levels to blend values', () => {
     expect(mapIntensityLevel('off')).toBe(0)
     expect(mapIntensityLevel('standard')).toBe(0.7)

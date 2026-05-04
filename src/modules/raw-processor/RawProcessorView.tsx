@@ -94,7 +94,6 @@ function RawProcessorViewInner({
     exportRecovery,
     activeStyle,
     lutProfileSelection,
-    activePresetId,
     activeIntensity,
     currentLutName,
     sourceFileName,
@@ -102,7 +101,6 @@ function RawProcessorViewInner({
     progressRecoveryHint,
     previewSuspended,
     compareSplit,
-    presetOptions,
     embeddedPreviewUrl,
     displaySource,
     histogram,
@@ -110,7 +108,6 @@ function RawProcessorViewInner({
     loadLUT,
     loadOnlineLUT,
     selectLUTProfile,
-    selectBuiltinStyle,
     selectIntensityLevel,
     setToneParams,
     setViewMode,
@@ -259,29 +256,6 @@ function RawProcessorViewInner({
     )
   }
 
-  const localizePresetName = (id: string, name: string) => {
-    switch (id) {
-      case 'neutral':
-        return t('raw.preset.neutral')
-      case 'warm':
-        return t('raw.preset.warm')
-      case 'cool':
-        return t('raw.preset.cool')
-      case 'film-soft':
-        return t('raw.preset.film-soft')
-      case 'film-contrast':
-        return t('raw.preset.film-contrast')
-      case 'cinematic':
-        return t('raw.preset.cinematic')
-      case 'fade':
-        return t('raw.preset.fade')
-      case 'mono':
-        return t('raw.preset.mono')
-      default:
-        return name
-    }
-  }
-
   return (
     <div
       className={clsxm('raw-lab', className)}
@@ -333,19 +307,11 @@ function RawProcessorViewInner({
         />
 
         <RawToolSurface
-          presetOptions={presetOptions.map(({ id, name }) => ({
-            id,
-            name: localizePresetName(id, name),
-          }))}
-          activePresetId={activePresetId}
           activeIntensity={activeIntensity}
           tone={{
             userExposureEv: params.userExposureEv,
             userContrast: params.userContrast,
           }}
-          onPresetSelect={(id) =>
-            selectBuiltinStyle(id as (typeof presetOptions)[number]['id'])
-          }
           onIntensitySelect={selectIntensityLevel}
           onToneChange={setToneParams}
           onToneReset={resetTone}

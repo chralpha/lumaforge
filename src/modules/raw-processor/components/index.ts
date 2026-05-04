@@ -10,7 +10,6 @@ export { SupportBadge } from './SupportBadge'
 export { CompareTool } from './tools/CompareTool'
 export { ExportTool } from './tools/ExportTool'
 export { FileFactsTool } from './tools/FileFactsTool'
-export { FinishTool } from './tools/FinishTool'
 export { HistogramTool } from './tools/HistogramTool'
 export {
   getProfileContractLabel,

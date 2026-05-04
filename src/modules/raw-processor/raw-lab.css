@@ -141,6 +141,7 @@
 
 .raw-tool-surface,
 .raw-tool-stack,
+.raw-lut-browser-list,
 .raw-lut-source-browser-list,
 .raw-lut-contract-browser-list {
   scrollbar-color: var(--raw-scrollbar-thumb) transparent;
@@ -149,6 +150,7 @@
 
 .raw-tool-surface::-webkit-scrollbar,
 .raw-tool-stack::-webkit-scrollbar,
+.raw-lut-browser-list::-webkit-scrollbar,
 .raw-lut-source-browser-list::-webkit-scrollbar,
 .raw-lut-contract-browser-list::-webkit-scrollbar {
   width: 10px;
@@ -156,6 +158,7 @@
 
 .raw-tool-surface::-webkit-scrollbar-track,
 .raw-tool-stack::-webkit-scrollbar-track,
+.raw-lut-browser-list::-webkit-scrollbar-track,
 .raw-lut-source-browser-list::-webkit-scrollbar-track,
 .raw-lut-contract-browser-list::-webkit-scrollbar-track {
   background: transparent;
@@ -163,6 +166,7 @@
 
 .raw-tool-surface::-webkit-scrollbar-thumb,
 .raw-tool-stack::-webkit-scrollbar-thumb,
+.raw-lut-browser-list::-webkit-scrollbar-thumb,
 .raw-lut-source-browser-list::-webkit-scrollbar-thumb,
 .raw-lut-contract-browser-list::-webkit-scrollbar-thumb {
   min-height: 44px;
@@ -174,6 +178,7 @@
 
 .raw-tool-surface::-webkit-scrollbar-thumb:hover,
 .raw-tool-stack::-webkit-scrollbar-thumb:hover,
+.raw-lut-browser-list::-webkit-scrollbar-thumb:hover,
 .raw-lut-source-browser-list::-webkit-scrollbar-thumb:hover,
 .raw-lut-contract-browser-list::-webkit-scrollbar-thumb:hover {
   background: var(--raw-scrollbar-thumb-hover);
@@ -182,6 +187,7 @@
 
 .raw-tool-surface::-webkit-scrollbar-corner,
 .raw-tool-stack::-webkit-scrollbar-corner,
+.raw-lut-browser-list::-webkit-scrollbar-corner,
 .raw-lut-source-browser-list::-webkit-scrollbar-corner,
 .raw-lut-contract-browser-list::-webkit-scrollbar-corner {
   background: transparent;
@@ -526,8 +532,7 @@
   color: oklch(0.42 0.095 57);
 }
 
-.raw-lut-source-browser,
-.raw-lut-contract-browser {
+.raw-lut-browser-dialog {
   position: fixed;
   z-index: 60;
   top: var(--raw-lut-source-browser-top, 12px);
@@ -559,8 +564,7 @@
   align-items: start;
 }
 
-.raw-lut-source-browser-heading,
-.raw-lut-contract-browser-heading {
+.raw-lut-browser-heading {
   display: flex;
   min-width: 0;
   align-items: center;
@@ -568,39 +572,33 @@
   gap: 10px;
 }
 
-.raw-lut-source-browser-heading div,
-.raw-lut-contract-browser-heading div {
+.raw-lut-browser-heading div {
   min-width: 0;
 }
 
-.raw-lut-source-browser-heading span,
-.raw-lut-source-browser-heading p,
-.raw-lut-contract-browser-heading span,
-.raw-lut-contract-browser-heading p {
+.raw-lut-browser-heading span,
+.raw-lut-browser-heading p {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.raw-lut-source-browser-heading span,
-.raw-lut-contract-browser-heading span {
+.raw-lut-browser-heading span {
   display: block;
   color: var(--raw-ink);
   font-size: 0.74rem;
   font-weight: 740;
 }
 
-.raw-lut-source-browser-heading p,
-.raw-lut-contract-browser-heading p {
+.raw-lut-browser-heading p {
   margin: 2px 0 0;
   color: var(--raw-ink-soft);
   font-size: 0.66rem;
   line-height: 1.2;
 }
 
-.raw-lut-source-browser-list,
-.raw-lut-contract-browser-list {
+.raw-lut-browser-list {
   display: grid;
   align-self: stretch;
   min-height: 0;
@@ -852,18 +850,29 @@
     flex-wrap: wrap;
   }
 
-  .raw-lut-source-browser,
-  .raw-lut-contract-browser {
+  .raw-lut-browser-dialog {
+    --raw-lut-mobile-tool-sheet-height: min(42svh, 390px);
+    --raw-lut-mobile-sheet-bottom: calc(
+      max(10px, env(safe-area-inset-bottom)) +
+        var(--raw-lut-mobile-tool-sheet-height) + 8px
+    );
+
     position: fixed;
-    inset: auto 10px max(10px, env(safe-area-inset-bottom));
+    inset: auto 10px var(--raw-lut-mobile-sheet-bottom);
     width: auto;
     height: auto;
-    max-height: min(78svh, 520px);
-    min-height: min(220px, calc(100svh - 20px));
+    max-height: min(
+      50svh,
+      420px,
+      calc(100svh - var(--raw-lut-mobile-sheet-bottom) - 10px)
+    );
+    min-height: min(
+      220px,
+      calc(100svh - var(--raw-lut-mobile-sheet-bottom) - 10px)
+    );
   }
 
-  .raw-lut-source-browser-list,
-  .raw-lut-contract-browser-list {
+  .raw-lut-browser-list {
     min-height: 0;
   }
 }
@@ -1002,13 +1011,6 @@
   color: oklch(0.46 0.028 75 / 0.68);
 }
 
-.raw-finish-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.raw-finish-grid button,
 .raw-strength-control button {
   min-width: 0;
   border: 1px solid oklch(0.74 0.035 78 / 0.72);
@@ -1019,13 +1021,6 @@
   font-weight: 690;
 }
 
-.raw-finish-grid button {
-  min-height: 42px;
-  padding: 9px 10px;
-  text-align: left;
-}
-
-.raw-finish-grid button[aria-pressed='true'],
 .raw-strength-control button[aria-pressed='true'] {
   border-color: oklch(0.54 0.14 153);
   background: oklch(0.84 0.09 145);

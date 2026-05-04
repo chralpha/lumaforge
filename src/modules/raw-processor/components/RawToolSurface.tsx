@@ -20,7 +20,6 @@ import type {
 import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
 import { FileFactsTool } from './tools/FileFactsTool'
-import { FinishTool } from './tools/FinishTool'
 import { HistogramTool } from './tools/HistogramTool'
 import { LutContractTool } from './tools/LutContractTool'
 import type { StrengthLevel } from './tools/StrengthControl'
@@ -30,11 +29,8 @@ import { ToneTool } from './tools/ToneTool'
 import { ToolSection } from './tools/ToolSection'
 
 export function RawToolSurface(props: {
-  presetOptions: Array<{ id: string; name: string }>
-  activePresetId: string | null
   activeIntensity: StrengthLevel
   tone: ToneValue
-  onPresetSelect: (id: string) => void
   onIntensitySelect: (level: StrengthLevel) => void
   onToneChange: (value: Partial<ToneValue>) => void
   onToneReset: () => void
@@ -89,11 +85,15 @@ export function RawToolSurface(props: {
       </button>
 
       <div id={toolStackId} className="raw-tool-stack">
-        <FinishTool
-          presetOptions={props.presetOptions}
-          activePresetId={props.activePresetId}
-          disabled={disabled}
-          onPresetSelect={props.onPresetSelect}
+        <LutContractTool
+          currentLutName={props.currentLutName}
+          disabled={props.isProcessing}
+          onLutLoad={props.onLutLoad}
+          onLutClear={props.onLutClear}
+          lutProfileSelection={props.lutProfileSelection}
+          lutProfileResolution={props.lutProfileResolution}
+          onLutProfileSelect={props.onLutProfileSelect}
+          onlineLutSources={props.onlineLutSources}
         />
         <ToneTool
           value={props.tone}
@@ -112,16 +112,6 @@ export function RawToolSurface(props: {
         <CompareTool
           disabled={disabled}
           onCompareReset={props.onCompareReset}
-        />
-        <LutContractTool
-          currentLutName={props.currentLutName}
-          disabled={props.isProcessing}
-          onLutLoad={props.onLutLoad}
-          onLutClear={props.onLutClear}
-          lutProfileSelection={props.lutProfileSelection}
-          lutProfileResolution={props.lutProfileResolution}
-          onLutProfileSelect={props.onLutProfileSelect}
-          onlineLutSources={props.onlineLutSources}
         />
         <ExportTool
           canExport={props.canExport}

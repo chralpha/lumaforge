@@ -77,7 +77,6 @@ import type {
   LUTProfileSelectionState,
   StyleAsset,
 } from '../model/session'
-import { BUILTIN_PRESETS } from '../services/builtin-presets'
 import { clampCompareSplit } from '../services/compare-split'
 import {
   clearEmbeddedPreviewUrlFromSession,
@@ -141,7 +140,6 @@ import {
 } from '../services/preview-session-state'
 import { prepareRawLoadState } from '../services/raw-load-preparation'
 import {
-  buildBuiltinStyle,
   buildLUTProfileSelectionState,
   mapIntensityLevel,
   toCustomStyle,
@@ -209,7 +207,6 @@ export interface UseRawProcessorReturn {
   exportRecovery: ExportRecoveryState
   activeStyle: StyleAsset | null
   lutProfileSelection: LUTProfileSelectionState | null
-  activePresetId: (typeof BUILTIN_PRESETS)[number]['id'] | null
   activeIntensity: 'off' | 'light' | 'standard' | 'strong'
   viewMode: ProcessingParams['viewMode']
   compareSplit: number
@@ -217,7 +214,6 @@ export interface UseRawProcessorReturn {
   sourceFileName: string
   supportLevel: 'official' | 'experimental'
   progressRecoveryHint?: string
-  presetOptions: typeof BUILTIN_PRESETS
   embeddedPreviewUrl: string | null
   displaySource: DisplaySource
   histogram: PreviewHistogramState
@@ -231,7 +227,6 @@ export interface UseRawProcessorReturn {
     options?: { signal?: AbortSignal },
   ) => Promise<void>
   selectLUTProfile: (profile: LUTColorProfile | string) => void
-  selectBuiltinStyle: (id: (typeof BUILTIN_PRESETS)[number]['id']) => void
   selectIntensityLevel: (level: 'off' | 'light' | 'standard' | 'strong') => void
   setViewMode: (mode: ProcessingParams['viewMode']) => void
   setCompareSplit: (split: number) => void
@@ -342,11 +337,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const lutProfileSelection =
     session?.lutProfileSelection ||
     (lut ? buildLUTProfileSelectionState(lut) : null)
-  const activePresetId =
-    activeStyle?.kind === 'builtin'
-      ? (BUILTIN_PRESETS.find((preset) => preset.name === activeStyle.name)
-          ?.id ?? null)
-      : null
   const activeIntensity = activeStyle?.currentIntensityLevel || 'standard'
   const viewMode = params.viewMode
   const compareSplit = params.compareSplit
@@ -1269,53 +1259,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
       lut,
       scheduleToast,
       setLut,
-      setParams,
-      setSession,
-    ],
-  )
-
-  const selectBuiltinStyle = useCallback(
-    (id: (typeof BUILTIN_PRESETS)[number]['id']) => {
-      const style = buildBuiltinStyle(id)
-      const shouldInvalidateExportGraph =
-        changesRenderGraphParams(params, {
-          styleKind: 'builtin',
-          builtinPreset: id,
-          intensity: mapIntensityLevel(style.defaultIntensityLevel),
-        }) ||
-        activeStyle?.kind !== 'builtin' ||
-        activeStyle.name !== style.name ||
-        activeStyle.currentIntensityLevel !== style.defaultIntensityLevel ||
-        Boolean(lut)
-
-      if (shouldInvalidateExportGraph) {
-        invalidateExportGraph()
-      }
-      setLut(null)
-      setLutDataRef(null)
-      setSession((prev) =>
-        prev
-          ? applyActiveLookToSession(prev, {
-              style,
-              lutProfileSelection: undefined,
-              clearExportResult: shouldInvalidateExportGraph,
-            })
-          : prev,
-      )
-      setParams((prev) => ({
-        ...prev,
-        styleKind: 'builtin',
-        builtinPreset: id,
-        intensity: mapIntensityLevel(style.defaultIntensityLevel),
-      }))
-    },
-    [
-      activeStyle,
-      invalidateExportGraph,
-      lut,
-      params,
-      setLut,
-      setLutDataRef,
       setParams,
       setSession,
     ],
@@ -2289,7 +2232,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     exportRecovery,
     activeStyle,
     lutProfileSelection,
-    activePresetId,
     activeIntensity,
     viewMode,
     compareSplit,
@@ -2297,7 +2239,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     sourceFileName,
     supportLevel,
     progressRecoveryHint,
-    presetOptions: BUILTIN_PRESETS,
     embeddedPreviewUrl,
     displaySource,
     histogram,
@@ -2306,7 +2247,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     loadLUT,
     loadOnlineLUT,
     selectLUTProfile,
-    selectBuiltinStyle,
     selectIntensityLevel,
     setViewMode,
     setCompareSplit,

@@ -10,7 +10,6 @@ import {
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 
 import type { LUTProfileSelectionState } from '../model/session'
-import { BUILTIN_PRESETS } from './builtin-presets'
 
 const DISPLAY_LIKE_INPUT_TRANSFERS = new Set(['srgb', 'bt709', 'gamma24'])
 
@@ -21,21 +20,6 @@ export function mapIntensityLevel(
   if (level === 'light') return 0.4
   if (level === 'standard') return 0.7
   return 1
-}
-
-export function buildBuiltinStyle(id: (typeof BUILTIN_PRESETS)[number]['id']) {
-  const preset = BUILTIN_PRESETS.find((item) => item.id === id)
-  if (!preset) {
-    throw new Error(`Unknown builtin preset: ${id}`)
-  }
-
-  return {
-    kind: 'builtin' as const,
-    name: preset.name,
-    defaultIntensityLevel: preset.defaultIntensityLevel,
-    currentIntensityLevel: preset.defaultIntensityLevel,
-    inputPrepProfile: preset.inputPrepProfile,
-  }
 }
 
 function describeLUTOutput(profile: LUTColorProfile): string {

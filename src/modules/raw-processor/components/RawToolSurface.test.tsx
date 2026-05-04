@@ -7,17 +7,11 @@ import { LutDropzone } from './Dropzone'
 import { RawToolSurface } from './RawToolSurface'
 
 const baseProps = {
-  presetOptions: [
-    { id: 'neutral', name: 'Neutral' },
-    { id: 'warm', name: 'Warm' },
-  ],
-  activePresetId: 'neutral',
   activeIntensity: 'standard' as const,
   tone: {
     userExposureEv: 0,
     userContrast: 0,
   },
-  onPresetSelect: vi.fn(),
   onIntensitySelect: vi.fn(),
   onToneChange: vi.fn(),
   onToneReset: vi.fn(),
@@ -141,19 +135,27 @@ describe('rawToolSurface', () => {
     expect(
       container.querySelector('[data-raw-tool-surface="raw-finishing"]'),
     ).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Finish' })).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Strength' })).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Compare' })).toBeInTheDocument()
     expect(
       screen.getByRole('region', { name: 'LUT contract' }),
     ).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Strength' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Compare' })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('region', { name: 'JPEG presets' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Neutral' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Warm' }),
+    ).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Export' })).toBeInTheDocument()
     expect(
       screen.getByRole('region', { name: 'File facts' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('Choose a RAW to activate looks.'),
-    ).toBeInTheDocument()
+      screen.queryByText('Choose a RAW to use JPEG presets.'),
+    ).not.toBeInTheDocument()
     expect(
       screen.getByText('Full-resolution export source is still loading.'),
     ).toBeInTheDocument()
@@ -429,7 +431,11 @@ describe('rawToolSurface', () => {
         name: 'Close LUT source browser',
       }),
     ).toHaveFocus()
-    expect(browser).toHaveClass('raw-lut-source-browser')
+    expect(browser).toHaveClass(
+      'raw-lut-browser-dialog',
+      'raw-lut-source-browser',
+    )
+    expect(browser).toHaveAttribute('data-raw-lut-browser-dialog', 'source')
     expect(browser).toHaveAttribute('data-lut-source-placement', 'anchored')
     expect(
       browser.style.getPropertyValue('--raw-lut-source-browser-top'),
@@ -623,6 +629,37 @@ describe('rawToolSurface', () => {
 
     await user.click(document.body)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(open).toHaveFocus()
+  })
+
+  it('closes the online LUT browser when its trigger is clicked again', async () => {
+    const user = userEvent.setup()
+    render(
+      <RawToolSurface
+        {...baseProps}
+        onlineLutSources={onlineLutSourcesFixture()}
+      />,
+    )
+
+    const open = screen.getByRole('button', {
+      name: 'Open Catalog from profiles.example.com',
+    })
+
+    await user.click(open)
+    expect(
+      screen.getByRole('dialog', {
+        name: 'Catalog from profiles.example.com LUTs',
+      }),
+    ).toBeInTheDocument()
+
+    await user.click(open)
+
+    expect(
+      screen.queryByRole('dialog', {
+        name: 'Catalog from profiles.example.com LUTs',
+      }),
+    ).not.toBeInTheDocument()
+    expect(open).toHaveAttribute('aria-expanded', 'false')
     expect(open).toHaveFocus()
   })
 

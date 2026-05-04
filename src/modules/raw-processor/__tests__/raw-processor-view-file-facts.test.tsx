@@ -3,7 +3,6 @@ import { vi } from 'vitest'
 
 import type { UseRawProcessorReturn } from '../hooks/useRawProcessor'
 import { RawProcessorView } from '../RawProcessorView'
-import { BUILTIN_PRESETS } from '../services/builtin-presets'
 
 const mockUseRawProcessor = vi.hoisted(() => vi.fn())
 const mockUseCapabilityGate = vi.hoisted(() => vi.fn())
@@ -128,7 +127,6 @@ function createLoadedProcessorState(
     exportRecovery: { status: 'none' },
     activeStyle: null,
     lutProfileSelection: null,
-    activePresetId: null,
     activeIntensity: 'standard',
     viewMode: 'compare',
     compareSplit: 0.5,
@@ -136,7 +134,6 @@ function createLoadedProcessorState(
     sourceFileName: 'frame.ARW',
     supportLevel: 'experimental',
     progressRecoveryHint: undefined,
-    presetOptions: BUILTIN_PRESETS,
     embeddedPreviewUrl: null,
     displaySource: 'bounded-hq',
     histogram: { state: 'unavailable', reason: 'no-image' },
@@ -145,7 +142,6 @@ function createLoadedProcessorState(
     loadLUT: vi.fn(),
     loadOnlineLUT: vi.fn(),
     selectLUTProfile: vi.fn(),
-    selectBuiltinStyle: vi.fn(),
     selectIntensityLevel: vi.fn(),
     setViewMode: vi.fn(),
     setCompareSplit: vi.fn(),

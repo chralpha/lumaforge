@@ -10,7 +10,6 @@ import { PreviewCanvas } from '../components/PreviewCanvas'
 import { RawToolSurface } from '../components/RawToolSurface'
 import type { UseRawProcessorReturn } from '../hooks/useRawProcessor'
 import { RawProcessorView } from '../RawProcessorView'
-import { BUILTIN_PRESETS } from '../services/builtin-presets'
 
 const mockUseRawProcessor = vi.hoisted(() => vi.fn())
 const mockUseCapabilityGate = vi.hoisted(() => vi.fn())
@@ -27,17 +26,11 @@ function rawToolSurfaceProps(
   overrides: Partial<ComponentProps<typeof RawToolSurface>> = {},
 ): ComponentProps<typeof RawToolSurface> {
   return {
-    presetOptions: [
-      { id: 'neutral', name: 'Neutral' },
-      { id: 'warm', name: 'Warm' },
-    ],
-    activePresetId: 'neutral',
     activeIntensity: 'standard',
     tone: {
       userExposureEv: 0,
       userContrast: 0,
     },
-    onPresetSelect: () => {},
     onIntensitySelect: () => {},
     onToneChange: () => {},
     onToneReset: () => {},
@@ -134,7 +127,6 @@ function rawProcessorViewState(
     exportRecovery: { status: 'none' },
     activeStyle: null,
     lutProfileSelection: null,
-    activePresetId: null,
     activeIntensity: 'standard',
     viewMode: 'compare',
     compareSplit: 0.5,
@@ -142,7 +134,6 @@ function rawProcessorViewState(
     sourceFileName: '',
     supportLevel: 'experimental',
     progressRecoveryHint: undefined,
-    presetOptions: BUILTIN_PRESETS,
     embeddedPreviewUrl: null,
     displaySource: 'none',
     histogram: { state: 'unavailable', reason: 'no-image' },
@@ -151,7 +142,6 @@ function rawProcessorViewState(
     loadLUT: vi.fn(),
     loadOnlineLUT: vi.fn(),
     selectLUTProfile: vi.fn(),
-    selectBuiltinStyle: vi.fn(),
     selectIntensityLevel: vi.fn(),
     setViewMode: vi.fn(),
     setCompareSplit: vi.fn(),
@@ -257,23 +247,37 @@ describe('rawToolSurface', () => {
   it('presents task-grouped RAW tools with Histogram', () => {
     render(<RawToolSurface {...rawToolSurfaceProps()} />)
 
-    expect(screen.getByRole('region', { name: 'Finish' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('region', { name: 'LUT contract' }),
+    ).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Tone' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Strength' })).toBeInTheDocument()
     expect(
       screen.getByRole('region', { name: 'Histogram' }),
     ).toBeInTheDocument()
-    expect(screen.getByText('Neutral')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('region', { name: 'JPEG presets' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Neutral' }),
+    ).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Standard' })).toBeInTheDocument()
     expect(screen.getByLabelText('Exposure')).toBeInTheDocument()
     expect(screen.queryByText('Log Space')).not.toBeInTheDocument()
   })
 
-  it('disables presets before upload but keeps LUT loading available', () => {
+  it('keeps LUT loading available before upload without JPEG presets', () => {
     render(<RawToolSurface {...rawToolSurfaceProps({ hasImage: false })} />)
 
-    expect(screen.getByRole('button', { name: 'Neutral' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Warm' })).toBeDisabled()
+    expect(
+      screen.queryByRole('region', { name: 'JPEG presets' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Neutral' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Warm' }),
+    ).not.toBeInTheDocument()
     expect(screen.getByLabelText(/add \.cube lut/i)).toBeEnabled()
   })
 
@@ -400,6 +404,11 @@ describe('rawToolSurface', () => {
     )
 
     const browser = screen.getByRole('dialog', { name: 'LUT contract browser' })
+    expect(browser).toHaveClass(
+      'raw-lut-browser-dialog',
+      'raw-lut-contract-browser',
+    )
+    expect(browser).toHaveAttribute('data-raw-lut-browser-dialog', 'contract')
     expect(
       within(browser).getAllByText('Sony S-Gamut3.Cine / S-Log3').length,
     ).toBeGreaterThanOrEqual(1)
@@ -411,6 +420,47 @@ describe('rawToolSurface', () => {
         name: 'Use Sony S-Gamut3.Cine / S-Log3 as LUT input',
       }),
     ).toBeInTheDocument()
+  })
+
+  it('closes the LUT contract browser when its trigger is clicked again', async () => {
+    const user = userEvent.setup()
+    const profile = getLUTColorProfile('sony-sgamut3cine-slog3')!
+
+    render(
+      <RawToolSurface
+        {...rawToolSurfaceProps({
+          currentLutName: 'Sony Look.cube',
+          lutProfileSelection: {
+            status: 'resolved',
+            fingerprint: 'toggle-contract',
+            profileId: profile.id,
+            confidence: 'metadata',
+          },
+          lutProfileResolution: {
+            kind: 'resolved',
+            profile,
+            confidence: 'metadata',
+          },
+        })}
+      />,
+    )
+
+    const trigger = screen.getByRole('button', {
+      name: 'Change LUT contract',
+    })
+
+    await user.click(trigger)
+    expect(
+      screen.getByRole('dialog', { name: 'LUT contract browser' }),
+    ).toBeInTheDocument()
+
+    await user.click(trigger)
+
+    expect(
+      screen.queryByRole('dialog', { name: 'LUT contract browser' }),
+    ).not.toBeInTheDocument()
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger).toHaveFocus()
   })
 
   it('shows resolved LUT input and output contracts', () => {

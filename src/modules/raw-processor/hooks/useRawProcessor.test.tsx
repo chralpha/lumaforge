@@ -1537,12 +1537,6 @@ describe('useRawProcessor embedded preview state', () => {
 
     expect(result.current.status).toBe('ready')
     expect(result.current.displaySource).toBe('quick')
-
-    act(() => {
-      result.current.selectBuiltinStyle('neutral')
-    })
-
-    expect(result.current.activePresetId).toBe('neutral')
   })
 
   it('keeps quick preview and no global error when bounded HQ fails', async () => {
@@ -1915,42 +1909,6 @@ describe('useRawProcessor embedded preview state', () => {
       'Full-resolution export is not ready',
       { description: reason },
     )
-  })
-
-  it('disables full-resolution export for unsupported builtin styles after the source file is loaded', async () => {
-    jotaiStore.set(currentSessionAtom, createTestSession())
-
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
-
-    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
-    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
-      createDecodedImage('quick'),
-    )
-    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
-      createDecodedImage('bounded-hq'),
-    )
-
-    await act(async () => {
-      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
-    })
-
-    expect(result.current.canExport).toBe(true)
-
-    act(() => {
-      result.current.selectBuiltinStyle(result.current.presetOptions[0]!.id)
-    })
-
-    expect(result.current.canExport).toBe(false)
-
-    await act(async () => {
-      await result.current.exportImage({ quality: 'high', fidelity: 'max' })
-    })
-
-    expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
-    expect(result.current.error).toBeNull()
-    expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({
-      status: 'idle',
-    })
   })
 
   it('runs the full-resolution export job with decoded render exposure and records strip progress', async () => {
