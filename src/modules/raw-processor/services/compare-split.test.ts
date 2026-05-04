@@ -1,0 +1,30 @@
+import { describe, expect, it } from 'vitest'
+
+import { clampCompareSplit, getCompareSplitFromClientX } from './compare-split'
+
+describe('compare split math', () => {
+  it('clamps split to the visible handle range', () => {
+    expect(clampCompareSplit(-1)).toBe(0.05)
+    expect(clampCompareSplit(0.5)).toBe(0.5)
+    expect(clampCompareSplit(2)).toBe(0.95)
+  })
+
+  it('falls back to the centered split for non-finite values', () => {
+    expect(clampCompareSplit(Number.NaN)).toBe(0.5)
+    expect(clampCompareSplit(Number.POSITIVE_INFINITY)).toBe(0.5)
+    expect(clampCompareSplit(Number.NEGATIVE_INFINITY)).toBe(0.5)
+  })
+
+  it('maps pointer x position to a split fraction', () => {
+    expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 300)).toBe(0.5)
+    expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 60)).toBe(0.05)
+    expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 520)).toBe(
+      0.95,
+    )
+  })
+
+  it('falls back to the centered split for unusable geometry', () => {
+    expect(getCompareSplitFromClientX({ left: 100, width: 0 }, 300)).toBe(0.5)
+    expect(getCompareSplitFromClientX({ left: 100, width: -1 }, 300)).toBe(0.5)
+  })
+})

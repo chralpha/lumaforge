@@ -227,6 +227,29 @@ Validation:
 - `pnpm exec vitest run src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts --exclude '.worktrees/**'`
 - `pnpm exec eslint src/modules/raw-processor/services/preview-session-state.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
 
+### M6: Share Compare Split Math Across Hook and UI
+
+Intended internal change:
+Move compare split clamping and pointer-to-split math into a small pure `compare-split.ts` service used by both `useRawProcessor.ts` and `CompareSplitHandle.tsx`.
+
+Expected behavior:
+Compare split remains clamped to `0.05..0.95`, non-finite values still fall back to `0.5`, unusable pointer geometry still falls back to `0.5`, pointer and keyboard interactions keep the same values, and committed compare split changes remain view-only for export invalidation.
+
+Test-first work:
+Add characterization tests for the shared pure helper before wiring hook/UI imports.
+
+Target files:
+
+- Create `src/modules/raw-processor/services/compare-split.test.ts`
+- Create `src/modules/raw-processor/services/compare-split.ts`
+- Modify `src/modules/raw-processor/components/CompareSplitHandle.tsx`
+- Modify `src/modules/raw-processor/hooks/useRawProcessor.ts`
+
+Validation:
+
+- `pnpm exec vitest run src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'`
+- `pnpm exec eslint src/modules/raw-processor/services/compare-split.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/components/CompareSplitHandle.tsx src/modules/raw-processor/hooks/useRawProcessor.ts`
+
 ## Validation Gates
 
 Every milestone must pass its targeted tests or record a pre-existing failure.
@@ -254,6 +277,7 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Select full-resolution export readiness as the next seam because it removes duplicated hook-only guard logic while preserving the preview/export boundary and existing fail-closed behavior.
 - 2026-05-04: Keep unsafe export readiness using the existing default `balanced` execution-plan probe; changing it to the requested export fidelity would be a behavior change and is out of scope.
 - 2026-05-04: After user correction, broaden the refactor track from export-specific seams to the complete `/raw` lifecycle. Select preview session transitions as the next non-export seam because the behavior is already partly characterized at hook level and can be isolated without changing runtime, UI, or export execution.
+- 2026-05-04: Select compare split math as the next seam because it is a view-only lifecycle boundary currently duplicated between hook and UI, and it can be shared without changing compare interaction behavior or export invalidation semantics.
 
 ## Rollback Plan
 
@@ -303,3 +327,13 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: M5 combined lifecycle/export targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts --exclude '.worktrees/**'` with 150 passing tests.
 - 2026-05-04: M5 changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/preview-session-state.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.
 - 2026-05-04: `pnpm exec tsc --noEmit --pretty false` after M5 remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence.
+- 2026-05-04: Added M6 to remove duplicated compare split math across hook and UI while preserving view-only compare behavior.
+- 2026-05-04: M5 behavior review found no regressions. Independent reviewer validation passed `pnpm test:run src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/__tests__/preview-pipeline.test.ts` with 17 passing tests and recorded only the existing `generated-routes` typecheck blocker as residual risk.
+- 2026-05-04: M5 architecture/performance review found no over-abstraction, dependency inversion, circular import, stale-async, or performance issues. Reviewer validation passed focused preview-session-state tests, changed-file ESLint, and `git diff --check be5b2a6^ be5b2a6`.
+- 2026-05-04: Added RED characterization tests for shared compare split math in `compare-split.test.ts`; first run failed because the helper module did not exist.
+- 2026-05-04: Extracted shared compare split clamping and pointer geometry into `compare-split.ts`, rewired `CompareSplitHandle.tsx` and `useRawProcessor.ts`, and preserved component re-exports for existing internal imports/tests.
+- 2026-05-04: M6 targeted validation first caught a migration miss where `Home`/`End` keys still referenced removed component-local split bounds; fixed by exporting shared compare split bounds from the helper.
+- 2026-05-04: M6 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'` with 85 passing tests.
+- 2026-05-04: M6 changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/compare-split.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/components/CompareSplitHandle.tsx src/modules/raw-processor/hooks/useRawProcessor.ts`.
+- 2026-05-04: M6 combined lifecycle/export targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/services/export-evacuation.test.ts --exclude '.worktrees/**'` with 132 passing tests.
+- 2026-05-04: `pnpm exec tsc --noEmit --pretty false` after M6 remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence.

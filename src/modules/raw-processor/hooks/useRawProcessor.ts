@@ -84,6 +84,7 @@ import type {
   StyleAsset,
 } from '../model/session'
 import { BUILTIN_PRESETS } from '../services/builtin-presets'
+import { clampCompareSplit } from '../services/compare-split'
 import {
   createPreExportSnapshot,
   evacuateBeforeExport,
@@ -222,10 +223,6 @@ function getProgressRecoveryHint(status: ProcessingStatus) {
   }
 
   return undefined
-}
-
-function clampCompareSplit(split: number): number {
-  return Math.min(0.95, Math.max(0.05, split))
 }
 
 function isRetryableFullResExportFailure(code: string) {

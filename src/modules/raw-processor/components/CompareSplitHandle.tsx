@@ -2,23 +2,20 @@ import { useCallback, useLayoutEffect, useRef } from 'react'
 
 import { clsxm } from '~/lib/cn'
 
-const MIN_SPLIT = 0.05
-const MAX_SPLIT = 0.95
+import {
+  clampCompareSplit,
+  COMPARE_SPLIT_MAX as MAX_SPLIT,
+  COMPARE_SPLIT_MIN as MIN_SPLIT,
+  getCompareSplitFromClientX,
+} from '../services/compare-split'
+
+export {
+  clampCompareSplit,
+  getCompareSplitFromClientX,
+} from '../services/compare-split'
+
 const KEYBOARD_STEP = 0.01
 const IMAGE_TRACK_SELECTOR = '[data-raw-compare-track="image"]'
-
-export function clampCompareSplit(value: number) {
-  if (!Number.isFinite(value)) return 0.5
-  return Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, value))
-}
-
-export function getCompareSplitFromClientX(
-  rect: Pick<DOMRect, 'left' | 'width'>,
-  clientX: number,
-) {
-  if (!rect.width || rect.width <= 0) return 0.5
-  return clampCompareSplit((clientX - rect.left) / rect.width)
-}
 
 function isUsableRect(rect: Pick<DOMRect, 'width'>) {
   return Number.isFinite(rect.width) && rect.width > 0
