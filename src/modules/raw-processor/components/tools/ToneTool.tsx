@@ -2,6 +2,8 @@ import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { RotateCcw } from 'lucide-react'
 import { useId } from 'react'
 
+import { useI18n } from '~/lib/i18n'
+
 import { ToolSection } from './ToolSection'
 
 export type ToneValue = Pick<
@@ -20,15 +22,16 @@ export function ToneTool({
   onChange: (value: Partial<ToneValue>) => void
   onReset: () => void
 }) {
+  const { t } = useI18n()
   const exposureId = useId()
   const contrastId = useId()
   const isNeutral = value.userExposureEv === 0 && value.userContrast === 0
 
   return (
-    <ToolSection title="Tone" eyebrow="Basic">
+    <ToolSection title={t('raw.tone.title')} eyebrow={t('raw.tone.eyebrow')}>
       <div className="raw-tone-control">
         <div className="raw-tone-control-field">
-          <label htmlFor={exposureId}>Exposure</label>
+          <label htmlFor={exposureId}>{t('raw.tone.exposure')}</label>
           <output aria-hidden="true">
             {value.userExposureEv.toFixed(2)} EV
           </output>
@@ -46,7 +49,7 @@ export function ToneTool({
           />
         </div>
         <div className="raw-tone-control-field">
-          <label htmlFor={contrastId}>Contrast</label>
+          <label htmlFor={contrastId}>{t('raw.tone.contrast')}</label>
           <output aria-hidden="true">{Math.round(value.userContrast)}</output>
           <input
             id={contrastId}
@@ -62,10 +65,8 @@ export function ToneTool({
           />
         </div>
       </div>
-      <p className="raw-tool-note">
-        Applies before LUT conversion and full-resolution export.
-      </p>
-      {!isNeutral && <p className="raw-tool-note">Tone settings preserved</p>}
+      <p className="raw-tool-note">{t('raw.tone.note')}</p>
+      {!isNeutral && <p className="raw-tool-note">{t('raw.tone.preserved')}</p>}
       <button
         type="button"
         className="raw-tool-reset-button"
@@ -73,7 +74,7 @@ export function ToneTool({
         onClick={onReset}
       >
         <RotateCcw aria-hidden="true" />
-        Reset tone
+        {t('raw.tone.reset')}
       </button>
     </ToolSection>
   )

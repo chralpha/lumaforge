@@ -216,6 +216,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  localStorage.clear()
 })
 
 describe('rawProcessorView', () => {
@@ -230,6 +231,25 @@ describe('rawProcessorView', () => {
     expect(
       screen.getByRole('region', { name: 'Histogram' }),
     ).toBeInTheDocument()
+  })
+
+  it('renders Chinese Raw Lab shell when the persisted locale is Chinese', async () => {
+    localStorage.setItem('lumaforge.locale', 'zh-CN')
+    mockUseRawProcessor.mockReturnValue(rawProcessorViewState())
+
+    await act(async () => {
+      render(<RawProcessorView />)
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('RAW Lab')).toBeInTheDocument()
+    expect(
+      screen.getByText('拖入一张 RAW，在本机预览、对比、定稿并导出。'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '选择 RAW' })).toBeEnabled()
+    expect(screen.getByText('RAW 工具')).toBeInTheDocument()
+    expect(screen.getByText('未处理 RAW')).toBeInTheDocument()
+    expect(screen.getByText('最终 JPEG')).toBeInTheDocument()
   })
 })
 

@@ -6,6 +6,7 @@ import { useAtomValue } from 'jotai'
 import { AnimatePresence, m } from 'motion/react'
 
 import { clsxm } from '~/lib/cn'
+import { useI18n } from '~/lib/i18n'
 import { Spring } from '~/lib/spring'
 
 import { currentSessionAtom } from '../state/session.atoms'
@@ -19,17 +20,6 @@ export interface ProgressOverlayProps {
   className?: string
 }
 
-const phaseLabels: Record<ProgressOverlayProps['phase'], string> = {
-  loading: 'Preparing your RAW file...',
-  decoding: 'Building the first preview...',
-  processing: 'Applying the current look...',
-  exporting: 'Preparing JPEG export...',
-}
-
-function formatWorkerCount(count: number) {
-  return count === 1 ? '1 worker' : `${count} workers`
-}
-
 export function ProgressOverlay({
   visible,
   phase,
@@ -38,16 +28,33 @@ export function ProgressOverlay({
   recoveryHint,
   className,
 }: ProgressOverlayProps) {
+  const { t } = useI18n()
   const session = useAtomValue(currentSessionAtom)
+  const phaseLabels: Record<ProgressOverlayProps['phase'], string> = {
+    loading: t('raw.progress.loading'),
+    decoding: t('raw.progress.decoding'),
+    processing: t('raw.progress.processing'),
+    exporting: t('raw.progress.exporting'),
+  }
+  const formatWorkerCount = (count: number) =>
+    count === 1
+      ? t('raw.progress.workerOne')
+      : t('raw.progress.workerMany', { count })
   const stripProgress =
     phase === 'exporting' ? session?.exportState.lastProgress : undefined
   const activePlan =
     phase === 'exporting' ? session?.exportState.activePlan : undefined
   const exportProfileCopy =
     activePlan?.runtimeMemoryProfile === 'low-memory'
-      ? `Safe export · ${activePlan.preferredRows} rows · ${formatWorkerCount(activePlan.concurrency)}`
+      ? t('raw.progress.safeExport', {
+          rows: activePlan.preferredRows,
+          workers: formatWorkerCount(activePlan.concurrency),
+        })
       : activePlan
-        ? `High-performance export · ${activePlan.preferredRows} rows · ${formatWorkerCount(activePlan.concurrency)}`
+        ? t('raw.progress.fastExport', {
+            rows: activePlan.preferredRows,
+            workers: formatWorkerCount(activePlan.concurrency),
+          })
         : undefined
   const normalizedProgress =
     typeof progress === 'number' && Number.isFinite(progress)
@@ -128,8 +135,10 @@ export function ProgressOverlay({
 
               {stripProgress && (
                 <p className="mt-2 text-xs tabular-nums text-[oklch(0.91_0.02_86_/_0.82)]">
-                  Strip {stripProgress.completedStrips} of{' '}
-                  {stripProgress.totalStrips}
+                  {t('raw.progress.strip', {
+                    completed: stripProgress.completedStrips,
+                    total: stripProgress.totalStrips,
+                  })}
                 </p>
               )}
 
@@ -171,6 +180,8 @@ export function ErrorOverlay({
   onDismiss: () => void
   className?: string
 }) {
+  const { t } = useI18n()
+
   return (
     <AnimatePresence>
       {visible && (
@@ -196,7 +207,9 @@ export function ErrorOverlay({
             </div>
 
             <div>
-              <h3 className="text-lg font-medium text-text">Error</h3>
+              <h3 className="text-lg font-medium text-text">
+                {t('raw.error.title')}
+              </h3>
               <p className="text-sm text-text-secondary mt-1">{message}</p>
             </div>
 
@@ -205,7 +218,7 @@ export function ErrorOverlay({
               onClick={onDismiss}
               className="px-4 py-2 rounded-lg bg-fill hover:bg-fill-secondary text-sm font-medium text-text transition-colors"
             >
-              Dismiss
+              {t('raw.error.dismiss')}
             </button>
           </m.div>
         </m.div>

@@ -1,5 +1,7 @@
 import { RotateCcw } from 'lucide-react'
 
+import { useI18n } from '~/lib/i18n'
+
 import { ToolSection } from './ToolSection'
 
 export function CompareTool({
@@ -9,9 +11,14 @@ export function CompareTool({
   disabled: boolean
   onCompareReset: () => void
 }) {
+  const { t } = useI18n()
+
   return (
-    <ToolSection title="Compare" eyebrow="Split">
-      <p className="raw-tool-note">Drag the split directly on the image.</p>
+    <ToolSection
+      title={t('raw.compare.title')}
+      eyebrow={t('raw.compare.eyebrow')}
+    >
+      <p className="raw-tool-note">{t('raw.compare.note')}</p>
       <button
         type="button"
         className="raw-tool-reset-button"
@@ -19,7 +26,7 @@ export function CompareTool({
         onClick={onCompareReset}
       >
         <RotateCcw aria-hidden="true" />
-        Reset compare view
+        {t('raw.compare.reset')}
       </button>
     </ToolSection>
   )

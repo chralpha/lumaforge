@@ -1,3 +1,5 @@
+import { useI18n } from '~/lib/i18n'
+
 import { ToolSection } from './ToolSection'
 
 export function FinishTool({
@@ -11,8 +13,13 @@ export function FinishTool({
   disabled: boolean
   onPresetSelect: (id: string) => void
 }) {
+  const { t } = useI18n()
+
   return (
-    <ToolSection title="Finish" eyebrow="Look">
+    <ToolSection
+      title={t('raw.finish.title')}
+      eyebrow={t('raw.finish.eyebrow')}
+    >
       <div className="raw-finish-grid">
         {presetOptions.map((preset) => (
           <button
@@ -26,9 +33,7 @@ export function FinishTool({
           </button>
         ))}
       </div>
-      {disabled && (
-        <p className="raw-tool-note">Choose a RAW to activate looks.</p>
-      )}
+      {disabled && <p className="raw-tool-note">{t('raw.finish.empty')}</p>}
     </ToolSection>
   )
 }

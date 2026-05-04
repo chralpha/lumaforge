@@ -1,13 +1,8 @@
+import { useI18n } from '~/lib/i18n'
+
 const LEVELS = ['off', 'light', 'standard', 'strong'] as const
 
 export type StrengthLevel = (typeof LEVELS)[number]
-
-const LABELS: Record<StrengthLevel, string> = {
-  off: 'Off',
-  light: 'Light',
-  standard: 'Standard',
-  strong: 'Strong',
-}
 
 export function StrengthControl({
   value,
@@ -18,8 +13,20 @@ export function StrengthControl({
   onChange: (value: StrengthLevel) => void
   disabled: boolean
 }) {
+  const { t } = useI18n()
+  const labels: Record<StrengthLevel, string> = {
+    off: t('raw.strength.off'),
+    light: t('raw.strength.light'),
+    standard: t('raw.strength.standard'),
+    strong: t('raw.strength.strong'),
+  }
+
   return (
-    <div className="raw-strength-control" role="group" aria-label="Strength">
+    <div
+      className="raw-strength-control"
+      role="group"
+      aria-label={t('raw.strength.title')}
+    >
       {LEVELS.map((level) => (
         <button
           key={level}
@@ -28,7 +35,7 @@ export function StrengthControl({
           disabled={disabled}
           onClick={() => onChange(level)}
         >
-          {LABELS[level]}
+          {labels[level]}
         </button>
       ))}
     </div>

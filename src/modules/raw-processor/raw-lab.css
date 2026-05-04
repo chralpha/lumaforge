@@ -71,7 +71,11 @@
 }
 
 .raw-lab-topbar-button {
+  display: inline-flex;
   min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   border: 1px solid var(--raw-hairline);
   border-radius: 8px;
   padding: 8px 11px;
@@ -104,6 +108,10 @@
   border-color: oklch(0.74 0.15 152);
   background: var(--raw-green);
   color: var(--raw-ink);
+}
+
+.raw-lab-locale-toggle {
+  min-width: 70px;
 }
 
 .raw-tool-surface {

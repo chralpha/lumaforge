@@ -1,6 +1,8 @@
 import { useAtomValue } from 'jotai'
 import { Copy, Download, FolderOpen, Share2 } from 'lucide-react'
 
+import { localizeCopyLabel, localizeRawReason, useI18n } from '~/lib/i18n'
+
 import type {
   ExportResult,
   ExportShareCapability,
@@ -50,6 +52,7 @@ export function ExportTool({
   recovery?: ExportRecoveryState
   checkpointDurable?: boolean
 }) {
+  const { t } = useI18n()
   const session = useAtomValue(currentSessionAtom)
   const currentActivePlan = activePlan ?? session?.exportState.activePlan
   const currentRecovery = recovery ?? session?.exportState.recovery
@@ -58,25 +61,42 @@ export function ExportTool({
   const isLowMemoryPlan =
     currentActivePlan?.runtimeMemoryProfile === 'low-memory'
   const unavailableReason =
-    disabledReason || 'Full-resolution export source is still loading.'
+    localizeRawReason(disabledReason, t) || t('raw.exportSourceLoading')
+  const shareUnavailableReason =
+    exportShareCapability.available === false
+      ? localizeRawReason(exportShareCapability.reason, t)
+      : undefined
+  const copyCapability = exportResult?.copyCapability
+  const copyUnavailableReason =
+    copyCapability && copyCapability.mode !== 'full-resolution'
+      ? localizeRawReason(copyCapability.reason, t)
+      : undefined
+  const copyButtonLabel = copyCapability
+    ? copyCapability.mode === 'unavailable'
+      ? t('raw.export.copy')
+      : localizeCopyLabel(copyCapability.label, t)
+    : t('raw.export.copy')
 
   return (
-    <ToolSection title="Export" eyebrow="Full-res JPEG">
+    <ToolSection
+      title={t('raw.export.title')}
+      eyebrow={t('raw.export.eyebrow')}
+    >
       {exportResult ? (
         <div className="raw-export-result">
           <div className="raw-export-result-heading">
-            <span>JPEG ready</span>
+            <span>{t('raw.export.ready')}</span>
             <strong>{exportResult.filename}</strong>
           </div>
           <dl className="raw-export-result-facts">
             <div>
-              <dt>Dimensions</dt>
+              <dt>{t('raw.export.dimensions')}</dt>
               <dd>
                 {exportResult.width} x {exportResult.height}
               </dd>
             </div>
             <div>
-              <dt>File size</dt>
+              <dt>{t('raw.export.fileSize')}</dt>
               <dd>{formatBytes(exportResult.size)}</dd>
             </div>
           </dl>
@@ -88,7 +108,7 @@ export function ExportTool({
               onClick={onShareExport}
             >
               <Share2 aria-hidden="true" />
-              Share
+              {t('raw.export.share')}
             </button>
             <button
               type="button"
@@ -96,7 +116,7 @@ export function ExportTool({
               onClick={onDownloadExport}
             >
               <Download aria-hidden="true" />
-              Download
+              {t('raw.export.download')}
             </button>
             {exportResult.copyCapability.mode === 'unavailable' ? (
               <button
@@ -105,7 +125,7 @@ export function ExportTool({
                 disabled
               >
                 <Copy aria-hidden="true" />
-                Copy
+                {copyButtonLabel}
               </button>
             ) : (
               <button
@@ -114,32 +134,24 @@ export function ExportTool({
                 onClick={onCopyExport}
               >
                 <Copy aria-hidden="true" />
-                {exportResult.copyCapability.label}
+                {copyButtonLabel}
               </button>
             )}
           </div>
           {!exportShareCapability.available && (
-            <p className="raw-tool-note">{exportShareCapability.reason}</p>
+            <p className="raw-tool-note">{shareUnavailableReason}</p>
           )}
           {exportResult.copyCapability.mode !== 'full-resolution' && (
-            <p className="raw-tool-note">
-              {exportResult.copyCapability.reason}
-            </p>
+            <p className="raw-tool-note">{copyUnavailableReason}</p>
           )}
         </div>
       ) : (
         <>
           {isLowMemoryPlan && (
-            <p className="raw-tool-note">
-              This device is using low-memory export mode. Export may take
-              longer.
-            </p>
+            <p className="raw-tool-note">{t('raw.export.lowMemory')}</p>
           )}
           {currentCheckpointDurable === false && isLowMemoryPlan && (
-            <p className="raw-tool-note">
-              This browser cannot store export progress. Keep the tab open while
-              the JPEG is being written.
-            </p>
+            <p className="raw-tool-note">{t('raw.export.nonDurable')}</p>
           )}
           {currentRecovery?.status === 'source-required' && (
             <>
@@ -151,7 +163,7 @@ export function ExportTool({
                 onClick={onRecoverExportSource}
               >
                 <FolderOpen aria-hidden="true" />
-                Reselect RAW and retry
+                {t('raw.export.reselect')}
               </button>
             </>
           )}
@@ -162,12 +174,10 @@ export function ExportTool({
             onClick={() => onExport({ quality: 'high', fidelity: 'balanced' })}
           >
             <Download aria-hidden="true" />
-            {isProcessing ? 'Preparing JPEG...' : 'Export full-resolution JPEG'}
+            {isProcessing ? t('raw.export.preparing') : t('raw.export.run')}
           </button>
           <p className="raw-tool-note">
-            {canExport
-              ? 'Exports from the LibRaw processed-window path.'
-              : unavailableReason}
+            {canExport ? t('raw.export.sourcePath') : unavailableReason}
           </p>
         </>
       )}

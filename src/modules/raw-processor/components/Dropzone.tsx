@@ -7,6 +7,7 @@ import { m } from 'motion/react'
 import { useCallback, useId, useRef, useState } from 'react'
 
 import { clsxm } from '~/lib/cn'
+import { useI18n } from '~/lib/i18n'
 import { Spring } from '~/lib/spring'
 
 export const RAW_FILE_EXTENSIONS = [
@@ -65,6 +66,7 @@ export function Dropzone({
   'aria-label': ariaLabel,
   variant = 'default',
 }: DropzoneProps) {
+  const { t } = useI18n()
   const [isDragOver, setIsDragOver] = useState(false)
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -178,7 +180,9 @@ export function Dropzone({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <span className="text-accent font-medium">Drop to load</span>
+          <span className="text-accent font-medium">
+            {t('raw.drop.toLoad')}
+          </span>
         </m.div>
       )}
     </>
@@ -263,6 +267,8 @@ export function FileDropzone({
   onFileDrop: (files: File[]) => void
   disabled?: boolean
 }) {
+  const { t } = useI18n()
+
   return (
     <Dropzone
       onFileDrop={onFileDrop}
@@ -276,12 +282,14 @@ export function FileDropzone({
         </div>
         <div>
           <h3 className="text-lg font-medium text-text">
-            Drop your RAW file here
+            {t('raw.drop.fileTitle')}
           </h3>
-          <p className="text-sm text-text-secondary mt-1">or click to browse</p>
+          <p className="text-sm text-text-secondary mt-1">
+            {t('raw.drop.browse')}
+          </p>
         </div>
         <p className="text-xs text-text-tertiary max-w-md">
-          Supports CR2, CR3, NEF, ARW, RAF, RW2, ORF, DNG and other RAW formats
+          {t('raw.drop.supported')}
         </p>
       </div>
     </Dropzone>
@@ -302,9 +310,10 @@ export function LutDropzone({
   onClear?: () => void
   disabled?: boolean
 }) {
+  const { t } = useI18n()
   const label = currentLut
-    ? `Selected LUT: ${currentLut}. Add .cube LUT to replace.`
-    : 'Add .cube LUT'
+    ? t('raw.lut.selectedAria', { name: currentLut })
+    : t('raw.lut.add')
 
   return (
     <div className="raw-lut-dropzone-shell flex min-w-0 max-w-full items-center gap-2 overflow-hidden">
@@ -324,7 +333,7 @@ export function LutDropzone({
             className="raw-lut-dropzone-name block min-w-0 max-w-full truncate"
             title={currentLut ?? undefined}
           >
-            {currentLut || 'Add .cube LUT'}
+            {currentLut || t('raw.lut.add')}
           </span>
         </div>
       </Dropzone>
@@ -336,8 +345,8 @@ export function LutDropzone({
             onClear()
           }}
           className="raw-lut-clear-button shrink-0"
-          aria-label="Clear LUT"
-          title="Clear LUT"
+          aria-label={t('raw.lut.clear')}
+          title={t('raw.lut.clear')}
         >
           <X aria-hidden="true" />
         </button>

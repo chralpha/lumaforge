@@ -1,5 +1,8 @@
 import { useAtomValue } from 'jotai'
 
+import { LocaleToggle } from '~/components/common/LocaleToggle'
+import { localizeRawReason, useI18n } from '~/lib/i18n'
+
 import {
   currentSessionAtom,
   exportDisabledReasonAtom,
@@ -27,14 +30,14 @@ export function WorkspaceHeader({
   onResetSession: () => void
   onOpenExport: () => void
 }) {
+  const { t } = useI18n()
   const session = useAtomValue(currentSessionAtom)
   const sessionDisabledReason = useAtomValue(exportDisabledReasonAtom)
   const isExporting = session?.exportState.status === 'exporting'
-  const exportDisabledReason = !canExport
-    ? (disabledReason ??
-      sessionDisabledReason ??
-      'Full-resolution export source is still loading.')
+  const rawExportDisabledReason = !canExport
+    ? (disabledReason ?? sessionDisabledReason ?? t('raw.exportSourceLoading'))
     : undefined
+  const exportDisabledReason = localizeRawReason(rawExportDisabledReason, t)
 
   return (
     <header className="raw-lab-topbar" role="banner">
@@ -47,30 +50,33 @@ export function WorkspaceHeader({
             aria-hidden="true"
           />
           <h1 className="truncate text-base font-semibold text-[oklch(0.18_0.018_76)]">
-            {hasImage ? fileName : 'RAW Lab'}
+            {hasImage ? fileName : t('raw.header.title')}
           </h1>
           {hasImage && <SupportBadge level={supportLevel} />}
         </div>
         <p className="mt-1 truncate text-xs text-[oklch(0.38_0.032_75)]">
           {hasImage
-            ? 'Browser-local RAW finishing workspace'
-            : 'Drop one RAW to preview, compare, finish, and export locally.'}
+            ? t('raw.header.subtitleLoaded')
+            : t('raw.header.subtitleEmpty')}
         </p>
         {exportDisabledReason && (
           <p className="mt-1 truncate text-xs text-[oklch(0.38_0.032_75)]">
-            Full-res JPEG unavailable: {exportDisabledReason}
+            {t('raw.header.unavailablePrefix', {
+              reason: exportDisabledReason,
+            })}
           </p>
         )}
       </div>
 
       <div className="raw-lab-topbar-actions">
+        <LocaleToggle className="raw-lab-topbar-button raw-lab-locale-toggle" />
         <button
           type="button"
           onClick={onReplaceFile}
           disabled={isExporting}
           className="raw-lab-topbar-button"
         >
-          {hasImage ? 'Replace' : 'Choose RAW'}
+          {hasImage ? t('raw.header.replace') : t('raw.header.chooseRaw')}
         </button>
         <button
           type="button"
@@ -78,7 +84,7 @@ export function WorkspaceHeader({
           disabled={!hasImage || isExporting}
           className="raw-lab-topbar-button"
         >
-          Reset
+          {t('raw.header.reset')}
         </button>
         <button
           type="button"
@@ -86,7 +92,7 @@ export function WorkspaceHeader({
           disabled={!canExport}
           className="raw-lab-topbar-button raw-lab-topbar-button-primary"
         >
-          Full-res JPEG
+          {t('raw.header.fullRes')}
         </button>
       </div>
     </header>

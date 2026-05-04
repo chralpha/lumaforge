@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats, RawUploadInput } from '~/lib/gl/pipeline'
 import { RawProcessingPipeline } from '~/lib/gl/pipeline'
+import { useI18n } from '~/lib/i18n'
 import type { DecodedImage } from '~/lib/raw/decoder'
 import { Spring } from '~/lib/spring'
 
@@ -128,6 +129,7 @@ export function PreviewCanvas({
   onPipelineChange,
   className,
 }: PreviewCanvasProps) {
+  const { t } = useI18n()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
@@ -378,7 +380,7 @@ export function PreviewCanvas({
       {showEmbeddedPreview && (
         <img
           src={embeddedPreviewUrl ?? undefined}
-          alt="Embedded RAW preview"
+          alt={t('raw.preview.embeddedAlt')}
           data-raw-compare-track="image"
           className="absolute max-w-full max-h-full object-contain"
         />
@@ -397,7 +399,7 @@ export function PreviewCanvas({
             </div>
             <div>
               <h3 className="text-lg font-medium text-text">
-                Preview unavailable
+                {t('raw.preview.unavailable')}
               </h3>
               <p className="text-sm text-text-secondary mt-1">{error}</p>
             </div>
@@ -407,7 +409,9 @@ export function PreviewCanvas({
 
       {!hasImageData && !error && !showEmbeddedPreview && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-text-tertiary text-sm">No image loaded</span>
+          <span className="text-text-tertiary text-sm">
+            {t('raw.preview.noImage')}
+          </span>
         </div>
       )}
     </div>

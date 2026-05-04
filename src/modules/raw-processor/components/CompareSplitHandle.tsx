@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef } from 'react'
 
 import { clsxm } from '~/lib/cn'
+import { useI18n } from '~/lib/i18n'
 
 import {
   clampCompareSplit,
@@ -123,6 +124,7 @@ export function CompareSplitHandle({
   disabled?: boolean
   className?: string
 }) {
+  const { t } = useI18n()
   const handleRef = useRef<HTMLButtonElement>(null)
   const activePointerIdRef = useRef<number | null>(null)
   const pendingClientXRef = useRef<number | null>(null)
@@ -282,7 +284,7 @@ export function CompareSplitHandle({
       ref={handleRef}
       type="button"
       role="slider"
-      aria-label="Compare unprocessed RAW and final JPEG"
+      aria-label={t('raw.stage.sliderAria')}
       aria-valuemin={5}
       aria-valuemax={95}
       aria-valuenow={Math.round(clampCompareSplit(value) * 100)}

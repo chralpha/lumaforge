@@ -26,6 +26,7 @@ import {
 import { createPortal } from 'react-dom'
 
 import { Input } from '~/components/ui/input'
+import { useI18n } from '~/lib/i18n'
 
 import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
 import type { LUTProfileSelectionState } from '../../model/session'
@@ -40,9 +41,6 @@ import {
   toSelectableContract,
 } from './lut-contract'
 import { ToolSection } from './ToolSection'
-
-const UNKNOWN_LUT_COPY =
-  'Choose the LUT input and output contract before preview or export.'
 
 type OnlineLutSourceEntries = UseOnlineLutSourcesResult['state']['entries']
 type OnlineLutSourceIssues = UseOnlineLutSourcesResult['state']['issues']
@@ -306,12 +304,13 @@ function LUTOutputOptionButton({
   onSelect: (option: LUTOutputOption) => void
   highlighted?: boolean
 }) {
+  const { t } = useI18n()
   const isActive = activeOptionId === option.id
 
   return (
     <button
       type="button"
-      aria-label={`Use ${option.label} as LUT output`}
+      aria-label={t('raw.lutContract.useOutput', { label: option.label })}
       aria-pressed={isActive}
       onClick={() => onSelect(option)}
       className={
@@ -342,6 +341,7 @@ function LUTContractBrowser({
   onSelect: (profile: LUTColorProfile) => void
   triggerRef: RefObject<HTMLButtonElement | null>
 }) {
+  const { t } = useI18n()
   const searchInputId = useId()
   const browserId = useId()
   const browserRef = useRef<HTMLDivElement | null>(null)
@@ -513,21 +513,23 @@ function LUTContractBrowser({
       ref={browserRef}
       className="raw-lut-contract-browser"
       role="dialog"
-      aria-label="LUT contract browser"
+      aria-label={t('raw.lutContract.browser')}
       data-lut-source-placement={browserLayout.placement}
       style={toBrowserStyle(browserLayout)}
     >
       <div className="raw-lut-contract-browser-heading">
         <div>
-          <span>LUT contract browser</span>
+          <span>{t('raw.lutContract.browser')}</span>
           <p>
             {draftInputProfile
-              ? `Input: ${draftInputProfile.label}`
-              : 'Choose input first, then output'}
+              ? t('raw.lutContract.inputPrefix', {
+                  label: draftInputProfile.label,
+                })
+              : t('raw.lutContract.chooseInputOutput')}
           </p>
         </div>
         <LutIconButton
-          label="Close LUT contract browser"
+          label={t('raw.lutContract.closeBrowser')}
           buttonRef={closeButtonRef}
           onClick={() => onClose({ restoreFocus: true })}
         >
@@ -538,7 +540,7 @@ function LUTContractBrowser({
       <div
         className="raw-lut-contract-browser-tabs"
         role="tablist"
-        aria-label="LUT contract panels"
+        aria-label={t('raw.lutContract.panels')}
       >
         <button
           type="button"
@@ -547,7 +549,7 @@ function LUTContractBrowser({
           className="raw-lut-contract-browser-tab"
           onClick={() => setStep('input')}
         >
-          Input
+          {t('raw.lutContract.inputTab')}
         </button>
         <button
           type="button"
@@ -556,18 +558,18 @@ function LUTContractBrowser({
           className="raw-lut-contract-browser-tab"
           onClick={() => setStep('output')}
         >
-          Output
+          {t('raw.lutContract.outputTab')}
         </button>
       </div>
 
       <label htmlFor={searchInputId} className="sr-only">
-        Search LUT contract
+        {t('raw.lutContract.search')}
       </label>
       <Input
         id={searchInputId}
         type="search"
         value={query}
-        placeholder="Search camera/log or output"
+        placeholder={t('raw.lutContract.searchPlaceholder')}
         onChange={(event) => setQuery(event.currentTarget.value)}
         inputClassName="raw-lut-input h-8 text-xs"
       />
@@ -581,7 +583,7 @@ function LUTContractBrowser({
             {visibleSuggestions.length > 0 && (
               <div className="space-y-1">
                 <p className="raw-lut-contract-browser-group">
-                  Suggested input
+                  {t('raw.lutContract.suggestedInput')}
                 </p>
                 <div className="space-y-1">
                   {visibleSuggestions.map((profile) => (
@@ -590,7 +592,9 @@ function LUTContractBrowser({
                       profile={profile}
                       activeProfileId={draftInputProfile?.id}
                       label={profile.label}
-                      ariaLabel={`Use ${profile.label} as LUT input`}
+                      ariaLabel={t('raw.lutContract.useInput', {
+                        label: profile.label,
+                      })}
                       onSelect={handleInputSelect}
                       highlighted
                     />
@@ -602,7 +606,7 @@ function LUTContractBrowser({
             {groupedInputProfiles.map((group) => (
               <div key={`input-${group.label}`} className="space-y-1">
                 <p className="raw-lut-contract-browser-group">
-                  {group.label} input
+                  {t('raw.lutContract.groupInput', { group: group.label })}
                 </p>
                 <div className="space-y-1">
                   {group.items.map((profile) => (
@@ -611,7 +615,9 @@ function LUTContractBrowser({
                       profile={profile}
                       activeProfileId={draftInputProfile?.id}
                       label={profile.label}
-                      ariaLabel={`Use ${profile.label} as LUT input`}
+                      ariaLabel={t('raw.lutContract.useInput', {
+                        label: profile.label,
+                      })}
                       onSelect={handleInputSelect}
                     />
                   ))}
@@ -621,7 +627,7 @@ function LUTContractBrowser({
 
             {!hasInputMatches && (
               <p className="raw-lut-contract-browser-empty">
-                No matching LUT input.
+                {t('raw.lutContract.noInput')}
               </p>
             )}
           </>
@@ -630,7 +636,7 @@ function LUTContractBrowser({
             {suggestedOutputOptions.length > 0 && (
               <div className="space-y-1">
                 <p className="raw-lut-contract-browser-group">
-                  Suggested output
+                  {t('raw.lutContract.suggestedOutput')}
                 </p>
                 <div className="space-y-1">
                   {suggestedOutputOptions.map((option) => (
@@ -649,7 +655,7 @@ function LUTContractBrowser({
             {groupedOutputOptions.map((group) => (
               <div key={`output-${group.label}`} className="space-y-1">
                 <p className="raw-lut-contract-browser-group">
-                  {group.label} output
+                  {t('raw.lutContract.groupOutput', { group: group.label })}
                 </p>
                 <div className="space-y-1">
                   {group.items.map((option) => (
@@ -666,7 +672,7 @@ function LUTContractBrowser({
 
             {!hasOutputMatches && (
               <p className="raw-lut-contract-browser-empty">
-                No matching LUT output.
+                {t('raw.lutContract.noOutput')}
               </p>
             )}
           </>
@@ -692,6 +698,7 @@ function LUTProfileStatus({
   resolution?: LUTProfileResolution | null
   onSelect: (profile: LUTColorProfile) => void
 }) {
+  const { t } = useI18n()
   const resolvedProfile = getResolvedProfile(selection, resolution)
   const outputLabel = getProfileOutputLabel(resolvedProfile)
   const needsOutputContract = outputLabel === 'Output profile required'
@@ -717,30 +724,33 @@ function LUTProfileStatus({
     <div className="space-y-2 pt-1">
       {isUnsupportedOutput ? (
         <p className="raw-lut-contract-status raw-lut-contract-status-amber">
-          This LUT output is not supported yet. Use a Rec.709 display LUT for
-          this build.
+          {t('raw.lutContract.unsupportedOutput')}
         </p>
       ) : isPending ? (
         <p className="raw-lut-contract-status raw-lut-contract-status-amber">
-          {UNKNOWN_LUT_COPY}
+          {t('raw.lutContract.unknown')}
         </p>
       ) : resolvedProfile ? (
         <div className="raw-lut-contract-facts">
           <p className="raw-lut-contract-fact">
-            <span className="raw-lut-contract-term">LUT input:</span>
+            <span className="raw-lut-contract-term">
+              {t('raw.lutContract.inputTerm')}
+            </span>
             <span className="raw-lut-contract-value">
               {resolvedProfile.label}
             </span>
           </p>
           {outputLabel && (
             <p className="raw-lut-contract-fact">
-              <span className="raw-lut-contract-term">LUT output:</span>
+              <span className="raw-lut-contract-term">
+                {t('raw.lutContract.outputTerm')}
+              </span>
               <span className="raw-lut-contract-value">{outputLabel}</span>
             </p>
           )}
           {needsOutputContract && (
             <p className="raw-lut-contract-status raw-lut-contract-status-amber">
-              Choose the LUT output before preview or export.
+              {t('raw.lutContract.needsOutput')}
             </p>
           )}
         </div>
@@ -759,7 +769,7 @@ function LUTProfileStatus({
         }}
       >
         <SlidersHorizontal aria-hidden="true" />
-        Change LUT contract
+        {t('raw.lutContract.change')}
       </button>
 
       <LUTContractBrowser
@@ -823,6 +833,7 @@ function OnlineLutSourceControls({
 }: {
   onlineLutSources: UseOnlineLutSourcesResult
 }) {
+  const { t } = useI18n()
   const sourceInputId = useId()
   const browserId = useId()
   const { state } = onlineLutSources
@@ -975,7 +986,11 @@ function OnlineLutSourceControls({
   }, [closeBrowser, openResourceId])
 
   const formatEntryCount = (count: number) =>
-    count === 1 ? '1 LUT' : count > 1 ? `${count} LUTs` : 'No LUTs'
+    count === 1
+      ? t('raw.lutSource.countOne')
+      : count > 1
+        ? t('raw.lutSource.countMany', { count })
+        : t('raw.lutSource.countZero')
   const openBrowser =
     openResource &&
     browserLayout &&
@@ -996,7 +1011,7 @@ function OnlineLutSourceControls({
               <p>{formatEntryCount(openEntries.length)}</p>
             </div>
             <LutIconButton
-              label="Close LUT source browser"
+              label={t('raw.lutSource.close')}
               buttonRef={closeButtonRef}
               onClick={() =>
                 closeBrowser(openResource.id, { restoreFocus: true })
@@ -1033,7 +1048,7 @@ function OnlineLutSourceControls({
                       {entry.title}
                     </span>
                     <LutIconButton
-                      label={`Load ${entry.title}`}
+                      label={t('raw.lutSource.load', { label: entry.title })}
                       onClick={() => void onlineLutSources.loadEntry(entry.id)}
                     >
                       <Download aria-hidden="true" />
@@ -1054,7 +1069,7 @@ function OnlineLutSourceControls({
                     {ungrouped.length > 0 && (
                       <div className="raw-lut-source-family-group">
                         <div className="raw-lut-source-family-heading">
-                          Others
+                          {t('raw.lutSource.others')}
                         </div>
                         {ungrouped.map(renderEntry)}
                       </div>
@@ -1065,8 +1080,8 @@ function OnlineLutSourceControls({
             ) : (
               <p className="raw-lut-source-browser-empty">
                 {openIssues.length > 0
-                  ? 'No compatible LUTs loaded from this source.'
-                  : 'No compatible LUTs yet.'}
+                  ? t('raw.lutSource.noneCompatible')
+                  : t('raw.lutSource.noneYet')}
               </p>
             )}
           </div>
@@ -1085,7 +1100,7 @@ function OnlineLutSourceControls({
     <div className="raw-lut-source-controls">
       <div className="raw-lut-source-input-row">
         <label htmlFor={sourceInputId} className="sr-only">
-          Online LUT source URL
+          {t('raw.lutSource.url')}
         </label>
         <Input
           id={sourceInputId}
@@ -1107,14 +1122,14 @@ function OnlineLutSourceControls({
           inputClassName="raw-lut-input h-8 text-xs"
         />
         <LutIconButton
-          label="Add LUT source"
+          label={t('raw.lutSource.add')}
           disabled={!onlineLutSources.sourceUrlInput.trim()}
           onClick={() => void onlineLutSources.addSourceFromInput()}
         >
           <Plus aria-hidden="true" />
         </LutIconButton>
         <LutIconButton
-          label="Copy LUT source link"
+          label={t('raw.lutSource.copy')}
           disabled={!onlineLutSources.share.enabled}
           onClick={() => void onlineLutSources.share.copy()}
         >
@@ -1143,17 +1158,21 @@ function OnlineLutSourceControls({
                       {formatEntryCount(entries.length)}
                     </span>
                     {isResourceLoading && (
-                      <span className="raw-lut-source-state">Loading</span>
+                      <span className="raw-lut-source-state">
+                        {t('raw.lutSource.loading')}
+                      </span>
                     )}
                     {hasIssue && (
                       <span className="raw-lut-source-state raw-lut-source-state-issue">
-                        Issue
+                        {t('raw.lutSource.issue')}
                       </span>
                     )}
                   </div>
                   <div className="raw-lut-source-actions">
                     <LutIconButton
-                      label={`Open ${resource.label}`}
+                      label={t('raw.lutSource.open', {
+                        label: resource.label,
+                      })}
                       ariaControls={browserId}
                       ariaExpanded={isOpen}
                       ariaHasPopup="dialog"
@@ -1173,7 +1192,9 @@ function OnlineLutSourceControls({
                       <FolderOpen aria-hidden="true" />
                     </LutIconButton>
                     <LutIconButton
-                      label={`Refresh ${resource.label}`}
+                      label={t('raw.lutSource.refresh', {
+                        label: resource.label,
+                      })}
                       busy={isResourceLoading}
                       onClick={() =>
                         void onlineLutSources.refreshSource(resource.id)
@@ -1182,7 +1203,9 @@ function OnlineLutSourceControls({
                       <RefreshCw aria-hidden="true" />
                     </LutIconButton>
                     <LutIconButton
-                      label={`Remove ${resource.label}`}
+                      label={t('raw.lutSource.remove', {
+                        label: resource.label,
+                      })}
                       onClick={() => {
                         if (isOpen) closeBrowser(resource.id)
                         onlineLutSources.removeSource(resource.id)
@@ -1239,8 +1262,13 @@ export function LutContractTool({
   onLutProfileSelect: (profile: LUTColorProfile) => void
   onlineLutSources?: UseOnlineLutSourcesResult
 }) {
+  const { t } = useI18n()
+
   return (
-    <ToolSection title="LUT contract" eyebrow="Color">
+    <ToolSection
+      title={t('raw.lutContract.title')}
+      eyebrow={t('raw.lutContract.eyebrow')}
+    >
       {onlineLutSources && (
         <OnlineLutSourceControls onlineLutSources={onlineLutSources} />
       )}
@@ -1258,9 +1286,7 @@ export function LutContractTool({
           onSelect={onLutProfileSelect}
         />
       ) : (
-        <p className="raw-tool-note">
-          Add a .cube LUT now, it stays staged until a RAW file is loaded.
-        </p>
+        <p className="raw-tool-note">{t('raw.lutContract.empty')}</p>
       )}
     </ToolSection>
   )

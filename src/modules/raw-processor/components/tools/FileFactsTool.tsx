@@ -1,3 +1,5 @@
+import { useI18n } from '~/lib/i18n'
+
 import { ToolSection } from './ToolSection'
 
 export function FileFactsTool({
@@ -23,37 +25,45 @@ export function FileFactsTool({
     previewSize: { width: number; height: number }
   }
 }) {
+  const { t } = useI18n()
   const hasSessionFacts = metadata !== null || stats !== null
   const facts = [
-    { label: 'Support', value: hasSessionFacts ? supportLevel : undefined },
     {
-      label: 'Camera',
+      label: t('raw.fileFacts.support'),
+      value: hasSessionFacts
+        ? supportLevel === 'official'
+          ? t('raw.support.official')
+          : t('raw.support.experimental')
+        : undefined,
+    },
+    {
+      label: t('raw.fileFacts.camera'),
       value:
         metadata && `${metadata.make || ''} ${metadata.model || ''}`.trim(),
     },
     {
-      label: 'Size',
+      label: t('raw.fileFacts.size'),
       value: metadata ? `${metadata.width} x ${metadata.height}` : undefined,
     },
     {
-      label: 'Preview',
+      label: t('raw.fileFacts.preview'),
       value: stats
         ? `${stats.previewSize.width} x ${stats.previewSize.height}`
         : undefined,
     },
     {
-      label: 'Render',
+      label: t('raw.fileFacts.render'),
       value: stats ? `${Math.round(stats.processTime)} ms` : undefined,
     },
   ]
 
   return (
-    <ToolSection title="File facts">
+    <ToolSection title={t('raw.fileFacts.title')}>
       <dl className="raw-file-facts">
         {facts.map((fact) => (
           <div key={fact.label}>
             <dt>{fact.label}</dt>
-            <dd>{fact.value || 'Not loaded'}</dd>
+            <dd>{fact.value || t('raw.fileFacts.notLoaded')}</dd>
           </div>
         ))}
       </dl>

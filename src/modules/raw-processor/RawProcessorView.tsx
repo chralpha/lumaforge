@@ -10,6 +10,7 @@ import { useInRouterContext, useLocation } from 'react-router'
 
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
+import { useI18n } from '~/lib/i18n'
 
 import {
   ComparePreviewStage,
@@ -73,6 +74,7 @@ function RawProcessorViewInner({
   className,
   rawRouteLocation,
 }: RawProcessorViewInnerProps) {
+  const { t } = useI18n()
   const {
     params,
     loadedImage,
@@ -250,9 +252,34 @@ function RawProcessorViewInner({
         data-raw-lab-shell="viewport"
         data-raw-lab-state="unsupported"
       >
-        <UnsupportedState reason={capability.reason || 'WebGL2 is required'} />
+        <UnsupportedState
+          reason={capability.reason || t('raw.unsupported.webgl2')}
+        />
       </div>
     )
+  }
+
+  const localizePresetName = (id: string, name: string) => {
+    switch (id) {
+      case 'neutral':
+        return t('raw.preset.neutral')
+      case 'warm':
+        return t('raw.preset.warm')
+      case 'cool':
+        return t('raw.preset.cool')
+      case 'film-soft':
+        return t('raw.preset.film-soft')
+      case 'film-contrast':
+        return t('raw.preset.film-contrast')
+      case 'cinematic':
+        return t('raw.preset.cinematic')
+      case 'fade':
+        return t('raw.preset.fade')
+      case 'mono':
+        return t('raw.preset.mono')
+      default:
+        return name
+    }
   }
 
   return (
@@ -306,7 +333,10 @@ function RawProcessorViewInner({
         />
 
         <RawToolSurface
-          presetOptions={presetOptions.map(({ id, name }) => ({ id, name }))}
+          presetOptions={presetOptions.map(({ id, name }) => ({
+            id,
+            name: localizePresetName(id, name),
+          }))}
           activePresetId={activePresetId}
           activeIntensity={activeIntensity}
           tone={{

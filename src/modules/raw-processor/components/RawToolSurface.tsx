@@ -6,6 +6,8 @@ import type {
 import type { ComponentProps } from 'react'
 import { useId, useState } from 'react'
 
+import { useI18n } from '~/lib/i18n'
+
 import type { UseOnlineLutSourcesResult } from '../hooks/useOnlineLutSources'
 import type {
   ExportResult,
@@ -64,6 +66,7 @@ export function RawToolSurface(props: {
   metadata: ComponentProps<typeof FileFactsTool>['metadata']
   stats: ComponentProps<typeof FileFactsTool>['stats']
 }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const toolStackId = useId()
   const disabled = !props.hasImage || props.isProcessing
@@ -73,7 +76,7 @@ export function RawToolSurface(props: {
       className="raw-tool-surface"
       data-raw-tool-surface="raw-finishing"
       data-raw-tool-sheet={open ? 'open' : 'closed'}
-      aria-label="RAW finishing controls"
+      aria-label={t('raw.tools.aria')}
     >
       <button
         type="button"
@@ -82,7 +85,7 @@ export function RawToolSurface(props: {
         aria-controls={toolStackId}
         onClick={() => setOpen((value) => !value)}
       >
-        RAW tools
+        {t('raw.tools.toggle')}
       </button>
 
       <div id={toolStackId} className="raw-tool-stack">
@@ -99,7 +102,7 @@ export function RawToolSurface(props: {
           onReset={props.onToneReset}
         />
         <HistogramTool histogram={props.histogram} />
-        <ToolSection title="Strength">
+        <ToolSection title={t('raw.strength.title')}>
           <StrengthControl
             value={props.activeIntensity}
             onChange={props.onIntensitySelect}

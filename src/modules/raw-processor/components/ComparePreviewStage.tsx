@@ -2,6 +2,7 @@ import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
 
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
+import { useI18n } from '~/lib/i18n'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
 import type { DisplaySource } from '../model/session'
@@ -57,6 +58,8 @@ function UploadDock({
   onOpenFilePicker: () => void
   disabled: boolean
 }) {
+  const { t } = useI18n()
+
   return (
     <button
       type="button"
@@ -71,8 +74,8 @@ function UploadDock({
         ↑
       </span>
       <span className="raw-lab-upload-copy">
-        <strong>Drop one RAW here</strong>
-        <span>No upload, no helper, no account</span>
+        <strong>{t('raw.stage.uploadTitle')}</strong>
+        <span>{t('raw.stage.uploadCopy')}</span>
       </span>
     </button>
   )
@@ -100,14 +103,18 @@ export function ComparePreviewStage({
   onPipelineChange,
   className,
 }: ComparePreviewStageProps) {
+  const { t } = useI18n()
+
   return (
     <section
       className={clsxm('raw-lab-stage', className)}
-      aria-label="RAW preview comparison"
+      aria-label={t('raw.stage.aria')}
     >
       <Dropzone
         variant="stage"
-        aria-label={hasImage ? 'Replace RAW file' : 'Load RAW file'}
+        aria-label={
+          hasImage ? t('raw.stage.replaceAria') : t('raw.stage.loadAria')
+        }
         onFileDrop={onRawDrop}
         accept={RAW_FILE_EXTENSIONS}
         disabled={isProcessing}
@@ -134,10 +141,10 @@ export function ComparePreviewStage({
             )}
 
             <span className="raw-lab-compare-label raw-lab-compare-label-left">
-              Unprocessed RAW
+              {t('raw.stage.leftLabel')}
             </span>
             <span className="raw-lab-compare-label raw-lab-compare-label-right">
-              Final JPEG
+              {t('raw.stage.rightLabel')}
             </span>
 
             <CompareSplitHandle

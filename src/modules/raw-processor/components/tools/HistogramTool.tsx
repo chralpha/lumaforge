@@ -3,6 +3,9 @@ import type {
   ReadyPreviewHistogram,
 } from '@lumaforge/luma-color-runtime'
 
+import type { Translate } from '~/lib/i18n'
+import { useI18n } from '~/lib/i18n'
+
 import { ToolSection } from './ToolSection'
 
 const VIEWBOX_WIDTH = 128
@@ -49,8 +52,10 @@ function hasNonZeroBins(bins: Uint32Array) {
   return bins.some((value) => value > 0)
 }
 
-function sourceLabel(source: ReadyPreviewHistogram['source']) {
-  return source === 'bounded-hq' ? 'HQ preview' : 'Quick preview'
+function sourceLabel(source: ReadyPreviewHistogram['source'], t: Translate) {
+  return source === 'bounded-hq'
+    ? t('raw.histogram.hq')
+    : t('raw.histogram.quick')
 }
 
 function readyHistogram(
@@ -67,35 +72,37 @@ function readyHistogram(
   return null
 }
 
-function statusLabel(histogram: PreviewHistogramState) {
+function statusLabel(histogram: PreviewHistogramState, t: Translate) {
   if (histogram.state === 'ready') {
-    return sourceLabel(histogram.source)
+    return sourceLabel(histogram.source, t)
   }
 
   if (histogram.state === 'computing') {
-    return 'Computing'
+    return t('raw.histogram.computing')
   }
 
   if (histogram.state === 'stale') {
-    return 'Stale'
+    return t('raw.histogram.stale')
   }
 
   if (histogram.state === 'unsupported') {
-    return 'Unsupported'
+    return t('raw.histogram.unsupported')
   }
 
-  return histogram.reason === 'embedded-only' ? 'Embedded only' : 'Not loaded'
+  return histogram.reason === 'embedded-only'
+    ? t('raw.histogram.embeddedOnly')
+    : t('raw.histogram.notLoaded')
 }
 
-function statusReason(histogram: PreviewHistogramState) {
+function statusReason(histogram: PreviewHistogramState, t: Translate) {
   if (histogram.state === 'unsupported') {
     return histogram.reason
   }
 
   if (histogram.state === 'unavailable') {
     return histogram.reason === 'embedded-only'
-      ? 'Histogram requires a rendered RAW preview.'
-      : 'Choose a RAW to show preview distribution.'
+      ? t('raw.histogram.requiresRendered')
+      : t('raw.histogram.chooseRaw')
   }
 
   return null
@@ -106,12 +113,13 @@ export function HistogramTool({
 }: {
   histogram: PreviewHistogramState
 }) {
+  const { t } = useI18n()
   const ready = readyHistogram(histogram)
-  const label = statusLabel(histogram)
-  const reason = statusReason(histogram)
+  const label = statusLabel(histogram, t)
+  const reason = statusReason(histogram, t)
 
   return (
-    <ToolSection title="Histogram">
+    <ToolSection title={t('raw.histogram.title')}>
       <div className="raw-histogram">
         <p className="raw-tool-note">
           <span>{label}</span>
@@ -121,7 +129,7 @@ export function HistogramTool({
           <>
             <svg
               role="img"
-              aria-label="Preview luminance and RGB histogram"
+              aria-label={t('raw.histogram.aria')}
               className="raw-histogram-plot"
               viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
               preserveAspectRatio="none"
@@ -199,8 +207,16 @@ export function HistogramTool({
               />
             </svg>
             <div className="raw-histogram-clipping">
-              <span>Shadows {ready.clipping.shadowAnyChannel}</span>
-              <span>Highlights {ready.clipping.highlightAnyChannel}</span>
+              <span>
+                {t('raw.histogram.shadows', {
+                  count: ready.clipping.shadowAnyChannel,
+                })}
+              </span>
+              <span>
+                {t('raw.histogram.highlights', {
+                  count: ready.clipping.highlightAnyChannel,
+                })}
+              </span>
             </div>
           </>
         ) : null}
