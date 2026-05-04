@@ -5,6 +5,7 @@ import type { FC, PropsWithChildren } from 'react'
 
 import { ModalContainer } from '~/components/ui/modal'
 import { Toaster } from '~/components/ui/sonner'
+import { I18nProvider } from '~/lib/i18n'
 import { jotaiStore } from '~/lib/jotai'
 import { queryClient } from '~/lib/query-client'
 import { Spring } from '~/lib/spring'
@@ -21,12 +22,14 @@ export const RootProviders: FC<PropsWithChildren> = ({ children }) => (
     <MotionConfig transition={Spring.presets.smooth}>
       <QueryClientProvider client={queryClient}>
         <Provider store={jotaiStore}>
-          <EventProvider />
-          <StableRouterProvider />
-          <SettingSync />
-          <ContextMenuProvider />
-          <ModalContainer />
-          {children}
+          <I18nProvider>
+            <EventProvider />
+            <StableRouterProvider />
+            <SettingSync />
+            <ContextMenuProvider />
+            <ModalContainer />
+            {children}
+          </I18nProvider>
         </Provider>
       </QueryClientProvider>
     </MotionConfig>
