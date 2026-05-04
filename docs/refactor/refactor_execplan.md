@@ -250,6 +250,28 @@ Validation:
 - `pnpm exec vitest run src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'`
 - `pnpm exec eslint src/modules/raw-processor/services/compare-split.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/components/CompareSplitHandle.tsx src/modules/raw-processor/hooks/useRawProcessor.ts`
 
+### M7: Extract RAW Session Factory
+
+Intended internal change:
+Move the initial RAW session shape from `useImageSession.ts` into a pure model factory so hook code owns persistence while the model owns default session data.
+
+Expected behavior:
+New RAW sessions still use `crypto.randomUUID()` and `Date.now()`, keep the existing lowercased extension derivation, default support to `experimental`, start all previews idle with `displaySource: none`, enter compare view with split `0.5`, retain any active custom style and LUT profile selection passed by the RAW loader, and keep export defaults unchanged.
+
+Test-first work:
+Add characterization tests for the pure factory before changing `useImageSession.ts`.
+
+Target files:
+
+- Create `src/modules/raw-processor/model/session-factory.test.ts`
+- Create `src/modules/raw-processor/model/session-factory.ts`
+- Modify `src/modules/raw-processor/hooks/useImageSession.ts`
+
+Validation:
+
+- `pnpm exec vitest run src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'`
+- `pnpm exec eslint src/modules/raw-processor/model/session-factory.ts src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/hooks/useImageSession.ts`
+
 ## Validation Gates
 
 Every milestone must pass its targeted tests or record a pre-existing failure.
@@ -278,6 +300,8 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Keep unsafe export readiness using the existing default `balanced` execution-plan probe; changing it to the requested export fidelity would be a behavior change and is out of scope.
 - 2026-05-04: After user correction, broaden the refactor track from export-specific seams to the complete `/raw` lifecycle. Select preview session transitions as the next non-export seam because the behavior is already partly characterized at hook level and can be isolated without changing runtime, UI, or export execution.
 - 2026-05-04: Select compare split math as the next seam because it is a view-only lifecycle boundary currently duplicated between hook and UI, and it can be shared without changing compare interaction behavior or export invalidation semantics.
+- 2026-05-04: Select RAW session creation as the next seam because it is part of the upload/load lifecycle, has a pure default data shape, and lets `useImageSession.ts` become a thin state adapter without touching runtime preview behavior.
+- 2026-05-04: Preserve existing no-dot filename extension derivation in RAW sessions (`RAWFILE` becomes `rawfile`). This is odd but observable through session source facts, so changing it is out of scope.
 
 ## Rollback Plan
 
@@ -337,3 +361,13 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: M6 changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/compare-split.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/components/CompareSplitHandle.tsx src/modules/raw-processor/hooks/useRawProcessor.ts`.
 - 2026-05-04: M6 combined lifecycle/export targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/services/export-evacuation.test.ts --exclude '.worktrees/**'` with 132 passing tests.
 - 2026-05-04: `pnpm exec tsc --noEmit --pretty false` after M6 remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence.
+- 2026-05-04: Post-commit M6 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'` with 85 passing tests.
+- 2026-05-04: Added M7 to extract RAW session creation into a pure model factory before changing `useImageSession.ts`.
+- 2026-05-04: M6 behavior/architecture review found no regressions in clamp range, non-finite fallback, Home/End keys, keyboard steps, pointer geometry, component re-exports, or view-only export invalidation. Reviewer validation passed the 85-test compare/hook suite, changed-file ESLint, and `git diff --check d0337b4^ d0337b4`.
+- 2026-05-04: Added RED characterization tests for `createImageSession`; first run failed because `session-factory.ts` did not exist.
+- 2026-05-04: Extracted RAW session creation from `useImageSession.ts` into `model/session-factory.ts`, leaving `useImageSession.ts` as the Jotai state adapter.
+- 2026-05-04: M7 initial validation corrected a mistaken test assumption: no-dot filenames currently derive the whole lowercased filename as `sourceFile.extension`, so the characterization was updated to preserve that behavior.
+- 2026-05-04: M7 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'` with 74 passing tests.
+- 2026-05-04: M7 changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/model/session-factory.ts src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/hooks/useImageSession.ts`.
+- 2026-05-04: M7 combined lifecycle targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts --exclude '.worktrees/**'` with 115 passing tests.
+- 2026-05-04: `pnpm exec tsc --noEmit --pretty false` after M7 remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence after fixing new test-only type issues.
