@@ -135,6 +135,7 @@ import {
   applyPreviewReady,
   applyQuickPreviewFailure,
 } from '../services/preview-session-state'
+import { prepareRawLoadState } from '../services/raw-load-preparation'
 import {
   buildBuiltinStyle,
   buildLUTProfileSelectionState,
@@ -763,20 +764,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
         runtimeAbortController = new AbortController()
         runtimeAbortControllerRef.current = runtimeAbortController
         const runtimeSignal = runtimeAbortController.signal
-        const preservedCompareSplit = clampCompareSplit(
-          getProcessingParams().compareSplit ?? 0.5,
-        )
-        const preservedCustomStyle = lut
-          ? preserveCustomLookIntensity(toCustomStyle(lut), activeStyle)
-          : null
-        const preservedLutProfileSelection = lut
-          ? buildLUTProfileSelectionState(lut)
-          : undefined
-
-        const nextSession = replaceFile(file, {
-          activeStyle: preservedCustomStyle,
-          lutProfileSelection: preservedLutProfileSelection,
+        const loadState = prepareRawLoadState({
+          params: getProcessingParams(),
+          lut,
+          activeStyle,
         })
+
+        const nextSession = replaceFile(file, loadState.retainedSessionState)
         loadSessionId = nextSession.id
         let quickPreview: DecodedImage | null = null
         let boundedHqPreview: DecodedImage | null = null
@@ -791,13 +785,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         setError(null)
         setParams((prev) => ({
           ...prev,
-          intensity: preservedCustomStyle
-            ? mapIntensityLevel(preservedCustomStyle.currentIntensityLevel)
-            : 0.7,
-          viewMode: 'compare',
-          compareSplit: preservedCompareSplit,
-          styleKind: preservedCustomStyle ? 'custom' : 'none',
-          builtinPreset: null,
+          ...loadState.processingParamsPatch,
         }))
 
         setSession((prev) => {
@@ -805,7 +793,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
             return prev
           }
 
-          return applyPreviewLoadStarted(prev, preservedCompareSplit)
+          return applyPreviewLoadStarted(prev, loadState.compareSplit)
         })
 
         const matchesActiveSession = () =>

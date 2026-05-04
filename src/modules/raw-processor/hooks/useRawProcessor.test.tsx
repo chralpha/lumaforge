@@ -473,6 +473,34 @@ describe('useRawProcessor embedded preview state', () => {
     localStorage.clear()
   })
 
+  it('rejects unsupported files without replacing the active session or opening the runtime', async () => {
+    const existingSession = createTestSession()
+    jotaiStore.set(currentSessionAtom, existingSession)
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    act(() => {
+      result.current.setParams({
+        viewMode: 'processed',
+        compareSplit: 0.8,
+        userExposureEv: 1,
+        userContrast: 50,
+      })
+    })
+    const previousParams = result.current.params
+
+    await act(async () => {
+      await result.current.loadFile(new File(['not raw'], 'notes.txt'))
+    })
+
+    expect(result.current.error).toBe('Unsupported file format: notes.txt')
+    expect(result.current.status).toBe('idle')
+    expect(result.current.loadedImage.file).toBeNull()
+    expect(result.current.params).toEqual(previousParams)
+    expect(jotaiStore.get(currentSessionAtom)).toBe(existingSession)
+    expect(rawRuntimeAdapterMock.openSession).not.toHaveBeenCalled()
+  })
+
   it('discovers interrupted safe-retry checkpoints on mount', async () => {
     const checkpointManifest = createCheckpointManifest()
     jotaiStore.set(currentSessionAtom, createTestSession())

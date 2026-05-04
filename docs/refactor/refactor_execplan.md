@@ -328,6 +328,33 @@ Validation:
 - `pnpm exec vitest run src/modules/raw-processor/services/view-session-state.test.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/components/CompareSplitHandle.test.tsx --exclude '.worktrees/**'`
 - `pnpm exec eslint src/modules/raw-processor/services/view-session-state.ts src/modules/raw-processor/services/view-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx`
 
+### M10: Extract RAW Load Preparation State
+
+Intended internal change:
+Move the pure data preparation at the start of `loadFile` into `raw-load-preparation.ts`.
+The hook should continue to own unsupported-file checks, runtime session setup, abort/cleanup refs, preview events, atoms, and side effects.
+
+Expected behavior:
+Loading or replacing a RAW still preserves the previously committed compare split after clamping.
+Detached/custom LUT state still carries into the new RAW session.
+Replacing a RAW while a custom LUT is active still preserves the active custom intensity; builtin/neutral sources still reset custom intensity to the LUT default.
+The load-start processing param patch still forces compare mode, clears builtin preset, sets `styleKind` to `custom` only when a LUT exists, maps custom intensity through the existing intensity mapper, and preserves unrelated params such as user tone by only returning a partial patch.
+
+Test-first work:
+Add characterization tests for the pure load-preparation helper before rewiring `loadFile`.
+
+Target files:
+
+- Create `src/modules/raw-processor/services/raw-load-preparation.test.ts`
+- Create `src/modules/raw-processor/services/raw-load-preparation.ts`
+- Modify `src/modules/raw-processor/hooks/useRawProcessor.ts`
+
+Validation:
+
+- `pnpm exec vitest run src/modules/raw-processor/services/raw-load-preparation.test.ts`
+- `pnpm exec vitest run src/modules/raw-processor/services/raw-load-preparation.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/services/view-session-state.test.ts --exclude '.worktrees/**'`
+- `pnpm exec eslint src/modules/raw-processor/services/raw-load-preparation.ts src/modules/raw-processor/services/raw-load-preparation.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
+
 ## Validation Gates
 
 Every milestone must pass its targeted tests or record a pre-existing failure.
@@ -360,6 +387,7 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Preserve existing no-dot filename extension derivation in RAW sessions (`RAWFILE` becomes `rawfile`). This is odd but observable through session source facts, so changing it is out of scope.
 - 2026-05-04: Select look/LUT session state transitions as the next full-lifecycle seam because style application is a render-affecting user action currently mixed with hook side effects, but its session mutation rules are pure and already partially characterized by hook tests.
 - 2026-05-04: Select view/session state transitions as the next seam because compare/view interactions are view-only lifecycle behavior, already share split math, and can be isolated without touching preview rendering or export invalidation.
+- 2026-05-04: Select RAW load preparation as the next seam because upload/replacement behavior mixes compare, detached LUT, retained custom intensity, and initial processing param patches inside `loadFile`, but those rules are pure and can be characterized without touching async runtime or cleanup behavior.
 
 ## Rollback Plan
 
@@ -454,3 +482,12 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: `pnpm exec tsc --noEmit --pretty false` after M9 remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence.
 - 2026-05-04: M9 behavior review found no regressions and confirmed view-only drag rendering remains in UI/pipeline code, not the helper.
 - 2026-05-04: M9 architecture/performance review found no over-abstraction, stale-state, allocation hot-path, dependency-direction, or circular-import risk. Reviewer noted double clamping is redundant but safe because both paths use the same shared compare helper.
+- 2026-05-04: Added M10 for pure RAW load preparation state while leaving runtime session setup, abort/cleanup refs, preview events, and side effects in `useRawProcessor.ts`.
+- 2026-05-04: Added RED characterization tests for RAW load preparation in `raw-load-preparation.test.ts`; first run failed because the helper module did not exist.
+- 2026-05-04: Extracted compare split retention, detached/custom LUT retention, custom intensity preservation, and load-start processing param patch derivation into `raw-load-preparation.ts`.
+- 2026-05-04: M10 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/raw-load-preparation.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/services/view-session-state.test.ts --exclude '.worktrees/**'` with 94 passing tests after adding unsupported-file early-return coverage.
+- 2026-05-04: M10 changed-file lint initially caught import-sort issues in the new helper/test; targeted `pnpm exec eslint --fix src/modules/raw-processor/services/raw-load-preparation.ts src/modules/raw-processor/services/raw-load-preparation.test.ts` resolved them. Final changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/raw-load-preparation.ts src/modules/raw-processor/services/raw-load-preparation.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.
+- 2026-05-04: M10 combined lifecycle/export targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/raw-load-preparation.test.ts src/modules/raw-processor/services/view-session-state.test.ts src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts src/modules/raw-processor/__tests__/style-system.test.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts --exclude '.worktrees/**'` with 188 passing tests.
+- 2026-05-04: `pnpm exec tsc --noEmit --pretty false` after M10 remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence.
+- 2026-05-04: M10 behavior review found no regressions and confirmed unsupported-file guard remains before runtime/session mutation. Reviewer noted the missing focused unsupported-file side-effect test; added it before commit.
+- 2026-05-04: M10 architecture/performance review found no over-abstraction, stale-state, allocation, dependency-direction, async lifecycle, or circular-import risk. Reviewer confirmed `raw-load-preparation.ts` is pure and imports only existing pure helpers/model types.
