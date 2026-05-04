@@ -3,6 +3,7 @@ import type {
   LUTProfileResolution,
 } from '@lumaforge/luma-color-runtime'
 import { searchLUTColorProfiles } from '@lumaforge/luma-color-runtime'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import {
   Download,
   FolderOpen,
@@ -23,7 +24,6 @@ import {
   useRef,
   useState,
 } from 'react'
-import { createPortal } from 'react-dom'
 
 import { Input } from '~/components/ui/input'
 import { useI18n } from '~/lib/i18n'
@@ -152,6 +152,117 @@ function toBrowserStyle(
     '--raw-lut-source-browser-max-height': `${layout.maxHeight}px`,
     height: `${layout.maxHeight}px`,
   }
+}
+
+function useRawLabPortalContainer(open: boolean) {
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(
+    null,
+  )
+
+  useLayoutEffect(() => {
+    if (!open || typeof document === 'undefined') return
+
+    setPortalContainer(document.querySelector('.raw-lab') ?? document.body)
+  }, [open])
+
+  return portalContainer
+}
+
+function isInsideElement(
+  target: EventTarget | null,
+  element: HTMLElement | null | undefined,
+) {
+  return Boolean(element && target instanceof Node && element.contains(target))
+}
+
+function LutBrowserDialog({
+  open,
+  layout,
+  id,
+  kind,
+  className,
+  headingClassName,
+  dialogLabel,
+  title,
+  description,
+  closeLabel,
+  restoreFocus,
+  triggerElement,
+  onOpenChange,
+  children,
+}: {
+  open: boolean
+  layout: OnlineLutBrowserLayout | null
+  id: string
+  kind: 'source' | 'contract'
+  className: string
+  headingClassName: string
+  dialogLabel: string
+  title: ReactNode
+  description: ReactNode
+  closeLabel: string
+  restoreFocus: () => void
+  triggerElement?: HTMLElement | null
+  onOpenChange: (open: boolean) => void
+  children: ReactNode
+}) {
+  const portalContainer = useRawLabPortalContainer(open)
+
+  if (!open || !layout) return null
+
+  return (
+    <DialogPrimitive.Root open={open} modal={false} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal
+        container={portalContainer ?? undefined}
+        forceMount
+      >
+        <DialogPrimitive.Content
+          id={id}
+          forceMount
+          aria-label={dialogLabel}
+          className={`raw-lut-browser-dialog ${className}`}
+          data-lut-source-placement={layout.placement}
+          data-raw-lut-browser-dialog={kind}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            queueMicrotask(restoreFocus)
+          }}
+          onPointerDownOutside={(event) => {
+            if (isInsideElement(event.target, triggerElement)) {
+              event.preventDefault()
+            }
+          }}
+          onInteractOutside={(event) => {
+            if (isInsideElement(event.target, triggerElement)) {
+              event.preventDefault()
+            }
+          }}
+          style={toBrowserStyle(layout)}
+        >
+          <div className={`raw-lut-browser-heading ${headingClassName}`}>
+            <div>
+              <DialogPrimitive.Title className="sr-only">
+                {dialogLabel}
+              </DialogPrimitive.Title>
+              <span aria-hidden="true">{title}</span>
+              <DialogPrimitive.Description asChild>
+                <p>{description}</p>
+              </DialogPrimitive.Description>
+            </div>
+            <DialogPrimitive.Close
+              type="button"
+              aria-label={closeLabel}
+              title={closeLabel}
+              className="raw-lut-source-icon-button"
+            >
+              <X aria-hidden="true" />
+            </DialogPrimitive.Close>
+          </div>
+          {children}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  )
 }
 
 function LUTProfileButton({
@@ -333,6 +444,7 @@ function LUTContractBrowser({
   currentProfile,
   onSelect,
   triggerRef,
+  browserId,
 }: {
   open: boolean
   onClose: (options?: { restoreFocus?: boolean }) => void
@@ -340,12 +452,10 @@ function LUTContractBrowser({
   currentProfile?: LUTColorProfile
   onSelect: (profile: LUTColorProfile) => void
   triggerRef: RefObject<HTMLButtonElement | null>
+  browserId: string
 }) {
   const { t } = useI18n()
   const searchInputId = useId()
-  const browserId = useId()
-  const browserRef = useRef<HTMLDivElement | null>(null)
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null)
   const [browserLayout, setBrowserLayout] =
     useState<OnlineLutBrowserLayout | null>(null)
   const [query, setQuery] = useState('')
@@ -384,27 +494,6 @@ function LUTContractBrowser({
   useEffect(() => {
     if (!open) return
 
-    closeButtonRef.current?.focus()
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-
-      event.preventDefault()
-      onClose({ restoreFocus: true })
-    }
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target
-
-      if (!(target instanceof Node)) return
-      if (browserRef.current?.contains(target)) return
-      if (triggerRef.current?.contains(target)) return
-
-      onClose({ restoreFocus: true })
-    }
     const handleViewportChange = () => {
       updateBrowserLayout()
     }
@@ -414,16 +503,12 @@ function LUTContractBrowser({
       triggerRef.current?.closest('.raw-tool-surface'),
     ].filter((target): target is Element => target instanceof Element)
 
-    document.addEventListener('keydown', handleKeyDown)
-    document.addEventListener('pointerdown', handlePointerDown)
     window.addEventListener('resize', handleViewportChange)
     for (const target of scrollTargets) {
       target.addEventListener('scroll', handleViewportChange)
     }
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.removeEventListener('pointerdown', handlePointerDown)
       window.removeEventListener('resize', handleViewportChange)
       for (const target of scrollTargets) {
         target.removeEventListener('scroll', handleViewportChange)
@@ -507,36 +592,30 @@ function LUTContractBrowser({
 
   if (!open || !browserLayout) return null
 
-  const browser = (
-    <div
+  return (
+    <LutBrowserDialog
+      open={open}
+      layout={browserLayout}
       id={browserId}
-      ref={browserRef}
+      kind="contract"
       className="raw-lut-contract-browser"
-      role="dialog"
-      aria-label={t('raw.lutContract.browser')}
-      data-lut-source-placement={browserLayout.placement}
-      style={toBrowserStyle(browserLayout)}
+      headingClassName="raw-lut-contract-browser-heading"
+      dialogLabel={t('raw.lutContract.browser')}
+      title={t('raw.lutContract.browser')}
+      description={
+        draftInputProfile
+          ? t('raw.lutContract.inputPrefix', {
+              label: draftInputProfile.label,
+            })
+          : t('raw.lutContract.chooseInputOutput')
+      }
+      closeLabel={t('raw.lutContract.closeBrowser')}
+      restoreFocus={() => triggerRef.current?.focus()}
+      triggerElement={triggerRef.current}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose({ restoreFocus: true })
+      }}
     >
-      <div className="raw-lut-contract-browser-heading">
-        <div>
-          <span>{t('raw.lutContract.browser')}</span>
-          <p>
-            {draftInputProfile
-              ? t('raw.lutContract.inputPrefix', {
-                  label: draftInputProfile.label,
-                })
-              : t('raw.lutContract.chooseInputOutput')}
-          </p>
-        </div>
-        <LutIconButton
-          label={t('raw.lutContract.closeBrowser')}
-          buttonRef={closeButtonRef}
-          onClick={() => onClose({ restoreFocus: true })}
-        >
-          <X aria-hidden="true" />
-        </LutIconButton>
-      </div>
-
       <div
         className="raw-lut-contract-browser-tabs"
         role="tablist"
@@ -575,7 +654,7 @@ function LUTContractBrowser({
       />
 
       <div
-        className="raw-lut-contract-browser-list"
+        className="raw-lut-browser-list raw-lut-contract-browser-list"
         data-lut-contract-step={step}
       >
         {step === 'input' ? (
@@ -678,14 +757,7 @@ function LUTContractBrowser({
           </>
         )}
       </div>
-    </div>
-  )
-
-  if (typeof document === 'undefined') return browser
-
-  return createPortal(
-    browser,
-    document.querySelector('.raw-lab') ?? document.body,
+    </LutBrowserDialog>
   )
 }
 
@@ -709,6 +781,7 @@ function LUTProfileStatus({
   const suggestions =
     selection?.status === 'pending' ? selection.suggestions : []
   const [browserOpen, setBrowserOpen] = useState(false)
+  const browserId = useId()
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const handleClose = useCallback((options?: { restoreFocus?: boolean }) => {
     setBrowserOpen(false)
@@ -760,6 +833,9 @@ function LUTProfileStatus({
         ref={triggerRef}
         type="button"
         className="raw-lut-contract-change-button"
+        aria-controls={browserId}
+        aria-expanded={browserOpen}
+        aria-haspopup="dialog"
         onClick={() => {
           if (browserOpen) {
             handleClose({ restoreFocus: true })
@@ -779,6 +855,7 @@ function LUTProfileStatus({
         currentProfile={resolvedProfile}
         onSelect={onSelect}
         triggerRef={triggerRef}
+        browserId={browserId}
       />
     </div>
   )
@@ -802,7 +879,7 @@ function LutIconButton({
   ariaExpanded?: boolean
   ariaHasPopup?: 'dialog'
   buttonRef?: Ref<HTMLButtonElement>
-  onClick: () => void
+  onClick?: () => void
   children: ReactNode
 }) {
   return (
@@ -840,8 +917,6 @@ function OnlineLutSourceControls({
   const [openResourceId, setOpenResourceId] = useState<string | null>(null)
   const [browserLayout, setBrowserLayout] =
     useState<OnlineLutBrowserLayout | null>(null)
-  const browserRef = useRef<HTMLDivElement | null>(null)
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null)
   const openButtonRefs = useRef(new Map<string, HTMLButtonElement>())
   const resourcesById = useMemo(
     () => new Map(state.resources.map((resource) => [resource.id, resource])),
@@ -922,12 +997,6 @@ function OnlineLutSourceControls({
     }
   }, [closeBrowser, openResourceId, resourcesById])
 
-  useEffect(() => {
-    if (!openResource) return
-
-    closeButtonRef.current?.focus()
-  }, [openResource])
-
   useLayoutEffect(() => {
     updateBrowserLayout()
   }, [updateBrowserLayout, openEntries.length, openIssues.length])
@@ -957,34 +1026,6 @@ function OnlineLutSourceControls({
     }
   }, [openResourceId, updateBrowserLayout])
 
-  useEffect(() => {
-    if (!openResourceId) return
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-
-      event.preventDefault()
-      closeBrowser(openResourceId, { restoreFocus: true })
-    }
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target
-
-      if (!(target instanceof Node)) return
-      if (browserRef.current?.contains(target)) return
-      if (openButtonRefs.current.get(openResourceId)?.contains(target)) return
-
-      closeBrowser(openResourceId, { restoreFocus: true })
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    document.addEventListener('pointerdown', handlePointerDown)
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.removeEventListener('pointerdown', handlePointerDown)
-    }
-  }, [closeBrowser, openResourceId])
-
   const formatEntryCount = (count: number) =>
     count === 1
       ? t('raw.lutSource.countOne')
@@ -995,33 +1036,30 @@ function OnlineLutSourceControls({
     openResource &&
     browserLayout &&
     (() => {
-      const browser = (
-        <div
+      return (
+        <LutBrowserDialog
+          open={Boolean(openResource)}
+          layout={browserLayout}
           id={browserId}
-          ref={browserRef}
+          kind="source"
           className="raw-lut-source-browser"
-          role="dialog"
-          aria-label={`${openResource.label} LUTs`}
-          data-lut-source-placement={browserLayout.placement}
-          style={toBrowserStyle(browserLayout)}
+          headingClassName="raw-lut-source-browser-heading"
+          dialogLabel={`${openResource.label} LUTs`}
+          title={openResource.label}
+          description={formatEntryCount(openEntries.length)}
+          closeLabel={t('raw.lutSource.close')}
+          restoreFocus={() =>
+            openButtonRefs.current.get(openResource.id)?.focus()
+          }
+          triggerElement={openButtonRefs.current.get(openResource.id)}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              closeBrowser(openResource.id, { restoreFocus: true })
+            }
+          }}
         >
-          <div className="raw-lut-source-browser-heading">
-            <div>
-              <span>{openResource.label}</span>
-              <p>{formatEntryCount(openEntries.length)}</p>
-            </div>
-            <LutIconButton
-              label={t('raw.lutSource.close')}
-              buttonRef={closeButtonRef}
-              onClick={() =>
-                closeBrowser(openResource.id, { restoreFocus: true })
-              }
-            >
-              <X aria-hidden="true" />
-            </LutIconButton>
-          </div>
           <div
-            className="raw-lut-source-browser-list"
+            className="raw-lut-browser-list raw-lut-source-browser-list"
             data-lut-source-scroll="internal"
           >
             {openEntries.length > 0 ? (
@@ -1085,14 +1123,7 @@ function OnlineLutSourceControls({
               </p>
             )}
           </div>
-        </div>
-      )
-
-      if (typeof document === 'undefined') return browser
-
-      return createPortal(
-        browser,
-        document.querySelector('.raw-lab') ?? document.body,
+        </LutBrowserDialog>
       )
     })()
 
