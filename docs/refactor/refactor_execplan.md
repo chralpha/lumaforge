@@ -439,6 +439,34 @@ Validation:
 - `pnpm exec vitest run src/modules/raw-processor/services/export-result-materialization.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/services/export-result-actions.test.ts --exclude '.worktrees/**'`
 - `pnpm exec eslint src/modules/raw-processor/services/export-result-materialization.ts src/modules/raw-processor/services/export-result-materialization.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
 
+### M14: Extract Embedded Preview URL Lifecycle
+
+Intended internal change:
+Move embedded-preview object URL creation, duplicate-safe revocation, and pure session preview clearing into `embedded-preview-url.ts`.
+The hook should continue to own refs, session id checks, runtime events, and when cleanup is called.
+
+Expected behavior:
+Embedded preview bytes are still copied into a fresh `ArrayBuffer` before `Blob` creation.
+Embedded preview object URLs still use the event MIME type.
+Replacing an embedded preview still revokes the previous object URL when it differs from the new one and does not double-revoke duplicates.
+Reset/unmount/resource evacuation still clears the active embedded preview URL from the session and recomputes `displaySource`.
+Clearing a session with no embedded preview object URL still returns the same session reference.
+
+Test-first work:
+Add characterization tests for embedded preview URL lifecycle before moving hook-local URL and session-clearing logic.
+
+Target files:
+
+- Create `src/modules/raw-processor/services/embedded-preview-url.test.ts`
+- Create `src/modules/raw-processor/services/embedded-preview-url.ts`
+- Modify `src/modules/raw-processor/hooks/useRawProcessor.ts`
+
+Validation:
+
+- `pnpm exec vitest run src/modules/raw-processor/services/embedded-preview-url.test.ts`
+- `pnpm exec vitest run src/modules/raw-processor/services/embedded-preview-url.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/workspace-ui.test.tsx --exclude '.worktrees/**'`
+- `pnpm exec eslint src/modules/raw-processor/services/embedded-preview-url.ts src/modules/raw-processor/services/embedded-preview-url.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
+
 ## Validation Gates
 
 Every milestone must pass its targeted tests or record a pre-existing failure.
@@ -475,6 +503,7 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Select workflow status/error helpers as the next seam because error-code stabilization, abort classification, retryability, and progress recovery hints are pure cross-lifecycle rules currently buried in the hook.
 - 2026-05-04: Select LUT workflow resolvers as the next seam because they are the final obvious pure helpers left in `useRawProcessor.ts`; extracting them removes lookup/string fallback rules without moving side effects or fetch/parse behavior.
 - 2026-05-04: Select export-result materialization as the next seam because it is a real result-handoff boundary that mixes legacy output compatibility, metadata preservation timing, and export result model construction inside `exportImage`; extracting it reduces hook coupling without moving orchestration or side effects.
+- 2026-05-04: Select embedded preview URL lifecycle as the next non-export seam after explorer review because it is the lowest-risk remaining lifecycle boundary with concrete resource semantics; defer runtime-load coordinator and LUT action bundles unless further test budget is justified.
 
 ## Rollback Plan
 
@@ -601,3 +630,8 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Extracted completed export output normalization, legacy blob compatibility, lazy file-backed JPEG metadata wrapping, and `ExportResult` construction into `export-result-materialization.ts`.
 - 2026-05-04: M13 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/export-result-materialization.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/services/export-result-actions.test.ts --exclude '.worktrees/**'` with 95 passing tests.
 - 2026-05-04: M13 changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/export-result-materialization.ts src/modules/raw-processor/services/export-result-materialization.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.
+- 2026-05-04: Added M14 for embedded preview object URL lifecycle while leaving runtime event ownership and refs in `useRawProcessor.ts`.
+- 2026-05-04: Added RED characterization tests for embedded preview URL lifecycle in `embedded-preview-url.test.ts`; first run failed because the helper module did not exist.
+- 2026-05-04: Extracted embedded preview byte-copy object URL creation, duplicate-safe object URL revocation, and pure session embedded-preview clearing into `embedded-preview-url.ts`.
+- 2026-05-04: M14 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/embedded-preview-url.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/workspace-ui.test.tsx --exclude '.worktrees/**'` with 99 passing tests.
+- 2026-05-04: M14 changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/embedded-preview-url.ts src/modules/raw-processor/services/embedded-preview-url.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.

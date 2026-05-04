@@ -66,7 +66,7 @@ import { isSupportedRaw } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
 import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
-import { deriveCanEdit, selectDisplaySource } from '../model/derive-session'
+import { deriveCanEdit } from '../model/derive-session'
 import type {
   ExportResult,
   ExportShareCapability,
@@ -79,6 +79,11 @@ import type {
 } from '../model/session'
 import { BUILTIN_PRESETS } from '../services/builtin-presets'
 import { clampCompareSplit } from '../services/compare-split'
+import {
+  clearEmbeddedPreviewUrlFromSession,
+  createEmbeddedPreviewObjectUrl,
+  revokeEmbeddedPreviewObjectUrls,
+} from '../services/embedded-preview-url'
 import {
   createPreExportSnapshot,
   evacuateBeforeExport,
@@ -172,12 +177,6 @@ class LUTLoadError extends Error {
     this.name = 'LUTLoadError'
     this.code = code
   }
-}
-
-function copyToArrayBuffer(data: Uint8Array) {
-  const buffer = new ArrayBuffer(data.byteLength)
-  new Uint8Array(buffer).set(data)
-  return buffer
 }
 
 function enqueuePostCommitTask(task: () => void) {
@@ -399,18 +398,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
           return prev
         }
 
-        const previewBundle = {
-          ...prev.previewBundle,
-          embeddedPreview: { status: 'idle' as const },
-        }
-
-        return {
-          ...prev,
-          previewBundle: {
-            ...previewBundle,
-            displaySource: selectDisplaySource(previewBundle),
-          },
-        }
+        return clearEmbeddedPreviewUrlFromSession(prev)
       })
     },
     [setSession],
@@ -425,9 +413,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       ].filter((url): url is string => Boolean(url)),
     )
 
-    for (const url of urls) {
-      URL.revokeObjectURL?.(url)
-    }
+    revokeEmbeddedPreviewObjectUrls(urls)
 
     embeddedPreviewUrlRef.current = null
     clearSessionEmbeddedPreviewUrl(sessionId)
@@ -892,14 +878,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
             switch (event.type) {
               case 'embedded-ready': {
-                const objectUrl = URL.createObjectURL(
-                  new Blob([copyToArrayBuffer(event.data)], {
-                    type: event.mimeType,
-                  }),
-                )
+                const objectUrl = createEmbeddedPreviewObjectUrl({
+                  data: event.data,
+                  mimeType: event.mimeType,
+                })
                 const previousUrl = embeddedPreviewUrlRef.current
                 if (previousUrl && previousUrl !== objectUrl) {
-                  URL.revokeObjectURL(previousUrl)
+                  revokeEmbeddedPreviewObjectUrls([previousUrl])
                 }
                 embeddedPreviewUrlRef.current = objectUrl
 
