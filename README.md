@@ -1,91 +1,95 @@
 # LumaForge
 
-LumaForge is a browser-local RAW photo lab for fast, color-safe straight-out
-looks. Drop in a camera RAW file, preview it immediately, apply a built-in look
-or a declared `.cube` LUT contract, compare the result against the original, and
-export a full-resolution JPEG without installing a heavyweight editor or sending
-the source image to a server.
+<p align="center">
+  <img src="./public/favicon.png" width="88" height="88" alt="LumaForge" />
+</p>
 
-The project is intentionally narrower than a desktop RAW editor. It focuses on
-one high-value workflow:
+<p align="center">
+  <strong>Put the LUTs you love on RAW photos, right in the browser.</strong>
+</p>
+
+<p align="center">
+  Drop one camera RAW file, preview it locally, choose a look or declared
+  <code>.cube</code> LUT contract, compare the result, and export a
+  full-resolution JPEG.
+</p>
+
+<p align="center">
+  <a href="https://luma.ichr.me/raw"><strong>Open the RAW lab</strong></a>
+  ·
+  <a href="https://luma.ichr.me">Product page</a>
+  ·
+  <a href="#local-development">Run locally</a>
+  ·
+  <a href="#architecture">Architecture</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/chralpha/lumaforge/actions/workflows/build.yml">
+    <img alt="Build" src="https://github.com/chralpha/lumaforge/actions/workflows/build.yml/badge.svg" />
+  </a>
+  <a href="./LICENSE">
+    <img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" />
+  </a>
+  <img alt="pnpm" src="https://img.shields.io/badge/package%20manager-pnpm-F69220.svg" />
+  <img alt="Browser-local" src="https://img.shields.io/badge/processing-browser--local-2f6fed.svg" />
+</p>
+
+## The Promise
+
+Many photographers already have LUTs they like: camera looks, film recipes,
+cinematic finishes, or a small personal collection of `.cube` files. LumaForge
+makes that workflow approachable for RAW photos without asking the user to study
+every detail of gamuts, log curves, signal ranges, and output transforms first.
+
+The product focuses on one clear path:
 
 ```text
-single RAW file -> browser-local decode -> look or LUT -> compare -> JPEG export
+single RAW file -> preview -> look or LUT -> compare -> JPEG export
 ```
 
-## Why It Exists
+It keeps the source image on the device, turns the color details a LUT needs
+into guided contract choices, and lets the user stay focused on finishing the
+photo.
 
-Most LUT workflows assume that the input image already lives in the color space
-the LUT was authored for. RAW photos do not. They start as camera-dependent
-sensor data, and a LUT made for ARRI LogC4, RED Log3G10, Sony S-Log3, Panasonic
-V-Log, or a display-referred Rec.709 image cannot be applied honestly until the
-input contract is explicit.
+## Why It Feels Simple
 
-Professional color tools such as DaVinci Resolve can build this kind of color
-workflow, but they are designed to obey the operator. If a user feeds the wrong
-gamma, log curve, gamut, or LUT output into a node graph, the tool will still
-calculate the requested result. That freedom is valuable for professionals, but
-it also makes casual RAW-to-LUT workflows easy to misconfigure.
+| What the user wants              | How LumaForge helps                                                                                  |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Try favorite LUTs on RAW photos. | Search or choose the LUT input and output profile with plain labels.                                 |
+| See the image quickly.           | Use embedded, quick, and bounded HQ preview stages.                                                  |
+| Keep the photo private.          | Process the selected file locally in the browser.                                                    |
+| Finish one photo without setup.  | Avoid accounts, uploads, native helpers, and license managers.                                       |
+| Export confidently.              | Rebuild the full-resolution JPEG through the worker path when the source and contract are supported. |
 
-LumaForge takes the opposite product stance for this workflow. It limits the
-available choices so ordinary users can get a convenient finished JPEG without
-learning the failure modes of color science first. Running in the browser also
-means the tool can work across many devices without environment setup,
-application installs, native helpers, or license friction.
+Professional tools such as Lightroom, Capture One, and DaVinci Resolve remain
+excellent when a photographer wants full editing control, catalogs, node graphs,
+or production-grade grading freedom. LumaForge chooses a smaller, friendlier
+route for the moment when someone simply wants to turn one RAW file into a
+finished JPEG with a look they already enjoy.
 
-LumaForge explores a practical browser-first version of that pipeline:
+## What You Can Do
 
-- keep image processing local to the browser;
-- normalize RAW input into a known scene-linear working representation;
-- constrain gamma, log, gamut, and LUT output choices so incompatible contracts
-  are not rendered silently;
-- keep preview interactive while full-resolution export runs through a bounded
-  worker path;
-- fail closed when a source file or color pipeline cannot be exported correctly.
+- Load a single RAW file locally from common camera formats such as ARW, NEF,
+  RAF, RW2, ORF, DNG, CR2, CR3, PEF, SRW, IIQ, 3FR, FFF, and related RAW
+  extensions.
+- See an early visible image through embedded, quick, and bounded HQ preview
+  stages.
+- Compare original and processed output with the WebGL2 preview renderer.
+- Choose built-in finishes: Neutral, Warm, Cool, Film Soft, Film Contrast,
+  Cinematic, Fade, and Mono.
+- Adjust light finishing controls such as exposure, contrast, and look strength
+  without turning the app into a full development cockpit.
+- Upload a custom `.cube` LUT and declare its input and output contract.
+- Work with profile families such as ARRI LogC, RED Log3G10, Sony S-Log,
+  Panasonic V-Log, Fujifilm F-Log, Canon Log, Nikon N-Log, ACES, and display
+  sRGB.
+- Export a full-resolution JPEG through a bounded worker path, with download,
+  share, and clipboard actions where the browser supports them.
 
-## Current Capabilities
+## LUT Contracts
 
-- Browser-local RAW loading for common camera formats such as ARW, NEF, RAF,
-  RW2, ORF, DNG, CR2, CR3, PEF, SRW, IIQ, 3FR, FFF, and related RAW extensions.
-- Embedded, quick, and HQ preview stages so the first visible image can appear
-  before the heavier decode finishes.
-- WebGL2 preview rendering with original/processed comparison.
-- Built-in looks: Neutral, Warm, Cool, Film Soft, Film Contrast, Cinematic,
-  Fade, and Mono.
-- Custom `.cube` LUT upload with explicit camera/log or display contract
-  selection.
-- LUT profile coverage for common creative targets including ARRI LogC,
-  REDWideGamutRGB / Log3G10, Nikon N-Log, Sony S-Log, Canon Log, Fujifilm
-  F-Log, Panasonic V-Log, ACES, and display sRGB.
-- Full-resolution JPEG export through a dedicated worker using bounded
-  processed-window strips instead of full-frame canvas or GPU readback.
-- A self-packaged `@lumaforge/luma-raw-runtime` WebAssembly runtime built around
-  pinned LibRaw, Little CMS, and Emscripten inputs.
-- A row-oriented `@lumaforge/luma-jpeg-runtime` package for bounded JPEG output.
-
-## Product Boundary
-
-LumaForge is currently an active RAW + LUT pipeline prototype. It is designed
-for modern desktop browsers with WebGL2. Mobile browsers, unusual RAW layouts,
-and files that cannot expose the required processed-window facts may be
-disabled with an explicit unsupported message.
-
-Full-resolution export is deliberately stricter than preview. If the runtime
-cannot prove that the RAW source and selected LUT graph can be reproduced by the
-authoritative worker export path, LumaForge disables export instead of silently
-downscaling, changing the color path, or exporting a preview image under a
-full-resolution label.
-
-Non-goals for the current product surface:
-
-- no cloud upload requirement;
-- no account system;
-- no batch processing;
-- no local daemon or native helper;
-- no full desktop-style RAW development panel;
-- no AI denoise, masking, lens correction, or project catalog.
-
-## Architecture
+The color path is scene-referred until final JPEG output:
 
 ```text
 RAW file
@@ -94,27 +98,53 @@ RAW file
 -> Linear ProPhoto scene-referred working image
 -> LUT input gamut and transfer/log encoding
 -> built-in look or declared .cube LUT
--> output transform to Rec.709/sRGB
--> browser preview or full-resolution JPEG export
+-> declared LUT output transform
+-> Rec.709/sRGB JPEG output
 ```
 
-The main boundaries are:
+LUT contracts are the small bit of structure that lets LumaForge apply creative
+looks to RAW files without making the user build a color pipeline by hand. When
+the LUT already carries useful metadata, LumaForge can use it. When it needs
+more information, the app asks for the LUT input and output profile with a
+searchable contract browser.
 
-- `packages/luma-raw-runtime`: RAW metadata, preview extraction, decode sessions,
-  processed-window reads, and native runtime packaging.
-- `src/lib/color`: color spaces, transfer functions, LUT profile contracts, and
-  deterministic RAW render exposure.
-- `src/lib/gl`: WebGL2 preview pipeline.
-- `src/lib/export`: worker-driven full-resolution color graph and strip export.
+If the selected source file or LUT contract is not supported by the
+full-resolution export path yet, LumaForge explains what is missing and holds
+export until the final JPEG can be reproduced by the authoritative worker path.
+
+## Product Boundary
+
+LumaForge is an active browser RAW + LUT pipeline. The current supported baseline
+is a modern desktop browser with WebGL2. Mobile browsers, unusual RAW layouts,
+and files that cannot expose the required processed-window facts may be marked
+experimental or unsupported.
+
+The product deliberately does not include:
+
+- cloud upload as a requirement;
+- accounts or project catalogs;
+- batch processing;
+- a local daemon or native helper;
+- a full desktop-style RAW development panel;
+- AI denoise, masking, lens correction, or unlimited adjustment stacks.
+
+## Architecture
+
+The app is split around the same boundary the product sells: interactive preview
+and authoritative export share color intent, but they are not the same executor.
+
+- `packages/luma-raw-runtime`: browser RAW metadata, preview extraction, decode
+  sessions, processed-window access, export capability facts, and pinned native
+  artifacts.
+- `packages/luma-color-runtime`: pure TypeScript color math, LUT contracts,
+  transfer/gamut transforms, graph logic, row processing, and GLSL helpers.
 - `packages/luma-jpeg-runtime`: bounded row-oriented JPEG encoding.
-- `src/modules/raw-processor`: the product UI for upload, preview, style
-  selection, LUT contract selection, compare, status, and export.
+- `src/lib/gl`: WebGL2 interactive preview rendering.
+- `src/lib/export`: worker-driven full-resolution export path.
+- `src/modules/raw-processor`: the `/raw` workflow for upload, preview, style
+  selection, LUT contract selection, compare, status, and export actions.
 
-Preview and export share color intent, but they are not the same executor.
-Preview is interactive and may use lower-resolution assets. Export is the
-authoritative full-resolution path.
-
-## Getting Started
+## Local Development
 
 Requirements:
 
@@ -134,28 +164,28 @@ Start the development server:
 pnpm dev
 ```
 
-Open the RAW workspace:
+Open:
 
 ```text
 http://localhost:5173/raw
 ```
 
-Build for production:
+Common checks:
 
 ```bash
+pnpm lint
+pnpm test:run
 pnpm build
 ```
 
-Run tests:
+This repository uses `pnpm` only.
 
-```bash
-pnpm test:run
-```
-
-## Native Runtime Tasks
+## Native Runtime
 
 The RAW and JPEG runtimes are workspace packages. Their native inputs are pinned
-and should not depend on `libraw-wasm`, `LibRaw-Wasm`, or local baseline paths.
+and rebuilt from recorded sources. Do not make the app depend on `libraw-wasm`,
+`LibRaw-Wasm`, or local baseline artifact paths; the current RAW boundary is
+`@lumaforge/luma-raw-runtime`.
 
 Production builds prefer the prebuilt `@lumaforge/luma-native-artifacts` package
 when its native files are available. Development serving defaults to workspace
@@ -165,7 +195,7 @@ source artifacts. Override selection with `LUMAFORGE_NATIVE_RUNTIME_MODE`:
 - `prebuilt`: require `@lumaforge/luma-native-artifacts` artifacts.
 - `source`: require workspace `packages/*/dist/native` artifacts.
 
-Common runtime commands:
+Native commands:
 
 ```bash
 pnpm native:prepare
@@ -174,7 +204,7 @@ pnpm native:verify
 pnpm --filter @lumaforge/luma-raw-runtime test
 ```
 
-Before publishing a refreshed native artifact package:
+Before publishing refreshed native artifacts:
 
 ```bash
 pnpm native:build
@@ -189,6 +219,14 @@ Public RAW smoke fixtures can be fetched with:
 ```bash
 pnpm --filter @lumaforge/luma-raw-runtime fixtures:fetch-public
 ```
+
+## Contributing
+
+Keep contributions aligned with the product boundary: one RAW file, local
+preview, look or LUT, comparison, and trustworthy JPEG export. Color and LUT
+changes should keep contracts explicit: declared input gamut, transfer/log
+curve, LUT role, output handling, and export-readiness behavior should remain
+clear to users.
 
 ## License
 
