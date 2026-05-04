@@ -1,10 +1,4 @@
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -18,6 +12,11 @@ import { checker } from 'vite-plugin-checker'
 import { routeBuilderPlugin } from 'vite-plugin-route-builder'
 
 import PKG from './package.json'
+import {
+  assertNativeRuntimeAssets,
+  copyNativeRuntimeAssets,
+  resolveNativeRuntimeAssets,
+} from './scripts/native-runtime/assets.mjs'
 import {
   createRobotsTxt,
   createSitemapXml,
@@ -47,32 +46,6 @@ const LUMA_RAW_RUNTIME_SOURCE = resolve(
   ROOT,
   './packages/luma-raw-runtime/src/index.ts',
 )
-const NATIVE_RUNTIME_ASSETS = [
-  {
-    label: 'Luma RAW runtime desktop',
-    packageName: '@lumaforge/luma-raw-runtime',
-    sourceDir: resolve(ROOT, './packages/luma-raw-runtime/dist/native/desktop'),
-    targetDir: 'native/desktop',
-    files: ['luma_raw.js', 'luma_raw.wasm'],
-  },
-  {
-    label: 'Luma RAW runtime low-memory',
-    packageName: '@lumaforge/luma-raw-runtime',
-    sourceDir: resolve(
-      ROOT,
-      './packages/luma-raw-runtime/dist/native/low-memory',
-    ),
-    targetDir: 'native/low-memory',
-    files: ['luma_raw.js', 'luma_raw.wasm'],
-  },
-  {
-    label: 'Luma JPEG runtime',
-    packageName: '@lumaforge/luma-jpeg-runtime',
-    sourceDir: resolve(ROOT, './packages/luma-jpeg-runtime/dist/native'),
-    targetDir: 'native',
-    files: ['luma_jpeg.js', 'luma_jpeg.wasm'],
-  },
-] as const
 const CROSS_ORIGIN_ISOLATION_HEADERS = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'require-corp',
@@ -89,58 +62,21 @@ function resolveSeoRuntimeOptions(env = process.env) {
   }
 }
 
-function assertNativeRuntimeAssets() {
-  const missingAssets = NATIVE_RUNTIME_ASSETS.flatMap((assetSet) =>
-    assetSet.files
-      .filter((fileName) => !existsSync(resolve(assetSet.sourceDir, fileName)))
-      .map((fileName) => ({
-        assetSet,
-        fileName,
-      })),
-  )
-
-  if (missingAssets.length > 0) {
-    const missingSummary = missingAssets
-      .map(({ assetSet, fileName }) => `${assetSet.label}: ${fileName}`)
-      .join(', ')
-    const buildCommands = [
-      ...new Set(
-        missingAssets.map(
-          ({ assetSet }) =>
-            `pnpm --filter ${assetSet.packageName} build:native`,
-        ),
-      ),
-    ].join(' && ')
-
-    throw new Error(
-      `The app requires native runtime assets (${missingSummary}). Run \`${buildCommands}\` before building or serving the app.`,
-    )
+function nativeRuntimeAssetsPlugin(env: NodeJS.ProcessEnv): Plugin {
+  function resolveAssetSets() {
+    return resolveNativeRuntimeAssets({ rootDir: ROOT, env })
   }
-}
 
-function nativeRuntimeAssetsPlugin(): Plugin {
   return {
     name: 'lumaforge-native-runtime-assets',
     configResolved() {
-      assertNativeRuntimeAssets()
+      assertNativeRuntimeAssets(resolveAssetSets())
     },
     writeBundle(options) {
-      assertNativeRuntimeAssets()
-
       const outputDir = options.dir
         ? resolve(ROOT, options.dir)
         : resolve(ROOT, 'dist')
-      for (const assetSet of NATIVE_RUNTIME_ASSETS) {
-        const nativeOutputDir = resolve(outputDir, assetSet.targetDir)
-        mkdirSync(nativeOutputDir, { recursive: true })
-
-        for (const fileName of assetSet.files) {
-          copyFileSync(
-            resolve(assetSet.sourceDir, fileName),
-            resolve(nativeOutputDir, fileName),
-          )
-        }
-      }
+      copyNativeRuntimeAssets(resolveAssetSets(), outputDir)
     },
   }
 }
@@ -180,8 +116,12 @@ function staticSeoArtifactsPlugin(): Plugin {
   }
 }
 
-export default defineConfig(() => {
+export default defineConfig(({ command }) => {
   const seoOptions = resolveSeoRuntimeOptions()
+  const nativeRuntimeEnv = { ...process.env }
+  if (!nativeRuntimeEnv.LUMAFORGE_NATIVE_RUNTIME_MODE && command === 'serve') {
+    nativeRuntimeEnv.LUMAFORGE_NATIVE_RUNTIME_MODE = 'source'
+  }
 
   return {
     server: {
@@ -191,7 +131,7 @@ export default defineConfig(() => {
       headers: CROSS_ORIGIN_ISOLATION_HEADERS,
     },
     plugins: [
-      nativeRuntimeAssetsPlugin(),
+      nativeRuntimeAssetsPlugin(nativeRuntimeEnv),
       staticSeoArtifactsPlugin(),
       codeInspectorPlugin({
         bundler: 'vite',

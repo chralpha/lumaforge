@@ -1,0 +1,26 @@
+{
+  "name": "@lumaforge/luma-native-artifacts",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Prebuilt browser WebAssembly artifacts for LumaForge RAW and JPEG runtimes.",
+  "license": "SEE LICENSE IN LICENSE",
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": [
+    "./native/**/*.js",
+    "./native/**/*.wasm"
+  ],
+  "files": [
+    "LICENSE",
+    "README.md",
+    "THIRD_PARTY_LICENSES",
+    "THIRD_PARTY_NOTICES.md",
+    "native"
+  ],
+  "scripts": {
+    "sync": "node ../../scripts/native-runtime/sync-artifact-package.mjs",
+    "verify": "node ../../scripts/native-runtime/verify-artifact-package.mjs",
+    "pack:dry-run": "pnpm run verify && npm pack --dry-run --json"
+  }
+}

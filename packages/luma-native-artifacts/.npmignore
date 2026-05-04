@@ -1,0 +1,3 @@
+# Intentionally empty.
+# package.json "files" controls the publish surface so generated native assets
+# can be packed after `pnpm native:artifacts:sync`.

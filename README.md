@@ -154,16 +154,34 @@ pnpm test:run
 
 ## Native Runtime Tasks
 
-The RAW runtime is a workspace package. Its native inputs are pinned and should
-not depend on `libraw-wasm`, `LibRaw-Wasm`, or local baseline paths.
+The RAW and JPEG runtimes are workspace packages. Their native inputs are pinned
+and should not depend on `libraw-wasm`, `LibRaw-Wasm`, or local baseline paths.
+
+Production builds prefer the prebuilt `@lumaforge/luma-native-artifacts` package
+when its native files are available. Development serving defaults to workspace
+source artifacts. Override selection with `LUMAFORGE_NATIVE_RUNTIME_MODE`:
+
+- `auto`: prefer prebuilt artifacts, then fall back to workspace artifacts.
+- `prebuilt`: require `@lumaforge/luma-native-artifacts` artifacts.
+- `source`: require workspace `packages/*/dist/native` artifacts.
 
 Common runtime commands:
 
 ```bash
-pnpm --filter @lumaforge/luma-raw-runtime native:fetch
-pnpm --filter @lumaforge/luma-raw-runtime build:native
-pnpm --filter @lumaforge/luma-raw-runtime native:verify
+pnpm native:prepare
+pnpm native:build
+pnpm native:verify
 pnpm --filter @lumaforge/luma-raw-runtime test
+```
+
+Before publishing a refreshed native artifact package:
+
+```bash
+pnpm native:build
+pnpm native:verify
+pnpm native:artifacts:sync
+pnpm native:artifacts:verify
+pnpm native:artifacts:pack
 ```
 
 Public RAW smoke fixtures can be fetched with:
@@ -176,7 +194,7 @@ pnpm --filter @lumaforge/luma-raw-runtime fixtures:fetch-public
 
 LumaForge is distributed under GPL-3.0. See [LICENSE](./LICENSE).
 
-The RAW runtime also carries third-party native notices for LibRaw, Little CMS,
-and the pinned Emscripten toolchain. See
+The RAW and native artifact packages carry third-party native notices for
+LibRaw, Little CMS, libjpeg-turbo, and the pinned Emscripten toolchain. See
 [packages/luma-raw-runtime/THIRD_PARTY_NOTICES.md](./packages/luma-raw-runtime/THIRD_PARTY_NOTICES.md)
 before redistributing native artifacts.
