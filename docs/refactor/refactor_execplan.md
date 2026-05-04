@@ -145,6 +145,34 @@ Candidate seams:
 - Export result materialization diagnostics.
 - Runtime package public-contract test gaps.
 
+### M3: Extract Full-Resolution Export Readiness
+
+Intended internal change:
+Move full-resolution export readiness derivation out of `useRawProcessor.ts` into a focused `export-readiness.ts` service so the hook consumes one narrow behavior-preserving helper for `canExport`, disabled copy, and the export action guard.
+
+Expected behavior:
+Full-resolution export remains fail-closed until the source file, session, quick preview, supported processed-window capability, decoded RAW render exposure, supported style/LUT graph, and safe execution plan are all ready.
+Disabled copy precedence remains source/session missing, session-level reason, missing RAW render exposure, then unsafe execution-plan copy.
+The export worker must still not start for probing, unsupported, missing exposure, unsupported style/LUT output, or unsafe 100MP iOS blob-handoff paths.
+
+Test-first work:
+Add characterization tests for the new readiness helper before moving production logic.
+
+Target files:
+
+- Create `src/modules/raw-processor/services/export-readiness.test.ts`
+- Create `src/modules/raw-processor/services/export-readiness.ts`
+- Modify `src/modules/raw-processor/hooks/useRawProcessor.ts`
+
+Validation:
+
+- `pnpm exec vitest run src/modules/raw-processor/services/export-readiness.test.ts`
+- `pnpm exec vitest run src/modules/raw-processor/services/export-state.test.ts`
+- `pnpm exec vitest run src/modules/raw-processor/hooks/useRawProcessor.test.tsx`
+- `pnpm exec vitest run src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts --exclude '.worktrees/**'`
+- `pnpm exec eslint src/modules/raw-processor/services/export-readiness.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
+- `pnpm exec tsc --noEmit --pretty false`, expected to remain blocked only by the existing missing `src/generated-routes.ts` fresh-worktree baseline.
+
 ## Validation Gates
 
 Every milestone must pass its targeted tests or record a pre-existing failure.
@@ -157,7 +185,7 @@ Before claiming the branch is ready, run the full relevant suite again:
 - Package-local `build`, `typecheck`, and `test` commands for touched packages
 - Browser validation for user-visible `/raw` behavior changes
 
-This run should not require browser validation unless M1 unexpectedly changes UI interaction or rendering behavior.
+This run should not require browser validation unless a milestone unexpectedly changes UI interaction or rendering behavior.
 
 ## Decision Log
 
@@ -169,6 +197,8 @@ This run should not require browser validation unless M1 unexpectedly changes UI
 - 2026-05-04: Correct targeted Vitest commands to omit `--runInBand`; this repo's installed Vitest rejects that option.
 - 2026-05-04: Reconnaissance confirmed the high-risk cross-boundary surfaces are route-provider wiring, `/raw` state to export graph, preview/export contract parity, package-root API exports, OPFS checkpoint manifests, and online LUT fetch/cache behavior.
 - 2026-05-04: Performance review identified RAW session reuse, preview staging, WebGL upload/rendering, full-resolution strip export, row-band color transforms, JPEG worker transfer/copy behavior, and export-result materialization as hot paths; M1 deliberately avoids changing those executors.
+- 2026-05-04: Select full-resolution export readiness as the next seam because it removes duplicated hook-only guard logic while preserving the preview/export boundary and existing fail-closed behavior.
+- 2026-05-04: Keep unsafe export readiness using the existing default `balanced` execution-plan probe; changing it to the requested export fidelity would be a behavior change and is out of scope.
 
 ## Rollback Plan
 
@@ -190,3 +220,15 @@ This run should not require browser validation unless M1 unexpectedly changes UI
 - 2026-05-04: Full `pnpm test:run` still fails only on the recorded baseline blockers: missing RAW/JPEG native smoke artifacts and the deploy URL expectation mismatch.
 - 2026-05-04: Final behavior, architecture, performance, and reliability/security reviews found no regressions in M1.
 - 2026-05-04: Residual risk remains pre-existing and behavior-preserved: checkpoint metrics are accepted by `kind === 'checkpoint'` only.
+- 2026-05-04: M2 review selected the full-resolution export readiness seam after explorer review of `useRawProcessor.ts` and nearby service tests.
+- 2026-05-04: Added RED characterization tests for `deriveFullResExportReadiness`; initial run failed because the helper did not exist.
+- 2026-05-04: Extracted full-resolution export readiness logic to `export-readiness.ts`, removed hook-local duplicate readiness helpers, and deleted the unreachable post-readiness capability guard from `exportImage`.
+- 2026-05-04: During hook integration, targeted tests exposed a variable-shadowing TDZ in the refactor; fixed by separating the pre-export session snapshot from the post-worker completed session.
+- 2026-05-04: Behavior review found no M3 regressions and noted residual branch-combination coverage is still covered at hook/model level.
+- 2026-05-04: Architecture review found the hook should not cast after a boolean readiness check and that readiness policy should not make `export-state.ts` a catch-all.
+- 2026-05-04: Refined `deriveFullResExportReadiness` into a typed discriminated union carrying ready-state values and moved readiness policy into `export-readiness.ts`.
+- 2026-05-04: Performance/reliability review noted a duplicate session-level export derivation in the first helper draft; the typed helper now returns `canExport: true` directly after the existing disabled-reason, exposure, and unsafe-plan gates pass.
+- 2026-05-04: Targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts --exclude '.worktrees/**'`.
+- 2026-05-04: Changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/export-readiness.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.
+- 2026-05-04: `pnpm exec tsc --noEmit --pretty false` remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence after fixing new test literal-type issues.
+- 2026-05-04: Full `pnpm test:run` after M3 still fails only on the recorded baseline blockers: missing RAW/JPEG native smoke artifacts and the deploy URL expectation mismatch. Newly discovered `export-readiness.test.ts` passes in full-suite discovery.

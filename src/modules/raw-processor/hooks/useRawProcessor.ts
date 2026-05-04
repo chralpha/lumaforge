@@ -40,7 +40,6 @@ import type { ExportExecutionPlan } from '~/lib/export/execution-profile'
 import {
   emitExportDebugEvent,
   EXPORT_EXECUTION_PROFILES,
-  getExportModeCopy,
 } from '~/lib/export/execution-profile'
 import type { FullResWorkerCheckpointConfig } from '~/lib/export/full-res-export-client'
 import type { JpegExportMetadata } from '~/lib/export/jpeg-metadata'
@@ -76,12 +75,7 @@ import { isSupportedRaw } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
 import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
-import {
-  deriveCanEdit,
-  deriveCanExport,
-  deriveExportDisabledReason,
-  selectDisplaySource,
-} from '../model/derive-session'
+import { deriveCanEdit, selectDisplaySource } from '../model/derive-session'
 import type {
   ExportResult,
   ExportShareCapability,
@@ -90,7 +84,6 @@ import { createExportResult } from '../model/export-result'
 import type {
   DisplaySource,
   ExportRecoveryState,
-  ImageSession,
   LUTProfileSelectionState,
   StyleAsset,
 } from '../model/session'
@@ -100,6 +93,7 @@ import {
   evacuateBeforeExport,
   getPreExportEvacuationOwners,
 } from '../services/export-evacuation'
+import { deriveFullResExportReadiness } from '../services/export-readiness'
 import {
   createInterruptedExportRecovery,
   validateRecoveryReselection,
@@ -314,62 +308,6 @@ function withLazyJpegMetadata(input: {
   }
 }
 
-const MISSING_RAW_RENDER_EXPOSURE_EXPORT_REASON =
-  'RAW preview exposure is still being prepared.'
-
-function getUnsafeFullResExportReason(input: {
-  session: ImageSession
-  fidelity?: 'safe' | 'balanced' | 'max'
-}) {
-  const capability = input.session.exportState.fullResCapability
-  if (capability.status !== 'supported') return undefined
-
-  const plan = selectCurrentExportExecutionPlan({
-    fidelity: input.fidelity ?? 'balanced',
-    sourceWidth: capability.width,
-    sourceHeight: capability.height,
-  })
-
-  return plan.productCopy === 'cannot-safely-complete'
-    ? getExportModeCopy(plan.productCopy)
-    : undefined
-}
-
-function isFullResExportRunnable(input: {
-  sourceFile: File | null
-  session: ImageSession
-  rawRenderExposure: DecodedImage['renderExposure'] | null | undefined
-}) {
-  return (
-    Boolean(input.sourceFile) &&
-    Boolean(input.rawRenderExposure) &&
-    deriveCanExport(input.session) &&
-    !getUnsafeFullResExportReason({ session: input.session })
-  )
-}
-
-function resolveHookExportDisabledReason(input: {
-  sourceFile: File | null
-  session: ImageSession | null
-  rawRenderExposure: DecodedImage['renderExposure'] | null | undefined
-}) {
-  if (!input.sourceFile || !input.session) {
-    return 'Full-resolution export source is still loading.'
-  }
-
-  const sessionReason = deriveExportDisabledReason(input.session)
-  if (sessionReason) return sessionReason
-
-  if (!input.rawRenderExposure) {
-    return MISSING_RAW_RENDER_EXPOSURE_EXPORT_REASON
-  }
-
-  const unsafeReason = getUnsafeFullResExportReason({ session: input.session })
-  if (unsafeReason) return unsafeReason
-
-  return undefined
-}
-
 export interface UseRawProcessorReturn {
   // State
   params: ProcessingParams
@@ -505,19 +443,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
   )
   const hasImage = session ? deriveCanEdit(session) : false
   const rawRenderExposure = decodedImageRef.current?.renderExposure ?? null
-  const canExport = session
-    ? isFullResExportRunnable({
-        sourceFile: loadedImage.file,
-        session,
-        rawRenderExposure,
-      })
-    : false
+  const exportReadiness = deriveFullResExportReadiness({
+    sourceFile: loadedImage.file,
+    session,
+    rawRenderExposure,
+  })
+  const canExport = exportReadiness.canExport
   const exportDisabledReason = !canExport
-    ? resolveHookExportDisabledReason({
-        sourceFile: loadedImage.file,
-        session,
-        rawRenderExposure,
-      })
+    ? exportReadiness.disabledReason
     : undefined
   const detachedStyle =
     !session && lut
@@ -1875,21 +1808,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
       recoveredExportId?: string
     }) => {
       const rawRenderExposure = decodedImageRef.current?.renderExposure ?? null
-      if (
-        !session ||
-        !loadedImage.file ||
-        !rawRenderExposure ||
-        !isFullResExportRunnable({
-          sourceFile: loadedImage.file,
-          session,
-          rawRenderExposure,
-        })
-      ) {
-        const description = resolveHookExportDisabledReason({
-          sourceFile: loadedImage.file,
-          session,
-          rawRenderExposure,
-        })
+      const sourceFile = loadedImage.file
+      const exportReadiness = deriveFullResExportReadiness({
+        sourceFile,
+        session,
+        rawRenderExposure,
+      })
+      if (!exportReadiness.canExport) {
+        const description = exportReadiness.disabledReason
         scheduleToast(() =>
           toast.error(
             'Full-resolution export is not ready',
@@ -1899,24 +1825,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
         return
       }
 
-      if (session.exportState.fullResCapability.status !== 'supported') {
-        scheduleToast(() =>
-          toast.error(
-            session.exportState.fullResCapability.status === 'unsupported'
-              ? session.exportState.fullResCapability.reason
-              : 'Full-resolution export support is still being checked.',
-          ),
-        )
-        return
-      }
-      const exportCapability = session.exportState.fullResCapability
+      const activeSession = exportReadiness.session
+      const activeSourceFile = exportReadiness.sourceFile
+      const activeRawRenderExposure = exportReadiness.rawRenderExposure
+      const exportCapability = exportReadiness.fullResCapability
 
       const graph = resolveExportColorGraph({
         styleKind: params.styleKind,
         intensity: params.intensity,
         builtinPreset: params.builtinPreset,
         lut: lutDataRef.current,
-        rawRenderExposure,
+        rawRenderExposure: activeRawRenderExposure,
         userExposureEv: params.userExposureEv,
         userContrast: params.userContrast,
       })
@@ -1943,7 +1862,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
       const graphFingerprint = JSON.stringify(graph.steps)
 
-      const exportSessionId = session.id
+      const exportSessionId = activeSession.id
       const exportGraphVersion = exportGraphVersionRef.current
       abortExportWork()
       const exportAbortController = new AbortController()
@@ -2011,7 +1930,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
             )
             const exportId = createExportId()
             const sourceFingerprint = await createSourceFingerprint(
-              loadedImage.file,
+              activeSourceFile,
               {
                 width: exportCapability.width,
                 height: exportCapability.height,
@@ -2019,7 +1938,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
             )
             checkpointManifest = createSafeRetryManifest({
               exportId,
-              file: loadedImage.file,
+              file: activeSourceFile,
               sourceFingerprint,
               outputWidth: exportCapability.width,
               outputHeight: exportCapability.height,
@@ -2144,21 +2063,21 @@ export function useRawProcessor(): UseRawProcessorReturn {
           registerCurrentPreviewPipelineForEvacuation()
         }
         const snapshot = createPreExportSnapshot({
-          file: loadedImage.file,
+          file: activeSourceFile,
           metadata: loadedImage.metadata,
           graph,
           graphFingerprint,
           lutTitle:
-            session.activeStyle?.kind === 'custom'
-              ? session.activeStyle.name
+            activeSession.activeStyle?.kind === 'custom'
+              ? activeSession.activeStyle.name
               : undefined,
           quickPreviewReady:
-            session.previewBundle.quickDecodePreview.status === 'ready',
+            activeSession.previewBundle.quickDecodePreview.status === 'ready',
           tone: {
             userExposureEv: params.userExposureEv,
             userContrast: params.userContrast,
           },
-          style: session.activeStyle,
+          style: activeSession.activeStyle,
         })
         const registry = resourceRegistryRef.current
         if (!registry) {
@@ -2214,12 +2133,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
         }
 
         const filename = buildExportFilename(
-          session.sourceFile.name,
-          session.activeStyle?.name ?? 'neutral',
+          activeSession.sourceFile.name,
+          activeSession.activeStyle?.name ?? 'neutral',
         )
 
         const result = await runFullResolutionExportJob({
-          file: loadedImage.file,
+          file: activeSourceFile,
           filename,
           quality: quality === 'high' ? 0.92 : 0.86,
           executionPlan: jobExecutionPlan,
@@ -2280,18 +2199,19 @@ export function useRawProcessor(): UseRawProcessorReturn {
           signal: exportAbortController.signal,
         })
 
-        const activeSession = sessionRef.current
+        const completedSession = sessionRef.current
         if (
           !isMountedRef.current ||
           exportAbortController.signal.aborted ||
           exportGraphVersionRef.current !== exportGraphVersion ||
-          !activeSession ||
-          activeSession.id !== exportSessionId ||
-          activeSession.exportState.fullResCapability.status !== 'supported'
+          !completedSession ||
+          completedSession.id !== exportSessionId ||
+          completedSession.exportState.fullResCapability.status !== 'supported'
         ) {
           return
         }
-        const completedCapability = activeSession.exportState.fullResCapability
+        const completedCapability =
+          completedSession.exportState.fullResCapability
         const exportJobResult = result as {
           filename: string
           output?: typeof result.output
