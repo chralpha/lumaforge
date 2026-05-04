@@ -49,10 +49,12 @@ No intentional behavior changes are approved for this run.
 ## Proposed Target Architecture
 
 The target shape is not a broad rewrite.
-The refactor should reduce the `useRawProcessor` hook into orchestration over narrow domain helpers:
+The refactor should reduce the `useRawProcessor` hook into orchestration over narrow domain helpers for the whole user lifecycle, not only export:
 
 - Session model and pure state transitions live in `src/modules/raw-processor/model` or focused services.
-- RAW preview orchestration remains in the hook until its state machine is fully characterized.
+- RAW load orchestration remains in the hook, but preview/session transitions move into pure helpers once characterized.
+- Embedded, quick, and bounded-HQ preview state transitions are modeled as one lifecycle boundary with display-source selection as an invariant.
+- LUT/look and compare interactions remain view/user intent boundaries; render-affecting changes invalidate export while view-only changes do not.
 - Export readiness, export state mutation, checkpoint manifest construction, and debug payload shaping move into testable helper modules.
 - User action services remain side-effect focused and keep browser API boundaries explicit.
 - Runtime package public exports stay unchanged; package-internal moves require package-local public-contract tests before export changes.
@@ -197,6 +199,34 @@ Validation:
 - `pnpm exec vitest run src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'`
 - `pnpm exec eslint src/modules/raw-processor/services/export-evacuation.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
 
+### M5: Extract RAW Preview Session Transitions
+
+Intended internal change:
+Move pure preview/session transition updates out of `useRawProcessor.ts` into a focused `preview-session-state.ts` service.
+
+Expected behavior:
+Loading a RAW still preserves compare split and any staged custom LUT, enters compare mode, marks quick and bounded-HQ previews as loading, and probes export capability.
+Embedded preview readiness still publishes an object URL backed display source without metadata changes.
+Quick preview readiness still upgrades display source, stores decoded metadata, updates source facts and render state, and starts export capability probing from the hook.
+Bounded-HQ readiness still becomes the preferred display source.
+Quick preview failure still fails both quick and bounded-HQ preview state, falls back to embedded display when available, marks render failed, blocks full-resolution export with `Quick preview did not complete.`, and preserves existing user-facing error/toast behavior from the hook.
+Bounded-HQ failure or skip still leaves quick preview usable and does not create a global load error.
+
+Test-first work:
+Add characterization tests for the pure transition helper before moving hook-local update logic.
+
+Target files:
+
+- Create `src/modules/raw-processor/services/preview-session-state.test.ts`
+- Create `src/modules/raw-processor/services/preview-session-state.ts`
+- Modify `src/modules/raw-processor/hooks/useRawProcessor.ts`
+
+Validation:
+
+- `pnpm exec vitest run src/modules/raw-processor/services/preview-session-state.test.ts`
+- `pnpm exec vitest run src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts --exclude '.worktrees/**'`
+- `pnpm exec eslint src/modules/raw-processor/services/preview-session-state.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
+
 ## Validation Gates
 
 Every milestone must pass its targeted tests or record a pre-existing failure.
@@ -223,6 +253,7 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Performance review identified RAW session reuse, preview staging, WebGL upload/rendering, full-resolution strip export, row-band color transforms, JPEG worker transfer/copy behavior, and export-result materialization as hot paths; M1 deliberately avoids changing those executors.
 - 2026-05-04: Select full-resolution export readiness as the next seam because it removes duplicated hook-only guard logic while preserving the preview/export boundary and existing fail-closed behavior.
 - 2026-05-04: Keep unsafe export readiness using the existing default `balanced` execution-plan probe; changing it to the requested export fidelity would be a behavior change and is out of scope.
+- 2026-05-04: After user correction, broaden the refactor track from export-specific seams to the complete `/raw` lifecycle. Select preview session transitions as the next non-export seam because the behavior is already partly characterized at hook level and can be isolated without changing runtime, UI, or export execution.
 
 ## Rollback Plan
 
@@ -265,3 +296,10 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Final `pnpm test:run` after M4 reported 83 passed files, 1 skipped file, 1021 passed tests, and 8 skipped tests. It still fails only on recorded baseline blockers: missing RAW/JPEG native smoke artifacts and the deploy URL assertion mismatch.
 - 2026-05-04: Final `pnpm exec eslint .` still fails on recorded repo-wide baseline lint issues, mostly Markdown formatting plus existing test style issues, with 415 errors.
 - 2026-05-04: Final `pnpm build` still fails closed on recorded missing native RAW/JPEG runtime assets.
+- 2026-05-04: Re-scoped the next milestone to full `/raw` usage lifecycle and added M5 for RAW preview session transitions before any non-doc production edits.
+- 2026-05-04: Added RED characterization tests for pure RAW preview session transitions in `preview-session-state.test.ts`; first run failed because the helper module did not exist, then the stubbed helper failed all seven behavior assertions.
+- 2026-05-04: Extracted preview load-start, preview-ready, quick-failed, bounded-HQ-failed, and bounded-HQ-skipped session transitions into `preview-session-state.ts` and rewired `useRawProcessor.ts` to call those helpers while leaving async guards, status/progress updates, toasts, and runtime cleanup in the hook.
+- 2026-05-04: M5 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts --exclude '.worktrees/**'` with 98 passing tests.
+- 2026-05-04: M5 combined lifecycle/export targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts --exclude '.worktrees/**'` with 150 passing tests.
+- 2026-05-04: M5 changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/preview-session-state.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.
+- 2026-05-04: `pnpm exec tsc --noEmit --pretty false` after M5 remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence.

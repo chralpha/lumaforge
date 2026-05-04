@@ -122,12 +122,18 @@ import {
 import { runPreviewPipeline } from '../services/preview-pipeline'
 import { decideBoundedHqPreview } from '../services/preview-resolution-policy'
 import {
+  applyBoundedHqPreviewFailure,
+  applyBoundedHqPreviewSkipped,
+  applyPreviewLoadStarted,
+  applyPreviewReady,
+  applyQuickPreviewFailure,
+} from '../services/preview-session-state'
+import {
   buildBuiltinStyle,
   buildLUTProfileSelectionState,
   mapIntensityLevel,
   toCustomStyle,
 } from '../services/style-system'
-import { classifySupportLevel } from '../services/support-matrix'
 import { useImageSession } from './useImageSession'
 import { usePreviewHistogram } from './usePreviewHistogram'
 
@@ -798,26 +804,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
             return prev
           }
 
-          return {
-            ...prev,
-            viewState: {
-              ...prev.viewState,
-              mode: 'compare',
-              compareSplit: preservedCompareSplit,
-            },
-            previewBundle: {
-              ...prev.previewBundle,
-              quickDecodePreview: { status: 'loading' },
-              boundedHqPreview: { status: 'loading' },
-            },
-            renderState: {
-              status: 'preparing',
-            },
-            exportState: {
-              ...prev.exportState,
-              fullResCapability: { status: 'probing' },
-            },
-          }
+          return applyPreviewLoadStarted(prev, preservedCompareSplit)
         })
 
         const matchesActiveSession = () =>
@@ -854,65 +841,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
               return prev
             }
 
-            const previewBundle = {
-              ...prev.previewBundle,
-              embeddedPreview:
-                source === 'embedded'
-                  ? {
-                      status: 'ready' as const,
-                      width: payload.width,
-                      height: payload.height,
-                      objectUrl: payload.objectUrl,
-                      mimeType: payload.mimeType,
-                      timings: payload.timings,
-                    }
-                  : prev.previewBundle.embeddedPreview,
-              quickDecodePreview:
-                source === 'quick'
-                  ? {
-                      status: 'ready' as const,
-                      width: payload.width,
-                      height: payload.height,
-                      timings: payload.timings ?? decoded?.timings,
-                    }
-                  : prev.previewBundle.quickDecodePreview,
-              boundedHqPreview:
-                source === 'bounded-hq'
-                  ? {
-                      status: 'ready' as const,
-                      width: payload.width,
-                      height: payload.height,
-                      timings: payload.timings ?? decoded?.timings,
-                    }
-                  : prev.previewBundle.boundedHqPreview,
-            }
-
-            return {
-              ...prev,
-              sourceFile: decoded
-                ? {
-                    ...prev.sourceFile,
-                    cameraBrand: decoded.metadata.make,
-                    cameraModel: decoded.metadata.model,
-                    rawFormat: prev.sourceFile.extension,
-                    width: decoded.width,
-                    height: decoded.height,
-                    supportLevel: classifySupportLevel({
-                      cameraBrand: decoded.metadata.make,
-                      cameraModel: decoded.metadata.model,
-                      rawFormat: prev.sourceFile.extension,
-                    }),
-                  }
-                : prev.sourceFile,
-              previewBundle: {
-                ...previewBundle,
-                displaySource: selectDisplaySource(previewBundle),
-              },
-              renderState: {
-                status: 'ready',
-                lastRenderSource: source,
-              },
-            }
+            return applyPreviewReady(prev, source, payload, decoded)
           })
 
           if (decoded) {
@@ -1100,37 +1029,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                     return prev
                   }
 
-                  const previewBundle = {
-                    ...prev.previewBundle,
-                    quickDecodePreview: {
-                      status: 'failed' as const,
-                      errorCode,
-                    },
-                    boundedHqPreview: {
-                      status: 'failed' as const,
-                      errorCode,
-                    },
-                  }
-
-                  return {
-                    ...prev,
-                    previewBundle: {
-                      ...previewBundle,
-                      displaySource: selectDisplaySource(previewBundle),
-                    },
-                    renderState: {
-                      ...prev.renderState,
-                      status: 'failed',
-                      lastErrorCode: errorCode,
-                    },
-                    exportState: {
-                      ...prev.exportState,
-                      fullResCapability: {
-                        status: 'unsupported',
-                        reason: 'Quick preview did not complete.',
-                      },
-                    },
-                  }
+                  return applyQuickPreviewFailure(prev, errorCode)
                 })
                 setStatus('error')
                 setProgress(100)
@@ -1163,21 +1062,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                     return prev
                   }
 
-                  const previewBundle = {
-                    ...prev.previewBundle,
-                    boundedHqPreview: {
-                      status: 'failed' as const,
-                      errorCode,
-                    },
-                  }
-
-                  return {
-                    ...prev,
-                    previewBundle: {
-                      ...previewBundle,
-                      displaySource: selectDisplaySource(previewBundle),
-                    },
-                  }
+                  return applyBoundedHqPreviewFailure(prev, errorCode)
                 })
                 break
               }
@@ -1187,21 +1072,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
                     return prev
                   }
 
-                  const previewBundle = {
-                    ...prev.previewBundle,
-                    boundedHqPreview: {
-                      status: 'skipped' as const,
-                      reason: event.reason,
-                    },
-                  }
-
-                  return {
-                    ...prev,
-                    previewBundle: {
-                      ...previewBundle,
-                      displaySource: selectDisplaySource(previewBundle),
-                    },
-                  }
+                  return applyBoundedHqPreviewSkipped(prev, event.reason)
                 })
                 break
               }
