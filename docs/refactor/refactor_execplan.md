@@ -467,6 +467,28 @@ Validation:
 - `pnpm exec vitest run src/modules/raw-processor/services/embedded-preview-url.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/workspace-ui.test.tsx --exclude '.worktrees/**'`
 - `pnpm exec eslint src/modules/raw-processor/services/embedded-preview-url.ts src/modules/raw-processor/services/embedded-preview-url.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
 
+## Completion Assessment
+
+Stop after M14.
+The remaining `useRawProcessor.ts` size is not itself a sufficient reason to continue extracting.
+The remaining lifecycle clusters are mostly orchestration around live refs, abort controllers, async stale-session guards, browser APIs, and Jotai atom mutation ordering.
+
+Remaining candidates deliberately not extracted:
+
+- Runtime load lifecycle coordinator: spans session identity checks, runtime session ownership, abort/dispose order, preview events, export capability probing, and bounded-HQ delayed cleanup.
+  This is behavior-critical and side-effect-heavy; extracting it now would mainly move complexity behind a callback-heavy facade rather than delete accidental complexity.
+- LUT action bundle: spans parse/validate errors, online fetch abort semantics, trusted contract application, toasts, global LUT atom updates, processing param updates, session mutation, and export invalidation.
+  The pure lookup and session-transition pieces have already been extracted; the rest is orchestration.
+- Tone params, reset, dismiss error, stats update, materialization diagnostics, and result action wrappers are already narrow hook boundaries.
+  Extracting them would add indirection without isolating meaningful domain behavior.
+
+Why this counts as "nothing left to refactor" for this run:
+
+- Remaining low-risk pure helpers have been extracted and characterized.
+- Remaining performance-sensitive executors are not touched without profiling evidence.
+- Remaining hot-path work is in RAW/runtime decode, WebGL preview, full-resolution strip export, color row-band transforms, JPEG encoding, and worker/output sinks, not in the hook-local glue left after M14.
+- Further behavior-preserving reduction would require a new design around async load/export orchestration, not another small refactor.
+
 ## Validation Gates
 
 Every milestone must pass its targeted tests or record a pre-existing failure.
@@ -504,6 +526,8 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Select LUT workflow resolvers as the next seam because they are the final obvious pure helpers left in `useRawProcessor.ts`; extracting them removes lookup/string fallback rules without moving side effects or fetch/parse behavior.
 - 2026-05-04: Select export-result materialization as the next seam because it is a real result-handoff boundary that mixes legacy output compatibility, metadata preservation timing, and export result model construction inside `exportImage`; extracting it reduces hook coupling without moving orchestration or side effects.
 - 2026-05-04: Select embedded preview URL lifecycle as the next non-export seam after explorer review because it is the lowest-risk remaining lifecycle boundary with concrete resource semantics; defer runtime-load coordinator and LUT action bundles unless further test budget is justified.
+- 2026-05-04: Stop after M14 because independent review and local inspection found only higher-risk orchestration seams remaining. Continuing would create callback-heavy abstractions around abort/ref/session ordering without deleting accidental complexity or improving a measured hot path.
+- 2026-05-04: Do not use the finishing-branch merge/PR flow yet because repository-level verification still has recorded baseline failures outside this refactor: native runtime smoke artifacts, generated routes, deploy URL assertion mismatch, repo-wide Markdown/license lint, and fail-closed native-asset build gate.
 
 ## Rollback Plan
 
@@ -635,3 +659,11 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Extracted embedded preview byte-copy object URL creation, duplicate-safe object URL revocation, and pure session embedded-preview clearing into `embedded-preview-url.ts`.
 - 2026-05-04: M14 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/embedded-preview-url.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/workspace-ui.test.tsx --exclude '.worktrees/**'` with 99 passing tests.
 - 2026-05-04: M14 changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/embedded-preview-url.ts src/modules/raw-processor/services/embedded-preview-url.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.
+- 2026-05-04: Post-M14 combined lifecycle/export targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/embedded-preview-url.test.ts src/modules/raw-processor/services/export-result-materialization.test.ts src/modules/raw-processor/services/lut-workflow.test.ts src/modules/raw-processor/services/workflow-status.test.ts src/modules/raw-processor/services/raw-load-preparation.test.ts src/modules/raw-processor/services/view-session-state.test.ts src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/hooks/useOnlineLutSources.test.tsx src/modules/raw-processor/__tests__/workspace-ui.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts src/modules/raw-processor/__tests__/style-system.test.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts --exclude '.worktrees/**'` with 243 passing tests.
+- 2026-05-04: M13/M14 behavior/architecture/performance review found no behavior-changing findings. Reviewer validation passed 120 focused tests and changed-file ESLint. Reviewer recommended stopping because the runtime load lifecycle and LUT action bundle are higher-risk orchestration seams.
+- 2026-05-04: Post-M14 changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/embedded-preview-url.ts src/modules/raw-processor/services/embedded-preview-url.test.ts src/modules/raw-processor/services/export-result-materialization.ts src/modules/raw-processor/services/export-result-materialization.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`; adding the ignored ExecPlan path produced only an ignored-file warning and exit 0.
+- 2026-05-04: Post-M14 `pnpm exec tsc --noEmit --pretty false` remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence.
+- 2026-05-04: Post-M14 `pnpm test:run` still fails only on recorded baseline blockers. Current totals: 93 passed files, 1 skipped file, 1071 passed tests, 8 skipped tests, with 3 baseline failures: missing JPEG native artifact, missing RAW native artifact, and deploy URL assertion mismatch in `scripts/deploy/deploy.test.mjs`.
+- 2026-05-04: Post-M14 `pnpm build` still fails closed on recorded missing native RAW/JPEG runtime assets.
+- 2026-05-04: Post-M14 package-local builds passed: `pnpm --filter @lumaforge/luma-color-runtime build`, `pnpm --filter @lumaforge/luma-jpeg-runtime build`, and `pnpm --filter @lumaforge/luma-raw-runtime build`.
+- 2026-05-04: Post-M14 `pnpm exec eslint .` still fails on recorded repo-wide baseline lint issues, with 415 errors concentrated in Markdown formatting/license docs plus existing test style issues.
