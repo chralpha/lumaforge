@@ -272,6 +272,34 @@ Validation:
 - `pnpm exec vitest run src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'`
 - `pnpm exec eslint src/modules/raw-processor/model/session-factory.ts src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/hooks/useImageSession.ts`
 
+### M8: Extract Look Session State Transitions
+
+Intended internal change:
+Move pure active-look session mutations out of `useRawProcessor.ts` into a focused `look-session-state.ts` service.
+The hook should continue to own side effects, global processing params, LUT parsing/fetching, and export graph invalidation decisions, while the service owns how `ImageSession.activeStyle`, `lutProfileSelection`, active intensity, and ready export result clearing are applied.
+
+Expected behavior:
+Loading a custom LUT still stores the custom style and profile-selection state on the active session and clears ready/exporting results when the render graph changes.
+Selecting a LUT contract still preserves the current custom intensity when one is already active.
+Selecting a builtin style still replaces any custom look, clears LUT profile selection, and clears export results only when the render graph actually changes.
+Changing intensity still updates the active style when present and preserves a ready export when the requested level is already active.
+Clearing LUT/look still removes active style and LUT profile selection, keeps neutral params, emits the existing toast from the hook, and preserves a ready export when no render-graph input changed.
+
+Test-first work:
+Add characterization tests for the pure look/session helper before rewiring hook code.
+
+Target files:
+
+- Create `src/modules/raw-processor/services/look-session-state.test.ts`
+- Create `src/modules/raw-processor/services/look-session-state.ts`
+- Modify `src/modules/raw-processor/hooks/useRawProcessor.ts`
+
+Validation:
+
+- `pnpm exec vitest run src/modules/raw-processor/services/look-session-state.test.ts`
+- `pnpm exec vitest run src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/style-system.test.ts --exclude '.worktrees/**'`
+- `pnpm exec eslint src/modules/raw-processor/services/look-session-state.ts src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
+
 ## Validation Gates
 
 Every milestone must pass its targeted tests or record a pre-existing failure.
@@ -302,6 +330,7 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Select compare split math as the next seam because it is a view-only lifecycle boundary currently duplicated between hook and UI, and it can be shared without changing compare interaction behavior or export invalidation semantics.
 - 2026-05-04: Select RAW session creation as the next seam because it is part of the upload/load lifecycle, has a pure default data shape, and lets `useImageSession.ts` become a thin state adapter without touching runtime preview behavior.
 - 2026-05-04: Preserve existing no-dot filename extension derivation in RAW sessions (`RAWFILE` becomes `rawfile`). This is odd but observable through session source facts, so changing it is out of scope.
+- 2026-05-04: Select look/LUT session state transitions as the next full-lifecycle seam because style application is a render-affecting user action currently mixed with hook side effects, but its session mutation rules are pure and already partially characterized by hook tests.
 
 ## Rollback Plan
 
@@ -377,3 +406,12 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Final `pnpm test:run` still fails only on recorded baseline blockers: missing RAW/JPEG native smoke artifacts and deploy URL assertion mismatch. Current totals were 86 passed files, 1 skipped file, 1035 passed tests, and 8 skipped tests, with 3 baseline failures.
 - 2026-05-04: Final `pnpm exec eslint .` still fails on recorded repo-wide baseline lint issues, mainly Markdown formatting and existing test style issues, with 415 errors.
 - 2026-05-04: Final `pnpm build` still fails closed on recorded missing native RAW/JPEG runtime assets.
+- 2026-05-04: Added M8 to extract pure look/LUT session state transitions while leaving parsing/fetching/toasts/global params in `useRawProcessor.ts`.
+- 2026-05-04: Added RED characterization tests for pure look session transitions in `look-session-state.test.ts`; first run failed because the helper module did not exist.
+- 2026-05-04: Extracted active look application, active look clearing, intensity mutation, and custom-intensity preservation into `look-session-state.ts`; rewired `useRawProcessor.ts` without moving LUT parsing/fetching/toasts or global processing params.
+- 2026-05-04: M8 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/style-system.test.ts --exclude '.worktrees/**'` with 82 passing tests.
+- 2026-05-04: M8 changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/look-session-state.ts src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.
+- 2026-05-04: M8 combined lifecycle/export targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts src/modules/raw-processor/__tests__/style-system.test.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts --exclude '.worktrees/**'` with 178 passing tests.
+- 2026-05-04: `pnpm exec tsc --noEmit --pretty false` after M8 remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence.
+- 2026-05-04: M8 behavior review found no behavior-changing findings. Reviewer noted existing hook tests cover LUT load/profile selection, detached LUT across RAW replacement, toast/fetch ownership, export invalidation on intensity, and `clearLUT`/repeated controls preserving ready export.
+- 2026-05-04: M8 architecture/performance review found no over-abstraction, circular dependency, export-state semantic drift, allocation risk, or stale-state risk. Reviewer noted `look-session-state.ts` owns only pure `ImageSession` look mutations and leaves side-effect/invalidation decisions in the hook.

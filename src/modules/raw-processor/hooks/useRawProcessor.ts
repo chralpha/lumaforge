@@ -120,6 +120,12 @@ import {
   runFullResolutionExportJob,
   selectCurrentExportExecutionPlan,
 } from '../services/export-system'
+import {
+  applyActiveLookToSession,
+  applyLookIntensityToSession,
+  clearActiveLookFromSession,
+  preserveCustomLookIntensity,
+} from '../services/look-session-state'
 import { runPreviewPipeline } from '../services/preview-pipeline'
 import { decideBoundedHqPreview } from '../services/preview-resolution-policy'
 import {
@@ -757,13 +763,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
           getProcessingParams().compareSplit ?? 0.5,
         )
         const preservedCustomStyle = lut
-          ? {
-              ...toCustomStyle(lut),
-              currentIntensityLevel:
-                activeStyle?.kind === 'custom'
-                  ? activeStyle.currentIntensityLevel
-                  : ('standard' as const),
-            }
+          ? preserveCustomLookIntensity(toCustomStyle(lut), activeStyle)
           : null
         const preservedLutProfileSelection = lut
           ? buildLUTProfileSelectionState(lut)
@@ -1213,10 +1213,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
       setLut(parsed)
       setSession((prev) =>
         prev
-          ? clearExportResultState({
-              ...prev,
-              activeStyle: style,
+          ? applyActiveLookToSession(prev, {
+              style,
               lutProfileSelection: buildLUTProfileSelectionState(parsed),
+              clearExportResult: true,
             })
           : prev,
       )
@@ -1356,24 +1356,19 @@ export function useRawProcessor(): UseRawProcessorReturn {
         return
       }
 
-      const baseStyle = toCustomStyle(updatedLut)
-      const currentIntensityLevel =
-        activeStyle?.kind === 'custom'
-          ? activeStyle.currentIntensityLevel
-          : baseStyle.currentIntensityLevel
-      const style = {
-        ...baseStyle,
-        currentIntensityLevel,
-      }
+      const style = preserveCustomLookIntensity(
+        toCustomStyle(updatedLut),
+        activeStyle,
+      )
 
       setLut(updatedLut)
       invalidateExportGraph()
       setSession((prev) =>
         prev
-          ? clearExportResultState({
-              ...prev,
-              activeStyle: style,
+          ? applyActiveLookToSession(prev, {
+              style,
               lutProfileSelection: buildLUTProfileSelectionState(updatedLut),
+              clearExportResult: true,
             })
           : prev,
       )
@@ -1381,7 +1376,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         ...prev,
         styleKind: 'custom',
         builtinPreset: null,
-        intensity: mapIntensityLevel(currentIntensityLevel),
+        intensity: mapIntensityLevel(style.currentIntensityLevel),
       }))
     },
     [
@@ -1416,17 +1411,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
       setLutDataRef(null)
       setSession((prev) =>
         prev
-          ? shouldInvalidateExportGraph
-            ? clearExportResultState({
-                ...prev,
-                activeStyle: style,
-                lutProfileSelection: undefined,
-              })
-            : {
-                ...prev,
-                activeStyle: style,
-                lutProfileSelection: undefined,
-              }
+          ? applyActiveLookToSession(prev, {
+              style,
+              lutProfileSelection: undefined,
+              clearExportResult: shouldInvalidateExportGraph,
+            })
           : prev,
       )
       setParams((prev) => ({
@@ -1463,23 +1452,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
           return prev
         }
 
-        if (!prev.activeStyle) {
-          return shouldInvalidateExportGraph
-            ? clearExportResultState(prev)
-            : prev
-        }
-
-        const nextSession = {
-          ...prev,
-          activeStyle: {
-            ...prev.activeStyle,
-            currentIntensityLevel: level,
-          },
-        }
-
-        return shouldInvalidateExportGraph
-          ? clearExportResultState(nextSession)
-          : nextSession
+        return applyLookIntensityToSession(prev, {
+          level,
+          clearExportResult: shouldInvalidateExportGraph,
+        })
       })
     },
     [
@@ -1546,17 +1522,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setLutDataRef(null)
     setSession((prev) =>
       prev
-        ? shouldInvalidateExportGraph
-          ? clearExportResultState({
-              ...prev,
-              activeStyle: null,
-              lutProfileSelection: undefined,
-            })
-          : {
-              ...prev,
-              activeStyle: null,
-              lutProfileSelection: undefined,
-            }
+        ? clearActiveLookFromSession(prev, {
+            clearExportResult: shouldInvalidateExportGraph,
+          })
         : prev,
     )
     setParams((prev) => ({
