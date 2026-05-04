@@ -1,4 +1,5 @@
 export default {
+  siteUrl: 'https://luma.ichr.me',
   outputDir: 'dist',
   nativeAssets: [
     'native/desktop/luma_raw.js',

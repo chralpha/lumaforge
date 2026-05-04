@@ -60,12 +60,47 @@ function hostnameForUrl(url) {
   }
 }
 
-function selectDeploymentUrl(target, output) {
+function normalizeConfiguredSiteUrl(value) {
+  const url = value?.trim().replace(/\/+$/g, '')
+  return url || null
+}
+
+function resolveConfiguredSiteUrl(config, env) {
+  return normalizeConfiguredSiteUrl(
+    env.DEPLOY_SITE_URL || env.SITE_URL || env.VITE_SITE_URL || config.siteUrl,
+  )
+}
+
+function hostnameMatchesSiteUrl(url, siteUrl) {
+  const siteHostname = hostnameForUrl(siteUrl)
+  const hostname = hostnameForUrl(url)
+  return (
+    Boolean(siteHostname) &&
+    (hostname === siteHostname || hostname.endsWith(`.${siteHostname}`))
+  )
+}
+
+function createCloudflareCustomDomainUrl(siteUrl, alias) {
+  try {
+    const url = new URL(siteUrl)
+    url.hostname = `${alias}.${url.hostname}`
+    url.pathname = ''
+    url.search = ''
+    url.hash = ''
+    return normalizeConfiguredSiteUrl(url.toString())
+  } catch {
+    return null
+  }
+}
+
+function selectDeploymentUrl(target, output, siteUrl) {
   const urls = extractUrls(output)
 
   if (target === 'cloudflare') {
     return (
-      urls.find((url) => hostnameForUrl(url).endsWith('.pages.dev')) ?? null
+      urls.find((url) => siteUrl && hostnameMatchesSiteUrl(url, siteUrl)) ??
+      urls.find((url) => hostnameForUrl(url).endsWith('.pages.dev')) ??
+      null
     )
   }
 
@@ -83,19 +118,31 @@ function selectDeploymentUrl(target, output) {
   )
 }
 
-export function resolveDeploymentUrl({ target, deployEnv, env, output }) {
-  const printedUrl = selectDeploymentUrl(target, output)
+export function resolveDeploymentUrl({
+  config = createDeployConfig(),
+  target,
+  deployEnv,
+  env,
+  output,
+}) {
+  const siteUrl = resolveConfiguredSiteUrl(config, env)
+  const printedUrl = selectDeploymentUrl(target, output, siteUrl)
   if (printedUrl) return printedUrl
 
   if (target !== 'cloudflare') return null
 
   const projectName = env.CLOUDFLARE_PAGES_PROJECT?.trim()
   if (!projectName) return null
-  if (deployEnv === 'production') return `https://${projectName}.pages.dev`
+  if (deployEnv === 'production')
+    return siteUrl ?? `https://${projectName}.pages.dev`
 
   const branch = resolveCloudflareBranch({ deployEnv, env })
   const alias = branch ? normalizeCloudflarePreviewBranch(branch) : ''
-  return alias ? `https://${alias}.${projectName}.pages.dev` : null
+  if (!alias) return null
+  return (
+    (siteUrl ? createCloudflareCustomDomainUrl(siteUrl, alias) : null) ??
+    `https://${alias}.${projectName}.pages.dev`
+  )
 }
 
 async function writeGithubOutput(env, name, value) {
@@ -193,7 +240,12 @@ export async function publishDeployTarget(
     })
   })
 
-  const deploymentUrl = resolveDeploymentUrl({ ...options, env, output })
+  const deploymentUrl = resolveDeploymentUrl({
+    config,
+    ...options,
+    env,
+    output,
+  })
   await writeGithubOutput(env, 'deployment_url', deploymentUrl)
   await appendGithubSummary(env, { ...options, deploymentUrl })
   return { deploymentUrl }

@@ -13,6 +13,7 @@ export function createDeployConfig(root = process.cwd()) {
 
   return {
     root,
+    siteUrl: deployConfig.siteUrl,
     outputDir,
     nativeAssets: deployConfig.nativeAssets,
     crossOriginIsolationHeaders: deployConfig.crossOriginIsolationHeaders,
