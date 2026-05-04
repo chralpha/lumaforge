@@ -126,9 +126,9 @@ Target files:
 
 Validation:
 
-- `pnpm exec vitest run src/modules/raw-processor/services/export-state.test.ts --runInBand`
-- `pnpm exec vitest run src/modules/raw-processor/hooks/useRawProcessor.test.tsx --runInBand`
-- `pnpm exec vitest run src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts --runInBand`
+- `pnpm exec vitest run src/modules/raw-processor/services/export-state.test.ts`
+- `pnpm exec vitest run src/modules/raw-processor/hooks/useRawProcessor.test.tsx`
+- `pnpm exec vitest run src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts`
 
 ### M2: Review and Decide Next Seam
 
@@ -166,6 +166,9 @@ This run should not require browser validation unless M1 unexpectedly changes UI
 - 2026-05-04: Do not run `pnpm lint` with auto-fix during baseline because it can mutate broad unrelated Markdown files; use non-mutating `pnpm exec eslint .` for the baseline record.
 - 2026-05-04: Select a narrow first milestone around export state helpers because `useRawProcessor.ts` is the largest coupling point and the target behavior can be characterized without UI changes.
 - 2026-05-04: Keep native/runtime artifact generation out of M1 because M1 does not touch native package code and native builds are an environment gate, not a prerequisite for extracting pure app helpers.
+- 2026-05-04: Correct targeted Vitest commands to omit `--runInBand`; this repo's installed Vitest rejects that option.
+- 2026-05-04: Reconnaissance confirmed the high-risk cross-boundary surfaces are route-provider wiring, `/raw` state to export graph, preview/export contract parity, package-root API exports, OPFS checkpoint manifests, and online LUT fetch/cache behavior.
+- 2026-05-04: Performance review identified RAW session reuse, preview staging, WebGL upload/rendering, full-resolution strip export, row-band color transforms, JPEG worker transfer/copy behavior, and export-result materialization as hot paths; M1 deliberately avoids changing those executors.
 
 ## Rollback Plan
 
@@ -179,3 +182,11 @@ This run should not require browser validation unless M1 unexpectedly changes UI
 - 2026-05-04: Created isolated worktree and installed dependencies.
 - 2026-05-04: Ran baseline package builds and baseline test/type/lint/build checks.
 - 2026-05-04: Identified `useRawProcessor.ts` as the first bounded refactor seam.
+- 2026-05-04: Added characterization tests for exported helper behavior in `export-state.test.ts`.
+- 2026-05-04: Extracted pure export-state helpers to `src/modules/raw-processor/services/export-state.ts`.
+- 2026-05-04: Extended `useRawProcessor` coverage to assert file-backed export output cleanup is deferred for compare-split changes and runs after render-graph invalidation.
+- 2026-05-04: Targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts`.
+- 2026-05-04: Targeted lint passed for changed files with `pnpm exec eslint src/modules/raw-processor/services/export-state.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.
+- 2026-05-04: Full `pnpm test:run` still fails only on the recorded baseline blockers: missing RAW/JPEG native smoke artifacts and the deploy URL expectation mismatch.
+- 2026-05-04: Final behavior, architecture, performance, and reliability/security reviews found no regressions in M1.
+- 2026-05-04: Residual risk remains pre-existing and behavior-preserved: checkpoint metrics are accepted by `kind === 'checkpoint'` only.

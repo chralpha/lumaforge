@@ -2915,6 +2915,17 @@ describe('useRawProcessor embedded preview state', () => {
   })
 
   it('clears a ready export when render graph inputs change but not when compare split changes', async () => {
+    const cleanup = vi.fn(async () => undefined)
+    const output: FileBackedOutputResult = {
+      kind: 'file-backed',
+      exportId: 'export-graph-invalidation',
+      filename: 'frame_neutral_fullres.jpg',
+      byteLength: 4,
+      mimeType: 'image/jpeg',
+      openBlob: vi.fn(async () => new Blob(['jpeg'], { type: 'image/jpeg' })),
+      cleanup,
+    }
+
     rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
     rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
       createDecodedImage('quick'),
@@ -2924,7 +2935,7 @@ describe('useRawProcessor embedded preview state', () => {
     )
     exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
       filename: 'frame_neutral_fullres.jpg',
-      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+      output,
     })
 
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
@@ -2944,6 +2955,7 @@ describe('useRawProcessor embedded preview state', () => {
       result.current.setCompareSplit(0.25)
     })
     expect(jotaiStore.get(currentSessionAtom)?.exportState.result).toBeDefined()
+    expect(cleanup).not.toHaveBeenCalled()
 
     act(() => {
       result.current.selectIntensityLevel('strong')
@@ -2952,6 +2964,9 @@ describe('useRawProcessor embedded preview state', () => {
     expect(
       jotaiStore.get(currentSessionAtom)?.exportState.result,
     ).toBeUndefined()
+    await waitFor(() => {
+      expect(cleanup).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('clears a ready export when generic params change render graph inputs but not view-only inputs', async () => {
