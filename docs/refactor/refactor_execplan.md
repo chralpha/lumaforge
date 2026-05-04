@@ -300,6 +300,34 @@ Validation:
 - `pnpm exec vitest run src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/style-system.test.ts --exclude '.worktrees/**'`
 - `pnpm exec eslint src/modules/raw-processor/services/look-session-state.ts src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
 
+### M9: Extract View Session State Transitions
+
+Intended internal change:
+Move pure view-mode and committed compare-split session mutations out of `useRawProcessor.ts` into a focused `view-session-state.ts` service.
+The hook should continue to own Jotai processing params and the UI should continue to own preview-only drag rendering.
+
+Expected behavior:
+`setViewMode` still updates both processing params and `session.viewState.mode`.
+`setCompareSplit` still clamps through the shared compare split helper, updates processing params, and mirrors the committed split into `session.viewState.compareSplit`.
+View-only changes remain non-render-graph changes and must not clear ready export results.
+Loading a new RAW still forces compare mode while preserving the previous committed compare split through the existing load transition.
+
+Test-first work:
+Add characterization tests for the pure view/session helper and hook-level `setViewMode` sync before rewiring hook code.
+
+Target files:
+
+- Create `src/modules/raw-processor/services/view-session-state.test.ts`
+- Create `src/modules/raw-processor/services/view-session-state.ts`
+- Modify `src/modules/raw-processor/hooks/useRawProcessor.test.tsx`
+- Modify `src/modules/raw-processor/hooks/useRawProcessor.ts`
+
+Validation:
+
+- `pnpm exec vitest run src/modules/raw-processor/services/view-session-state.test.ts`
+- `pnpm exec vitest run src/modules/raw-processor/services/view-session-state.test.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/components/CompareSplitHandle.test.tsx --exclude '.worktrees/**'`
+- `pnpm exec eslint src/modules/raw-processor/services/view-session-state.ts src/modules/raw-processor/services/view-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx`
+
 ## Validation Gates
 
 Every milestone must pass its targeted tests or record a pre-existing failure.
@@ -331,6 +359,7 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Select RAW session creation as the next seam because it is part of the upload/load lifecycle, has a pure default data shape, and lets `useImageSession.ts` become a thin state adapter without touching runtime preview behavior.
 - 2026-05-04: Preserve existing no-dot filename extension derivation in RAW sessions (`RAWFILE` becomes `rawfile`). This is odd but observable through session source facts, so changing it is out of scope.
 - 2026-05-04: Select look/LUT session state transitions as the next full-lifecycle seam because style application is a render-affecting user action currently mixed with hook side effects, but its session mutation rules are pure and already partially characterized by hook tests.
+- 2026-05-04: Select view/session state transitions as the next seam because compare/view interactions are view-only lifecycle behavior, already share split math, and can be isolated without touching preview rendering or export invalidation.
 
 ## Rollback Plan
 
@@ -415,3 +444,13 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: `pnpm exec tsc --noEmit --pretty false` after M8 remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence.
 - 2026-05-04: M8 behavior review found no behavior-changing findings. Reviewer noted existing hook tests cover LUT load/profile selection, detached LUT across RAW replacement, toast/fetch ownership, export invalidation on intensity, and `clearLUT`/repeated controls preserving ready export.
 - 2026-05-04: M8 architecture/performance review found no over-abstraction, circular dependency, export-state semantic drift, allocation risk, or stale-state risk. Reviewer noted `look-session-state.ts` owns only pure `ImageSession` look mutations and leaves side-effect/invalidation decisions in the hook.
+- 2026-05-04: Added M9 for pure view/session state transitions and hook-level `setViewMode` characterization.
+- 2026-05-04: Added RED characterization tests for pure view session transitions in `view-session-state.test.ts`; first run failed because the helper module did not exist.
+- 2026-05-04: Added hook characterization for `setViewMode` and committed `setCompareSplit` keeping processing params and session view state synchronized.
+- 2026-05-04: Extracted committed view-mode and compare-split session mutations into `view-session-state.ts`, leaving Jotai params and preview-only UI drag rendering outside the service.
+- 2026-05-04: M9 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/view-session-state.test.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/components/CompareSplitHandle.test.tsx --exclude '.worktrees/**'` with 90 passing tests after adding committed compare-split hook sync coverage.
+- 2026-05-04: M9 changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/view-session-state.ts src/modules/raw-processor/services/view-session-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx`.
+- 2026-05-04: M9 combined lifecycle/export targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/view-session-state.test.ts src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts src/modules/raw-processor/__tests__/style-system.test.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts --exclude '.worktrees/**'` with 182 passing tests.
+- 2026-05-04: `pnpm exec tsc --noEmit --pretty false` after M9 remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence.
+- 2026-05-04: M9 behavior review found no regressions and confirmed view-only drag rendering remains in UI/pipeline code, not the helper.
+- 2026-05-04: M9 architecture/performance review found no over-abstraction, stale-state, allocation hot-path, dependency-direction, or circular-import risk. Reviewer noted double clamping is redundant but safe because both paths use the same shared compare helper.

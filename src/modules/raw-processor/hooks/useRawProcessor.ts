@@ -141,6 +141,10 @@ import {
   mapIntensityLevel,
   toCustomStyle,
 } from '../services/style-system'
+import {
+  applyCompareSplitToSession,
+  applyViewModeToSession,
+} from '../services/view-session-state'
 import { useImageSession } from './useImageSession'
 import { usePreviewHistogram } from './usePreviewHistogram'
 
@@ -1475,13 +1479,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
           return prev
         }
 
-        return {
-          ...prev,
-          viewState: {
-            ...prev.viewState,
-            mode,
-          },
-        }
+        return applyViewModeToSession(prev, mode)
       })
     },
     [setParams, setSession],
@@ -1493,13 +1491,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       setParams((prev) => ({ ...prev, compareSplit: nextSplit }))
       setSession((prev) => {
         if (!prev) return prev
-        return {
-          ...prev,
-          viewState: {
-            ...prev.viewState,
-            compareSplit: nextSplit,
-          },
-        }
+        return applyCompareSplitToSession(prev, nextSplit)
       })
     },
     [setParams, setSession],

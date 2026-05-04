@@ -1462,6 +1462,38 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
+  it('keeps view mode params and session view state in sync', () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    act(() => {
+      result.current.setViewMode('original')
+    })
+
+    expect(result.current.viewMode).toBe('original')
+    expect(jotaiStore.get(currentSessionAtom)?.viewState).toMatchObject({
+      mode: 'original',
+      compareSplit: 0.5,
+    })
+  })
+
+  it('keeps committed compare split params and session view state in sync', () => {
+    jotaiStore.set(currentSessionAtom, createTestSession())
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    act(() => {
+      result.current.setCompareSplit(2)
+    })
+
+    expect(result.current.compareSplit).toBe(0.95)
+    expect(jotaiStore.get(currentSessionAtom)?.viewState).toMatchObject({
+      mode: 'processed',
+      compareSplit: 0.95,
+    })
+  })
+
   it('enters ready state after quick preview before bounded HQ resolves', async () => {
     const boundedHq = deferred<DecodedImage>()
     rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
