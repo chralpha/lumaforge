@@ -123,6 +123,7 @@
 }
 
 .raw-tool-stack {
+  contain: paint;
   min-height: 0;
   overflow-y: auto;
   padding-right: 2px;
