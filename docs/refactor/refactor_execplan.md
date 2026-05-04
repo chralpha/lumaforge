@@ -383,6 +383,33 @@ Validation:
 - `pnpm exec vitest run src/modules/raw-processor/services/workflow-status.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'`
 - `pnpm exec eslint src/modules/raw-processor/services/workflow-status.ts src/modules/raw-processor/services/workflow-status.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
 
+### M12: Extract LUT Workflow Resolvers
+
+Intended internal change:
+Move the remaining pure LUT workflow resolvers out of `useRawProcessor.ts` into `lut-workflow.ts`.
+The hook should continue to own LUT parsing, fetching, contract application, session mutation, params, toasts, and export invalidation.
+
+Expected behavior:
+Profile objects passed to `selectLUTProfile` still pass through unchanged.
+String profile aliases still normalize `vlog` / `vloginput` to `panasonic-vgamut-vlog`, `displaysrgb` / `srgbdisplay` to `display-srgb`, and otherwise resolve by profile id.
+Unknown profile strings still fail contract selection and surface the existing incomplete-contract toast path from the hook.
+Online LUT source names still prefer entry titles, then URL path filenames, then the original URL when URL parsing or filename extraction fails.
+
+Test-first work:
+Add characterization tests for the pure LUT workflow helper before moving hook-local functions.
+
+Target files:
+
+- Create `src/modules/raw-processor/services/lut-workflow.test.ts`
+- Create `src/modules/raw-processor/services/lut-workflow.ts`
+- Modify `src/modules/raw-processor/hooks/useRawProcessor.ts`
+
+Validation:
+
+- `pnpm exec vitest run src/modules/raw-processor/services/lut-workflow.test.ts`
+- `pnpm exec vitest run src/modules/raw-processor/services/lut-workflow.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/hooks/useOnlineLutSources.test.tsx --exclude '.worktrees/**'`
+- `pnpm exec eslint src/modules/raw-processor/services/lut-workflow.ts src/modules/raw-processor/services/lut-workflow.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
+
 ## Validation Gates
 
 Every milestone must pass its targeted tests or record a pre-existing failure.
@@ -417,6 +444,7 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Select view/session state transitions as the next seam because compare/view interactions are view-only lifecycle behavior, already share split math, and can be isolated without touching preview rendering or export invalidation.
 - 2026-05-04: Select RAW load preparation as the next seam because upload/replacement behavior mixes compare, detached LUT, retained custom intensity, and initial processing param patches inside `loadFile`, but those rules are pure and can be characterized without touching async runtime or cleanup behavior.
 - 2026-05-04: Select workflow status/error helpers as the next seam because error-code stabilization, abort classification, retryability, and progress recovery hints are pure cross-lifecycle rules currently buried in the hook.
+- 2026-05-04: Select LUT workflow resolvers as the next seam because they are the final obvious pure helpers left in `useRawProcessor.ts`; extracting them removes lookup/string fallback rules without moving side effects or fetch/parse behavior.
 
 ## Rollback Plan
 
@@ -531,3 +559,10 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: M11 combined lifecycle/export targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/workflow-status.test.ts src/modules/raw-processor/services/raw-load-preparation.test.ts src/modules/raw-processor/services/view-session-state.test.ts src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts src/modules/raw-processor/__tests__/style-system.test.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts --exclude '.worktrees/**'` with 193 passing tests.
 - 2026-05-04: `pnpm exec tsc --noEmit --pretty false` after M11 remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence.
 - 2026-05-04: M11 behavior/architecture review found no regressions. Reviewer noted the remaining obvious low-risk pure seams are `resolveOnlineLUTSourceName` and `resolveLUTContractProfile`; other remaining hook helpers mostly own async lifecycle or side effects and are not good extraction targets without a narrower behavior-specific milestone.
+- 2026-05-04: Added M12 for the final obvious pure LUT workflow resolvers while leaving LUT parse/fetch/contract application and side effects in `useRawProcessor.ts`.
+- 2026-05-04: Added RED characterization tests for LUT workflow resolvers in `lut-workflow.test.ts`; first run failed because the helper module did not exist.
+- 2026-05-04: Extracted LUT contract profile alias resolution and online LUT source-name fallback rules into `lut-workflow.ts`.
+- 2026-05-04: M12 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/lut-workflow.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/hooks/useOnlineLutSources.test.tsx --exclude '.worktrees/**'` with 95 passing tests.
+- 2026-05-04: M12 changed-file lint initially caught an uppercase test `describe`; fixed locally. Final changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/lut-workflow.ts src/modules/raw-processor/services/lut-workflow.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.
+- 2026-05-04: M12 combined lifecycle/export targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/lut-workflow.test.ts src/modules/raw-processor/services/workflow-status.test.ts src/modules/raw-processor/services/raw-load-preparation.test.ts src/modules/raw-processor/services/view-session-state.test.ts src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/hooks/useOnlineLutSources.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts src/modules/raw-processor/__tests__/style-system.test.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts --exclude '.worktrees/**'` with 214 passing tests.
+- 2026-05-04: `pnpm exec tsc --noEmit --pretty false` after M12 remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence.

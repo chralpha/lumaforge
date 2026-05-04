@@ -6,7 +6,6 @@ import type {
   ProcessingParams,
 } from '@lumaforge/luma-color-runtime'
 import {
-  getLUTColorProfile,
   normalizeToneParams,
   resolveExportColorGraph,
 } from '@lumaforge/luma-color-runtime'
@@ -126,6 +125,10 @@ import {
   clearActiveLookFromSession,
   preserveCustomLookIntensity,
 } from '../services/look-session-state'
+import {
+  resolveLUTContractProfile,
+  resolveOnlineLUTSourceName,
+} from '../services/lut-workflow'
 import { runPreviewPipeline } from '../services/preview-pipeline'
 import { decideBoundedHqPreview } from '../services/preview-resolution-policy'
 import {
@@ -173,36 +176,6 @@ class LUTLoadError extends Error {
     this.name = 'LUTLoadError'
     this.code = code
   }
-}
-
-function resolveLUTContractProfile(
-  profile: LUTColorProfile | string,
-): LUTColorProfile | undefined {
-  if (typeof profile !== 'string') return profile
-
-  const compact = profile.toLowerCase().replace(/[^a-z0-9]+/g, '')
-  if (compact === 'vlog' || compact === 'vloginput') {
-    return getLUTColorProfile('panasonic-vgamut-vlog')
-  }
-  if (compact === 'displaysrgb' || compact === 'srgbdisplay') {
-    return getLUTColorProfile('display-srgb')
-  }
-
-  return getLUTColorProfile(profile)
-}
-
-function resolveOnlineLUTSourceName(entry: OnlineLUTEntry): string {
-  if (entry.title) return entry.title
-
-  try {
-    const pathname = new URL(entry.cube.url).pathname
-    const fileName = pathname.split('/').filter(Boolean).at(-1)
-    if (fileName) return fileName
-  } catch {
-    // Fall back to the original URL below.
-  }
-
-  return entry.cube.url
 }
 
 function copyToArrayBuffer(data: Uint8Array) {
