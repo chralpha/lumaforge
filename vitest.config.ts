@@ -36,7 +36,12 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    exclude: ['**/node_modules/**', '**/dist/**', 'tests/browser/**'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.worktrees/**',
+      'tests/browser/**',
+    ],
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     css: true,
