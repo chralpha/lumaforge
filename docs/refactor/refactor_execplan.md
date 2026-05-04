@@ -410,6 +410,35 @@ Validation:
 - `pnpm exec vitest run src/modules/raw-processor/services/lut-workflow.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/hooks/useOnlineLutSources.test.tsx --exclude '.worktrees/**'`
 - `pnpm exec eslint src/modules/raw-processor/services/lut-workflow.ts src/modules/raw-processor/services/lut-workflow.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
 
+### M13: Extract Export Result Materialization
+
+Intended internal change:
+Move completed export output normalization, lazy JPEG metadata wrapping, and `ExportResult` construction out of `useRawProcessor.ts` into `export-result-materialization.ts`.
+The hook should continue to own export orchestration, checkpoint cleanup, resource registration, ready-state mutation, and user-facing toasts.
+
+Expected behavior:
+Worker results with an `output` still use that output and keep the job filename as the public result filename.
+Legacy worker results with only a `blob` still become blob-backed output results.
+Results with neither `output` nor `blob` still throw `EXPORT_OUTPUT_MISSING`.
+File-backed outputs still preserve JPEG metadata lazily when `openBlob()` is materialized, not when export completes.
+Blob-backed outputs still pass through without metadata wrapping.
+Export result width, height, size, creation time, and copy capability remain unchanged.
+
+Test-first work:
+Add characterization tests for export result materialization before moving hook-local output normalization and lazy metadata code.
+
+Target files:
+
+- Create `src/modules/raw-processor/services/export-result-materialization.test.ts`
+- Create `src/modules/raw-processor/services/export-result-materialization.ts`
+- Modify `src/modules/raw-processor/hooks/useRawProcessor.ts`
+
+Validation:
+
+- `pnpm exec vitest run src/modules/raw-processor/services/export-result-materialization.test.ts`
+- `pnpm exec vitest run src/modules/raw-processor/services/export-result-materialization.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/services/export-result-actions.test.ts --exclude '.worktrees/**'`
+- `pnpm exec eslint src/modules/raw-processor/services/export-result-materialization.ts src/modules/raw-processor/services/export-result-materialization.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
+
 ## Validation Gates
 
 Every milestone must pass its targeted tests or record a pre-existing failure.
@@ -445,6 +474,7 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Select RAW load preparation as the next seam because upload/replacement behavior mixes compare, detached LUT, retained custom intensity, and initial processing param patches inside `loadFile`, but those rules are pure and can be characterized without touching async runtime or cleanup behavior.
 - 2026-05-04: Select workflow status/error helpers as the next seam because error-code stabilization, abort classification, retryability, and progress recovery hints are pure cross-lifecycle rules currently buried in the hook.
 - 2026-05-04: Select LUT workflow resolvers as the next seam because they are the final obvious pure helpers left in `useRawProcessor.ts`; extracting them removes lookup/string fallback rules without moving side effects or fetch/parse behavior.
+- 2026-05-04: Select export-result materialization as the next seam because it is a real result-handoff boundary that mixes legacy output compatibility, metadata preservation timing, and export result model construction inside `exportImage`; extracting it reduces hook coupling without moving orchestration or side effects.
 
 ## Rollback Plan
 
@@ -566,3 +596,8 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: M12 changed-file lint initially caught an uppercase test `describe`; fixed locally. Final changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/lut-workflow.ts src/modules/raw-processor/services/lut-workflow.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.
 - 2026-05-04: M12 combined lifecycle/export targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/lut-workflow.test.ts src/modules/raw-processor/services/workflow-status.test.ts src/modules/raw-processor/services/raw-load-preparation.test.ts src/modules/raw-processor/services/view-session-state.test.ts src/modules/raw-processor/services/look-session-state.test.ts src/modules/raw-processor/model/session-factory.test.ts src/modules/raw-processor/services/compare-split.test.ts src/modules/raw-processor/services/preview-session-state.test.ts src/modules/raw-processor/components/CompareSplitHandle.test.tsx src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/hooks/useOnlineLutSources.test.tsx src/modules/raw-processor/__tests__/preview-pipeline.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts src/modules/raw-processor/__tests__/style-system.test.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts --exclude '.worktrees/**'` with 214 passing tests.
 - 2026-05-04: `pnpm exec tsc --noEmit --pretty false` after M12 remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence.
+- 2026-05-04: Added M13 for export-result materialization while leaving export orchestration, checkpoint cleanup, resource registration, session mutation, and toasts in `useRawProcessor.ts`.
+- 2026-05-04: Added RED characterization tests for export-result materialization in `export-result-materialization.test.ts`; first run failed because the helper module did not exist.
+- 2026-05-04: Extracted completed export output normalization, legacy blob compatibility, lazy file-backed JPEG metadata wrapping, and `ExportResult` construction into `export-result-materialization.ts`.
+- 2026-05-04: M13 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/export-result-materialization.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/services/export-result-actions.test.ts --exclude '.worktrees/**'` with 95 passing tests.
+- 2026-05-04: M13 changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/export-result-materialization.ts src/modules/raw-processor/services/export-result-materialization.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.

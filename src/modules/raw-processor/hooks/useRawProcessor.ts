@@ -40,10 +40,6 @@ import {
   EXPORT_EXECUTION_PROFILES,
 } from '~/lib/export/execution-profile'
 import type { FullResWorkerCheckpointConfig } from '~/lib/export/full-res-export-client'
-import type { JpegExportMetadata } from '~/lib/export/jpeg-metadata'
-import { preserveJpegMetadata } from '~/lib/export/jpeg-metadata'
-import type { ExportOutputResult } from '~/lib/export/output-sink'
-import { createBlobOutputResult } from '~/lib/export/output-sink'
 import type { ResourceRegistry } from '~/lib/export/resource-registry'
 import { createResourceRegistry } from '~/lib/export/resource-registry'
 import { createSourceFingerprint } from '~/lib/export/source-fingerprint'
@@ -75,7 +71,6 @@ import type {
   ExportResult,
   ExportShareCapability,
 } from '../model/export-result'
-import { createExportResult } from '../model/export-result'
 import type {
   DisplaySource,
   ExportRecoveryState,
@@ -103,6 +98,7 @@ import {
   resolveExportShareCapability,
   shareExportResult as shareStoredExportResult,
 } from '../services/export-result-actions'
+import { createCompletedExportResult } from '../services/export-result-materialization'
 import {
   buildExportFailureDescription,
   changesRenderGraphParams,
@@ -190,30 +186,6 @@ function enqueuePostCommitTask(task: () => void) {
 
 function createExportId() {
   return globalThis.crypto?.randomUUID?.() ?? `export-${Date.now()}`
-}
-
-function withLazyJpegMetadata(input: {
-  output: ExportOutputResult
-  metadata: unknown
-  width: number
-  height: number
-}): ExportOutputResult {
-  if (input.output.kind !== 'file-backed') {
-    return input.output
-  }
-
-  const output = input.output
-  return {
-    ...output,
-    async openBlob() {
-      return preserveJpegMetadata({
-        jpeg: await output.openBlob(),
-        metadata: input.metadata as JpegExportMetadata | null | undefined,
-        width: input.width,
-        height: input.height,
-      })
-    },
-  }
 }
 
 export interface UseRawProcessorReturn {
@@ -1922,22 +1894,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
         }
         const completedCapability =
           completedSession.exportState.fullResCapability
-        const exportJobResult = result as {
-          filename: string
-          output?: typeof result.output
-          blob?: Blob
-        }
-        const output =
-          exportJobResult.output ??
-          (exportJobResult.blob
-            ? createBlobOutputResult({
-                filename: exportJobResult.filename,
-                blob: exportJobResult.blob,
-              })
-            : undefined)
-        if (!output) {
-          throw new Error('EXPORT_OUTPUT_MISSING')
-        }
 
         if (checkpointStore && checkpoint) {
           checkpointWritesClosed = true
@@ -1952,16 +1908,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
           }
         }
 
-        const outputWithMetadata = withLazyJpegMetadata({
-          output,
+        const exportResult = createCompletedExportResult({
+          jobResult: result,
           metadata: loadedImage.metadata,
-          width: completedCapability.width,
-          height: completedCapability.height,
-        })
-
-        const exportResult = createExportResult({
-          output: outputWithMetadata,
-          filename: result.filename,
           width: completedCapability.width,
           height: completedCapability.height,
           copyCapability,
