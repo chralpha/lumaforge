@@ -13,6 +13,8 @@
   --raw-amber-soft: oklch(0.9 0.055 76);
   --raw-dark: oklch(0.18 0.02 76);
   --raw-hero-ink: oklch(0.97 0.014 86);
+  --raw-scrollbar-thumb: oklch(0.54 0.055 78 / 0.64);
+  --raw-scrollbar-thumb-hover: oklch(0.43 0.082 152 / 0.78);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   height: 100svh;
@@ -127,6 +129,54 @@
   min-height: 0;
   overflow-y: auto;
   padding-right: 2px;
+}
+
+.raw-tool-surface,
+.raw-tool-stack,
+.raw-lut-source-browser-list,
+.raw-lut-contract-browser-list {
+  scrollbar-color: var(--raw-scrollbar-thumb) transparent;
+  scrollbar-width: thin;
+}
+
+.raw-tool-surface::-webkit-scrollbar,
+.raw-tool-stack::-webkit-scrollbar,
+.raw-lut-source-browser-list::-webkit-scrollbar,
+.raw-lut-contract-browser-list::-webkit-scrollbar {
+  width: 10px;
+}
+
+.raw-tool-surface::-webkit-scrollbar-track,
+.raw-tool-stack::-webkit-scrollbar-track,
+.raw-lut-source-browser-list::-webkit-scrollbar-track,
+.raw-lut-contract-browser-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.raw-tool-surface::-webkit-scrollbar-thumb,
+.raw-tool-stack::-webkit-scrollbar-thumb,
+.raw-lut-source-browser-list::-webkit-scrollbar-thumb,
+.raw-lut-contract-browser-list::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--raw-scrollbar-thumb);
+  background-clip: content-box;
+}
+
+.raw-tool-surface::-webkit-scrollbar-thumb:hover,
+.raw-tool-stack::-webkit-scrollbar-thumb:hover,
+.raw-lut-source-browser-list::-webkit-scrollbar-thumb:hover,
+.raw-lut-contract-browser-list::-webkit-scrollbar-thumb:hover {
+  background: var(--raw-scrollbar-thumb-hover);
+  background-clip: content-box;
+}
+
+.raw-tool-surface::-webkit-scrollbar-corner,
+.raw-tool-stack::-webkit-scrollbar-corner,
+.raw-lut-source-browser-list::-webkit-scrollbar-corner,
+.raw-lut-contract-browser-list::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .raw-tool-section {
