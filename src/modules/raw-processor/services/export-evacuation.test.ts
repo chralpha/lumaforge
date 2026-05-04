@@ -7,6 +7,7 @@ import {
   createPreExportSnapshot,
   evacuateBeforeExport,
   getPreExportEvacuationOwners,
+  toResourceEvacuatedDebugPayload,
 } from './export-evacuation'
 
 function snapshot() {
@@ -160,5 +161,64 @@ describe('export evacuation', () => {
     ).rejects.toMatchObject({
       code: 'EXPORT_RESOURCE_EVICTION_INCOMPLETE',
     } satisfies Partial<ExportEvacuationError>)
+  })
+
+  it('serializes resource evacuation diagnostics without registry internals', () => {
+    const payload = toResourceEvacuatedDebugPayload({
+      profile: 'mobile-balanced',
+      evacuation: {
+        snapshot: snapshot(),
+        registryCheck: {
+          ok: false,
+          live: [
+            {
+              id: 'webgl-pipeline',
+              owner: 'webgl',
+              kind: 'webgl-pipeline',
+            },
+          ],
+        },
+        requiredOwners: ['preview', 'webgl'],
+        disposedOwners: ['preview'],
+        remainingLive: [
+          {
+            id: 'webgl-pipeline',
+            owner: 'webgl',
+            kind: 'webgl-pipeline',
+            estimatedBytes: 4096,
+          },
+        ],
+        estimatedBytesByOwner: { webgl: 4096 },
+        totalEstimatedBytes: 4096,
+        evacuatedAt: '2026-05-04T00:00:00.000Z',
+      },
+    })
+
+    expect(payload).toEqual({
+      profile: 'mobile-balanced',
+      requiredOwners: ['preview', 'webgl'],
+      disposedOwners: ['preview'],
+      registryCheck: {
+        ok: false,
+        live: [
+          {
+            id: 'webgl-pipeline',
+            owner: 'webgl',
+            kind: 'webgl-pipeline',
+          },
+        ],
+      },
+      remainingLive: [
+        {
+          id: 'webgl-pipeline',
+          owner: 'webgl',
+          kind: 'webgl-pipeline',
+          estimatedBytes: 4096,
+        },
+      ],
+      estimatedBytesByOwner: { webgl: 4096 },
+      totalEstimatedBytes: 4096,
+      evacuatedAt: '2026-05-04T00:00:00.000Z',
+    })
   })
 })

@@ -36,7 +36,6 @@ import {
   createCheckpointStore,
   createOpfsCheckpointBackend,
 } from '~/lib/export/checkpoint-store'
-import type { ExportExecutionPlan } from '~/lib/export/execution-profile'
 import {
   emitExportDebugEvent,
   EXPORT_EXECUTION_PROFILES,
@@ -46,10 +45,7 @@ import type { JpegExportMetadata } from '~/lib/export/jpeg-metadata'
 import { preserveJpegMetadata } from '~/lib/export/jpeg-metadata'
 import type { ExportOutputResult } from '~/lib/export/output-sink'
 import { createBlobOutputResult } from '~/lib/export/output-sink'
-import type {
-  ResourceRegistry,
-  ResourceRegistryCheck,
-} from '~/lib/export/resource-registry'
+import type { ResourceRegistry } from '~/lib/export/resource-registry'
 import { createResourceRegistry } from '~/lib/export/resource-registry'
 import { createSourceFingerprint } from '~/lib/export/source-fingerprint'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
@@ -92,6 +88,7 @@ import {
   createPreExportSnapshot,
   evacuateBeforeExport,
   getPreExportEvacuationOwners,
+  toResourceEvacuatedDebugPayload,
 } from '../services/export-evacuation'
 import { deriveFullResExportReadiness } from '../services/export-readiness'
 import {
@@ -244,44 +241,6 @@ function enqueuePostCommitTask(task: () => void) {
 
 function createExportId() {
   return globalThis.crypto?.randomUUID?.() ?? `export-${Date.now()}`
-}
-
-function toDebugRegistryCheck(
-  check: ResourceRegistryCheck,
-): ResourceRegistryCheck {
-  if (check.ok) return { ok: true }
-
-  return {
-    ok: false,
-    live: check.live.map(({ id, owner, kind }) => ({
-      id,
-      owner,
-      kind,
-    })),
-  }
-}
-
-function toResourceEvacuatedDebugPayload(input: {
-  profile: ExportExecutionPlan['profile']['name']
-  evacuation: Awaited<ReturnType<typeof evacuateBeforeExport>>
-}) {
-  return {
-    profile: input.profile,
-    requiredOwners: input.evacuation.requiredOwners,
-    disposedOwners: input.evacuation.disposedOwners,
-    registryCheck: toDebugRegistryCheck(input.evacuation.registryCheck),
-    remainingLive: input.evacuation.remainingLive.map(
-      ({ id, owner, kind, estimatedBytes }) => ({
-        id,
-        owner,
-        kind,
-        estimatedBytes,
-      }),
-    ),
-    estimatedBytesByOwner: input.evacuation.estimatedBytesByOwner,
-    totalEstimatedBytes: input.evacuation.totalEstimatedBytes,
-    evacuatedAt: input.evacuation.evacuatedAt,
-  }
 }
 
 function withLazyJpegMetadata(input: {

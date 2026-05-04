@@ -1,6 +1,9 @@
 import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
 
-import type { ExportExecutionProfileName } from '~/lib/export/execution-profile'
+import type {
+  ExportExecutionProfileName,
+  ExportResourceEvacuatedDebugPayload,
+} from '~/lib/export/execution-profile'
 import type {
   LargeResourceOwner,
   ResourceRegistry,
@@ -66,6 +69,44 @@ export type ExportEvacuationResult = {
   estimatedBytesByOwner: ResourceRegistrySnapshot['estimatedBytesByOwner']
   totalEstimatedBytes: number
   evacuatedAt: string
+}
+
+function toDebugRegistryCheck(
+  check: ResourceRegistryCheck,
+): ResourceRegistryCheck {
+  if (check.ok) return { ok: true }
+
+  return {
+    ok: false,
+    live: check.live.map(({ id, owner, kind }) => ({
+      id,
+      owner,
+      kind,
+    })),
+  }
+}
+
+export function toResourceEvacuatedDebugPayload(input: {
+  profile: ExportExecutionProfileName
+  evacuation: ExportEvacuationResult
+}): ExportResourceEvacuatedDebugPayload {
+  return {
+    profile: input.profile,
+    requiredOwners: input.evacuation.requiredOwners,
+    disposedOwners: input.evacuation.disposedOwners,
+    registryCheck: toDebugRegistryCheck(input.evacuation.registryCheck),
+    remainingLive: input.evacuation.remainingLive.map(
+      ({ id, owner, kind, estimatedBytes }) => ({
+        id,
+        owner,
+        kind,
+        estimatedBytes,
+      }),
+    ),
+    estimatedBytesByOwner: input.evacuation.estimatedBytesByOwner,
+    totalEstimatedBytes: input.evacuation.totalEstimatedBytes,
+    evacuatedAt: input.evacuation.evacuatedAt,
+  }
 }
 
 function hasOwner(owners: LargeResourceOwner[], owner: LargeResourceOwner) {

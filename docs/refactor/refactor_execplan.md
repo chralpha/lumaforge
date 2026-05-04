@@ -173,6 +173,30 @@ Validation:
 - `pnpm exec eslint src/modules/raw-processor/services/export-readiness.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
 - `pnpm exec tsc --noEmit --pretty false`, expected to remain blocked only by the existing missing `src/generated-routes.ts` fresh-worktree baseline.
 
+### M4: Move Export Evacuation Diagnostics to Service Boundary
+
+Intended internal change:
+Move resource-evacuation debug payload shaping from `useRawProcessor.ts` into `export-evacuation.ts`.
+
+Expected behavior:
+The `lumaforge-export-debug` `resource-evacuated` event keeps the same payload shape, including sanitized registry checks and remaining-live estimated byte diagnostics.
+Pre-export resource cleanup, fail-closed evacuation checks, and worker start ordering remain unchanged.
+
+Test-first work:
+Add characterization coverage for the exported diagnostics payload helper before moving production logic.
+
+Target files:
+
+- Modify `src/modules/raw-processor/services/export-evacuation.test.ts`
+- Modify `src/modules/raw-processor/services/export-evacuation.ts`
+- Modify `src/modules/raw-processor/hooks/useRawProcessor.ts`
+
+Validation:
+
+- `pnpm exec vitest run src/modules/raw-processor/services/export-evacuation.test.ts`
+- `pnpm exec vitest run src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'`
+- `pnpm exec eslint src/modules/raw-processor/services/export-evacuation.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`
+
 ## Validation Gates
 
 Every milestone must pass its targeted tests or record a pre-existing failure.
@@ -232,3 +256,9 @@ This run should not require browser validation unless a milestone unexpectedly c
 - 2026-05-04: Changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/export-readiness.ts src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.
 - 2026-05-04: `pnpm exec tsc --noEmit --pretty false` remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence after fixing new test literal-type issues.
 - 2026-05-04: Full `pnpm test:run` after M3 still fails only on the recorded baseline blockers: missing RAW/JPEG native smoke artifacts and the deploy URL expectation mismatch. Newly discovered `export-readiness.test.ts` passes in full-suite discovery.
+- 2026-05-04: Added RED characterization for resource evacuation debug payload shaping in `export-evacuation.test.ts`; initial run failed because the service helper did not exist.
+- 2026-05-04: Moved resource evacuation debug payload shaping from `useRawProcessor.ts` to `export-evacuation.ts`.
+- 2026-05-04: M4 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx --exclude '.worktrees/**'`.
+- 2026-05-04: M4 changed-file lint passed with `pnpm exec eslint src/modules/raw-processor/services/export-evacuation.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/hooks/useRawProcessor.ts`.
+- 2026-05-04: Combined M3/M4 targeted validation passed: `pnpm exec vitest run src/modules/raw-processor/services/export-readiness.test.ts src/modules/raw-processor/services/export-state.test.ts src/modules/raw-processor/services/export-evacuation.test.ts src/modules/raw-processor/hooks/useRawProcessor.test.tsx src/modules/raw-processor/__tests__/export-system.test.ts src/modules/raw-processor/services/export-result-actions.test.ts src/modules/raw-processor/__tests__/session-derive.test.ts --exclude '.worktrees/**'`.
+- 2026-05-04: `pnpm exec tsc --noEmit --pretty false` remains blocked only by the recorded fresh-worktree `src/generated-routes.ts` absence after M4.
