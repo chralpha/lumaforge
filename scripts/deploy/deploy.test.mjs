@@ -33,6 +33,7 @@ async function writeFixtureDist(root, { includeSeoArtifacts = true } = {}) {
       join(config.outputDir, 'raw/index.html'),
       '<main>LumaForge RAW</main>',
     )
+    await writeFile(join(config.outputDir, 'og-image.png'), 'og image')
     await writeFile(
       join(config.outputDir, 'robots.txt'),
       'User-agent: *\nAllow: /\n',
@@ -147,6 +148,16 @@ describe('deploy artifact checks', () => {
 
     await expect(checkDeployArtifact(config)).rejects.toThrow(
       'Missing deploy artifact: native/desktop/luma_raw.wasm',
+    )
+  })
+
+  it('fails when the social preview image is missing', async () => {
+    const root = await makeTempProject()
+    const config = await writeFixtureDist(root)
+    await rm(join(config.outputDir, 'og-image.png'))
+
+    await expect(checkDeployArtifact(config)).rejects.toThrow(
+      'Missing deploy artifact: og-image.png',
     )
   })
 

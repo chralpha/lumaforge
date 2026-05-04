@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import process from 'node:process'
@@ -28,6 +29,10 @@ import {
   replaceSeoBlock,
   resolveDeployEnvironment,
 } from './src/lib/seo'
+import {
+  LUMAFORGE_OG_HERO_IMAGE_URL,
+  renderLumaForgeOgImage,
+} from './src/pages/(main)/og-image'
 
 const ROOT = fileURLToPath(new URL('./', import.meta.url))
 const LUMA_COLOR_RUNTIME_GLSL_SOURCE = resolve(
@@ -46,9 +51,19 @@ const LUMA_RAW_RUNTIME_SOURCE = resolve(
   ROOT,
   './packages/luma-raw-runtime/src/index.ts',
 )
+const LUMAFORGE_OG_IMAGE_OUTPUT = 'og-image.png'
+const LUMAFORGE_OG_IMAGE_FONT_SOURCE = resolve(
+  ROOT,
+  './src/assets/fonts/GeistVF.woff2',
+)
+const LUMAFORGE_OG_IMAGE_LOGO_SOURCE = resolve(ROOT, './public/favicon.png')
 const CROSS_ORIGIN_ISOLATION_HEADERS = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'require-corp',
+}
+
+function toDataUrl(mimeType: string, data: Uint8Array) {
+  return `data:${mimeType};base64,${Buffer.from(data).toString('base64')}`
 }
 
 function resolveSeoRuntimeOptions(env = process.env) {
@@ -82,15 +97,34 @@ function nativeRuntimeAssetsPlugin(env: NodeJS.ProcessEnv): Plugin {
 }
 
 function staticSeoArtifactsPlugin(): Plugin {
+  async function fetchImageDataUrl(url: string) {
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(
+        `Unable to fetch OG image resource ${url}: ${response.status} ${response.statusText}`,
+      )
+    }
+    const mimeType = response.headers.get('content-type') ?? 'image/jpeg'
+    return toDataUrl(mimeType, new Uint8Array(await response.arrayBuffer()))
+  }
+
   return {
     name: 'lumaforge-static-seo-artifacts',
-    writeBundle(options) {
+    async writeBundle(options) {
       const outputDir = options.dir
         ? resolve(ROOT, options.dir)
         : resolve(ROOT, 'dist')
       const indexHtmlPath = resolve(outputDir, 'index.html')
       const sourceHtml = readFileSync(indexHtmlPath, 'utf8')
       const seoOptions = resolveSeoRuntimeOptions()
+      const ogImage = await renderLumaForgeOgImage({
+        fontData: readFileSync(LUMAFORGE_OG_IMAGE_FONT_SOURCE),
+        heroImageSrc: await fetchImageDataUrl(LUMAFORGE_OG_HERO_IMAGE_URL),
+        logoSrc: toDataUrl(
+          'image/png',
+          readFileSync(LUMAFORGE_OG_IMAGE_LOGO_SOURCE),
+        ),
+      })
 
       writeFileSync(
         indexHtmlPath,
@@ -112,6 +146,7 @@ function staticSeoArtifactsPlugin(): Plugin {
         resolve(outputDir, 'sitemap.xml'),
         createSitemapXml([HOME_ROUTE_SEO, RAW_ROUTE_SEO], seoOptions),
       )
+      writeFileSync(resolve(outputDir, LUMAFORGE_OG_IMAGE_OUTPUT), ogImage)
     },
   }
 }

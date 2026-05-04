@@ -31,11 +31,10 @@ interface ResolvedSeoMetadata {
   structuredDataJson: string | null
 }
 
-const DEFAULT_OG_IMAGE =
-  'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=2400&q=86'
+const DEFAULT_OG_IMAGE = '/og-image.png'
 
 const DEFAULT_OG_IMAGE_ALT =
-  'A RAW landscape photo and finished JPEG preview from the LumaForge browser lab.'
+  'LumaForge social preview card showing a browser-local RAW to JPEG comparison workflow.'
 
 export const SITE_NAME = 'LumaForge'
 export const DEFAULT_SITE_URL = 'https://luma.ichr.me'
@@ -119,6 +118,13 @@ function resolveCanonicalUrl(siteUrl: string, canonicalPath: string) {
     : `${normalizedSiteUrl}${normalizedPath}`
 }
 
+function resolveImageUrl(siteUrl: string, imageUrl: string) {
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl
+
+  const normalizedPath = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`
+  return `${normalizeSiteUrl(siteUrl)}${normalizedPath}`
+}
+
 function resolveRobotsDirective(
   robots: RobotsDirective | undefined,
   deployEnv: DeployEnvironment,
@@ -170,7 +176,10 @@ export function resolveSeoMetadata(
     routeSeo.canonicalPath,
   )
   const robots = resolveRobotsDirective(routeSeo.robots, options.deployEnv)
-  const imageUrl = routeSeo.imageUrl ?? DEFAULT_OG_IMAGE
+  const imageUrl = resolveImageUrl(
+    options.siteUrl,
+    routeSeo.imageUrl ?? DEFAULT_OG_IMAGE,
+  )
   const imageAlt = routeSeo.imageAlt ?? DEFAULT_OG_IMAGE_ALT
   const structuredDataJson =
     routeSeo.includeStructuredData === false || robots === 'noindex, nofollow'

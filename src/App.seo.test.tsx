@@ -98,6 +98,12 @@ describe('route SEO metadata', () => {
     expect(getMetaContent('meta[property="og:title"]')).toBe(
       'LumaForge | Browser-Local RAW Photo Lab',
     )
+    expect(getMetaContent('meta[property="og:image"]')).toBe(
+      'https://luma.ichr.me/og-image.png',
+    )
+    expect(getMetaContent('meta[name="twitter:image"]')).toBe(
+      'https://luma.ichr.me/og-image.png',
+    )
     expect(getCanonicalHref()).toBe('https://luma.ichr.me/')
     expect(getTitleNodes()).toHaveLength(1)
     expect(getTitleNodes()[0]?.textContent).toBe(

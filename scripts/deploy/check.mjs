@@ -18,6 +18,7 @@ export async function checkDeployArtifact(config = createDeployConfig()) {
   const requiredFiles = [
     'index.html',
     'raw/index.html',
+    'og-image.png',
     'robots.txt',
     'sitemap.xml',
     ...config.nativeAssets,
