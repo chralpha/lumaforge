@@ -1,10 +1,11 @@
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { DecodedImage } from '~/lib/raw/decoder'
 
+import { DEFAULT_PREVIEW_VIEWPORT } from '../services/preview-viewport'
 import {
   createRawUploadInput,
   PreviewCanvas,
@@ -73,11 +74,101 @@ const defaultParams: ProcessingParams = {
   builtinPreset: null,
 }
 
+const decodedImage: DecodedImage = {
+  width: 400,
+  height: 300,
+  channels: 4,
+  bitsPerChannel: 32,
+  data: new Float32Array(400 * 300 * 4),
+  layout: 'rgba-float32',
+  colorSpace: 'display-srgb-preview',
+  metadata: {
+    width: 400,
+    height: 300,
+  },
+  renderExposure: { ev: 0, multiplier: 1, source: 'identity' },
+}
+
+function elementRect({
+  left = 0,
+  top = 0,
+  width,
+  height,
+}: {
+  left?: number
+  top?: number
+  width: number
+  height: number
+}): DOMRect {
+  return {
+    left,
+    top,
+    width,
+    height,
+    right: left + width,
+    bottom: top + height,
+    x: left,
+    y: top,
+    toJSON: () => ({}),
+  } as DOMRect
+}
+
+function setElementRect(
+  element: HTMLElement,
+  rect: Parameters<typeof elementRect>[0],
+) {
+  vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(elementRect(rect))
+}
+
+function renderInteractivePreview({
+  previewViewport = DEFAULT_PREVIEW_VIEWPORT,
+  onPreviewViewportChange = vi.fn(),
+}: {
+  previewViewport?: typeof DEFAULT_PREVIEW_VIEWPORT
+  onPreviewViewportChange?: ReturnType<typeof vi.fn>
+} = {}) {
+  const result = render(
+    createElement(PreviewCanvas, {
+      imageRef: { current: decodedImage },
+      imageVersion: 1,
+      params: defaultParams,
+      lutDataRef: { current: null },
+      lutDataVersion: 0,
+      previewViewport,
+      onPreviewViewportChange,
+    }),
+  )
+  const frame = result.container.querySelector<HTMLElement>(
+    '[data-raw-preview-frame]',
+  )
+  const surface = result.container.querySelector<HTMLElement>(
+    '[data-raw-preview-surface]',
+  )
+  const track = result.container.querySelector<HTMLElement>(
+    '[data-raw-compare-track="image"]',
+  )
+
+  if (frame) setElementRect(frame, { width: 400, height: 300 })
+  if (track) setElementRect(track, { width: 400, height: 300 })
+  if (surface) setElementRect(surface, { width: 400, height: 300 })
+
+  return {
+    ...result,
+    frame,
+    track,
+    surface,
+    onPreviewViewportChange,
+  }
+}
+
 describe('preview canvas upload descriptor', () => {
   beforeEach(() => {
     pipelineMock.instances.length = 0
     pipelineMock.initialize.mockReset()
     pipelineMock.initialize.mockResolvedValue(undefined)
+    window.PointerEvent = MouseEvent as typeof PointerEvent
+    HTMLElement.prototype.setPointerCapture = vi.fn()
+    HTMLElement.prototype.releasePointerCapture = vi.fn()
     vi.stubGlobal(
       'ResizeObserver',
       vi.fn().mockImplementation(() => ({
@@ -395,5 +486,106 @@ describe('preview canvas upload descriptor', () => {
     await waitFor(() => {
       expect(onPipelineChange).toHaveBeenCalledWith(pipelineMock.instances[1])
     })
+  })
+
+  it('zooms the preview around the wheel pointer without mutating processing params', async () => {
+    const paramsBefore = { ...defaultParams }
+    const { frame, onPreviewViewportChange } = renderInteractivePreview()
+
+    await waitFor(() => {
+      expect(pipelineMock.instances).toHaveLength(1)
+    })
+
+    expect(frame).not.toBeNull()
+    fireEvent.wheel(frame!, {
+      clientX: 300,
+      clientY: 150,
+      deltaY: -150,
+      deltaMode: 0,
+      ctrlKey: false,
+    })
+
+    expect(onPreviewViewportChange).toHaveBeenCalledTimes(1)
+    const next = onPreviewViewportChange.mock.calls[0]?.[0]
+    expect(next?.zoom).toBeCloseTo(1.5)
+    expect(next?.panX).toBeCloseTo(-50)
+    expect(next?.panY).toBeCloseTo(0)
+    expect(next?.fitMode).toBe('custom')
+    expect(defaultParams).toEqual(paramsBefore)
+  })
+
+  it('keeps the compare split track separate from the transformed preview surface', async () => {
+    const { surface, track } = renderInteractivePreview({
+      previewViewport: {
+        zoom: 2,
+        panX: 80,
+        panY: -40,
+        fitMode: 'custom',
+      },
+    })
+
+    await waitFor(() => {
+      expect(pipelineMock.instances).toHaveLength(1)
+    })
+
+    expect(track).not.toBeNull()
+    expect(surface).not.toBeNull()
+    expect(track).not.toBe(surface)
+    expect(track?.style.getPropertyValue('--raw-preview-zoom')).toBe('')
+    expect(surface?.style.getPropertyValue('--raw-preview-zoom')).toBe('2')
+  })
+
+  it('pans a zoomed preview with pointer drag', async () => {
+    const { frame, onPreviewViewportChange } = renderInteractivePreview({
+      previewViewport: { zoom: 2, panX: 0, panY: 0, fitMode: 'custom' },
+    })
+
+    await waitFor(() => {
+      expect(pipelineMock.instances).toHaveLength(1)
+    })
+
+    expect(frame).not.toBeNull()
+    fireEvent.pointerDown(frame!, {
+      pointerId: 1,
+      button: 0,
+      clientX: 200,
+      clientY: 150,
+    })
+    fireEvent.pointerMove(frame!, {
+      pointerId: 1,
+      clientX: 240,
+      clientY: 170,
+    })
+
+    expect(onPreviewViewportChange).toHaveBeenCalled()
+    const next = onPreviewViewportChange.mock.calls.at(-1)?.[0]
+    expect(next).toEqual({
+      zoom: 2,
+      panX: 40,
+      panY: 20,
+      fitMode: 'custom',
+    })
+  })
+
+  it('resets preview zoom and pan on double click', async () => {
+    const { frame, onPreviewViewportChange } = renderInteractivePreview({
+      previewViewport: {
+        zoom: 3,
+        panX: 120,
+        panY: -80,
+        fitMode: 'custom',
+      },
+    })
+
+    await waitFor(() => {
+      expect(pipelineMock.instances).toHaveLength(1)
+    })
+
+    expect(frame).not.toBeNull()
+    fireEvent.doubleClick(frame!)
+
+    expect(onPreviewViewportChange).toHaveBeenCalledWith(
+      DEFAULT_PREVIEW_VIEWPORT,
+    )
   })
 })

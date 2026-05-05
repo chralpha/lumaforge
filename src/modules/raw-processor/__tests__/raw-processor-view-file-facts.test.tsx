@@ -163,6 +163,14 @@ function createLoadedProcessorState(
     updateStats: vi.fn(),
     pipelineRef: { current: null },
     ...overrides,
+    previewViewport: overrides.previewViewport ?? {
+      zoom: 1,
+      panX: 0,
+      panY: 0,
+      fitMode: 'screen',
+    },
+    setPreviewViewport: overrides.setPreviewViewport ?? vi.fn(),
+    resetPreviewViewport: overrides.resetPreviewViewport ?? vi.fn(),
   }
 }
 
