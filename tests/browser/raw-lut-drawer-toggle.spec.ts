@@ -25,11 +25,15 @@ function createIdentityCube(title: string, size = 17) {
 async function openRawToolsIfNeeded(page: Page) {
   if ((page.viewportSize()?.width ?? Number.POSITIVE_INFINITY) > 640) return
 
-  const toggle = page.getByRole('button', { name: 'RAW tools' })
+  const styleTab = page.getByRole('button', { name: 'Style' })
+  const sheet = page.locator('.raw-mobile-tool-sheet')
 
-  await expect(toggle).toBeVisible()
-  await toggle.click()
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  await expect(styleTab).toBeVisible()
+  await styleTab.click()
+  await expect(sheet).toBeVisible()
+  await expect(page.locator('.raw-mobile-tool-sheet-header h2')).toHaveText(
+    'Style',
+  )
 }
 
 test('closes the online LUT resource browser when its trigger is clicked again', async ({

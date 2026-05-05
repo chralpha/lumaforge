@@ -257,7 +257,10 @@ describe('rawProcessorView', () => {
       screen.getByText('拖入一张 RAW，在本机预览、对比、定稿并导出。'),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '选择 RAW' })).toBeEnabled()
-    expect(screen.getByText('RAW 工具')).toBeInTheDocument()
+    expect(
+      screen.getByRole('complementary', { name: 'RAW 成片控制项' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '导出' })).toBeInTheDocument()
     expect(screen.getByText('未处理 RAW')).toBeInTheDocument()
     expect(screen.getByText('最终 JPEG')).toBeInTheDocument()
   })
@@ -340,7 +343,7 @@ describe('rawToolSurface', () => {
   it('keeps compare copy tied to the new split interaction', () => {
     render(<RawToolSurface {...rawToolSurfaceProps()} />)
 
-    expect(screen.getByText('Compare')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Compare' })).toBeInTheDocument()
     expect(
       screen.getByText('Drag the split directly on the image.'),
     ).toBeInTheDocument()

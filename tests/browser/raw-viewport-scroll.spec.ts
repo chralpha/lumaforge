@@ -12,6 +12,12 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
       '[data-raw-lab-shell="viewport"]',
     )
     const toolStack = document.querySelector<HTMLElement>('.raw-tool-stack')
+    const mobileRail = document.querySelector<HTMLElement>(
+      '.raw-mobile-tool-rail',
+    )
+    const mobileSheet = document.querySelector<HTMLElement>(
+      '.raw-mobile-tool-sheet',
+    )
 
     return {
       documentScrollOverflow:
@@ -26,6 +32,11 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
       toolStackOverflowY: toolStack
         ? getComputedStyle(toolStack).overflowY
         : '',
+      isMobile: window.innerWidth <= 640,
+      mobileRailVisible: mobileRail
+        ? getComputedStyle(mobileRail).display !== 'none'
+        : false,
+      mobileSheetHidden: mobileSheet?.hidden ?? false,
       viewportHeight: window.innerHeight,
     }
   })
@@ -34,7 +45,10 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
   expect(metrics.rawShellScrollOverflow).toBe(0)
   expect(metrics.documentScrollOverflow).toBe(0)
 
-  if (metrics.toolStackOverflowY === 'auto') {
+  if (metrics.isMobile) {
+    expect(metrics.mobileRailVisible).toBe(true)
+    expect(metrics.mobileSheetHidden).toBe(true)
+  } else if (metrics.toolStackOverflowY === 'auto') {
     expect(metrics.toolStackScrollOverflow).toBeGreaterThan(0)
   }
 })

@@ -368,18 +368,58 @@ describe('rawToolSurface', () => {
     expect(screen.getByText('Tone settings preserved')).toBeInTheDocument()
   })
 
-  it('opens and closes the mobile tool sheet without relying on page scroll', async () => {
+  it('opens mobile tools from the bottom action rail without relying on page scroll', async () => {
     const user = userEvent.setup()
-    render(<RawToolSurface {...baseProps} />)
+    const { container } = render(<RawToolSurface {...baseProps} />)
 
-    const toggle = screen.getByRole('button', { name: 'RAW tools' })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    const surface = container.querySelector('[data-raw-tool-surface]')
+    const sheet = container.querySelector('.raw-mobile-tool-sheet')
+    const style = screen.getByRole('button', { name: 'Style' })
+    const compare = screen.getByRole('button', { name: 'Compare' })
 
-    await user.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(surface).toHaveAttribute('data-raw-tool-sheet', 'closed')
+    expect(sheet).toHaveAttribute('hidden')
+    expect(style).toHaveAttribute('aria-expanded', 'false')
 
-    await user.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await user.click(style)
+    expect(surface).toHaveAttribute('data-raw-tool-sheet', 'open')
+    expect(surface).toHaveAttribute('data-raw-mobile-panel', 'style')
+    expect(sheet).not.toHaveAttribute('hidden')
+    expect(style).toHaveAttribute('aria-expanded', 'true')
+
+    await user.click(compare)
+    expect(surface).toHaveAttribute('data-raw-mobile-panel', 'compare')
+    expect(compare).toHaveAttribute('aria-expanded', 'true')
+
+    await user.click(
+      screen.getByRole('button', { name: 'Close RAW tool sheet' }),
+    )
+    expect(surface).toHaveAttribute('data-raw-tool-sheet', 'closed')
+    expect(sheet).toHaveAttribute('hidden')
+  })
+
+  it('uses the mobile Export rail action as the sticky export CTA', async () => {
+    const user = userEvent.setup()
+    const onExport = vi.fn()
+    const { container } = render(
+      <RawToolSurface {...baseProps} hasImage canExport onExport={onExport} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Export' }))
+
+    expect(onExport).toHaveBeenCalledWith({
+      quality: 'high',
+      fidelity: 'balanced',
+    })
+    expect(container.querySelector('[data-raw-mobile-panel]')).toHaveAttribute(
+      'data-raw-mobile-panel',
+      'export',
+    )
+    expect(
+      within(
+        container.querySelector('.raw-mobile-tool-sheet') as HTMLElement,
+      ).getByRole('region', { name: 'Export' }),
+    ).toBeInTheDocument()
   })
 
   it('keeps long LUT names inside the tool column while preserving the full name', () => {
