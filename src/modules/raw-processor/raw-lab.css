@@ -1389,6 +1389,13 @@
   font-size: 0.72rem;
   font-weight: 760;
   line-height: 1.1;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+  pointer-events: none;
+}
+
+[data-raw-compare-dragging] .raw-lab-compare-label {
+  opacity: 1;
 }
 
 .raw-lab-compare-label-left {
@@ -1475,8 +1482,15 @@
   position: absolute;
   inset: 0 auto 0 50%;
   width: 2px;
-  background: oklch(0.96 0.012 86 / 0.9);
+  background: oklch(0.96 0.012 86 / 0.25);
   transform: translateX(-50%);
+  transition: background 300ms ease-out;
+}
+
+.raw-lab-compare-handle:hover::before,
+.raw-lab-compare-handle:focus-visible::before,
+[data-raw-compare-dragging] .raw-lab-compare-handle::before {
+  background: oklch(0.96 0.012 86 / 0.9);
 }
 
 .raw-lab-compare-handle span {
@@ -1493,6 +1507,14 @@
   transform: translate(-50%, -50%);
   font-size: 0.72rem;
   font-weight: 800;
+  opacity: 0.62;
+  transition: opacity 300ms ease-out;
+}
+
+.raw-lab-compare-handle:hover span,
+.raw-lab-compare-handle:focus-visible span,
+[data-raw-compare-dragging] .raw-lab-compare-handle span {
+  opacity: 1;
 }
 
 .raw-lab-compare-handle:focus-visible span {

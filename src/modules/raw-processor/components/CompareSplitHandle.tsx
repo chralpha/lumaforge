@@ -199,6 +199,19 @@ export function CompareSplitHandle({
     [cancelPendingPreview, previewFromPointer],
   )
 
+  const setFrameDragging = useCallback(
+    (target: HTMLElement, active: boolean) => {
+      const frame = target.parentElement
+      if (!frame) return
+      if (active) {
+        frame.setAttribute('data-raw-compare-dragging', '')
+      } else {
+        frame.removeAttribute('data-raw-compare-dragging')
+      }
+    },
+    [],
+  )
+
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLButtonElement>) => {
       event.stopPropagation()
@@ -206,9 +219,10 @@ export function CompareSplitHandle({
 
       trySetPointerCapture(event.currentTarget, event.pointerId)
       activePointerIdRef.current = event.pointerId
+      setFrameDragging(event.currentTarget, true)
       schedulePointerPreview(event.currentTarget, event.clientX)
     },
-    [disabled, schedulePointerPreview],
+    [disabled, schedulePointerPreview, setFrameDragging],
   )
 
   const handlePointerMove = useCallback(
@@ -230,10 +244,11 @@ export function CompareSplitHandle({
 
       const nextSplit = flushPointerPreview(event.currentTarget, event.clientX)
       activePointerIdRef.current = null
+      setFrameDragging(event.currentTarget, false)
       tryReleasePointerCapture(event.currentTarget, event.pointerId)
       onChange(nextSplit)
     },
-    [disabled, flushPointerPreview, onChange],
+    [disabled, flushPointerPreview, onChange, setFrameDragging],
   )
 
   const handlePointerCancel = useCallback(
@@ -244,10 +259,11 @@ export function CompareSplitHandle({
       activePointerIdRef.current = null
       pendingClientXRef.current = null
       cancelPendingPreview()
+      setFrameDragging(event.currentTarget, false)
       tryReleasePointerCapture(event.currentTarget, event.pointerId)
       applyHandlePosition(event.currentTarget, value)
     },
-    [cancelPendingPreview, value],
+    [cancelPendingPreview, value, setFrameDragging],
   )
 
   const handleKeyDown = useCallback(
