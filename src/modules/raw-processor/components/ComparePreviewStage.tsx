@@ -6,6 +6,7 @@ import { useI18n } from '~/lib/i18n'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
 import type { DisplaySource } from '../model/session'
+import type { PreviewViewport } from '../services/preview-viewport'
 import { CompareSplitHandle } from './CompareSplitHandle'
 import { Dropzone, RAW_FILE_EXTENSIONS } from './Dropzone'
 import { PreviewCanvas } from './PreviewCanvas'
@@ -21,6 +22,7 @@ export interface ComparePreviewStageProps {
   embeddedPreviewUrl?: string | null
   displaySource?: DisplaySource
   previewSuspended?: boolean
+  previewViewport?: PreviewViewport
   split: number
   isProcessing: boolean
   progress: number
@@ -29,6 +31,7 @@ export interface ComparePreviewStageProps {
   onRawDrop: (files: File[]) => void
   onSplitChange: (split: number) => void
   onSplitPreviewChange?: (split: number) => void
+  onPreviewViewportChange?: (viewport: PreviewViewport) => void
   onStatsUpdate?: (stats: PipelineStats) => void
   onPipelineChange?: (pipeline: RawProcessingPipeline | null) => void
   className?: string
@@ -91,6 +94,7 @@ export function ComparePreviewStage({
   embeddedPreviewUrl,
   displaySource = 'none',
   previewSuspended = false,
+  previewViewport,
   split,
   isProcessing,
   progress,
@@ -99,6 +103,7 @@ export function ComparePreviewStage({
   onRawDrop,
   onSplitChange,
   onSplitPreviewChange,
+  onPreviewViewportChange,
   onStatsUpdate,
   onPipelineChange,
   className,
@@ -133,6 +138,9 @@ export function ComparePreviewStage({
                 embeddedPreviewUrl={embeddedPreviewUrl}
                 displaySource={displaySource}
                 suspended={previewSuspended}
+                interactionDisabled={isProcessing}
+                previewViewport={previewViewport}
+                onPreviewViewportChange={onPreviewViewportChange}
                 onStatsUpdate={onStatsUpdate}
                 onPipelineChange={onPipelineChange}
               />

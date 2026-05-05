@@ -138,6 +138,11 @@ import {
   applyPreviewReady,
   applyQuickPreviewFailure,
 } from '../services/preview-session-state'
+import type { PreviewViewport } from '../services/preview-viewport'
+import {
+  DEFAULT_PREVIEW_VIEWPORT,
+  normalizePreviewViewport,
+} from '../services/preview-viewport'
 import { prepareRawLoadState } from '../services/raw-load-preparation'
 import {
   buildLUTProfileSelectionState,
@@ -146,6 +151,7 @@ import {
 } from '../services/style-system'
 import {
   applyCompareSplitToSession,
+  applyPreviewViewportToSession,
   applyViewModeToSession,
 } from '../services/view-session-state'
 import {
@@ -210,6 +216,7 @@ export interface UseRawProcessorReturn {
   activeIntensity: 'off' | 'light' | 'standard' | 'strong'
   viewMode: ProcessingParams['viewMode']
   compareSplit: number
+  previewViewport: PreviewViewport
   currentLutName: string | null
   sourceFileName: string
   supportLevel: 'official' | 'experimental'
@@ -230,6 +237,8 @@ export interface UseRawProcessorReturn {
   selectIntensityLevel: (level: 'off' | 'light' | 'standard' | 'strong') => void
   setViewMode: (mode: ProcessingParams['viewMode']) => void
   setCompareSplit: (split: number) => void
+  setPreviewViewport: (viewport: PreviewViewport) => void
+  resetPreviewViewport: () => void
   clearLUT: () => void
   setParams: (params: Partial<ProcessingParams>) => void
   setToneParams: (
@@ -350,6 +359,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const activeIntensity = activeStyle?.currentIntensityLevel || 'standard'
   const viewMode = params.viewMode
   const compareSplit = params.compareSplit
+  const previewViewport = session
+    ? normalizePreviewViewport({
+        zoom: session.viewState.zoom,
+        panX: session.viewState.panX,
+        panY: session.viewState.panY,
+        fitMode: session.viewState.fitMode,
+      })
+    : DEFAULT_PREVIEW_VIEWPORT
   const currentLutName =
     activeStyle?.kind === 'custom' ? activeStyle.name : null
   const sourceFileName =
@@ -1330,6 +1347,20 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [setParams, setSession],
   )
 
+  const setPreviewViewport = useCallback(
+    (viewport: PreviewViewport) => {
+      setSession((prev) => {
+        if (!prev) return prev
+        return applyPreviewViewportToSession(prev, viewport)
+      })
+    },
+    [setSession],
+  )
+
+  const resetPreviewViewport = useCallback(() => {
+    setPreviewViewport(DEFAULT_PREVIEW_VIEWPORT)
+  }, [setPreviewViewport])
+
   // Clear LUT
   const clearLUT = useCallback(() => {
     const shouldInvalidateExportGraph =
@@ -2276,6 +2307,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     activeIntensity,
     viewMode,
     compareSplit,
+    previewViewport,
     currentLutName,
     sourceFileName,
     supportLevel,
@@ -2291,6 +2323,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
     selectIntensityLevel,
     setViewMode,
     setCompareSplit,
+    setPreviewViewport,
+    resetPreviewViewport,
     clearLUT,
     setParams: handleSetParams,
     setToneParams,
