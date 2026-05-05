@@ -62,6 +62,10 @@ function deferred<T>() {
 const defaultParams: ProcessingParams = {
   userExposureEv: 0,
   userContrast: 0,
+  userHighlights: 0,
+  userShadows: 0,
+  userWhites: 0,
+  userBlacks: 0,
   intensity: 0.7,
   viewMode: 'processed',
   compareSplit: 0.5,

@@ -25,6 +25,17 @@ export type ExportColorGraphStep =
       luminanceCoefficients: readonly [number, number, number]
       zeroLuminanceMode: 'return-black'
     }
+  | {
+      kind: 'user-regional-tone'
+      highlights: number
+      shadows: number
+      whites: number
+      blacks: number
+      operator: 'linear-prophoto-log-luminance-regions'
+      pivot: number
+      luminanceCoefficients: readonly [number, number, number]
+      zeroLuminanceMode: 'return-black'
+    }
   | { kind: 'gamut-to-lut-input'; matrix: Mat3; gamut: ColorGamutId }
   | {
       kind: 'encode-lut-transfer'
@@ -125,12 +136,20 @@ export function resolveExportColorGraph(input: {
   rawRenderExposure?: RawRenderExposure
   userExposureEv?: LumaColorToneParams['userExposureEv']
   userContrast?: LumaColorToneParams['userContrast']
+  userHighlights?: LumaColorToneParams['userHighlights']
+  userShadows?: LumaColorToneParams['userShadows']
+  userWhites?: LumaColorToneParams['userWhites']
+  userBlacks?: LumaColorToneParams['userBlacks']
 }): ExportColorGraphDescriptor {
   const rawRenderExposure =
     input.rawRenderExposure ?? IDENTITY_RAW_RENDER_EXPOSURE
   const tone = resolveToneParams({
     userExposureEv: input.userExposureEv,
     userContrast: input.userContrast,
+    userHighlights: input.userHighlights,
+    userShadows: input.userShadows,
+    userWhites: input.userWhites,
+    userBlacks: input.userBlacks,
   })
   const base: ExportColorGraphStep[] = [
     { kind: 'input-linear-prophoto' },
@@ -150,6 +169,17 @@ export function resolveExportColorGraph(input: {
       factor: tone.userContrastFactor,
       pivot: tone.contrastPivot,
       operator: 'linear-prophoto-luminance-scale',
+      luminanceCoefficients: tone.luminanceCoefficients,
+      zeroLuminanceMode: 'return-black',
+    },
+    {
+      kind: 'user-regional-tone',
+      highlights: tone.userHighlights,
+      shadows: tone.userShadows,
+      whites: tone.userWhites,
+      blacks: tone.userBlacks,
+      operator: 'linear-prophoto-log-luminance-regions',
+      pivot: tone.regionalTonePivot,
       luminanceCoefficients: tone.luminanceCoefficients,
       zeroLuminanceMode: 'return-black',
     },
@@ -256,6 +286,10 @@ export type ResolveColorGraphInput = {
   rawRenderExposure?: RawRenderExposure
   userExposureEv?: number
   userContrast?: number
+  userHighlights?: number
+  userShadows?: number
+  userWhites?: number
+  userBlacks?: number
 }
 
 export function resolveColorGraph(input: ResolveColorGraphInput): ColorGraph {

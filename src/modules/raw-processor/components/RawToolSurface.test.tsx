@@ -11,6 +11,10 @@ const baseProps = {
   tone: {
     userExposureEv: 0,
     userContrast: 0,
+    userHighlights: 0,
+    userShadows: 0,
+    userWhites: 0,
+    userBlacks: 0,
   },
   onIntensitySelect: vi.fn(),
   onToneChange: vi.fn(),
@@ -171,7 +175,15 @@ describe('rawToolSurface', () => {
     const strength = screen.getByRole('region', { name: 'Strength' })
 
     expect(within(tone).getByLabelText('Exposure')).toBeInTheDocument()
-    expect(within(tone).getByLabelText('Contrast')).toBeInTheDocument()
+    for (const label of [
+      'Contrast',
+      'Highlights',
+      'Shadows',
+      'Whites',
+      'Blacks',
+    ]) {
+      expect(within(tone).getByLabelText(label)).toBeInTheDocument()
+    }
     expect(screen.getByRole('region', { name: 'Tone' })).toBeInTheDocument()
     expect(
       tone.compareDocumentPosition(strength) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -285,7 +297,14 @@ describe('rawToolSurface', () => {
       <RawToolSurface
         {...baseProps}
         hasImage
-        tone={{ userExposureEv: 0, userContrast: 0 }}
+        tone={{
+          userExposureEv: 0,
+          userContrast: 0,
+          userHighlights: 0,
+          userShadows: 0,
+          userWhites: 0,
+          userBlacks: 0,
+        }}
         onToneChange={onToneChange}
         onToneReset={onToneReset}
       />,
@@ -295,6 +314,10 @@ describe('rawToolSurface', () => {
       target: { value: '1.25' },
     })
     expect(onToneChange).toHaveBeenLastCalledWith({ userExposureEv: 1.25 })
+    fireEvent.change(screen.getByLabelText('Highlights'), {
+      target: { value: '-40' },
+    })
+    expect(onToneChange).toHaveBeenLastCalledWith({ userHighlights: -40 })
 
     await user.click(screen.getByRole('button', { name: 'Reset tone' }))
     expect(onToneReset).toHaveBeenCalledTimes(1)
@@ -308,6 +331,10 @@ describe('rawToolSurface', () => {
 
     expect(screen.getByLabelText('Exposure')).toBeDisabled()
     expect(screen.getByLabelText('Contrast')).toBeDisabled()
+    expect(screen.getByLabelText('Highlights')).toBeDisabled()
+    expect(screen.getByLabelText('Shadows')).toBeDisabled()
+    expect(screen.getByLabelText('Whites')).toBeDisabled()
+    expect(screen.getByLabelText('Blacks')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Reset tone' })).toBeDisabled()
   })
 
@@ -327,7 +354,14 @@ describe('rawToolSurface', () => {
       <RawToolSurface
         {...baseProps}
         hasImage
-        tone={{ userExposureEv: 1, userContrast: 50 }}
+        tone={{
+          userExposureEv: 0,
+          userContrast: 0,
+          userHighlights: -40,
+          userShadows: 40,
+          userWhites: -20,
+          userBlacks: 20,
+        }}
       />,
     )
 

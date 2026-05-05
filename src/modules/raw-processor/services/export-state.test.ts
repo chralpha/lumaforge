@@ -182,6 +182,10 @@ describe('export state helpers', () => {
       compareSplit: 0.5,
       userExposureEv: 0,
       userContrast: 0,
+      userHighlights: 0,
+      userShadows: 0,
+      userWhites: 0,
+      userBlacks: 0,
     } as const
 
     expect(
@@ -195,6 +199,10 @@ describe('export state helpers', () => {
       true,
     )
     expect(changesRenderGraphParams(current, { userContrast: -0.2 })).toBe(true)
+    expect(changesRenderGraphParams(current, { userHighlights: -5 })).toBe(true)
+    expect(changesRenderGraphParams(current, { userShadows: 5 })).toBe(true)
+    expect(changesRenderGraphParams(current, { userWhites: -5 })).toBe(true)
+    expect(changesRenderGraphParams(current, { userBlacks: 5 })).toBe(true)
     expect(changesRenderGraphParams(current, { builtinPreset: 'cool' })).toBe(
       true,
     )

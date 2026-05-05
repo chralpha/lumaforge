@@ -24,7 +24,14 @@ function snapshot() {
     graphFingerprint: '[{"kind":"input-linear-prophoto"}]',
     lutTitle: 'V-Log',
     quickPreviewReady: true,
-    tone: { userExposureEv: 0, userContrast: 0 },
+    tone: {
+      userExposureEv: 0,
+      userContrast: 0,
+      userHighlights: 0,
+      userShadows: 0,
+      userWhites: 0,
+      userBlacks: 0,
+    },
     style: { kind: 'custom', name: 'V-Log' },
   })
 }

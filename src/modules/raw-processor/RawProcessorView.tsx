@@ -311,6 +311,10 @@ function RawProcessorViewInner({
           tone={{
             userExposureEv: params.userExposureEv,
             userContrast: params.userContrast,
+            userHighlights: params.userHighlights,
+            userShadows: params.userShadows,
+            userWhites: params.userWhites,
+            userBlacks: params.userBlacks,
           }}
           onIntensitySelect={selectIntensityLevel}
           onToneChange={setToneParams}

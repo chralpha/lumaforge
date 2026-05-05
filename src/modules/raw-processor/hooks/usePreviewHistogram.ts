@@ -105,6 +105,10 @@ function createHistogramJob({
     params.builtinPreset ?? '',
     params.userExposureEv ?? 0,
     params.userContrast ?? 0,
+    params.userHighlights ?? 0,
+    params.userShadows ?? 0,
+    params.userWhites ?? 0,
+    params.userBlacks ?? 0,
   ].join(':')
 
   if (!image) {
@@ -160,6 +164,10 @@ function createHistogramJob({
     rawRenderExposure: image.renderExposure,
     userExposureEv: params.userExposureEv,
     userContrast: params.userContrast,
+    userHighlights: params.userHighlights,
+    userShadows: params.userShadows,
+    userWhites: params.userWhites,
+    userBlacks: params.userBlacks,
   })
 
   if (!graph.supported) {
@@ -215,8 +223,17 @@ export function usePreviewHistogram(
     lutDataVersion,
     displaySource,
   } = input
-  const { styleKind, intensity, builtinPreset, userExposureEv, userContrast } =
-    params
+  const {
+    styleKind,
+    intensity,
+    builtinPreset,
+    userExposureEv,
+    userContrast,
+    userHighlights,
+    userShadows,
+    userWhites,
+    userBlacks,
+  } = params
   const histogramParams = useMemo<ProcessingParams>(
     () => ({
       styleKind,
@@ -224,10 +241,24 @@ export function usePreviewHistogram(
       builtinPreset,
       userExposureEv,
       userContrast,
+      userHighlights,
+      userShadows,
+      userWhites,
+      userBlacks,
       viewMode: 'processed',
       compareSplit: 0.5,
     }),
-    [builtinPreset, intensity, styleKind, userContrast, userExposureEv],
+    [
+      builtinPreset,
+      intensity,
+      styleKind,
+      userBlacks,
+      userContrast,
+      userExposureEv,
+      userHighlights,
+      userShadows,
+      userWhites,
+    ],
   )
   const job = useMemo(
     () =>

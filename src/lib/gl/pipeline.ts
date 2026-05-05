@@ -204,6 +204,10 @@ const DEFAULT_PARAMS: ProcessingParams = {
   builtinPreset: null,
   userExposureEv: 0,
   userContrast: 0,
+  userHighlights: 0,
+  userShadows: 0,
+  userWhites: 0,
+  userBlacks: 0,
 }
 
 const VIEW_MODE_UNIFORMS: Record<ProcessingParams['viewMode'], number> = {
@@ -496,6 +500,10 @@ export class RawProcessingPipeline {
         program,
         'u_userContrastFactor',
       ),
+      u_userHighlights: gl.getUniformLocation(program, 'u_userHighlights'),
+      u_userShadows: gl.getUniformLocation(program, 'u_userShadows'),
+      u_userWhites: gl.getUniformLocation(program, 'u_userWhites'),
+      u_userBlacks: gl.getUniformLocation(program, 'u_userBlacks'),
       u_viewMode: gl.getUniformLocation(program, 'u_viewMode'),
       u_compareSplit: gl.getUniformLocation(program, 'u_compareSplit'),
       u_styleKind: gl.getUniformLocation(program, 'u_styleKind'),
@@ -740,6 +748,10 @@ export class RawProcessingPipeline {
       lut: this.lutData,
       userExposureEv: this.params.userExposureEv,
       userContrast: this.params.userContrast,
+      userHighlights: this.params.userHighlights,
+      userShadows: this.params.userShadows,
+      userWhites: this.params.userWhites,
+      userBlacks: this.params.userBlacks,
     })
     const resolvedProfile = exportGraph.supported
       ? exportGraph.lutProfile
@@ -867,6 +879,10 @@ export class RawProcessingPipeline {
     const tone = resolveToneParams({
       userExposureEv: params.userExposureEv,
       userContrast: params.userContrast,
+      userHighlights: params.userHighlights,
+      userShadows: params.userShadows,
+      userWhites: params.userWhites,
+      userBlacks: params.userBlacks,
     })
     gl.uniform1f(
       processUniforms.u_userExposureMultiplier,
@@ -874,6 +890,10 @@ export class RawProcessingPipeline {
     )
     gl.uniform1f(processUniforms.u_userContrastAmount, tone.userContrast)
     gl.uniform1f(processUniforms.u_userContrastFactor, tone.userContrastFactor)
+    gl.uniform1f(processUniforms.u_userHighlights, tone.userHighlights)
+    gl.uniform1f(processUniforms.u_userShadows, tone.userShadows)
+    gl.uniform1f(processUniforms.u_userWhites, tone.userWhites)
+    gl.uniform1f(processUniforms.u_userBlacks, tone.userBlacks)
     gl.uniform1i(
       processUniforms.u_styleKind,
       STYLE_KIND_UNIFORMS[params.styleKind],

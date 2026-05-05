@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   LUMA_COLOR_LUT_GLSL,
   LUMA_COLOR_RANGE_GLSL,
+  LUMA_COLOR_TONE_GLSL,
   LUMA_COLOR_TRANSFER_GLSL,
   LUT_RANGE_UNIFORMS,
   LUT_ROLE_UNIFORMS,
@@ -64,5 +65,15 @@ describe('gLSL color contract surface', () => {
     ]) {
       expect(LUMA_COLOR_LUT_GLSL).toContain(abiName)
     }
+  })
+
+  it('exports regional tone GLSL helpers for preview parity', () => {
+    expect(LUMA_COLOR_TONE_GLSL).toContain('applyUserRegionalTone')
+    expect(LUMA_COLOR_TONE_GLSL).toContain('float highlights')
+    expect(LUMA_COLOR_TONE_GLSL).toContain('float shadows')
+    expect(LUMA_COLOR_TONE_GLSL).toContain('float whites')
+    expect(LUMA_COLOR_TONE_GLSL).toContain('float blacks')
+    expect(LUMA_COLOR_TONE_GLSL).toContain('smoothstep')
+    expect(LUMA_COLOR_TONE_GLSL).toContain('log2')
   })
 })

@@ -2,6 +2,7 @@ import type { SupportedExportColorGraphDescriptor } from './color-graph'
 import { mix, sampleLutTrilinear } from './lut3d'
 import { getProPhotoToTargetMatrix } from './matrix'
 import { getTransferFunction } from './registry'
+import { regionalToneScaleFromLuminance } from './tone'
 
 const CHANNELS_PER_PIXEL = 3
 const UINT16_MAX = 65535
@@ -72,17 +73,22 @@ function isSimpleNoLutGraph(
       SupportedExportColorGraphDescriptor['steps'][number],
       { kind: 'user-contrast' }
     >,
+    Extract<
+      SupportedExportColorGraphDescriptor['steps'][number],
+      { kind: 'user-regional-tone' }
+    >,
     { kind: 'output-srgb' },
   ]
 } {
   return (
     graph.lutProfile === null &&
-    graph.steps.length === 5 &&
+    graph.steps.length === 6 &&
     graph.steps[0]?.kind === 'input-linear-prophoto' &&
     graph.steps[1]?.kind === 'raw-render-exposure' &&
     graph.steps[2]?.kind === 'user-exposure' &&
     graph.steps[3]?.kind === 'user-contrast' &&
-    graph.steps[4]?.kind === 'output-srgb'
+    graph.steps[4]?.kind === 'user-regional-tone' &&
+    graph.steps[5]?.kind === 'output-srgb'
   )
 }
 
@@ -105,6 +111,10 @@ function isSupportedLutGraph(
     >,
     Extract<
       SupportedExportColorGraphDescriptor['steps'][number],
+      { kind: 'user-regional-tone' }
+    >,
+    Extract<
+      SupportedExportColorGraphDescriptor['steps'][number],
       { kind: 'gamut-to-lut-input' }
     >,
     Extract<
@@ -123,16 +133,17 @@ function isSupportedLutGraph(
   ]
 } {
   return (
-    graph.steps.length === 9 &&
+    graph.steps.length === 10 &&
     graph.steps[0]?.kind === 'input-linear-prophoto' &&
     graph.steps[1]?.kind === 'raw-render-exposure' &&
     graph.steps[2]?.kind === 'user-exposure' &&
     graph.steps[3]?.kind === 'user-contrast' &&
-    graph.steps[4]?.kind === 'gamut-to-lut-input' &&
-    graph.steps[5]?.kind === 'encode-lut-transfer' &&
-    graph.steps[6]?.kind === 'lut3d' &&
-    graph.steps[7]?.kind === 'lut-output-to-srgb' &&
-    graph.steps[8]?.kind === 'output-srgb'
+    graph.steps[4]?.kind === 'user-regional-tone' &&
+    graph.steps[5]?.kind === 'gamut-to-lut-input' &&
+    graph.steps[6]?.kind === 'encode-lut-transfer' &&
+    graph.steps[7]?.kind === 'lut3d' &&
+    graph.steps[8]?.kind === 'lut-output-to-srgb' &&
+    graph.steps[9]?.kind === 'output-srgb'
   )
 }
 
@@ -152,6 +163,10 @@ type UserExposureStep = Extract<
 type UserContrastStep = Extract<
   SupportedExportColorGraphDescriptor['steps'][number],
   { kind: 'user-contrast' }
+>
+type UserRegionalToneStep = Extract<
+  SupportedExportColorGraphDescriptor['steps'][number],
+  { kind: 'user-regional-tone' }
 >
 
 function getUserExposureMultiplier(step: UserExposureStep) {
@@ -196,6 +211,50 @@ function applyUserContrastScalarTo(
   return out
 }
 
+function hasRegionalTone(step: UserRegionalToneStep) {
+  return (
+    step.highlights !== 0 ||
+    step.shadows !== 0 ||
+    step.whites !== 0 ||
+    step.blacks !== 0
+  )
+}
+
+function applyUserRegionalToneScalarTo(
+  r: number,
+  g: number,
+  b: number,
+  step: UserRegionalToneStep,
+  out: MutableRgb,
+) {
+  if (!hasRegionalTone(step)) {
+    out[0] = r
+    out[1] = g
+    out[2] = b
+    return out
+  }
+
+  const positiveR = Math.max(r, 0)
+  const positiveG = Math.max(g, 0)
+  const positiveB = Math.max(b, 0)
+  const y =
+    step.luminanceCoefficients[0] * positiveR +
+    step.luminanceCoefficients[1] * positiveG +
+    step.luminanceCoefficients[2] * positiveB
+  const scale = regionalToneScaleFromLuminance(y, {
+    highlights: step.highlights,
+    shadows: step.shadows,
+    whites: step.whites,
+    blacks: step.blacks,
+    pivot: step.pivot,
+  })
+
+  out[0] = positiveR * scale
+  out[1] = positiveG * scale
+  out[2] = positiveB * scale
+  return out
+}
+
 type GraphApplier = (linear: Float32Array, bytes: Uint8Array) => void
 
 function compileGraphApplier(
@@ -207,6 +266,7 @@ function compileGraphApplier(
     )
     const exposureMultiplier = getUserExposureMultiplier(graph.steps[2])
     const contrastStep = graph.steps[3]
+    const regionalToneStep = graph.steps[4]
     const toneScratch: MutableRgb = [0, 0, 0]
 
     return (linear, bytes) => {
@@ -223,11 +283,18 @@ function compileGraphApplier(
           (linear[index + 2] ?? 0) *
           rawRenderExposureMultiplier *
           exposureMultiplier
-        const scene = applyUserContrastScalarTo(
+        const contrasted = applyUserContrastScalarTo(
           exposedR,
           exposedG,
           exposedB,
           contrastStep,
+          toneScratch,
+        )
+        const scene = applyUserRegionalToneScalarTo(
+          contrasted[0],
+          contrasted[1],
+          contrasted[2],
+          regionalToneStep,
           toneScratch,
         )
         const sceneR = scene[0]
@@ -264,10 +331,11 @@ function compileGraphApplier(
   )
   const exposureMultiplier = getUserExposureMultiplier(graph.steps[2])
   const contrastStep = graph.steps[3]
-  const inputMatrix = graph.steps[4].matrix
-  const encodeStep = graph.steps[5]
-  const lutStep = graph.steps[6]
-  const outputStep = graph.steps[7]
+  const regionalToneStep = graph.steps[4]
+  const inputMatrix = graph.steps[5].matrix
+  const encodeStep = graph.steps[6]
+  const lutStep = graph.steps[7]
+  const outputStep = graph.steps[8]
   const outputMatrix = outputStep.matrix
   const encodeTransfer = getTransferFunction(encodeStep.transfer)
   const decodeTransfer = getTransferFunction(outputStep.transfer)
@@ -307,11 +375,18 @@ function compileGraphApplier(
         (linear[index + 2] ?? 0) *
         rawRenderExposureMultiplier *
         exposureMultiplier
-      const scene = applyUserContrastScalarTo(
+      const contrasted = applyUserContrastScalarTo(
         exposedR,
         exposedG,
         exposedB,
         contrastStep,
+        toneScratch,
+      )
+      const scene = applyUserRegionalToneScalarTo(
+        contrasted[0],
+        contrasted[1],
+        contrasted[2],
+        regionalToneStep,
         toneScratch,
       )
       const sceneR = scene[0]

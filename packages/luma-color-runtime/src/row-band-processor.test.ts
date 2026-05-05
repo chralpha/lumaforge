@@ -15,6 +15,16 @@ function neutralToneSteps(): SupportedExportColorGraphDescriptor['steps'] {
       luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
       zeroLuminanceMode: 'return-black',
     },
+    {
+      kind: 'user-regional-tone',
+      highlights: 0,
+      shadows: 0,
+      whites: 0,
+      blacks: 0,
+      operator: 'linear-prophoto-log-luminance-regions',
+      luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+      zeroLuminanceMode: 'return-black',
+    },
   ]
 }
 
@@ -196,6 +206,36 @@ describe('createRowBandProcessor', () => {
       ]),
     )
     expect(rows[0]).not.toBe(0)
+  })
+
+  it('applies regional tone before LUT input sampling', () => {
+    const domainMin = 0.6
+    const domainMax = 1.1
+    const sourceLinear = 0.72
+    const graph = makePrecisionProbeGraph(domainMin, domainMax)
+    const regionalStep = graph.steps.find(
+      (step) => step.kind === 'user-regional-tone',
+    )
+    if (!regionalStep || regionalStep.kind !== 'user-regional-tone') {
+      throw new Error('Missing regional tone step')
+    }
+    regionalStep.highlights = 100
+    regionalStep.whites = 50
+
+    const processor = createRowBandProcessor({
+      width: 1,
+      rowBandRows: 1,
+      graph,
+    })
+    const rows = processor.processFloatRows(
+      new Float32Array([sourceLinear, sourceLinear, sourceLinear]),
+      1,
+    )
+    const normalizedUntonedInput = clamp01(
+      (sourceLinear - domainMin) / (domainMax - domainMin),
+    )
+
+    expect(rows[0]).toBeGreaterThan(toSrgbByte(normalizedUntonedInput))
   })
 
   it('keeps Uint16 rows in Float32 until LUT sampling and final RGB8 quantization', () => {

@@ -298,6 +298,10 @@ function createResolvedVLogClassic709Graph(lutContent: string) {
     rawRenderExposure,
     userExposureEv: 1,
     userContrast: 50,
+    userHighlights: -40,
+    userShadows: 35,
+    userWhites: -20,
+    userBlacks: 15,
   })
 
   if (!graph.supported) {
@@ -313,12 +317,16 @@ function createResolvedVLogClassic709Graph(lutContent: string) {
   const userContrastSteps = graph.steps.filter(
     (step) => step.kind === 'user-contrast',
   )
+  const userRegionalToneSteps = graph.steps.filter(
+    (step) => step.kind === 'user-regional-tone',
+  )
 
   expect(graph.steps.map((step) => step.kind)).toEqual([
     'input-linear-prophoto',
     'raw-render-exposure',
     'user-exposure',
     'user-contrast',
+    'user-regional-tone',
     'gamut-to-lut-input',
     'encode-lut-transfer',
     'lut3d',
@@ -346,6 +354,19 @@ function createResolvedVLogClassic709Graph(lutContent: string) {
       factor: Math.pow(2, 50 / 200),
       pivot: 0.18,
       operator: 'linear-prophoto-luminance-scale',
+      luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+      zeroLuminanceMode: 'return-black',
+    },
+  ])
+  expect(userRegionalToneSteps).toEqual([
+    {
+      kind: 'user-regional-tone',
+      highlights: -40,
+      shadows: 35,
+      whites: -20,
+      blacks: 15,
+      operator: 'linear-prophoto-log-luminance-regions',
+      pivot: 0.18,
       luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
       zeroLuminanceMode: 'return-black',
     },

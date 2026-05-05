@@ -216,6 +216,10 @@ describe('rawProcessingPipeline export rendering', () => {
     const params: ProcessingParams = {
       userExposureEv: 0,
       userContrast: 0,
+      userHighlights: 0,
+      userShadows: 0,
+      userWhites: 0,
+      userBlacks: 0,
       intensity: 0.42,
       viewMode: 'compare',
       compareSplit: 0.82,
@@ -259,6 +263,10 @@ describe('rawProcessingPipeline export rendering', () => {
       const params: ProcessingParams = {
         userExposureEv: 0,
         userContrast: 0,
+        userHighlights: 0,
+        userShadows: 0,
+        userWhites: 0,
+        userBlacks: 0,
         intensity: 0.35,
         viewMode,
         compareSplit: 0.91,
@@ -276,6 +284,10 @@ describe('rawProcessingPipeline export rendering', () => {
       expect(setParamsSpy).toHaveBeenCalledWith({
         userExposureEv: 0,
         userContrast: 0,
+        userHighlights: 0,
+        userShadows: 0,
+        userWhites: 0,
+        userBlacks: 0,
         intensity: 0.35,
         viewMode: 'processed',
         compareSplit: 0.5,
@@ -436,6 +448,10 @@ describe('rawProcessingPipeline export rendering', () => {
     expect(setParamsSpy).toHaveBeenCalledWith({
       userExposureEv: 0,
       userContrast: 0,
+      userHighlights: 0,
+      userShadows: 0,
+      userWhites: 0,
+      userBlacks: 0,
       intensity: 0.6,
       viewMode: 'processed',
       compareSplit: 0.5,

@@ -511,6 +511,7 @@ vec3 applyCombinedOutputLut(vec3 sceneLinearProPhoto) {
 export const LUMA_COLOR_TONE_GLSL = /* glsl */ `
 const vec3 LINEAR_PROPHOTO_LUMINANCE = vec3(0.2880402, 0.7118741, 0.0000857);
 const float USER_CONTRAST_PIVOT = 0.18;
+const float USER_REGIONAL_TONE_PIVOT = 0.18;
 
 vec3 applyUserExposure(vec3 sceneLinear, float exposureMultiplier) {
   return sceneLinear * exposureMultiplier;
@@ -535,16 +536,88 @@ vec3 applyUserContrast(
   return contrastInput * (targetY / y);
 }
 
+float regionalAmountToEv(float amount, float maxAbsEv) {
+  return (amount / 100.0) * maxAbsEv;
+}
+
+float regionalToneEvFromLuminance(
+  float luminance,
+  float highlights,
+  float shadows,
+  float whites,
+  float blacks
+) {
+  if (
+    highlights == 0.0 &&
+    shadows == 0.0 &&
+    whites == 0.0 &&
+    blacks == 0.0
+  ) {
+    return 0.0;
+  }
+  if (luminance <= 0.0) {
+    return 0.0;
+  }
+
+  float logLuminance = log2(luminance / USER_REGIONAL_TONE_PIVOT);
+  float highlightsMask = smoothstep(-1.0, 3.0, logLuminance);
+  float shadowsMask = 1.0 - smoothstep(-4.0, 1.0, logLuminance);
+  float whitesMask = smoothstep(2.0, 5.5, logLuminance);
+  float blacksMask = 1.0 - smoothstep(-8.0, -3.0, logLuminance);
+
+  return
+    highlightsMask * regionalAmountToEv(highlights, 1.25) +
+    shadowsMask * regionalAmountToEv(shadows, 1.25) +
+    whitesMask * regionalAmountToEv(whites, 1.0) +
+    blacksMask * regionalAmountToEv(blacks, 1.0);
+}
+
+vec3 applyUserRegionalTone(
+  vec3 contrastedSceneLinear,
+  float highlights,
+  float shadows,
+  float whites,
+  float blacks
+) {
+  if (
+    highlights == 0.0 &&
+    shadows == 0.0 &&
+    whites == 0.0 &&
+    blacks == 0.0
+  ) {
+    return contrastedSceneLinear;
+  }
+
+  vec3 regionalInput = max(contrastedSceneLinear, vec3(0.0));
+  float y = dot(regionalInput, LINEAR_PROPHOTO_LUMINANCE);
+  if (y <= 0.0) {
+    return vec3(0.0);
+  }
+
+  float ev = regionalToneEvFromLuminance(y, highlights, shadows, whites, blacks);
+  return regionalInput * exp2(ev);
+}
+
 vec3 applyUserTone(
   vec3 sceneLinear,
   float exposureMultiplier,
   float contrastAmount,
-  float contrastFactor
+  float contrastFactor,
+  float highlights,
+  float shadows,
+  float whites,
+  float blacks
 ) {
-  return applyUserContrast(
-    applyUserExposure(sceneLinear, exposureMultiplier),
-    contrastAmount,
-    contrastFactor
+  return applyUserRegionalTone(
+    applyUserContrast(
+      applyUserExposure(sceneLinear, exposureMultiplier),
+      contrastAmount,
+      contrastFactor
+    ),
+    highlights,
+    shadows,
+    whites,
+    blacks
   );
 }
 `

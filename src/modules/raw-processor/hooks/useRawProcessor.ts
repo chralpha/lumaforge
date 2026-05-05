@@ -233,7 +233,17 @@ export interface UseRawProcessorReturn {
   clearLUT: () => void
   setParams: (params: Partial<ProcessingParams>) => void
   setToneParams: (
-    params: Partial<Pick<ProcessingParams, 'userExposureEv' | 'userContrast'>>,
+    params: Partial<
+      Pick<
+        ProcessingParams,
+        | 'userExposureEv'
+        | 'userContrast'
+        | 'userHighlights'
+        | 'userShadows'
+        | 'userWhites'
+        | 'userBlacks'
+      >
+    >,
   ) => void
   resetTone: () => void
   exportImage: (options: {
@@ -1380,7 +1390,15 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const setToneParams = useCallback(
     (
       toneParams: Partial<
-        Pick<ProcessingParams, 'userExposureEv' | 'userContrast'>
+        Pick<
+          ProcessingParams,
+          | 'userExposureEv'
+          | 'userContrast'
+          | 'userHighlights'
+          | 'userShadows'
+          | 'userWhites'
+          | 'userBlacks'
+        >
       >,
     ) => {
       let shouldClearExportResult = false
@@ -1388,6 +1406,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
         const normalized = normalizeToneParams({
           userExposureEv: toneParams.userExposureEv ?? prev.userExposureEv,
           userContrast: toneParams.userContrast ?? prev.userContrast,
+          userHighlights: toneParams.userHighlights ?? prev.userHighlights,
+          userShadows: toneParams.userShadows ?? prev.userShadows,
+          userWhites: toneParams.userWhites ?? prev.userWhites,
+          userBlacks: toneParams.userBlacks ?? prev.userBlacks,
         })
         shouldClearExportResult = changesRenderGraphParams(prev, normalized)
         return { ...prev, ...normalized }
@@ -1401,7 +1423,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
   )
 
   const resetTone = useCallback(() => {
-    handleSetParams({ userExposureEv: 0, userContrast: 0 })
+    handleSetParams({
+      userExposureEv: 0,
+      userContrast: 0,
+      userHighlights: 0,
+      userShadows: 0,
+      userWhites: 0,
+      userBlacks: 0,
+    })
   }, [handleSetParams])
 
   // Export image
@@ -1448,6 +1477,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
         rawRenderExposure: activeRawRenderExposure,
         userExposureEv: params.userExposureEv,
         userContrast: params.userContrast,
+        userHighlights: params.userHighlights,
+        userShadows: params.userShadows,
+        userWhites: params.userWhites,
+        userBlacks: params.userBlacks,
       })
 
       if (!graph.supported) {
@@ -1686,6 +1719,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
           tone: {
             userExposureEv: params.userExposureEv,
             userContrast: params.userContrast,
+            userHighlights: params.userHighlights,
+            userShadows: params.userShadows,
+            userWhites: params.userWhites,
+            userBlacks: params.userBlacks,
           },
           style: activeSession.activeStyle,
         })
@@ -1924,8 +1961,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
       params.builtinPreset,
       params.intensity,
       params.styleKind,
+      params.userBlacks,
       params.userContrast,
       params.userExposureEv,
+      params.userHighlights,
+      params.userShadows,
+      params.userWhites,
       registerCurrentPreviewPipelineForEvacuation,
       registerExportResultResource,
       revokeCurrentEmbeddedPreviewUrl,

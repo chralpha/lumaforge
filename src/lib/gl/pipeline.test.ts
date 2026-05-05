@@ -250,7 +250,14 @@ describe('rawProcessingPipeline render uniforms', () => {
       renderExposureEv: 0,
       renderExposureMultiplier: 1,
     })
-    pipeline.setParams({ userExposureEv: 1, userContrast: 50 })
+    pipeline.setParams({
+      userExposureEv: 1,
+      userContrast: 50,
+      userHighlights: -40,
+      userShadows: 35,
+      userWhites: -25,
+      userBlacks: 20,
+    })
     pipeline.render()
 
     expect(contextMock.gl.uniform1f).toHaveBeenCalledWith(
@@ -265,6 +272,13 @@ describe('rawProcessingPipeline render uniforms', () => {
       'u_userContrastFactor',
       Math.pow(2, 50 / 200),
     )
+    expect(contextMock.gl.uniform1f).toHaveBeenCalledWith(
+      'u_userHighlights',
+      -40,
+    )
+    expect(contextMock.gl.uniform1f).toHaveBeenCalledWith('u_userShadows', 35)
+    expect(contextMock.gl.uniform1f).toHaveBeenCalledWith('u_userWhites', -25)
+    expect(contextMock.gl.uniform1f).toHaveBeenCalledWith('u_userBlacks', 20)
   })
 
   it('sends compare mode and split uniforms to the process shader', async () => {

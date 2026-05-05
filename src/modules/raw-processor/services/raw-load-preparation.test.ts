@@ -17,6 +17,10 @@ function createParams(
     builtinPreset: 'warm',
     userExposureEv: 1,
     userContrast: 50,
+    userHighlights: -40,
+    userShadows: 40,
+    userWhites: -20,
+    userBlacks: 20,
     ...overrides,
   }
 }
@@ -73,6 +77,10 @@ describe('raw load preparation', () => {
     })
     expect(prepared.processingParamsPatch).not.toHaveProperty('userExposureEv')
     expect(prepared.processingParamsPatch).not.toHaveProperty('userContrast')
+    expect(prepared.processingParamsPatch).not.toHaveProperty('userHighlights')
+    expect(prepared.processingParamsPatch).not.toHaveProperty('userShadows')
+    expect(prepared.processingParamsPatch).not.toHaveProperty('userWhites')
+    expect(prepared.processingParamsPatch).not.toHaveProperty('userBlacks')
   })
 
   it('carries detached LUT state into a new RAW session with default custom intensity', () => {

@@ -183,6 +183,17 @@ function neutralToneSteps(): ExportColorGraphStep[] {
       luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
       zeroLuminanceMode: 'return-black',
     },
+    {
+      kind: 'user-regional-tone',
+      highlights: 0,
+      shadows: 0,
+      whites: 0,
+      blacks: 0,
+      operator: 'linear-prophoto-log-luminance-regions',
+      pivot: 0.18,
+      luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+      zeroLuminanceMode: 'return-black',
+    },
   ]
 }
 

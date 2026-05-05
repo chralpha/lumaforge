@@ -2004,6 +2004,17 @@ describe('useRawProcessor embedded preview state', () => {
         luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
         zeroLuminanceMode: 'return-black',
       },
+      {
+        kind: 'user-regional-tone',
+        highlights: 0,
+        shadows: 0,
+        whites: 0,
+        blacks: 0,
+        operator: 'linear-prophoto-log-luminance-regions',
+        pivot: 0.18,
+        luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+        zeroLuminanceMode: 'return-black',
+      },
       { kind: 'output-srgb' },
     ]
 
@@ -3106,6 +3117,10 @@ describe('useRawProcessor embedded preview state', () => {
       result.current.setParams({
         userExposureEv: 1,
         userContrast: 50,
+        userHighlights: -40,
+        userShadows: 40,
+        userWhites: -20,
+        userBlacks: 20,
         styleKind: 'custom',
         intensity: 0.2,
       })
@@ -3117,6 +3132,10 @@ describe('useRawProcessor embedded preview state', () => {
     expect(result.current.params).toMatchObject({
       userExposureEv: 0,
       userContrast: 0,
+      userHighlights: 0,
+      userShadows: 0,
+      userWhites: 0,
+      userBlacks: 0,
       styleKind: 'custom',
       intensity: 0.2,
     })
@@ -3128,11 +3147,19 @@ describe('useRawProcessor embedded preview state', () => {
     act(() => {
       result.current.setToneParams({ userExposureEv: 1 })
       result.current.setToneParams({ userContrast: 50 })
+      result.current.setToneParams({ userHighlights: -40 })
+      result.current.setToneParams({ userShadows: 40 })
+      result.current.setToneParams({ userWhites: -20 })
+      result.current.setToneParams({ userBlacks: 20 })
     })
 
     expect(result.current.params).toMatchObject({
       userExposureEv: 1,
       userContrast: 50,
+      userHighlights: -40,
+      userShadows: 40,
+      userWhites: -20,
+      userBlacks: 20,
     })
   })
 
@@ -3154,7 +3181,14 @@ describe('useRawProcessor embedded preview state', () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
     act(() => {
-      result.current.setToneParams({ userExposureEv: 1, userContrast: 50 })
+      result.current.setToneParams({
+        userExposureEv: 1,
+        userContrast: 50,
+        userHighlights: -40,
+        userShadows: 40,
+        userWhites: -20,
+        userBlacks: 20,
+      })
     })
     await act(async () => {
       await result.current.exportImage({
@@ -3171,6 +3205,9 @@ describe('useRawProcessor embedded preview state', () => {
     const userContrastStep = graph.steps.find(
       (step) => step.kind === 'user-contrast',
     )
+    const userRegionalToneStep = graph.steps.find(
+      (step) => step.kind === 'user-regional-tone',
+    )
     expect(userExposureStep).toMatchObject({
       kind: 'user-exposure',
       ev: 1,
@@ -3180,6 +3217,13 @@ describe('useRawProcessor embedded preview state', () => {
       kind: 'user-contrast',
       amount: 50,
       factor: Math.pow(2, 50 / 200),
+    })
+    expect(userRegionalToneStep).toMatchObject({
+      kind: 'user-regional-tone',
+      highlights: -40,
+      shadows: 40,
+      whites: -20,
+      blacks: 20,
     })
   })
 
@@ -3194,7 +3238,14 @@ describe('useRawProcessor embedded preview state', () => {
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
 
     act(() => {
-      result.current.setToneParams({ userExposureEv: 1, userContrast: 50 })
+      result.current.setToneParams({
+        userExposureEv: 1,
+        userContrast: 50,
+        userHighlights: -40,
+        userShadows: 40,
+        userWhites: -20,
+        userBlacks: 20,
+      })
     })
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'first.ARW'))
@@ -3206,6 +3257,10 @@ describe('useRawProcessor embedded preview state', () => {
     expect(result.current.params).toMatchObject({
       userExposureEv: 1,
       userContrast: 50,
+      userHighlights: -40,
+      userShadows: 40,
+      userWhites: -20,
+      userBlacks: 20,
     })
   })
 

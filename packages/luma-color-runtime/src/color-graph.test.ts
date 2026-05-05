@@ -23,6 +23,7 @@ describe('resolveExportColorGraph', () => {
       'raw-render-exposure',
       'user-exposure',
       'user-contrast',
+      'user-regional-tone',
       'output-srgb',
     ])
     expect(graph.steps[1]).toMatchObject({
@@ -48,6 +49,13 @@ describe('resolveExportColorGraph', () => {
         { kind: 'raw-render-exposure', ev: 1, multiplier: 2 },
         { kind: 'user-exposure', ev: 0, multiplier: 1 },
         { kind: 'user-contrast', amount: 0, factor: 1 },
+        {
+          kind: 'user-regional-tone',
+          highlights: 0,
+          shadows: 0,
+          whites: 0,
+          blacks: 0,
+        },
         { kind: 'output-srgb' },
       ],
     })
@@ -68,6 +76,7 @@ describe('resolveExportColorGraph', () => {
       'raw-render-exposure',
       'user-exposure',
       'user-contrast',
+      'user-regional-tone',
       'output-srgb',
     ])
     expect(graph.steps[2]).toMatchObject({
@@ -84,9 +93,19 @@ describe('resolveExportColorGraph', () => {
       luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
       zeroLuminanceMode: 'return-black',
     })
+    expect(graph.steps[4]).toMatchObject({
+      kind: 'user-regional-tone',
+      highlights: 0,
+      shadows: 0,
+      whites: 0,
+      blacks: 0,
+      operator: 'linear-prophoto-log-luminance-regions',
+      luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+      zeroLuminanceMode: 'return-black',
+    })
   })
 
-  it('places user tone before LUT input conversion', () => {
+  it('places user tone and regional tone before LUT input conversion', () => {
     const profile = getLUTColorProfile('sony-sgamut3cine-slog3')
     if (!profile) throw new Error('Missing profile')
 
@@ -96,6 +115,10 @@ describe('resolveExportColorGraph', () => {
       builtinPreset: null,
       userExposureEv: 1,
       userContrast: 50,
+      userHighlights: -40,
+      userShadows: 35,
+      userWhites: -25,
+      userBlacks: 20,
       lut: {
         size: 2,
         data: new Float32Array(24),
@@ -122,6 +145,7 @@ describe('resolveExportColorGraph', () => {
       'raw-render-exposure',
       'user-exposure',
       'user-contrast',
+      'user-regional-tone',
       'gamut-to-lut-input',
       'encode-lut-transfer',
       'lut3d',
@@ -138,6 +162,13 @@ describe('resolveExportColorGraph', () => {
       amount: 50,
       factor: Math.pow(2, 50 / 200),
     })
+    expect(graph.steps[4]).toMatchObject({
+      kind: 'user-regional-tone',
+      highlights: -40,
+      shadows: 35,
+      whites: -25,
+      blacks: 20,
+    })
   })
 
   it('keeps built-in style export failure pointed at built-in style support', () => {
@@ -147,6 +178,10 @@ describe('resolveExportColorGraph', () => {
       builtinPreset: 'warm',
       userExposureEv: 1,
       userContrast: 50,
+      userHighlights: -40,
+      userShadows: 40,
+      userWhites: -20,
+      userBlacks: 20,
       lut: null,
     })
 
@@ -214,18 +249,19 @@ describe('resolveExportColorGraph', () => {
       'raw-render-exposure',
       'user-exposure',
       'user-contrast',
+      'user-regional-tone',
       'gamut-to-lut-input',
       'encode-lut-transfer',
       'lut3d',
       'lut-output-to-srgb',
       'output-srgb',
     ])
-    expect(graph.steps[6]).toMatchObject({
+    expect(graph.steps[7]).toMatchObject({
       kind: 'lut3d',
       domainMin: [0, 0, 0],
       domainMax: [1, 1, 1],
     })
-    expect(graph.steps[7]).toMatchObject({
+    expect(graph.steps[8]).toMatchObject({
       kind: 'lut-output-to-srgb',
       transfer: 's-log3',
       range: 'full',
@@ -303,7 +339,7 @@ describe('resolveExportColorGraph', () => {
     if (!graph.supported) {
       throw new Error('Expected supported graph')
     }
-    expect(graph.steps[7]).toMatchObject({
+    expect(graph.steps[8]).toMatchObject({
       kind: 'lut-output-to-srgb',
       transfer: 'gamma24',
       range: 'full',

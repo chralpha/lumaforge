@@ -21,6 +21,16 @@ const noLutGraph: SupportedExportColorGraphDescriptor = {
       luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
       zeroLuminanceMode: 'return-black',
     },
+    {
+      kind: 'user-regional-tone',
+      highlights: 0,
+      shadows: 0,
+      whites: 0,
+      blacks: 0,
+      operator: 'linear-prophoto-log-luminance-regions',
+      luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+      zeroLuminanceMode: 'return-black',
+    },
     { kind: 'output-srgb' },
   ],
 }
@@ -96,6 +106,42 @@ describe('createPreviewHistogramProcessor', () => {
     )
     expect(nonZeroLumaBins).toHaveLength(1)
     expect(nonZeroLumaBins[0]![0]).toBeGreaterThan(150)
+  })
+
+  it('applies regional tone through the shared graph', () => {
+    const graph: SupportedExportColorGraphDescriptor = {
+      ...noLutGraph,
+      steps: noLutGraph.steps.map((step) =>
+        step.kind === 'user-regional-tone'
+          ? {
+              ...step,
+              highlights: 100,
+              whites: 50,
+            }
+          : step,
+      ),
+    }
+    const processor = createPreviewHistogramProcessor({
+      width: 1,
+      rowBandRows: 1,
+      graph,
+    })
+
+    processor.processUint16Rows(new Uint16Array([49152, 49152, 49152]), 1)
+    const histogram = processor.finish({
+      source: 'quick',
+      width: 1,
+      height: 1,
+      totalRows: 1,
+      ownership: 'main-thread-chunked-no-copy',
+      inputByteLength: 6,
+    })
+
+    const nonZeroLumaBins = Array.from(histogram.bins.luma.entries()).filter(
+      ([, count]) => count > 0,
+    )
+    expect(nonZeroLumaBins).toHaveLength(1)
+    expect(nonZeroLumaBins[0]![0]).toBeGreaterThan(225)
   })
 
   it('never detaches or copies the source buffer in the default path', () => {

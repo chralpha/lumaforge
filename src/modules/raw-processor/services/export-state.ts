@@ -162,6 +162,14 @@ export function changesRenderGraphParams(
     (Object.hasOwn(next, 'userExposureEv') &&
       next.userExposureEv !== current.userExposureEv) ||
     (Object.hasOwn(next, 'userContrast') &&
-      next.userContrast !== current.userContrast)
+      next.userContrast !== current.userContrast) ||
+    (Object.hasOwn(next, 'userHighlights') &&
+      next.userHighlights !== current.userHighlights) ||
+    (Object.hasOwn(next, 'userShadows') &&
+      next.userShadows !== current.userShadows) ||
+    (Object.hasOwn(next, 'userWhites') &&
+      next.userWhites !== current.userWhites) ||
+    (Object.hasOwn(next, 'userBlacks') &&
+      next.userBlacks !== current.userBlacks)
   )
 }

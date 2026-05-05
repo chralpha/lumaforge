@@ -47,8 +47,9 @@ This spec covers:
 
 ## Non-goals
 
-- Do not implement `Highlights`, `Shadows`, `Whites`, or `Blacks` in this
-  phase.
+- The original 2026-05-01 `Exposure` and `Contrast` phase did not implement
+  `Highlights`, `Shadows`, `Whites`, or `Blacks`; the 2026-05-04 follow-up
+  section below defines the narrower regional-tone implementation.
 - Do not add local tone mapping, masks, histogram-dependent auto correction, or
   content-adaptive highlight recovery.
 - Do not change default RAW render exposure selection, DNG baseline exposure
@@ -572,21 +573,153 @@ Browser smoke:
 - repeat with an exportable custom LUT and confirm tone affects the LUT input,
   not only the display output.
 
-## Future memo: Highlights, Shadows, Whites, Blacks
+## Follow-up: Highlights, Shadows, Whites, Blacks
 
-`Highlights`, `Shadows`, `Whites`, and `Blacks` should remain future work. They
-are not just more global multipliers:
+This follow-up closes the previous future memo with a bounded regional-tone
+implementation. The controls follow the Basic panel mental model but do not
+claim Lightroom or Camera Raw pixel equivalence.
 
-- `Highlights` and `Shadows` need tone-region operators that affect bright and
-  dark ranges while minimizing clipping and preserving local detail.
-- `Whites` and `Blacks` are clipping/end-point controls and need explicit
-  histogram, clipping-preview, or endpoint policy decisions.
-- Region controls need stronger color-stability design than the first global
-  contrast pass.
-- Any future implementation must stay content-independent per pixel or define a
-  strip-safe dependency model before it can enter the full-resolution export
-  graph.
+Additional external practice:
 
-The next phase should start with a separate spec for regional tone controls,
-including curve shape, clipping UI, histogram display, export-strip safety, and
-performance tests.
+- Adobe documents `Highlights` and `Shadows` as bright-area and dark-area
+  controls, while `Whites` and `Blacks` affect white and black clipping
+  semantics. Adobe also recommends watching the histogram and clipping
+  previews when changing endpoint sliders.
+- darktable's tone equalizer and RawTherapee's Shadows/Highlights show the
+  high-end direction for regional tone: tone masks, guided or edge-aware
+  filtering, and local-contrast preservation. Those designs are image-context
+  dependent and introduce radius/filter state.
+- OpenColorIO keeps the 0.18 mid-gray pivot expressed in linear light. The
+  follow-up keeps the same scene-linear reference for Basic Tone instead of
+  moving the controls after display conversion.
+
+References:
+
+- Adobe Lightroom Classic, "Work with image tone and color":
+  https://helpx.adobe.com/lightroom-classic/help/image-tone-color.html
+- darktable user manual, tone equalizer:
+  https://docs.darktable.org/usermanual/development/en/module-reference/processing-modules/tone-equalizer/
+- RawPedia, Shadows/Highlights:
+  https://rawpedia.rawtherapee.com/Shadows/Highlights
+
+### Best-practice decision
+
+Implement this phase as deterministic per-pixel regional luminance scaling in
+scene-linear Linear ProPhoto, after `user-contrast` and before LUT input
+conversion:
+
+```text
+input-linear-prophoto
+-> raw-render-exposure
+-> user-exposure
+-> user-contrast
+-> user-regional-tone
+-> LUT input or output-srgb
+```
+
+Do not implement guided filters, radius controls, local adaptation, histogram
+auto-points, hard clipping, or highlight recovery in this phase. Those can look
+better in a desktop editor, but they either need neighboring pixels or a
+defined strip-safe dependency model. LumaForge's full-resolution export must
+remain row-band safe, seam-free, and preview/export equivalent.
+
+`Whites` and `Blacks` therefore ship as soft endpoint-region controls, not hard
+levels. They increase or decrease luminance near the white and black ends and
+let the existing histogram/clipping readout show the result. They must not hide
+a pre-LUT clamp or silently map scene values to pure white or pure black.
+
+### Regional params
+
+Extend `LumaColorToneParams` and `ProcessingParams`:
+
+```ts
+export interface LumaColorToneParams {
+  userExposureEv: number
+  userContrast: number
+  userHighlights: number
+  userShadows: number
+  userWhites: number
+  userBlacks: number
+}
+```
+
+Defaults:
+
+```text
+userHighlights = 0
+userShadows = 0
+userWhites = 0
+userBlacks = 0
+```
+
+UI and runtime range for all four regional sliders is `[-100, 100]`, integer
+step, with non-finite input normalizing to `0`.
+
+### Regional math
+
+The operator computes luminance from non-negative scene-linear Linear ProPhoto,
+derives a log2 luminance coordinate around 18% gray, blends four smooth masks,
+then applies one RGB scale so positive-channel ratios remain stable before
+downstream gamut, LUT-domain, and output clipping:
+
+```text
+Y = dot(max(rgb, 0), LinearProPhotoLuminance)
+x = log2(Y / 0.18)
+
+highlightsMask = smoothstep(-1, 3, x)
+shadowsMask = 1 - smoothstep(-4, 1, x)
+whitesMask = smoothstep(2, 5.5, x)
+blacksMask = 1 - smoothstep(-8, -3, x)
+
+regionalEv =
+  highlightsMask * userHighlights / 100 * 1.25 +
+  shadowsMask * userShadows / 100 * 1.25 +
+  whitesMask * userWhites / 100 * 1.0 +
+  blacksMask * userBlacks / 100 * 1.0
+
+output = rgb * pow(2, regionalEv)
+```
+
+If all four regional sliders are neutral, the operator is an exact no-op,
+including for finite negative channels. If any regional slider is non-neutral,
+negative channels are clipped at regional-tone entry before luminance and log
+evaluation, matching the existing non-neutral contrast safety rule.
+
+The mask ranges are intentionally broad enough to keep one-slider endpoint
+curves monotonic over the supported scene-linear range. The operator is global
+and content-independent; it must not depend on neighboring pixels, export strip
+height, or a histogram pass.
+
+### UI and invalidation
+
+The RAW Lab `Tone` section now contains:
+
+```text
+Exposure
+Contrast
+Highlights
+Shadows
+Whites
+Blacks
+Reset tone
+```
+
+`Reset tone` resets all six tone params. Uploading a new image preserves all six
+tone params unless the user invokes the global reset. Any change to a regional
+slider invalidates an existing export result and recomputes the preview
+histogram through the shared graph. Original and compare-left views remain the
+technical RAW base before user tone, style, and LUT.
+
+### Follow-up acceptance
+
+- Shared color-runtime tests cover normalization, bright/dark targeting,
+  endpoint targeting, negative-channel safety, monotonic grayscale ramps, RGB
+  ratio stability, CPU row-band execution, histogram processing, and graph
+  ordering.
+- GLSL preview uses the same regional masks and receives four regional tone
+  uniforms.
+- Full-resolution export receives regional tone through the same graph before
+  LUT input conversion.
+- UI/hook tests cover rendering, disabling, partial updates, reset behavior,
+  export invalidation, preserved tone on new image load, and histogram key
+  recomputation.

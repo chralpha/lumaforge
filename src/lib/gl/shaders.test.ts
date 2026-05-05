@@ -127,6 +127,10 @@ describe('process shader style path', () => {
       expect(shader).toContain('uniform float u_userExposureMultiplier')
       expect(shader).toContain('uniform float u_userContrastAmount')
       expect(shader).toContain('uniform float u_userContrastFactor')
+      expect(shader).toContain('uniform float u_userHighlights')
+      expect(shader).toContain('uniform float u_userShadows')
+      expect(shader).toContain('uniform float u_userWhites')
+      expect(shader).toContain('uniform float u_userBlacks')
       expect(shader).toContain('vec3 technicalBaseSceneLinearProPhoto')
       expect(shader).toContain('vec3 editedBaseSceneLinearProPhoto')
       expect(shader).toContain(

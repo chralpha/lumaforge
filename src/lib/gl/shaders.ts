@@ -47,6 +47,10 @@ uniform float u_rawRenderExposureMultiplier;
 uniform float u_userExposureMultiplier;
 uniform float u_userContrastAmount;
 uniform float u_userContrastFactor;
+uniform float u_userHighlights;
+uniform float u_userShadows;
+uniform float u_userWhites;
+uniform float u_userBlacks;
 uniform int u_viewMode;
 uniform float u_compareSplit;
 uniform int u_styleKind;
@@ -139,7 +143,11 @@ void main() {
     technicalBaseSceneLinearProPhoto,
     u_userExposureMultiplier,
     u_userContrastAmount,
-    u_userContrastFactor
+    u_userContrastFactor,
+    u_userHighlights,
+    u_userShadows,
+    u_userWhites,
+    u_userBlacks
   );
   vec3 technicalBaseDisplayLinear =
     linearProPhotoToLinearSrgb(max(technicalBaseSceneLinearProPhoto, vec3(0.0)));

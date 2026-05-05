@@ -10,6 +10,10 @@ import { usePreviewHistogram } from './usePreviewHistogram'
 const defaultParams: ProcessingParams = {
   userExposureEv: 0,
   userContrast: 0,
+  userHighlights: 0,
+  userShadows: 0,
+  userWhites: 0,
+  userBlacks: 0,
   intensity: 0.7,
   viewMode: 'processed',
   compareSplit: 0.5,
@@ -366,7 +370,7 @@ describe('usePreviewHistogram', () => {
     rerender({
       imageRef,
       imageVersion: 2,
-      params: { ...defaultParams, userExposureEv: 1 },
+      params: { ...defaultParams, userHighlights: -40 },
       lutDataRef,
       lutDataVersion: 0,
       displaySource: 'bounded-hq',

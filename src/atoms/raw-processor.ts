@@ -42,6 +42,10 @@ const DEFAULT_PROCESSING_PARAMS: ProcessingParams = {
   builtinPreset: null,
   userExposureEv: 0,
   userContrast: 0,
+  userHighlights: 0,
+  userShadows: 0,
+  userWhites: 0,
+  userBlacks: 0,
 }
 
 const baseProcessingParamsAtom = atom<ProcessingParams>({

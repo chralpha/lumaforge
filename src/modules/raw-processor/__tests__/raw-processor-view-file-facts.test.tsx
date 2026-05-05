@@ -58,6 +58,10 @@ function createLoadedProcessorState(
     params: {
       userExposureEv: 0,
       userContrast: 0,
+      userHighlights: 0,
+      userShadows: 0,
+      userWhites: 0,
+      userBlacks: 0,
       intensity: 0.7,
       viewMode: 'compare',
       compareSplit: 0.5,
