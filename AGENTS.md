@@ -1,23 +1,29 @@
 # AGENTS.md
 
-Guidance for AI/code agents working in this repository. Keep changes aligned with the current codebase and product boundary, not generic Vite app assumptions.
+Guidance for AI/code agents working in this repository.
+Keep changes aligned with the current codebase and product boundary, not generic Vite app assumptions.
 
 ## Non-Negotiables
 
 - Use `pnpm` only.
-- Do not edit generated files such as `src/generated-routes.ts`. Change routes by adding or renaming files under `src/pages/`.
+- Do not edit generated files such as `src/generated-routes.ts`.
+  Change routes by adding or renaming files under `src/pages/`.
 - Use the `~/` alias for imports from `src`.
 - Stay inside the shared app runtime patterns: do not recreate the QueryClient, Jotai store, or router plumbing outside the existing providers.
 - Do not use `window.location` or other ad hoc navigation paths when the existing router utilities already cover the case.
-- For animation, use `m` from `motion/react` inside the existing `LazyMotion` setup in `src/providers/root-providers.tsx`. Prefer the presets in `src/lib/spring`.
-- Do not describe or reintroduce the RAW runtime as `libraw-wasm`. The current runtime boundary is `@lumaforge/luma-raw-runtime`.
+- For animation, use `m` from `motion/react` inside the existing `LazyMotion` setup in `src/providers/root-providers.tsx`.
+  Prefer the presets in `src/lib/spring`.
+- Do not describe or reintroduce the RAW runtime as `libraw-wasm`.
+  The current runtime boundary is `@lumaforge/luma-raw-runtime`.
 
 ## Product Boundary
 
 - LumaForge is a browser-local RAW photo lab for a narrow workflow: `single RAW file -> preview -> look or LUT -> compare -> JPEG export`.
-- It is not a desktop-style RAW editor. Do not expand changes around catalogs, batch workflows, cloud upload, account systems, local daemons, or broad adjustment panels unless the task explicitly asks for that shift.
+- It is not a desktop-style RAW editor.
+  Do not expand changes around catalogs, batch workflows, cloud upload, account systems, local daemons, or broad adjustment panels unless the task explicitly asks for that shift.
 - Preview is allowed to optimize for responsiveness through embedded, quick, or HQ stages.
-- Export is the authoritative full-resolution path. If the runtime cannot prove that export matches the declared pipeline correctly, fail closed instead of exporting a degraded or preview-only result.
+- Export is the authoritative full-resolution path.
+  If the runtime cannot prove that export matches the declared pipeline correctly, fail closed instead of exporting a degraded or preview-only result.
 
 ## Architecture Snapshot
 
@@ -27,7 +33,8 @@ Guidance for AI/code agents working in this repository. Keep changes aligned wit
 - `src/lib/gl`: interactive preview rendering.
 - `src/lib/export`: worker-driven full-resolution export path.
 - `src/modules/raw-processor`: the main `/raw` product workflow and UI surface.
-- `src/providers/root-providers.tsx`: the root provider composition. Extend this carefully and preserve provider order unless there is a concrete reason to change it.
+- `src/providers/root-providers.tsx`: the root provider composition.
+  Extend this carefully and preserve provider order unless there is a concrete reason to change it.
 
 ## Implementation Rules
 
@@ -35,9 +42,12 @@ Guidance for AI/code agents working in this repository. Keep changes aligned wit
   - primitives in `src/components/ui`
   - shared app components in `src/components/common`
   - domain behavior in `src/modules/<domain>`
-- Follow the existing state patterns. Prefer the helpers in `src/lib/jotai` and the established state locations instead of introducing a second state model.
-- Treat color and LUT changes as contract work, not taste work. Preserve declared input gamut, transfer/log curve, LUT intent, and output handling instead of adding ad hoc color fixes that merely look acceptable on one sample image.
-- When touching `/raw`, keep preview and export responsibilities distinct. Interactive preview code and authoritative export code may share intent, but they are not interchangeable executors.
+- Follow the existing state patterns.
+  Prefer the helpers in `src/lib/jotai` and the established state locations instead of introducing a second state model.
+- Treat color and LUT changes as contract work, not taste work.
+  Preserve declared input gamut, transfer/log curve, LUT intent, and output handling instead of adding ad hoc color fixes that merely look acceptable on one sample image.
+- When touching `/raw`, keep preview and export responsibilities distinct.
+  Interactive preview code and authoritative export code may share intent, but they are not interchangeable executors.
 
 ## Git Worktree Policy
 

@@ -2,9 +2,11 @@
 
 Prebuilt browser WebAssembly artifacts for LumaForge deployments.
 
-This package is an artifact bundle, not a JavaScript runtime API. The LumaForge
+This package is an artifact bundle, not a JavaScript runtime API.
+The LumaForge
 app and workspace runtime packages still own the TypeScript API, worker
-protocols, native source locks, and source rebuild scripts. This package exists
+protocols, native source locks, and source rebuild scripts.
+This package exists
 so production/self-hosted builds can download the generated RAW and JPEG native
 artifacts instead of rebuilding LibRaw, Little CMS, and libjpeg-turbo from source
 on every deployment.
@@ -36,7 +38,8 @@ pnpm native:artifacts:pack
 ```
 
 `pnpm native:artifacts:sync` copies the current runtime native outputs into
-this package and refreshes the compliance files. The copied artifacts are
+this package and refreshes the compliance files.
+The copied artifacts are
 generated files and are intentionally ignored by git; publish from a verified
 working tree after sync.
 
@@ -49,5 +52,6 @@ The root app resolves native assets with `LUMAFORGE_NATIVE_RUNTIME_MODE`:
 - `prebuilt`: require this package's native assets.
 - `source`: require workspace `packages/*/dist/native` artifacts.
 
-Development serving defaults to `source`. Production builds default to `auto`,
+Development serving defaults to `source`.
+Production builds default to `auto`,
 which prefers the prebuilt package.

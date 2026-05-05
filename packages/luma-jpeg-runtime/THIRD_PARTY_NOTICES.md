@@ -1,6 +1,7 @@
 # Third-Party Notices
 
-This package builds a Luma-owned WebAssembly wrapper around a pinned upstream native library. The generated `dist/native/luma_jpeg.wasm` artifact may contain object code from the component below.
+This package builds a Luma-owned WebAssembly wrapper around a pinned upstream native library.
+The generated `dist/native/luma_jpeg.wasm` artifact may contain object code from the component below.
 
 ## libjpeg-turbo
 
@@ -12,7 +13,9 @@ This package builds a Luma-owned WebAssembly wrapper around a pinned upstream na
 - License file included here:
   - `THIRD_PARTY_LICENSES/libjpeg-turbo-LICENSE.md`
 
-Upstream libjpeg-turbo is covered by compatible BSD-style licenses: the Independent JPEG Group license for the libjpeg API code and the modified 3-clause BSD license for the TurboJPEG API and build system. The upstream notice also documents zlib-licensed SIMD source code. Keep the included copyright and permission notices with redistributed source or binary artifact bundles.
+Upstream libjpeg-turbo is covered by compatible BSD-style licenses: the Independent JPEG Group license for the libjpeg API code and the modified 3-clause BSD license for the TurboJPEG API and build system.
+The upstream notice also documents zlib-licensed SIMD source code.
+Keep the included copyright and permission notices with redistributed source or binary artifact bundles.
 
 ## Compliance Checklist For Native Artifact Distribution
 

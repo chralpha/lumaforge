@@ -38,7 +38,8 @@
 ## The Promise
 
 Many photographers already have LUTs they like: camera looks, film recipes,
-cinematic finishes, or a small personal collection of `.cube` files. LumaForge
+cinematic finishes, or a small personal collection of `.cube` files.
+LumaForge
 makes that workflow approachable for RAW photos without asking the user to study
 every detail of gamuts, log curves, signal ranges, and output transforms first.
 
@@ -64,7 +65,8 @@ photo.
 
 Professional tools such as Lightroom, Capture One, and DaVinci Resolve remain
 excellent when a photographer wants full editing control, catalogs, node graphs,
-or production-grade grading freedom. LumaForge chooses a smaller, friendlier
+or production-grade grading freedom.
+LumaForge chooses a smaller, friendlier
 route for the moment when someone simply wants to turn one RAW file into a
 finished JPEG with a look they already enjoy.
 
@@ -103,8 +105,10 @@ RAW file
 ```
 
 LUT contracts are the small bit of structure that lets LumaForge apply creative
-looks to RAW files without making the user build a color pipeline by hand. When
-the LUT already carries useful metadata, LumaForge can use it. When it needs
+looks to RAW files without making the user build a color pipeline by hand.
+When
+the LUT already carries useful metadata, LumaForge can use it.
+When it needs
 more information, the app asks for the LUT input and output profile with a
 searchable contract browser.
 
@@ -114,8 +118,10 @@ export until the final JPEG can be reproduced by the authoritative worker path.
 
 ## Product Boundary
 
-LumaForge is an active browser RAW + LUT pipeline. The current supported baseline
-is a modern desktop browser with WebGL2. Mobile browsers, unusual RAW layouts,
+LumaForge is an active browser RAW + LUT pipeline.
+The current supported baseline
+is a modern desktop browser with WebGL2.
+Mobile browsers, unusual RAW layouts,
 and files that cannot expose the required processed-window facts may be marked
 experimental or unsupported.
 
@@ -182,14 +188,18 @@ This repository uses `pnpm` only.
 
 ## Native Runtime
 
-The RAW and JPEG runtimes are workspace packages. Their native inputs are pinned
-and rebuilt from recorded sources. Do not make the app depend on `libraw-wasm`,
+The RAW and JPEG runtimes are workspace packages.
+Their native inputs are pinned
+and rebuilt from recorded sources.
+Do not make the app depend on `libraw-wasm`,
 `LibRaw-Wasm`, or local baseline artifact paths; the current RAW boundary is
 `@lumaforge/luma-raw-runtime`.
 
 Production builds prefer the prebuilt `@lumaforge/luma-native-artifacts` package
-when its native files are available. Development serving defaults to workspace
-source artifacts. Override selection with `LUMAFORGE_NATIVE_RUNTIME_MODE`:
+when its native files are available.
+Development serving defaults to workspace
+source artifacts.
+Override selection with `LUMAFORGE_NATIVE_RUNTIME_MODE`:
 
 - `auto`: prefer prebuilt artifacts, then fall back to workspace artifacts.
 - `prebuilt`: require `@lumaforge/luma-native-artifacts` artifacts.
@@ -223,16 +233,19 @@ pnpm --filter @lumaforge/luma-raw-runtime fixtures:fetch-public
 ## Contributing
 
 Keep contributions aligned with the product boundary: one RAW file, local
-preview, look or LUT, comparison, and trustworthy JPEG export. Color and LUT
+preview, look or LUT, comparison, and trustworthy JPEG export.
+Color and LUT
 changes should keep contracts explicit: declared input gamut, transfer/log
 curve, LUT role, output handling, and export-readiness behavior should remain
 clear to users.
 
 ## License
 
-LumaForge is distributed under GPL-3.0. See [LICENSE](./LICENSE).
+LumaForge is distributed under GPL-3.0.
+See [LICENSE](./LICENSE).
 
 The RAW and native artifact packages carry third-party native notices for
-LibRaw, Little CMS, libjpeg-turbo, and the pinned Emscripten toolchain. See
+LibRaw, Little CMS, libjpeg-turbo, and the pinned Emscripten toolchain.
+See
 [packages/luma-raw-runtime/THIRD_PARTY_NOTICES.md](./packages/luma-raw-runtime/THIRD_PARTY_NOTICES.md)
 before redistributing native artifacts.
