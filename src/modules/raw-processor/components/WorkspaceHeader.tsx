@@ -1,12 +1,11 @@
 import { useAtomValue } from 'jotai'
-import { Languages, MoreHorizontal, RotateCcw } from 'lucide-react'
+import { FolderOpen, MoreHorizontal, RotateCcw } from 'lucide-react'
 
 import { LocaleToggle } from '~/components/common/LocaleToggle'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu/DropdownMenu'
 import { localizeRawReason, useI18n } from '~/lib/i18n'
@@ -38,12 +37,10 @@ export function WorkspaceHeader({
   onResetSession: () => void
   onOpenExport: () => void
 }) {
-  const { locale, t, toggleLocale } = useI18n()
+  const { t } = useI18n()
   const session = useAtomValue(currentSessionAtom)
   const sessionDisabledReason = useAtomValue(exportDisabledReasonAtom)
   const isExporting = session?.exportState.status === 'exporting'
-  const localeLabel =
-    locale === 'zh-CN' ? t('common.localeEnglish') : t('common.localeChinese')
   const rawExportDisabledReason = !canExport
     ? (disabledReason ?? sessionDisabledReason ?? t('raw.exportSourceLoading'))
     : undefined
@@ -121,22 +118,19 @@ export function WorkspaceHeader({
           <DropdownMenuContent align="end" className="raw-lab-more-menu">
             <DropdownMenuItem
               className="raw-lab-more-menu-item"
+              disabled={isExporting}
+              onSelect={onReplaceFile}
+            >
+              <FolderOpen aria-hidden="true" />
+              {hasImage ? t('raw.header.replace') : t('raw.header.chooseRaw')}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="raw-lab-more-menu-item"
               disabled={!hasImage || isExporting}
               onSelect={onResetSession}
             >
               <RotateCcw aria-hidden="true" />
               {t('raw.header.reset')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="raw-lab-more-menu-separator" />
-            <DropdownMenuItem
-              className="raw-lab-more-menu-item"
-              onSelect={(event) => {
-                event.preventDefault()
-                toggleLocale()
-              }}
-            >
-              <Languages aria-hidden="true" />
-              {localeLabel}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

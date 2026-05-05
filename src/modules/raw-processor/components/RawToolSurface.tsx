@@ -3,9 +3,9 @@ import type {
   LUTProfileResolution,
   PreviewHistogramState,
 } from '@lumaforge/luma-color-runtime'
-import { Download, GitCompare, SlidersHorizontal, X } from 'lucide-react'
+import { Download, SlidersHorizontal, X } from 'lucide-react'
 import type { ComponentProps } from 'react'
-import { useId, useState } from 'react'
+import { useCallback, useId, useRef, useState } from 'react'
 
 import { useI18n } from '~/lib/i18n'
 
@@ -29,7 +29,7 @@ import type { ToneValue } from './tools/ToneTool'
 import { ToneTool } from './tools/ToneTool'
 import { ToolSection } from './tools/ToolSection'
 
-type MobileToolPanel = 'style' | 'compare' | 'export'
+type MobileToolPanel = 'style' | 'export'
 
 export function RawToolSurface(props: {
   activeIntensity: StrengthLevel
@@ -72,25 +72,72 @@ export function RawToolSurface(props: {
   const mobilePanelTitle =
     mobilePanel === 'style'
       ? t('raw.mobileTools.style')
-      : mobilePanel === 'compare'
-        ? t('raw.mobileTools.compare')
-        : mobilePanel === 'export'
-          ? t('raw.mobileTools.export')
-          : ''
-  const canStartMobileExport =
-    props.canExport && !props.isProcessing && !props.exportResult
+      : mobilePanel === 'export'
+        ? t('raw.mobileTools.export')
+        : ''
+  const { canExport, isProcessing, exportResult, onExport } = props
+  const canStartMobileExport = canExport && !isProcessing && !exportResult
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [sheetDragY, setSheetDragY] = useState(0)
+  const sheetDragStartRef = useRef<number | null>(null)
+  const sheetRef = useRef<HTMLDivElement | null>(null)
 
-  const handleMobilePanelToggle = (panel: MobileToolPanel) => {
+  const handleMobilePanelToggle = useCallback((panel: MobileToolPanel) => {
     setMobilePanel((currentPanel) => (currentPanel === panel ? null : panel))
-  }
+  }, [])
 
-  const handleMobileExport = () => {
-    setMobilePanel('export')
+  const clearLongPress = useCallback(() => {
+    if (longPressTimerRef.current !== null) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }, [])
 
-    if (!canStartMobileExport) return
+  const handleExportLongPressStart = useCallback(() => {
+    clearLongPress()
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTimerRef.current = null
+      if (canStartMobileExport) {
+        onExport({ quality: 'high', fidelity: 'balanced' })
+      }
+    }, 500)
+  }, [canStartMobileExport, clearLongPress, onExport])
 
-    props.onExport({ quality: 'high', fidelity: 'balanced' })
-  }
+  const handleSheetPointerDown = useCallback((event: React.PointerEvent) => {
+    const el = event.currentTarget as HTMLElement
+    el.setPointerCapture?.(event.pointerId)
+    sheetDragStartRef.current = event.clientY
+  }, [])
+
+  const handleSheetPointerMove = useCallback((event: React.PointerEvent) => {
+    if (sheetDragStartRef.current === null) return
+    const delta = event.clientY - sheetDragStartRef.current
+    setSheetDragY(Math.max(0, delta))
+  }, [])
+
+  const handleSheetPointerUp = useCallback((event: React.PointerEvent) => {
+    const el = event.currentTarget as HTMLElement
+    el.releasePointerCapture?.(event.pointerId)
+    sheetDragStartRef.current = null
+
+    const sheet = sheetRef.current
+    const threshold = sheet ? Math.max(80, sheet.offsetHeight * 0.28) : 80
+
+    if (sheetDragYRef.current > threshold) {
+      setMobilePanel(null)
+    }
+    setSheetDragY(0)
+  }, [])
+
+  const handleSheetPointerCancel = useCallback((event: React.PointerEvent) => {
+    const el = event.currentTarget as HTMLElement
+    el.releasePointerCapture?.(event.pointerId)
+    sheetDragStartRef.current = null
+    setSheetDragY(0)
+  }, [])
+
+  const sheetDragYRef = useRef(sheetDragY)
+  sheetDragYRef.current = sheetDragY
 
   const renderStyleTools = ({
     includeFileFacts = true,
@@ -171,23 +218,40 @@ export function RawToolSurface(props: {
 
       <div
         id={mobileToolSheetId}
+        ref={sheetRef}
         className="raw-mobile-tool-sheet"
-        hidden={!mobilePanel}
+        style={
+          sheetDragY > 0
+            ? { transform: `translateY(${sheetDragY}px)`, transition: 'none' }
+            : undefined
+        }
       >
-        <div className="raw-mobile-tool-sheet-header">
-          <h2>{mobilePanelTitle}</h2>
-          <button
-            type="button"
-            className="raw-mobile-tool-sheet-close"
-            aria-label={t('raw.mobileTools.close')}
-            onClick={() => setMobilePanel(null)}
-          >
-            <X aria-hidden="true" />
-          </button>
+        <div
+          className="raw-mobile-tool-sheet-top"
+          onPointerDown={handleSheetPointerDown}
+          onPointerMove={handleSheetPointerMove}
+          onPointerUp={handleSheetPointerUp}
+          onPointerCancel={handleSheetPointerCancel}
+        >
+          <div
+            className="raw-mobile-tool-sheet-drag-handle"
+            aria-hidden="true"
+          />
+          <div className="raw-mobile-tool-sheet-header">
+            <h2>{mobilePanelTitle}</h2>
+            <button
+              type="button"
+              className="raw-mobile-tool-sheet-close"
+              aria-label={t('raw.mobileTools.close')}
+              onClick={() => setMobilePanel(null)}
+            >
+              <X aria-hidden="true" />
+            </button>
+          </div>
         </div>
         <div className="raw-mobile-tool-sheet-scroll">
-          {mobilePanel === 'style' && renderStyleTools()}
-          {mobilePanel === 'compare' && renderCompareTools()}
+          {mobilePanel === 'style' &&
+            renderStyleTools({ includeFileFacts: false })}
           {mobilePanel === 'export' && renderExportTools()}
         </div>
       </div>
@@ -210,25 +274,17 @@ export function RawToolSurface(props: {
         </button>
         <button
           type="button"
-          className="raw-mobile-tool-tab"
-          data-mobile-tool-tab="compare"
-          data-active={mobilePanel === 'compare'}
-          aria-expanded={mobilePanel === 'compare'}
-          aria-controls={mobileToolSheetId}
-          onClick={() => handleMobilePanelToggle('compare')}
-        >
-          <GitCompare aria-hidden="true" />
-          {t('raw.mobileTools.compare')}
-        </button>
-        <button
-          type="button"
           className="raw-mobile-tool-tab raw-mobile-tool-tab-export"
           data-mobile-tool-tab="export"
           data-active={mobilePanel === 'export'}
           aria-disabled={!props.canExport || props.isProcessing}
           aria-expanded={mobilePanel === 'export'}
           aria-controls={mobileToolSheetId}
-          onClick={handleMobileExport}
+          onClick={() => handleMobilePanelToggle('export')}
+          onPointerDown={handleExportLongPressStart}
+          onPointerUp={clearLongPress}
+          onPointerLeave={clearLongPress}
+          onPointerCancel={clearLongPress}
         >
           <Download aria-hidden="true" />
           {t('raw.mobileTools.export')}

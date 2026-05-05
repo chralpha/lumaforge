@@ -373,32 +373,22 @@ describe('rawToolSurface', () => {
     const { container } = render(<RawToolSurface {...baseProps} />)
 
     const surface = container.querySelector('[data-raw-tool-surface]')
-    const sheet = container.querySelector('.raw-mobile-tool-sheet')
     const style = screen.getByRole('button', { name: 'Style' })
-    const compare = screen.getByRole('button', { name: 'Compare' })
 
     expect(surface).toHaveAttribute('data-raw-tool-sheet', 'closed')
-    expect(sheet).toHaveAttribute('hidden')
     expect(style).toHaveAttribute('aria-expanded', 'false')
 
     await user.click(style)
     expect(surface).toHaveAttribute('data-raw-tool-sheet', 'open')
     expect(surface).toHaveAttribute('data-raw-mobile-panel', 'style')
-    expect(sheet).not.toHaveAttribute('hidden')
     expect(style).toHaveAttribute('aria-expanded', 'true')
 
-    await user.click(compare)
-    expect(surface).toHaveAttribute('data-raw-mobile-panel', 'compare')
-    expect(compare).toHaveAttribute('aria-expanded', 'true')
-
-    await user.click(
-      screen.getByRole('button', { name: 'Close RAW tool sheet' }),
-    )
+    await user.click(style)
     expect(surface).toHaveAttribute('data-raw-tool-sheet', 'closed')
-    expect(sheet).toHaveAttribute('hidden')
+    expect(style).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('uses the mobile Export rail action as the sticky export CTA', async () => {
+  it('opens the Export sheet on tap without triggering export', async () => {
     const user = userEvent.setup()
     const onExport = vi.fn()
     const { container } = render(
@@ -407,10 +397,7 @@ describe('rawToolSurface', () => {
 
     await user.click(screen.getByRole('button', { name: 'Export' }))
 
-    expect(onExport).toHaveBeenCalledWith({
-      quality: 'high',
-      fidelity: 'balanced',
-    })
+    expect(onExport).not.toHaveBeenCalled()
     expect(container.querySelector('[data-raw-mobile-panel]')).toHaveAttribute(
       'data-raw-mobile-panel',
       'export',
@@ -420,6 +407,24 @@ describe('rawToolSurface', () => {
         container.querySelector('.raw-mobile-tool-sheet') as HTMLElement,
       ).getByRole('region', { name: 'Export' }),
     ).toBeInTheDocument()
+  })
+
+  it('triggers quick export on long press of the Export rail tab', async () => {
+    const user = userEvent.setup()
+    const onExport = vi.fn()
+    render(
+      <RawToolSurface {...baseProps} hasImage canExport onExport={onExport} />,
+    )
+
+    const exportTab = screen.getByRole('button', { name: 'Export' })
+    await user.pointer({ keys: '[MouseLeft>]', target: exportTab })
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    await user.pointer({ keys: '[/MouseLeft]' })
+
+    expect(onExport).toHaveBeenCalledWith({
+      quality: 'high',
+      fidelity: 'balanced',
+    })
   })
 
   it('keeps long LUT names inside the tool column while preserving the full name', () => {
