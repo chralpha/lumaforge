@@ -4,7 +4,7 @@
 
 import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { m } from 'motion/react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats, RawUploadInput } from '~/lib/gl/pipeline'
@@ -14,6 +14,19 @@ import type { DecodedImage } from '~/lib/raw/decoder'
 import { Spring } from '~/lib/spring'
 
 import type { DisplaySource } from '../model/session'
+import type {
+  PreviewViewport,
+  PreviewViewportGeometry,
+} from '../services/preview-viewport'
+import {
+  DEFAULT_PREVIEW_VIEWPORT,
+  getCanvasCompareSplit,
+  getWheelPreviewZoomTarget,
+  normalizePreviewViewport,
+  panPreviewViewport,
+  resetPreviewViewport,
+  zoomPreviewViewportAtPoint,
+} from '../services/preview-viewport'
 
 export interface PreviewCanvasProps {
   imageRef: React.RefObject<DecodedImage | null>
@@ -24,6 +37,9 @@ export interface PreviewCanvasProps {
   embeddedPreviewUrl?: string | null
   displaySource?: DisplaySource
   suspended?: boolean
+  interactionDisabled?: boolean
+  previewViewport?: PreviewViewport
+  onPreviewViewportChange?: (viewport: PreviewViewport) => void
   onStatsUpdate?: (stats: PipelineStats) => void
   onPipelineChange?: (pipeline: RawProcessingPipeline | null) => void
   className?: string
@@ -88,6 +104,38 @@ type RawUploadPipeline = Pick<
   'clearImage' | 'uploadImage'
 >
 
+type TrackedPointer = {
+  clientX: number
+  clientY: number
+}
+
+function getPointerDistance(a: TrackedPointer, b: TrackedPointer) {
+  return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
+}
+
+function getPointerMidpoint(a: TrackedPointer, b: TrackedPointer) {
+  return {
+    clientX: (a.clientX + b.clientX) / 2,
+    clientY: (a.clientY + b.clientY) / 2,
+  }
+}
+
+function tryCapturePointer(target: HTMLElement, pointerId: number) {
+  try {
+    target.setPointerCapture?.(pointerId)
+  } catch {
+    // Pointer capture is best-effort for synthetic events and WebKit edge paths.
+  }
+}
+
+function tryReleasePointer(target: HTMLElement, pointerId: number) {
+  try {
+    target.releasePointerCapture?.(pointerId)
+  } catch {
+    // Internal pointer tracking is authoritative if release is unavailable.
+  }
+}
+
 export function syncRawUploadInput({
   pipeline,
   imageData,
@@ -125,6 +173,9 @@ export function PreviewCanvas({
   embeddedPreviewUrl,
   displaySource = 'none',
   suspended = false,
+  interactionDisabled = false,
+  previewViewport = DEFAULT_PREVIEW_VIEWPORT,
+  onPreviewViewportChange,
   onStatsUpdate,
   onPipelineChange,
   className,
@@ -132,8 +183,18 @@ export function PreviewCanvas({
   const { t } = useI18n()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const surfaceRef = useRef<HTMLDivElement>(null)
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
+  const previewViewportRef = useRef(previewViewport)
+  const activePointersRef = useRef(new Map<number, TrackedPointer>())
+  const pinchStartRef = useRef<{
+    distance: number
+    midpoint: TrackedPointer
+    viewport: PreviewViewport
+  } | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
+  const [isPointerPanning, setIsPointerPanning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const showEmbeddedPreview =
     displaySource === 'embedded' && Boolean(embeddedPreviewUrl)
@@ -141,6 +202,73 @@ export function PreviewCanvas({
   const imageWidth = image?.width ?? 0
   const imageHeight = image?.height ?? 0
   const hasImageData = Boolean(image?.data)
+  const canInteractWithPreview =
+    !suspended &&
+    !interactionDisabled &&
+    (hasImageData || showEmbeddedPreview) &&
+    Boolean(onPreviewViewportChange)
+  const normalizedPreviewViewport = normalizePreviewViewport(previewViewport)
+
+  useEffect(() => {
+    previewViewportRef.current = normalizedPreviewViewport
+  }, [normalizedPreviewViewport])
+
+  const getViewportGeometry = useCallback(() => {
+    const container = containerRef.current
+    const track = trackRef.current
+
+    if (!container || !track) return null
+
+    const containerRect = container.getBoundingClientRect()
+    const trackRect = track.getBoundingClientRect()
+    const contentWidth =
+      track.offsetWidth || track.clientWidth || trackRect.width
+    const contentHeight =
+      track.offsetHeight || track.clientHeight || trackRect.height
+
+    if (
+      containerRect.width <= 0 ||
+      containerRect.height <= 0 ||
+      contentWidth <= 0 ||
+      contentHeight <= 0
+    ) {
+      return null
+    }
+
+    return {
+      containerRect,
+      geometry: {
+        viewportWidth: containerRect.width,
+        viewportHeight: containerRect.height,
+        contentWidth,
+        contentHeight,
+      } satisfies PreviewViewportGeometry,
+    }
+  }, [])
+
+  const commitPreviewViewport = useCallback(
+    (viewport: PreviewViewport) => {
+      previewViewportRef.current = viewport
+      onPreviewViewportChange?.(viewport)
+    },
+    [onPreviewViewportChange],
+  )
+
+  const getRelativeOrigin = useCallback(
+    (clientX: number, clientY: number) => {
+      const viewportGeometry = getViewportGeometry()
+      if (!viewportGeometry) return null
+
+      const { containerRect, geometry } = viewportGeometry
+
+      return {
+        geometry,
+        originX: clientX - containerRect.left - containerRect.width / 2,
+        originY: clientY - containerRect.top - containerRect.height / 2,
+      }
+    },
+    [getViewportGeometry],
+  )
 
   // Initialize pipeline
   useEffect(() => {
@@ -218,9 +346,12 @@ export function PreviewCanvas({
   // Handle canvas resize
   useEffect(() => {
     const container = containerRef.current
+    const track = trackRef.current
     const canvas = canvasRef.current
+    const surface = surfaceRef.current
 
-    if (!container || !canvas) return
+    if (!container || !track || !canvas || !surface) return
+    if (typeof ResizeObserver === 'undefined') return
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -243,13 +374,17 @@ export function PreviewCanvas({
             canvasWidth = height * aspectRatio
           }
 
-          canvas.style.width = `${canvasWidth}px`
-          canvas.style.height = `${canvasHeight}px`
+          track.style.width = `${canvasWidth}px`
+          track.style.height = `${canvasHeight}px`
+          canvas.style.width = '100%'
+          canvas.style.height = '100%'
           canvas.width = Math.round(canvasWidth * dpr)
           canvas.height = Math.round(canvasHeight * dpr)
         } else {
-          canvas.style.width = `${width}px`
-          canvas.style.height = `${height}px`
+          track.style.width = `${width}px`
+          track.style.height = `${height}px`
+          canvas.style.width = '100%'
+          canvas.style.height = '100%'
           canvas.width = Math.round(width * dpr)
           canvas.height = Math.round(height * dpr)
         }
@@ -278,6 +413,168 @@ export function PreviewCanvas({
     isInitialized,
     onStatsUpdate,
   ])
+
+  const resetActivePreviewPointers = useCallback(() => {
+    activePointersRef.current.clear()
+    pinchStartRef.current = null
+    setIsPointerPanning(false)
+  }, [])
+
+  const handleWheel = useCallback(
+    (event: WheelEvent) => {
+      if (!canInteractWithPreview) return
+
+      const origin = getRelativeOrigin(event.clientX, event.clientY)
+      if (!origin) return
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      const current = previewViewportRef.current
+      const nextZoom = getWheelPreviewZoomTarget(current.zoom, {
+        deltaY: event.deltaY,
+        deltaMode: event.deltaMode,
+        ctrlKey: event.ctrlKey,
+      })
+
+      commitPreviewViewport(
+        zoomPreviewViewportAtPoint(current, {
+          ...origin,
+          nextZoom,
+        }),
+      )
+    },
+    [canInteractWithPreview, commitPreviewViewport, getRelativeOrigin],
+  )
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    container.addEventListener('wheel', handleWheel, { passive: false })
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel)
+    }
+  }, [handleWheel])
+
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!canInteractWithPreview || event.button !== 0) return
+
+      event.preventDefault()
+      event.stopPropagation()
+      tryCapturePointer(event.currentTarget, event.pointerId)
+
+      activePointersRef.current.set(event.pointerId, {
+        clientX: event.clientX,
+        clientY: event.clientY,
+      })
+
+      const pointers = Array.from(activePointersRef.current.values())
+      if (pointers.length >= 2) {
+        const [first, second] = pointers
+        pinchStartRef.current = {
+          distance: getPointerDistance(first!, second!),
+          midpoint: getPointerMidpoint(first!, second!),
+          viewport: previewViewportRef.current,
+        }
+      }
+
+      setIsPointerPanning(true)
+    },
+    [canInteractWithPreview],
+  )
+
+  const handlePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!canInteractWithPreview) return
+
+      const previous = activePointersRef.current.get(event.pointerId)
+      if (!previous) return
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      activePointersRef.current.set(event.pointerId, {
+        clientX: event.clientX,
+        clientY: event.clientY,
+      })
+
+      const pointers = Array.from(activePointersRef.current.values())
+      const viewportGeometry = getViewportGeometry()
+      if (!viewportGeometry) return
+
+      if (pointers.length >= 2 && pinchStartRef.current) {
+        const [first, second] = pointers
+        const distance = getPointerDistance(first!, second!)
+        if (pinchStartRef.current.distance <= 0) return
+
+        const midpoint = pinchStartRef.current.midpoint
+        const origin = getRelativeOrigin(midpoint.clientX, midpoint.clientY)
+        if (!origin) return
+
+        commitPreviewViewport(
+          zoomPreviewViewportAtPoint(pinchStartRef.current.viewport, {
+            ...origin,
+            nextZoom:
+              pinchStartRef.current.viewport.zoom *
+              (distance / pinchStartRef.current.distance),
+          }),
+        )
+        return
+      }
+
+      if (previewViewportRef.current.zoom <= 1) {
+        return
+      }
+
+      commitPreviewViewport(
+        panPreviewViewport(previewViewportRef.current, {
+          geometry: viewportGeometry.geometry,
+          deltaX: event.clientX - previous.clientX,
+          deltaY: event.clientY - previous.clientY,
+        }),
+      )
+    },
+    [
+      canInteractWithPreview,
+      commitPreviewViewport,
+      getRelativeOrigin,
+      getViewportGeometry,
+    ],
+  )
+
+  const handlePointerRelease = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!activePointersRef.current.has(event.pointerId)) return
+
+      event.preventDefault()
+      event.stopPropagation()
+      activePointersRef.current.delete(event.pointerId)
+      tryReleasePointer(event.currentTarget, event.pointerId)
+
+      if (activePointersRef.current.size < 2) {
+        pinchStartRef.current = null
+      }
+      if (activePointersRef.current.size === 0) {
+        setIsPointerPanning(false)
+      }
+    },
+    [],
+  )
+
+  const handleDoubleClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!canInteractWithPreview) return
+
+      event.preventDefault()
+      event.stopPropagation()
+      resetActivePreviewPointers()
+      commitPreviewViewport(resetPreviewViewport())
+    },
+    [canInteractWithPreview, commitPreviewViewport, resetActivePreviewPointers],
+  )
 
   // Upload image data when it changes
   useEffect(() => {
@@ -314,7 +611,9 @@ export function PreviewCanvas({
     }
   }, [lutDataRef, lutDataVersion, isInitialized])
 
-  // Update params and render
+  // Update params and render (full pipeline update when params/image changes).
+  // Viewport compensation is applied here too: params updates during zoomed compare
+  // mode must carry the compensated split into the shader.
   useEffect(() => {
     const pipeline = pipelineRef.current
     if (!pipeline || !isInitialized) return
@@ -329,10 +628,68 @@ export function PreviewCanvas({
     })
     if (!uploadInput) return
 
-    pipeline.setParams(params)
+    const currentViewport = previewViewportRef.current
+    const vpGeo = getViewportGeometry()
+    let compareSplit = params.compareSplit
+
+    if (
+      params.viewMode === 'compare' &&
+      currentViewport.zoom > 1 &&
+      vpGeo &&
+      vpGeo.geometry.contentWidth > 0
+    ) {
+      compareSplit = getCanvasCompareSplit(
+        params.compareSplit,
+        currentViewport.zoom,
+        currentViewport.panX,
+        vpGeo.geometry.contentWidth,
+      )
+    }
+
+    pipeline.setParams({ ...params, compareSplit })
     const stats = pipeline.render()
     onStatsUpdate?.(stats)
-  }, [params, imageRef, imageVersion, isInitialized, onStatsUpdate])
+  }, [
+    params,
+    imageRef,
+    imageVersion,
+    isInitialized,
+    onStatsUpdate,
+    getViewportGeometry,
+  ])
+
+  // Refresh the comparison split when zoom/pan changes during compare mode.
+  // Kept separate from the params effect above so that zoom/pan does not
+  // re-create uploadInput, re-upload image data, or fire onStatsUpdate.
+  useEffect(() => {
+    const pipeline = pipelineRef.current
+    if (!pipeline || !isInitialized) return
+    if (params.viewMode !== 'compare') return
+
+    const { zoom, panX } = normalizedPreviewViewport
+    if (zoom <= 1) return
+
+    const vpGeo = getViewportGeometry()
+    if (!vpGeo || vpGeo.geometry.contentWidth <= 0) return
+
+    const compareSplit = getCanvasCompareSplit(
+      params.compareSplit,
+      zoom,
+      panX,
+      vpGeo.geometry.contentWidth,
+    )
+
+    pipeline.setParams({ compareSplit })
+    pipeline.render()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- normalizedPreviewViewport is a fresh object each render; zoom/panX are stable primitives
+  }, [
+    normalizedPreviewViewport.zoom,
+    normalizedPreviewViewport.panX,
+    params.viewMode,
+    params.compareSplit,
+    isInitialized,
+    getViewportGeometry,
+  ])
 
   // Re-render when LUT changes
   useEffect(() => {
@@ -363,28 +720,55 @@ export function PreviewCanvas({
   return (
     <div
       ref={containerRef}
+      data-raw-preview-frame
       className={clsxm(
         'relative w-full h-full flex items-center justify-center bg-black/20',
+        canInteractWithPreview &&
+          (isPointerPanning
+            ? 'raw-preview-frame-panning'
+            : 'raw-preview-frame-interactive'),
         className,
       )}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerRelease}
+      onPointerCancel={handlePointerRelease}
+      onDoubleClick={handleDoubleClick}
     >
-      <canvas
-        ref={canvasRef}
+      <div
+        ref={trackRef}
         data-raw-compare-track="image"
-        className={clsxm(
-          'max-w-full max-h-full object-contain',
-          showEmbeddedPreview && 'opacity-0',
-        )}
-      />
+        className="raw-preview-track"
+      >
+        <div
+          ref={surfaceRef}
+          data-raw-preview-surface
+          className="raw-preview-surface"
+          style={
+            {
+              '--raw-preview-zoom': normalizedPreviewViewport.zoom,
+              '--raw-preview-pan-x': `${normalizedPreviewViewport.panX}px`,
+              '--raw-preview-pan-y': `${normalizedPreviewViewport.panY}px`,
+            } as React.CSSProperties
+          }
+        >
+          <canvas
+            ref={canvasRef}
+            className={clsxm(
+              'raw-preview-canvas',
+              showEmbeddedPreview && 'opacity-0',
+            )}
+          />
 
-      {showEmbeddedPreview && (
-        <img
-          src={embeddedPreviewUrl ?? undefined}
-          alt={t('raw.preview.embeddedAlt')}
-          data-raw-compare-track="image"
-          className="absolute max-w-full max-h-full object-contain"
-        />
-      )}
+          {showEmbeddedPreview && (
+            <img
+              src={embeddedPreviewUrl ?? undefined}
+              alt={t('raw.preview.embeddedAlt')}
+              className="raw-preview-embedded"
+            />
+          )}
+        </div>
+      </div>
 
       {error && (
         <m.div

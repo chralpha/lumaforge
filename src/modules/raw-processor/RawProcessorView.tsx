@@ -22,6 +22,7 @@ import {
 import { useRawProcessor } from './hooks'
 import { useCapabilityGate } from './hooks/useCapabilityGate'
 import { useOnlineLutSources } from './hooks/useOnlineLutSources'
+import { clampCompareSplit } from './services/compare-split'
 
 export interface RawProcessorViewProps {
   className?: string
@@ -101,6 +102,7 @@ function RawProcessorViewInner({
     progressRecoveryHint,
     previewSuspended,
     compareSplit,
+    previewViewport,
     embeddedPreviewUrl,
     displaySource,
     histogram,
@@ -112,6 +114,8 @@ function RawProcessorViewInner({
     setToneParams,
     setViewMode,
     setCompareSplit,
+    setPreviewViewport,
+    setParams,
     clearLUT,
     exportImage,
     recoverInterruptedExport,
@@ -211,13 +215,9 @@ function RawProcessorViewInner({
 
   const handleCompareSplitPreviewChange = useCallback(
     (split: number) => {
-      const pipeline = pipelineRef.current
-      if (!pipeline) return
-
-      pipeline.setParams({ compareSplit: split })
-      pipeline.render({ waitForGpu: false })
+      setParams({ compareSplit: clampCompareSplit(split) })
     },
-    [pipelineRef],
+    [setParams],
   )
 
   const isProcessing =
@@ -286,9 +286,11 @@ function RawProcessorViewInner({
           embeddedPreviewUrl={embeddedPreviewUrl}
           displaySource={displaySource}
           previewSuspended={previewSuspended}
+          previewViewport={previewViewport}
           split={compareSplit}
           onSplitChange={setCompareSplit}
           onSplitPreviewChange={handleCompareSplitPreviewChange}
+          onPreviewViewportChange={setPreviewViewport}
           isProcessing={isProcessing}
           phase={
             status === 'loading'
