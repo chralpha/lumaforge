@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { TypedBufferPool } from './buffer-pool'
 
-describe('TypedBufferPool', () => {
+describe('typedBufferPool', () => {
   it('reuses released Uint16 buffers by length', () => {
     const pool = new TypedBufferPool(() => new Uint16Array(4), 2)
 

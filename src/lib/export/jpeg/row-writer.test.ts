@@ -19,7 +19,7 @@ describe('createJpegRowWriter', () => {
               calls.push({ type: 'close' })
               return createBlobOutputResult({
                 filename: 'frame.jpg',
-                blob: new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], {
+                blob: new Blob([new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9])], {
                   type: 'image/jpeg',
                 }),
               })
