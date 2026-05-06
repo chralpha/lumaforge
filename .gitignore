@@ -15,3 +15,4 @@ packages/luma-jpeg-runtime/native/.cache/
 packages/luma-jpeg-runtime/native/vendor/
 packages/luma-jpeg-runtime/native/build/
 packages/luma-raw-runtime/fixtures/.cache/
+stats.html

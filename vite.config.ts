@@ -7,9 +7,9 @@ import { fileURLToPath } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import reactRefresh from '@vitejs/plugin-react'
 import { codeInspectorPlugin } from 'code-inspector-plugin'
+import { visualizer } from 'rollup-plugin-visualizer'
 import type { Plugin } from 'vite'
 import { defineConfig } from 'vite'
-import { visualizer } from 'vite-bundle-visualizer'
 import { checker } from 'vite-plugin-checker'
 import { routeBuilderPlugin } from 'vite-plugin-route-builder'
 
@@ -169,7 +169,15 @@ export default defineConfig(({ command }) => {
       headers: CROSS_ORIGIN_ISOLATION_HEADERS,
     },
     plugins: [
-      ...(ANALYZE ? [visualizer()] : []),
+      ...(ANALYZE
+        ? [
+            visualizer({
+              filename: 'dist/stats.html',
+              open: true,
+              gzipSize: true,
+            }),
+          ]
+        : []),
       nativeRuntimeAssetsPlugin(nativeRuntimeEnv),
       staticSeoArtifactsPlugin(),
       codeInspectorPlugin({
