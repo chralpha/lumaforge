@@ -8,9 +8,32 @@ import { ERROR_ROUTE_SEO } from '~/lib/seo'
 import { Button } from '../ui/button'
 import { useRouteSeo } from './SeoMetadata'
 
-export function ErrorElement() {
-  const error = useRouteError()
-  const location = useLocation()
+function useSafeRouteError() {
+  try {
+    return useRouteError()
+  } catch {
+    return null
+  }
+}
+
+function useSafeLocation() {
+  try {
+    return useLocation()
+  } catch {
+    return { pathname: '/' }
+  }
+}
+
+export function ErrorElement({
+  error: errorProp,
+  onReset,
+}: {
+  error?: unknown
+  onReset?: () => void
+} = {}) {
+  const routeError = useSafeRouteError()
+  const error = errorProp ?? routeError
+  const location = useSafeLocation()
   const message = isRouteErrorResponse(error)
     ? `${error.status} ${error.statusText}`
     : error instanceof Error
@@ -98,6 +121,14 @@ export function ErrorElement() {
 
           {/* Action buttons */}
           <div className="flex flex-col sm:flex-row gap-3 mb-8">
+            {onReset && (
+              <Button
+                onClick={onReset}
+                className="flex-1 bg-material-opaque text-text-vibrant hover:bg-control-enabled/90 border-0 h-10 font-medium transition-colors"
+              >
+                Try Again
+              </Button>
+            )}
             <Button
               onClick={() => (window.location.href = '/')}
               className="flex-1 bg-material-opaque text-text-vibrant hover:bg-control-enabled/90 border-0 h-10 font-medium transition-colors"

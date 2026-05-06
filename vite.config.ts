@@ -9,6 +9,7 @@ import reactRefresh from '@vitejs/plugin-react'
 import { codeInspectorPlugin } from 'code-inspector-plugin'
 import type { Plugin } from 'vite'
 import { defineConfig } from 'vite'
+import { visualizer } from 'vite-bundle-visualizer'
 import { checker } from 'vite-plugin-checker'
 import { routeBuilderPlugin } from 'vite-plugin-route-builder'
 
@@ -151,6 +152,8 @@ function staticSeoArtifactsPlugin(): Plugin {
   }
 }
 
+const ANALYZE = process.env.ANALYZE === 'true'
+
 export default defineConfig(({ command }) => {
   const seoOptions = resolveSeoRuntimeOptions()
   const nativeRuntimeEnv = { ...process.env }
@@ -166,6 +169,7 @@ export default defineConfig(({ command }) => {
       headers: CROSS_ORIGIN_ISOLATION_HEADERS,
     },
     plugins: [
+      ...(ANALYZE ? [visualizer()] : []),
       nativeRuntimeAssetsPlugin(nativeRuntimeEnv),
       staticSeoArtifactsPlugin(),
       codeInspectorPlugin({

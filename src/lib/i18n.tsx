@@ -1,12 +1,6 @@
+import i18n from 'i18next'
 import type { PropsWithChildren } from 'react'
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
+import { I18nextProvider, useTranslation } from 'react-i18next'
 
 import enMessages from '~/locales/en.json'
 import zhMessages from '~/locales/zh-CN.json'
@@ -18,125 +12,97 @@ export type Locale = (typeof supportedLocales)[number]
 
 type MessageKey = keyof typeof enMessages
 
-const typedZhMessages: Record<MessageKey, string> = zhMessages
-
-const messages: Record<Locale, Record<MessageKey, string>> = {
-  en: enMessages,
-  'zh-CN': typedZhMessages,
-}
-
 export type Translate = (
   key: MessageKey,
   values?: Record<string, string | number>,
 ) => string
 
-export interface I18nValue {
-  locale: Locale
-  setLocale: (locale: Locale) => void
-  toggleLocale: () => void
-  t: Translate
-}
-
-const I18nContext = createContext<I18nValue | null>(null)
-
-function isLocale(value: string | null | undefined): value is Locale {
-  return value === 'en' || value === 'zh-CN'
-}
-
-export function normalizeLocale(value: string | null | undefined) {
-  if (!value) return null
-
-  const normalized = value.trim().toLowerCase()
-  if (normalized === 'zh-cn' || normalized.startsWith('zh')) return 'zh-CN'
-  if (normalized === 'en' || normalized.startsWith('en-')) return 'en'
-  return null
-}
-
-function readStoredLocale() {
+function resolveInitialLocale(): Locale {
   try {
     const stored = localStorage.getItem(LOCALE_STORAGE_KEY)
-    return isLocale(stored) ? stored : normalizeLocale(stored)
-  } catch {
-    return null
-  }
-}
+    if (stored === 'en' || stored === 'zh-CN') return stored
+  } catch {}
 
-function readBrowserLocale() {
-  if (typeof navigator === 'undefined') return null
-
-  const languages = navigator.languages?.length
-    ? navigator.languages
-    : [navigator.language]
-
-  for (const language of languages) {
-    const locale = normalizeLocale(language)
-    if (locale) return locale
+  if (typeof navigator !== 'undefined') {
+    const languages = navigator.languages?.length
+      ? navigator.languages
+      : [navigator.language]
+    for (const lang of languages) {
+      const normalized = lang?.trim().toLowerCase()
+      if (normalized === 'zh-cn' || normalized?.startsWith('zh')) return 'zh-CN'
+      if (normalized === 'en' || normalized?.startsWith('en-')) return 'en'
+    }
   }
 
-  return null
+  return 'en'
 }
 
-export function resolveInitialLocale(): Locale {
-  return readStoredLocale() ?? readBrowserLocale() ?? 'en'
-}
+i18n.init({
+  resources: {
+    en: { translation: enMessages },
+    'zh-CN': { translation: zhMessages },
+  },
+  lng: resolveInitialLocale(),
+  fallbackLng: 'en',
+  supportedLngs: supportedLocales,
+  interpolation: {
+    escapeValue: false,
+  },
+  returnNull: false,
+  returnEmptyString: false,
+})
 
-function interpolate(
-  message: string,
-  values?: Record<string, string | number>,
-) {
-  if (!values) return message
+export function useI18n() {
+  const { t, i18n: i18nInstance, ready } = useTranslation()
 
-  return message.replace(/\{(\w+)\}/g, (match, key: string) => {
-    const value = values[key]
-    return value === undefined ? match : String(value)
-  })
-}
-
-function createI18nValue(locale: Locale, setLocale: (locale: Locale) => void) {
-  const t: Translate = (key, values) =>
-    interpolate(messages[locale][key] ?? messages.en[key], values)
+  if (!ready) {
+    const locale = resolveInitialLocale()
+    const messages = locale === 'zh-CN' ? zhMessages : enMessages
+    return {
+      locale,
+      setLocale: (_locale: Locale) => {},
+      toggleLocale: () => {},
+      t: ((key: MessageKey, values?: Record<string, string | number>) => {
+        let message = messages[key] ?? enMessages[key] ?? key
+        if (values) {
+          for (const [k, v] of Object.entries(values)) {
+            message = message.replace(`{{${k}}}`, String(v))
+          }
+        }
+        return message
+      }) as Translate,
+    }
+  }
 
   return {
-    locale,
-    setLocale,
-    toggleLocale: () => setLocale(locale === 'zh-CN' ? 'en' : 'zh-CN'),
-    t,
-  } satisfies I18nValue
+    locale: (i18nInstance.resolvedLanguage ?? resolveInitialLocale()) as Locale,
+    setLocale: (locale: Locale) => {
+      i18nInstance.changeLanguage(locale)
+      try {
+        localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+      } catch {}
+    },
+    toggleLocale: () => {
+      const current =
+        (i18nInstance.resolvedLanguage as Locale) ?? resolveInitialLocale()
+      const next = current === 'zh-CN' ? 'en' : 'zh-CN'
+      i18nInstance.changeLanguage(next)
+      try {
+        localStorage.setItem(LOCALE_STORAGE_KEY, next)
+      } catch {}
+    },
+    t: t as Translate,
+  }
 }
 
 export function I18nProvider({ children }: PropsWithChildren) {
-  const [locale, setLocaleState] = useState<Locale>(resolveInitialLocale)
-  const setLocale = useCallback((nextLocale: Locale) => {
-    setLocaleState(nextLocale)
-  }, [])
-  const value = useMemo(
-    () => createI18nValue(locale, setLocale),
-    [locale, setLocale],
-  )
+  const locale = resolveInitialLocale()
 
-  useEffect(() => {
-    document.documentElement.lang = locale === 'zh-CN' ? 'zh-CN' : 'en'
+  if (i18n.resolvedLanguage !== locale) {
+    i18n.changeLanguage(locale)
+  }
 
-    try {
-      localStorage.setItem(LOCALE_STORAGE_KEY, locale)
-    } catch {
-      // Locale persistence is optional; rendering should still continue.
-    }
-  }, [locale])
-
-  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
-}
-
-export function useI18n() {
-  const context = useContext(I18nContext)
-  const [fallbackLocale, setFallbackLocale] =
-    useState<Locale>(resolveInitialLocale)
-  const fallbackValue = useMemo(
-    () => createI18nValue(fallbackLocale, setFallbackLocale),
-    [fallbackLocale],
-  )
-
-  return context ?? fallbackValue
+  return <I18nextProvider i18n={i18n}>{children}</I18nextProvider>
 }
 
 export function localizeRawReason(reason: string | undefined, t: Translate) {
