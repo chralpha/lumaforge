@@ -15,6 +15,7 @@
   --raw-hero-ink: oklch(0.97 0.014 86);
   --raw-scrollbar-thumb: oklch(0.54 0.055 78 / 0.64);
   --raw-scrollbar-thumb-hover: oklch(0.43 0.082 152 / 0.78);
+  --raw-mobile-tool-rail-height: 62px; /* 8px top + 46px tab + 8px bottom */
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   height: 100svh;
@@ -49,7 +50,7 @@
   max-width: 100%;
   min-width: 0;
   border-bottom: 1px solid var(--raw-hairline);
-  padding: 12px clamp(14px, 2vw, 22px);
+  padding: 12px clamp(12px, 2vw, 22px);
   background: oklch(0.952 0.018 86);
 }
 
@@ -58,7 +59,7 @@
   width: 28px;
   height: 28px;
   flex: 0 0 auto;
-  border-radius: 7px;
+  border-radius: 5px;
   box-shadow: 0 8px 22px oklch(0.1 0.02 78 / 0.12);
   object-fit: cover;
 }
@@ -100,7 +101,7 @@
 
 .raw-lab-topbar-button:focus-visible {
   outline: 2px solid var(--raw-green);
-  outline-offset: 3px;
+  outline-offset: 2px;
 }
 
 .raw-lab-topbar-button:disabled {
@@ -145,7 +146,7 @@
   min-height: 36px;
   align-items: center;
   gap: 9px;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 7px 9px;
   color: var(--raw-ink);
   font-size: 0.82rem;
@@ -395,7 +396,7 @@
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid oklch(0.68 0.042 78 / 0.56);
-  border-radius: 7px;
+  border-radius: 5px;
   background: oklch(0.86 0.03 80 / 0.56);
   color: var(--raw-ink-soft);
   transition:
@@ -990,7 +991,7 @@
 .raw-export-result-facts div {
   min-width: 0;
   border: 1px solid oklch(0.74 0.035 78 / 0.42);
-  border-radius: 7px;
+  border-radius: 5px;
   padding: 7px 8px;
   background: oklch(0.962 0.018 86 / 0.58);
 }
@@ -1082,7 +1083,7 @@
 .raw-strength-control button {
   min-width: 0;
   border: 1px solid oklch(0.74 0.035 78 / 0.72);
-  border-radius: 7px;
+  border-radius: 8px;
   background: oklch(0.964 0.018 86);
   color: var(--raw-ink-soft);
   font-size: 0.76rem;
@@ -1426,7 +1427,7 @@
 
 .raw-lab-upload-dock:focus-visible {
   outline: 2px solid var(--raw-green);
-  outline-offset: 3px;
+  outline-offset: 2px;
 }
 
 .raw-lab-upload-dock:disabled {
@@ -1440,7 +1441,7 @@
   height: 34px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 7px;
+  border-radius: 5px;
   background: var(--raw-green);
   color: var(--raw-ink);
   font-weight: 860;
@@ -1519,7 +1520,7 @@
 
 .raw-lab-compare-handle:focus-visible span {
   outline: 2px solid var(--raw-green);
-  outline-offset: 3px;
+  outline-offset: 2px;
 }
 
 .raw-lab-compare-handle:disabled {
@@ -1563,7 +1564,7 @@
   .raw-lab-mark {
     width: 24px;
     height: 24px;
-    border-radius: 6px;
+    border-radius: 5px;
   }
 
   .raw-lab-title {
@@ -1613,7 +1614,7 @@
   }
 
   .raw-lab-stage {
-    padding: 8px 8px calc(72px + max(8px, env(safe-area-inset-bottom)));
+    padding: 8px 10px calc(var(--raw-mobile-tool-rail-height) + 10px + max(8px, env(safe-area-inset-bottom)));
   }
 
   .raw-tool-surface {
@@ -1771,7 +1772,7 @@
 
   .raw-mobile-tool-tab:focus-visible {
     outline: 2px solid var(--raw-green);
-    outline-offset: 3px;
+    outline-offset: 2px;
   }
 
   .raw-mobile-tool-tab-export {

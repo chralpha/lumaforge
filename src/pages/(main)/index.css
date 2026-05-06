@@ -51,7 +51,7 @@
 .lf-wordmark-icon {
   width: 28px;
   height: 28px;
-  border-radius: 7px;
+  border-radius: 5px;
   box-shadow: 0 8px 22px oklch(0.1 0.02 78 / 0.24);
   object-fit: cover;
 }
