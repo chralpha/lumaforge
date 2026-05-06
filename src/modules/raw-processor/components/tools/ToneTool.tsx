@@ -1,20 +1,31 @@
-import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { RotateCcw } from 'lucide-react'
 import { useId } from 'react'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
 
 import { useI18n } from '~/lib/i18n'
 
 import { ToolSection } from './ToolSection'
 
-export type ToneValue = Pick<
-  ProcessingParams,
-  | 'userExposureEv'
-  | 'userContrast'
-  | 'userHighlights'
-  | 'userShadows'
-  | 'userWhites'
-  | 'userBlacks'
->
+export const ToneValueSchema = z.object({
+  userExposureEv: z.number().min(-5).max(5),
+  userContrast: z.number().min(-100).max(100),
+  userHighlights: z.number().min(-100).max(100),
+  userShadows: z.number().min(-100).max(100),
+  userWhites: z.number().min(-100).max(100),
+  userBlacks: z.number().min(-100).max(100),
+})
+
+export type ToneValue = z.infer<typeof ToneValueSchema>
+
+const TONE_DEFAULTS: ToneValue = {
+  userExposureEv: 0,
+  userContrast: 0,
+  userHighlights: 0,
+  userShadows: 0,
+  userWhites: 0,
+  userBlacks: 0,
+}
 
 export function ToneTool({
   value,
@@ -28,19 +39,34 @@ export function ToneTool({
   onReset: () => void
 }) {
   const { t } = useI18n()
+  const { register, watch, reset } = useForm<ToneValue>({
+    values: value,
+    defaultValues: TONE_DEFAULTS,
+  })
+
   const exposureId = useId()
   const contrastId = useId()
   const highlightsId = useId()
   const shadowsId = useId()
   const whitesId = useId()
   const blacksId = useId()
-  const isNeutral =
-    value.userExposureEv === 0 &&
-    value.userContrast === 0 &&
-    value.userHighlights === 0 &&
-    value.userShadows === 0 &&
-    value.userWhites === 0 &&
-    value.userBlacks === 0
+
+  const currentValues = watch()
+  const isNeutral = Object.entries(currentValues).every(
+    ([key, val]) => val === TONE_DEFAULTS[key as keyof ToneValue],
+  )
+
+  const handleReset = () => {
+    reset(TONE_DEFAULTS)
+    onReset()
+  }
+
+  const registerRange = (field: keyof ToneValue) =>
+    register(field, {
+      valueAsNumber: true,
+      onChange: (event) =>
+        onChange({ [field]: Number(event.currentTarget.value) }),
+    })
 
   return (
     <ToolSection title={t('raw.tone.title')} eyebrow={t('raw.tone.eyebrow')}>
@@ -56,11 +82,8 @@ export function ToneTool({
             min={-5}
             max={5}
             step={0.01}
-            value={value.userExposureEv}
             disabled={disabled}
-            onChange={(event) =>
-              onChange({ userExposureEv: Number(event.currentTarget.value) })
-            }
+            {...registerRange('userExposureEv')}
           />
         </div>
         <div className="raw-tone-control-field">
@@ -72,11 +95,8 @@ export function ToneTool({
             min={-100}
             max={100}
             step={1}
-            value={value.userContrast}
             disabled={disabled}
-            onChange={(event) =>
-              onChange({ userContrast: Number(event.currentTarget.value) })
-            }
+            {...registerRange('userContrast')}
           />
         </div>
         <div className="raw-tone-control-field">
@@ -88,11 +108,8 @@ export function ToneTool({
             min={-100}
             max={100}
             step={1}
-            value={value.userHighlights}
             disabled={disabled}
-            onChange={(event) =>
-              onChange({ userHighlights: Number(event.currentTarget.value) })
-            }
+            {...registerRange('userHighlights')}
           />
         </div>
         <div className="raw-tone-control-field">
@@ -104,11 +121,8 @@ export function ToneTool({
             min={-100}
             max={100}
             step={1}
-            value={value.userShadows}
             disabled={disabled}
-            onChange={(event) =>
-              onChange({ userShadows: Number(event.currentTarget.value) })
-            }
+            {...registerRange('userShadows')}
           />
         </div>
         <div className="raw-tone-control-field">
@@ -120,11 +134,8 @@ export function ToneTool({
             min={-100}
             max={100}
             step={1}
-            value={value.userWhites}
             disabled={disabled}
-            onChange={(event) =>
-              onChange({ userWhites: Number(event.currentTarget.value) })
-            }
+            {...registerRange('userWhites')}
           />
         </div>
         <div className="raw-tone-control-field">
@@ -136,11 +147,8 @@ export function ToneTool({
             min={-100}
             max={100}
             step={1}
-            value={value.userBlacks}
             disabled={disabled}
-            onChange={(event) =>
-              onChange({ userBlacks: Number(event.currentTarget.value) })
-            }
+            {...registerRange('userBlacks')}
           />
         </div>
       </div>
@@ -150,7 +158,7 @@ export function ToneTool({
         type="button"
         className="raw-tool-reset-button"
         disabled={disabled}
-        onClick={onReset}
+        onClick={handleReset}
       >
         <RotateCcw aria-hidden="true" />
         {t('raw.tone.reset')}
