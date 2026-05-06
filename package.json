@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@headlessui/react": "2.2.10",
+    "@hookform/resolvers": "^5.2.2",
     "@lumaforge/luma-color-runtime": "workspace:*",
     "@lumaforge/luma-jpeg-runtime": "workspace:*",
     "@lumaforge/luma-raw-runtime": "workspace:*",
@@ -69,12 +70,14 @@
     "radix-ui": "1.4.3",
     "react": "19.2.5",
     "react-dom": "19.2.5",
+    "react-hook-form": "^7.75.0",
     "react-i18next": "^17.0.6",
     "react-router": "7.14.2",
     "react-scan": "0.5.3",
     "sonner": "2.0.7",
     "tailwind-merge": "3.5.0",
-    "usehooks-ts": "3.1.1"
+    "usehooks-ts": "3.1.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@egoist/tailwindcss-icons": "1.9.2",
