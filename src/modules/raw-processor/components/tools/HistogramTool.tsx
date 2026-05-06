@@ -2,6 +2,9 @@ import type {
   PreviewHistogramState,
   ReadyPreviewHistogram,
 } from '@lumaforge/luma-color-runtime'
+import { scaleLinear } from '@visx/scale'
+import { AreaClosed, LinePath } from '@visx/shape'
+import { useMemo } from 'react'
 
 import type { Translate } from '~/lib/i18n'
 import { useI18n } from '~/lib/i18n'
@@ -15,37 +18,28 @@ const BASELINE_Y = VIEWBOX_HEIGHT - PLOT_PADDING
 const GRID_X = [32, 64, 96] as const
 const GRID_Y = [24, 44, 64] as const
 
-function normalizedPoints(bins: Uint32Array) {
+function binsToPoints(bins: Uint32Array) {
   let max = 1
   for (const value of bins) {
     max = Math.max(max, value)
   }
 
-  const lastBinIndex = Math.max(1, bins.length - 1)
-
-  return Array.from(bins, (value, index) => {
-    const x = (index / lastBinIndex) * VIEWBOX_WIDTH
-    const y = BASELINE_Y - (value / max) * (VIEWBOX_HEIGHT - PLOT_PADDING * 2)
-
-    return { x, y }
+  const xScale = scaleLinear({
+    domain: [0, bins.length - 1],
+    range: [0, VIEWBOX_WIDTH],
   })
-}
+  const yScale = scaleLinear({
+    domain: [0, max],
+    range: [BASELINE_Y, PLOT_PADDING],
+  })
 
-function makeLinePath(bins: Uint32Array) {
-  return normalizedPoints(bins)
-    .map(
-      ({ x, y }, index) =>
-        `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`,
-    )
-    .join(' ')
-}
-
-function makeAreaPath(bins: Uint32Array) {
-  const points = normalizedPoints(bins)
-    .map(({ x, y }) => `L ${x.toFixed(2)} ${y.toFixed(2)}`)
-    .join(' ')
-
-  return `M 0 ${BASELINE_Y} ${points} L ${VIEWBOX_WIDTH} ${BASELINE_Y} Z`
+  return {
+    points: Array.from(bins, (value, index) => ({
+      x: xScale(index),
+      y: yScale(value),
+    })),
+    yScale,
+  }
 }
 
 function hasNonZeroBins(bins: Uint32Array) {
@@ -108,6 +102,116 @@ function statusReason(histogram: PreviewHistogramState, t: Translate) {
   return null
 }
 
+function HistogramPlot({
+  bins,
+  ariaLabel,
+}: {
+  bins: ReadyPreviewHistogram['bins']
+  ariaLabel: string
+}) {
+  const series = useMemo(
+    () => ({
+      red: binsToPoints(bins.red),
+      green: binsToPoints(bins.green),
+      blue: binsToPoints(bins.blue),
+      luma: binsToPoints(bins.luma),
+    }),
+    [bins],
+  )
+
+  return (
+    <svg
+      role="img"
+      aria-label={ariaLabel}
+      className="raw-histogram-plot"
+      viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
+      preserveAspectRatio="none"
+    >
+      <g className="raw-histogram-grid" aria-hidden="true">
+        {GRID_X.map((x) => (
+          <line
+            key={`x-${x}`}
+            x1={x}
+            x2={x}
+            y1={PLOT_PADDING}
+            y2={BASELINE_Y}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        {GRID_Y.map((y) => (
+          <line
+            key={`y-${y}`}
+            x1="0"
+            x2={VIEWBOX_WIDTH}
+            y1={y}
+            y2={y}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        <line
+          className="raw-histogram-baseline"
+          x1="0"
+          x2={VIEWBOX_WIDTH}
+          y1={BASELINE_Y}
+          y2={BASELINE_Y}
+          vectorEffect="non-scaling-stroke"
+        />
+      </g>
+      <AreaClosed
+        className="raw-histogram-channel-fill raw-histogram-channel-fill-red"
+        data={series.red.points}
+        x={(d) => d.x}
+        y={(d) => d.y}
+        yScale={series.red.yScale}
+      />
+      <AreaClosed
+        className="raw-histogram-channel-fill raw-histogram-channel-fill-green"
+        data={series.green.points}
+        x={(d) => d.x}
+        y={(d) => d.y}
+        yScale={series.green.yScale}
+      />
+      <AreaClosed
+        className="raw-histogram-channel-fill raw-histogram-channel-fill-blue"
+        data={series.blue.points}
+        x={(d) => d.x}
+        y={(d) => d.y}
+        yScale={series.blue.yScale}
+      />
+      {hasNonZeroBins(bins.red) && (
+        <LinePath
+          className="raw-histogram-channel-line raw-histogram-channel-line-red"
+          data={series.red.points}
+          x={(d) => d.x}
+          y={(d) => d.y}
+        />
+      )}
+      {hasNonZeroBins(bins.green) && (
+        <LinePath
+          className="raw-histogram-channel-line raw-histogram-channel-line-green"
+          data={series.green.points}
+          x={(d) => d.x}
+          y={(d) => d.y}
+        />
+      )}
+      {hasNonZeroBins(bins.blue) && (
+        <LinePath
+          className="raw-histogram-channel-line raw-histogram-channel-line-blue"
+          data={series.blue.points}
+          x={(d) => d.x}
+          y={(d) => d.y}
+        />
+      )}
+      <LinePath
+        className="raw-histogram-luma"
+        data={series.luma.points}
+        x={(d) => d.x}
+        y={(d) => d.y}
+      />
+    </svg>
+  )
+}
+
 export function HistogramTool({
   histogram,
 }: {
@@ -127,85 +231,10 @@ export function HistogramTool({
         </p>
         {ready ? (
           <>
-            <svg
-              role="img"
-              aria-label={t('raw.histogram.aria')}
-              className="raw-histogram-plot"
-              viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
-              preserveAspectRatio="none"
-            >
-              <g className="raw-histogram-grid" aria-hidden="true">
-                {GRID_X.map((x) => (
-                  <line
-                    key={`x-${x}`}
-                    x1={x}
-                    x2={x}
-                    y1={PLOT_PADDING}
-                    y2={BASELINE_Y}
-                    vectorEffect="non-scaling-stroke"
-                  />
-                ))}
-                {GRID_Y.map((y) => (
-                  <line
-                    key={`y-${y}`}
-                    x1="0"
-                    x2={VIEWBOX_WIDTH}
-                    y1={y}
-                    y2={y}
-                    vectorEffect="non-scaling-stroke"
-                  />
-                ))}
-                <line
-                  className="raw-histogram-baseline"
-                  x1="0"
-                  x2={VIEWBOX_WIDTH}
-                  y1={BASELINE_Y}
-                  y2={BASELINE_Y}
-                  vectorEffect="non-scaling-stroke"
-                />
-              </g>
-              <path
-                className="raw-histogram-channel-fill raw-histogram-channel-fill-red"
-                d={makeAreaPath(ready.bins.red)}
-                vectorEffect="non-scaling-stroke"
-              />
-              <path
-                className="raw-histogram-channel-fill raw-histogram-channel-fill-green"
-                d={makeAreaPath(ready.bins.green)}
-                vectorEffect="non-scaling-stroke"
-              />
-              <path
-                className="raw-histogram-channel-fill raw-histogram-channel-fill-blue"
-                d={makeAreaPath(ready.bins.blue)}
-                vectorEffect="non-scaling-stroke"
-              />
-              {hasNonZeroBins(ready.bins.red) && (
-                <path
-                  className="raw-histogram-channel-line raw-histogram-channel-line-red"
-                  d={makeLinePath(ready.bins.red)}
-                  vectorEffect="non-scaling-stroke"
-                />
-              )}
-              {hasNonZeroBins(ready.bins.green) && (
-                <path
-                  className="raw-histogram-channel-line raw-histogram-channel-line-green"
-                  d={makeLinePath(ready.bins.green)}
-                  vectorEffect="non-scaling-stroke"
-                />
-              )}
-              {hasNonZeroBins(ready.bins.blue) && (
-                <path
-                  className="raw-histogram-channel-line raw-histogram-channel-line-blue"
-                  d={makeLinePath(ready.bins.blue)}
-                  vectorEffect="non-scaling-stroke"
-                />
-              )}
-              <path
-                className="raw-histogram-luma"
-                d={makeLinePath(ready.bins.luma)}
-                vectorEffect="non-scaling-stroke"
-              />
-            </svg>
+            <HistogramPlot
+              bins={ready.bins}
+              ariaLabel={t('raw.histogram.aria')}
+            />
             <div className="raw-histogram-clipping">
               <span>
                 {t('raw.histogram.shadows', {
