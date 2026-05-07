@@ -708,18 +708,22 @@ export function PreviewCanvas({
     if (!pipeline || !isInitialized) return
     if (params.viewMode !== 'compare') return
 
-    const { zoom, panX } = normalizedPreviewViewport
-    if (zoom <= 1) return
+    const { zoom } = normalizedPreviewViewport
 
-    const vpGeo = getViewportGeometry()
-    if (!vpGeo || vpGeo.geometry.contentWidth <= 0) return
+    let compareSplit: number
+    if (zoom <= 1) {
+      compareSplit = params.compareSplit
+    } else {
+      const vpGeo = getViewportGeometry()
+      if (!vpGeo || vpGeo.geometry.contentWidth <= 0) return
 
-    const compareSplit = getCanvasCompareSplit(
-      params.compareSplit,
-      zoom,
-      panX,
-      vpGeo.geometry.contentWidth,
-    )
+      compareSplit = getCanvasCompareSplit(
+        params.compareSplit,
+        zoom,
+        normalizedPreviewViewport.panX,
+        vpGeo.geometry.contentWidth,
+      )
+    }
 
     pipeline.setParams({ compareSplit })
     pipeline.render({ waitForGpu: false })
