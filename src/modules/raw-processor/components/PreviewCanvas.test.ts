@@ -496,6 +496,14 @@ describe('preview canvas upload descriptor', () => {
       expect(pipelineMock.instances).toHaveLength(1)
     })
 
+    const rafCallbacks: FrameRequestCallback[] = []
+    const raf = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((cb) => {
+        rafCallbacks.push(cb)
+        return rafCallbacks.length
+      })
+
     expect(frame).not.toBeNull()
     fireEvent.wheel(frame!, {
       clientX: 300,
@@ -505,6 +513,9 @@ describe('preview canvas upload descriptor', () => {
       ctrlKey: false,
     })
 
+    expect(onPreviewViewportChange).not.toHaveBeenCalled()
+    rafCallbacks[0]?.(performance.now())
+
     expect(onPreviewViewportChange).toHaveBeenCalledTimes(1)
     const next = onPreviewViewportChange.mock.calls[0]?.[0]
     expect(next?.zoom).toBeCloseTo(1.5)
@@ -512,6 +523,8 @@ describe('preview canvas upload descriptor', () => {
     expect(next?.panY).toBeCloseTo(0)
     expect(next?.fitMode).toBe('custom')
     expect(defaultParams).toEqual(paramsBefore)
+
+    raf.mockRestore()
   })
 
   it('keeps the compare split track separate from the transformed preview surface', async () => {
@@ -544,6 +557,14 @@ describe('preview canvas upload descriptor', () => {
       expect(pipelineMock.instances).toHaveLength(1)
     })
 
+    const rafCallbacks: FrameRequestCallback[] = []
+    const raf = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((cb) => {
+        rafCallbacks.push(cb)
+        return rafCallbacks.length
+      })
+
     expect(frame).not.toBeNull()
     fireEvent.pointerDown(frame!, {
       pointerId: 1,
@@ -557,6 +578,9 @@ describe('preview canvas upload descriptor', () => {
       clientY: 170,
     })
 
+    expect(onPreviewViewportChange).not.toHaveBeenCalled()
+    rafCallbacks[0]?.(performance.now())
+
     expect(onPreviewViewportChange).toHaveBeenCalled()
     const next = onPreviewViewportChange.mock.calls.at(-1)?.[0]
     expect(next).toEqual({
@@ -565,6 +589,8 @@ describe('preview canvas upload descriptor', () => {
       panY: 20,
       fitMode: 'custom',
     })
+
+    raf.mockRestore()
   })
 
   it('resets preview zoom and pan on double click', async () => {

@@ -4,7 +4,13 @@
 
 import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { m } from 'motion/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats, RawUploadInput } from '~/lib/gl/pipeline'
@@ -193,6 +199,8 @@ export function PreviewCanvas({
     midpoint: TrackedPointer
     viewport: PreviewViewport
   } | null>(null)
+  const pendingViewportRef = useRef<PreviewViewport | null>(null)
+  const pendingViewportRafRef = useRef<number | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
   const [isPointerPanning, setIsPointerPanning] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -253,6 +261,37 @@ export function PreviewCanvas({
     },
     [onPreviewViewportChange],
   )
+
+  const scheduleViewportCommit = useCallback(
+    (viewport: PreviewViewport) => {
+      previewViewportRef.current = viewport
+      pendingViewportRef.current = viewport
+
+      if (pendingViewportRafRef.current !== null) return
+
+      pendingViewportRafRef.current = requestAnimationFrame(() => {
+        pendingViewportRafRef.current = null
+        const pending = pendingViewportRef.current
+        if (pending) {
+          pendingViewportRef.current = null
+          onPreviewViewportChange?.(pending)
+        }
+      })
+    },
+    [onPreviewViewportChange],
+  )
+
+  const flushViewportCommit = useCallback(() => {
+    if (pendingViewportRafRef.current !== null) {
+      cancelAnimationFrame(pendingViewportRafRef.current)
+      pendingViewportRafRef.current = null
+    }
+    const pending = pendingViewportRef.current
+    if (pending) {
+      pendingViewportRef.current = null
+      onPreviewViewportChange?.(pending)
+    }
+  }, [onPreviewViewportChange])
 
   const getRelativeOrigin = useCallback(
     (clientX: number, clientY: number) => {
@@ -437,14 +476,14 @@ export function PreviewCanvas({
         ctrlKey: event.ctrlKey,
       })
 
-      commitPreviewViewport(
+      scheduleViewportCommit(
         zoomPreviewViewportAtPoint(current, {
           ...origin,
           nextZoom,
         }),
       )
     },
-    [canInteractWithPreview, commitPreviewViewport, getRelativeOrigin],
+    [canInteractWithPreview, scheduleViewportCommit, getRelativeOrigin],
   )
 
   useEffect(() => {
@@ -514,7 +553,7 @@ export function PreviewCanvas({
         const origin = getRelativeOrigin(midpoint.clientX, midpoint.clientY)
         if (!origin) return
 
-        commitPreviewViewport(
+        scheduleViewportCommit(
           zoomPreviewViewportAtPoint(pinchStartRef.current.viewport, {
             ...origin,
             nextZoom:
@@ -529,7 +568,7 @@ export function PreviewCanvas({
         return
       }
 
-      commitPreviewViewport(
+      scheduleViewportCommit(
         panPreviewViewport(previewViewportRef.current, {
           geometry: viewportGeometry.geometry,
           deltaX: event.clientX - previous.clientX,
@@ -539,7 +578,7 @@ export function PreviewCanvas({
     },
     [
       canInteractWithPreview,
-      commitPreviewViewport,
+      scheduleViewportCommit,
       getRelativeOrigin,
       getViewportGeometry,
     ],
@@ -558,10 +597,11 @@ export function PreviewCanvas({
         pinchStartRef.current = null
       }
       if (activePointersRef.current.size === 0) {
+        flushViewportCommit()
         setIsPointerPanning(false)
       }
     },
-    [],
+    [flushViewportCommit],
   )
 
   const handleDoubleClick = useCallback(
@@ -661,7 +701,9 @@ export function PreviewCanvas({
   // Refresh the comparison split when zoom/pan changes during compare mode.
   // Kept separate from the params effect above so that zoom/pan does not
   // re-create uploadInput, re-upload image data, or fire onStatsUpdate.
-  useEffect(() => {
+  // Uses useLayoutEffect so the canvas update lands in the same frame as the
+  // CSS transform, keeping the split bar and shader split line synchronised.
+  useLayoutEffect(() => {
     const pipeline = pipelineRef.current
     if (!pipeline || !isInitialized) return
     if (params.viewMode !== 'compare') return
@@ -680,7 +722,7 @@ export function PreviewCanvas({
     )
 
     pipeline.setParams({ compareSplit })
-    pipeline.render()
+    pipeline.render({ waitForGpu: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- normalizedPreviewViewport is a fresh object each render; zoom/panX are stable primitives
   }, [
     normalizedPreviewViewport.zoom,
