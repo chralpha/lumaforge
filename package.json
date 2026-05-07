@@ -18,7 +18,7 @@
     "deploy:prepare": "node scripts/deploy/prepare.mjs",
     "deploy:publish": "node scripts/deploy/publish.mjs",
     "deploy:smoke": "node scripts/deploy/smoke.mjs",
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0",
     "worktree": "bash scripts/worktree.sh",
     "format": "prettier --write \"src/**/*.ts\" ",
     "lint": "eslint --fix",
