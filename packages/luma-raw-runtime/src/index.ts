@@ -1,5 +1,7 @@
 export type { LumaRawErrorCode } from './errors'
 export { LumaRawRuntimeError, normalizeRawRuntimeError } from './errors'
+export type { RawDynamicRangeInfo } from './hdr-analysis'
+export { analyzeRawDynamicRange } from './hdr-analysis'
 export type { LumaRawRuntimeOptions } from './runtime'
 export { createLumaRawRuntime } from './runtime'
 export type {

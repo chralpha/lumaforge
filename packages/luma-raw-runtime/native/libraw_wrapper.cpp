@@ -885,6 +885,20 @@ class LumaRawProcessor {
     metadata.set("orientation", sizes.flip);
     metadata.set("blackLevel", color.black);
     metadata.set("whiteLevel", color.maximum);
+    metadata.set("dataMaximum", color.data_maximum);
+
+    val black_stat = val::array();
+    for (int i = 0; i < 8; ++i) {
+      black_stat.set(i, color.black_stat[i]);
+    }
+    metadata.set("blackStat", black_stat);
+
+    val per_channel_black = val::array();
+    for (int i = 0; i < 4; ++i) {
+      per_channel_black.set(i, color.cblack[i]);
+    }
+    metadata.set("perChannelBlack", per_channel_black);
+
     const float baseline_exposure = color.dng_levels.baseline_exposure;
     if (std::isfinite(baseline_exposure) && baseline_exposure > -999.0f) {
       metadata.set("baselineExposure", baseline_exposure);

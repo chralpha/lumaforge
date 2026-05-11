@@ -22,6 +22,9 @@ export type LumaRawNativeMetadata = {
   orientation?: number
   blackLevel?: number
   whiteLevel?: number
+  dataMaximum?: number
+  perChannelBlack?: [number, number, number, number]
+  blackStat?: [number, number, number, number, number, number, number, number]
   baselineExposure?: number
   thumbnail?: {
     width: number

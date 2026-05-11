@@ -216,6 +216,28 @@ function normalizeMetadata(value: unknown) {
       ? raw.thumbFormat
       : 'unknown'
 
+  const dataMaximum = asNumber(raw.dataMaximum)
+  const perChannelBlack = Array.isArray(raw.perChannelBlack)
+    ? (raw.perChannelBlack.slice(0, 4).map((v) => asNumber(v)) as [
+        number,
+        number,
+        number,
+        number,
+      ])
+    : undefined
+  const blackStat = Array.isArray(raw.blackStat)
+    ? (raw.blackStat.slice(0, 8).map((v) => asNumber(v)) as [
+        number,
+        number,
+        number,
+        number,
+        number,
+        number,
+        number,
+        number,
+      ])
+    : undefined
+
   return {
     width: asNumber(raw.width),
     height: asNumber(raw.height),
@@ -232,6 +254,12 @@ function normalizeMetadata(value: unknown) {
     orientation: asNumber(raw.orientation),
     blackLevel: asNumber(raw.blackLevel),
     whiteLevel: asNumber(raw.whiteLevel),
+    dataMaximum:
+      dataMaximum !== undefined && dataMaximum > 0 ? dataMaximum : undefined,
+    perChannelBlack: perChannelBlack?.every((v) => v !== undefined)
+      ? perChannelBlack
+      : undefined,
+    blackStat: blackStat?.every((v) => v !== undefined) ? blackStat : undefined,
     baselineExposure: asNumber(raw.baselineExposure),
     thumbnail:
       thumbnailWidth && thumbnailHeight
