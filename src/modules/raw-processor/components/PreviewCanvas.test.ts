@@ -8,9 +8,9 @@ import type { DecodedImage } from '~/lib/raw/decoder'
 import { DEFAULT_PREVIEW_VIEWPORT } from '../services/preview-viewport'
 import {
   createRawUploadInput,
-  PreviewCanvas,
   syncRawUploadInput,
-} from './PreviewCanvas'
+} from './preview-canvas-helpers'
+import { PreviewCanvas } from './PreviewCanvas'
 
 const pipelineMock = vi.hoisted(() => ({
   instances: [] as Array<{

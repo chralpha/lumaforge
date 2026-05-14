@@ -13,7 +13,7 @@ import {
 } from 'react'
 
 import { clsxm } from '~/lib/cn'
-import type { PipelineStats, RawUploadInput } from '~/lib/gl/pipeline'
+import type { PipelineStats } from '~/lib/gl/pipeline'
 import { RawProcessingPipeline } from '~/lib/gl/pipeline'
 import { useI18n } from '~/lib/i18n'
 import type { DecodedImage } from '~/lib/raw/decoder'
@@ -33,6 +33,15 @@ import {
   resetPreviewViewport,
   zoomPreviewViewportAtPoint,
 } from '../services/preview-viewport'
+import type { TrackedPointer } from './preview-canvas-helpers'
+import {
+  createRawUploadInput,
+  getPointerDistance,
+  getPointerMidpoint,
+  syncRawUploadInput,
+  tryCapturePointer,
+  tryReleasePointer,
+} from './preview-canvas-helpers'
 
 export interface PreviewCanvasProps {
   imageRef: React.RefObject<DecodedImage | null>
@@ -49,125 +58,6 @@ export interface PreviewCanvasProps {
   onStatsUpdate?: (stats: PipelineStats) => void
   onPipelineChange?: (pipeline: RawProcessingPipeline | null) => void
   className?: string
-}
-
-export function createRawUploadInput({
-  data,
-  layout,
-  colorSpace,
-  width,
-  height,
-  renderExposureEv,
-}: {
-  data: Float32Array | Uint16Array | null
-  layout: RawUploadInput['layout'] | null
-  colorSpace: RawUploadInput['colorSpace'] | null
-  width: number
-  height: number
-  renderExposureEv?: number | null
-}): RawUploadInput | null {
-  if (!data || !layout || !colorSpace) {
-    return null
-  }
-
-  if (layout === 'rgb-u16') {
-    if (data instanceof Uint16Array && colorSpace === 'linear-prophoto-rgb') {
-      const ev =
-        typeof renderExposureEv === 'number' &&
-        Number.isFinite(renderExposureEv)
-          ? renderExposureEv
-          : 0
-
-      return {
-        data,
-        width,
-        height,
-        layout,
-        colorSpace,
-        renderExposureEv: ev,
-        renderExposureMultiplier: Math.pow(2, ev),
-      }
-    }
-
-    return null
-  }
-
-  if (data instanceof Float32Array && colorSpace === 'display-srgb-preview') {
-    return {
-      data,
-      width,
-      height,
-      layout,
-      colorSpace,
-    }
-  }
-
-  return null
-}
-
-type RawUploadPipeline = Pick<
-  RawProcessingPipeline,
-  'clearImage' | 'uploadImage'
->
-
-type TrackedPointer = {
-  clientX: number
-  clientY: number
-}
-
-function getPointerDistance(a: TrackedPointer, b: TrackedPointer) {
-  return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
-}
-
-function getPointerMidpoint(a: TrackedPointer, b: TrackedPointer) {
-  return {
-    clientX: (a.clientX + b.clientX) / 2,
-    clientY: (a.clientY + b.clientY) / 2,
-  }
-}
-
-function tryCapturePointer(target: HTMLElement, pointerId: number) {
-  try {
-    target.setPointerCapture?.(pointerId)
-  } catch {
-    // Pointer capture is best-effort for synthetic events and WebKit edge paths.
-  }
-}
-
-function tryReleasePointer(target: HTMLElement, pointerId: number) {
-  try {
-    target.releasePointerCapture?.(pointerId)
-  } catch {
-    // Internal pointer tracking is authoritative if release is unavailable.
-  }
-}
-
-export function syncRawUploadInput({
-  pipeline,
-  imageData,
-  uploadInput,
-  setError,
-}: {
-  pipeline: RawUploadPipeline
-  imageData: Float32Array | Uint16Array | null
-  uploadInput: RawUploadInput | null
-  setError: (error: string | null) => void
-}): boolean {
-  if (!imageData) {
-    pipeline.clearImage()
-    setError(null)
-    return false
-  }
-
-  if (!uploadInput) {
-    pipeline.clearImage()
-    setError('Decoded image data does not match the WebGL upload layout')
-    return false
-  }
-
-  pipeline.uploadImage(uploadInput)
-  setError(null)
-  return true
 }
 
 export function PreviewCanvas({
@@ -846,17 +736,4 @@ export function PreviewCanvas({
       )}
     </div>
   )
-}
-
-/**
- * Standalone canvas that manages its own pipeline for export.
- */
-export function ExportCanvas({
-  canvasRef,
-  className,
-}: {
-  canvasRef: React.RefObject<HTMLCanvasElement | null>
-  className?: string
-}) {
-  return <canvas ref={canvasRef} className={clsxm('hidden', className)} />
 }

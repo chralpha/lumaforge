@@ -2,9 +2,14 @@ export * from './ComparePreviewStage'
 export * from './CompareSplitHandle'
 export { ControlsPanel } from './ControlsPanel'
 export { Dropzone, FileDropzone, LutDropzone } from './Dropzone'
+export { ExportCanvas } from './ExportCanvas'
 export { IntensityChips } from './IntensityChips'
 export { MetadataPanel } from './MetadataPanel'
-export { ExportCanvas, PreviewCanvas } from './PreviewCanvas'
+export {
+  createRawUploadInput,
+  syncRawUploadInput,
+} from './preview-canvas-helpers'
+export { PreviewCanvas } from './PreviewCanvas'
 export { ErrorOverlay, ProgressOverlay, SuccessToast } from './ProgressOverlay'
 export { RawToolSurface } from './RawToolSurface'
 export { StatsPanel } from './StatsPanel'
