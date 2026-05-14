@@ -1,3 +1,5 @@
+import './export-tool.css'
+
 import { useAtomValue } from 'jotai'
 import { Copy, Download, FolderOpen, Share2 } from 'lucide-react'
 

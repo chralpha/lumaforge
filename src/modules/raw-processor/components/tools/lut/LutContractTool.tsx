@@ -1,3 +1,5 @@
+import './lut-tool.css'
+
 import type {
   LUTColorProfile,
   LUTProfileResolution,

@@ -2,6 +2,8 @@
  * WebGL canvas component for rendering processed RAW images.
  */
 
+import './preview-canvas.css'
+
 import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { m } from 'motion/react'
 import {
