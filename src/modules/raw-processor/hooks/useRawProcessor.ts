@@ -4,7 +4,6 @@ import type {
   PreviewHistogramState,
   ProcessingParams,
 } from '@lumaforge/luma-color-runtime'
-import { normalizeToneParams } from '@lumaforge/luma-color-runtime'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -54,7 +53,6 @@ import type {
   LUTProfileSelectionState,
   StyleAsset,
 } from '../model/session'
-import { clampCompareSplit } from '../services/compare-split'
 import {
   clearEmbeddedPreviewUrlFromSession,
   revokeEmbeddedPreviewObjectUrls,
@@ -78,16 +76,20 @@ import {
   clearExportResultState,
   hasSameRawRenderExposure,
 } from '../services/export-state'
-import {
-  applyLookIntensityToSession,
-  clearActiveLookFromSession,
-} from '../services/look-session-state'
 import type { LutLoadContext } from '../services/lut/orchestrate-lut-load'
 import {
   orchestrateLutLoadFromFile,
   orchestrateOnlineLutLoad,
   orchestrateProfileSelection,
 } from '../services/lut/orchestrate-lut-load'
+import {
+  computeClearLUT,
+  computeCompareSplitChange,
+  computeIntensityChange,
+  computeToneParams,
+  computeViewModeChange,
+  computeViewportChange,
+} from '../services/params/orchestrate-params-update'
 import type { PreviewViewport } from '../services/preview-viewport'
 import {
   DEFAULT_PREVIEW_VIEWPORT,
@@ -97,14 +99,8 @@ import type { RawLoadContext } from '../services/raw/orchestrate-raw-load'
 import { orchestrateRawLoad } from '../services/raw/orchestrate-raw-load'
 import {
   buildLUTProfileSelectionState,
-  mapIntensityLevel,
   toCustomStyle,
 } from '../services/style-system'
-import {
-  applyCompareSplitToSession,
-  applyPreviewViewportToSession,
-  applyViewModeToSession,
-} from '../services/view-session-state'
 import { getProgressRecoveryHint } from '../services/workflow-status'
 import { useImageSession } from './useImageSession'
 import { usePreviewHistogram } from './usePreviewHistogram'
@@ -750,29 +746,23 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   const selectIntensityLevel = useCallback(
     (level: 'off' | 'light' | 'standard' | 'strong') => {
-      const shouldInvalidateExportGraph =
-        params.intensity !== mapIntensityLevel(level) ||
-        (activeStyle ? activeStyle.currentIntensityLevel !== level : false)
+      const {
+        params: nextParams,
+        session: nextSession,
+        shouldInvalidateExportGraph,
+      } = computeIntensityChange(params, session, activeStyle, level)
 
       if (shouldInvalidateExportGraph) {
         invalidateExportGraph()
       }
-      setParams((prev) => ({ ...prev, intensity: mapIntensityLevel(level) }))
-      setSession((prev) => {
-        if (!prev) {
-          return prev
-        }
-
-        return applyLookIntensityToSession(prev, {
-          level,
-          clearExportResult: shouldInvalidateExportGraph,
-        })
-      })
+      setParams(nextParams)
+      setSession(nextSession)
     },
     [
       activeStyle,
       invalidateExportGraph,
-      params.intensity,
+      params,
+      session,
       setParams,
       setSession,
     ],
@@ -781,35 +771,25 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const setViewMode = useCallback(
     (mode: ProcessingParams['viewMode']) => {
       setParams((prev) => ({ ...prev, viewMode: mode }))
-      setSession((prev) => {
-        if (!prev) {
-          return prev
-        }
-
-        return applyViewModeToSession(prev, mode)
-      })
+      setSession((prev) => computeViewModeChange(prev, mode))
     },
     [setParams, setSession],
   )
 
   const setCompareSplit = useCallback(
     (split: number) => {
-      const nextSplit = clampCompareSplit(split)
-      setParams((prev) => ({ ...prev, compareSplit: nextSplit }))
-      setSession((prev) => {
-        if (!prev) return prev
-        return applyCompareSplitToSession(prev, nextSplit)
+      setParams((prev) => {
+        const { nextSplit } = computeCompareSplitChange(null, split)
+        return { ...prev, compareSplit: nextSplit }
       })
+      setSession((prev) => computeCompareSplitChange(prev, split).session)
     },
     [setParams, setSession],
   )
 
   const setPreviewViewport = useCallback(
     (viewport: PreviewViewport) => {
-      setSession((prev) => {
-        if (!prev) return prev
-        return applyPreviewViewportToSession(prev, viewport)
-      })
+      setSession((prev) => computeViewportChange(prev, viewport))
     },
     [setSession],
   )
@@ -820,40 +800,35 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   // Clear LUT
   const clearLUT = useCallback(() => {
-    const shouldInvalidateExportGraph =
-      params.styleKind !== 'none' ||
-      params.builtinPreset !== null ||
-      Boolean(activeStyle) ||
-      Boolean(lut) ||
-      Boolean(lutDataRef.current) ||
-      Boolean(lutProfileSelection)
+    const {
+      params: nextParams,
+      session: nextSession,
+      shouldInvalidateExportGraph,
+    } = computeClearLUT(
+      params,
+      session,
+      activeStyle,
+      Boolean(lut),
+      Boolean(lutDataRef.current),
+      Boolean(lutProfileSelection),
+    )
 
     if (shouldInvalidateExportGraph) {
       invalidateExportGraph()
     }
     setLut(null)
     setLutDataRef(null)
-    setSession((prev) =>
-      prev
-        ? clearActiveLookFromSession(prev, {
-            clearExportResult: shouldInvalidateExportGraph,
-          })
-        : prev,
-    )
-    setParams((prev) => ({
-      ...prev,
-      styleKind: 'none',
-      builtinPreset: null,
-    }))
+    setSession(nextSession)
+    setParams(nextParams)
     scheduleToast(() => toast.info('LUT cleared'))
   }, [
     activeStyle,
     invalidateExportGraph,
     lut,
     lutProfileSelection,
-    params.builtinPreset,
-    params.styleKind,
+    params,
     scheduleToast,
+    session,
     setLut,
     setLutDataRef,
     setParams,
@@ -891,16 +866,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
     ) => {
       let shouldClearExportResult = false
       setParams((prev) => {
-        const normalized = normalizeToneParams({
-          userExposureEv: toneParams.userExposureEv ?? prev.userExposureEv,
-          userContrast: toneParams.userContrast ?? prev.userContrast,
-          userHighlights: toneParams.userHighlights ?? prev.userHighlights,
-          userShadows: toneParams.userShadows ?? prev.userShadows,
-          userWhites: toneParams.userWhites ?? prev.userWhites,
-          userBlacks: toneParams.userBlacks ?? prev.userBlacks,
-        })
-        shouldClearExportResult = changesRenderGraphParams(prev, normalized)
-        return { ...prev, ...normalized }
+        const { params: nextParams, shouldClearExportResult: shouldClear } =
+          computeToneParams(prev, toneParams)
+        shouldClearExportResult = shouldClear
+        return nextParams
       })
 
       if (shouldClearExportResult) {
