@@ -1,0 +1,600 @@
+import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
+import { resolveExportColorGraph } from '@lumaforge/luma-color-runtime'
+import { toast } from 'sonner'
+
+import type { ProcessingStatus } from '~/atoms/raw-processor'
+import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
+import {
+  createCheckpointStore,
+  createOpfsCheckpointBackend,
+} from '~/lib/export/checkpoint-store'
+import { emitExportDebugEvent } from '~/lib/export/execution-profile'
+import type { FullResWorkerCheckpointConfig } from '~/lib/export/full-res-export-client'
+import type { ResourceRegistry } from '~/lib/export/resource-registry'
+import { createSourceFingerprint } from '~/lib/export/source-fingerprint'
+import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
+import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
+
+import type { ExportResult } from '../../model/export-result'
+import type { ExportRecoveryState, ImageSession } from '../../model/session'
+import {
+  createPreExportSnapshot,
+  evacuateBeforeExport,
+  getPreExportEvacuationOwners,
+  toResourceEvacuatedDebugPayload,
+} from '../export-evacuation'
+import { deriveFullResExportReadiness } from '../export-readiness'
+import { resolveExportCopyCapability } from '../export-result-actions'
+import { createCompletedExportResult } from '../export-result-materialization'
+import {
+  buildExportFailureDescription,
+  clearExportResultForActiveExport,
+  createSafeRetryManifest,
+  isCheckpointMetric,
+} from '../export-state'
+import {
+  buildExportFilename,
+  recommendRetryLevel,
+  runFullResolutionExportJob,
+  selectCurrentExportExecutionPlan,
+} from '../export-system'
+import {
+  getStableErrorCode,
+  isRetryableFullResExportFailure,
+  toUserFacingErrorCode,
+} from '../workflow-status'
+
+export interface ExportContext {
+  atoms: {
+    setStatus: (status: ProcessingStatus) => void
+    setError: (error: string | null) => void
+    setProgress: (progress: number) => void
+    setSession: (
+      value:
+        | ImageSession
+        | null
+        | ((prev: ImageSession | null) => ImageSession | null),
+    ) => void
+    loadedImage: { file: File | null; metadata: ImageMetadata | null }
+    session: ImageSession | null
+    params: ProcessingParams
+    lutDataRef: { current: LUTData | null }
+    decodedImageRef: { current: DecodedImage | null }
+    stats: PipelineStats | null
+    setDiscoveredRecoveryState: (next: ExportRecoveryState) => void
+  }
+  refs: {
+    exportAbortControllerRef: { current: AbortController | null }
+    exportGraphVersionRef: { current: number }
+    isMountedRef: { current: boolean }
+    sessionRef: { current: ImageSession | null }
+    pipelineRef: { current: RawProcessingPipeline | null }
+    resourceRegistryRef: { current: ResourceRegistry | null }
+    previewCopyCanvasRef: { current: HTMLCanvasElement | null }
+  }
+  services: {
+    scheduleToast: (fn: () => void) => void
+    abortExportWork: () => void
+    abortRuntimeWork: () => void
+    registerCurrentPreviewPipelineForEvacuation: () => void
+    registerExportResultResource: (result: ExportResult) => void
+    revokeCurrentEmbeddedPreviewUrl: () => void
+  }
+}
+
+function createExportId() {
+  return globalThis.crypto?.randomUUID?.() ?? `export-${Date.now()}`
+}
+
+export async function orchestrateFullResExport(
+  options: {
+    quality: 'standard' | 'high'
+    fidelity: 'safe' | 'balanced' | 'max'
+    previousInterrupted?: boolean
+    recoveredExportId?: string
+  },
+  ctx: ExportContext,
+): Promise<void> {
+  const { quality, fidelity, previousInterrupted, recoveredExportId } = options
+
+  const rawRenderExposure =
+    ctx.atoms.decodedImageRef.current?.renderExposure ?? null
+  const sourceFile = ctx.atoms.loadedImage.file
+  const exportReadiness = deriveFullResExportReadiness({
+    sourceFile,
+    session: ctx.atoms.session,
+    rawRenderExposure,
+  })
+  if (!exportReadiness.canExport) {
+    const description = exportReadiness.disabledReason
+    ctx.services.scheduleToast(() =>
+      toast.error(
+        'Full-resolution export is not ready',
+        description ? { description } : undefined,
+      ),
+    )
+    return
+  }
+
+  const activeSession = exportReadiness.session
+  const activeSourceFile = exportReadiness.sourceFile
+  const activeRawRenderExposure = exportReadiness.rawRenderExposure
+  const exportCapability = exportReadiness.fullResCapability
+
+  const graph = resolveExportColorGraph({
+    styleKind: ctx.atoms.params.styleKind,
+    intensity: ctx.atoms.params.intensity,
+    builtinPreset: ctx.atoms.params.builtinPreset,
+    lut: ctx.atoms.lutDataRef.current,
+    rawRenderExposure: activeRawRenderExposure,
+    userExposureEv: ctx.atoms.params.userExposureEv,
+    userContrast: ctx.atoms.params.userContrast,
+    userHighlights: ctx.atoms.params.userHighlights,
+    userShadows: ctx.atoms.params.userShadows,
+    userWhites: ctx.atoms.params.userWhites,
+    userBlacks: ctx.atoms.params.userBlacks,
+  })
+
+  if (!graph.supported) {
+    ctx.atoms.setError(graph.message)
+    ctx.atoms.setStatus('error')
+    ctx.atoms.setSession((prev) =>
+      prev
+        ? {
+            ...prev,
+            exportState: {
+              ...prev.exportState,
+              status: 'failed',
+              result: undefined,
+              lastErrorCode: 'EXPORT_UNSUPPORTED_PIPELINE',
+              retryRecommended: false,
+              recommendedRetryLevel: undefined,
+            },
+          }
+        : prev,
+    )
+    return
+  }
+  const graphFingerprint = JSON.stringify(graph.steps)
+
+  const exportSessionId = activeSession.id
+  const exportGraphVersion = ctx.refs.exportGraphVersionRef.current
+  ctx.services.abortExportWork()
+  const exportAbortController = new AbortController()
+  ctx.refs.exportAbortControllerRef.current = exportAbortController
+
+  const isCurrentExport = () =>
+    ctx.refs.isMountedRef.current &&
+    !exportAbortController.signal.aborted &&
+    ctx.refs.exportGraphVersionRef.current === exportGraphVersion &&
+    ctx.refs.sessionRef.current?.id === exportSessionId
+
+  try {
+    ctx.atoms.setStatus('exporting')
+    ctx.atoms.setProgress(0)
+    ctx.atoms.setError(null)
+    ctx.refs.previewCopyCanvasRef.current = null
+    const executionPlan = selectCurrentExportExecutionPlan({
+      fidelity,
+      sourceWidth: exportCapability.width,
+      sourceHeight: exportCapability.height,
+      previousInterrupted,
+    })
+    let jobExecutionPlan = executionPlan
+    let checkpointStore: ReturnType<typeof createCheckpointStore> | null = null
+    let checkpointManifest: ExportCheckpointManifest | null = null
+    let checkpoint: FullResWorkerCheckpointConfig | undefined
+    let checkpointWritesClosed = false
+    let checkpointWriteChain: Promise<void> = Promise.resolve()
+
+    const enqueueCheckpointWrite = (manifest: ExportCheckpointManifest) => {
+      if (!checkpointStore || checkpointWritesClosed) {
+        return
+      }
+
+      const nextManifest = manifest
+      checkpointWriteChain = checkpointWriteChain
+        .catch(() => undefined)
+        .then(() => checkpointStore?.writeActive(nextManifest))
+        .then(() => {
+          emitExportDebugEvent({
+            type: 'checkpoint-written',
+            payload: {
+              exportId: nextManifest.exportId,
+              completedRowsForDiagnostics:
+                nextManifest.completedRowsForDiagnostics,
+              totalRows: nextManifest.totalRows,
+              updatedAt: nextManifest.updatedAt,
+            },
+          })
+        })
+        .then(
+          () => undefined,
+          () => undefined,
+        )
+    }
+
+    if (
+      executionPlan.profile.checkpointOutput &&
+      executionPlan.outputSink === 'opfs-file'
+    ) {
+      try {
+        checkpointStore = createCheckpointStore(createOpfsCheckpointBackend())
+        const exportId = createExportId()
+        const sourceFingerprint = await createSourceFingerprint(
+          activeSourceFile,
+          {
+            width: exportCapability.width,
+            height: exportCapability.height,
+          },
+        )
+        checkpointManifest = createSafeRetryManifest({
+          exportId,
+          file: activeSourceFile,
+          sourceFingerprint,
+          outputWidth: exportCapability.width,
+          outputHeight: exportCapability.height,
+          graphFingerprint,
+          profile: executionPlan.profile.name,
+          preferredRows: executionPlan.preferredRows,
+          outputSink: executionPlan.outputSink,
+        })
+        await checkpointStore.writeActive(checkpointManifest)
+        if (isCurrentExport()) {
+          emitExportDebugEvent({
+            type: 'checkpoint-written',
+            payload: {
+              exportId,
+              completedRowsForDiagnostics:
+                checkpointManifest.completedRowsForDiagnostics,
+              totalRows: checkpointManifest.totalRows,
+              updatedAt: checkpointManifest.updatedAt,
+            },
+          })
+        }
+        checkpoint = {
+          exportId,
+          graphFingerprint,
+          sourceFingerprint,
+        }
+      } catch {
+        checkpointStore = null
+        checkpointManifest = null
+      }
+    }
+
+    if (!isCurrentExport()) {
+      return
+    }
+
+    if (executionPlan.outputSink === 'opfs-file' && !checkpoint) {
+      jobExecutionPlan = {
+        ...executionPlan,
+        outputSink: 'blob-handoff',
+        productCopy: 'non-durable-checkpoint',
+      }
+    }
+    if (previousInterrupted) {
+      ctx.atoms.setDiscoveredRecoveryState({ status: 'none' })
+    }
+    const activePlan = {
+      profileName: jobExecutionPlan.profile.name,
+      preferredRows: jobExecutionPlan.preferredRows,
+      concurrency: jobExecutionPlan.concurrency,
+      runtimeMemoryProfile: jobExecutionPlan.runtimeMemoryProfile,
+      outputSink: jobExecutionPlan.outputSink,
+      checkpointMode: jobExecutionPlan.checkpointMode,
+    }
+
+    emitExportDebugEvent({
+      type: 'export-plan-selected',
+      payload: {
+        profile: jobExecutionPlan.profile.name,
+        preferredRows: jobExecutionPlan.preferredRows,
+        concurrency: jobExecutionPlan.concurrency,
+        runtimeMemoryProfile: jobExecutionPlan.runtimeMemoryProfile,
+        checkpointMode: jobExecutionPlan.checkpointMode,
+        outputSink: jobExecutionPlan.outputSink,
+        checkpointDurableExpected:
+          jobExecutionPlan.profile.checkpointOutput &&
+          jobExecutionPlan.outputSink === 'opfs-file',
+      },
+    })
+
+    ctx.atoms.setSession((prev) =>
+      prev && prev.id === exportSessionId
+        ? {
+            ...prev,
+            exportState: {
+              ...prev.exportState,
+              status: 'exporting',
+              qualityPreset: quality,
+              fidelityLevel: fidelity,
+              activePlan,
+              checkpointDurable: Boolean(checkpoint),
+              recovery: { status: 'none' },
+              result: undefined,
+              lastProgress: undefined,
+              retryRecommended: false,
+              recommendedRetryLevel: undefined,
+            },
+          }
+        : prev,
+    )
+
+    let copyCapability = resolveExportCopyCapability()
+    let previewCopyCanvas: HTMLCanvasElement | null = null
+    if (copyCapability.mode === 'preview-size') {
+      const pipeline = ctx.refs.pipelineRef.current
+      const previewSize = ctx.atoms.stats?.previewSize
+
+      if (pipeline && previewSize) {
+        try {
+          previewCopyCanvas = await pipeline.renderToHiddenCanvas({
+            width: previewSize.width,
+            height: previewSize.height,
+          })
+        } catch {
+          previewCopyCanvas = null
+        }
+      }
+
+      if (!isCurrentExport()) {
+        return
+      }
+
+      if (!previewCopyCanvas) {
+        copyCapability = {
+          mode: 'unavailable',
+          reason: 'Preview image is not ready to copy.',
+        }
+      }
+    }
+
+    if (jobExecutionPlan.profile.releasePreviewPipelineBeforeExport) {
+      ctx.services.registerCurrentPreviewPipelineForEvacuation()
+    }
+    const snapshot = createPreExportSnapshot({
+      file: activeSourceFile,
+      metadata: ctx.atoms.loadedImage.metadata,
+      graph,
+      graphFingerprint,
+      lutTitle:
+        activeSession.activeStyle?.kind === 'custom'
+          ? activeSession.activeStyle.name
+          : undefined,
+      quickPreviewReady:
+        activeSession.previewBundle.quickDecodePreview.status === 'ready',
+      tone: {
+        userExposureEv: ctx.atoms.params.userExposureEv,
+        userContrast: ctx.atoms.params.userContrast,
+        userHighlights: ctx.atoms.params.userHighlights,
+        userShadows: ctx.atoms.params.userShadows,
+        userWhites: ctx.atoms.params.userWhites,
+        userBlacks: ctx.atoms.params.userBlacks,
+      },
+      style: activeSession.activeStyle,
+    })
+    const registry = ctx.refs.resourceRegistryRef.current
+    if (!registry) {
+      throw Object.assign(new Error('EXPORT_RESOURCE_REGISTRY_MISSING'), {
+        code: 'EXPORT_RESOURCE_REGISTRY_MISSING',
+      })
+    }
+
+    const evacuationOwners = getPreExportEvacuationOwners(
+      jobExecutionPlan.profile.name,
+    )
+    const evacuation = await evacuateBeforeExport({
+      registry,
+      snapshot,
+      owners: evacuationOwners,
+      abortPreview: () => {
+        ctx.services.abortRuntimeWork()
+        ctx.services.revokeCurrentEmbeddedPreviewUrl()
+      },
+      abortBoundedHq: ctx.services.abortRuntimeWork,
+      releasePreviousExportResult() {
+        ctx.atoms.setSession((prev) =>
+          prev && prev.id === exportSessionId
+            ? clearExportResultForActiveExport(prev)
+            : prev,
+        )
+      },
+      stopLutFetches() {
+        // Online LUT fetches already use per-request abort signals. This hook keeps
+        // the owner contract explicit for future registered LUT fetch resources.
+      },
+    })
+
+    if (!isCurrentExport()) {
+      return
+    }
+
+    emitExportDebugEvent({
+      type: 'resource-evacuated',
+      payload: toResourceEvacuatedDebugPayload({
+        profile: jobExecutionPlan.profile.name,
+        evacuation,
+      }),
+    })
+
+    if (!evacuation.registryCheck.ok) {
+      throw Object.assign(new Error('EXPORT_RESOURCE_EVICTION_INCOMPLETE'), {
+        code: 'EXPORT_RESOURCE_EVICTION_INCOMPLETE',
+      })
+    }
+
+    const filename = buildExportFilename(
+      activeSession.sourceFile.name,
+      activeSession.activeStyle?.name ?? 'neutral',
+    )
+
+    const result = await runFullResolutionExportJob({
+      file: activeSourceFile,
+      filename,
+      quality: quality === 'high' ? 0.92 : 0.86,
+      executionPlan: jobExecutionPlan,
+      checkpoint,
+      graph,
+      onMetric: (metric) => {
+        if (
+          !checkpointStore ||
+          !checkpointManifest ||
+          checkpointWritesClosed ||
+          !isCheckpointMetric(metric)
+        ) {
+          return
+        }
+
+        checkpointManifest = {
+          ...checkpointManifest,
+          completedRowsForDiagnostics: metric.completedRowsForDiagnostics,
+          totalRows: metric.totalRows,
+          updatedAt: metric.timestamp,
+        }
+        enqueueCheckpointWrite(checkpointManifest)
+      },
+      onAttempt: (attempt) => {
+        if (!isCurrentExport()) return
+
+        emitExportDebugEvent({
+          type: 'export-worker-attempt',
+          payload: attempt,
+        })
+      },
+      onProgress: (entry) => {
+        if (
+          !ctx.refs.isMountedRef.current ||
+          exportAbortController.signal.aborted ||
+          ctx.refs.exportGraphVersionRef.current !== exportGraphVersion ||
+          ctx.refs.sessionRef.current?.id !== exportSessionId
+        ) {
+          return
+        }
+
+        ctx.atoms.setProgress(entry.progress)
+        ctx.atoms.setSession((prev) =>
+          prev && prev.id === exportSessionId
+            ? {
+                ...prev,
+                exportState: {
+                  ...prev.exportState,
+                  lastProgress: {
+                    completedStrips: entry.completedStrips,
+                    totalStrips: entry.totalStrips,
+                  },
+                },
+              }
+            : prev,
+        )
+      },
+      signal: exportAbortController.signal,
+    })
+
+    const completedSession = ctx.refs.sessionRef.current
+    if (
+      !ctx.refs.isMountedRef.current ||
+      exportAbortController.signal.aborted ||
+      ctx.refs.exportGraphVersionRef.current !== exportGraphVersion ||
+      !completedSession ||
+      completedSession.id !== exportSessionId ||
+      completedSession.exportState.fullResCapability.status !== 'supported'
+    ) {
+      return
+    }
+    const completedCapability = completedSession.exportState.fullResCapability
+
+    if (checkpointStore && checkpoint) {
+      checkpointWritesClosed = true
+      await checkpointWriteChain.catch(() => undefined)
+      await checkpointStore
+        .removeActiveManifest(checkpoint.exportId)
+        .catch(() => undefined)
+      if (recoveredExportId && recoveredExportId !== checkpoint.exportId) {
+        await checkpointStore
+          .removeActiveManifest(recoveredExportId)
+          .catch(() => undefined)
+      }
+    }
+
+    const exportResult = createCompletedExportResult({
+      jobResult: result,
+      metadata: ctx.atoms.loadedImage.metadata,
+      width: completedCapability.width,
+      height: completedCapability.height,
+      copyCapability,
+    })
+    ctx.refs.previewCopyCanvasRef.current = previewCopyCanvas
+    ctx.services.registerExportResultResource(exportResult)
+
+    ctx.atoms.setSession((prev) =>
+      prev && prev.id === exportSessionId
+        ? {
+            ...prev,
+            exportState: {
+              ...prev.exportState,
+              status: 'ready',
+              result: exportResult,
+              retryRecommended: false,
+              lastSuccessfulSize: {
+                width: completedCapability.width,
+                height: completedCapability.height,
+              },
+            },
+          }
+        : prev,
+    )
+    ctx.atoms.setStatus('ready')
+    ctx.services.scheduleToast(() =>
+      toast.success('JPEG ready', {
+        description: result.filename,
+      }),
+    )
+  } catch (err) {
+    if (
+      exportAbortController.signal.aborted ||
+      !ctx.refs.isMountedRef.current ||
+      ctx.refs.exportGraphVersionRef.current !== exportGraphVersion ||
+      ctx.refs.sessionRef.current?.id !== exportSessionId
+    ) {
+      return
+    }
+
+    const message = err instanceof Error ? err.message : 'Export failed'
+    const rawErrorCode = toUserFacingErrorCode(
+      getStableErrorCode(err) ?? message,
+    )
+    const errorCode =
+      rawErrorCode === 'RAW_UNKNOWN' ? 'EXPORT_RENDER_FAILED' : rawErrorCode
+    const retryLevel = isRetryableFullResExportFailure(errorCode)
+      ? recommendRetryLevel(fidelity)
+      : null
+
+    ctx.atoms.setSession((prev) =>
+      prev && prev.id === exportSessionId
+        ? {
+            ...prev,
+            exportState: {
+              ...prev.exportState,
+              status: 'failed',
+              result: undefined,
+              lastErrorCode: errorCode,
+              retryRecommended: Boolean(retryLevel),
+              recommendedRetryLevel: retryLevel ?? undefined,
+            },
+          }
+        : prev,
+    )
+    ctx.atoms.setStatus('ready')
+    ctx.services.scheduleToast(() =>
+      toast.error('Export failed', {
+        description: buildExportFailureDescription(message, retryLevel),
+      }),
+    )
+  } finally {
+    if (ctx.refs.exportAbortControllerRef.current === exportAbortController) {
+      ctx.refs.exportAbortControllerRef.current = null
+    }
+  }
+}
