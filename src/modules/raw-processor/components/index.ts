@@ -13,6 +13,7 @@ export { CompareTool } from './tools/CompareTool'
 export { ExportTool } from './tools/ExportTool'
 export { FileFactsTool } from './tools/FileFactsTool'
 export { HistogramTool } from './tools/HistogramTool'
+export { LutContractTool } from './tools/lut/LutContractTool'
 export {
   getProfileContractLabel,
   getProfileGroupLabel,
@@ -22,7 +23,6 @@ export {
   hasDisplayLikeInput,
   toSelectableContract,
 } from './tools/lut-contract'
-export { LutContractTool } from './tools/LutContractTool'
 export { StrengthControl, type StrengthLevel } from './tools/StrengthControl'
 export { ToolSection } from './tools/ToolSection'
 export { UnsupportedState } from './UnsupportedState'
