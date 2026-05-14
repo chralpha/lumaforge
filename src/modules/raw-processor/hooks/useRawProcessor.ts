@@ -9,7 +9,7 @@ import {
   normalizeToneParams,
   resolveExportColorGraph,
 } from '@lumaforge/luma-color-runtime'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import type { ProcessingStatus } from '~/atoms/raw-processor'
@@ -62,9 +62,7 @@ import {
   fetchVerifiedCubeAsset,
 } from '~/lib/profiles/fetch'
 import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
-import { isSupportedRaw } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
-import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
 import { deriveCanEdit } from '../model/derive-session'
 import type {
@@ -80,7 +78,6 @@ import type {
 import { clampCompareSplit } from '../services/compare-split'
 import {
   clearEmbeddedPreviewUrlFromSession,
-  createEmbeddedPreviewObjectUrl,
   revokeEmbeddedPreviewObjectUrls,
 } from '../services/embedded-preview-url'
 import {
@@ -111,7 +108,6 @@ import {
   createSafeRetryManifest,
   hasSameRawRenderExposure,
   isCheckpointMetric,
-  toFullResCapabilityState,
 } from '../services/export-state'
 import {
   buildExportFilename,
@@ -129,21 +125,13 @@ import {
   resolveLUTContractProfile,
   resolveOnlineLUTSourceName,
 } from '../services/lut-workflow'
-import { runPreviewPipeline } from '../services/preview-pipeline'
-import { decideBoundedHqPreview } from '../services/preview-resolution-policy'
-import {
-  applyBoundedHqPreviewFailure,
-  applyBoundedHqPreviewSkipped,
-  applyPreviewLoadStarted,
-  applyPreviewReady,
-  applyQuickPreviewFailure,
-} from '../services/preview-session-state'
 import type { PreviewViewport } from '../services/preview-viewport'
 import {
   DEFAULT_PREVIEW_VIEWPORT,
   normalizePreviewViewport,
 } from '../services/preview-viewport'
-import { prepareRawLoadState } from '../services/raw-load-preparation'
+import type { RawLoadContext } from '../services/raw/orchestrate-raw-load'
+import { orchestrateRawLoad } from '../services/raw/orchestrate-raw-load'
 import {
   buildLUTProfileSelectionState,
   mapIntensityLevel,
@@ -648,424 +636,58 @@ export function useRawProcessor(): UseRawProcessorReturn {
     }
   }, [lut, setLutDataRef])
 
-  // Load RAW file
-  const loadFile = useCallback(
-    async (file: File) => {
-      if (!isSupportedRaw(file)) {
-        setError(`Unsupported file format: ${file.name}`)
-        return
-      }
-
-      let loadSessionId: string | null = null
-      let runtimeSession: RawRuntimeSession | null = null
-      let runtimeAbortController: AbortController | null = null
-      let previewCompleted = false
-      let disposeRuntimeSessionInFinally = true
-
-      try {
-        runtimeWorkSessionIdRef.current = null
-        pendingLoadSessionIdRef.current = null
-        setPendingRecoveryRetry(null)
-        abortExportWork()
-        abortRuntimeWork()
-        queueExportResultResourceDisposal()
-        revokeCurrentEmbeddedPreviewUrl()
-        previewCopyCanvasRef.current = null
-        runtimeAbortController = new AbortController()
-        runtimeAbortControllerRef.current = runtimeAbortController
-        const runtimeSignal = runtimeAbortController.signal
-        const loadState = prepareRawLoadState({
-          params: getProcessingParams(),
-          lut,
-          activeStyle,
-        })
-
-        const nextSession = replaceFile(file, loadState.retainedSessionState)
-        loadSessionId = nextSession.id
-        let quickPreview: DecodedImage | null = null
-        let boundedHqPreview: DecodedImage | null = null
-
-        sessionRef.current = nextSession
-        runtimeWorkSessionIdRef.current = nextSession.id
-        pendingLoadSessionIdRef.current = nextSession.id
-        setDecodedImageRef(null)
-        setLoadedImage({ file, decoded: null, metadata: null })
-        setStatus('loading')
-        setProgress(0)
-        setError(null)
-        setParams((prev) => ({
-          ...prev,
-          ...loadState.processingParamsPatch,
-        }))
-
-        setSession((prev) => {
-          if (!prev || prev.id !== nextSession.id) {
-            return prev
-          }
-
-          return applyPreviewLoadStarted(prev, loadState.compareSplit)
-        })
-
-        const matchesActiveSession = () =>
-          isMountedRef.current &&
-          runtimeWorkSessionIdRef.current === nextSession.id &&
-          sessionRef.current?.id === nextSession.id
-
-        const mapPhaseToStatus = (
-          phase: 'loading' | 'decoding' | 'processing' | 'complete',
-        ): ProcessingStatus => {
-          if (phase === 'loading') return 'loading'
-          if (phase === 'decoding') return 'decoding'
-          if (phase === 'processing') return 'processing'
-          return 'ready'
-        }
-
-        const updatePreviewState = (
-          source: Exclude<DisplaySource, 'none'>,
-          payload: {
-            width: number
-            height: number
-            objectUrl?: string
-            mimeType?: string
-            timings?: Record<string, number | undefined>
-          },
-          decoded?: DecodedImage | null,
-        ) => {
-          if (!matchesActiveSession()) {
-            return
-          }
-
-          setSession((prev) => {
-            if (!prev || prev.id !== nextSession.id) {
-              return prev
-            }
-
-            return applyPreviewReady(prev, source, payload, decoded)
-          })
-
-          if (decoded) {
-            setDecodedImageRef(decoded)
-            setLoadedImage({
-              file,
-              decoded: null,
-              metadata: decoded.metadata,
-            })
-            setStatus('ready')
-          }
-        }
-
-        runtimeSession = await rawRuntimeAdapter.openSession(
-          file,
-          runtimeSignal,
-        )
-        if (!matchesActiveSession()) {
-          runtimeAbortController.abort()
-          return
-        }
-
-        disposeRuntimeSession()
-        const activeRuntimeSession = runtimeSession
-        runtimeSessionRef.current = activeRuntimeSession
-        const boundedHqDecision = decideBoundedHqPreview({
-          sourceWidth: activeRuntimeSession.sourceDimensions.width ?? 0,
-          sourceHeight: activeRuntimeSession.sourceDimensions.height ?? 0,
-          userAgent:
-            typeof navigator === 'undefined' ? '' : navigator.userAgent || '',
-        })
-
-        const probeExportCapability =
-          'probeExportCapability' in activeRuntimeSession &&
-          typeof activeRuntimeSession.probeExportCapability === 'function'
-            ? activeRuntimeSession.probeExportCapability.bind(
-                activeRuntimeSession,
-              )
-            : null
-
-        let exportCapabilityPromise: Promise<void> | null = null
-        const startExportCapabilityProbe = () => {
-          if (exportCapabilityPromise) {
-            return exportCapabilityPromise
-          }
-
-          if (!probeExportCapability) {
-            setSession((prev) =>
-              prev && prev.id === nextSession.id
-                ? {
-                    ...prev,
-                    exportState: {
-                      ...prev.exportState,
-                      fullResCapability: {
-                        status: 'unsupported',
-                        reason:
-                          'Full-resolution export is not available in this runtime build yet.',
-                      },
-                    },
-                  }
-                : prev,
-            )
-            exportCapabilityPromise = Promise.resolve()
-            return exportCapabilityPromise
-          }
-
-          exportCapabilityPromise = probeExportCapability(runtimeSignal)
-            .then((capability) => {
-              if (!matchesActiveSession()) {
-                return
-              }
-
-              setSession((prev) =>
-                prev && prev.id === nextSession.id
-                  ? {
-                      ...prev,
-                      exportState: {
-                        ...prev.exportState,
-                        fullResCapability: toFullResCapabilityState(capability),
-                      },
-                    }
-                  : prev,
-              )
-            })
-            .catch((probeError) => {
-              if (!matchesActiveSession()) {
-                return
-              }
-
-              const reason =
-                probeError instanceof Error && probeError.message
-                  ? probeError.message
-                  : 'Full-resolution export support could not be verified.'
-
-              setSession((prev) =>
-                prev && prev.id === nextSession.id
-                  ? {
-                      ...prev,
-                      exportState: {
-                        ...prev.exportState,
-                        fullResCapability: {
-                          status: 'unsupported',
-                          reason,
-                        },
-                      },
-                    }
-                  : prev,
-              )
-            })
-
-          return exportCapabilityPromise
-        }
-
-        const previewResult = await runPreviewPipeline({
-          runtimeSession: {
-            extractEmbeddedPreview() {
-              return activeRuntimeSession.extractEmbeddedPreview(runtimeSignal)
-            },
-            async decodeQuickRaw() {
-              quickPreview = await activeRuntimeSession.decodeQuickRaw(
-                ({ phase, progress }) => {
-                  if (!matchesActiveSession()) {
-                    return
-                  }
-
-                  setStatus(mapPhaseToStatus(phase))
-                  setProgress(progress)
-                },
-                runtimeSignal,
-              )
-
-              return { width: quickPreview.width, height: quickPreview.height }
-            },
-            async decodeBoundedHqRaw(options) {
-              boundedHqPreview = await activeRuntimeSession.decodeBoundedHqRaw(
-                options,
-                undefined,
-                runtimeSignal,
-              )
-
-              return {
-                width: boundedHqPreview.width,
-                height: boundedHqPreview.height,
-              }
-            },
-          },
-          boundedHqDecision,
-          onEvent: (event) => {
-            if (!matchesActiveSession()) {
-              return
-            }
-
-            switch (event.type) {
-              case 'embedded-ready': {
-                const objectUrl = createEmbeddedPreviewObjectUrl({
-                  data: event.data,
-                  mimeType: event.mimeType,
-                })
-                const previousUrl = embeddedPreviewUrlRef.current
-                if (previousUrl && previousUrl !== objectUrl) {
-                  revokeEmbeddedPreviewObjectUrls([previousUrl])
-                }
-                embeddedPreviewUrlRef.current = objectUrl
-
-                updatePreviewState('embedded', {
-                  width: event.width,
-                  height: event.height,
-                  objectUrl,
-                  mimeType: event.mimeType,
-                  timings: event.timings,
-                })
-                break
-              }
-              case 'quick-ready': {
-                updatePreviewState('quick', event, quickPreview)
-                void startExportCapabilityProbe()
-                break
-              }
-              case 'quick-failed': {
-                const errorCode = toUserFacingErrorCode(event.errorCode)
-
-                setSession((prev) => {
-                  if (!prev || prev.id !== nextSession.id) {
-                    return prev
-                  }
-
-                  return applyQuickPreviewFailure(prev, errorCode)
-                })
-                setStatus('error')
-                setProgress(100)
-                setError(event.message)
-                scheduleToast(() =>
-                  toast.error('Preview unavailable', {
-                    description:
-                      'Full-resolution export needs a decoded RAW preview exposure before it can run.',
-                  }),
-                )
-                break
-              }
-              case 'bounded-hq-ready': {
-                updatePreviewState('bounded-hq', event, boundedHqPreview)
-                if (boundedHqPreview) {
-                  const description = `${boundedHqPreview.width}×${boundedHqPreview.height} • ${boundedHqPreview.metadata.make || 'Unknown'} ${boundedHqPreview.metadata.model || ''}`
-                  scheduleToast(() =>
-                    toast.success(`Loaded ${file.name}`, {
-                      description,
-                    }),
-                  )
-                }
-                break
-              }
-              case 'bounded-hq-failed': {
-                const errorCode = toUserFacingErrorCode(event.errorCode)
-
-                setSession((prev) => {
-                  if (!prev || prev.id !== nextSession.id) {
-                    return prev
-                  }
-
-                  return applyBoundedHqPreviewFailure(prev, errorCode)
-                })
-                break
-              }
-              case 'bounded-hq-skipped': {
-                setSession((prev) => {
-                  if (!prev || prev.id !== nextSession.id) {
-                    return prev
-                  }
-
-                  return applyBoundedHqPreviewSkipped(prev, event.reason)
-                })
-                break
-              }
-            }
-          },
-        })
-        if (exportCapabilityPromise) {
-          await exportCapabilityPromise
-        }
-        previewCompleted = true
-        if (pendingLoadSessionIdRef.current === nextSession.id) {
-          pendingLoadSessionIdRef.current = null
-        }
-
-        if (previewResult.boundedHqPromise) {
-          disposeRuntimeSessionInFinally = false
-          void previewResult.boundedHqPromise
-            .finally(() => {
-              if (
-                runtimeWorkSessionIdRef.current === nextSession.id &&
-                sessionRef.current?.id === nextSession.id
-              ) {
-                runtimeWorkSessionIdRef.current = null
-              }
-              if (
-                runtimeAbortControllerRef.current === runtimeAbortController
-              ) {
-                runtimeAbortControllerRef.current = null
-              }
-              if (runtimeSessionRef.current === activeRuntimeSession) {
-                disposeRuntimeSession(activeRuntimeSession)
-              }
-            })
-            .catch(() => undefined)
-        } else if (runtimeWorkSessionIdRef.current === nextSession.id) {
-          runtimeWorkSessionIdRef.current = null
-        }
-      } catch (err) {
-        if (
-          !loadSessionId ||
-          !isMountedRef.current ||
-          runtimeWorkSessionIdRef.current !== loadSessionId ||
-          sessionRef.current?.id !== loadSessionId
-        ) {
-          return
-        }
-
-        runtimeWorkSessionIdRef.current = null
-        pendingLoadSessionIdRef.current = null
-
-        const message =
-          err instanceof Error ? err.message : 'Failed to load file'
-        const errorCode = toUserFacingErrorCode(
-          getStableErrorCode(err) ?? message,
-        )
-        setError(message)
-        setSession((prev) =>
-          prev && prev.id === loadSessionId
-            ? {
-                ...prev,
-                renderState: {
-                  ...prev.renderState,
-                  status: 'failed',
-                  lastErrorCode: errorCode,
-                },
-              }
-            : prev,
-        )
-        setStatus('error')
-        scheduleToast(() =>
-          toast.error('Failed to load RAW file', { description: message }),
-        )
-      } finally {
-        if (
-          disposeRuntimeSessionInFinally &&
-          runtimeAbortController &&
-          runtimeAbortControllerRef.current === runtimeAbortController
-        ) {
-          if (!previewCompleted && !runtimeAbortController.signal.aborted) {
-            runtimeAbortController.abort()
-          }
-          runtimeAbortControllerRef.current = null
-        }
-        if (disposeRuntimeSessionInFinally && runtimeSession) {
-          disposeRuntimeSession(runtimeSession)
-        }
-      }
-    },
+  // Stable context for the RAW load orchestrator
+  const rawLoadCtx = useMemo<RawLoadContext>(
+    () => ({
+      atoms: {
+        setStatus,
+        setError,
+        setProgress,
+        setLoadedImage,
+        getProcessingParams,
+        setParams,
+        setSession,
+        setDecodedImageVersion,
+        setStats,
+        setPendingRecoveryRetry,
+      },
+      services: {
+        scheduleToast,
+        replaceFile,
+        abortRuntimeWork,
+        abortExportWork,
+        queueExportResultResourceDisposal,
+        revokeCurrentEmbeddedPreviewUrl,
+        clearSessionEmbeddedPreviewUrl,
+        setDecodedImageRef,
+        invalidateExportGraph,
+        registerCurrentPreviewPipelineForEvacuation,
+        disposeRuntimeSession,
+      },
+      refs: {
+        runtimeAbortControllerRef,
+        runtimeSessionRef,
+        disposedRuntimeSessionsRef,
+        decodedImageRef,
+        sessionRef,
+        pipelineRef,
+        resourceRegistryRef,
+        embeddedPreviewUrlRef,
+        isMountedRef,
+        runtimeWorkSessionIdRef,
+        pendingLoadSessionIdRef,
+        previewPipelineResourceIdRef,
+        previewCopyCanvasRef,
+      },
+    }),
     [
-      activeStyle,
       abortExportWork,
       abortRuntimeWork,
+      clearSessionEmbeddedPreviewUrl,
       disposeRuntimeSession,
-      lut,
+      invalidateExportGraph,
       queueExportResultResourceDisposal,
+      registerCurrentPreviewPipelineForEvacuation,
       replaceFile,
       revokeCurrentEmbeddedPreviewUrl,
       scheduleToast,
@@ -1075,8 +697,16 @@ export function useRawProcessor(): UseRawProcessorReturn {
       setParams,
       setProgress,
       setSession,
+      setStats,
       setStatus,
     ],
+  )
+
+  // Load RAW file
+  const loadFile = useCallback(
+    (file: File) =>
+      orchestrateRawLoad(file, params, lut, activeStyle, rawLoadCtx),
+    [params, lut, activeStyle, rawLoadCtx],
   )
 
   const reportLUTLoadFailure = useCallback(
