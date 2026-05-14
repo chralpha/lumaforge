@@ -1,14 +1,10 @@
 import type {
   LUTColorProfile,
-  LUTContractSelection,
   LUTData,
   PreviewHistogramState,
   ProcessingParams,
 } from '@lumaforge/luma-color-runtime'
-import {
-  normalizeToneParams,
-  resolveExportColorGraph,
-} from '@lumaforge/luma-color-runtime'
+import { normalizeToneParams } from '@lumaforge/luma-color-runtime'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -30,7 +26,6 @@ import {
   useSetProcessingStatus,
   useSetProgress,
 } from '~/atoms/raw-processor'
-import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
 import {
   createCheckpointStore,
   createOpfsCheckpointBackend,
@@ -39,28 +34,12 @@ import {
   emitExportDebugEvent,
   EXPORT_EXECUTION_PROFILES,
 } from '~/lib/export/execution-profile'
-import type { FullResWorkerCheckpointConfig } from '~/lib/export/full-res-export-client'
 import type { ResourceRegistry } from '~/lib/export/resource-registry'
 import { createResourceRegistry } from '~/lib/export/resource-registry'
-import { createSourceFingerprint } from '~/lib/export/source-fingerprint'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
-import {
-  isSupportedLUT,
-  parseCubeLUT,
-  toLUTData,
-  validateLUT,
-} from '~/lib/lut/cube-parser'
-import {
-  applyLUTContractSelection,
-  toLUTContractSelection,
-} from '~/lib/lut/profile-resolution'
+import { toLUTData } from '~/lib/lut/cube-parser'
 import type { OnlineLUTEntry } from '~/lib/profiles/catalog'
-import {
-  createBrowserOnlineProfileCache,
-  fetchCachedBytesWithLimit,
-  fetchVerifiedCubeAsset,
-} from '~/lib/profiles/fetch'
 import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
 
@@ -80,12 +59,8 @@ import {
   clearEmbeddedPreviewUrlFromSession,
   revokeEmbeddedPreviewObjectUrls,
 } from '../services/embedded-preview-url'
-import {
-  createPreExportSnapshot,
-  evacuateBeforeExport,
-  getPreExportEvacuationOwners,
-  toResourceEvacuatedDebugPayload,
-} from '../services/export-evacuation'
+import type { ExportContext } from '../services/export/orchestrate-full-res-export'
+import { orchestrateFullResExport } from '../services/export/orchestrate-full-res-export'
 import { deriveFullResExportReadiness } from '../services/export-readiness'
 import {
   createInterruptedExportRecovery,
@@ -95,36 +70,24 @@ import {
   copyCanvasToClipboard,
   copyExportResultToClipboard,
   downloadExportResult as downloadStoredExportResult,
-  resolveExportCopyCapability,
   resolveExportShareCapability,
   shareExportResult as shareStoredExportResult,
 } from '../services/export-result-actions'
-import { createCompletedExportResult } from '../services/export-result-materialization'
 import {
-  buildExportFailureDescription,
   changesRenderGraphParams,
-  clearExportResultForActiveExport,
   clearExportResultState,
-  createSafeRetryManifest,
   hasSameRawRenderExposure,
-  isCheckpointMetric,
 } from '../services/export-state'
 import {
-  buildExportFilename,
-  recommendRetryLevel,
-  runFullResolutionExportJob,
-  selectCurrentExportExecutionPlan,
-} from '../services/export-system'
-import {
-  applyActiveLookToSession,
   applyLookIntensityToSession,
   clearActiveLookFromSession,
-  preserveCustomLookIntensity,
 } from '../services/look-session-state'
+import type { LutLoadContext } from '../services/lut/orchestrate-lut-load'
 import {
-  resolveLUTContractProfile,
-  resolveOnlineLUTSourceName,
-} from '../services/lut-workflow'
+  orchestrateLutLoadFromFile,
+  orchestrateOnlineLutLoad,
+  orchestrateProfileSelection,
+} from '../services/lut/orchestrate-lut-load'
 import type { PreviewViewport } from '../services/preview-viewport'
 import {
   DEFAULT_PREVIEW_VIEWPORT,
@@ -142,41 +105,12 @@ import {
   applyPreviewViewportToSession,
   applyViewModeToSession,
 } from '../services/view-session-state'
-import {
-  getProgressRecoveryHint,
-  getStableErrorCode,
-  isAbortError,
-  isRetryableFullResExportFailure,
-  toUserFacingErrorCode,
-} from '../services/workflow-status'
+import { getProgressRecoveryHint } from '../services/workflow-status'
 import { useImageSession } from './useImageSession'
 import { usePreviewHistogram } from './usePreviewHistogram'
 
-const MAX_ONLINE_CUBE_BYTES = 64 * 1024 * 1024
-const onlineProfileCache = createBrowserOnlineProfileCache()
-
-interface LoadLUTContentOptions {
-  content: string
-  sourceName: string
-  trustedContract?: LUTContractSelection
-}
-
-class LUTLoadError extends Error {
-  readonly code: string
-
-  constructor(code: string, message: string) {
-    super(message)
-    this.name = 'LUTLoadError'
-    this.code = code
-  }
-}
-
 function enqueuePostCommitTask(task: () => void) {
   setTimeout(task, 0)
-}
-
-function createExportId() {
-  return globalThis.crypto?.randomUUID?.() ?? `export-${Date.now()}`
 }
 
 export interface UseRawProcessorReturn {
@@ -709,216 +643,109 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [params, lut, activeStyle, rawLoadCtx],
   )
 
-  const reportLUTLoadFailure = useCallback(
-    (error: unknown) => {
-      const message =
-        error instanceof Error ? error.message : 'Failed to parse LUT'
-      const stableCode = getStableErrorCode(error)
-      const errorCode =
-        toUserFacingErrorCode(stableCode ?? message) === 'RAW_UNKNOWN'
-          ? 'LUT_PARSE_FAILED'
-          : toUserFacingErrorCode(stableCode ?? message)
-
-      setSession((prev) =>
-        prev
-          ? {
-              ...prev,
-              renderState: {
-                ...prev.renderState,
-                lastErrorCode: errorCode,
-              },
-            }
-          : prev,
-      )
-      scheduleToast(() =>
-        toast.error('Failed to load LUT', { description: message }),
-      )
-    },
-    [scheduleToast, setSession],
+  // Stable context for the full-res export orchestrator
+  const exportCtx = useMemo<ExportContext>(
+    () => ({
+      atoms: {
+        setStatus,
+        setError,
+        setProgress,
+        setSession,
+        loadedImage,
+        session,
+        params,
+        lutDataRef,
+        decodedImageRef,
+        stats,
+        setDiscoveredRecoveryState,
+      },
+      refs: {
+        exportAbortControllerRef,
+        exportGraphVersionRef,
+        isMountedRef,
+        sessionRef,
+        pipelineRef,
+        resourceRegistryRef,
+        previewCopyCanvasRef,
+      },
+      services: {
+        scheduleToast,
+        abortExportWork,
+        abortRuntimeWork,
+        registerCurrentPreviewPipelineForEvacuation,
+        registerExportResultResource,
+        revokeCurrentEmbeddedPreviewUrl,
+      },
+    }),
+    [
+      loadedImage,
+      params,
+      session,
+      stats,
+      lutDataRef,
+      setStatus,
+      setError,
+      setProgress,
+      setSession,
+      setDiscoveredRecoveryState,
+      scheduleToast,
+      abortExportWork,
+      abortRuntimeWork,
+      registerCurrentPreviewPipelineForEvacuation,
+      registerExportResultResource,
+      revokeCurrentEmbeddedPreviewUrl,
+    ],
   )
 
-  const applyLoadedLUT = useCallback(
-    (parsed: ParsedLUT) => {
-      const style = toCustomStyle(parsed)
-      invalidateExportGraph()
-      setLut(parsed)
-      setSession((prev) =>
-        prev
-          ? applyActiveLookToSession(prev, {
-              style,
-              lutProfileSelection: buildLUTProfileSelectionState(parsed),
-              clearExportResult: true,
-            })
-          : prev,
-      )
-      setParams((prev) => ({
-        ...prev,
-        styleKind: 'custom',
-        builtinPreset: null,
-        intensity: mapIntensityLevel(style.defaultIntensityLevel),
-      }))
-      scheduleToast(() =>
-        toast.success(`Loaded LUT: ${parsed.title}`, {
-          description: `${parsed.size}³ grid`,
-        }),
-      )
-    },
-    [invalidateExportGraph, scheduleToast, setLut, setParams, setSession],
-  )
-
-  const loadLUTContent = useCallback(
-    async (options: LoadLUTContentOptions) => {
-      const parsed = parseCubeLUT(options.content, {
-        sourceName: options.sourceName,
-      })
-      const contracted = options.trustedContract
-        ? applyLUTContractSelection(parsed, options.trustedContract)
-        : parsed
-      if (!contracted) throw new Error('Unsupported LUT color contract.')
-
-      const validation = validateLUT(contracted)
-      if (!validation.valid) {
-        throw new LUTLoadError(
-          'LUT_INVALID',
-          validation.errors[0] ?? 'Invalid LUT file.',
-        )
-      }
-
-      applyLoadedLUT(contracted)
-    },
-    [applyLoadedLUT],
-  )
-
-  // Load LUT file
-  const loadLUT = useCallback(
-    async (file: File) => {
-      if (!isSupportedLUT(file)) {
-        setSession((prev) =>
-          prev
-            ? {
-                ...prev,
-                renderState: {
-                  ...prev.renderState,
-                  lastErrorCode: 'LUT_UNSUPPORTED_FORMAT',
-                },
-              }
-            : prev,
-        )
-        scheduleToast(() =>
-          toast.error('Unsupported LUT format', {
-            description: 'Only .cube files are supported',
-          }),
-        )
-        return
-      }
-
-      try {
-        await loadLUTContent({
-          content: await file.text(),
-          sourceName: file.name,
-        })
-      } catch (err) {
-        reportLUTLoadFailure(err)
-      }
-    },
-    [loadLUTContent, reportLUTLoadFailure, scheduleToast, setSession],
-  )
-
-  const loadOnlineLUT = useCallback(
-    async (entry: OnlineLUTEntry, options?: { signal?: AbortSignal }) => {
-      try {
-        if (options?.signal?.aborted) return
-
-        const bytes =
-          entry.sourceType === 'catalog-entry'
-            ? await fetchVerifiedCubeAsset(entry.cube, {
-                signal: options?.signal,
-                maxBytes: MAX_ONLINE_CUBE_BYTES,
-                cache: onlineProfileCache,
-              })
-            : await fetchCachedBytesWithLimit(entry.cube.url, {
-                signal: options?.signal,
-                maxBytes: MAX_ONLINE_CUBE_BYTES,
-                cache: onlineProfileCache,
-              })
-
-        if (options?.signal?.aborted) return
-
-        const content = new TextDecoder().decode(bytes)
-        if (options?.signal?.aborted) return
-
-        await loadLUTContent({
-          content,
-          sourceName: resolveOnlineLUTSourceName(entry),
-          trustedContract:
-            entry.sourceType === 'catalog-entry'
-              ? entry.trustedContract
-              : undefined,
-        })
-      } catch (err) {
-        if (isAbortError(err) || options?.signal?.aborted) return
-
-        reportLUTLoadFailure(err)
-      }
-    },
-    [loadLUTContent, reportLUTLoadFailure],
-  )
-
-  const selectLUTProfile = useCallback(
-    (profile: LUTColorProfile | string) => {
-      if (!lut) {
-        scheduleToast(() => toast.error('No LUT loaded'))
-        return
-      }
-
-      const contractProfile = resolveLUTContractProfile(profile)
-      const updatedLut = contractProfile
-        ? applyLUTContractSelection(
-            lut,
-            toLUTContractSelection(contractProfile),
-          )
-        : undefined
-      if (!updatedLut) {
-        scheduleToast(() =>
-          toast.error('Incomplete LUT contract', {
-            description: typeof profile === 'string' ? profile : profile.id,
-          }),
-        )
-        return
-      }
-
-      const style = preserveCustomLookIntensity(
-        toCustomStyle(updatedLut),
+  // Stable context for the LUT load orchestrator
+  const lutCtx = useMemo<LutLoadContext>(
+    () => ({
+      atoms: {
+        setLut,
+        setSession,
+        setParams,
+        getProcessingParams,
+        lut,
         activeStyle,
-      )
-
-      setLut(updatedLut)
-      invalidateExportGraph()
-      setSession((prev) =>
-        prev
-          ? applyActiveLookToSession(prev, {
-              style,
-              lutProfileSelection: buildLUTProfileSelectionState(updatedLut),
-              clearExportResult: true,
-            })
-          : prev,
-      )
-      setParams((prev) => ({
-        ...prev,
-        styleKind: 'custom',
-        builtinPreset: null,
-        intensity: mapIntensityLevel(style.currentIntensityLevel),
-      }))
-    },
+      },
+      refs: {
+        lutDataRef,
+        sessionRef,
+      },
+      services: {
+        scheduleToast,
+        invalidateExportGraph,
+        setLutDataRef,
+      },
+    }),
     [
       activeStyle,
       invalidateExportGraph,
       lut,
       scheduleToast,
       setLut,
+      setLutDataRef,
       setParams,
       setSession,
     ],
+  )
+
+  // Load LUT file
+  const loadLUT = useCallback(
+    (file: File) => orchestrateLutLoadFromFile(file, lutCtx),
+    [lutCtx],
+  )
+
+  const loadOnlineLUT = useCallback(
+    (entry: OnlineLUTEntry, options?: { signal?: AbortSignal }) =>
+      orchestrateOnlineLutLoad(entry, options, lutCtx),
+    [lutCtx],
+  )
+
+  const selectLUTProfile = useCallback(
+    (profile: LUTColorProfile | string) =>
+      orchestrateProfileSelection(profile, lutCtx),
+    [lutCtx],
   )
 
   const selectIntensityLevel = useCallback(
@@ -1096,550 +923,15 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   // Export image
   const exportImage = useCallback(
-    async ({
-      quality,
-      fidelity,
-      previousInterrupted,
-      recoveredExportId,
-    }: {
+    async (options: {
       quality: 'standard' | 'high'
       fidelity: 'safe' | 'balanced' | 'max'
       previousInterrupted?: boolean
       recoveredExportId?: string
     }) => {
-      const rawRenderExposure = decodedImageRef.current?.renderExposure ?? null
-      const sourceFile = loadedImage.file
-      const exportReadiness = deriveFullResExportReadiness({
-        sourceFile,
-        session,
-        rawRenderExposure,
-      })
-      if (!exportReadiness.canExport) {
-        const description = exportReadiness.disabledReason
-        scheduleToast(() =>
-          toast.error(
-            'Full-resolution export is not ready',
-            description ? { description } : undefined,
-          ),
-        )
-        return
-      }
-
-      const activeSession = exportReadiness.session
-      const activeSourceFile = exportReadiness.sourceFile
-      const activeRawRenderExposure = exportReadiness.rawRenderExposure
-      const exportCapability = exportReadiness.fullResCapability
-
-      const graph = resolveExportColorGraph({
-        styleKind: params.styleKind,
-        intensity: params.intensity,
-        builtinPreset: params.builtinPreset,
-        lut: lutDataRef.current,
-        rawRenderExposure: activeRawRenderExposure,
-        userExposureEv: params.userExposureEv,
-        userContrast: params.userContrast,
-        userHighlights: params.userHighlights,
-        userShadows: params.userShadows,
-        userWhites: params.userWhites,
-        userBlacks: params.userBlacks,
-      })
-
-      if (!graph.supported) {
-        setError(graph.message)
-        setStatus('error')
-        setSession((prev) =>
-          prev
-            ? {
-                ...prev,
-                exportState: {
-                  ...prev.exportState,
-                  status: 'failed',
-                  result: undefined,
-                  lastErrorCode: 'EXPORT_UNSUPPORTED_PIPELINE',
-                  retryRecommended: false,
-                  recommendedRetryLevel: undefined,
-                },
-              }
-            : prev,
-        )
-        return
-      }
-      const graphFingerprint = JSON.stringify(graph.steps)
-
-      const exportSessionId = activeSession.id
-      const exportGraphVersion = exportGraphVersionRef.current
-      abortExportWork()
-      const exportAbortController = new AbortController()
-      exportAbortControllerRef.current = exportAbortController
-
-      const isCurrentExport = () =>
-        isMountedRef.current &&
-        !exportAbortController.signal.aborted &&
-        exportGraphVersionRef.current === exportGraphVersion &&
-        sessionRef.current?.id === exportSessionId
-
-      try {
-        setStatus('exporting')
-        setProgress(0)
-        setError(null)
-        previewCopyCanvasRef.current = null
-        const executionPlan = selectCurrentExportExecutionPlan({
-          fidelity,
-          sourceWidth: exportCapability.width,
-          sourceHeight: exportCapability.height,
-          previousInterrupted,
-        })
-        let jobExecutionPlan = executionPlan
-        let checkpointStore: ReturnType<typeof createCheckpointStore> | null =
-          null
-        let checkpointManifest: ExportCheckpointManifest | null = null
-        let checkpoint: FullResWorkerCheckpointConfig | undefined
-        let checkpointWritesClosed = false
-        let checkpointWriteChain: Promise<void> = Promise.resolve()
-
-        const enqueueCheckpointWrite = (manifest: ExportCheckpointManifest) => {
-          if (!checkpointStore || checkpointWritesClosed) {
-            return
-          }
-
-          const nextManifest = manifest
-          checkpointWriteChain = checkpointWriteChain
-            .catch(() => undefined)
-            .then(() => checkpointStore?.writeActive(nextManifest))
-            .then(() => {
-              emitExportDebugEvent({
-                type: 'checkpoint-written',
-                payload: {
-                  exportId: nextManifest.exportId,
-                  completedRowsForDiagnostics:
-                    nextManifest.completedRowsForDiagnostics,
-                  totalRows: nextManifest.totalRows,
-                  updatedAt: nextManifest.updatedAt,
-                },
-              })
-            })
-            .then(
-              () => undefined,
-              () => undefined,
-            )
-        }
-
-        if (
-          executionPlan.profile.checkpointOutput &&
-          executionPlan.outputSink === 'opfs-file'
-        ) {
-          try {
-            checkpointStore = createCheckpointStore(
-              createOpfsCheckpointBackend(),
-            )
-            const exportId = createExportId()
-            const sourceFingerprint = await createSourceFingerprint(
-              activeSourceFile,
-              {
-                width: exportCapability.width,
-                height: exportCapability.height,
-              },
-            )
-            checkpointManifest = createSafeRetryManifest({
-              exportId,
-              file: activeSourceFile,
-              sourceFingerprint,
-              outputWidth: exportCapability.width,
-              outputHeight: exportCapability.height,
-              graphFingerprint,
-              profile: executionPlan.profile.name,
-              preferredRows: executionPlan.preferredRows,
-              outputSink: executionPlan.outputSink,
-            })
-            await checkpointStore.writeActive(checkpointManifest)
-            if (isCurrentExport()) {
-              emitExportDebugEvent({
-                type: 'checkpoint-written',
-                payload: {
-                  exportId,
-                  completedRowsForDiagnostics:
-                    checkpointManifest.completedRowsForDiagnostics,
-                  totalRows: checkpointManifest.totalRows,
-                  updatedAt: checkpointManifest.updatedAt,
-                },
-              })
-            }
-            checkpoint = {
-              exportId,
-              graphFingerprint,
-              sourceFingerprint,
-            }
-          } catch {
-            checkpointStore = null
-            checkpointManifest = null
-          }
-        }
-
-        if (!isCurrentExport()) {
-          return
-        }
-
-        if (executionPlan.outputSink === 'opfs-file' && !checkpoint) {
-          jobExecutionPlan = {
-            ...executionPlan,
-            outputSink: 'blob-handoff',
-            productCopy: 'non-durable-checkpoint',
-          }
-        }
-        if (previousInterrupted) {
-          setDiscoveredRecoveryState({ status: 'none' })
-        }
-        const activePlan = {
-          profileName: jobExecutionPlan.profile.name,
-          preferredRows: jobExecutionPlan.preferredRows,
-          concurrency: jobExecutionPlan.concurrency,
-          runtimeMemoryProfile: jobExecutionPlan.runtimeMemoryProfile,
-          outputSink: jobExecutionPlan.outputSink,
-          checkpointMode: jobExecutionPlan.checkpointMode,
-        }
-
-        emitExportDebugEvent({
-          type: 'export-plan-selected',
-          payload: {
-            profile: jobExecutionPlan.profile.name,
-            preferredRows: jobExecutionPlan.preferredRows,
-            concurrency: jobExecutionPlan.concurrency,
-            runtimeMemoryProfile: jobExecutionPlan.runtimeMemoryProfile,
-            checkpointMode: jobExecutionPlan.checkpointMode,
-            outputSink: jobExecutionPlan.outputSink,
-            checkpointDurableExpected:
-              jobExecutionPlan.profile.checkpointOutput &&
-              jobExecutionPlan.outputSink === 'opfs-file',
-          },
-        })
-
-        setSession((prev) =>
-          prev && prev.id === exportSessionId
-            ? {
-                ...prev,
-                exportState: {
-                  ...prev.exportState,
-                  status: 'exporting',
-                  qualityPreset: quality,
-                  fidelityLevel: fidelity,
-                  activePlan,
-                  checkpointDurable: Boolean(checkpoint),
-                  recovery: { status: 'none' },
-                  result: undefined,
-                  lastProgress: undefined,
-                  retryRecommended: false,
-                  recommendedRetryLevel: undefined,
-                },
-              }
-            : prev,
-        )
-
-        let copyCapability = resolveExportCopyCapability()
-        let previewCopyCanvas: HTMLCanvasElement | null = null
-        if (copyCapability.mode === 'preview-size') {
-          const pipeline = pipelineRef.current
-          const previewSize = stats?.previewSize
-
-          if (pipeline && previewSize) {
-            try {
-              previewCopyCanvas = await pipeline.renderToHiddenCanvas({
-                width: previewSize.width,
-                height: previewSize.height,
-              })
-            } catch {
-              previewCopyCanvas = null
-            }
-          }
-
-          if (!isCurrentExport()) {
-            return
-          }
-
-          if (!previewCopyCanvas) {
-            copyCapability = {
-              mode: 'unavailable',
-              reason: 'Preview image is not ready to copy.',
-            }
-          }
-        }
-
-        if (jobExecutionPlan.profile.releasePreviewPipelineBeforeExport) {
-          registerCurrentPreviewPipelineForEvacuation()
-        }
-        const snapshot = createPreExportSnapshot({
-          file: activeSourceFile,
-          metadata: loadedImage.metadata,
-          graph,
-          graphFingerprint,
-          lutTitle:
-            activeSession.activeStyle?.kind === 'custom'
-              ? activeSession.activeStyle.name
-              : undefined,
-          quickPreviewReady:
-            activeSession.previewBundle.quickDecodePreview.status === 'ready',
-          tone: {
-            userExposureEv: params.userExposureEv,
-            userContrast: params.userContrast,
-            userHighlights: params.userHighlights,
-            userShadows: params.userShadows,
-            userWhites: params.userWhites,
-            userBlacks: params.userBlacks,
-          },
-          style: activeSession.activeStyle,
-        })
-        const registry = resourceRegistryRef.current
-        if (!registry) {
-          throw Object.assign(new Error('EXPORT_RESOURCE_REGISTRY_MISSING'), {
-            code: 'EXPORT_RESOURCE_REGISTRY_MISSING',
-          })
-        }
-
-        const evacuationOwners = getPreExportEvacuationOwners(
-          jobExecutionPlan.profile.name,
-        )
-        const evacuation = await evacuateBeforeExport({
-          registry,
-          snapshot,
-          owners: evacuationOwners,
-          abortPreview: () => {
-            abortRuntimeWork()
-            revokeCurrentEmbeddedPreviewUrl()
-          },
-          abortBoundedHq: abortRuntimeWork,
-          releasePreviousExportResult() {
-            setSession((prev) =>
-              prev && prev.id === exportSessionId
-                ? clearExportResultForActiveExport(prev)
-                : prev,
-            )
-          },
-          stopLutFetches() {
-            // Online LUT fetches already use per-request abort signals. This hook keeps
-            // the owner contract explicit for future registered LUT fetch resources.
-          },
-        })
-
-        if (!isCurrentExport()) {
-          return
-        }
-
-        emitExportDebugEvent({
-          type: 'resource-evacuated',
-          payload: toResourceEvacuatedDebugPayload({
-            profile: jobExecutionPlan.profile.name,
-            evacuation,
-          }),
-        })
-
-        if (!evacuation.registryCheck.ok) {
-          throw Object.assign(
-            new Error('EXPORT_RESOURCE_EVICTION_INCOMPLETE'),
-            {
-              code: 'EXPORT_RESOURCE_EVICTION_INCOMPLETE',
-            },
-          )
-        }
-
-        const filename = buildExportFilename(
-          activeSession.sourceFile.name,
-          activeSession.activeStyle?.name ?? 'neutral',
-        )
-
-        const result = await runFullResolutionExportJob({
-          file: activeSourceFile,
-          filename,
-          quality: quality === 'high' ? 0.92 : 0.86,
-          executionPlan: jobExecutionPlan,
-          checkpoint,
-          graph,
-          onMetric: (metric) => {
-            if (
-              !checkpointStore ||
-              !checkpointManifest ||
-              checkpointWritesClosed ||
-              !isCheckpointMetric(metric)
-            ) {
-              return
-            }
-
-            checkpointManifest = {
-              ...checkpointManifest,
-              completedRowsForDiagnostics: metric.completedRowsForDiagnostics,
-              totalRows: metric.totalRows,
-              updatedAt: metric.timestamp,
-            }
-            enqueueCheckpointWrite(checkpointManifest)
-          },
-          onAttempt: (attempt) => {
-            if (!isCurrentExport()) return
-
-            emitExportDebugEvent({
-              type: 'export-worker-attempt',
-              payload: attempt,
-            })
-          },
-          onProgress: (entry) => {
-            if (
-              !isMountedRef.current ||
-              exportAbortController.signal.aborted ||
-              exportGraphVersionRef.current !== exportGraphVersion ||
-              sessionRef.current?.id !== exportSessionId
-            ) {
-              return
-            }
-
-            setProgress(entry.progress)
-            setSession((prev) =>
-              prev && prev.id === exportSessionId
-                ? {
-                    ...prev,
-                    exportState: {
-                      ...prev.exportState,
-                      lastProgress: {
-                        completedStrips: entry.completedStrips,
-                        totalStrips: entry.totalStrips,
-                      },
-                    },
-                  }
-                : prev,
-            )
-          },
-          signal: exportAbortController.signal,
-        })
-
-        const completedSession = sessionRef.current
-        if (
-          !isMountedRef.current ||
-          exportAbortController.signal.aborted ||
-          exportGraphVersionRef.current !== exportGraphVersion ||
-          !completedSession ||
-          completedSession.id !== exportSessionId ||
-          completedSession.exportState.fullResCapability.status !== 'supported'
-        ) {
-          return
-        }
-        const completedCapability =
-          completedSession.exportState.fullResCapability
-
-        if (checkpointStore && checkpoint) {
-          checkpointWritesClosed = true
-          await checkpointWriteChain.catch(() => undefined)
-          await checkpointStore
-            .removeActiveManifest(checkpoint.exportId)
-            .catch(() => undefined)
-          if (recoveredExportId && recoveredExportId !== checkpoint.exportId) {
-            await checkpointStore
-              .removeActiveManifest(recoveredExportId)
-              .catch(() => undefined)
-          }
-        }
-
-        const exportResult = createCompletedExportResult({
-          jobResult: result,
-          metadata: loadedImage.metadata,
-          width: completedCapability.width,
-          height: completedCapability.height,
-          copyCapability,
-        })
-        previewCopyCanvasRef.current = previewCopyCanvas
-        registerExportResultResource(exportResult)
-
-        setSession((prev) =>
-          prev && prev.id === exportSessionId
-            ? {
-                ...prev,
-                exportState: {
-                  ...prev.exportState,
-                  status: 'ready',
-                  result: exportResult,
-                  retryRecommended: false,
-                  lastSuccessfulSize: {
-                    width: completedCapability.width,
-                    height: completedCapability.height,
-                  },
-                },
-              }
-            : prev,
-        )
-        setStatus('ready')
-        scheduleToast(() =>
-          toast.success('JPEG ready', {
-            description: result.filename,
-          }),
-        )
-      } catch (err) {
-        if (
-          exportAbortController.signal.aborted ||
-          !isMountedRef.current ||
-          exportGraphVersionRef.current !== exportGraphVersion ||
-          sessionRef.current?.id !== exportSessionId
-        ) {
-          return
-        }
-
-        const message = err instanceof Error ? err.message : 'Export failed'
-        const rawErrorCode = toUserFacingErrorCode(
-          getStableErrorCode(err) ?? message,
-        )
-        const errorCode =
-          rawErrorCode === 'RAW_UNKNOWN' ? 'EXPORT_RENDER_FAILED' : rawErrorCode
-        const retryLevel = isRetryableFullResExportFailure(errorCode)
-          ? recommendRetryLevel(fidelity)
-          : null
-
-        setSession((prev) =>
-          prev && prev.id === exportSessionId
-            ? {
-                ...prev,
-                exportState: {
-                  ...prev.exportState,
-                  status: 'failed',
-                  result: undefined,
-                  lastErrorCode: errorCode,
-                  retryRecommended: Boolean(retryLevel),
-                  recommendedRetryLevel: retryLevel ?? undefined,
-                },
-              }
-            : prev,
-        )
-        setStatus('ready')
-        scheduleToast(() =>
-          toast.error('Export failed', {
-            description: buildExportFailureDescription(message, retryLevel),
-          }),
-        )
-      } finally {
-        if (exportAbortControllerRef.current === exportAbortController) {
-          exportAbortControllerRef.current = null
-        }
-      }
+      await orchestrateFullResExport(options, exportCtx)
     },
-    [
-      abortExportWork,
-      abortRuntimeWork,
-      loadedImage.file,
-      loadedImage.metadata,
-      params.builtinPreset,
-      params.intensity,
-      params.styleKind,
-      params.userBlacks,
-      params.userContrast,
-      params.userExposureEv,
-      params.userHighlights,
-      params.userShadows,
-      params.userWhites,
-      registerCurrentPreviewPipelineForEvacuation,
-      registerExportResultResource,
-      revokeCurrentEmbeddedPreviewUrl,
-      scheduleToast,
-      session,
-      setDiscoveredRecoveryState,
-      setError,
-      setProgress,
-      setSession,
-      setStatus,
-      stats?.previewSize,
-    ],
+    [exportCtx],
   )
 
   useEffect(() => {
