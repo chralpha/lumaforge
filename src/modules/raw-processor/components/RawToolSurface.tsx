@@ -109,7 +109,7 @@ export function RawToolSurface(props: {
   }, [canStartMobileExport, clearLongPress, onExport])
 
   const dragControls = useDragControls()
-  const { prefersReduced, container, item: _item } = useToolMotion()
+  const { prefersReduced, container } = useToolMotion()
 
   const renderStyleTools = ({
     includeFileFacts = true,
