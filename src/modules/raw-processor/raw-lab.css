@@ -280,15 +280,27 @@
   margin-bottom: 10px;
 }
 
+.raw-tool-section-heading-text {
+  min-width: 0;
+}
+
+.raw-tool-eyebrow {
+  margin: 0 0 2px;
+  color: var(--raw-green-deep);
+  font-size: 0.66rem;
+  font-weight: 780;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
 .raw-tool-section-heading h2 {
   margin: 0;
   color: var(--raw-ink);
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   font-weight: 760;
   letter-spacing: 0;
 }
 
-.raw-tool-section-heading p,
 .raw-tool-note {
   margin: 0;
   color: var(--raw-ink-soft);
@@ -346,22 +358,6 @@
   color: oklch(0.46 0.028 75 / 0.58);
 }
 
-.raw-strength-control button {
-  min-width: 0;
-  border: 1px solid oklch(0.74 0.035 78 / 0.72);
-  border-radius: 8px;
-  background: oklch(0.964 0.018 86);
-  color: var(--raw-ink-soft);
-  font-size: 0.76rem;
-  font-weight: 690;
-}
-
-.raw-strength-control button[aria-pressed='true'] {
-  border-color: oklch(0.54 0.14 153);
-  background: oklch(0.84 0.09 145);
-  color: var(--raw-ink);
-}
-
 .raw-tone-control {
   display: grid;
   gap: 10px;
@@ -381,6 +377,7 @@
 
 .raw-tone-control output {
   color: var(--raw-ink-soft);
+  font-size: 0.76rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -494,8 +491,20 @@
 
 .raw-strength-control button {
   min-height: 34px;
-  border-width: 0 1px 0 0;
+  min-width: 0;
+  border: 0;
+  border-right: 1px solid oklch(0.74 0.035 78 / 0.72);
   border-radius: 0;
+  background: oklch(0.964 0.018 86);
+  color: var(--raw-ink-soft);
+  font-size: 0.76rem;
+  font-weight: 690;
+}
+
+.raw-strength-control button[aria-pressed='true'] {
+  border-color: oklch(0.54 0.14 153);
+  background: oklch(0.84 0.09 145);
+  color: var(--raw-ink);
 }
 
 .raw-strength-control button:last-child {
