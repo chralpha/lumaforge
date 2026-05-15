@@ -58,7 +58,10 @@ export function FileFactsTool({
   ]
 
   return (
-    <ToolSection title={t('raw.fileFacts.title')}>
+    <ToolSection
+      title={t('raw.fileFacts.title')}
+      eyebrow={t('raw.fileFacts.eyebrow')}
+    >
       <dl className="raw-file-facts">
         {facts.map((fact) => (
           <div key={fact.label}>

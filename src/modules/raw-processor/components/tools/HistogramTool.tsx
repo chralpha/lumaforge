@@ -223,7 +223,10 @@ export function HistogramTool({
   const reason = statusReason(histogram, t)
 
   return (
-    <ToolSection title={t('raw.histogram.title')}>
+    <ToolSection
+      title={t('raw.histogram.title')}
+      eyebrow={t('raw.histogram.eyebrow')}
+    >
       <div className="raw-histogram">
         <p className="raw-tool-note">
           <span>{label}</span>

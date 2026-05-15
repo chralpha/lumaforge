@@ -160,7 +160,10 @@ export function RawToolSurface(props: {
         onReset={props.onToneReset}
       />
       <HistogramTool histogram={props.histogram} />
-      <ToolSection title={t('raw.strength.title')}>
+      <ToolSection
+        title={t('raw.strength.title')}
+        eyebrow={t('raw.strength.eyebrow')}
+      >
         <StrengthControl
           value={props.activeIntensity}
           onChange={props.onIntensitySelect}
