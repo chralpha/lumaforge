@@ -870,6 +870,13 @@
     pointer-events: auto;
   }
 
+  .raw-mobile-tool-backdrop {
+    position: fixed;
+    inset: 0;
+    background: oklch(0.18 0.018 76 / 0.40);
+    -webkit-tap-highlight-color: transparent;
+  }
+
   .raw-mobile-tool-sheet {
     z-index: 0;
     display: grid;
@@ -883,18 +890,9 @@
       linear-gradient(180deg, oklch(0.954 0.022 86), oklch(0.91 0.03 84)),
       var(--raw-paper-low);
     box-shadow: 0 -24px 54px oklch(0.18 0.018 76 / 0.22);
-    transform: translateY(100%);
-    visibility: hidden;
-    transition:
-      transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
-      visibility 280ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  [data-raw-tool-sheet='open'] .raw-mobile-tool-sheet {
-    transform: translateY(0);
-    visibility: visible;
     pointer-events: auto;
   }
+
 
   .raw-mobile-tool-sheet-top {
     touch-action: none;
