@@ -19,7 +19,12 @@ import type {
   ExportRecoveryState,
   LUTProfileSelectionState,
 } from '../model/session'
-import { BACKDROP_SPRING, SHEET_SPRING, useToolMotion } from '../motion'
+import {
+  BACKDROP_SPRING,
+  SHEET_SPRING,
+  TAP_SPRING,
+  useToolMotion,
+} from '../motion'
 import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
 import { FileFactsTool } from './tools/FileFactsTool'
@@ -241,14 +246,16 @@ export function RawToolSurface(props: {
               />
               <div className="raw-mobile-tool-sheet-header">
                 <h2>{mobilePanelTitle}</h2>
-                <button
+                <m.button
                   type="button"
                   className="raw-mobile-tool-sheet-close"
                   aria-label={t('raw.mobileTools.close')}
                   onClick={() => setMobilePanel(null)}
+                  whileTap={{ scale: 0.92 }}
+                  transition={TAP_SPRING}
                 >
                   <X aria-hidden="true" />
-                </button>
+                </m.button>
               </div>
             </div>
             <div className="raw-mobile-tool-sheet-scroll">
@@ -285,7 +292,7 @@ export function RawToolSurface(props: {
         className="raw-mobile-tool-rail"
         aria-label={t('raw.mobileTools.aria')}
       >
-        <button
+        <m.button
           type="button"
           className="raw-mobile-tool-tab"
           data-mobile-tool-tab="style"
@@ -293,11 +300,13 @@ export function RawToolSurface(props: {
           aria-expanded={mobilePanel === 'style'}
           aria-controls={mobileToolSheetId}
           onClick={() => handleMobilePanelToggle('style')}
+          whileTap={{ scale: 0.96 }}
+          transition={TAP_SPRING}
         >
           <SlidersHorizontal aria-hidden="true" />
           {t('raw.mobileTools.style')}
-        </button>
-        <button
+        </m.button>
+        <m.button
           type="button"
           className="raw-mobile-tool-tab raw-mobile-tool-tab-export"
           data-mobile-tool-tab="export"
@@ -310,10 +319,12 @@ export function RawToolSurface(props: {
           onPointerUp={clearLongPress}
           onPointerLeave={clearLongPress}
           onPointerCancel={clearLongPress}
+          whileTap={{ scale: 0.96 }}
+          transition={TAP_SPRING}
         >
           <Download aria-hidden="true" />
           {t('raw.mobileTools.export')}
-        </button>
+        </m.button>
       </nav>
     </aside>
   )

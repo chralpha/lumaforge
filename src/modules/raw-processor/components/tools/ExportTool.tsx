@@ -2,6 +2,7 @@ import './export-tool.css'
 
 import { useAtomValue } from 'jotai'
 import { Copy, Download, FolderOpen, Share2 } from 'lucide-react'
+import { m } from 'motion/react'
 
 import { localizeCopyLabel, localizeRawReason, useI18n } from '~/lib/i18n'
 
@@ -13,6 +14,7 @@ import type {
   ActiveExportPlanState,
   ExportRecoveryState,
 } from '../../model/session'
+import { TAP_SPRING } from '../../motion'
 import { currentSessionAtom } from '../../state/session.atoms'
 import { ToolSection } from './ToolSection'
 
@@ -169,15 +171,17 @@ export function ExportTool({
               </button>
             </>
           )}
-          <button
+          <m.button
             type="button"
             className="raw-export-button raw-export-button-primary"
             disabled={!canExport || isProcessing}
             onClick={() => onExport({ quality: 'high', fidelity: 'balanced' })}
+            whileTap={{ scale: 0.97 }}
+            transition={TAP_SPRING}
           >
             <Download aria-hidden="true" />
             {isProcessing ? t('raw.export.preparing') : t('raw.export.run')}
-          </button>
+          </m.button>
           <p className="raw-tool-note">
             {canExport ? t('raw.export.sourcePath') : unavailableReason}
           </p>

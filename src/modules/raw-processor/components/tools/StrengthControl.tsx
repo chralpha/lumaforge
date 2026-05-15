@@ -1,4 +1,8 @@
+import { m } from 'motion/react'
+
 import { useI18n } from '~/lib/i18n'
+
+import { TAP_SPRING } from '../../motion'
 
 const LEVELS = ['off', 'light', 'standard', 'strong'] as const
 
@@ -28,15 +32,17 @@ export function StrengthControl({
       aria-label={t('raw.strength.title')}
     >
       {LEVELS.map((level) => (
-        <button
+        <m.button
           key={level}
           type="button"
           aria-pressed={value === level}
           disabled={disabled}
           onClick={() => onChange(level)}
+          whileTap={{ scale: 0.97 }}
+          transition={TAP_SPRING}
         >
           {labels[level]}
-        </button>
+        </m.button>
       ))}
     </div>
   )
