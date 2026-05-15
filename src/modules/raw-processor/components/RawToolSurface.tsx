@@ -104,7 +104,7 @@ export function RawToolSurface(props: {
   }, [canStartMobileExport, clearLongPress, onExport])
 
   const dragControls = useDragControls()
-  const { prefersReduced, container: _container, item: _item } = useToolMotion()
+  const { prefersReduced, container, item: _item } = useToolMotion()
 
   const renderStyleTools = ({
     includeFileFacts = true,
@@ -175,7 +175,12 @@ export function RawToolSurface(props: {
       data-raw-mobile-panel={mobilePanel ?? 'closed'}
       aria-label={t('raw.tools.aria')}
     >
-      <div className="raw-tool-stack raw-tool-stack-desktop">
+      <m.div
+        className="raw-tool-stack raw-tool-stack-desktop"
+        variants={container}
+        initial="hidden"
+        animate="visible"
+      >
         {renderStyleTools({ includeFileFacts: false })}
         {renderCompareTools()}
         {renderExportTools()}
@@ -184,7 +189,7 @@ export function RawToolSurface(props: {
           metadata={props.metadata}
           stats={props.stats}
         />
-      </div>
+      </m.div>
 
       <AnimatePresence>
         {mobilePanel && (
@@ -247,9 +252,30 @@ export function RawToolSurface(props: {
               </div>
             </div>
             <div className="raw-mobile-tool-sheet-scroll">
-              {mobilePanel === 'style' &&
-                renderStyleTools({ includeFileFacts: false })}
-              {mobilePanel === 'export' && renderExportTools()}
+              <AnimatePresence mode="wait">
+                {mobilePanel === 'style' && (
+                  <m.div
+                    key="style"
+                    variants={container}
+                    initial="hidden"
+                    animate="visible"
+                    exit={{ opacity: 0, transition: { duration: 0.1 } }}
+                  >
+                    {renderStyleTools({ includeFileFacts: false })}
+                  </m.div>
+                )}
+                {mobilePanel === 'export' && (
+                  <m.div
+                    key="export"
+                    variants={container}
+                    initial="hidden"
+                    animate="visible"
+                    exit={{ opacity: 0, transition: { duration: 0.1 } }}
+                  >
+                    {renderExportTools()}
+                  </m.div>
+                )}
+              </AnimatePresence>
             </div>
           </m.div>
         )}
