@@ -4,6 +4,7 @@ import type {
   PreviewHistogramState,
 } from '@lumaforge/luma-color-runtime'
 import { Download, SlidersHorizontal, X } from 'lucide-react'
+import { AnimatePresence, m, useDragControls } from 'motion/react'
 import type { ComponentProps } from 'react'
 import { useCallback, useId, useRef, useState } from 'react'
 
@@ -18,6 +19,7 @@ import type {
   ExportRecoveryState,
   LUTProfileSelectionState,
 } from '../model/session'
+import { BACKDROP_SPRING, SHEET_SPRING, useToolMotion } from '../motion'
 import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
 import { FileFactsTool } from './tools/FileFactsTool'
@@ -78,8 +80,6 @@ export function RawToolSurface(props: {
   const { canExport, isProcessing, exportResult, onExport } = props
   const canStartMobileExport = canExport && !isProcessing && !exportResult
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [sheetDragY, setSheetDragY] = useState(0)
-  const sheetDragStartRef = useRef<number | null>(null)
   const sheetRef = useRef<HTMLDivElement | null>(null)
 
   const handleMobilePanelToggle = useCallback((panel: MobileToolPanel) => {
@@ -103,41 +103,8 @@ export function RawToolSurface(props: {
     }, 500)
   }, [canStartMobileExport, clearLongPress, onExport])
 
-  const handleSheetPointerDown = useCallback((event: React.PointerEvent) => {
-    const el = event.currentTarget as HTMLElement
-    el.setPointerCapture?.(event.pointerId)
-    sheetDragStartRef.current = event.clientY
-  }, [])
-
-  const handleSheetPointerMove = useCallback((event: React.PointerEvent) => {
-    if (sheetDragStartRef.current === null) return
-    const delta = event.clientY - sheetDragStartRef.current
-    setSheetDragY(Math.max(0, delta))
-  }, [])
-
-  const handleSheetPointerUp = useCallback((event: React.PointerEvent) => {
-    const el = event.currentTarget as HTMLElement
-    el.releasePointerCapture?.(event.pointerId)
-    sheetDragStartRef.current = null
-
-    const sheet = sheetRef.current
-    const threshold = sheet ? Math.max(80, sheet.offsetHeight * 0.28) : 80
-
-    if (sheetDragYRef.current > threshold) {
-      setMobilePanel(null)
-    }
-    setSheetDragY(0)
-  }, [])
-
-  const handleSheetPointerCancel = useCallback((event: React.PointerEvent) => {
-    const el = event.currentTarget as HTMLElement
-    el.releasePointerCapture?.(event.pointerId)
-    sheetDragStartRef.current = null
-    setSheetDragY(0)
-  }, [])
-
-  const sheetDragYRef = useRef(sheetDragY)
-  sheetDragYRef.current = sheetDragY
+  const dragControls = useDragControls()
+  const { prefersReduced, container: _container, item: _item } = useToolMotion()
 
   const renderStyleTools = ({
     includeFileFacts = true,
@@ -219,45 +186,74 @@ export function RawToolSurface(props: {
         />
       </div>
 
-      <div
-        id={mobileToolSheetId}
-        ref={sheetRef}
-        className="raw-mobile-tool-sheet"
-        style={
-          sheetDragY > 0
-            ? { transform: `translateY(${sheetDragY}px)`, transition: 'none' }
-            : undefined
-        }
-      >
-        <div
-          className="raw-mobile-tool-sheet-top"
-          onPointerDown={handleSheetPointerDown}
-          onPointerMove={handleSheetPointerMove}
-          onPointerUp={handleSheetPointerUp}
-          onPointerCancel={handleSheetPointerCancel}
-        >
-          <div
-            className="raw-mobile-tool-sheet-drag-handle"
-            aria-hidden="true"
+      <AnimatePresence>
+        {mobilePanel && (
+          <m.div
+            key="backdrop"
+            className="raw-mobile-tool-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={BACKDROP_SPRING}
+            onClick={() => setMobilePanel(null)}
           />
-          <div className="raw-mobile-tool-sheet-header">
-            <h2>{mobilePanelTitle}</h2>
-            <button
-              type="button"
-              className="raw-mobile-tool-sheet-close"
-              aria-label={t('raw.mobileTools.close')}
-              onClick={() => setMobilePanel(null)}
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {mobilePanel && (
+          <m.div
+            key="sheet"
+            id={mobileToolSheetId}
+            ref={sheetRef}
+            className="raw-mobile-tool-sheet"
+            initial={{ y: '100%' }}
+            animate={prefersReduced ? { opacity: 1 } : { y: '0%' }}
+            exit={prefersReduced ? { opacity: 0 } : { y: '100%' }}
+            transition={SHEET_SPRING}
+            drag={prefersReduced ? false : 'y'}
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.4 }}
+            onDragEnd={(_, info) => {
+              const sheet = sheetRef.current
+              const threshold = sheet
+                ? Math.max(80, sheet.offsetHeight * 0.28)
+                : 80
+              if (info.offset.y > threshold || info.velocity.y > 500) {
+                setMobilePanel(null)
+              }
+            }}
+          >
+            <div
+              className="raw-mobile-tool-sheet-top"
+              onPointerDown={(e) => dragControls.start(e)}
             >
-              <X aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-        <div className="raw-mobile-tool-sheet-scroll">
-          {mobilePanel === 'style' &&
-            renderStyleTools({ includeFileFacts: false })}
-          {mobilePanel === 'export' && renderExportTools()}
-        </div>
-      </div>
+              <div
+                className="raw-mobile-tool-sheet-drag-handle"
+                aria-hidden="true"
+              />
+              <div className="raw-mobile-tool-sheet-header">
+                <h2>{mobilePanelTitle}</h2>
+                <button
+                  type="button"
+                  className="raw-mobile-tool-sheet-close"
+                  aria-label={t('raw.mobileTools.close')}
+                  onClick={() => setMobilePanel(null)}
+                >
+                  <X aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+            <div className="raw-mobile-tool-sheet-scroll">
+              {mobilePanel === 'style' &&
+                renderStyleTools({ includeFileFacts: false })}
+              {mobilePanel === 'export' && renderExportTools()}
+            </div>
+          </m.div>
+        )}
+      </AnimatePresence>
 
       <nav
         className="raw-mobile-tool-rail"
