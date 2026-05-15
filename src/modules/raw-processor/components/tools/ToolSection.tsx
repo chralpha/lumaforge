@@ -1,6 +1,9 @@
+import { m } from 'motion/react'
 import type { ReactNode } from 'react'
 
 import { clsxm } from '~/lib/cn'
+
+import { useToolMotion } from '../../motion'
 
 export function ToolSection({
   title,
@@ -13,10 +16,13 @@ export function ToolSection({
   children: ReactNode
   className?: string
 }) {
+  const { item } = useToolMotion()
+
   return (
-    <section
+    <m.section
       aria-label={title}
       className={clsxm('raw-tool-section', className)}
+      variants={item}
     >
       <div className="raw-tool-section-heading">
         <div className="raw-tool-section-heading-text">
@@ -25,6 +31,6 @@ export function ToolSection({
         </div>
       </div>
       {children}
-    </section>
+    </m.section>
   )
 }
