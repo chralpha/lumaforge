@@ -878,7 +878,7 @@
   }
 
   .raw-mobile-tool-sheet {
-    z-index: 0;
+    z-index: 1;
     display: grid;
     max-height: min(56svh, 430px);
     min-height: 0;

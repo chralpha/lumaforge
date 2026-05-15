@@ -207,7 +207,7 @@ export function RawToolSurface(props: {
             id={mobileToolSheetId}
             ref={sheetRef}
             className="raw-mobile-tool-sheet"
-            initial={{ y: '100%' }}
+            initial={prefersReduced ? { opacity: 0 } : { y: '100%' }}
             animate={prefersReduced ? { opacity: 1 } : { y: '0%' }}
             exit={prefersReduced ? { opacity: 0 } : { y: '100%' }}
             transition={SHEET_SPRING}
