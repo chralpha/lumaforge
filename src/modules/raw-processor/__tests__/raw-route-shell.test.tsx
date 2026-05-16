@@ -372,12 +372,10 @@ describe('rawProcessorView online LUT route sources', () => {
 
     await waitFor(() =>
       expect(
-        container.querySelectorAll('.raw-lut-source-resource'),
+        container.querySelectorAll('[data-raw-lut="source-resource"]'),
       ).toHaveLength(1),
     )
-    expect(container.querySelector('.raw-lut-source-label')).toHaveTextContent(
-      'valid.cube',
-    )
+    expect(screen.getByText('valid.cube')).toBeInTheDocument()
 
     const status = await screen.findByRole('status')
     expect(status).toHaveTextContent(
