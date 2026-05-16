@@ -339,9 +339,15 @@ describe('rawToolSurface', () => {
     expect(
       screen.getByRole('button', { name: 'File facts' }),
     ).toBeInTheDocument()
+
+    const desktopCards = container.querySelector(
+      '[data-raw-tool-surface] > div:first-child',
+    )
+    expect(desktopCards).toHaveClass('max-[640px]:hidden')
+    expect(desktopCards).not.toHaveClass('lg:block')
   })
 
-  it('shares one card set between desktop stack and mobile sheet', async () => {
+  it('shares cards and export between desktop stack and mobile sheet', async () => {
     const user = userEvent.setup()
     const { container } = render(<RawToolSurface {...baseProps} />)
     const surface = container.querySelector('[data-raw-tool-surface]')
@@ -354,6 +360,25 @@ describe('rawToolSurface', () => {
     expect(
       within(sheet).getByRole('group', { name: 'RAW finishing controls' }),
     ).toBeInTheDocument()
+    expect(
+      within(sheet).getByRole('region', { name: 'Export' }),
+    ).toHaveAttribute('data-raw-export-block', 'persistent')
+  })
+
+  it('opens the mobile sheet from a normal Export rail tap', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<RawToolSurface {...baseProps} />)
+    const surface = container.querySelector('[data-raw-tool-surface]')
+
+    await user.click(screen.getByRole('button', { name: 'Export' }))
+
+    expect(surface).toHaveAttribute('data-raw-tool-sheet', 'open')
+    const sheet = container.querySelector(
+      '[data-raw-mobile-sheet]',
+    ) as HTMLElement
+    expect(
+      within(sheet).getByRole('region', { name: 'Export' }),
+    ).toHaveAttribute('data-raw-export-block', 'persistent')
   })
 
   it('reveals the histogram plot when its card is expanded', async () => {
@@ -967,7 +992,7 @@ describe('rawToolSurface', () => {
     expect(open).toHaveFocus()
   })
 
-  it('traps focus inside the online LUT source browser', async () => {
+  it('keeps outside focus targets reachable while the online LUT browser is open', async () => {
     const user = userEvent.setup()
     const outsideButton = document.createElement('button')
     outsideButton.textContent = 'Outside focus target'
@@ -993,26 +1018,14 @@ describe('rawToolSurface', () => {
       const close = within(browser).getByRole('button', {
         name: 'Close LUT source browser',
       })
-      const load = within(browser).getByRole('button', {
-        name: 'Load Kodak 2383 Rec.709',
+
+      expect(close).toHaveFocus()
+
+      await act(async () => {
+        outsideButton.focus()
       })
-
-      expect(close).toHaveFocus()
-
-      outsideButton.focus()
-      expect(browser).toContainElement(document.activeElement as HTMLElement)
-      expect(outsideButton).not.toHaveFocus()
-
-      await user.tab()
-      expect(load).toHaveFocus()
-
-      await user.tab()
-      expect(close).toHaveFocus()
-      expect(outsideButton).not.toHaveFocus()
-
-      await user.tab({ shift: true })
-      expect(load).toHaveFocus()
-      expect(outsideButton).not.toHaveFocus()
+      expect(outsideButton).toHaveFocus()
+      expect(browser).toBeInTheDocument()
     } finally {
       outsideButton.remove()
     }
@@ -1159,7 +1172,7 @@ describe('rawToolSurface', () => {
     }
   })
 
-  it('lets a second online LUT source trigger switch browsers through the modal layer', async () => {
+  it('lets a second online LUT source trigger switch browsers while the browser is open', async () => {
     const user = userEvent.setup()
     render(
       <RawToolSurface
@@ -1194,7 +1207,7 @@ describe('rawToolSurface', () => {
       }),
     ).toBeInTheDocument()
 
-    await clickOverlayAt(56, 152, [secondOpen])
+    await user.click(secondOpen)
 
     expect(
       screen.queryByRole('dialog', {
@@ -1202,7 +1215,7 @@ describe('rawToolSurface', () => {
       }),
     ).not.toBeInTheDocument()
     expect(
-      screen.getByRole('dialog', {
+      await screen.findByRole('dialog', {
         name: 'Catalog from looks.example.net LUTs',
       }),
     ).toBeInTheDocument()

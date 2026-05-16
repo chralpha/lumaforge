@@ -5,8 +5,8 @@ import type {
 } from '@lumaforge/luma-color-runtime'
 import { Download, SlidersHorizontal, X } from 'lucide-react'
 import { AnimatePresence, m, useDragControls } from 'motion/react'
-import type { ComponentProps } from 'react'
-import { useCallback, useId, useRef, useState } from 'react'
+import type { ComponentProps, Ref } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 import { useI18n } from '~/lib/i18n'
 
@@ -72,14 +72,21 @@ export function RawToolSurface(props: {
 }) {
   const { t } = useI18n()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [mobileSheetTarget, setMobileSheetTarget] = useState<
+    'tools' | 'export'
+  >('tools')
   const mobileToolSheetId = useId()
   const disabled = !props.hasImage || props.isProcessing
   const { canExport, isProcessing, exportResult, onExport } = props
   const canStartMobileExport = canExport && !isProcessing && !exportResult
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sheetRef = useRef<HTMLDivElement | null>(null)
+  const mobileExportBlockRef = useRef<HTMLElement | null>(null)
+  const dragControls = useDragControls()
+  const { prefersReduced } = useToolMotion()
 
   const handleMobileToolsToggle = useCallback(() => {
+    setMobileSheetTarget('tools')
     setMobileOpen((open) => !open)
   }, [])
 
@@ -89,6 +96,12 @@ export function RawToolSurface(props: {
       longPressTimerRef.current = null
     }
   }, [])
+
+  const handleMobileExportClick = useCallback(() => {
+    clearLongPress()
+    setMobileSheetTarget('export')
+    setMobileOpen(true)
+  }, [clearLongPress])
 
   const handleExportLongPressStart = useCallback(() => {
     clearLongPress()
@@ -100,8 +113,20 @@ export function RawToolSurface(props: {
     }, 500)
   }, [canStartMobileExport, clearLongPress, onExport])
 
-  const dragControls = useDragControls()
-  const { prefersReduced } = useToolMotion()
+  useEffect(() => {
+    if (!mobileOpen || mobileSheetTarget !== 'export') return
+
+    window.requestAnimationFrame(() => {
+      if (typeof mobileExportBlockRef.current?.scrollIntoView !== 'function') {
+        return
+      }
+
+      mobileExportBlockRef.current.scrollIntoView({
+        block: 'nearest',
+        behavior: prefersReduced ? 'auto' : 'smooth',
+      })
+    })
+  }, [mobileOpen, mobileSheetTarget, prefersReduced])
 
   const histogramMeta =
     props.histogram.state === 'ready'
@@ -160,8 +185,9 @@ export function RawToolSurface(props: {
     </ToolCardStack>
   )
 
-  const renderExportBlock = () => (
+  const renderExportBlock = (ref?: Ref<HTMLElement>) => (
     <section
+      ref={ref}
       aria-label={t('raw.export.title')}
       data-raw-export-block="persistent"
       className="border-t border-border bg-material-medium px-4 py-3"
@@ -190,10 +216,10 @@ export function RawToolSurface(props: {
       data-raw-tool-sheet={mobileOpen ? 'open' : 'closed'}
       aria-label={t('raw.tools.aria')}
     >
-      <div className="hidden min-h-0 overflow-y-auto px-3.5 py-3.5 lg:block">
+      <div className="min-h-0 overflow-y-auto px-3.5 py-3.5 max-[640px]:hidden">
         {renderCards()}
       </div>
-      <div className="hidden lg:block">{renderExportBlock()}</div>
+      <div className="max-[640px]:hidden">{renderExportBlock()}</div>
 
       <AnimatePresence>
         {mobileOpen && (
@@ -258,7 +284,10 @@ export function RawToolSurface(props: {
                 </m.button>
               </div>
             </div>
-            <div className="raw-mobile-tool-sheet-scroll">{renderCards()}</div>
+            <div className="raw-mobile-tool-sheet-scroll">
+              {renderCards()}
+              {renderExportBlock(mobileExportBlockRef)}
+            </div>
           </m.div>
         )}
       </AnimatePresence>
@@ -290,6 +319,7 @@ export function RawToolSurface(props: {
           onPointerUp={clearLongPress}
           onPointerLeave={clearLongPress}
           onPointerCancel={clearLongPress}
+          onClick={handleMobileExportClick}
           whileTap={{ scale: 0.96 }}
           transition={TAP_SPRING}
         >

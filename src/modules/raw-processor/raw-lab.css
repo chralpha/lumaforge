@@ -178,8 +178,8 @@
 
 .raw-tool-surface {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 12px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -187,7 +187,7 @@
   background:
     linear-gradient(180deg, oklch(0.942 0.024 86), oklch(0.91 0.03 84)),
     var(--color-fill);
-  padding: 14px;
+  padding: 0;
 }
 
 .raw-mobile-tool-sheet,
@@ -543,7 +543,7 @@
 
   .raw-tool-surface {
     max-height: min(42svh, 390px);
-    overflow-y: auto;
+    overflow: hidden;
     border-top: 1px solid var(--color-border);
     border-left: 0;
   }
