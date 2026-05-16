@@ -1,6 +1,6 @@
 import { m } from 'motion/react'
 import type { HTMLAttributes, ReactNode } from 'react'
-import { use, useEffect, useId, useMemo, useState } from 'react'
+import { use, useId, useMemo, useState } from 'react'
 
 import { cn } from '~/lib/cn'
 import { Spring } from '~/lib/spring'
@@ -27,14 +27,10 @@ export const SegmentGroup = (props: ComponentType<SegmentGroupProps>) => {
     ...divProps
   } = props
 
-  const [currentValue, setCurrentValue] = useState(value || '')
+  const isControlled = value !== undefined
+  const [internalValue, setInternalValue] = useState(value ?? '')
+  const currentValue = isControlled ? value : internalValue
   const componentId = useId()
-
-  useEffect(() => {
-    if (value !== undefined) {
-      setCurrentValue(value)
-    }
-  }, [value])
 
   return (
     <SegmentGroupContext.Provider
@@ -42,14 +38,16 @@ export const SegmentGroup = (props: ComponentType<SegmentGroupProps>) => {
         useMemo(
           () => ({
             value: currentValue,
-            setValue: (value) => {
-              setCurrentValue(value)
-              onValueChanged?.(value)
+            setValue: (nextValue) => {
+              if (!isControlled) {
+                setInternalValue(nextValue)
+              }
+              onValueChanged?.(nextValue)
             },
             componentId,
             disabled,
           }),
-          [componentId, currentValue, disabled, onValueChanged],
+          [componentId, currentValue, disabled, isControlled, onValueChanged],
         ) satisfies SegmentGroupContextValue
       }
     >

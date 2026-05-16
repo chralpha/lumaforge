@@ -420,6 +420,36 @@ describe('rawToolSurface', () => {
     ).toHaveAttribute('aria-selected', 'true')
   })
 
+  it('keeps controlled strength selection when the parent rejects a change', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    const { rerender } = render(
+      <RawToolSurface {...baseProps} hasImage onIntensitySelect={onChange} />,
+    )
+
+    const strength = screen.getByRole('tablist', { name: 'Strength' })
+
+    await user.click(within(strength).getByRole('tab', { name: 'Strong' }))
+
+    expect(onChange).toHaveBeenCalledWith('strong')
+
+    rerender(
+      <RawToolSurface
+        {...baseProps}
+        hasImage
+        activeIntensity="standard"
+        onIntensitySelect={onChange}
+      />,
+    )
+
+    expect(
+      within(strength).getByRole('tab', { name: 'Standard' }),
+    ).toHaveAttribute('aria-selected', 'true')
+    expect(
+      within(strength).getByRole('tab', { name: 'Strong' }),
+    ).toHaveAttribute('aria-selected', 'false')
+  })
+
   it('disables strength tabs before upload', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
