@@ -1,8 +1,7 @@
 import { RotateCcw } from 'lucide-react'
 
+import { Button } from '~/components/ui/button'
 import { useI18n } from '~/lib/i18n'
-
-import { ToolSection } from './ToolSection'
 
 export function CompareTool({
   disabled,
@@ -14,20 +13,19 @@ export function CompareTool({
   const { t } = useI18n()
 
   return (
-    <ToolSection
-      title={t('raw.compare.title')}
-      eyebrow={t('raw.compare.eyebrow')}
-    >
-      <p className="raw-tool-note">{t('raw.compare.note')}</p>
-      <button
-        type="button"
-        className="raw-tool-reset-button"
+    <div className="grid gap-3">
+      <p className="text-callout text-text-secondary">
+        {t('raw.compare.note')}
+      </p>
+      <Button
+        variant="light"
+        size="sm"
         disabled={disabled}
         onClick={onCompareReset}
       >
         <RotateCcw aria-hidden="true" />
         {t('raw.compare.reset')}
-      </button>
-    </ToolSection>
+      </Button>
+    </div>
   )
 }

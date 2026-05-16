@@ -1,6 +1,6 @@
-import { useI18n } from '~/lib/i18n'
+import { Fragment } from 'react'
 
-import { ToolSection } from './ToolSection'
+import { useI18n } from '~/lib/i18n'
 
 export function FileFactsTool({
   supportLevel,
@@ -58,18 +58,15 @@ export function FileFactsTool({
   ]
 
   return (
-    <ToolSection
-      title={t('raw.fileFacts.title')}
-      eyebrow={t('raw.fileFacts.eyebrow')}
-    >
-      <dl className="raw-file-facts">
-        {facts.map((fact) => (
-          <div key={fact.label}>
-            <dt>{fact.label}</dt>
-            <dd>{fact.value || t('raw.fileFacts.notLoaded')}</dd>
-          </div>
-        ))}
-      </dl>
-    </ToolSection>
+    <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
+      {facts.map((fact) => (
+        <Fragment key={fact.label}>
+          <dt className="text-footnote text-text-secondary">{fact.label}</dt>
+          <dd className="mt-0.5 truncate text-callout font-medium text-text">
+            {fact.value || t('raw.fileFacts.notLoaded')}
+          </dd>
+        </Fragment>
+      ))}
+    </dl>
   )
 }

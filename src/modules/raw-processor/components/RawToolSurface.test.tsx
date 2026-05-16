@@ -375,7 +375,7 @@ describe('rawToolSurface', () => {
     await user.click(screen.getByRole('button', { name: 'Compare' }))
     expect(
       screen.getByRole('button', { name: 'Reset compare view' }),
-    ).toHaveClass('raw-tool-reset-button')
+    ).toBeInTheDocument()
   })
 
   it('selects a strength level', async () => {
