@@ -1,9 +1,7 @@
-import './export-tool.css'
-
 import { useAtomValue } from 'jotai'
 import { Copy, Download, FolderOpen, Share2 } from 'lucide-react'
-import { m } from 'motion/react'
 
+import { Button } from '~/components/ui/button'
 import { localizeCopyLabel, localizeRawReason, useI18n } from '~/lib/i18n'
 
 import type {
@@ -14,9 +12,7 @@ import type {
   ActiveExportPlanState,
   ExportRecoveryState,
 } from '../../model/session'
-import { TAP_SPRING } from '../../motion'
 import { currentSessionAtom } from '../../state/session.atoms'
-import { ToolSection } from './ToolSection'
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -38,7 +34,6 @@ export function ExportTool({
   activePlan,
   recovery,
   checkpointDurable,
-  embedded,
 }: {
   canExport: boolean
   disabledReason?: string
@@ -59,6 +54,7 @@ export function ExportTool({
   embedded?: boolean
 }) {
   const { t } = useI18n()
+  const noteClassName = 'text-callout leading-relaxed text-text-secondary'
   const session = useAtomValue(currentSessionAtom)
   const currentActivePlan = activePlan ?? session?.exportState.activePlan
   const currentRecovery = recovery ?? session?.exportState.recovery
@@ -84,121 +80,115 @@ export function ExportTool({
     : t('raw.export.copy')
 
   const innerContent = (
-    <>
+    <div className="grid gap-3">
       {exportResult ? (
-        <div className="raw-export-result">
-          <div className="raw-export-result-heading">
+        <div className="grid gap-3">
+          <div className="grid gap-1 text-callout text-text-secondary">
             <span>{t('raw.export.ready')}</span>
-            <strong>{exportResult.filename}</strong>
+            <strong className="text-body text-text">
+              {exportResult.filename}
+            </strong>
           </div>
-          <dl className="raw-export-result-facts">
+          <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-callout">
             <div>
-              <dt>{t('raw.export.dimensions')}</dt>
-              <dd>
+              <dt className="text-text-secondary">
+                {t('raw.export.dimensions')}
+              </dt>
+              <dd className="text-text">
                 {exportResult.width} x {exportResult.height}
               </dd>
             </div>
             <div>
-              <dt>{t('raw.export.fileSize')}</dt>
-              <dd>{formatBytes(exportResult.size)}</dd>
+              <dt className="text-text-secondary">
+                {t('raw.export.fileSize')}
+              </dt>
+              <dd className="text-text">{formatBytes(exportResult.size)}</dd>
             </div>
           </dl>
-          <div className="raw-export-actions">
-            <button
+          <div className="flex flex-wrap gap-2">
+            <Button
               type="button"
-              className="raw-export-button raw-export-button-primary"
+              variant="primary"
+              size="md"
               disabled={!exportShareCapability.available}
               onClick={onShareExport}
             >
-              <Share2 aria-hidden="true" />
+              <Share2 className="size-4 shrink-0" aria-hidden="true" />
               {t('raw.export.share')}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="raw-export-button raw-export-button-secondary"
+              variant="secondary"
+              size="md"
               onClick={onDownloadExport}
             >
-              <Download aria-hidden="true" />
+              <Download className="size-4 shrink-0" aria-hidden="true" />
               {t('raw.export.download')}
-            </button>
+            </Button>
             {exportResult.copyCapability.mode === 'unavailable' ? (
-              <button
-                type="button"
-                className="raw-export-button raw-export-button-secondary"
-                disabled
-              >
-                <Copy aria-hidden="true" />
+              <Button type="button" variant="secondary" size="md" disabled>
+                <Copy className="size-4 shrink-0" aria-hidden="true" />
                 {copyButtonLabel}
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
-                className="raw-export-button raw-export-button-secondary"
+                variant="secondary"
+                size="md"
                 onClick={onCopyExport}
               >
-                <Copy aria-hidden="true" />
+                <Copy className="size-4 shrink-0" aria-hidden="true" />
                 {copyButtonLabel}
-              </button>
+              </Button>
             )}
           </div>
           {!exportShareCapability.available && (
-            <p className="raw-tool-note">{shareUnavailableReason}</p>
+            <p className={noteClassName}>{shareUnavailableReason}</p>
           )}
           {exportResult.copyCapability.mode !== 'full-resolution' && (
-            <p className="raw-tool-note">{copyUnavailableReason}</p>
+            <p className={noteClassName}>{copyUnavailableReason}</p>
           )}
         </div>
       ) : (
         <>
           {isLowMemoryPlan && (
-            <p className="raw-tool-note">{t('raw.export.lowMemory')}</p>
+            <p className={noteClassName}>{t('raw.export.lowMemory')}</p>
           )}
           {currentCheckpointDurable === false && isLowMemoryPlan && (
-            <p className="raw-tool-note">{t('raw.export.nonDurable')}</p>
+            <p className={noteClassName}>{t('raw.export.nonDurable')}</p>
           )}
           {currentRecovery?.status === 'source-required' && (
             <>
-              <p className="raw-tool-note">{currentRecovery.message}</p>
-              <button
+              <p className={noteClassName}>{currentRecovery.message}</p>
+              <Button
                 type="button"
-                className="raw-export-button raw-export-button-secondary"
+                variant="secondary"
+                size="md"
                 disabled={!onRecoverExportSource || isProcessing}
                 onClick={onRecoverExportSource}
               >
-                <FolderOpen aria-hidden="true" />
+                <FolderOpen className="size-4 shrink-0" aria-hidden="true" />
                 {t('raw.export.reselect')}
-              </button>
+              </Button>
             </>
           )}
-          <m.button
+          <Button
             type="button"
-            className="raw-export-button raw-export-button-primary"
+            variant="primary"
+            size="md"
             disabled={!canExport || isProcessing}
             onClick={() => onExport({ quality: 'high', fidelity: 'balanced' })}
-            whileTap={{ scale: 0.97 }}
-            transition={TAP_SPRING}
           >
-            <Download aria-hidden="true" />
+            <Download className="size-4 shrink-0" aria-hidden="true" />
             {isProcessing ? t('raw.export.preparing') : t('raw.export.run')}
-          </m.button>
-          <p className="raw-tool-note">
+          </Button>
+          <p className={noteClassName}>
             {canExport ? t('raw.export.sourcePath') : unavailableReason}
           </p>
         </>
       )}
-    </>
+    </div>
   )
 
-  if (embedded) {
-    return <>{innerContent}</>
-  }
-
-  return (
-    <ToolSection
-      title={t('raw.export.title')}
-      eyebrow={t('raw.export.eyebrow')}
-    >
-      {innerContent}
-    </ToolSection>
-  )
+  return innerContent
 }
