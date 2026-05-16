@@ -131,10 +131,9 @@ export function OnlineLutSourceControls({
       updateBrowserLayout()
     }
     const trigger = openButtonRefs.current.get(openResourceId)
-    const scrollTargets = [
-      trigger?.closest('.raw-tool-stack'),
-      trigger?.closest('.raw-tool-surface'),
-    ].filter((target): target is Element => target instanceof Element)
+    const scrollTargets = [trigger?.closest('.raw-tool-surface')].filter(
+      (target): target is Element => target instanceof Element,
+    )
 
     window.addEventListener('resize', handleViewportChange)
     for (const target of scrollTargets) {

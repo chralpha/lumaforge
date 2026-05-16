@@ -93,7 +93,6 @@ export function LUTContractBrowser({
     }
 
     const scrollTargets = [
-      triggerRef.current?.closest('.raw-tool-stack'),
       triggerRef.current?.closest('.raw-tool-surface'),
     ].filter((target): target is Element => target instanceof Element)
 
