@@ -1,16 +1,12 @@
 import { m } from 'motion/react'
 import type { HTMLAttributes, ReactNode } from 'react'
-import { use, useId, useMemo, useState } from 'react'
+import { use, useEffect, useId, useMemo, useState } from 'react'
 
 import { cn } from '~/lib/cn'
 import { Spring } from '~/lib/spring'
 
 import type { SegmentGroupContextValue } from './ctx'
 import { SegmentGroupContext } from './ctx'
-
-type SegmentGroupContextValueWithDisabled = SegmentGroupContextValue & {
-  disabled: boolean
-}
 
 interface SegmentGroupProps extends Omit<
   HTMLAttributes<HTMLDivElement>,
@@ -34,6 +30,12 @@ export const SegmentGroup = (props: ComponentType<SegmentGroupProps>) => {
   const [currentValue, setCurrentValue] = useState(value || '')
   const componentId = useId()
 
+  useEffect(() => {
+    if (value !== undefined) {
+      setCurrentValue(value)
+    }
+  }, [value])
+
   return (
     <SegmentGroupContext.Provider
       value={
@@ -48,7 +50,7 @@ export const SegmentGroup = (props: ComponentType<SegmentGroupProps>) => {
             disabled,
           }),
           [componentId, currentValue, disabled, onValueChanged],
-        ) satisfies SegmentGroupContextValueWithDisabled
+        ) satisfies SegmentGroupContextValue
       }
     >
       <div
@@ -72,14 +74,12 @@ export const SegmentItem: Component<{
   label: ReactNode
   disabled?: boolean
 }> = ({ label, value, className, disabled = false }) => {
-  const ctx = use(SegmentGroupContext)
-
   const {
     value: ctxValue,
     setValue,
     componentId: layoutId,
-    disabled: groupDisabled = false,
-  } = ctx as SegmentGroupContextValueWithDisabled
+    disabled: groupDisabled,
+  } = use(SegmentGroupContext)
 
   const isActive = ctxValue === value
   const isDisabled = disabled || groupDisabled

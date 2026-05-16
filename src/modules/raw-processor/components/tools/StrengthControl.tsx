@@ -29,8 +29,6 @@ export function StrengthControl({
   return (
     <div aria-disabled={disabled} className={disabled ? 'opacity-50' : ''}>
       <SegmentGroup
-        // SegmentGroup is internally uncontrolled; the key re-seeds it after external resets.
-        key={value}
         value={value}
         onValueChanged={(value) => {
           if (isStrengthLevel(value)) {

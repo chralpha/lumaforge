@@ -401,6 +401,25 @@ describe('rawToolSurface', () => {
     expect(onChange).toHaveBeenCalledWith('strong')
   })
 
+  it('updates selected strength from props without remounting the tablist', () => {
+    const { rerender } = render(<RawToolSurface {...baseProps} hasImage />)
+
+    const strength = screen.getByRole('tablist', { name: 'Strength' })
+    expect(
+      within(strength).getByRole('tab', { name: 'Standard' }),
+    ).toHaveAttribute('aria-selected', 'true')
+
+    rerender(
+      <RawToolSurface {...baseProps} hasImage activeIntensity="strong" />,
+    )
+
+    const updatedStrength = screen.getByRole('tablist', { name: 'Strength' })
+    expect(updatedStrength).toBe(strength)
+    expect(
+      within(updatedStrength).getByRole('tab', { name: 'Strong' }),
+    ).toHaveAttribute('aria-selected', 'true')
+  })
+
   it('disables strength tabs before upload', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
