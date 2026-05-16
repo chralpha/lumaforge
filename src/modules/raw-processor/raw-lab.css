@@ -16,6 +16,22 @@
   --raw-scrollbar-thumb: oklch(0.54 0.055 78 / 0.64);
   --raw-scrollbar-thumb-hover: oklch(0.43 0.082 152 / 0.78);
   --raw-mobile-tool-rail-height: 62px; /* 8px top + 46px tab + 8px bottom */
+
+  /* Warm darkroom identity expressed through Pastel semantic tokens.
+     Every migrated element consumes these, not literals. */
+  --color-background: oklch(0.964 0.018 86);
+  --color-text: oklch(0.18 0.018 76);
+  --color-text-secondary: oklch(0.38 0.032 75);
+  --color-text-tertiary: oklch(0.5 0.035 75);
+  --color-border: oklch(0.74 0.035 78 / 0.62);
+  --color-border-secondary: oklch(0.74 0.035 78 / 0.4);
+  --color-accent: oklch(0.59 0.15 153);
+  --color-fill: oklch(0.918 0.026 86);
+  --color-fill-secondary: oklch(0.9 0.034 82 / 0.9);
+  --color-fill-tertiary: oklch(0.86 0.03 80 / 0.56);
+  --color-material-opaque: oklch(0.948 0.022 86);
+  --color-material-medium: oklch(0.942 0.024 86);
+
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   height: 100svh;
