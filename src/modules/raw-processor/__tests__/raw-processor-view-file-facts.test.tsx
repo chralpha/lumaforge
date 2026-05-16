@@ -52,6 +52,16 @@ vi.mock('~/lib/gl/pipeline', async (importOriginal) => {
   }
 })
 
+function valueForFact(region: HTMLElement, label: string) {
+  const term = Array.from(region.querySelectorAll('dt')).find(
+    (element) => element.textContent === label,
+  )
+  expect(term).toBeInTheDocument()
+  const value = term?.nextElementSibling
+  expect(value?.tagName).toBe('DD')
+  return value as HTMLElement
+}
+
 function createLoadedProcessorState(
   overrides: Partial<UseRawProcessorReturn> = {},
 ): UseRawProcessorReturn {
@@ -187,6 +197,7 @@ describe('rawProcessorView file facts', () => {
       'ResizeObserver',
       class {
         observe() {}
+        unobserve() {}
         disconnect() {}
       },
     )
@@ -207,11 +218,12 @@ describe('rawProcessorView file facts', () => {
     })
 
     await user.click(screen.getByRole('button', { name: 'File facts' }))
-    const sizeRow = screen.getByText('Size').closest('div')
-    const previewRow = screen.getByText('Preview').closest('div')
+    const fileFacts = screen.getByRole('region', { name: 'File facts' })
+    const sizeValue = valueForFact(fileFacts, 'Size')
+    const previewValue = valueForFact(fileFacts, 'Preview')
 
-    expect(sizeRow).toHaveTextContent('6048 x 4024')
-    expect(sizeRow).not.toHaveTextContent('4000 x 2666')
-    expect(previewRow).toHaveTextContent('4000 x 2666')
+    expect(sizeValue).toHaveTextContent('6048 x 4024')
+    expect(sizeValue).not.toHaveTextContent('4000 x 2666')
+    expect(previewValue).toHaveTextContent('4000 x 2666')
   })
 })

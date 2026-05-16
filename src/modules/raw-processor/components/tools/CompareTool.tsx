@@ -18,6 +18,7 @@ export function CompareTool({
         {t('raw.compare.note')}
       </p>
       <Button
+        type="button"
         variant="light"
         size="sm"
         disabled={disabled}

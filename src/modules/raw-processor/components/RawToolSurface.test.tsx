@@ -367,15 +367,22 @@ describe('rawToolSurface', () => {
 
   it('uses Raw Lab-specific reset controls for tone and compare', async () => {
     const user = userEvent.setup()
-    render(<RawToolSurface {...baseProps} hasImage />)
+    const onCompareReset = vi.fn()
+    render(
+      <RawToolSurface
+        {...baseProps}
+        hasImage
+        onCompareReset={onCompareReset}
+      />,
+    )
 
     expect(
       screen.getByRole('button', { name: 'Reset tone' }),
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Compare' }))
-    expect(
-      screen.getByRole('button', { name: 'Reset compare view' }),
-    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Reset compare view' }))
+
+    expect(onCompareReset).toHaveBeenCalledTimes(1)
   })
 
   it('selects a strength level', async () => {
