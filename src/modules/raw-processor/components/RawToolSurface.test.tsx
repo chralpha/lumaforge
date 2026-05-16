@@ -401,6 +401,25 @@ describe('rawToolSurface', () => {
     expect(onChange).toHaveBeenCalledWith('strong')
   })
 
+  it('selects the next strength level with keyboard arrows', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(
+      <RawToolSurface {...baseProps} hasImage onIntensitySelect={onChange} />,
+    )
+
+    const strength = screen.getByRole('tablist', { name: 'Strength' })
+    const standard = within(strength).getByRole('tab', { name: 'Standard' })
+
+    expect(standard).toHaveAttribute('tabIndex', '0')
+
+    standard.focus()
+    await user.keyboard('{ArrowRight}')
+
+    expect(onChange).toHaveBeenCalledWith('strong')
+    expect(within(strength).getByRole('tab', { name: 'Strong' })).toHaveFocus()
+  })
+
   it('updates selected strength from props without remounting the tablist', () => {
     const { rerender } = render(<RawToolSurface {...baseProps} hasImage />)
 
@@ -462,6 +481,20 @@ describe('rawToolSurface', () => {
     expect(strong).toHaveAttribute('aria-disabled', 'true')
 
     await user.click(strong)
+
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('does not select disabled strength tabs from keyboard input', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(<RawToolSurface {...baseProps} onIntensitySelect={onChange} />)
+
+    const strength = screen.getByRole('tablist', { name: 'Strength' })
+    const standard = within(strength).getByRole('tab', { name: 'Standard' })
+
+    standard.focus()
+    await user.keyboard('{ArrowRight}')
 
     expect(onChange).not.toHaveBeenCalled()
   })

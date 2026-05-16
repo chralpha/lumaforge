@@ -1,5 +1,5 @@
 import { m } from 'motion/react'
-import type { HTMLAttributes, ReactNode } from 'react'
+import type { HTMLAttributes, KeyboardEvent, ReactNode } from 'react'
 import { use, useId, useMemo, useState } from 'react'
 
 import { cn } from '~/lib/cn'
@@ -58,7 +58,7 @@ export const SegmentGroup = (props: ComponentType<SegmentGroupProps>) => {
           'bg-fill-tertiary text-text-secondary inline-flex h-9 items-center justify-center rounded-lg p-1 outline-none',
           className,
         )}
-        tabIndex={tabIndex ?? 0}
+        tabIndex={tabIndex}
         data-orientation="horizontal"
       >
         {children}
@@ -82,6 +82,61 @@ export const SegmentItem: Component<{
   const isActive = ctxValue === value
   const isDisabled = disabled || groupDisabled
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (isDisabled || groupDisabled) {
+      return
+    }
+
+    const navigationKeys = [
+      'ArrowRight',
+      'ArrowDown',
+      'ArrowLeft',
+      'ArrowUp',
+      'Home',
+      'End',
+    ]
+    if (!navigationKeys.includes(event.key)) {
+      return
+    }
+
+    const tablist = event.currentTarget.closest('[role="tablist"]')
+    if (!tablist) {
+      return
+    }
+
+    const tabs = Array.from(
+      tablist.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+    ).filter(
+      (tab) => !tab.disabled && tab.getAttribute('aria-disabled') !== 'true',
+    )
+    const currentIndex = tabs.indexOf(event.currentTarget)
+    if (currentIndex === -1 || tabs.length === 0) {
+      return
+    }
+
+    event.preventDefault()
+
+    let nextIndex = currentIndex
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      nextIndex = (currentIndex + 1) % tabs.length
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      nextIndex = (currentIndex - 1 + tabs.length) % tabs.length
+    } else if (event.key === 'Home') {
+      nextIndex = 0
+    } else if (event.key === 'End') {
+      nextIndex = tabs.length - 1
+    }
+
+    const nextTab = tabs[nextIndex]
+    const nextValue = nextTab?.dataset.value
+    if (!nextTab || !nextValue) {
+      return
+    }
+
+    nextTab.focus()
+    setValue(nextValue)
+  }
+
   return (
     <button
       type="button"
@@ -91,11 +146,13 @@ export const SegmentItem: Component<{
         'focus-visible:ring-accent/30 h-full rounded-md',
         className,
       )}
-      tabIndex={-1}
+      tabIndex={isActive && !isDisabled ? 0 : -1}
       data-orientation="horizontal"
+      data-value={value}
       aria-disabled={isDisabled || undefined}
       aria-selected={isActive}
       disabled={isDisabled}
+      onKeyDown={handleKeyDown}
       onClick={() => {
         if (isDisabled) {
           return
