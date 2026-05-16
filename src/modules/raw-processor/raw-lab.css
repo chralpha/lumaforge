@@ -276,8 +276,8 @@
 }
 
 .raw-tool-section {
-  padding-block: 14px;
-  border-bottom: 1px solid oklch(0.74 0.035 78 / 0.62);
+  padding-block: 0;
+  border-bottom: 0;
 }
 
 .raw-tool-section:first-child {
