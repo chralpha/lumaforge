@@ -319,6 +319,11 @@ describe('rawToolSurface', () => {
     expect(within(tone).getByText('Blacks')).toBeInTheDocument()
 
     const exposure = within(tone).getByRole('slider', { name: 'Exposure' })
+    const exposureLabelledBy = exposure.getAttribute('aria-labelledby')
+    expect(exposureLabelledBy).toBeTruthy()
+    expect(
+      exposure.ownerDocument.getElementById(exposureLabelledBy!),
+    ).toHaveTextContent('Exposure')
     exposure.focus()
     await user.keyboard('{ArrowRight}')
     expect(onToneChange).toHaveBeenLastCalledWith({ userExposureEv: 0.01 })

@@ -6,10 +6,14 @@ import { clsxm } from '~/lib/cn'
 export const Slider = ({
   ref,
   className,
+  thumbAriaLabel,
+  thumbAriaLabelledBy,
   variant = 'primary',
   ...props
 }: React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root> & {
   variant?: 'primary' | 'secondary'
+  thumbAriaLabel?: string
+  thumbAriaLabelledBy?: string
 } & {
   ref?: React.Ref<
     | (React.ElementRef<typeof SliderPrimitive.Root> & {
@@ -40,6 +44,8 @@ export const Slider = ({
       />
     </SliderPrimitive.Track>
     <SliderPrimitive.Thumb
+      aria-label={thumbAriaLabel}
+      aria-labelledby={thumbAriaLabelledBy}
       className={clsxm(
         'block size-4 rounded-full border shadow transition-colors focus-visible:outline-none focus-visible:ring-1 disabled:pointer-events-none disabled:opacity-50',
         variant === 'primary'

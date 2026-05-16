@@ -1,5 +1,5 @@
 import { RotateCcw } from 'lucide-react'
-import { useLayoutEffect, useRef } from 'react'
+import { useId } from 'react'
 import { z } from 'zod'
 
 import { Button } from '~/components/ui/button'
@@ -89,6 +89,7 @@ const FINE_FIELDS = FIELDS.filter((field) => field.group === 'fine')
 
 function ToneSlider({
   label,
+  labelId,
   value,
   min,
   max,
@@ -97,6 +98,7 @@ function ToneSlider({
   onChange,
 }: {
   label: string
+  labelId: string
   value: number
   min: number
   max: number
@@ -104,18 +106,10 @@ function ToneSlider({
   disabled: boolean
   onChange: (value: number) => void
 }) {
-  const rootRef = useRef<HTMLSpanElement | null>(null)
-
-  useLayoutEffect(() => {
-    rootRef.current
-      ?.querySelector<HTMLElement>('[role="slider"]')
-      ?.setAttribute('aria-label', label)
-  }, [label])
-
   return (
     <Slider
-      ref={rootRef}
       aria-label={label}
+      thumbAriaLabelledBy={labelId}
       value={[value]}
       min={min}
       max={max}
@@ -123,6 +117,47 @@ function ToneSlider({
       disabled={disabled}
       onValueChange={([v]) => onChange(v)}
     />
+  )
+}
+
+function ToneField({
+  field,
+  label,
+  value,
+  disabled,
+  onChange,
+  formatValue,
+}: {
+  field: (typeof FIELDS)[number]
+  label: string
+  value: ToneValue
+  disabled: boolean
+  onChange: (value: Partial<ToneValue>) => void
+  formatValue: (key: keyof ToneValue, val: number) => string
+}) {
+  const labelId = useId()
+
+  return (
+    <div className="grid gap-2">
+      <div className="flex items-center justify-between text-callout">
+        <label id={labelId} className="font-medium text-text">
+          {label}
+        </label>
+        <output aria-hidden="true" className="tabular-nums text-text-secondary">
+          {formatValue(field.key, value[field.key])}
+        </output>
+      </div>
+      <ToneSlider
+        label={label}
+        labelId={labelId}
+        value={value[field.key]}
+        min={field.min}
+        max={field.max}
+        step={field.step}
+        disabled={disabled}
+        onChange={(v) => onChange({ [field.key]: v })}
+      />
+    </div>
   )
 }
 
@@ -154,26 +189,15 @@ export function ToneTool({
     const label = t(field.labelKey)
 
     return (
-      <div key={field.key} className="grid gap-2">
-        <div className="flex items-center justify-between text-callout">
-          <label className="font-medium text-text">{label}</label>
-          <output
-            aria-hidden="true"
-            className="tabular-nums text-text-secondary"
-          >
-            {formatValue(field.key, value[field.key])}
-          </output>
-        </div>
-        <ToneSlider
-          label={label}
-          value={value[field.key]}
-          min={field.min}
-          max={field.max}
-          step={field.step}
-          disabled={disabled}
-          onChange={(v) => onChange({ [field.key]: v })}
-        />
-      </div>
+      <ToneField
+        key={field.key}
+        field={field}
+        label={label}
+        value={value}
+        disabled={disabled}
+        onChange={onChange}
+        formatValue={formatValue}
+      />
     )
   }
 
