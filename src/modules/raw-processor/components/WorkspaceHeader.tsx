@@ -2,6 +2,7 @@ import { useAtomValue } from 'jotai'
 import { FolderOpen, MoreHorizontal, RotateCcw } from 'lucide-react'
 
 import { LocaleToggle } from '~/components/common/LocaleToggle'
+import { Button } from '~/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,31 +48,34 @@ export function WorkspaceHeader({
   const exportDisabledReason = localizeRawReason(rawExportDisabledReason, t)
 
   return (
-    <header className="raw-lab-topbar" role="banner">
+    <header
+      className="flex min-w-0 items-center justify-between gap-4 border-b border-border bg-material-opaque px-3 py-3 sm:px-4"
+      role="banner"
+    >
       <div className="min-w-0">
-        <div className="raw-lab-title-row flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <img
-            className="raw-lab-mark"
+            className="size-7 shrink-0 rounded-[5px] object-cover"
             src={appIcon}
             alt=""
             aria-hidden="true"
           />
-          <h1 className="raw-lab-title truncate text-base font-semibold text-[oklch(0.18_0.018_76)]">
+          <h1 className="truncate text-base font-semibold text-text">
             {hasImage ? fileName : t('raw.header.title')}
           </h1>
           {hasImage && (
-            <span className="raw-lab-support-badge">
+            <span className="inline-flex max-[640px]:hidden">
               <SupportBadge level={supportLevel} />
             </span>
           )}
         </div>
-        <p className="raw-lab-status mt-1 truncate text-xs text-[oklch(0.38_0.032_75)]">
+        <p className="mt-1 truncate text-xs text-text-secondary">
           {hasImage
             ? t('raw.header.subtitleLoaded')
             : t('raw.header.subtitleEmpty')}
         </p>
         {exportDisabledReason && (
-          <p className="raw-lab-unavailable mt-1 truncate text-xs text-[oklch(0.38_0.032_75)]">
+          <p className="mt-1 truncate text-xs text-text-secondary max-[640px]:hidden">
             {t('raw.header.unavailablePrefix', {
               reason: exportDisabledReason,
             })}
@@ -79,57 +83,65 @@ export function WorkspaceHeader({
         )}
       </div>
 
-      <div className="raw-lab-topbar-actions">
-        <LocaleToggle className="raw-lab-topbar-button raw-lab-locale-toggle" />
-        <button
+      <div className="flex shrink-0 items-center gap-2">
+        <LocaleToggle className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-text transition-colors hover:bg-fill-secondary max-[640px]:hidden" />
+        <Button
+          variant="secondary"
+          size="sm"
           type="button"
           onClick={onReplaceFile}
           disabled={isExporting}
-          className="raw-lab-topbar-button raw-lab-topbar-button-replace"
+          className="max-[640px]:hidden"
         >
           {hasImage ? t('raw.header.replace') : t('raw.header.chooseRaw')}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
           type="button"
           onClick={onResetSession}
           disabled={!hasImage || isExporting}
-          className="raw-lab-topbar-button raw-lab-topbar-button-reset"
+          className="max-[640px]:hidden"
         >
           {t('raw.header.reset')}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
           type="button"
           onClick={onOpenExport}
           disabled={!canExport}
-          className="raw-lab-topbar-button raw-lab-topbar-button-primary"
+          className="max-[640px]:hidden"
         >
           {t('raw.header.fullRes')}
-        </button>
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               type="button"
-              className="raw-lab-topbar-button raw-lab-topbar-more"
+              className="hidden gap-1.5 max-[640px]:inline-flex"
             >
-              <MoreHorizontal aria-hidden="true" />
+              <MoreHorizontal aria-hidden="true" className="size-4" />
               {t('raw.header.more')}
-            </button>
+            </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="raw-lab-more-menu">
+          <DropdownMenuContent align="end">
             <DropdownMenuItem
-              className="raw-lab-more-menu-item"
+              className="gap-2"
               disabled={isExporting}
               onSelect={onReplaceFile}
             >
-              <FolderOpen aria-hidden="true" />
+              <FolderOpen aria-hidden="true" className="size-[15px]" />
               {hasImage ? t('raw.header.replace') : t('raw.header.chooseRaw')}
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="raw-lab-more-menu-item"
+              className="gap-2"
               disabled={!hasImage || isExporting}
               onSelect={onResetSession}
             >
-              <RotateCcw aria-hidden="true" />
+              <RotateCcw aria-hidden="true" className="size-[15px]" />
               {t('raw.header.reset')}
             </DropdownMenuItem>
           </DropdownMenuContent>
