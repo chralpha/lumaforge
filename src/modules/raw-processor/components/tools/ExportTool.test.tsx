@@ -114,7 +114,10 @@ describe('exportTool', () => {
     )
 
     expect(screen.getByText('JPEG ready')).toBeInTheDocument()
-    expect(screen.getByText('frame_neutral_fullres.jpg')).toBeInTheDocument()
+    const filename = screen.getByText('frame_neutral_fullres.jpg')
+    expect(filename).toBeInTheDocument()
+    expect(filename).toHaveAttribute('title', 'frame_neutral_fullres.jpg')
+    expect(filename).toHaveClass('min-w-0', 'truncate')
     expect(screen.getByText('6048 x 4024')).toBeInTheDocument()
     expect(screen.getByText('4 B')).toBeInTheDocument()
     expect(

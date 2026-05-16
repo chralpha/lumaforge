@@ -80,12 +80,15 @@ export function ExportTool({
     : t('raw.export.copy')
 
   const innerContent = (
-    <div className="grid gap-3">
+    <div className="grid min-w-0 gap-3">
       {exportResult ? (
-        <div className="grid gap-3">
-          <div className="grid gap-1 text-callout text-text-secondary">
+        <div className="grid min-w-0 gap-3">
+          <div className="grid min-w-0 gap-1 text-callout text-text-secondary">
             <span>{t('raw.export.ready')}</span>
-            <strong className="text-body text-text">
+            <strong
+              className="min-w-0 truncate text-body text-text"
+              title={exportResult.filename}
+            >
               {exportResult.filename}
             </strong>
           </div>
