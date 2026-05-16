@@ -5,6 +5,10 @@ const LEVELS = ['off', 'light', 'standard', 'strong'] as const
 
 export type StrengthLevel = (typeof LEVELS)[number]
 
+function isStrengthLevel(value: string): value is StrengthLevel {
+  return (LEVELS as readonly string[]).includes(value)
+}
+
 export function StrengthControl({
   value,
   onChange,
@@ -23,15 +27,18 @@ export function StrengthControl({
   }
 
   return (
-    <div
-      aria-disabled={disabled}
-      className={disabled ? 'pointer-events-none opacity-50' : ''}
-    >
+    <div aria-disabled={disabled} className={disabled ? 'opacity-50' : ''}>
       <SegmentGroup
         // SegmentGroup is internally uncontrolled; the key re-seeds it after external resets.
         key={value}
         value={value}
-        onValueChanged={(value) => onChange(value as StrengthLevel)}
+        onValueChanged={(value) => {
+          if (isStrengthLevel(value)) {
+            onChange(value)
+          }
+        }}
+        aria-label={t('raw.strength.title')}
+        disabled={disabled}
         className="w-full"
       >
         {LEVELS.map((level) => (

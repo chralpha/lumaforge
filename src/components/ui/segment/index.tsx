@@ -1,46 +1,67 @@
 import { m } from 'motion/react'
-import type { ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode } from 'react'
 import { use, useId, useMemo, useState } from 'react'
 
 import { cn } from '~/lib/cn'
 import { Spring } from '~/lib/spring'
 
+import type { SegmentGroupContextValue } from './ctx'
 import { SegmentGroupContext } from './ctx'
 
-interface SegmentGroupProps {
+type SegmentGroupContextValueWithDisabled = SegmentGroupContextValue & {
+  disabled: boolean
+}
+
+interface SegmentGroupProps extends Omit<
+  HTMLAttributes<HTMLDivElement>,
+  'onChange'
+> {
   value?: string
   onValueChanged?: (value: string) => void
+  disabled?: boolean
 }
 export const SegmentGroup = (props: ComponentType<SegmentGroupProps>) => {
-  const { onValueChanged, value, className } = props
+  const {
+    children,
+    className,
+    disabled = false,
+    onValueChanged,
+    tabIndex,
+    value,
+    ...divProps
+  } = props
 
   const [currentValue, setCurrentValue] = useState(value || '')
   const componentId = useId()
 
   return (
     <SegmentGroupContext.Provider
-      value={useMemo(
-        () => ({
-          value: currentValue,
-          setValue: (value) => {
-            setCurrentValue(value)
-            onValueChanged?.(value)
-          },
-          componentId,
-        }),
-        [componentId, currentValue, onValueChanged],
-      )}
+      value={
+        useMemo(
+          () => ({
+            value: currentValue,
+            setValue: (value) => {
+              setCurrentValue(value)
+              onValueChanged?.(value)
+            },
+            componentId,
+            disabled,
+          }),
+          [componentId, currentValue, disabled, onValueChanged],
+        ) satisfies SegmentGroupContextValueWithDisabled
+      }
     >
       <div
+        {...divProps}
         role="tablist"
         className={cn(
           'bg-fill-tertiary text-text-secondary inline-flex h-9 items-center justify-center rounded-lg p-1 outline-none',
           className,
         )}
-        tabIndex={0}
+        tabIndex={tabIndex ?? 0}
         data-orientation="horizontal"
       >
-        {props.children}
+        {children}
       </div>
     </SegmentGroupContext.Provider>
   )
@@ -49,12 +70,19 @@ export const SegmentGroup = (props: ComponentType<SegmentGroupProps>) => {
 export const SegmentItem: Component<{
   value: string
   label: ReactNode
-}> = ({ label, value, className }) => {
+  disabled?: boolean
+}> = ({ label, value, className, disabled = false }) => {
   const ctx = use(SegmentGroupContext)
 
-  const { value: ctxValue, setValue, componentId: layoutId } = ctx
+  const {
+    value: ctxValue,
+    setValue,
+    componentId: layoutId,
+    disabled: groupDisabled = false,
+  } = ctx as SegmentGroupContextValueWithDisabled
 
   const isActive = ctxValue === value
+  const isDisabled = disabled || groupDisabled
 
   return (
     <button
@@ -67,7 +95,13 @@ export const SegmentItem: Component<{
       )}
       tabIndex={-1}
       data-orientation="horizontal"
+      aria-disabled={isDisabled || undefined}
+      aria-selected={isActive}
+      disabled={isDisabled}
       onClick={() => {
+        if (isDisabled) {
+          return
+        }
         setValue(value)
       }}
       data-state={isActive ? 'active' : 'inactive'}

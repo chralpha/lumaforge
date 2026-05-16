@@ -387,12 +387,34 @@ describe('rawToolSurface', () => {
 
     expect(screen.getByRole('tab', { name: 'Off' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Light' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Standard' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('tablist', { name: 'Strength' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Standard' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
     expect(screen.getByRole('tab', { name: 'Strong' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'Strong' }))
 
     expect(onChange).toHaveBeenCalledWith('strong')
+  })
+
+  it('disables strength tabs before upload', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(<RawToolSurface {...baseProps} onIntensitySelect={onChange} />)
+
+    const strength = screen.getByRole('tablist', { name: 'Strength' })
+    const strong = within(strength).getByRole('tab', { name: 'Strong' })
+
+    expect(strong).toBeDisabled()
+    expect(strong).toHaveAttribute('aria-disabled', 'true')
+
+    await user.click(strong)
+
+    expect(onChange).not.toHaveBeenCalled()
   })
 
   it('shows preserved tone state for non-neutral tone', () => {
