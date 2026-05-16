@@ -175,7 +175,7 @@ export function Dropzone({
           className={clsxm(
             'absolute inset-0 flex items-center justify-center',
             variant === 'stage'
-              ? 'rounded-lg bg-[oklch(0.59_0.15_153_/_0.18)]'
+              ? 'rounded-lg bg-accent/20'
               : 'rounded-xl bg-accent/20',
           )}
           initial={{ opacity: 0 }}
@@ -194,14 +194,14 @@ export function Dropzone({
     'relative transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
     clickToOpen ? 'cursor-pointer' : 'cursor-default',
     variant === 'stage'
-      ? 'rounded-lg border border-[oklch(0.96_0.012_86_/_0.36)]'
+      ? 'rounded-lg border border-[var(--color-stage-hairline)]'
       : 'rounded-xl border-2 border-dashed',
     isDragOver
       ? variant === 'stage'
-        ? 'border-[oklch(0.59_0.15_153)] bg-[oklch(0.59_0.15_153_/_0.16)]'
+        ? 'border-accent bg-accent/20'
         : 'border-accent bg-accent/10'
       : variant === 'stage'
-        ? clickToOpen && 'hover:border-[oklch(0.59_0.15_153_/_0.72)]'
+        ? clickToOpen && 'hover:border-accent/70'
         : 'border-border hover:border-accent/50 hover:bg-fill/50',
     disabled && 'opacity-50 cursor-not-allowed',
     className,

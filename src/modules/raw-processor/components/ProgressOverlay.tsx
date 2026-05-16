@@ -68,7 +68,7 @@ export function ProgressOverlay({
       {visible && (
         <m.div
           className={clsxm(
-            'absolute inset-0 z-50 flex items-center justify-center bg-[oklch(0.14_0.018_76_/_0.82)]',
+            'absolute inset-0 z-50 flex items-center justify-center bg-[var(--color-stage-scrim)]',
             className,
           )}
           initial={{ opacity: 0 }}
@@ -77,7 +77,7 @@ export function ProgressOverlay({
           transition={Spring.presets.smooth}
         >
           <m.div
-            className="flex flex-col items-center gap-4 rounded-lg border border-[oklch(0.97_0.014_86_/_0.16)] bg-[oklch(0.16_0.018_76_/_0.78)] px-7 py-6 shadow-[0_24px_80px_oklch(0.1_0.02_76_/_0.32)]"
+            className="flex flex-col items-center gap-4 rounded-lg border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-7 py-6 shadow-lg"
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
@@ -96,7 +96,7 @@ export function ProgressOverlay({
                   cx="32"
                   cy="32"
                   r="28"
-                  stroke="oklch(0.97 0.014 86 / 0.2)"
+                  stroke="var(--color-progress-track)"
                   strokeWidth="5"
                 />
                 <circle
@@ -104,7 +104,7 @@ export function ProgressOverlay({
                   cx="32"
                   cy="32"
                   r="28"
-                  stroke="oklch(0.78 0.16 63)"
+                  stroke="var(--color-progress)"
                   strokeWidth="5"
                   strokeLinecap="round"
                   strokeDasharray="100"
@@ -114,7 +114,7 @@ export function ProgressOverlay({
               </svg>
 
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xs font-semibold tabular-nums text-[oklch(0.97_0.014_86)]">
+                <span className="text-xs font-semibold tabular-nums text-[var(--color-on-stage)]">
                   {normalizedProgress === null
                     ? '...'
                     : `${Math.round(normalizedProgress)}%`}
@@ -123,18 +123,18 @@ export function ProgressOverlay({
             </div>
 
             <div className="text-center">
-              <p className="text-sm font-medium text-[oklch(0.97_0.014_86)]">
+              <p className="text-sm font-medium text-[var(--color-on-stage)]">
                 {message || phaseLabels[phase]}
               </p>
 
               {recoveryHint && (
-                <p className="mt-2 max-w-xs text-center text-xs text-[oklch(0.91_0.02_86_/_0.82)]">
+                <p className="mt-2 max-w-xs text-center text-xs text-[var(--color-on-stage-soft)]">
                   {recoveryHint}
                 </p>
               )}
 
               {stripProgress && (
-                <p className="mt-2 text-xs tabular-nums text-[oklch(0.91_0.02_86_/_0.82)]">
+                <p className="mt-2 text-xs tabular-nums text-[var(--color-on-stage-soft)]">
                   {t('raw.progress.strip', {
                     completed: stripProgress.completedStrips,
                     total: stripProgress.totalStrips,
@@ -143,15 +143,15 @@ export function ProgressOverlay({
               )}
 
               {exportProfileCopy && (
-                <p className="mt-2 text-xs tabular-nums text-[oklch(0.91_0.02_86_/_0.82)]">
+                <p className="mt-2 text-xs tabular-nums text-[var(--color-on-stage-soft)]">
                   {exportProfileCopy}
                 </p>
               )}
 
               {normalizedProgress !== null && (
-                <div className="mt-3 h-1.5 w-48 overflow-hidden rounded-full bg-[oklch(0.97_0.014_86_/_0.18)]">
+                <div className="mt-3 h-1.5 w-48 overflow-hidden rounded-full bg-[var(--color-progress-track)]">
                   <m.div
-                    className="h-full rounded-full bg-[oklch(0.78_0.16_63)]"
+                    className="h-full rounded-full bg-[var(--color-progress)]"
                     initial={{ width: 0 }}
                     animate={{ width: `${normalizedProgress}%` }}
                     transition={{ duration: 0.3, ease: 'easeOut' }}
@@ -187,7 +187,7 @@ export function ErrorOverlay({
       {visible && (
         <m.div
           className={clsxm(
-            'absolute inset-0 z-50 flex items-center justify-center bg-[oklch(0.18_0.02_76_/_0.78)]',
+            'absolute inset-0 z-50 flex items-center justify-center bg-[var(--color-stage-scrim)]',
             className,
           )}
           initial={{ opacity: 0 }}

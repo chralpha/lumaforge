@@ -716,8 +716,8 @@ export function PreviewCanvas({
           transition={Spring.presets.smooth}
         >
           <div className="flex flex-col items-center gap-4 text-center p-8">
-            <div className="size-16 rounded-full bg-[oklch(0.78_0.16_63_/_0.14)] flex items-center justify-center">
-              <i className="i-mingcute-warning-line text-3xl text-[oklch(0.78_0.16_63)]" />
+            <div className="size-16 rounded-full bg-[var(--color-progress)]/15 flex items-center justify-center">
+              <i className="i-mingcute-warning-line text-3xl text-[var(--color-progress)]" />
             </div>
             <div>
               <h3 className="text-lg font-medium text-text">

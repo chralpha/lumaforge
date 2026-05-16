@@ -1087,8 +1087,10 @@ describe('rawToolSurface', () => {
       expect(indicator).not.toHaveClass('animate-spin')
       expect(arc).toHaveAttribute('stroke-dasharray', '100')
       expect(arc).toHaveAttribute('stroke-dashoffset', '50')
-      expect(arc).toHaveAttribute('stroke', 'oklch(0.78 0.16 63)')
-      expect(screen.getByText('50%')).toHaveClass('text-[oklch(0.97_0.014_86)]')
+      expect(arc).toHaveAttribute('stroke', 'var(--color-progress)')
+      expect(screen.getByText('50%')).toHaveClass(
+        'text-[var(--color-on-stage)]',
+      )
     })
 
     it('keeps compare labels when an image is loaded', async () => {
