@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { Button } from '~/components/ui/button'
 import { Slider } from '~/components/ui/slider'
+import type { Translate } from '~/lib/i18n'
 import { useI18n } from '~/lib/i18n'
 
 export const ToneValueSchema = z.object({
@@ -28,7 +29,7 @@ const TONE_DEFAULTS: ToneValue = {
 
 const FIELDS: {
   key: keyof ToneValue
-  labelKey: string
+  labelKey: Parameters<Translate>[0]
   min: number
   max: number
   step: number
@@ -88,7 +89,6 @@ const BASIC_FIELDS = FIELDS.filter((field) => field.group === 'basic')
 const FINE_FIELDS = FIELDS.filter((field) => field.group === 'fine')
 
 function ToneSlider({
-  label,
   labelId,
   value,
   min,
@@ -97,7 +97,6 @@ function ToneSlider({
   disabled,
   onChange,
 }: {
-  label: string
   labelId: string
   value: number
   min: number
@@ -108,7 +107,6 @@ function ToneSlider({
 }) {
   return (
     <Slider
-      aria-label={label}
       thumbAriaLabelledBy={labelId}
       value={[value]}
       min={min}
@@ -148,7 +146,6 @@ function ToneField({
         </output>
       </div>
       <ToneSlider
-        label={label}
         labelId={labelId}
         value={value[field.key]}
         min={field.min}
