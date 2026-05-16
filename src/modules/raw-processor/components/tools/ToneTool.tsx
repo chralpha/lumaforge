@@ -84,6 +84,9 @@ const FIELDS: {
   },
 ]
 
+const BASIC_FIELDS = FIELDS.filter((field) => field.group === 'basic')
+const FINE_FIELDS = FIELDS.filter((field) => field.group === 'fine')
+
 function ToneSlider({
   label,
   value,
@@ -147,39 +150,37 @@ export function ToneTool({
   const formatValue = (key: keyof ToneValue, val: number) =>
     key === 'userExposureEv' ? `${val.toFixed(2)} EV` : `${Math.round(val)}`
 
+  const renderField = (field: (typeof FIELDS)[number]) => {
+    const label = t(field.labelKey)
+
+    return (
+      <div key={field.key} className="grid gap-2">
+        <div className="flex items-center justify-between text-callout">
+          <label className="font-medium text-text">{label}</label>
+          <output
+            aria-hidden="true"
+            className="tabular-nums text-text-secondary"
+          >
+            {formatValue(field.key, value[field.key])}
+          </output>
+        </div>
+        <ToneSlider
+          label={label}
+          value={value[field.key]}
+          min={field.min}
+          max={field.max}
+          step={field.step}
+          disabled={disabled}
+          onChange={(v) => onChange({ [field.key]: v })}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="grid gap-3">
-      {FIELDS.map((field) => {
-        const label = t(field.labelKey)
-
-        return (
-          <div
-            key={field.key}
-            className={
-              field.group === 'fine' ? 'grid gap-2 pt-1' : 'grid gap-2'
-            }
-          >
-            <div className="flex items-center justify-between text-callout">
-              <label className="font-medium text-text">{label}</label>
-              <output
-                aria-hidden="true"
-                className="tabular-nums text-text-secondary"
-              >
-                {formatValue(field.key, value[field.key])}
-              </output>
-            </div>
-            <ToneSlider
-              label={label}
-              value={value[field.key]}
-              min={field.min}
-              max={field.max}
-              step={field.step}
-              disabled={disabled}
-              onChange={(v) => onChange({ [field.key]: v })}
-            />
-          </div>
-        )
-      })}
+      <div className="grid gap-3">{BASIC_FIELDS.map(renderField)}</div>
+      <div className="mt-4 grid gap-3">{FINE_FIELDS.map(renderField)}</div>
       <p className="text-callout text-text-secondary">{t('raw.tone.note')}</p>
       {!isNeutral && (
         <p className="text-callout text-text-secondary">
