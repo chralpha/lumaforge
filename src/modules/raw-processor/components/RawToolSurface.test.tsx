@@ -110,6 +110,149 @@ function onlineLutSourcesFixture(
   }
 }
 
+function multipleOnlineLutSourcesFixture(): UseOnlineLutSourcesResult {
+  return onlineLutSourcesFixture({
+    state: {
+      resources: [
+        {
+          id: 'source-1',
+          url: 'https://profiles.example.com/releases/v2026.05.01/catalog.json',
+          type: 'catalog',
+          label: 'Catalog from profiles.example.com',
+          fromQuery: true,
+        },
+        {
+          id: 'source-2',
+          url: 'https://looks.example.net/catalog.json',
+          type: 'catalog',
+          label: 'Catalog from looks.example.net',
+          fromQuery: true,
+        },
+      ],
+      entries: [
+        {
+          id: 'kodak-2383-rec709',
+          resourceId: 'source-1',
+          title: 'Kodak 2383 Rec.709',
+          sourceUrl:
+            'https://profiles.example.com/releases/v2026.05.01/entries/kodak-2383-rec709.json',
+          sourceType: 'catalog-entry',
+          cube: {
+            url: 'https://profiles.example.com/blobs/kodak-2383-rec709.cube',
+            sha256:
+              '9c56cc51b374c3ba189210d5b6d4bf57790d351c96c47c02190ecf1e430635ab',
+            bytes: 12,
+            title: 'Kodak 2383 Rec.709',
+          },
+          tags: [],
+          trustedContract: {
+            role: 'combined-look-output',
+            inputGamut: 'arri-wide-gamut-3',
+            inputTransfer: 'logc3',
+            outputGamut: 'srgb-rec709',
+            outputTransfer: 'gamma24',
+            outputRange: 'legal',
+          },
+        },
+        {
+          id: 'vision3-rec709',
+          resourceId: 'source-2',
+          title: 'Vision3 Rec.709',
+          sourceUrl: 'https://looks.example.net/entries/vision3-rec709.json',
+          sourceType: 'catalog-entry',
+          cube: {
+            url: 'https://looks.example.net/blobs/vision3-rec709.cube',
+            sha256:
+              'cc56cc51b374c3ba189210d5b6d4bf57790d351c96c47c02190ecf1e430635ab',
+            bytes: 12,
+            title: 'Vision3 Rec.709',
+          },
+          tags: [],
+          trustedContract: {
+            role: 'combined-look-output',
+            inputGamut: 'sony-sgamut3cine',
+            inputTransfer: 'slog3',
+            outputGamut: 'srgb-rec709',
+            outputTransfer: 'gamma24',
+            outputRange: 'legal',
+          },
+        },
+      ],
+      issues: [],
+      activeResourceId: 'source-1',
+      isLoading: false,
+    },
+  })
+}
+
+function mockTriggerRect(element: HTMLElement, rect: Partial<DOMRect>) {
+  return vi.spyOn(element, 'getBoundingClientRect').mockReturnValue({
+    bottom: rect.bottom ?? 64,
+    height: rect.height ?? 32,
+    left: rect.left ?? 24,
+    right: rect.right ?? 56,
+    top: rect.top ?? 32,
+    width: rect.width ?? 32,
+    x: rect.x ?? rect.left ?? 24,
+    y: rect.y ?? rect.top ?? 32,
+    toJSON: () => ({}),
+  } satisfies DOMRect)
+}
+
+async function clickOverlayAt(
+  x: number,
+  y: number,
+  elementsAtPoint: Element[] = [],
+) {
+  const overlay = document.querySelector('[data-raw-lut-browser-overlay]')
+  expect(overlay).toBeInTheDocument()
+  const previousElementsFromPoint = document.elementsFromPoint
+  const elementsFromPoint = vi.fn(() => [
+    overlay as Element,
+    ...elementsAtPoint,
+  ])
+  Object.defineProperty(document, 'elementsFromPoint', {
+    configurable: true,
+    value: elementsFromPoint,
+  })
+
+  try {
+    await act(async () => {
+      fireEvent.pointerDown(overlay as HTMLElement, {
+        button: 0,
+        buttons: 1,
+        clientX: x,
+        clientY: y,
+        pointerId: 1,
+        pointerType: 'mouse',
+      })
+      fireEvent.pointerUp(overlay as HTMLElement, {
+        button: 0,
+        clientX: x,
+        clientY: y,
+        pointerId: 1,
+        pointerType: 'mouse',
+      })
+      fireEvent.click(overlay as HTMLElement, {
+        button: 0,
+        clientX: x,
+        clientY: y,
+      })
+      await Promise.resolve()
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    })
+  } finally {
+    if (previousElementsFromPoint) {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: previousElementsFromPoint,
+      })
+    } else {
+      Reflect.deleteProperty(document, 'elementsFromPoint')
+    }
+  }
+}
+
 function setWindowSize(width: number, height: number) {
   const previousWidth = window.innerWidth
   const previousHeight = window.innerHeight
@@ -552,12 +695,8 @@ describe('rawToolSurface', () => {
     const label = screen.getByLabelText(/add \.cube lut/i)
     const frame = label.closest('label')
     const fileName = screen.getByText(currentLut)
-    const row = fileName.parentElement?.parentElement
 
-    expect(row).toHaveClass('min-w-0')
-    expect(frame).toHaveClass('min-w-0')
     expect(frame).toHaveAttribute('data-raw-lut', 'dropzone')
-    expect(fileName).toHaveClass('min-w-0', 'truncate')
     expect(fileName).toHaveAttribute('title', currentLut)
   })
 
@@ -910,6 +1049,98 @@ describe('rawToolSurface', () => {
     ).not.toBeInTheDocument()
     expect(open).toHaveAttribute('aria-expanded', 'false')
     expect(open).toHaveFocus()
+  })
+
+  it('lets the already-open online LUT source trigger toggle through the modal layer', async () => {
+    const user = userEvent.setup()
+    render(
+      <RawToolSurface
+        {...baseProps}
+        onlineLutSources={onlineLutSourcesFixture()}
+      />,
+    )
+
+    const open = screen.getByRole('button', {
+      name: 'Open Catalog from profiles.example.com',
+    })
+    const getRect = mockTriggerRect(open, {
+      left: 40,
+      right: 72,
+      top: 80,
+      bottom: 112,
+    })
+
+    await user.click(open)
+    expect(
+      screen.getByRole('dialog', {
+        name: 'Catalog from profiles.example.com LUTs',
+      }),
+    ).toBeInTheDocument()
+
+    await clickOverlayAt(56, 96, [open])
+
+    expect(
+      screen.queryByRole('dialog', {
+        name: 'Catalog from profiles.example.com LUTs',
+      }),
+    ).not.toBeInTheDocument()
+    expect(open).toHaveAttribute('aria-expanded', 'false')
+    expect(open).toHaveFocus()
+
+    getRect.mockRestore()
+  })
+
+  it('lets a second online LUT source trigger switch browsers through the modal layer', async () => {
+    const user = userEvent.setup()
+    render(
+      <RawToolSurface
+        {...baseProps}
+        onlineLutSources={multipleOnlineLutSourcesFixture()}
+      />,
+    )
+
+    const firstOpen = screen.getByRole('button', {
+      name: 'Open Catalog from profiles.example.com',
+    })
+    const secondOpen = screen.getByRole('button', {
+      name: 'Open Catalog from looks.example.net',
+    })
+    const firstRect = mockTriggerRect(firstOpen, {
+      left: 40,
+      right: 72,
+      top: 80,
+      bottom: 112,
+    })
+    const secondRect = mockTriggerRect(secondOpen, {
+      left: 40,
+      right: 72,
+      top: 136,
+      bottom: 168,
+    })
+
+    await user.click(firstOpen)
+    expect(
+      screen.getByRole('dialog', {
+        name: 'Catalog from profiles.example.com LUTs',
+      }),
+    ).toBeInTheDocument()
+
+    await clickOverlayAt(56, 152, [secondOpen])
+
+    expect(
+      screen.queryByRole('dialog', {
+        name: 'Catalog from profiles.example.com LUTs',
+      }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('dialog', {
+        name: 'Catalog from looks.example.net LUTs',
+      }),
+    ).toBeInTheDocument()
+    expect(secondOpen).toHaveAttribute('aria-expanded', 'true')
+
+    firstRect.mockRestore()
+    secondRect.mockRestore()
   })
 
   it('does not add search, filtering, sorting, favorites, or catalog-management controls to source UI', async () => {

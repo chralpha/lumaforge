@@ -1,6 +1,7 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useRef } from 'react'
 
 import { Dialog, DialogDescription, DialogTitle } from '~/components/ui/dialog'
 import { clsxm } from '~/lib/cn'
@@ -25,6 +26,7 @@ export function LutBrowserDialog({
   closeLabel,
   restoreFocus,
   triggerElement,
+  passthroughElements,
   onOpenChange,
   children,
 }: {
@@ -40,12 +42,51 @@ export function LutBrowserDialog({
   closeLabel: string
   restoreFocus: () => void
   triggerElement?: HTMLElement | null
+  passthroughElements?: () => Iterable<HTMLElement | null | undefined>
   onOpenChange: (open: boolean) => void
   children: ReactNode
 }) {
   const portalContainer = useRawLabPortalContainer(open)
+  const skipNextOverlayClickRef = useRef(false)
+  const scheduledPassthroughRef = useRef<HTMLElement | null>(null)
 
   if (!open || !layout) return null
+
+  const getPassthroughTarget = ({
+    clientX,
+    clientY,
+  }: {
+    clientX: number
+    clientY: number
+  }) => {
+    const elementsAtPoint = document.elementsFromPoint?.(clientX, clientY)
+
+    for (const element of passthroughElements?.() ?? [triggerElement]) {
+      if (
+        !element ||
+        (element instanceof HTMLButtonElement && element.disabled) ||
+        element.ariaDisabled === 'true'
+      ) {
+        continue
+      }
+
+      if (elementsAtPoint?.includes(element)) {
+        return element
+      }
+
+      const rect = element.getBoundingClientRect()
+      if (
+        clientX >= rect.left &&
+        clientX <= rect.right &&
+        clientY >= rect.top &&
+        clientY <= rect.bottom
+      ) {
+        return element
+      }
+    }
+
+    return null
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -57,6 +98,54 @@ export function LutBrowserDialog({
           forceMount
           data-raw-lut-browser-overlay=""
           className="pointer-events-auto fixed inset-0 z-[59] bg-transparent"
+          onPointerDownCapture={(event) => {
+            const target = getPassthroughTarget(event)
+            if (!target) return
+
+            if (target === triggerElement) {
+              event.preventDefault()
+              event.stopPropagation()
+              skipNextOverlayClickRef.current = true
+              queueMicrotask(() => target.click())
+              return
+            }
+
+            scheduledPassthroughRef.current = target
+            window.setTimeout(() => {
+              if (scheduledPassthroughRef.current === target) {
+                scheduledPassthroughRef.current = null
+                target.click()
+              }
+            }, 0)
+          }}
+          onClickCapture={(event) => {
+            if (!skipNextOverlayClickRef.current) {
+              if (scheduledPassthroughRef.current) return
+
+              const target = getPassthroughTarget(event)
+              if (!target) return
+
+              if (target !== triggerElement) {
+                scheduledPassthroughRef.current = target
+                window.setTimeout(() => {
+                  if (scheduledPassthroughRef.current === target) {
+                    scheduledPassthroughRef.current = null
+                    target.click()
+                  }
+                }, 0)
+                return
+              }
+
+              event.preventDefault()
+              event.stopPropagation()
+              target.click()
+              return
+            }
+
+            event.preventDefault()
+            event.stopPropagation()
+            skipNextOverlayClickRef.current = false
+          }}
         />
         <DialogPrimitive.Content
           id={id}

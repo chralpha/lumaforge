@@ -223,34 +223,30 @@
 
 .raw-tool-surface,
 .raw-tool-stack,
-.raw-lut-browser-list,
-.raw-lut-source-browser-list,
-.raw-lut-contract-browser-list {
+[data-raw-lut='source-browser-list'],
+[data-raw-lut='contract-browser-list'] {
   scrollbar-color: var(--raw-scrollbar-thumb) transparent;
   scrollbar-width: thin;
 }
 
 .raw-tool-surface::-webkit-scrollbar,
 .raw-tool-stack::-webkit-scrollbar,
-.raw-lut-browser-list::-webkit-scrollbar,
-.raw-lut-source-browser-list::-webkit-scrollbar,
-.raw-lut-contract-browser-list::-webkit-scrollbar {
+[data-raw-lut='source-browser-list']::-webkit-scrollbar,
+[data-raw-lut='contract-browser-list']::-webkit-scrollbar {
   width: 10px;
 }
 
 .raw-tool-surface::-webkit-scrollbar-track,
 .raw-tool-stack::-webkit-scrollbar-track,
-.raw-lut-browser-list::-webkit-scrollbar-track,
-.raw-lut-source-browser-list::-webkit-scrollbar-track,
-.raw-lut-contract-browser-list::-webkit-scrollbar-track {
+[data-raw-lut='source-browser-list']::-webkit-scrollbar-track,
+[data-raw-lut='contract-browser-list']::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .raw-tool-surface::-webkit-scrollbar-thumb,
 .raw-tool-stack::-webkit-scrollbar-thumb,
-.raw-lut-browser-list::-webkit-scrollbar-thumb,
-.raw-lut-source-browser-list::-webkit-scrollbar-thumb,
-.raw-lut-contract-browser-list::-webkit-scrollbar-thumb {
+[data-raw-lut='source-browser-list']::-webkit-scrollbar-thumb,
+[data-raw-lut='contract-browser-list']::-webkit-scrollbar-thumb {
   min-height: 44px;
   border: 3px solid transparent;
   border-radius: 999px;
@@ -260,18 +256,16 @@
 
 .raw-tool-surface::-webkit-scrollbar-thumb:hover,
 .raw-tool-stack::-webkit-scrollbar-thumb:hover,
-.raw-lut-browser-list::-webkit-scrollbar-thumb:hover,
-.raw-lut-source-browser-list::-webkit-scrollbar-thumb:hover,
-.raw-lut-contract-browser-list::-webkit-scrollbar-thumb:hover {
+[data-raw-lut='source-browser-list']::-webkit-scrollbar-thumb:hover,
+[data-raw-lut='contract-browser-list']::-webkit-scrollbar-thumb:hover {
   background: var(--raw-scrollbar-thumb-hover);
   background-clip: content-box;
 }
 
 .raw-tool-surface::-webkit-scrollbar-corner,
 .raw-tool-stack::-webkit-scrollbar-corner,
-.raw-lut-browser-list::-webkit-scrollbar-corner,
-.raw-lut-source-browser-list::-webkit-scrollbar-corner,
-.raw-lut-contract-browser-list::-webkit-scrollbar-corner {
+[data-raw-lut='source-browser-list']::-webkit-scrollbar-corner,
+[data-raw-lut='contract-browser-list']::-webkit-scrollbar-corner {
   background: transparent;
 }
 

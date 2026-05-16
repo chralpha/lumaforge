@@ -182,6 +182,74 @@ function rawProcessorViewState(
   }
 }
 
+function mockTriggerRect(element: HTMLElement, rect: Partial<DOMRect>) {
+  return vi.spyOn(element, 'getBoundingClientRect').mockReturnValue({
+    bottom: rect.bottom ?? 64,
+    height: rect.height ?? 32,
+    left: rect.left ?? 24,
+    right: rect.right ?? 56,
+    top: rect.top ?? 32,
+    width: rect.width ?? 32,
+    x: rect.x ?? rect.left ?? 24,
+    y: rect.y ?? rect.top ?? 32,
+    toJSON: () => ({}),
+  } satisfies DOMRect)
+}
+
+async function clickOverlayAt(
+  x: number,
+  y: number,
+  elementsAtPoint: Element[] = [],
+) {
+  const overlay = document.querySelector('[data-raw-lut-browser-overlay]')
+  expect(overlay).toBeInTheDocument()
+  const previousElementsFromPoint = document.elementsFromPoint
+  const elementsFromPoint = vi.fn(() => [
+    overlay as Element,
+    ...elementsAtPoint,
+  ])
+  Object.defineProperty(document, 'elementsFromPoint', {
+    configurable: true,
+    value: elementsFromPoint,
+  })
+
+  try {
+    await act(async () => {
+      fireEvent.pointerDown(overlay as HTMLElement, {
+        button: 0,
+        buttons: 1,
+        clientX: x,
+        clientY: y,
+        pointerId: 1,
+        pointerType: 'mouse',
+      })
+      fireEvent.pointerUp(overlay as HTMLElement, {
+        button: 0,
+        clientX: x,
+        clientY: y,
+        pointerId: 1,
+        pointerType: 'mouse',
+      })
+      fireEvent.click(overlay as HTMLElement, {
+        button: 0,
+        clientX: x,
+        clientY: y,
+      })
+      await Promise.resolve()
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    })
+  } finally {
+    if (previousElementsFromPoint) {
+      Object.defineProperty(document, 'elementsFromPoint', {
+        configurable: true,
+        value: previousElementsFromPoint,
+      })
+    } else {
+      Reflect.deleteProperty(document, 'elementsFromPoint')
+    }
+  }
+}
+
 vi.mock('~/lib/gl/pipeline', async (importOriginal) => {
   const actual = await importOriginal<typeof import('~/lib/gl/pipeline')>()
 
@@ -492,6 +560,55 @@ describe('rawToolSurface', () => {
     ).not.toBeInTheDocument()
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
     expect(trigger).toHaveFocus()
+  })
+
+  it('lets the open LUT contract trigger toggle through the modal layer', async () => {
+    const user = userEvent.setup()
+    const profile = getLUTColorProfile('sony-sgamut3cine-slog3')!
+
+    render(
+      <RawToolSurface
+        {...rawToolSurfaceProps({
+          currentLutName: 'Sony Look.cube',
+          lutProfileSelection: {
+            status: 'resolved',
+            fingerprint: 'toggle-contract',
+            profileId: profile.id,
+            confidence: 'metadata',
+          },
+          lutProfileResolution: {
+            kind: 'resolved',
+            profile,
+            confidence: 'metadata',
+          },
+        })}
+      />,
+    )
+
+    const trigger = screen.getByRole('button', {
+      name: 'Change LUT contract',
+    })
+    const getRect = mockTriggerRect(trigger, {
+      left: 40,
+      right: 196,
+      top: 80,
+      bottom: 112,
+    })
+
+    await user.click(trigger)
+    expect(
+      screen.getByRole('dialog', { name: 'LUT contract browser' }),
+    ).toBeInTheDocument()
+
+    await clickOverlayAt(80, 96, [trigger])
+
+    expect(
+      screen.queryByRole('dialog', { name: 'LUT contract browser' }),
+    ).not.toBeInTheDocument()
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger).toHaveFocus()
+
+    getRect.mockRestore()
   })
 
   it('shows resolved LUT input and output contracts', () => {
