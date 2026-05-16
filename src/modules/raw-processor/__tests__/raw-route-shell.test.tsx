@@ -196,6 +196,15 @@ beforeEach(() => {
     supportStatus: 'supported',
     reason: null,
   })
+
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  )
 })
 
 afterEach(() => {
