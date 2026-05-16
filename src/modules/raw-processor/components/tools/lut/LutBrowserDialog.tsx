@@ -1,6 +1,6 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
-import type { ReactNode } from 'react'
+import type { PointerEvent, ReactNode } from 'react'
 import { useRef } from 'react'
 
 import { Dialog, DialogDescription, DialogTitle } from '~/components/ui/dialog'
@@ -87,6 +87,24 @@ export function LutBrowserDialog({
 
     return null
   }
+  const isPrimaryPointerActivation = (event: PointerEvent) => {
+    const button = Reflect.get(event, 'button') as number | undefined
+    const buttons = Reflect.get(event, 'buttons') as number | undefined
+    const nativeButton = Reflect.get(event.nativeEvent, 'button') as
+      | number
+      | undefined
+    const nativeButtons = Reflect.get(event.nativeEvent, 'buttons') as
+      | number
+      | undefined
+
+    const resolvedButton = button ?? nativeButton
+    const resolvedButtons = buttons ?? nativeButtons
+
+    return (
+      (resolvedButton === undefined || resolvedButton === 0) &&
+      (resolvedButtons === undefined || resolvedButtons <= 1)
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -99,6 +117,8 @@ export function LutBrowserDialog({
           data-raw-lut-browser-overlay=""
           className="pointer-events-auto fixed inset-0 z-[59] bg-transparent"
           onPointerDownCapture={(event) => {
+            if (!isPrimaryPointerActivation(event)) return
+
             const target = getPassthroughTarget(event)
             if (!target) return
 

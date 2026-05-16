@@ -1090,6 +1090,75 @@ describe('rawToolSurface', () => {
     getRect.mockRestore()
   })
 
+  it('does not synthesize a LUT source trigger click on non-primary pointer input', async () => {
+    const user = userEvent.setup()
+    render(
+      <RawToolSurface
+        {...baseProps}
+        onlineLutSources={onlineLutSourcesFixture()}
+      />,
+    )
+
+    const open = screen.getByRole('button', {
+      name: 'Open Catalog from profiles.example.com',
+    })
+    const getRect = mockTriggerRect(open, {
+      left: 40,
+      right: 72,
+      top: 80,
+      bottom: 112,
+    })
+    const clickSpy = vi.spyOn(open, 'click')
+
+    await user.click(open)
+    expect(
+      screen.getByRole('dialog', {
+        name: 'Catalog from profiles.example.com LUTs',
+      }),
+    ).toBeInTheDocument()
+    clickSpy.mockClear()
+
+    const overlay = document.querySelector('[data-raw-lut-browser-overlay]')
+    expect(overlay).toBeInTheDocument()
+    const previousElementsFromPoint = document.elementsFromPoint
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn(() => [overlay as Element, open]),
+    })
+
+    try {
+      await act(async () => {
+        const pointerDown = new Event('pointerdown', {
+          bubbles: true,
+          cancelable: true,
+        })
+        Object.defineProperties(pointerDown, {
+          button: { value: 2 },
+          buttons: { value: 2 },
+          clientX: { value: 56 },
+          clientY: { value: 96 },
+          pointerId: { value: 1 },
+          pointerType: { value: 'mouse' },
+        })
+        fireEvent(overlay as HTMLElement, pointerDown)
+        await Promise.resolve()
+        await new Promise((resolve) => window.setTimeout(resolve, 0))
+      })
+      expect(clickSpy).not.toHaveBeenCalled()
+    } finally {
+      if (previousElementsFromPoint) {
+        Object.defineProperty(document, 'elementsFromPoint', {
+          configurable: true,
+          value: previousElementsFromPoint,
+        })
+      } else {
+        Reflect.deleteProperty(document, 'elementsFromPoint')
+      }
+      clickSpy.mockRestore()
+      getRect.mockRestore()
+    }
+  })
+
   it('lets a second online LUT source trigger switch browsers through the modal layer', async () => {
     const user = userEvent.setup()
     render(
