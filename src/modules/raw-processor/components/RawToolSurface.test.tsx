@@ -821,12 +821,65 @@ describe('rawToolSurface', () => {
     await user.click(open)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
 
-    await user.click(document.body)
+    const overlay = document.querySelector('[data-raw-lut-browser-overlay]')
+    expect(overlay).toBeInTheDocument()
+    await user.click(overlay as HTMLElement)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(open).toHaveFocus()
   })
 
-  it('closes the online LUT browser when its trigger is clicked again', async () => {
+  it('traps focus inside the online LUT source browser', async () => {
+    const user = userEvent.setup()
+    const outsideButton = document.createElement('button')
+    outsideButton.textContent = 'Outside focus target'
+    document.body.append(outsideButton)
+
+    try {
+      render(
+        <RawToolSurface
+          {...baseProps}
+          onlineLutSources={onlineLutSourcesFixture()}
+        />,
+      )
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Open Catalog from profiles.example.com',
+        }),
+      )
+
+      const browser = screen.getByRole('dialog', {
+        name: 'Catalog from profiles.example.com LUTs',
+      })
+      const close = within(browser).getByRole('button', {
+        name: 'Close LUT source browser',
+      })
+      const load = within(browser).getByRole('button', {
+        name: 'Load Kodak 2383 Rec.709',
+      })
+
+      expect(close).toHaveFocus()
+
+      outsideButton.focus()
+      expect(browser).toContainElement(document.activeElement as HTMLElement)
+      expect(outsideButton).not.toHaveFocus()
+
+      await user.tab()
+      expect(load).toHaveFocus()
+
+      await user.tab()
+      expect(close).toHaveFocus()
+      expect(outsideButton).not.toHaveFocus()
+
+      await user.tab({ shift: true })
+      expect(load).toHaveFocus()
+      expect(outsideButton).not.toHaveFocus()
+    } finally {
+      outsideButton.remove()
+    }
+  })
+
+  it('closes the online LUT browser when the modal outside layer is clicked', async () => {
     const user = userEvent.setup()
     render(
       <RawToolSurface
@@ -846,7 +899,9 @@ describe('rawToolSurface', () => {
       }),
     ).toBeInTheDocument()
 
-    await user.click(open)
+    const overlay = document.querySelector('[data-raw-lut-browser-overlay]')
+    expect(overlay).toBeInTheDocument()
+    await user.click(overlay as HTMLElement)
 
     expect(
       screen.queryByRole('dialog', {

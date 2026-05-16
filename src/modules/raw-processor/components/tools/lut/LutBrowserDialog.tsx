@@ -48,11 +48,16 @@ export function LutBrowserDialog({
   if (!open || !layout) return null
 
   return (
-    <Dialog open={open} modal={false} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal
         container={portalContainer ?? undefined}
         forceMount
       >
+        <DialogPrimitive.Overlay
+          forceMount
+          data-raw-lut-browser-overlay=""
+          className="pointer-events-auto fixed inset-0 z-[59] bg-transparent"
+        />
         <DialogPrimitive.Content
           id={id}
           forceMount
