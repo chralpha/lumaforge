@@ -39,6 +39,7 @@ export default defineConfig({
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
+      '**/.claude/**',
       '**/.worktrees/**',
       'tests/browser/**',
     ],
