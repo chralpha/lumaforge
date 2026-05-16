@@ -42,6 +42,7 @@ export interface DropzoneProps {
   clickToOpen?: boolean
   interactiveMotion?: boolean
   'aria-label'?: string
+  'data-raw-lut'?: string
   variant?: 'default' | 'stage'
 }
 
@@ -64,6 +65,7 @@ export function Dropzone({
   clickToOpen = true,
   interactiveMotion = true,
   'aria-label': ariaLabel,
+  'data-raw-lut': dataRawLut,
   variant = 'default',
 }: DropzoneProps) {
   const { t } = useI18n()
@@ -218,6 +220,7 @@ export function Dropzone({
       <m.label
         htmlFor={inputId}
         aria-disabled={disabled ? true : undefined}
+        data-raw-lut={dataRawLut}
         className={frameClassName}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -243,6 +246,7 @@ export function Dropzone({
 
   return (
     <m.div
+      data-raw-lut={dataRawLut}
       className={frameClassName}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -316,21 +320,25 @@ export function LutDropzone({
     : t('raw.lut.add')
 
   return (
-    <div className="raw-lut-dropzone-shell flex min-w-0 max-w-full items-center gap-2 overflow-hidden">
+    <div className="flex min-w-0 max-w-full items-stretch gap-2 overflow-hidden">
       <Dropzone
         onFileDrop={onFileDrop}
         accept={['.cube']}
         disabled={disabled}
         interactiveMotion={false}
         aria-label={label}
-        className="raw-lut-dropzone min-w-0 flex-1"
+        data-raw-lut="dropzone"
+        className="min-h-9 min-w-0 flex-1 rounded-md border border-border bg-fill-secondary px-2 py-1.5 text-callout font-semibold leading-tight text-text-secondary shadow-none transition hover:border-accent/50 hover:bg-fill hover:text-text focus-within:ring-2 focus-within:ring-accent disabled:opacity-50"
       >
-        <div className="raw-lut-dropzone-content flex min-w-0 items-center gap-3">
-          <span className="raw-lut-dropzone-icon" aria-hidden="true">
-            <Upload />
+        <div className="flex min-h-full min-w-0 items-center gap-2">
+          <span
+            className="grid size-6 shrink-0 place-items-center rounded-[5px] border border-border bg-background text-text-secondary [&_svg]:size-[13px] [&_svg]:stroke-[2.2]"
+            aria-hidden="true"
+          >
+            <Upload aria-hidden="true" />
           </span>
           <span
-            className="raw-lut-dropzone-name block min-w-0 max-w-full truncate"
+            className="block min-w-0 max-w-full truncate"
             title={currentLut ?? undefined}
           >
             {currentLut || t('raw.lut.add')}
@@ -344,7 +352,8 @@ export function LutDropzone({
             e.stopPropagation()
             onClear()
           }}
-          className="raw-lut-clear-button shrink-0"
+          className="inline-flex min-h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-fill-secondary text-text-secondary transition hover:border-accent/50 hover:bg-fill hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&_svg]:size-[15px] [&_svg]:stroke-[2.2]"
+          data-raw-lut="dropzone-clear"
           aria-label={t('raw.lut.clear')}
           title={t('raw.lut.clear')}
         >

@@ -5,6 +5,7 @@ import type {
 import { SlidersHorizontal } from 'lucide-react'
 import { useCallback, useId, useRef, useState } from 'react'
 
+import { Button } from '~/components/ui/button'
 import { useI18n } from '~/lib/i18n'
 
 import type { LUTProfileSelectionState } from '../../../model/session'
@@ -46,43 +47,57 @@ export function LUTProfileStatus({
   return (
     <div className="space-y-2 pt-1">
       {isUnsupportedOutput ? (
-        <p className="raw-lut-contract-status raw-lut-contract-status-amber">
+        <p
+          className="m-0 rounded-md border border-yellow-600/30 bg-yellow-500/10 px-2.5 py-2 text-callout leading-relaxed text-text-secondary"
+          data-raw-lut="contract-status"
+        >
           {t('raw.lutContract.unsupportedOutput')}
         </p>
       ) : isPending ? (
-        <p className="raw-lut-contract-status raw-lut-contract-status-amber">
+        <p
+          className="m-0 rounded-md border border-yellow-600/30 bg-yellow-500/10 px-2.5 py-2 text-callout leading-relaxed text-text-secondary"
+          data-raw-lut="contract-status"
+        >
           {t('raw.lutContract.unknown')}
         </p>
       ) : resolvedProfile ? (
-        <div className="raw-lut-contract-facts">
-          <p className="raw-lut-contract-fact">
-            <span className="raw-lut-contract-term">
+        <div className="grid min-w-0 gap-2 text-callout leading-relaxed text-text">
+          <p className="m-0 grid min-w-0 grid-cols-[4.9rem_minmax(0,1fr)] gap-2">
+            <span className="font-semibold text-text-secondary">
               {t('raw.lutContract.inputTerm')}
             </span>
-            <span className="raw-lut-contract-value">
+            <span className="min-w-0 break-words font-medium text-text">
               {resolvedProfile.label}
             </span>
           </p>
           {outputLabel && (
-            <p className="raw-lut-contract-fact">
-              <span className="raw-lut-contract-term">
+            <p className="m-0 grid min-w-0 grid-cols-[4.9rem_minmax(0,1fr)] gap-2">
+              <span className="font-semibold text-text-secondary">
                 {t('raw.lutContract.outputTerm')}
               </span>
-              <span className="raw-lut-contract-value">{outputLabel}</span>
+              <span className="min-w-0 break-words font-medium text-text">
+                {outputLabel}
+              </span>
             </p>
           )}
           {needsOutputContract && (
-            <p className="raw-lut-contract-status raw-lut-contract-status-amber">
+            <p
+              className="m-0 rounded-md border border-yellow-600/30 bg-yellow-500/10 px-2.5 py-2 text-callout leading-relaxed text-text-secondary"
+              data-raw-lut="contract-status"
+            >
               {t('raw.lutContract.needsOutput')}
             </p>
           )}
         </div>
       ) : null}
 
-      <button
+      <Button
         ref={triggerRef}
         type="button"
-        className="raw-lut-contract-change-button"
+        variant="secondary"
+        size="sm"
+        className="gap-1.5 [&_svg]:size-3.5"
+        data-raw-lut="contract-change-button"
         aria-controls={browserId}
         aria-expanded={browserOpen}
         aria-haspopup="dialog"
@@ -96,7 +111,7 @@ export function LUTProfileStatus({
       >
         <SlidersHorizontal aria-hidden="true" />
         {t('raw.lutContract.change')}
-      </button>
+      </Button>
 
       <LUTContractBrowser
         open={browserOpen}

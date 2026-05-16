@@ -165,8 +165,8 @@ export function OnlineLutSourceControls({
           layout={browserLayout}
           id={browserId}
           kind="source"
-          className="raw-lut-source-browser"
-          headingClassName="raw-lut-source-browser-heading"
+          className="grid-rows-[auto_minmax(0,1fr)]"
+          headingClassName=""
           dialogLabel={`${openResource.label} LUTs`}
           title={openResource.label}
           description={formatEntryCount(openEntries.length)}
@@ -182,7 +182,8 @@ export function OnlineLutSourceControls({
           }}
         >
           <div
-            className="raw-lut-browser-list raw-lut-source-browser-list"
+            className="grid min-h-0 gap-1.5 overflow-y-auto overscroll-contain pr-0.5"
+            data-raw-lut="source-browser-list"
             data-lut-source-scroll="internal"
           >
             {openEntries.length > 0 ? (
@@ -204,8 +205,12 @@ export function OnlineLutSourceControls({
                 }
 
                 const renderEntry = (entry: (typeof openEntries)[number]) => (
-                  <div key={entry.id} className="raw-lut-source-entry">
-                    <span className="raw-lut-source-entry-title">
+                  <div
+                    key={entry.id}
+                    className="grid min-w-0 grid-cols-[minmax(0,1fr)_32px] items-center gap-2 rounded-md border border-border bg-fill/50 px-2 py-1.5"
+                    data-raw-lut="source-entry"
+                  >
+                    <span className="min-w-0 truncate text-callout font-medium text-text">
                       {entry.title}
                     </span>
                     <LutIconButton
@@ -220,16 +225,16 @@ export function OnlineLutSourceControls({
                 return (
                   <>
                     {Array.from(familyGroups, ([family, entries]) => (
-                      <div key={family} className="raw-lut-source-family-group">
-                        <div className="raw-lut-source-family-heading">
+                      <div key={family} className="grid gap-1.5">
+                        <div className="text-footnote font-semibold uppercase text-text-secondary">
                           {family}
                         </div>
                         {entries.map(renderEntry)}
                       </div>
                     ))}
                     {ungrouped.length > 0 && (
-                      <div className="raw-lut-source-family-group">
-                        <div className="raw-lut-source-family-heading">
+                      <div className="grid gap-1.5">
+                        <div className="text-footnote font-semibold uppercase text-text-secondary">
                           {t('raw.lutSource.others')}
                         </div>
                         {ungrouped.map(renderEntry)}
@@ -239,7 +244,7 @@ export function OnlineLutSourceControls({
                 )
               })()
             ) : (
-              <p className="raw-lut-source-browser-empty">
+              <p className="text-callout leading-relaxed text-text-secondary">
                 {openIssues.length > 0
                   ? t('raw.lutSource.noneCompatible')
                   : t('raw.lutSource.noneYet')}
@@ -251,8 +256,8 @@ export function OnlineLutSourceControls({
     })()
 
   return (
-    <div className="raw-lut-source-controls">
-      <div className="raw-lut-source-input-row">
+    <div className="mb-2.5 grid min-w-0 gap-2" data-raw-lut="source-controls">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_32px_32px] gap-1.5">
         <label htmlFor={sourceInputId} className="sr-only">
           {t('raw.lutSource.url')}
         </label>
@@ -273,7 +278,7 @@ export function OnlineLutSourceControls({
               void onlineLutSources.addSourceFromInput()
             }
           }}
-          inputClassName="raw-lut-input h-8 text-xs"
+          inputClassName="h-8 border-border bg-background text-xs text-text shadow-none placeholder:text-text-tertiary focus:border-accent focus:ring-accent/20"
         />
         <LutIconButton
           label={t('raw.lutSource.add')}
@@ -292,7 +297,7 @@ export function OnlineLutSourceControls({
       </div>
 
       {state.resources.length > 0 && (
-        <div className="raw-lut-source-list">
+        <div className="grid min-w-0 gap-2">
           {state.resources.map((resource) => {
             const isResourceLoading =
               state.isLoading && state.activeResourceId === resource.id
@@ -302,27 +307,34 @@ export function OnlineLutSourceControls({
             const isOpen = openResourceId === resource.id
 
             return (
-              <div key={resource.id} className="raw-lut-source-resource">
-                <div className="raw-lut-source-resource-row">
-                  <div className="raw-lut-source-summary">
-                    <span className="raw-lut-source-label">
+              <div
+                key={resource.id}
+                className="grid min-w-0 border-t border-border py-2"
+                data-raw-lut="source-resource"
+              >
+                <div
+                  className="raw-lut-source-resource-row grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+                  data-raw-lut="source-resource-row"
+                >
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <span className="min-w-0 truncate text-callout font-semibold text-accent">
                       {resource.label}
                     </span>
-                    <span className="raw-lut-source-count">
+                    <span className="shrink-0 rounded-full border border-border bg-background px-1.5 py-0.5 text-[0.64rem] font-semibold leading-none text-text-secondary">
                       {formatEntryCount(entries.length)}
                     </span>
                     {isResourceLoading && (
-                      <span className="raw-lut-source-state">
+                      <span className="shrink-0 rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[0.64rem] font-semibold leading-none text-accent">
                         {t('raw.lutSource.loading')}
                       </span>
                     )}
                     {hasIssue && (
-                      <span className="raw-lut-source-state raw-lut-source-state-issue">
+                      <span className="shrink-0 rounded-full border border-yellow-600/30 bg-yellow-500/10 px-1.5 py-0.5 text-[0.64rem] font-semibold leading-none text-yellow-700">
                         {t('raw.lutSource.issue')}
                       </span>
                     )}
                   </div>
-                  <div className="raw-lut-source-actions">
+                  <div className="flex gap-1">
                     <LutIconButton
                       label={t('raw.lutSource.open', {
                         label: resource.label,
@@ -378,7 +390,11 @@ export function OnlineLutSourceControls({
       {openBrowser}
 
       {state.issues.length > 0 && (
-        <div className="raw-lut-source-issues" role="status" aria-live="polite">
+        <div
+          className="grid gap-1 text-footnote leading-relaxed text-text-secondary"
+          role="status"
+          aria-live="polite"
+        >
           {state.issues.slice(-2).map((issue, index) => (
             <p
               key={[
@@ -387,6 +403,7 @@ export function OnlineLutSourceControls({
                 issue.entryId ?? issue.sourceUrl ?? issue.message,
                 index,
               ].join(':')}
+              className="m-0"
             >
               {issue.message}
             </p>

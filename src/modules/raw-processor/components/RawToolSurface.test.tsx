@@ -555,7 +555,8 @@ describe('rawToolSurface', () => {
     const row = fileName.parentElement?.parentElement
 
     expect(row).toHaveClass('min-w-0')
-    expect(frame).toHaveClass('min-w-0', 'raw-lut-dropzone')
+    expect(frame).toHaveClass('min-w-0')
+    expect(frame).toHaveAttribute('data-raw-lut', 'dropzone')
     expect(fileName).toHaveClass('min-w-0', 'truncate')
     expect(fileName).toHaveAttribute('title', currentLut)
   })
@@ -592,7 +593,7 @@ describe('rawToolSurface', () => {
     expect(
       screen.queryByRole('button', { name: 'Load Kodak 2383 Rec.709' }),
     ).not.toBeInTheDocument()
-    expect(container.querySelector('.raw-lut-source-entry')).toBeNull()
+    expect(container.querySelector('[data-raw-lut="source-entry"]')).toBeNull()
   })
 
   it('opens online LUT entries in a floating browser with compact rows', async () => {
@@ -617,7 +618,9 @@ describe('rawToolSurface', () => {
     const browser = screen.getByRole('dialog', {
       name: 'Catalog from profiles.example.com LUTs',
     })
-    const browserList = browser.querySelector('.raw-lut-source-browser-list')
+    const browserList = browser.querySelector(
+      '[data-raw-lut="source-browser-list"]',
+    )
 
     expect(open).toHaveAttribute('aria-expanded', 'true')
     expect(open).toHaveAttribute('aria-controls', browser.id)
@@ -626,20 +629,16 @@ describe('rawToolSurface', () => {
         name: 'Close LUT source browser',
       }),
     ).toHaveFocus()
-    expect(browser).toHaveClass(
-      'raw-lut-browser-dialog',
-      'raw-lut-source-browser',
-    )
     expect(browser).toHaveAttribute('data-raw-lut-browser-dialog', 'source')
     expect(browser).toHaveAttribute('data-lut-source-placement', 'anchored')
     expect(
       browser.style.getPropertyValue('--raw-lut-source-browser-top'),
     ).not.toBe('')
     expect(browserList).toHaveAttribute('data-lut-source-scroll', 'internal')
-    expect(browser.closest('.raw-lut-source-controls')).toBeNull()
+    expect(browser.closest('[data-raw-lut="source-controls"]')).toBeNull()
     expect(
       container.querySelector(
-        '.raw-lut-source-controls .raw-lut-source-resource .raw-lut-source-entry',
+        '[data-raw-lut="source-controls"] [data-raw-lut="source-resource"] [data-raw-lut="source-entry"]',
       ),
     ).toBeNull()
 
@@ -655,7 +654,7 @@ describe('rawToolSurface', () => {
 
     const entryRow = within(browser)
       .getByText('Kodak 2383 Rec.709')
-      .closest('.raw-lut-source-entry')
+      .closest('[data-raw-lut="source-entry"]')
     expect(entryRow).not.toBeNull()
     const entry = within(entryRow as HTMLElement)
 
@@ -943,10 +942,10 @@ describe('rawToolSurface', () => {
       screen.getByText(
         'Choose the LUT input and output contract before preview or export.',
       ),
-    ).toHaveClass('raw-lut-contract-status', 'raw-lut-contract-status-amber')
+    ).toHaveAttribute('data-raw-lut', 'contract-status')
     expect(
       screen.getByRole('button', { name: 'Change LUT contract' }),
-    ).toHaveClass('raw-lut-contract-change-button')
+    ).toHaveAttribute('data-raw-lut', 'contract-change-button')
   })
 
   it('shows a busy refresh affordance while an online LUT source is loading', () => {
@@ -969,7 +968,7 @@ describe('rawToolSurface', () => {
     })
 
     expect(refresh).toHaveAttribute('aria-busy', 'true')
-    expect(refresh).toHaveClass('raw-lut-source-icon-button-busy')
+    expect(refresh).toHaveAttribute('data-raw-lut-busy', 'true')
     expect(screen.getByText('Loading')).toBeInTheDocument()
   })
 

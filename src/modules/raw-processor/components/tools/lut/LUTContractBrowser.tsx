@@ -192,8 +192,8 @@ export function LUTContractBrowser({
       layout={browserLayout}
       id={browserId}
       kind="contract"
-      className="raw-lut-contract-browser"
-      headingClassName="raw-lut-contract-browser-heading"
+      className="raw-lut-contract-browser items-start grid-rows-[auto_auto_auto_minmax(0,1fr)]"
+      headingClassName=""
       dialogLabel={t('raw.lutContract.browser')}
       title={t('raw.lutContract.browser')}
       description={
@@ -211,7 +211,7 @@ export function LUTContractBrowser({
       }}
     >
       <div
-        className="raw-lut-contract-browser-tabs"
+        className="grid grid-cols-2 gap-1.5"
         role="tablist"
         aria-label={t('raw.lutContract.panels')}
       >
@@ -219,7 +219,7 @@ export function LUTContractBrowser({
           type="button"
           role="tab"
           aria-selected={step === 'input'}
-          className="raw-lut-contract-browser-tab"
+          className="min-h-8 rounded-md border border-border bg-background px-2 text-callout font-semibold text-text-secondary transition hover:border-accent/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-selected:border-accent/50 aria-selected:bg-accent/10 aria-selected:text-accent"
           onClick={() => setStep('input')}
         >
           {t('raw.lutContract.inputTab')}
@@ -228,7 +228,7 @@ export function LUTContractBrowser({
           type="button"
           role="tab"
           aria-selected={step === 'output'}
-          className="raw-lut-contract-browser-tab"
+          className="min-h-8 rounded-md border border-border bg-background px-2 text-callout font-semibold text-text-secondary transition hover:border-accent/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-selected:border-accent/50 aria-selected:bg-accent/10 aria-selected:text-accent"
           onClick={() => setStep('output')}
         >
           {t('raw.lutContract.outputTab')}
@@ -244,18 +244,19 @@ export function LUTContractBrowser({
         value={query}
         placeholder={t('raw.lutContract.searchPlaceholder')}
         onChange={(event) => setQuery(event.currentTarget.value)}
-        inputClassName="raw-lut-input h-8 text-xs"
+        inputClassName="h-8 border-border bg-background text-xs text-text shadow-none placeholder:text-text-tertiary focus:border-accent focus:ring-accent/20"
       />
 
       <div
-        className="raw-lut-browser-list raw-lut-contract-browser-list"
+        className="grid min-h-0 content-start gap-1.5 overflow-y-auto overscroll-contain pr-0.5"
+        data-raw-lut="contract-browser-list"
         data-lut-contract-step={step}
       >
         {step === 'input' ? (
           <>
             {visibleSuggestions.length > 0 && (
               <div className="space-y-1">
-                <p className="raw-lut-contract-browser-group">
+                <p className="m-0 text-footnote font-semibold uppercase text-text-secondary">
                   {t('raw.lutContract.suggestedInput')}
                 </p>
                 <div className="space-y-1">
@@ -278,7 +279,7 @@ export function LUTContractBrowser({
 
             {groupedInputProfiles.map((group) => (
               <div key={`input-${group.label}`} className="space-y-1">
-                <p className="raw-lut-contract-browser-group">
+                <p className="m-0 text-footnote font-semibold uppercase text-text-secondary">
                   {t('raw.lutContract.groupInput', { group: group.label })}
                 </p>
                 <div className="space-y-1">
@@ -299,7 +300,7 @@ export function LUTContractBrowser({
             ))}
 
             {!hasInputMatches && (
-              <p className="raw-lut-contract-browser-empty">
+              <p className="m-0 text-callout leading-relaxed text-text-secondary">
                 {t('raw.lutContract.noInput')}
               </p>
             )}
@@ -308,7 +309,7 @@ export function LUTContractBrowser({
           <>
             {suggestedOutputOptions.length > 0 && (
               <div className="space-y-1">
-                <p className="raw-lut-contract-browser-group">
+                <p className="m-0 text-footnote font-semibold uppercase text-text-secondary">
                   {t('raw.lutContract.suggestedOutput')}
                 </p>
                 <div className="space-y-1">
@@ -327,7 +328,7 @@ export function LUTContractBrowser({
 
             {groupedOutputOptions.map((group) => (
               <div key={`output-${group.label}`} className="space-y-1">
-                <p className="raw-lut-contract-browser-group">
+                <p className="m-0 text-footnote font-semibold uppercase text-text-secondary">
                   {t('raw.lutContract.groupOutput', { group: group.label })}
                 </p>
                 <div className="space-y-1">
@@ -344,7 +345,7 @@ export function LUTContractBrowser({
             ))}
 
             {!hasOutputMatches && (
-              <p className="raw-lut-contract-browser-empty">
+              <p className="m-0 text-callout leading-relaxed text-text-secondary">
                 {t('raw.lutContract.noOutput')}
               </p>
             )}

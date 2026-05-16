@@ -1,5 +1,3 @@
-import './lut-tool.css'
-
 import type {
   LUTColorProfile,
   LUTProfileResolution,
@@ -10,7 +8,6 @@ import { useI18n } from '~/lib/i18n'
 import type { UseOnlineLutSourcesResult } from '../../../hooks/useOnlineLutSources'
 import type { LUTProfileSelectionState } from '../../../model/session'
 import { LutDropzone } from '../../Dropzone'
-import { ToolSection } from '../ToolSection'
 import { LUTProfileStatus } from './LUTProfileStatus'
 import { OnlineLutSourceControls } from './OnlineLutSourceControls'
 
@@ -36,10 +33,7 @@ export function LutContractTool({
   const { t } = useI18n()
 
   return (
-    <ToolSection
-      title={t('raw.lutContract.title')}
-      eyebrow={t('raw.lutContract.eyebrow')}
-    >
+    <div className="grid gap-3">
       {onlineLutSources && (
         <OnlineLutSourceControls onlineLutSources={onlineLutSources} />
       )}
@@ -57,8 +51,10 @@ export function LutContractTool({
           onSelect={onLutProfileSelect}
         />
       ) : (
-        <p className="raw-tool-note">{t('raw.lutContract.empty')}</p>
+        <p className="text-callout leading-relaxed text-text-secondary">
+          {t('raw.lutContract.empty')}
+        </p>
       )}
-    </ToolSection>
+    </div>
   )
 }
