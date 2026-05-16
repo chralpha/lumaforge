@@ -63,7 +63,6 @@ export function LutBrowserDialog({
           forceMount
           aria-label={dialogLabel}
           className={clsxm(
-            'raw-lut-browser-dialog',
             'fixed left-[var(--raw-lut-source-browser-left,12px)] top-[var(--raw-lut-source-browser-top,12px)] z-[60] grid w-[min(var(--raw-lut-source-browser-width,360px),calc(100svw-24px))] max-h-[min(var(--raw-lut-source-browser-max-height,calc(100svh-24px)),calc(100svh-24px))] min-h-[min(184px,calc(100svh-24px))] gap-2 overflow-hidden rounded-md border border-border bg-background/95 p-2.5 shadow-lg backdrop-blur-background',
             'max-[720px]:inset-x-2.5 max-[720px]:bottom-[calc(62px+max(8px,env(safe-area-inset-bottom))+min(56svh,430px)+8px)] max-[720px]:left-auto max-[720px]:top-auto max-[720px]:h-auto max-[720px]:w-auto max-[720px]:max-h-[min(50svh,420px,calc(100svh-(62px+max(8px,env(safe-area-inset-bottom))+min(56svh,430px)+8px)-10px))] max-[720px]:min-h-[min(220px,calc(100svh-(62px+max(8px,env(safe-area-inset-bottom))+min(56svh,430px)+8px)-10px))]',
             className,

@@ -434,11 +434,10 @@ describe('rawToolSurface', () => {
     )
 
     const browser = screen.getByRole('dialog', { name: 'LUT contract browser' })
-    expect(browser).toHaveClass(
-      'raw-lut-browser-dialog',
-      'raw-lut-contract-browser',
-    )
     expect(browser).toHaveAttribute('data-raw-lut-browser-dialog', 'contract')
+    expect(
+      within(browser).getByRole('tablist', { name: 'LUT contract panels' }),
+    ).toBeInTheDocument()
     expect(
       within(browser).getAllByText('Sony S-Gamut3.Cine / S-Log3').length,
     ).toBeGreaterThanOrEqual(1)
@@ -452,7 +451,7 @@ describe('rawToolSurface', () => {
     ).toBeInTheDocument()
   })
 
-  it('closes the LUT contract browser when its trigger is clicked again', async () => {
+  it('closes the LUT contract browser from the outside layer and restores focus', async () => {
     const user = userEvent.setup()
     const profile = getLUTColorProfile('sony-sgamut3cine-slog3')!
 
@@ -484,7 +483,9 @@ describe('rawToolSurface', () => {
       screen.getByRole('dialog', { name: 'LUT contract browser' }),
     ).toBeInTheDocument()
 
-    await user.click(trigger)
+    const overlay = document.querySelector('[data-raw-lut-browser-overlay]')
+    expect(overlay).toBeInTheDocument()
+    await user.click(overlay as HTMLElement)
 
     expect(
       screen.queryByRole('dialog', { name: 'LUT contract browser' }),

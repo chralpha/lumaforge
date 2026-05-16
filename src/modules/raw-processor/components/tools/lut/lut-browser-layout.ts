@@ -46,8 +46,9 @@ export function getViewportBoundedBrowserLayout(
 
   const triggerRect = trigger.getBoundingClientRect()
   const rowRect =
-    trigger.closest('.raw-lut-source-resource-row')?.getBoundingClientRect() ??
-    triggerRect
+    trigger
+      .closest('[data-raw-lut="source-resource-row"]')
+      ?.getBoundingClientRect() ?? triggerRect
   const availableWidth = Math.max(0, viewportWidth - margin * 2)
   const width = Math.min(
     LUT_BROWSER_MAX_WIDTH,

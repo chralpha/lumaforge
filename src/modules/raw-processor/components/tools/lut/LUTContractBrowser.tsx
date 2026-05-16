@@ -192,7 +192,7 @@ export function LUTContractBrowser({
       layout={browserLayout}
       id={browserId}
       kind="contract"
-      className="raw-lut-contract-browser items-start grid-rows-[auto_auto_auto_minmax(0,1fr)]"
+      className="items-start grid-rows-[auto_auto_auto_minmax(0,1fr)]"
       headingClassName=""
       dialogLabel={t('raw.lutContract.browser')}
       title={t('raw.lutContract.browser')}

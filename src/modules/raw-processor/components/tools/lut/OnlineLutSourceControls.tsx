@@ -313,7 +313,7 @@ export function OnlineLutSourceControls({
                 data-raw-lut="source-resource"
               >
                 <div
-                  className="raw-lut-source-resource-row grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+                  className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
                   data-raw-lut="source-resource-row"
                 >
                   <div className="flex min-w-0 flex-wrap items-center gap-1.5">
