@@ -8,6 +8,7 @@ import { AnimatePresence, m, useDragControls } from 'motion/react'
 import type { ComponentProps, Ref } from 'react'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
+import { clsxm } from '~/lib/cn'
 import { useI18n } from '~/lib/i18n'
 
 import type { UseOnlineLutSourcesResult } from '../hooks/useOnlineLutSources'
@@ -387,12 +388,17 @@ export function RawToolSurface(props: {
       </AnimatePresence>
 
       <nav
-        className="raw-mobile-tool-rail"
+        className="raw-mobile-tool-rail hidden gap-2 border-t border-border bg-material-opaque p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] max-[640px]:grid max-[640px]:grid-cols-2"
         aria-label={t('raw.mobileTools.aria')}
       >
         <m.button
           type="button"
-          className="raw-mobile-tool-tab"
+          className={clsxm(
+            'inline-flex min-h-[46px] min-w-0 items-center justify-center gap-1.5 rounded-md border text-xs font-medium leading-none transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+            mobilePanel === 'style'
+              ? 'border-accent-strong bg-fill-secondary text-text'
+              : 'border-border bg-background text-text',
+          )}
           data-mobile-tool-tab="style"
           data-active={mobilePanel === 'style'}
           aria-expanded={mobilePanel === 'style'}
@@ -401,12 +407,17 @@ export function RawToolSurface(props: {
           whileTap={{ scale: 0.96 }}
           transition={TAP_SPRING}
         >
-          <SlidersHorizontal aria-hidden="true" />
+          <SlidersHorizontal aria-hidden="true" className="size-4" />
           {t('raw.mobileTools.style')}
         </m.button>
         <m.button
           type="button"
-          className="raw-mobile-tool-tab raw-mobile-tool-tab-export"
+          className={clsxm(
+            'inline-flex min-h-[46px] min-w-0 items-center justify-center gap-1.5 rounded-md border text-xs font-medium leading-none transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+            !props.canExport || props.isProcessing
+              ? 'border-border bg-fill text-text-secondary'
+              : 'border-transparent bg-accent text-background',
+          )}
           data-mobile-tool-tab="export"
           data-active={mobilePanel === 'export'}
           aria-disabled={!props.canExport || props.isProcessing}
@@ -420,7 +431,7 @@ export function RawToolSurface(props: {
           whileTap={{ scale: 0.96 }}
           transition={TAP_SPRING}
         >
-          <Download aria-hidden="true" />
+          <Download aria-hidden="true" className="size-4" />
           {t('raw.mobileTools.export')}
         </m.button>
       </nav>
