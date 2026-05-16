@@ -1,8 +1,14 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+import { jotaiStore } from '~/lib/jotai'
+
 import type { UseOnlineLutSourcesResult } from '../hooks/useOnlineLutSources'
+import {
+  DEFAULT_OPEN_TOOL_CARDS,
+  toolCardOpenAtom,
+} from '../state/tool-card.atoms'
 import { LutDropzone } from './Dropzone'
 import { RawToolSurface } from './RawToolSurface'
 
@@ -129,7 +135,36 @@ function setWindowSize(width: number, height: number) {
   }
 }
 
+function getToneRegion() {
+  return screen.getByRole('region', { name: 'Tone' })
+}
+
+function resetToolCards() {
+  act(() => {
+    jotaiStore.set(toolCardOpenAtom, DEFAULT_OPEN_TOOL_CARDS)
+  })
+}
+
 describe('rawToolSurface', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    resetToolCards()
+    vi.stubGlobal(
+      'ResizeObserver',
+      vi.fn().mockImplementation(() => ({
+        observe: vi.fn(),
+        unobserve: vi.fn(),
+        disconnect: vi.fn(),
+      })),
+    )
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    resetToolCards()
+    localStorage.clear()
+  })
+
   it('renders the finishing surface with a card stack and a persistent export block', () => {
     const { container } = render(<RawToolSurface {...baseProps} />)
     expect(
@@ -274,31 +309,54 @@ describe('rawToolSurface', () => {
       />,
     )
 
-    fireEvent.change(screen.getByLabelText('Exposure'), {
-      target: { value: '1.25' },
-    })
-    expect(onToneChange).toHaveBeenLastCalledWith({ userExposureEv: 1.25 })
-    fireEvent.change(screen.getByLabelText('Highlights'), {
-      target: { value: '-40' },
-    })
-    expect(onToneChange).toHaveBeenLastCalledWith({ userHighlights: -40 })
+    const tone = getToneRegion()
+
+    expect(within(tone).getByText('Exposure')).toBeInTheDocument()
+    expect(within(tone).getByText('Contrast')).toBeInTheDocument()
+    expect(within(tone).getByText('Highlights')).toBeInTheDocument()
+    expect(within(tone).getByText('Shadows')).toBeInTheDocument()
+    expect(within(tone).getByText('Whites')).toBeInTheDocument()
+    expect(within(tone).getByText('Blacks')).toBeInTheDocument()
+
+    const exposure = within(tone).getByRole('slider', { name: 'Exposure' })
+    exposure.focus()
+    await user.keyboard('{ArrowRight}')
+    expect(onToneChange).toHaveBeenLastCalledWith({ userExposureEv: 0.01 })
+
+    const highlights = within(tone).getByRole('slider', { name: 'Highlights' })
+    highlights.focus()
+    await user.keyboard('{ArrowLeft}')
+    expect(onToneChange).toHaveBeenLastCalledWith({ userHighlights: -1 })
 
     await user.click(screen.getByRole('button', { name: 'Reset tone' }))
     expect(onToneReset).toHaveBeenCalledTimes(1)
-    expect(screen.getByRole('button', { name: 'Reset tone' })).toHaveClass(
-      'raw-tool-reset-button',
-    )
+    expect(
+      screen.getByRole('button', { name: 'Reset tone' }),
+    ).toBeInTheDocument()
   })
 
-  it('disables tone controls before upload', () => {
+  it('disables tone controls before upload', async () => {
     render(<RawToolSurface {...baseProps} />)
 
-    expect(screen.getByLabelText('Exposure')).toBeDisabled()
-    expect(screen.getByLabelText('Contrast')).toBeDisabled()
-    expect(screen.getByLabelText('Highlights')).toBeDisabled()
-    expect(screen.getByLabelText('Shadows')).toBeDisabled()
-    expect(screen.getByLabelText('Whites')).toBeDisabled()
-    expect(screen.getByLabelText('Blacks')).toBeDisabled()
+    const tone = getToneRegion()
+    expect(
+      within(tone).getByRole('slider', { name: 'Exposure' }),
+    ).toHaveAttribute('data-disabled')
+    expect(
+      within(tone).getByRole('slider', { name: 'Contrast' }),
+    ).toHaveAttribute('data-disabled')
+    expect(
+      within(tone).getByRole('slider', { name: 'Highlights' }),
+    ).toHaveAttribute('data-disabled')
+    expect(
+      within(tone).getByRole('slider', { name: 'Shadows' }),
+    ).toHaveAttribute('data-disabled')
+    expect(
+      within(tone).getByRole('slider', { name: 'Whites' }),
+    ).toHaveAttribute('data-disabled')
+    expect(
+      within(tone).getByRole('slider', { name: 'Blacks' }),
+    ).toHaveAttribute('data-disabled')
     expect(screen.getByRole('button', { name: 'Reset tone' })).toBeDisabled()
   })
 
@@ -306,9 +364,9 @@ describe('rawToolSurface', () => {
     const user = userEvent.setup()
     render(<RawToolSurface {...baseProps} hasImage />)
 
-    expect(screen.getByRole('button', { name: 'Reset tone' })).toHaveClass(
-      'raw-tool-reset-button',
-    )
+    expect(
+      screen.getByRole('button', { name: 'Reset tone' }),
+    ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Compare' }))
     expect(
       screen.getByRole('button', { name: 'Reset compare view' }),
