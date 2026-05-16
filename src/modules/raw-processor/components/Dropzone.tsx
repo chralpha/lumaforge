@@ -194,7 +194,7 @@ export function Dropzone({
     'relative transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
     clickToOpen ? 'cursor-pointer' : 'cursor-default',
     variant === 'stage'
-      ? 'rounded-lg border border-[var(--color-stage-hairline)]'
+      ? 'rounded-lg border border-[var(--color-stage-hairline)] h-full w-full overflow-hidden bg-[var(--color-stage-background)] bg-[image:linear-gradient(160deg,var(--color-stage-grad-1),var(--color-stage-grad-2))]'
       : 'rounded-xl border-2 border-dashed',
     isDragOver
       ? variant === 'stage'
