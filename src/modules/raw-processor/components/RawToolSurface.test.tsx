@@ -407,7 +407,7 @@ describe('rawToolSurface', () => {
 
     await user.click(screen.getByRole('button', { name: 'Style' }))
 
-    const backdrop = container.querySelector('.raw-mobile-tool-backdrop')
+    const backdrop = container.querySelector('[data-raw-mobile-backdrop]')
     expect(backdrop).toBeInTheDocument()
     await user.click(backdrop as HTMLElement)
 

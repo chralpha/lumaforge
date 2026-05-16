@@ -280,6 +280,7 @@ export function RawToolSurface(props: {
         {mobilePanel && (
           <m.div
             key="backdrop"
+            data-raw-mobile-backdrop
             className="raw-mobile-tool-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
