@@ -378,6 +378,18 @@ describe('rawToolSurface', () => {
     ).toHaveClass('raw-tool-reset-button')
   })
 
+  it('selects a strength level', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(
+      <RawToolSurface {...baseProps} hasImage onIntensitySelect={onChange} />,
+    )
+
+    await user.click(screen.getByRole('tab', { name: 'Strong' }))
+
+    expect(onChange).toHaveBeenCalledWith('strong')
+  })
+
   it('shows preserved tone state for non-neutral tone', () => {
     render(
       <RawToolSurface

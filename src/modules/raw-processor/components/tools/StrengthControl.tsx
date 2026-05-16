@@ -1,8 +1,5 @@
-import { m } from 'motion/react'
-
+import { SegmentGroup, SegmentItem } from '~/components/ui/segment'
 import { useI18n } from '~/lib/i18n'
-
-import { TAP_SPRING } from '../../motion'
 
 const LEVELS = ['off', 'light', 'standard', 'strong'] as const
 
@@ -27,23 +24,25 @@ export function StrengthControl({
 
   return (
     <div
-      className="raw-strength-control"
-      role="group"
-      aria-label={t('raw.strength.title')}
+      aria-disabled={disabled}
+      className={disabled ? 'pointer-events-none opacity-50' : ''}
     >
-      {LEVELS.map((level) => (
-        <m.button
-          key={level}
-          type="button"
-          aria-pressed={value === level}
-          disabled={disabled}
-          onClick={() => onChange(level)}
-          whileTap={{ scale: 0.97 }}
-          transition={TAP_SPRING}
-        >
-          {labels[level]}
-        </m.button>
-      ))}
+      <SegmentGroup
+        // SegmentGroup is internally uncontrolled; the key re-seeds it after external resets.
+        key={value}
+        value={value}
+        onValueChanged={(value) => onChange(value as StrengthLevel)}
+        className="w-full"
+      >
+        {LEVELS.map((level) => (
+          <SegmentItem
+            key={level}
+            value={level}
+            label={labels[level]}
+            className="flex-1"
+          />
+        ))}
+      </SegmentGroup>
     </div>
   )
 }
