@@ -1024,7 +1024,7 @@ describe('rawToolSurface', () => {
     expect(
       screen.queryByRole('button', { name: 'Load RAW file' }),
     ).not.toBeInTheDocument()
-    expect(uploadButton).toHaveClass('raw-lab-upload-dock')
+    expect(uploadButton).toHaveAttribute('data-raw-upload-dock')
     expect(uploadButton).not.toContainElement(compareSlider)
     expect(stageFrame).toContainElement(uploadButton)
     expect(stageFrame).toContainElement(compareSlider)

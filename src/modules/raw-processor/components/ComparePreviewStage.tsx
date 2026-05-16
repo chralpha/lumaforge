@@ -66,19 +66,27 @@ function UploadDock({
   return (
     <button
       type="button"
-      className="raw-lab-upload-dock"
+      data-raw-upload-dock
+      className="absolute bottom-[clamp(52px,7vw,78px)] left-1/2 z-[5] flex min-w-[min(320px,calc(100%-36px))] -translate-x-1/2 items-center gap-3 rounded-md border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-3 py-2.5 text-[var(--color-on-stage)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60 max-[640px]:bottom-[18px] max-[640px]:min-w-[min(300px,calc(100%-28px))]"
       onClick={(event) => {
         event.stopPropagation()
         onOpenFilePicker()
       }}
       disabled={disabled}
     >
-      <span className="raw-lab-upload-icon" aria-hidden="true">
+      <span
+        className="grid size-[34px] shrink-0 place-items-center rounded-[5px] bg-accent font-bold text-background"
+        aria-hidden="true"
+      >
         ↑
       </span>
-      <span className="raw-lab-upload-copy">
-        <strong>{t('raw.stage.uploadTitle')}</strong>
-        <span>{t('raw.stage.uploadCopy')}</span>
+      <span className="block">
+        <strong className="block text-sm leading-tight">
+          {t('raw.stage.uploadTitle')}
+        </strong>
+        <span className="mt-0.5 block text-xs leading-snug text-[var(--color-on-stage-soft)]">
+          {t('raw.stage.uploadCopy')}
+        </span>
       </span>
     </button>
   )
@@ -148,10 +156,10 @@ export function ComparePreviewStage({
               <EmptySampleCompare split={split} />
             )}
 
-            <span className="raw-lab-compare-label raw-lab-compare-label-left">
+            <span className="raw-lab-compare-label pointer-events-none absolute bottom-[18px] left-[18px] z-[4] max-w-[calc(50%-32px)] rounded-full border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-2.5 py-1.5 text-xs font-medium leading-tight text-[var(--color-on-stage)] opacity-0 transition-opacity duration-200 max-[640px]:max-w-[calc(50%-22px)]">
               {t('raw.stage.leftLabel')}
             </span>
-            <span className="raw-lab-compare-label raw-lab-compare-label-right">
+            <span className="raw-lab-compare-label absolute bottom-[18px] right-[18px] left-auto z-[4] max-w-[calc(50%-32px)] rounded-full border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-2.5 py-1.5 pointer-events-none text-xs font-medium leading-tight text-[var(--color-on-stage)] opacity-0 transition-opacity duration-200 max-[640px]:max-w-[calc(50%-22px)]">
               {t('raw.stage.rightLabel')}
             </span>
 
