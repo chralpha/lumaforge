@@ -8,6 +8,7 @@ import { AnimatePresence, m, useDragControls } from 'motion/react'
 import type { ComponentProps, Ref } from 'react'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
+import { IconButton } from '~/components/ui/button'
 import { clsxm } from '~/lib/cn'
 import { useI18n } from '~/lib/i18n'
 
@@ -282,7 +283,7 @@ export function RawToolSurface(props: {
           <m.div
             key="backdrop"
             data-raw-mobile-backdrop
-            className="raw-mobile-tool-backdrop"
+            className="raw-mobile-tool-backdrop bg-[var(--color-stage-background)]/40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -299,7 +300,7 @@ export function RawToolSurface(props: {
             id={mobileToolSheetId}
             ref={sheetRef}
             data-raw-mobile-sheet
-            className="raw-mobile-tool-sheet"
+            className="raw-mobile-tool-sheet border-t border-border bg-material-medium"
             layout="size"
             initial={prefersReduced ? { opacity: 0 } : { y: '100%' }}
             animate={prefersReduced ? { opacity: 1 } : { y: '0%' }}
@@ -321,25 +322,24 @@ export function RawToolSurface(props: {
             }}
           >
             <div
-              className="raw-mobile-tool-sheet-top"
+              className="raw-mobile-tool-sheet-top bg-material-opaque"
               onPointerDown={(e) => dragControls.start(e)}
             >
               <div
                 className="raw-mobile-tool-sheet-drag-handle"
                 aria-hidden="true"
               />
-              <div className="raw-mobile-tool-sheet-header">
-                <h2>{mobilePanelTitle}</h2>
-                <m.button
-                  type="button"
-                  className="raw-mobile-tool-sheet-close"
+              <div className="raw-mobile-tool-sheet-header flex items-center justify-between gap-3 border-b border-border px-3.5 pb-2.5 pt-2">
+                <h2 className="m-0 text-sm font-medium text-text">
+                  {mobilePanelTitle}
+                </h2>
+                <IconButton
+                  icon={X}
+                  size="md"
                   aria-label={t('raw.mobileTools.close')}
                   onClick={closeMobilePanel}
-                  whileTap={{ scale: 0.92 }}
-                  transition={TAP_SPRING}
-                >
-                  <X aria-hidden="true" />
-                </m.button>
+                  className="rounded-md border border-border bg-background text-text"
+                />
               </div>
             </div>
             <div
