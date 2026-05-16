@@ -403,18 +403,7 @@
   accent-color: var(--raw-green);
 }
 
-.raw-histogram {
-  display: grid;
-  gap: 8px;
-}
-
 .raw-histogram-plot {
-  display: block;
-  width: 100%;
-  height: 108px;
-  overflow: hidden;
-  border: 1px solid oklch(0.74 0.035 78 / 0.68);
-  border-radius: 8px;
   background:
     linear-gradient(
       180deg,
@@ -485,15 +474,6 @@
   stroke-width: 1.6;
   opacity: 0.94;
   filter: drop-shadow(0 1px 1px oklch(0.11 0.018 76 / 0.52));
-}
-
-.raw-histogram-clipping {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  color: var(--raw-ink-soft);
-  font-size: 0.7rem;
-  font-variant-numeric: tabular-nums;
 }
 
 .raw-strength-control {

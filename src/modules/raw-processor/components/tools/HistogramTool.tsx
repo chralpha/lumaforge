@@ -9,8 +9,6 @@ import { useMemo } from 'react'
 import type { Translate } from '~/lib/i18n'
 import { useI18n } from '~/lib/i18n'
 
-import { ToolSection } from './ToolSection'
-
 const VIEWBOX_WIDTH = 128
 const VIEWBOX_HEIGHT = 88
 const PLOT_PADDING = 3
@@ -123,7 +121,7 @@ function HistogramPlot({
     <svg
       role="img"
       aria-label={ariaLabel}
-      className="raw-histogram-plot"
+      className="raw-histogram-plot block h-[108px] w-full overflow-hidden rounded-md border border-border"
       viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
       preserveAspectRatio="none"
     >
@@ -223,36 +221,31 @@ export function HistogramTool({
   const reason = statusReason(histogram, t)
 
   return (
-    <ToolSection
-      title={t('raw.histogram.title')}
-      eyebrow={t('raw.histogram.eyebrow')}
-    >
-      <div className="raw-histogram">
-        <p className="raw-tool-note">
-          <span>{label}</span>
-          {reason && <span>{reason}</span>}
-        </p>
-        {ready ? (
-          <>
-            <HistogramPlot
-              bins={ready.bins}
-              ariaLabel={t('raw.histogram.aria')}
-            />
-            <div className="raw-histogram-clipping">
-              <span>
-                {t('raw.histogram.shadows', {
-                  count: ready.clipping.shadowAnyChannel,
-                })}
-              </span>
-              <span>
-                {t('raw.histogram.highlights', {
-                  count: ready.clipping.highlightAnyChannel,
-                })}
-              </span>
-            </div>
-          </>
-        ) : null}
-      </div>
-    </ToolSection>
+    <div className="grid gap-2">
+      <p className="flex flex-wrap gap-x-2 gap-y-1 text-callout text-text-secondary">
+        <span>{label}</span>
+        {reason && <span>{reason}</span>}
+      </p>
+      {ready ? (
+        <>
+          <HistogramPlot
+            bins={ready.bins}
+            ariaLabel={t('raw.histogram.aria')}
+          />
+          <div className="flex flex-wrap gap-1.5 text-footnote tabular-nums text-text-secondary">
+            <span>
+              {t('raw.histogram.shadows', {
+                count: ready.clipping.shadowAnyChannel,
+              })}
+            </span>
+            <span>
+              {t('raw.histogram.highlights', {
+                count: ready.clipping.highlightAnyChannel,
+              })}
+            </span>
+          </div>
+        </>
+      ) : null}
+    </div>
   )
 }
