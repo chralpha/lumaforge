@@ -6,7 +6,7 @@ import type {
 import { Download, SlidersHorizontal, X } from 'lucide-react'
 import { AnimatePresence, m, useDragControls } from 'motion/react'
 import type { ComponentProps, Ref } from 'react'
-import { useCallback, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 import { useI18n } from '~/lib/i18n'
 
@@ -76,6 +76,7 @@ export function RawToolSurface(props: {
   const { t } = useI18n()
   const [mobilePanel, setMobilePanel] = useState<MobileToolPanel | null>(null)
   const [mobileOpenCards, setMobileOpenCards] = useState<ToolCardId[]>(['look'])
+  const [mobileScrollHint, setMobileScrollHint] = useState(false)
   const mobileToolSheetId = useId()
   const disabled = !props.hasImage || props.isProcessing
   const { canExport, isProcessing, exportResult, onExport } = props
@@ -83,8 +84,12 @@ export function RawToolSurface(props: {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressTriggeredRef = useRef(false)
   const sheetRef = useRef<HTMLDivElement | null>(null)
+  const mobileScrollRef = useRef<HTMLDivElement | null>(null)
   const dragControls = useDragControls()
   const { prefersReduced } = useToolMotion()
+  const mobileContentTransition = prefersReduced
+    ? undefined
+    : { type: 'spring' as const, duration: 0.22, bounce: 0 }
   const mobilePanelTitle =
     mobilePanel === 'style'
       ? t('raw.mobileTools.style')
@@ -120,6 +125,18 @@ export function RawToolSurface(props: {
     setMobilePanel(null)
   }, [])
 
+  const updateMobileScrollHint = useCallback(() => {
+    const scroller = mobileScrollRef.current
+    if (!scroller) {
+      setMobileScrollHint(false)
+      return
+    }
+
+    setMobileScrollHint(
+      scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight > 2,
+    )
+  }, [])
+
   const handleExportLongPressStart = useCallback(() => {
     clearLongPress()
     longPressTimerRef.current = setTimeout(() => {
@@ -135,6 +152,35 @@ export function RawToolSurface(props: {
     props.histogram.state === 'ready'
       ? `Shadows ${props.histogram.clipping.shadowAnyChannel} · Highlights ${props.histogram.clipping.highlightAnyChannel}`
       : undefined
+
+  useEffect(() => {
+    if (!mobilePanel) {
+      setMobileScrollHint(false)
+      return
+    }
+
+    const firstFrame = window.requestAnimationFrame(() => {
+      updateMobileScrollHint()
+      window.requestAnimationFrame(updateMobileScrollHint)
+    })
+    const scroller = mobileScrollRef.current
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(updateMobileScrollHint)
+
+    if (scroller && resizeObserver) {
+      resizeObserver.observe(scroller)
+      if (scroller.firstElementChild) {
+        resizeObserver.observe(scroller.firstElementChild)
+      }
+    }
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      resizeObserver?.disconnect()
+    }
+  }, [mobileOpenCards, mobilePanel, updateMobileScrollHint])
 
   const renderCards = ({ mobile = false }: { mobile?: boolean } = {}) => (
     <ToolCardStack
@@ -247,11 +293,12 @@ export function RawToolSurface(props: {
       <AnimatePresence>
         {mobilePanel && (
           <m.div
-            key={mobilePanel}
+            key="sheet"
             id={mobileToolSheetId}
             ref={sheetRef}
             data-raw-mobile-sheet
             className="raw-mobile-tool-sheet"
+            layout="size"
             initial={prefersReduced ? { opacity: 0 } : { y: '100%' }}
             animate={prefersReduced ? { opacity: 1 } : { y: '0%' }}
             exit={prefersReduced ? { opacity: 0 } : { y: '100%' }}
@@ -293,31 +340,46 @@ export function RawToolSurface(props: {
                 </m.button>
               </div>
             </div>
-            <div className="raw-mobile-tool-sheet-scroll">
-              <AnimatePresence mode="wait">
-                {mobilePanel === 'style' && (
-                  <m.div
-                    key="style"
-                    initial={prefersReduced ? false : { opacity: 0, y: 8 }}
-                    animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
-                    exit={prefersReduced ? undefined : { opacity: 0, y: 8 }}
-                    transition={SHEET_SPRING}
-                  >
-                    {renderCards({ mobile: true })}
-                  </m.div>
-                )}
-                {mobilePanel === 'export' && (
-                  <m.div
-                    key="export"
-                    initial={prefersReduced ? false : { opacity: 0, y: 8 }}
-                    animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
-                    exit={prefersReduced ? undefined : { opacity: 0, y: 8 }}
-                    transition={SHEET_SPRING}
-                  >
-                    {renderExportBlock()}
-                  </m.div>
-                )}
-              </AnimatePresence>
+            <div
+              className="raw-mobile-tool-sheet-scroll-shell"
+              data-scroll-more={mobileScrollHint}
+            >
+              <div
+                ref={mobileScrollRef}
+                className="raw-mobile-tool-sheet-scroll"
+                onScroll={updateMobileScrollHint}
+              >
+                <AnimatePresence mode="popLayout" initial={false}>
+                  {mobilePanel === 'style' && (
+                    <m.div
+                      key="style"
+                      layout
+                      initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                      animate={
+                        prefersReduced ? undefined : { opacity: 1, y: 0 }
+                      }
+                      exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
+                      transition={mobileContentTransition}
+                    >
+                      {renderCards({ mobile: true })}
+                    </m.div>
+                  )}
+                  {mobilePanel === 'export' && (
+                    <m.div
+                      key="export"
+                      layout
+                      initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                      animate={
+                        prefersReduced ? undefined : { opacity: 1, y: 0 }
+                      }
+                      exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
+                      transition={mobileContentTransition}
+                    >
+                      {renderExportBlock()}
+                    </m.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </m.div>
         )}

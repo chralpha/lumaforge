@@ -386,6 +386,20 @@ describe('rawToolSurface', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('switches focused mobile panels without replacing the sheet shell', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<RawToolSurface {...baseProps} />)
+    const surface = container.querySelector('[data-raw-tool-surface]')
+
+    await user.click(screen.getByRole('button', { name: 'Style' }))
+    const styleSheet = container.querySelector('[data-raw-mobile-sheet]')
+
+    await user.click(screen.getByRole('button', { name: 'Export' }))
+
+    expect(surface).toHaveAttribute('data-raw-mobile-panel', 'export')
+    expect(container.querySelector('[data-raw-mobile-sheet]')).toBe(styleSheet)
+  })
+
   it('closes the focused mobile sheet from the backdrop', async () => {
     const user = userEvent.setup()
     const { container } = render(<RawToolSurface {...baseProps} />)
