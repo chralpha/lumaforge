@@ -170,8 +170,8 @@ function multipleOnlineLutSourcesFixture(): UseOnlineLutSourcesResult {
           tags: [],
           trustedContract: {
             role: 'combined-look-output',
-            inputGamut: 'sony-sgamut3cine',
-            inputTransfer: 'slog3',
+            inputGamut: 's-gamut3-cine',
+            inputTransfer: 's-log3',
             outputGamut: 'srgb-rec709',
             outputTransfer: 'gamma24',
             outputRange: 'legal',
