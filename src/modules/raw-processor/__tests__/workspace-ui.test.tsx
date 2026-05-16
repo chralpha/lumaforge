@@ -231,6 +231,7 @@ afterEach(() => {
 
 describe('rawProcessorView', () => {
   it('passes hook histogram state into RAW tools with Histogram', async () => {
+    const user = userEvent.setup()
     mockUseRawProcessor.mockReturnValue(rawProcessorViewState())
 
     await act(async () => {
@@ -238,9 +239,10 @@ describe('rawProcessorView', () => {
       await Promise.resolve()
     })
 
+    await user.click(screen.getByRole('button', { name: 'Histogram' }))
     expect(
-      screen.getByRole('region', { name: 'Histogram' }),
-    ).toBeInTheDocument()
+      screen.getAllByRole('region', { name: 'Histogram' }).length,
+    ).toBeGreaterThanOrEqual(1)
   })
 
   it('renders Chinese Raw Lab shell when the persisted locale is Chinese', async () => {
@@ -271,13 +273,12 @@ describe('rawToolSurface', () => {
     render(<RawToolSurface {...rawToolSurfaceProps()} />)
 
     expect(
-      screen.getByRole('region', { name: 'LUT contract' }),
-    ).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Tone' })).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Strength' })).toBeInTheDocument()
+      screen.getAllByRole('region', { name: 'LUT contract' }).length,
+    ).toBeGreaterThanOrEqual(1)
     expect(
-      screen.getByRole('region', { name: 'Histogram' }),
-    ).toBeInTheDocument()
+      screen.getAllByRole('region', { name: 'Tone' }).length,
+    ).toBeGreaterThanOrEqual(1)
+    // Strength is now inside the Look card, no longer a standalone region
     expect(
       screen.queryByRole('region', { name: 'JPEG presets' }),
     ).not.toBeInTheDocument()
@@ -340,10 +341,14 @@ describe('rawToolSurface', () => {
     ).toBeInTheDocument()
   })
 
-  it('keeps compare copy tied to the new split interaction', () => {
+  it('keeps compare copy tied to the new split interaction', async () => {
+    const user = userEvent.setup()
     render(<RawToolSurface {...rawToolSurfaceProps()} />)
 
-    expect(screen.getByRole('region', { name: 'Compare' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Compare' }))
+    expect(
+      screen.getAllByRole('region', { name: 'Compare' }).length,
+    ).toBeGreaterThanOrEqual(1)
     expect(
       screen.getByText('Drag the split directly on the image.'),
     ).toBeInTheDocument()
@@ -367,6 +372,7 @@ describe('rawToolSurface', () => {
       />,
     )
 
+    await user.click(screen.getByRole('button', { name: 'Compare' }))
     const resetButton = screen.getByRole('button', {
       name: 'Reset compare view',
     })

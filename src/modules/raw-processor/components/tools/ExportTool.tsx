@@ -38,6 +38,7 @@ export function ExportTool({
   activePlan,
   recovery,
   checkpointDurable,
+  embedded,
 }: {
   canExport: boolean
   disabledReason?: string
@@ -55,6 +56,7 @@ export function ExportTool({
   activePlan?: ActiveExportPlanState
   recovery?: ExportRecoveryState
   checkpointDurable?: boolean
+  embedded?: boolean
 }) {
   const { t } = useI18n()
   const session = useAtomValue(currentSessionAtom)
@@ -81,11 +83,8 @@ export function ExportTool({
       : localizeCopyLabel(copyCapability.label, t)
     : t('raw.export.copy')
 
-  return (
-    <ToolSection
-      title={t('raw.export.title')}
-      eyebrow={t('raw.export.eyebrow')}
-    >
+  const innerContent = (
+    <>
       {exportResult ? (
         <div className="raw-export-result">
           <div className="raw-export-result-heading">
@@ -187,6 +186,19 @@ export function ExportTool({
           </p>
         </>
       )}
+    </>
+  )
+
+  if (embedded) {
+    return <>{innerContent}</>
+  }
+
+  return (
+    <ToolSection
+      title={t('raw.export.title')}
+      eyebrow={t('raw.export.eyebrow')}
+    >
+      {innerContent}
     </ToolSection>
   )
 }

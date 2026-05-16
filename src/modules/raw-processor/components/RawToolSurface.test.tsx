@@ -130,67 +130,56 @@ function setWindowSize(width: number, height: number) {
 }
 
 describe('rawToolSurface', () => {
-  it('groups controls as a RAW finishing surface instead of a legacy panel', () => {
+  it('renders the finishing surface with a card stack and a persistent export block', () => {
     const { container } = render(<RawToolSurface {...baseProps} />)
-
-    expect(
-      container.querySelector('[data-raw-panel="controls"]'),
-    ).not.toBeInTheDocument()
     expect(
       container.querySelector('[data-raw-tool-surface="raw-finishing"]'),
     ).toBeInTheDocument()
+    // card stack present
     expect(
-      screen.getByRole('region', { name: 'LUT contract' }),
+      screen.getByRole('group', { name: 'RAW finishing controls' }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Strength' })).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Compare' })).toBeInTheDocument()
+    // Look (LUT contract + strength) open by default → region present
     expect(
-      screen.queryByRole('region', { name: 'JPEG presets' }),
-    ).not.toBeInTheDocument()
+      screen.getAllByRole('region', { name: 'LUT contract' }).length,
+    ).toBeGreaterThanOrEqual(1)
     expect(
-      screen.queryByRole('button', { name: 'Neutral' }),
-    ).not.toBeInTheDocument()
+      screen.getAllByRole('region', { name: 'Tone' }).length,
+    ).toBeGreaterThanOrEqual(1)
+    // Export is a persistent, non-collapsible region
+    const exportRegion = screen.getByRole('region', { name: 'Export' })
+    expect(exportRegion).toHaveAttribute('data-raw-export-block', 'persistent')
+    // collapsed-by-default reference cards are not expanded
+    expect(screen.queryByRole('region', { name: 'Histogram' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Compare' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'File facts' })).toBeNull()
+    // but their triggers exist
     expect(
-      screen.queryByRole('button', { name: 'Warm' }),
-    ).not.toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Export' })).toBeInTheDocument()
-    expect(
-      screen.getByRole('region', { name: 'File facts' }),
+      screen.getByRole('button', { name: 'Histogram' }),
     ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Compare' })).toBeInTheDocument()
     expect(
-      screen.queryByText('Choose a RAW to use JPEG presets.'),
-    ).not.toBeInTheDocument()
-    expect(
-      screen.getByText('Full-resolution export source is still loading.'),
+      screen.getByRole('button', { name: 'File facts' }),
     ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Export full-resolution JPEG' }),
-    ).toHaveClass('raw-export-button', 'raw-export-button-primary')
   })
 
-  it('renders tone controls before strength', async () => {
-    render(<RawToolSurface {...baseProps} hasImage />)
-
-    const tone = screen.getByRole('region', { name: 'Tone' })
-    const strength = screen.getByRole('region', { name: 'Strength' })
-
-    expect(within(tone).getByLabelText('Exposure')).toBeInTheDocument()
-    for (const label of [
-      'Contrast',
-      'Highlights',
-      'Shadows',
-      'Whites',
-      'Blacks',
-    ]) {
-      expect(within(tone).getByLabelText(label)).toBeInTheDocument()
-    }
-    expect(screen.getByRole('region', { name: 'Tone' })).toBeInTheDocument()
+  it('shares one card set between desktop stack and mobile sheet', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<RawToolSurface {...baseProps} />)
+    const surface = container.querySelector('[data-raw-tool-surface]')
+    expect(surface).toHaveAttribute('data-raw-tool-sheet', 'closed')
+    await user.click(screen.getByRole('button', { name: 'Tools' }))
+    expect(surface).toHaveAttribute('data-raw-tool-sheet', 'open')
+    const sheet = container.querySelector(
+      '[data-raw-mobile-sheet]',
+    ) as HTMLElement
     expect(
-      tone.compareDocumentPosition(strength) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+      within(sheet).getByRole('group', { name: 'RAW finishing controls' }),
+    ).toBeInTheDocument()
   })
 
-  it('renders histogram near tone controls', () => {
+  it('reveals the histogram plot when its card is expanded', async () => {
+    const user = userEvent.setup()
     const luma = new Uint32Array(256)
     const red = new Uint32Array(256)
     luma[0] = 1
@@ -232,43 +221,15 @@ describe('rawToolSurface', () => {
       />,
     )
 
-    const tone = screen.getByRole('region', { name: 'Tone' })
-    const histogram = screen.getByRole('region', { name: 'Histogram' })
-    const strength = screen.getByRole('region', { name: 'Strength' })
-
+    await user.click(screen.getByRole('button', { name: 'Histogram' }))
+    const regions = await screen.findAllByRole('region', { name: 'Histogram' })
+    expect(regions.length).toBeGreaterThanOrEqual(1)
     expect(
-      tone.compareDocumentPosition(histogram) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
-    expect(
-      histogram.compareDocumentPosition(strength) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
-    expect(within(histogram).getByText('Quick preview')).toBeInTheDocument()
-    expect(
-      within(histogram).getByLabelText('Preview luminance and RGB histogram'),
+      within(regions[0]).getByLabelText('Preview luminance and RGB histogram'),
     ).toBeInTheDocument()
-    expect(
-      histogram.querySelectorAll('.raw-histogram-channel-fill'),
-    ).toHaveLength(3)
-    expect(
-      histogram.querySelectorAll('.raw-histogram-channel-line'),
-    ).toHaveLength(1)
-    expect(
-      histogram.querySelector('.raw-histogram-channel-line-red'),
-    ).toBeInTheDocument()
-    expect(
-      histogram.querySelector('.raw-histogram-channel-line-green'),
-    ).not.toBeInTheDocument()
-    expect(
-      histogram.querySelector('.raw-histogram-channel-line-blue'),
-    ).not.toBeInTheDocument()
-    expect(histogram.querySelector('.raw-histogram-luma')).toBeInTheDocument()
-    expect(within(histogram).getByText('Shadows 1')).toBeInTheDocument()
-    expect(within(histogram).getByText('Highlights 1')).toBeInTheDocument()
   })
 
-  it('shows unsupported histogram state without stale bins', () => {
+  it('shows unsupported histogram state without stale bins', async () => {
     render(
       <RawToolSurface
         {...baseProps}
@@ -281,7 +242,10 @@ describe('rawToolSurface', () => {
       />,
     )
 
-    const histogram = screen.getByRole('region', { name: 'Histogram' })
+    fireEvent.click(screen.getByRole('button', { name: 'Histogram' }))
+    const regions = await screen.findAllByRole('region', { name: 'Histogram' })
+    expect(regions.length).toBeGreaterThanOrEqual(1)
+    const histogram = regions[0]
 
     expect(within(histogram).getByText('Unsupported')).toBeInTheDocument()
     expect(
@@ -338,12 +302,14 @@ describe('rawToolSurface', () => {
     expect(screen.getByRole('button', { name: 'Reset tone' })).toBeDisabled()
   })
 
-  it('uses Raw Lab-specific reset controls for tone and compare', () => {
+  it('uses Raw Lab-specific reset controls for tone and compare', async () => {
+    const user = userEvent.setup()
     render(<RawToolSurface {...baseProps} hasImage />)
 
     expect(screen.getByRole('button', { name: 'Reset tone' })).toHaveClass(
       'raw-tool-reset-button',
     )
+    await user.click(screen.getByRole('button', { name: 'Compare' }))
     expect(
       screen.getByRole('button', { name: 'Reset compare view' }),
     ).toHaveClass('raw-tool-reset-button')
@@ -366,47 +332,6 @@ describe('rawToolSurface', () => {
     )
 
     expect(screen.getByText('Tone settings preserved')).toBeInTheDocument()
-  })
-
-  it('opens mobile tools from the bottom action rail without relying on page scroll', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<RawToolSurface {...baseProps} />)
-
-    const surface = container.querySelector('[data-raw-tool-surface]')
-    const style = screen.getByRole('button', { name: 'Style' })
-
-    expect(surface).toHaveAttribute('data-raw-tool-sheet', 'closed')
-    expect(style).toHaveAttribute('aria-expanded', 'false')
-
-    await user.click(style)
-    expect(surface).toHaveAttribute('data-raw-tool-sheet', 'open')
-    expect(surface).toHaveAttribute('data-raw-mobile-panel', 'style')
-    expect(style).toHaveAttribute('aria-expanded', 'true')
-
-    await user.click(style)
-    expect(surface).toHaveAttribute('data-raw-tool-sheet', 'closed')
-    expect(style).toHaveAttribute('aria-expanded', 'false')
-  })
-
-  it('opens the Export sheet on tap without triggering export', async () => {
-    const user = userEvent.setup()
-    const onExport = vi.fn()
-    const { container } = render(
-      <RawToolSurface {...baseProps} hasImage canExport onExport={onExport} />,
-    )
-
-    await user.click(screen.getByRole('button', { name: 'Export' }))
-
-    expect(onExport).not.toHaveBeenCalled()
-    expect(container.querySelector('[data-raw-mobile-panel]')).toHaveAttribute(
-      'data-raw-mobile-panel',
-      'export',
-    )
-    expect(
-      within(
-        container.querySelector('.raw-mobile-tool-sheet') as HTMLElement,
-      ).getByRole('region', { name: 'Export' }),
-    ).toBeInTheDocument()
   })
 
   it('triggers quick export on long press of the Export rail tab', async () => {

@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 
 import type { UseRawProcessorReturn } from '../hooks/useRawProcessor'
@@ -197,6 +198,7 @@ describe('rawProcessorView file facts', () => {
   })
 
   it('keeps source Size separate from bounded preview dimensions', async () => {
+    const user = userEvent.setup()
     mockUseRawProcessor.mockReturnValue(createLoadedProcessorState())
 
     await act(async () => {
@@ -204,6 +206,7 @@ describe('rawProcessorView file facts', () => {
       await Promise.resolve()
     })
 
+    await user.click(screen.getByRole('button', { name: 'File facts' }))
     const sizeRow = screen.getByText('Size').closest('div')
     const previewRow = screen.getByText('Preview').closest('div')
 

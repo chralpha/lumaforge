@@ -73,6 +73,7 @@
   "raw.tools.toggle": "RAW tools",
   "raw.mobileTools.aria": "Mobile RAW actions",
   "raw.mobileTools.style": "Style",
+  "raw.mobileTools.tools": "Tools",
   "raw.mobileTools.compare": "Compare",
   "raw.mobileTools.export": "Export",
   "raw.mobileTools.close": "Close RAW tool sheet",
