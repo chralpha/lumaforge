@@ -36,7 +36,9 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
       mobileRailVisible: mobileRail
         ? getComputedStyle(mobileRail).display !== 'none'
         : false,
-      mobileSheetHidden: mobileSheet?.hidden ?? false,
+      mobileSheetClosed: mobileSheet
+        ? mobileSheet.hidden || getComputedStyle(mobileSheet).display === 'none'
+        : true,
       viewportHeight: window.innerHeight,
     }
   })
@@ -47,7 +49,7 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
 
   if (metrics.isMobile) {
     expect(metrics.mobileRailVisible).toBe(true)
-    expect(metrics.mobileSheetHidden).toBe(true)
+    expect(metrics.mobileSheetClosed).toBe(true)
   } else if (metrics.toolStackOverflowY === 'auto') {
     expect(metrics.toolStackScrollOverflow).toBeGreaterThan(0)
   }

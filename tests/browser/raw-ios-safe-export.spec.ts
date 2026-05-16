@@ -56,11 +56,11 @@ function eventPayload(events: ExportDebugEvent[], type: string) {
 }
 
 async function openRawToolsIfCollapsed(page: Page) {
-  const rawToolsToggle = page.getByRole('button', { name: /^raw tools$/i })
-  if (await rawToolsToggle.isVisible()) {
-    const expanded = await rawToolsToggle.getAttribute('aria-expanded')
+  const toolsToggle = page.getByRole('button', { name: 'Tools' })
+  if (await toolsToggle.isVisible()) {
+    const expanded = await toolsToggle.getAttribute('aria-expanded')
     if (expanded !== 'true') {
-      await rawToolsToggle.click()
+      await toolsToggle.click()
     }
   }
 }
@@ -94,12 +94,11 @@ test('browser preflight records expected export profile before export', async ({
 
   await openRawToolsIfCollapsed(page)
 
-  const unsupportedBrowserBuild = page
-    .getByText(
-      /full-resolution jpeg export is not available in this browser build/i,
-    )
+  const exportRegion = page.getByRole('region', { name: 'Export' }).first()
+  const unsupportedBrowserBuild = exportRegion
+    .getByText(/not available in this browser build/i)
     .first()
-  const exportButton = page
+  const exportButton = exportRegion
     .getByRole('button', { name: /export full-resolution jpeg/i })
     .first()
   await expect
