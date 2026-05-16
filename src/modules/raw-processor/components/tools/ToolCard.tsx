@@ -16,19 +16,27 @@ import { toolCardOpenAtom } from '../../state/tool-card.atoms'
 export function ToolCardStack({
   ariaLabel,
   className,
+  value,
+  onValueChange,
   children,
 }: {
   ariaLabel: string
   className?: string
+  value?: ToolCardId[]
+  onValueChange?: (value: ToolCardId[]) => void
   children: ReactNode
 }) {
-  const [open, setOpen] = useAtom(toolCardOpenAtom, { store: jotaiStore })
+  const [storedOpen, setStoredOpen] = useAtom(toolCardOpenAtom, {
+    store: jotaiStore,
+  })
+  const open = value ?? storedOpen
+  const handleValueChange = onValueChange ?? setStoredOpen
 
   return (
     <Accordion
       type="multiple"
       value={open}
-      onValueChange={(next) => setOpen(next as ToolCardId[])}
+      onValueChange={(next) => handleValueChange(next as ToolCardId[])}
       role="group"
       aria-label={ariaLabel}
       className={clsxm('flex flex-col gap-1', className)}
@@ -60,7 +68,10 @@ export function ToolCard({
         className,
       )}
     >
-      <AccordionTrigger className="py-3 text-headline font-medium text-text no-underline hover:no-underline">
+      <AccordionTrigger
+        data-tool-card-trigger={id}
+        className="py-3 text-headline font-medium text-text no-underline hover:no-underline"
+      >
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate">{title}</span>
           {meta != null && (

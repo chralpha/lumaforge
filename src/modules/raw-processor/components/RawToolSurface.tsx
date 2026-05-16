@@ -6,7 +6,7 @@ import type {
 import { Download, SlidersHorizontal, X } from 'lucide-react'
 import { AnimatePresence, m, useDragControls } from 'motion/react'
 import type { ComponentProps, Ref } from 'react'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useId, useRef, useState } from 'react'
 
 import { useI18n } from '~/lib/i18n'
 
@@ -25,6 +25,7 @@ import {
   TAP_SPRING,
   useToolMotion,
 } from '../motion'
+import type { ToolCardId } from '../state/tool-card.atoms'
 import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
 import { FileFactsTool } from './tools/FileFactsTool'
@@ -35,6 +36,8 @@ import { StrengthControl } from './tools/StrengthControl'
 import type { ToneValue } from './tools/ToneTool'
 import { ToneTool } from './tools/ToneTool'
 import { ToolCard, ToolCardStack } from './tools/ToolCard'
+
+type MobileToolPanel = 'style' | 'export'
 
 export function RawToolSurface(props: {
   activeIntensity: StrengthLevel
@@ -71,23 +74,26 @@ export function RawToolSurface(props: {
   stats: ComponentProps<typeof FileFactsTool>['stats']
 }) {
   const { t } = useI18n()
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [mobileSheetTarget, setMobileSheetTarget] = useState<
-    'tools' | 'export'
-  >('tools')
+  const [mobilePanel, setMobilePanel] = useState<MobileToolPanel | null>(null)
+  const [mobileOpenCards, setMobileOpenCards] = useState<ToolCardId[]>(['look'])
   const mobileToolSheetId = useId()
   const disabled = !props.hasImage || props.isProcessing
   const { canExport, isProcessing, exportResult, onExport } = props
   const canStartMobileExport = canExport && !isProcessing && !exportResult
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressTriggeredRef = useRef(false)
   const sheetRef = useRef<HTMLDivElement | null>(null)
-  const mobileExportBlockRef = useRef<HTMLElement | null>(null)
   const dragControls = useDragControls()
   const { prefersReduced } = useToolMotion()
+  const mobilePanelTitle =
+    mobilePanel === 'style'
+      ? t('raw.mobileTools.style')
+      : mobilePanel === 'export'
+        ? t('raw.mobileTools.export')
+        : ''
 
-  const handleMobileToolsToggle = useCallback(() => {
-    setMobileSheetTarget('tools')
-    setMobileOpen((open) => !open)
+  const handleMobilePanelToggle = useCallback((panel: MobileToolPanel) => {
+    setMobilePanel((currentPanel) => (currentPanel === panel ? null : panel))
   }, [])
 
   const clearLongPress = useCallback(() => {
@@ -99,42 +105,44 @@ export function RawToolSurface(props: {
 
   const handleMobileExportClick = useCallback(() => {
     clearLongPress()
-    setMobileSheetTarget('export')
-    setMobileOpen(true)
-  }, [clearLongPress])
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false
+      return
+    }
+    handleMobilePanelToggle('export')
+  }, [clearLongPress, handleMobilePanelToggle])
+
+  const handleMobileStyleClick = useCallback(() => {
+    handleMobilePanelToggle('style')
+  }, [handleMobilePanelToggle])
+
+  const closeMobilePanel = useCallback(() => {
+    setMobilePanel(null)
+  }, [])
 
   const handleExportLongPressStart = useCallback(() => {
     clearLongPress()
     longPressTimerRef.current = setTimeout(() => {
       longPressTimerRef.current = null
       if (canStartMobileExport) {
+        longPressTriggeredRef.current = true
         onExport({ quality: 'high', fidelity: 'balanced' })
       }
     }, 500)
   }, [canStartMobileExport, clearLongPress, onExport])
-
-  useEffect(() => {
-    if (!mobileOpen || mobileSheetTarget !== 'export') return
-
-    window.requestAnimationFrame(() => {
-      if (typeof mobileExportBlockRef.current?.scrollIntoView !== 'function') {
-        return
-      }
-
-      mobileExportBlockRef.current.scrollIntoView({
-        block: 'nearest',
-        behavior: prefersReduced ? 'auto' : 'smooth',
-      })
-    })
-  }, [mobileOpen, mobileSheetTarget, prefersReduced])
 
   const histogramMeta =
     props.histogram.state === 'ready'
       ? `Shadows ${props.histogram.clipping.shadowAnyChannel} · Highlights ${props.histogram.clipping.highlightAnyChannel}`
       : undefined
 
-  const renderCards = () => (
-    <ToolCardStack ariaLabel={t('raw.tools.aria')}>
+  const renderCards = ({ mobile = false }: { mobile?: boolean } = {}) => (
+    <ToolCardStack
+      ariaLabel={t('raw.tools.aria')}
+      className={mobile ? 'raw-mobile-tool-card-stack' : undefined}
+      value={mobile ? mobileOpenCards : undefined}
+      onValueChange={mobile ? setMobileOpenCards : undefined}
+    >
       <ToolCard id="look" title={t('raw.lutContract.title')}>
         <LutContractTool
           currentLutName={props.currentLutName}
@@ -213,7 +221,8 @@ export function RawToolSurface(props: {
     <aside
       className="raw-tool-surface grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden border-l border-border bg-material-medium"
       data-raw-tool-surface="raw-finishing"
-      data-raw-tool-sheet={mobileOpen ? 'open' : 'closed'}
+      data-raw-tool-sheet={mobilePanel ? 'open' : 'closed'}
+      data-raw-mobile-panel={mobilePanel ?? 'closed'}
       aria-label={t('raw.tools.aria')}
     >
       <div className="min-h-0 overflow-y-auto px-3.5 py-3.5 max-[640px]:hidden">
@@ -222,7 +231,7 @@ export function RawToolSurface(props: {
       <div className="max-[640px]:hidden">{renderExportBlock()}</div>
 
       <AnimatePresence>
-        {mobileOpen && (
+        {mobilePanel && (
           <m.div
             key="backdrop"
             className="raw-mobile-tool-backdrop"
@@ -230,15 +239,15 @@ export function RawToolSurface(props: {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={BACKDROP_SPRING}
-            onClick={() => setMobileOpen(false)}
+            onClick={closeMobilePanel}
           />
         )}
       </AnimatePresence>
 
       <AnimatePresence>
-        {mobileOpen && (
+        {mobilePanel && (
           <m.div
-            key="sheet"
+            key={mobilePanel}
             id={mobileToolSheetId}
             ref={sheetRef}
             data-raw-mobile-sheet
@@ -258,7 +267,7 @@ export function RawToolSurface(props: {
                 ? Math.max(80, sheet.offsetHeight * 0.28)
                 : 80
               if (info.offset.y > threshold || info.velocity.y > 500) {
-                setMobileOpen(false)
+                closeMobilePanel()
               }
             }}
           >
@@ -271,12 +280,12 @@ export function RawToolSurface(props: {
                 aria-hidden="true"
               />
               <div className="raw-mobile-tool-sheet-header">
-                <h2>{t('raw.mobileTools.tools')}</h2>
+                <h2>{mobilePanelTitle}</h2>
                 <m.button
                   type="button"
                   className="raw-mobile-tool-sheet-close"
                   aria-label={t('raw.mobileTools.close')}
-                  onClick={() => setMobileOpen(false)}
+                  onClick={closeMobilePanel}
                   whileTap={{ scale: 0.92 }}
                   transition={TAP_SPRING}
                 >
@@ -285,8 +294,30 @@ export function RawToolSurface(props: {
               </div>
             </div>
             <div className="raw-mobile-tool-sheet-scroll">
-              {renderCards()}
-              {renderExportBlock(mobileExportBlockRef)}
+              <AnimatePresence mode="wait">
+                {mobilePanel === 'style' && (
+                  <m.div
+                    key="style"
+                    initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+                    animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
+                    exit={prefersReduced ? undefined : { opacity: 0, y: 8 }}
+                    transition={SHEET_SPRING}
+                  >
+                    {renderCards({ mobile: true })}
+                  </m.div>
+                )}
+                {mobilePanel === 'export' && (
+                  <m.div
+                    key="export"
+                    initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+                    animate={prefersReduced ? undefined : { opacity: 1, y: 0 }}
+                    exit={prefersReduced ? undefined : { opacity: 0, y: 8 }}
+                    transition={SHEET_SPRING}
+                  >
+                    {renderExportBlock()}
+                  </m.div>
+                )}
+              </AnimatePresence>
             </div>
           </m.div>
         )}
@@ -299,22 +330,25 @@ export function RawToolSurface(props: {
         <m.button
           type="button"
           className="raw-mobile-tool-tab"
-          data-mobile-tool-tab="tools"
-          data-active={mobileOpen}
-          aria-expanded={mobileOpen}
+          data-mobile-tool-tab="style"
+          data-active={mobilePanel === 'style'}
+          aria-expanded={mobilePanel === 'style'}
           aria-controls={mobileToolSheetId}
-          onClick={handleMobileToolsToggle}
+          onClick={handleMobileStyleClick}
           whileTap={{ scale: 0.96 }}
           transition={TAP_SPRING}
         >
           <SlidersHorizontal aria-hidden="true" />
-          {t('raw.mobileTools.tools')}
+          {t('raw.mobileTools.style')}
         </m.button>
         <m.button
           type="button"
           className="raw-mobile-tool-tab raw-mobile-tool-tab-export"
           data-mobile-tool-tab="export"
+          data-active={mobilePanel === 'export'}
           aria-disabled={!props.canExport || props.isProcessing}
+          aria-expanded={mobilePanel === 'export'}
+          aria-controls={mobileToolSheetId}
           onPointerDown={handleExportLongPressStart}
           onPointerUp={clearLongPress}
           onPointerLeave={clearLongPress}

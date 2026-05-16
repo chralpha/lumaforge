@@ -347,13 +347,14 @@ describe('rawToolSurface', () => {
     expect(desktopCards).not.toHaveClass('lg:block')
   })
 
-  it('shares cards and export between desktop stack and mobile sheet', async () => {
+  it('opens a focused mobile Style sheet without the persistent export block', async () => {
     const user = userEvent.setup()
     const { container } = render(<RawToolSurface {...baseProps} />)
     const surface = container.querySelector('[data-raw-tool-surface]')
     expect(surface).toHaveAttribute('data-raw-tool-sheet', 'closed')
-    await user.click(screen.getByRole('button', { name: 'Tools' }))
+    await user.click(screen.getByRole('button', { name: 'Style' }))
     expect(surface).toHaveAttribute('data-raw-tool-sheet', 'open')
+    expect(surface).toHaveAttribute('data-raw-mobile-panel', 'style')
     const sheet = container.querySelector(
       '[data-raw-mobile-sheet]',
     ) as HTMLElement
@@ -361,11 +362,11 @@ describe('rawToolSurface', () => {
       within(sheet).getByRole('group', { name: 'RAW finishing controls' }),
     ).toBeInTheDocument()
     expect(
-      within(sheet).getByRole('region', { name: 'Export' }),
-    ).toHaveAttribute('data-raw-export-block', 'persistent')
+      within(sheet).queryByRole('region', { name: 'Export' }),
+    ).not.toBeInTheDocument()
   })
 
-  it('opens the mobile sheet from a normal Export rail tap', async () => {
+  it('opens a focused mobile Export sheet from a normal rail tap', async () => {
     const user = userEvent.setup()
     const { container } = render(<RawToolSurface {...baseProps} />)
     const surface = container.querySelector('[data-raw-tool-surface]')
@@ -373,12 +374,31 @@ describe('rawToolSurface', () => {
     await user.click(screen.getByRole('button', { name: 'Export' }))
 
     expect(surface).toHaveAttribute('data-raw-tool-sheet', 'open')
+    expect(surface).toHaveAttribute('data-raw-mobile-panel', 'export')
     const sheet = container.querySelector(
       '[data-raw-mobile-sheet]',
     ) as HTMLElement
     expect(
       within(sheet).getByRole('region', { name: 'Export' }),
     ).toHaveAttribute('data-raw-export-block', 'persistent')
+    expect(
+      within(sheet).queryByRole('group', { name: 'RAW finishing controls' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('closes the focused mobile sheet from the backdrop', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<RawToolSurface {...baseProps} />)
+    const surface = container.querySelector('[data-raw-tool-surface]')
+
+    await user.click(screen.getByRole('button', { name: 'Style' }))
+
+    const backdrop = container.querySelector('.raw-mobile-tool-backdrop')
+    expect(backdrop).toBeInTheDocument()
+    await user.click(backdrop as HTMLElement)
+
+    expect(surface).toHaveAttribute('data-raw-tool-sheet', 'closed')
+    expect(container.querySelector('[data-raw-mobile-sheet]')).toBeNull()
   })
 
   it('reveals the histogram plot when its card is expanded', async () => {
