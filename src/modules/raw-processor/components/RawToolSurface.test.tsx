@@ -385,6 +385,11 @@ describe('rawToolSurface', () => {
       <RawToolSurface {...baseProps} hasImage onIntensitySelect={onChange} />,
     )
 
+    expect(screen.getByRole('tab', { name: 'Off' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Light' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Standard' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Strong' })).toBeInTheDocument()
+
     await user.click(screen.getByRole('tab', { name: 'Strong' }))
 
     expect(onChange).toHaveBeenCalledWith('strong')
