@@ -335,6 +335,18 @@ describe('rawProcessorView', () => {
     expect(screen.getByText('未处理 RAW')).toBeInTheDocument()
     expect(screen.getByText('最终 JPEG')).toBeInTheDocument()
   })
+
+  it('renders header actions as accessible buttons', async () => {
+    localStorage.setItem('lumaforge.locale', 'zh-CN')
+    mockUseRawProcessor.mockReturnValue(rawProcessorViewState())
+
+    await act(async () => {
+      render(<RawProcessorView />)
+      await Promise.resolve()
+    })
+
+    expect(screen.getByRole('button', { name: '选择 RAW' })).toBeInTheDocument()
+  })
 })
 
 describe('rawToolSurface', () => {
