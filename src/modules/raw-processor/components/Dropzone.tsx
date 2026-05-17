@@ -352,7 +352,7 @@ export function LutDropzone({
             e.stopPropagation()
             onClear()
           }}
-          className="inline-flex min-h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-fill-secondary text-text-secondary transition hover:border-accent/50 hover:bg-fill hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&_svg]:size-[15px] [&_svg]:stroke-[2.2]"
+          className="relative inline-flex min-h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-fill-secondary text-text-secondary transition before:absolute before:inset-x-0 before:-inset-y-[5px] before:content-[''] hover:border-accent/50 hover:bg-fill hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&_svg]:size-[15px] [&_svg]:stroke-[2.2]"
           data-raw-lut="dropzone-clear"
           aria-label={t('raw.lut.clear')}
           title={t('raw.lut.clear')}
