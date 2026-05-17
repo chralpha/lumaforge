@@ -86,7 +86,7 @@ export function WorkspaceHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <LocaleToggle className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-text transition-colors hover:bg-fill-secondary max-[640px]:hidden" />
+        <LocaleToggle className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-fill-secondary max-[640px]:hidden" />
         <Button
           variant="secondary"
           size="sm"
