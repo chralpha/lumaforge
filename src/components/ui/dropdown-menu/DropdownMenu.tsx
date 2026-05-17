@@ -35,7 +35,7 @@ const DropdownMenuSubTrigger = ({
     className={clsxm(
       'cursor-menu focus:bg-accent focus:text-white flex select-none items-center rounded-[5px] px-2.5 py-1 outline-none data-[state=open]:bg-accent data-disabled:pointer-events-none data-[disabled]:opacity-50',
       'text-sm focus-within:outline-transparent',
-      'h-[28px] w-full',
+      'h-[28px] w-full max-[640px]:h-11',
       inset && 'pl-8',
       className,
     )}
@@ -110,7 +110,7 @@ const DropdownMenuItem = ({
     className={clsxm(
       'cursor-menu focus:bg-accent focus:text-white relative flex select-none items-center rounded-[5px] px-2.5 py-1 outline-none transition-colors data-disabled:pointer-events-none data-disabled:opacity-50',
       'text-sm focus-within:outline-transparent',
-      'h-[28px] w-full',
+      'h-[28px] w-full max-[640px]:h-11',
       inset && 'pl-8',
       className,
     )}
