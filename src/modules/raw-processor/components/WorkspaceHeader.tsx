@@ -49,7 +49,7 @@ export function WorkspaceHeader({
 
   return (
     <header
-      className="flex min-w-0 items-center justify-between gap-4 border-b border-border bg-material-opaque pb-3 pt-safe-offset-3 px-safe-offset-3 sm:px-safe-offset-4"
+      className="flex min-w-0 items-center justify-between gap-4 border-b border-border bg-material-opaque/85 backdrop-blur-background pb-3 pt-safe-offset-3 px-safe-offset-3 sm:px-safe-offset-4"
       role="banner"
     >
       <div className="min-w-0">

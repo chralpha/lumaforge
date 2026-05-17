@@ -283,7 +283,7 @@ export function RawToolSurface(props: {
           <m.div
             key="backdrop"
             data-raw-mobile-backdrop
-            className="raw-mobile-tool-backdrop bg-[var(--color-stage-background)]/40"
+            className="raw-mobile-tool-backdrop bg-[var(--color-stage-background)]/40 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -300,7 +300,7 @@ export function RawToolSurface(props: {
             id={mobileToolSheetId}
             ref={sheetRef}
             data-raw-mobile-sheet
-            className="raw-mobile-tool-sheet border-t border-border bg-material-medium"
+            className="raw-mobile-tool-sheet border-t border-border bg-material-medium/85 backdrop-blur-background"
             initial={prefersReduced ? { opacity: 0 } : { y: '100%' }}
             animate={prefersReduced ? { opacity: 1 } : { y: '0%' }}
             exit={prefersReduced ? { opacity: 0 } : { y: '100%' }}
@@ -321,7 +321,7 @@ export function RawToolSurface(props: {
             }}
           >
             <div
-              className="raw-mobile-tool-sheet-top bg-material-opaque"
+              className="raw-mobile-tool-sheet-top bg-material-opaque/80"
               onPointerDown={(e) => dragControls.start(e)}
             >
               <div
@@ -387,7 +387,7 @@ export function RawToolSurface(props: {
       </AnimatePresence>
 
       <nav
-        className="raw-mobile-tool-rail hidden gap-2 border-t border-border bg-material-opaque pt-2 px-safe-or-2 pb-safe-or-2 max-[640px]:grid max-[640px]:grid-cols-2"
+        className="raw-mobile-tool-rail hidden gap-2 border-t border-border bg-material-opaque/80 backdrop-blur-background pt-2 px-safe-or-2 pb-safe-or-2 max-[640px]:grid max-[640px]:grid-cols-2"
         aria-label={t('raw.mobileTools.aria')}
       >
         <m.button
