@@ -15,7 +15,10 @@ export function LocaleToggle({ className }: { className?: string }) {
   return (
     <button
       type="button"
-      className={clsxm('locale-toggle', className)}
+      className={clsxm(
+        'locale-toggle rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+        className,
+      )}
       aria-label={label}
       title={label}
       onClick={toggleLocale}
