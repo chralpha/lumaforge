@@ -256,7 +256,7 @@ export function OnlineLutSourceControls({
     })()
 
   return (
-    <div className="mb-2.5 grid min-w-0 gap-2" data-raw-lut="source-controls">
+    <div className="grid min-w-0 gap-2" data-raw-lut="source-controls">
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_32px_32px] gap-1.5">
         <label htmlFor={sourceInputId} className="sr-only">
           {t('raw.lutSource.url')}
