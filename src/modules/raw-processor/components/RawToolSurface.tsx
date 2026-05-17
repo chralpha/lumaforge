@@ -301,7 +301,6 @@ export function RawToolSurface(props: {
             ref={sheetRef}
             data-raw-mobile-sheet
             className="raw-mobile-tool-sheet border-t border-border bg-material-medium"
-            layout="size"
             initial={prefersReduced ? { opacity: 0 } : { y: '100%' }}
             animate={prefersReduced ? { opacity: 1 } : { y: '0%' }}
             exit={prefersReduced ? { opacity: 0 } : { y: '100%' }}
