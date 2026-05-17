@@ -246,7 +246,7 @@ export function RawToolSurface(props: {
       ref={ref}
       aria-label={t('raw.export.title')}
       data-raw-export-block="persistent"
-      className="border-t border-border bg-material-medium px-4 py-3"
+      className="border-t border-border bg-material-medium px-3.5 py-3"
     >
       <ExportTool
         canExport={props.canExport}

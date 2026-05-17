@@ -352,6 +352,8 @@
   }
 
   .raw-mobile-tool-rail {
+    z-index: 1;
+    display: grid;
     pointer-events: auto;
   }
 
@@ -467,11 +469,6 @@
     padding: 4px 0 0;
     background: transparent;
     box-shadow: none;
-  }
-
-  .raw-mobile-tool-rail {
-    z-index: 1;
-    pointer-events: auto;
   }
 }
 
