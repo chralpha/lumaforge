@@ -5,7 +5,7 @@ import type {
 } from '@lumaforge/luma-color-runtime'
 import { Download, SlidersHorizontal, X } from 'lucide-react'
 import { AnimatePresence, m, useDragControls } from 'motion/react'
-import type { ComponentProps, Ref } from 'react'
+import type { ComponentProps, PointerEvent, Ref } from 'react'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 import { IconButton } from '~/components/ui/button'
@@ -21,12 +21,7 @@ import type {
   ExportRecoveryState,
   LUTProfileSelectionState,
 } from '../model/session'
-import {
-  BACKDROP_SPRING,
-  SHEET_SPRING,
-  TAP_SPRING,
-  useToolMotion,
-} from '../motion'
+import { SHEET_SPRING, TAP_SPRING, useToolMotion } from '../motion'
 import type { ToolCardId } from '../state/tool-card.atoms'
 import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
@@ -79,6 +74,7 @@ export function RawToolSurface(props: {
   const [mobilePanel, setMobilePanel] = useState<MobileToolPanel | null>(null)
   const [mobileOpenCards, setMobileOpenCards] = useState<ToolCardId[]>(['look'])
   const [mobileScrollHint, setMobileScrollHint] = useState(false)
+  const [isScrubbing, setIsScrubbing] = useState(false)
   const mobileToolSheetId = useId()
   const disabled = !props.hasImage || props.isProcessing
   const { canExport, isProcessing, exportResult, onExport } = props
@@ -92,6 +88,7 @@ export function RawToolSurface(props: {
   const mobileContentTransition = prefersReduced
     ? undefined
     : { type: 'spring' as const, duration: 0.22, bounce: 0 }
+  const scrubActive = isScrubbing && !prefersReduced
   const mobilePanelTitle =
     mobilePanel === 'style'
       ? t('raw.mobileTools.style')
@@ -183,6 +180,47 @@ export function RawToolSurface(props: {
       resizeObserver?.disconnect()
     }
   }, [mobileOpenCards, mobilePanel, updateMobileScrollHint])
+
+  // Live-preview affordance: while a slider in the sheet is being dragged the
+  // sheet fades out of the way so the photo behind it stays visible and the
+  // edit can be judged in real time (the Lightroom "chrome recedes while you
+  // scrub" model). Opacity-only — the control stays under the finger.
+  const handleSheetPointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement
+      // The Radix Slider thumb is itself [role=slider] (and carries
+      // data-orientation), so match the thumb directly or a slider Root that
+      // contains one. The StrengthControl SegmentGroup also has
+      // data-orientation but no [role=slider] descendant, so it is excluded.
+      const root = target.closest('[data-orientation]')
+      if (
+        target.closest('[role="slider"]') ||
+        root?.querySelector('[role="slider"]')
+      ) {
+        setIsScrubbing(true)
+      }
+    },
+    [],
+  )
+
+  useEffect(() => {
+    if (!isScrubbing) {
+      return
+    }
+    const end = () => setIsScrubbing(false)
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+    return () => {
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+    }
+  }, [isScrubbing])
+
+  useEffect(() => {
+    if (!mobilePanel) {
+      setIsScrubbing(false)
+    }
+  }, [mobilePanel])
 
   const renderCards = ({ mobile = false }: { mobile?: boolean } = {}) => (
     <ToolCardStack
@@ -283,11 +321,11 @@ export function RawToolSurface(props: {
           <m.div
             key="backdrop"
             data-raw-mobile-backdrop
-            className="raw-mobile-tool-backdrop bg-[var(--color-stage-background)]/40 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={BACKDROP_SPRING}
+            /* Non-modal editor: the sheet is a tool panel, not a dialog — the
+               preview must stay fully visible while adjusting, so this layer
+               is transparent (no dim, no blur). It only catches an
+               outside-tap to dismiss. */
+            className="raw-mobile-tool-backdrop"
             onClick={closeMobilePanel}
           />
         )}
@@ -300,7 +338,13 @@ export function RawToolSurface(props: {
             id={mobileToolSheetId}
             ref={sheetRef}
             data-raw-mobile-sheet
-            className="raw-mobile-tool-sheet border-t border-border bg-material-medium/85 backdrop-blur-background"
+            data-scrubbing={scrubActive || undefined}
+            className={clsxm(
+              'raw-mobile-tool-sheet border-t border-border bg-material-medium/85 transition-opacity duration-150',
+              scrubActive
+                ? 'opacity-15'
+                : 'opacity-100 backdrop-blur-background',
+            )}
             initial={prefersReduced ? { opacity: 0 } : { y: '100%' }}
             animate={prefersReduced ? { opacity: 1 } : { y: '0%' }}
             exit={prefersReduced ? { opacity: 0 } : { y: '100%' }}
@@ -344,6 +388,7 @@ export function RawToolSurface(props: {
             <div
               className="raw-mobile-tool-sheet-scroll-shell"
               data-scroll-more={mobileScrollHint}
+              onPointerDownCapture={handleSheetPointerDown}
             >
               <div
                 ref={mobileScrollRef}
