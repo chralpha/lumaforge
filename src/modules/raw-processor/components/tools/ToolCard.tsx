@@ -70,7 +70,7 @@ export function ToolCard({
     >
       <AccordionTrigger
         data-tool-card-trigger={id}
-        className="py-3 text-headline font-medium text-text no-underline hover:no-underline"
+        className="py-3 text-headline font-medium text-text hover:text-[var(--color-accent-strong)]"
       >
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate">{title}</span>

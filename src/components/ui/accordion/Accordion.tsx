@@ -101,7 +101,7 @@ function AccordionTrigger({
         ref={triggerRef}
         data-slot="accordion-trigger"
         className={clsxm(
-          'flex flex-1 items-center justify-between py-4 text-start font-medium hover:underline',
+          'flex flex-1 items-center justify-between py-4 text-start font-medium transition-colors duration-150 hover:text-text',
           className,
         )}
         {...props}
