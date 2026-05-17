@@ -423,6 +423,17 @@
     height: 4px;
     border-radius: 999px;
     background: var(--color-border);
+    transition:
+      width 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      background 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Tactile grab feedback: the grabber widens and darkens while the sheet-top
+     (the drag region) is pressed — the iOS / Lightroom sheet detail. Honors
+     prefers-reduced-motion via the global .raw-lab *::before reset below. */
+  .raw-mobile-tool-sheet-top:active .raw-mobile-tool-sheet-drag-handle::before {
+    width: 44px;
+    background: var(--color-text-tertiary);
   }
 
   .raw-mobile-tool-sheet-scroll-shell {
