@@ -69,18 +69,20 @@ export function WorkspaceHeader({
             </span>
           )}
         </div>
-        <p className="mt-1 truncate text-xs text-text-secondary">
-          {hasImage
-            ? t('raw.header.subtitleLoaded')
-            : t('raw.header.subtitleEmpty')}
-        </p>
-        {exportDisabledReason && (
-          <p className="mt-1 truncate text-xs text-text-secondary max-[640px]:hidden">
-            {t('raw.header.unavailablePrefix', {
-              reason: exportDisabledReason,
-            })}
+        <div className="ps-10">
+          <p className="mt-1 truncate text-xs text-text-secondary">
+            {hasImage
+              ? t('raw.header.subtitleLoaded')
+              : t('raw.header.subtitleEmpty')}
           </p>
-        )}
+          {exportDisabledReason && (
+            <p className="mt-1 truncate text-xs text-text-secondary max-[640px]:hidden">
+              {t('raw.header.unavailablePrefix', {
+                reason: exportDisabledReason,
+              })}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
