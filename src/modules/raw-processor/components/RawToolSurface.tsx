@@ -396,7 +396,7 @@ export function RawToolSurface(props: {
           className={clsxm(
             'inline-flex min-h-[46px] min-w-0 items-center justify-center gap-1.5 rounded-md border text-xs font-medium leading-none transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
             mobilePanel === 'style'
-              ? 'border-accent-strong bg-fill-secondary text-text'
+              ? 'border-[var(--color-accent-strong)] bg-fill-secondary text-text'
               : 'border-border bg-background text-text',
           )}
           data-mobile-tool-tab="style"
