@@ -476,6 +476,21 @@
   }
 }
 
+/* Short viewports (landscape phones): the 100svh overflow:hidden shell
+   squeezes the stage; reclaim vertical space by compacting the header —
+   tighten its block padding and drop the supplementary subtitle / export-
+   unavailable lines (title + actions remain). */
+@media (max-height: 480px) {
+  .raw-lab header[role='banner'] {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .raw-lab header[role='banner'] p {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .raw-lab *,
   .raw-lab *::before,
