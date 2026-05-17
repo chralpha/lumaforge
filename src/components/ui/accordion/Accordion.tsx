@@ -2,7 +2,7 @@
 
 import * as AccordionPrimitive from '@radix-ui/react-accordion'
 import type { HTMLMotionProps, Transition } from 'motion/react'
-import { AnimatePresence, m as motion } from 'motion/react'
+import { AnimatePresence, m as motion, useReducedMotion } from 'motion/react'
 import * as React from 'react'
 
 import { clsxm } from '~/lib/cn'
@@ -71,6 +71,8 @@ function AccordionTrigger({
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
   React.useImperativeHandle(ref, () => triggerRef.current as HTMLButtonElement)
   const { isOpen, setIsOpen } = useAccordionItem()
+  const prefersReducedMotion = useReducedMotion()
+  const chevronTransition = prefersReducedMotion ? { duration: 0 } : transition
 
   React.useEffect(() => {
     const node = triggerRef.current
@@ -112,7 +114,7 @@ function AccordionTrigger({
           <motion.div
             data-slot="accordion-trigger-chevron"
             animate={{ rotate: isOpen ? 180 : 0 }}
-            transition={transition}
+            transition={chevronTransition}
           >
             <i className="text-text-secondary i-mingcute-down-line size-4 shrink-0" />
           </motion.div>
@@ -136,6 +138,8 @@ function AccordionContent({
   ...props
 }: AccordionContentProps) {
   const { isOpen } = useAccordionItem()
+  const prefersReducedMotion = useReducedMotion()
+  const contentTransition = prefersReducedMotion ? { duration: 0 } : transition
 
   return (
     <AnimatePresence>
@@ -147,7 +151,7 @@ function AccordionContent({
             initial={{ height: 0, opacity: 0, '--mask-stop': '0%' }}
             animate={{ height: 'auto', opacity: 1, '--mask-stop': '100%' }}
             exit={{ height: 0, opacity: 0, '--mask-stop': '0%' }}
-            transition={transition}
+            transition={contentTransition}
             style={{
               maskImage:
                 'linear-gradient(black var(--mask-stop), transparent var(--mask-stop))',
