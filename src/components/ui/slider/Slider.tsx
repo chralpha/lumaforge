@@ -26,6 +26,7 @@ export const Slider = ({
     ref={ref}
     className={clsxm(
       'relative flex w-full touch-none select-none items-center',
+      "before:absolute before:inset-x-0 before:-inset-y-[19px] before:content-['']",
       className,
     )}
     {...props}
