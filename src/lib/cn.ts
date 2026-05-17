@@ -29,7 +29,7 @@ export const focusRing = [
   // base
   'outline-offset-2 outline-0 focus-visible:outline-2',
   // outline color
-  'outline-primary',
+  'outline-accent',
 ]
 
 // Tremor Raw hasErrorInput [v0.0.1]
