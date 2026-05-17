@@ -77,7 +77,7 @@ export function ProgressOverlay({
           transition={Spring.presets.smooth}
         >
           <m.div
-            className="flex flex-col items-center gap-4 rounded-lg border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-7 py-6 shadow-lg"
+            className="flex flex-col items-center gap-4 rounded-md border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-7 py-6 shadow-lg"
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
