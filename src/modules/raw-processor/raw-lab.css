@@ -49,22 +49,6 @@
   box-sizing: border-box;
 }
 
-/* Edge-to-edge: the opaque header bleeds up under the status bar / notch and
-   pads its content past the safe-area insets. Mirrors the Tailwind px-3/py-3
-   (sm:px-4) baseline so the visual rhythm is unchanged where insets are 0. */
-.raw-lab header[role='banner'] {
-  padding-top: calc(0.75rem + env(safe-area-inset-top));
-  padding-right: calc(0.75rem + env(safe-area-inset-right));
-  padding-left: calc(0.75rem + env(safe-area-inset-left));
-}
-
-@media (min-width: 640px) {
-  .raw-lab header[role='banner'] {
-    padding-right: calc(1rem + env(safe-area-inset-right));
-    padding-left: calc(1rem + env(safe-area-inset-left));
-  }
-}
-
 .raw-lab-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
@@ -383,8 +367,6 @@
   .raw-mobile-tool-rail {
     z-index: 1;
     display: grid;
-    padding-right: max(0.5rem, env(safe-area-inset-right));
-    padding-left: max(0.5rem, env(safe-area-inset-left));
     pointer-events: auto;
   }
 

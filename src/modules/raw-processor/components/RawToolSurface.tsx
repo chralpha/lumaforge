@@ -387,7 +387,7 @@ export function RawToolSurface(props: {
       </AnimatePresence>
 
       <nav
-        className="raw-mobile-tool-rail hidden gap-2 border-t border-border bg-material-opaque p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] max-[640px]:grid max-[640px]:grid-cols-2"
+        className="raw-mobile-tool-rail hidden gap-2 border-t border-border bg-material-opaque pt-2 px-safe-or-2 pb-safe-or-2 max-[640px]:grid max-[640px]:grid-cols-2"
         aria-label={t('raw.mobileTools.aria')}
       >
         <m.button
