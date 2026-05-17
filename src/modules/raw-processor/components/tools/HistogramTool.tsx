@@ -221,7 +221,7 @@ export function HistogramTool({
   const reason = statusReason(histogram, t)
 
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-3">
       <p className="flex flex-wrap gap-x-2 gap-y-1 text-callout text-text-secondary">
         <span>{label}</span>
         {reason && <span>{reason}</span>}

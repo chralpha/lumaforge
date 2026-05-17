@@ -201,7 +201,7 @@ export function ToneTool({
   return (
     <div className="grid gap-3">
       <div className="grid gap-3">{BASIC_FIELDS.map(renderField)}</div>
-      <div className="mt-4 grid gap-3">{FINE_FIELDS.map(renderField)}</div>
+      <div className="grid gap-3">{FINE_FIELDS.map(renderField)}</div>
       <p className="text-callout text-text-secondary">{t('raw.tone.note')}</p>
       {!isNeutral && (
         <p className="text-callout text-text-secondary">
