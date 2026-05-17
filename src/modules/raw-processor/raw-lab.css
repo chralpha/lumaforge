@@ -332,7 +332,11 @@
 
 @media (max-width: 640px) {
   .raw-lab-stage {
-    padding: 8px 10px calc(62px + 10px + max(8px, env(safe-area-inset-bottom)));
+    /* Uniform 10px preview-frame inset: top/sides 10px; bottom clears the
+       fixed rail (1px border + 8px top pad + 46px tab + safe-area pb =
+       55px + max(8px,safe)) plus the same 10px gap. */
+    padding: 10px 10px
+      calc(55px + 10px + max(8px, env(safe-area-inset-bottom)));
   }
 
   .raw-tool-surface {
