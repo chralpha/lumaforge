@@ -67,7 +67,7 @@ function UploadDock({
     <button
       type="button"
       data-raw-upload-dock
-      className="absolute bottom-[clamp(52px,7vw,78px)] left-1/2 z-[5] flex min-w-[min(320px,calc(100%-36px))] -translate-x-1/2 items-center gap-3 rounded-md border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-3 py-2.5 text-[var(--color-on-stage)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60 max-[640px]:bottom-[18px] max-[640px]:min-w-[min(300px,calc(100%-28px))]"
+      className="absolute bottom-[clamp(52px,7vw,78px)] left-1/2 z-[5] flex min-w-[min(320px,calc(100%-36px))] -translate-x-1/2 items-center gap-3 rounded-md border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-3 py-2.5 text-[var(--color-on-stage)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 max-[640px]:bottom-[18px] max-[640px]:min-w-[min(300px,calc(100%-28px))]"
       onClick={(event) => {
         event.stopPropagation()
         onOpenFilePicker()
