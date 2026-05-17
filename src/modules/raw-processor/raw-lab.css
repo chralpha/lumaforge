@@ -27,7 +27,13 @@
 
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  /* svh fallback for engines without dynamic-viewport units; dvh wins where
+     supported. The shell is overflow:hidden with no page-level scroll, so the
+     iOS URL bar never collapses from interaction here — dvh tracks the visual
+     viewport without jump and removes the dead band the older 100svh left
+     below the fixed mobile rail when the bar starts collapsed. */
   height: 100svh;
+  height: 100dvh;
   min-height: 0;
   overflow: hidden;
   background:
@@ -41,6 +47,22 @@
 .raw-lab *::before,
 .raw-lab *::after {
   box-sizing: border-box;
+}
+
+/* Edge-to-edge: the opaque header bleeds up under the status bar / notch and
+   pads its content past the safe-area insets. Mirrors the Tailwind px-3/py-3
+   (sm:px-4) baseline so the visual rhythm is unchanged where insets are 0. */
+.raw-lab header[role='banner'] {
+  padding-top: calc(0.75rem + env(safe-area-inset-top));
+  padding-right: calc(0.75rem + env(safe-area-inset-right));
+  padding-left: calc(0.75rem + env(safe-area-inset-left));
+}
+
+@media (min-width: 640px) {
+  .raw-lab header[role='banner'] {
+    padding-right: calc(1rem + env(safe-area-inset-right));
+    padding-left: calc(1rem + env(safe-area-inset-left));
+  }
 }
 
 .raw-lab-shell {
@@ -334,9 +356,12 @@
   .raw-lab-stage {
     /* Uniform 10px preview-frame inset: top/sides 10px; bottom clears the
        fixed rail (1px border + 8px top pad + 46px tab + safe-area pb =
-       55px + max(8px,safe)) plus the same 10px gap. */
-    padding: 10px 10px
-      calc(55px + 10px + max(8px, env(safe-area-inset-bottom)));
+       55px + max(8px,safe)) plus the same 10px gap. Sides grow to clear a
+       landscape notch when the safe-area insets are non-zero. */
+    padding-top: 10px;
+    padding-right: max(10px, env(safe-area-inset-right));
+    padding-bottom: calc(55px + 10px + max(8px, env(safe-area-inset-bottom)));
+    padding-left: max(10px, env(safe-area-inset-left));
   }
 
   .raw-tool-surface {
@@ -358,6 +383,8 @@
   .raw-mobile-tool-rail {
     z-index: 1;
     display: grid;
+    padding-right: max(0.5rem, env(safe-area-inset-right));
+    padding-left: max(0.5rem, env(safe-area-inset-left));
     pointer-events: auto;
   }
 
@@ -450,7 +477,9 @@
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 2px 14px calc(14px + max(0px, env(safe-area-inset-bottom)));
+    padding: 2px max(14px, env(safe-area-inset-right))
+      calc(14px + max(0px, env(safe-area-inset-bottom)))
+      max(14px, env(safe-area-inset-left));
     -webkit-overflow-scrolling: touch;
   }
 
@@ -482,7 +511,7 @@
    unavailable lines (title + actions remain). */
 @media (max-height: 480px) {
   .raw-lab header[role='banner'] {
-    padding-top: 6px;
+    padding-top: calc(6px + env(safe-area-inset-top));
     padding-bottom: 6px;
   }
 
