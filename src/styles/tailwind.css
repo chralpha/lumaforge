@@ -195,8 +195,10 @@ html body {
   @apply max-w-screen overflow-x-hidden;
 }
 
-*:not(input):not(textarea):not([contenteditable='true']):focus-visible {
-  outline: 0 !important;
+@layer base {
+  *:not(input):not(textarea):not([contenteditable='true']):focus-visible {
+    outline: 0;
+  }
 }
 
 @font-face {
