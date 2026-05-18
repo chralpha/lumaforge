@@ -1,6 +1,13 @@
 import type { PreviewHistogramState } from '@lumaforge/luma-color-runtime'
-import { ImageUp, LockKeyhole, RotateCcw, ShieldCheck } from 'lucide-react'
-import { AnimatePresence } from 'motion/react'
+import {
+  ImageUp,
+  Info,
+  LockKeyhole,
+  RotateCcw,
+  ShieldCheck,
+  Wand2,
+} from 'lucide-react'
+import { AnimatePresence, m } from 'motion/react'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -42,12 +49,11 @@ export function MobileLabChrome(props: {
   moreSheet: { pipelineSteps: Step[]; lutRows: Row[]; fileRows: Row[] }
 }) {
   const { t } = useI18n()
-  const [mode, setMode] = useState<MobileMode>('tone')
+  const [mode, setMode] = useState<MobileMode>('look')
   const [focusKey, setFocusKey] = useState<keyof ToneValue | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
   const [lutBrowserOpen, setLutBrowserOpen] = useState(false)
   const [peeking, setPeeking] = useState(false)
-  const [histVisible, setHistVisible] = useState(true)
   const [immersive, setImmersive] = useState(false)
   const [dockExpanded, setDockExpanded] = useState(true)
   const [scrubbing, setScrubbing] = useState(false)
@@ -66,6 +72,7 @@ export function MobileLabChrome(props: {
     setMoreOpen(false)
     setScrubbing(false)
     setDockExpanded(true)
+    setMode('look')
     snapshot.current = null
   }, [hasImage])
 
@@ -121,7 +128,6 @@ export function MobileLabChrome(props: {
       />
     ) : mode === 'look' ? (
       <div className="grid gap-3">
-        {props.strengthControl}
         <button
           type="button"
           onClick={() => setLutBrowserOpen(true)}
@@ -130,6 +136,8 @@ export function MobileLabChrome(props: {
           {t('raw.mobile.lut.title')}
         </button>
       </div>
+    ) : mode === 'strength' ? (
+      props.strengthControl
     ) : mode === 'compare' ? (
       props.comparePanel
     ) : (
@@ -157,6 +165,62 @@ export function MobileLabChrome(props: {
         />
       )}
 
+      {!props.hasImage && (
+        <m.div
+          data-mobile-empty-state
+          className="absolute inset-0 z-[11] grid content-end bg-[radial-gradient(circle_at_50%_24%,rgba(255,255,255,0.10),transparent_32%),linear-gradient(180deg,rgba(10,12,11,0.38),rgba(7,8,7,0.94)_64%,rgba(5,6,5,0.98))] px-4 pb-safe-offset-5 pt-safe-offset-6 text-white"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+        >
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <h1 className="m-0 max-w-[15rem] text-balance text-[1.65rem] font-semibold leading-[1.04] text-white">
+                {t('raw.mobile.empty.title')}
+              </h1>
+              <p className="m-0 max-w-[19rem] text-sm leading-relaxed text-white/72">
+                {t('raw.mobile.empty.copy')}
+              </p>
+              <p className="m-0 text-[0.68rem] font-semibold uppercase tracking-wide text-white/45">
+                {t('raw.mobile.empty.formats')}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={props.onReplaceFile}
+              className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-xl border border-[oklch(0.54_0.14_153)] bg-accent px-4 text-sm font-semibold text-background shadow-[0_16px_34px_rgba(0,0,0,0.28)] transition-colors hover:bg-[oklch(0.66_0.16_153)]"
+            >
+              <ImageUp aria-hidden="true" className="size-4" />
+              {t('raw.mobile.empty.browse')}
+            </button>
+
+            <div className="grid gap-3 rounded-2xl border border-white/15 bg-black/42 p-3.5 shadow-[0_16px_38px_rgba(0,0,0,0.32)] backdrop-blur-md">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3">
+                <span className="grid size-9 place-items-center rounded-xl border border-amber-400/30 bg-amber-400/12 text-amber-300">
+                  <Wand2 aria-hidden="true" className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <h2 className="m-0 text-sm font-semibold text-white">
+                    {t('raw.mobile.empty.prestageTitle')}
+                  </h2>
+                  <p className="m-0 mt-1 text-xs leading-relaxed text-white/65">
+                    {t('raw.mobile.empty.prestageCopy')}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLutBrowserOpen(true)}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-white/20 bg-black/35 px-3 text-sm font-semibold text-white transition-colors hover:border-amber-400/50 hover:text-amber-300"
+              >
+                {t('raw.mobile.empty.addLut')}
+              </button>
+            </div>
+          </div>
+        </m.div>
+      )}
+
       {immersive && !focusKey && props.hasImage && (
         <button
           type="button"
@@ -168,68 +232,66 @@ export function MobileLabChrome(props: {
         </button>
       )}
 
-      {peeking && (
+      {peeking && props.hasImage && (
         <div className="pointer-events-none absolute left-1/2 top-safe-offset-14 z-[12] -translate-x-1/2 rounded-full border border-white/30 bg-black/80 px-2.5 py-1.5 text-[0.7rem] font-semibold uppercase tracking-wide text-white">
           {t('raw.mobile.peek.hint')}
         </div>
       )}
 
       {!focusKey && !immersive && props.hasImage && (
-        <FloatingHistogramCard
-          histogram={props.histogram}
-          hidden={!histVisible || peeking}
-        />
+        <FloatingHistogramCard histogram={props.histogram} hidden={peeking} />
       )}
 
-      {!focusKey && !immersive && (
+      {!focusKey && !immersive && props.hasImage && (
         <>
           <MobileTopbar
-            hasImage={props.hasImage}
+            hasImage
             fileName={props.fileName}
             fileMeta={props.fileMeta}
             supportLevel={props.supportLevel}
-            histogramVisible={histVisible}
-            onToggleHistogram={() => setHistVisible((v) => !v)}
-            moreMenuItems={
-              props.hasImage
-                ? [
-                    {
-                      kind: 'item',
-                      icon: ImageUp,
-                      label: t('raw.mobile.more.replace'),
-                      onSelect: props.onReplaceFile,
-                    },
-                    {
-                      kind: 'item',
-                      icon: RotateCcw,
-                      label: t('raw.mobile.more.reset'),
-                      onSelect: props.onResetSession,
-                    },
-                    { kind: 'separator' },
-                    {
-                      kind: 'item',
-                      icon: LockKeyhole,
-                      label: t('raw.mobile.more.browserLocal'),
-                      onSelect: () => {},
-                      disabled: true,
-                    },
-                    {
-                      kind: 'item',
-                      icon: ShieldCheck,
-                      label: t('raw.mobile.more.officialSupport'),
-                      onSelect: () => {},
-                      disabled: true,
-                    },
-                  ]
-                : [
-                    {
-                      kind: 'item',
-                      icon: ImageUp,
-                      label: t('raw.header.chooseRaw'),
-                      onSelect: props.onReplaceFile,
-                    },
-                  ]
-            }
+            onOpenInfo={() => setMoreOpen(true)}
+            moreMenuItems={[
+              {
+                kind: 'item',
+                icon: ImageUp,
+                label: t('raw.mobile.more.replace'),
+                onSelect: props.onReplaceFile,
+              },
+              {
+                kind: 'item',
+                icon: Wand2,
+                label: t('raw.mobile.more.addLut'),
+                onSelect: () => setLutBrowserOpen(true),
+              },
+              {
+                kind: 'item',
+                icon: Info,
+                label: t('raw.mobile.more.fileDetails'),
+                onSelect: () => setMoreOpen(true),
+              },
+              { kind: 'separator' },
+              {
+                kind: 'item',
+                icon: RotateCcw,
+                label: t('raw.mobile.more.reset'),
+                onSelect: props.onResetSession,
+              },
+              { kind: 'separator' },
+              {
+                kind: 'item',
+                icon: LockKeyhole,
+                label: t('raw.mobile.more.browserLocal'),
+                onSelect: () => {},
+                disabled: true,
+              },
+              {
+                kind: 'item',
+                icon: ShieldCheck,
+                label: t('raw.mobile.more.officialSupport'),
+                onSelect: () => {},
+                disabled: true,
+              },
+            ]}
           />
           <MobileModeDock
             mode={mode}
@@ -264,7 +326,7 @@ export function MobileLabChrome(props: {
       </AnimatePresence>
 
       <MobileLutBrowser
-        open={props.hasImage && lutBrowserOpen}
+        open={lutBrowserOpen}
         onClose={() => setLutBrowserOpen(false)}
         {...props.lutBrowser}
       />

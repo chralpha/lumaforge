@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   Download,
-  Info,
+  Gauge,
   SlidersHorizontal,
   SplitSquareHorizontal,
   Wand2,
@@ -15,22 +15,22 @@ import { useI18n } from '~/lib/i18n'
 
 import { TAP_SPRING } from '../../motion'
 
-export type MobileMode = 'look' | 'tone' | 'compare' | 'export'
+export type MobileMode = 'look' | 'tone' | 'strength' | 'compare' | 'export'
 
 const TABS: {
-  id: MobileMode | 'more'
+  id: MobileMode
   icon: LucideIcon
   labelKey: Parameters<Translate>[0]
   primary?: boolean
 }[] = [
   { id: 'look', icon: Wand2, labelKey: 'raw.mobile.mode.look' },
   { id: 'tone', icon: SlidersHorizontal, labelKey: 'raw.mobile.mode.tone' },
+  { id: 'strength', icon: Gauge, labelKey: 'raw.mobile.mode.strength' },
   {
     id: 'compare',
     icon: SplitSquareHorizontal,
     labelKey: 'raw.mobile.mode.compare',
   },
-  { id: 'more', icon: Info, labelKey: 'raw.mobile.mode.more' },
   {
     id: 'export',
     icon: Download,
@@ -44,7 +44,7 @@ export function MobileModeDock(props: {
   expanded: boolean
   onModeChange: (mode: MobileMode) => void
   onCollapse: () => void
-  onOpenMore: () => void
+  onOpenMore?: () => void
   canExport: boolean
   disabled?: boolean
   panel: ReactNode
@@ -64,7 +64,7 @@ export function MobileModeDock(props: {
         className="grid grid-cols-5 gap-1 border-t border-white/15 px-2.5 pb-3 pt-2"
       >
         {TABS.map((tab) => {
-          const active = tab.id !== 'more' && props.mode === tab.id
+          const active = props.mode === tab.id
           return (
             <m.button
               key={tab.id}
@@ -77,10 +77,6 @@ export function MobileModeDock(props: {
               transition={TAP_SPRING}
               onClick={() => {
                 if (disabled) return
-                if (tab.id === 'more') {
-                  props.onOpenMore()
-                  return
-                }
                 if (props.mode === tab.id && props.expanded) {
                   props.onCollapse()
                   return
@@ -88,7 +84,7 @@ export function MobileModeDock(props: {
                 props.onModeChange(tab.id)
               }}
               className={clsxm(
-                'relative grid min-h-[50px] grid-rows-[auto_auto] place-items-center gap-1 rounded-lg px-1 py-1.5 text-[0.64rem] font-semibold uppercase tracking-wide transition-colors',
+                'relative grid min-h-[52px] grid-rows-[auto_auto] place-items-center gap-1 rounded-lg px-1 py-1.5 text-[0.64rem] font-semibold uppercase tracking-wide transition-colors',
                 disabled
                   ? 'cursor-not-allowed text-white/35'
                   : active
@@ -101,7 +97,7 @@ export function MobileModeDock(props: {
               {active && !disabled && (
                 <span
                   className={clsxm(
-                    'absolute -bottom-0.5 left-1/2 h-0.5 w-[22px] -translate-x-1/2 rounded-full',
+                    'absolute bottom-0 left-1/2 h-0.5 w-[22px] -translate-x-1/2 rounded-full',
                     tab.primary ? 'bg-accent' : 'bg-amber-400',
                   )}
                 />

@@ -1325,7 +1325,7 @@ describe('rawToolSurface', () => {
     expect(screen.getByText('Issue')).toBeInTheDocument()
   })
 
-  it('mobile + no image pre-shows the topbar + disabled dock scaffold', () => {
+  it('mobile + no image shows the darkroom onboarding lifecycle state', () => {
     const prev = jotaiStore.get(viewportAtom)
     jotaiStore.set(viewportAtom, { ...prev, w: 390, sm: false })
     try {
@@ -1334,24 +1334,24 @@ describe('rawToolSurface', () => {
           <RawToolSurface {...baseProps} hasImage={false} />
         </Provider>,
       )
-      // Chrome scaffold IS present (consistent layout pre-upload)…
       expect(
         container.querySelector('[data-raw-mobile-lab]'),
       ).toBeInTheDocument()
       expect(
-        container.querySelector('[data-mobile-topbar]'),
+        screen.getByRole('heading', { name: /drop a raw to start/i }),
       ).toBeInTheDocument()
       expect(
-        screen.getByRole('tablist', { name: /lab modes/i }),
+        screen.getByRole('button', { name: /browse raw files/i }),
       ).toBeInTheDocument()
-      // …but inert: no peek surface, no tone strip, dock tabs disabled.
+      expect(screen.getByText(/pre-stage a lut/i)).toBeInTheDocument()
+      expect(container.querySelector('[data-mobile-topbar]')).toBeNull()
+      expect(screen.queryByRole('tablist', { name: /lab modes/i })).toBeNull()
       expect(
         container.querySelector('[data-testid="mobile-peek-surface"]'),
       ).toBeNull()
       expect(
         screen.queryByRole('tablist', { name: /tone parameters/i }),
       ).toBeNull()
-      expect(screen.getByRole('tab', { name: /tone/i })).toBeDisabled()
       // desktop aside not mounted on mobile
       expect(
         container.querySelector('[data-raw-tool-surface="raw-finishing"]'),

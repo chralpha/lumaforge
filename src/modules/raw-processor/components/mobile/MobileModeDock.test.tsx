@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { MobileModeDock } from './MobileModeDock'
 
 describe('mobileModeDock', () => {
-  it('renders five mode tabs and switches mode when expanded', async () => {
+  it('renders the handoff mode tabs and switches mode when expanded', async () => {
     const onModeChange = vi.fn()
     const onOpenMore = vi.fn()
     render(
@@ -22,10 +22,12 @@ describe('mobileModeDock', () => {
     expect(screen.getByTestId('panel')).toHaveTextContent('tone-panel')
     const tabs = screen.getAllByRole('tab')
     expect(tabs).toHaveLength(5)
+    expect(screen.queryByRole('tab', { name: /more/i })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('tab', { name: /look/i }))
     expect(onModeChange).toHaveBeenCalledWith('look')
-    await userEvent.click(screen.getByRole('tab', { name: /more/i }))
-    expect(onOpenMore).toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('tab', { name: /strength/i }))
+    expect(onModeChange).toHaveBeenCalledWith('strength')
+    expect(onOpenMore).not.toHaveBeenCalled()
   })
 
   it('hides the panel when collapsed and toggles on tab tap', async () => {

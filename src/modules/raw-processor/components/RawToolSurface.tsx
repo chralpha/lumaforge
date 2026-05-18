@@ -17,6 +17,7 @@ import type {
   ExportRecoveryState,
   LUTProfileSelectionState,
 } from '../model/session'
+import { MobileExportPanel } from './mobile/MobileExportPanel'
 import { MobileLabChrome } from './mobile/MobileLabChrome'
 import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
@@ -140,6 +141,22 @@ export function RawToolSurface(props: {
     />
   )
 
+  const mobileExportBlock = (
+    <MobileExportPanel
+      canExport={props.canExport}
+      disabledReason={props.disabledReason}
+      isProcessing={props.isProcessing}
+      onExport={props.onExport}
+      exportResult={props.exportResult}
+      exportShareCapability={props.exportShareCapability}
+      recovery={props.recovery}
+      onShareExport={props.onShareExport}
+      onDownloadExport={props.onDownloadExport}
+      onCopyExport={props.onCopyExport}
+      onRecoverExportSource={props.onRecoverExportSource}
+    />
+  )
+
   const renderCards = () => (
     <ToolCardStack ariaLabel={t('raw.tools.aria')}>
       <ToolCard id="look" title={t('raw.lutContract.title')}>
@@ -206,14 +223,14 @@ export function RawToolSurface(props: {
         : '—'
   const moreSheet = {
     pipelineSteps: [
-      { index: 1, label: t('raw.fileFacts.title'), timing: '—' },
+      { index: 1, label: 'RAW decode', timing: '—' },
       { index: 2, label: t('raw.tone.title'), timing: '—' },
       {
         index: 3,
         label: props.currentLutName ?? t('raw.mobile.more.lutHeading'),
         timing: '—',
       },
-      { index: 4, label: 'Rec.709', timing: renderTime },
+      { index: 4, label: 'JPEG output', timing: renderTime },
     ],
     lutRows: [
       {
@@ -264,7 +281,7 @@ export function RawToolSurface(props: {
           strengthControl={strengthControl}
           lutBrowser={mobileLutBrowser}
           comparePanel={compareBlock}
-          exportPanel={exportBlock}
+          exportPanel={mobileExportBlock}
           moreSheet={moreSheet}
         />
       </div>

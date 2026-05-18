@@ -49,24 +49,33 @@ describe('mobileLabChrome', () => {
     vi.unstubAllGlobals()
   })
 
-  it('empty state: topbar + disabled dock scaffold, no peek/focus/histogram', () => {
+  it('empty state uses the darkroom onboarding surface and can pre-stage a LUT', async () => {
     render(<MobileLabChrome {...base} hasImage={false} />)
     expect(
-      screen.getByRole('tablist', { name: /lab modes/i }),
+      screen.getByRole('heading', { name: /drop a raw to start/i }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /tone/i })).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: /browse raw files/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/pre-stage a lut/i)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /add lut/i }))
+    expect(
+      screen.getByRole('dialog', { name: /lut browser/i }),
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByRole('tablist', { name: /lab modes/i }),
+    ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('tablist', { name: /tone parameters/i }),
     ).toBeNull()
     expect(screen.queryByTestId('mobile-peek-surface')).not.toBeInTheDocument()
-    // topbar shows the app title + empty hint instead of file facts
-    expect(
-      screen.getByRole('heading', { name: /raw lab/i }),
-    ).toBeInTheDocument()
   })
 
   it('tears down focus/sheets when the RAW is cleared (hasImage→false)', async () => {
     const { rerender } = render(<MobileLabChrome {...base} />)
+    const dock = screen.getByRole('tablist', { name: /lab modes/i })
+    await userEvent.click(within(dock).getByRole('tab', { name: /tone/i }))
     const strip = screen.getByRole('tablist', { name: /tone parameters/i })
     await userEvent.click(within(strip).getAllByRole('tab')[0])
     expect(screen.getByRole('button', { name: /done/i })).toBeInTheDocument()
@@ -75,35 +84,39 @@ describe('mobileLabChrome', () => {
       screen.queryByRole('button', { name: /done/i }),
     ).not.toBeInTheDocument()
     expect(screen.queryByTestId('mobile-peek-surface')).not.toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /tone/i })).toBeDisabled()
+    expect(
+      screen.getByRole('heading', { name: /drop a raw to start/i }),
+    ).toBeInTheDocument()
   })
 
-  it('look mode opens the mobile LUT browser sheet', async () => {
+  it('look mode opens the LUT browser and strength is its own mode', async () => {
     render(<MobileLabChrome {...base} />)
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
-    await userEvent.click(within(dock).getByRole('tab', { name: /look/i }))
-    expect(screen.getByText('strength')).toBeInTheDocument()
+    expect(screen.queryByText('strength')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /lut browser/i }))
     expect(
       screen.getByRole('dialog', { name: /lut browser/i }),
     ).toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole('button', { name: /close lut browser/i }),
+    )
+    await userEvent.click(within(dock).getByRole('tab', { name: /strength/i }))
+    expect(screen.getByText('strength')).toBeInTheDocument()
   })
 
-  it('starts with controls visible (tone strip shown, not bare)', async () => {
+  it('starts with controls visible on the Look workflow, not bare', async () => {
     render(<MobileLabChrome {...base} />)
     // Controls are present on load — dock expanded by default, not immersive.
     expect(
-      screen.getByRole('tablist', { name: /tone parameters/i }),
+      screen.getByRole('button', { name: /lut browser/i }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: 'DSC09142.ARW' }),
     ).toBeInTheDocument()
-    // Tapping the active Tone tab collapses the panel.
+    // Tapping the active Look tab collapses the panel.
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
-    await userEvent.click(within(dock).getByRole('tab', { name: /tone/i }))
-    expect(
-      screen.queryByRole('tablist', { name: /tone parameters/i }),
-    ).toBeNull()
+    await userEvent.click(within(dock).getByRole('tab', { name: /look/i }))
+    expect(screen.queryByRole('button', { name: /lut browser/i })).toBeNull()
   })
 
   it('enters focus mode from a tone pill and hides the topbar', async () => {
@@ -112,6 +125,8 @@ describe('mobileLabChrome', () => {
       screen.getByRole('heading', { name: 'DSC09142.ARW' }),
     ).toBeInTheDocument()
 
+    const dock = screen.getByRole('tablist', { name: /lab modes/i })
+    await userEvent.click(within(dock).getByRole('tab', { name: /tone/i }))
     const strip = screen.getByRole('tablist', { name: /tone parameters/i })
     await userEvent.click(within(strip).getAllByRole('tab')[0])
 
@@ -123,6 +138,8 @@ describe('mobileLabChrome', () => {
 
   it('recedes focus chrome while the slider is scrubbed', async () => {
     render(<MobileLabChrome {...base} />)
+    const dock = screen.getByRole('tablist', { name: /lab modes/i })
+    await userEvent.click(within(dock).getByRole('tab', { name: /tone/i }))
     const strip = screen.getByRole('tablist', { name: /tone parameters/i })
     await userEvent.click(within(strip).getAllByRole('tab')[0])
     const focus = document.querySelector('[data-tone-focus]')

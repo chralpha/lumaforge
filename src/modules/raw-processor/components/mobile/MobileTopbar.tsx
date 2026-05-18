@@ -1,4 +1,4 @@
-import { BarChart3 } from 'lucide-react'
+import { Info } from 'lucide-react'
 
 import { IconButton } from '~/components/ui/button'
 import { clsxm } from '~/lib/cn'
@@ -14,8 +14,7 @@ export function MobileTopbar(props: {
   fileName: string
   fileMeta: string
   supportLevel: 'official' | 'experimental'
-  histogramVisible: boolean
-  onToggleHistogram: () => void
+  onOpenInfo: () => void
   moreMenuItems: MobileMoreMenuItem[]
 }) {
   const { t } = useI18n()
@@ -53,16 +52,11 @@ export function MobileTopbar(props: {
       <div className="pointer-events-auto inline-flex items-center gap-1.5">
         {props.hasImage && (
           <IconButton
-            icon={BarChart3}
+            icon={Info}
             size="md"
-            aria-pressed={props.histogramVisible}
-            aria-label={
-              props.histogramVisible
-                ? t('raw.mobile.histogram.toggleHide')
-                : t('raw.mobile.histogram.toggleShow')
-            }
-            onClick={props.onToggleHistogram}
-            className="rounded-md border border-white/30 bg-black/40 text-white"
+            aria-label={t('raw.mobile.more.fileDetails')}
+            onClick={props.onOpenInfo}
+            className="size-11 rounded-md border border-white/30 bg-black/40 text-white [&_svg]:size-5 [&_svg]:stroke-white"
           />
         )}
         <MobileMoreMenu
