@@ -1,7 +1,9 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Provider } from 'jotai'
 import { describe, expect, it, vi } from 'vitest'
 
+import { viewportAtom } from '~/atoms/viewport'
 import { jotaiStore } from '~/lib/jotai'
 
 import type { UseOnlineLutSourcesResult } from '../hooks/useOnlineLutSources'
@@ -1321,5 +1323,40 @@ describe('rawToolSurface', () => {
     expect(status).toHaveAttribute('aria-live', 'polite')
     expect(status).toHaveTextContent('Failed to fetch online profile resource.')
     expect(screen.getByText('Issue')).toBeInTheDocument()
+  })
+
+  it('mobile + no image renders no chrome (clean stage upload state)', () => {
+    const prev = jotaiStore.get(viewportAtom)
+    jotaiStore.set(viewportAtom, { ...prev, w: 390, sm: false })
+    try {
+      const { container } = render(
+        <Provider store={jotaiStore}>
+          <RawToolSurface {...baseProps} hasImage={false} />
+        </Provider>,
+      )
+      expect(container.querySelector('[data-raw-mobile-lab]')).toBeNull()
+      expect(
+        container.querySelector('[data-raw-tool-surface="raw-finishing"]'),
+      ).toBeNull()
+    } finally {
+      jotaiStore.set(viewportAtom, prev)
+    }
+  })
+
+  it('mobile + image mounts the photo-first chrome', () => {
+    const prev = jotaiStore.get(viewportAtom)
+    jotaiStore.set(viewportAtom, { ...prev, w: 390, sm: false })
+    try {
+      const { container } = render(
+        <Provider store={jotaiStore}>
+          <RawToolSurface {...baseProps} hasImage />
+        </Provider>,
+      )
+      expect(
+        container.querySelector('[data-raw-mobile-lab]'),
+      ).toBeInTheDocument()
+    } finally {
+      jotaiStore.set(viewportAtom, prev)
+    }
   })
 })

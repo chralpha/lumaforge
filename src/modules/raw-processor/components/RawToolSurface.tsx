@@ -224,40 +224,44 @@ export function RawToolSurface(props: {
     ],
   }
 
-  if (!isMobileViewport) {
+  if (isMobileViewport) {
+    // No RAW yet: render nothing so the dark, guided ComparePreviewStage
+    // upload dock is the unobstructed empty experience (no jarring dark
+    // chrome over an empty stage). Chrome mounts only once a RAW is loaded.
+    if (!props.hasImage) return null
     return (
-      <aside
-        className="raw-tool-surface grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden border-l border-border bg-material-medium"
-        data-raw-tool-surface="raw-finishing"
-        aria-label={t('raw.tools.aria')}
-      >
-        <div className="min-h-0 overflow-y-auto px-3.5 py-3.5">
-          {renderCards()}
-        </div>
-        <div>{renderExportBlock()}</div>
-      </aside>
+      <div className="fixed inset-0 z-30" data-raw-mobile-lab>
+        <MobileLabChrome
+          tone={props.tone}
+          onToneChange={props.onToneChange}
+          onToneReset={props.onToneReset}
+          viewMode={props.viewMode}
+          onViewModeChange={props.onViewModeChange}
+          histogram={props.histogram}
+          fileName={props.fileName}
+          fileMeta={fileMeta || props.fileName}
+          supportLevel={props.supportLevel}
+          onReplaceFile={props.onReplaceFile}
+          onResetSession={props.onResetSession}
+          lutPanel={lutBlock}
+          comparePanel={compareBlock}
+          exportPanel={exportBlock}
+          moreSheet={moreSheet}
+        />
+      </div>
     )
   }
 
   return (
-    <div className="fixed inset-0 z-30" data-raw-mobile-lab>
-      <MobileLabChrome
-        tone={props.tone}
-        onToneChange={props.onToneChange}
-        onToneReset={props.onToneReset}
-        viewMode={props.viewMode}
-        onViewModeChange={props.onViewModeChange}
-        histogram={props.histogram}
-        fileName={props.fileName}
-        fileMeta={fileMeta || props.fileName}
-        supportLevel={props.supportLevel}
-        onReplaceFile={props.onReplaceFile}
-        onResetSession={props.onResetSession}
-        lutPanel={lutBlock}
-        comparePanel={compareBlock}
-        exportPanel={exportBlock}
-        moreSheet={moreSheet}
-      />
-    </div>
+    <aside
+      className="raw-tool-surface grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden border-l border-border bg-material-medium"
+      data-raw-tool-surface="raw-finishing"
+      aria-label={t('raw.tools.aria')}
+    >
+      <div className="min-h-0 overflow-y-auto px-3.5 py-3.5">
+        {renderCards()}
+      </div>
+      <div>{renderExportBlock()}</div>
+    </aside>
   )
 }
