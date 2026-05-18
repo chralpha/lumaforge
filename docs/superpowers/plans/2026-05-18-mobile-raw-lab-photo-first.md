@@ -1751,34 +1751,32 @@ git commit --no-gpg-sign -m "feat(raw): photo-first mobile lab chrome wired into
   (`components/mobile/**`, `RawToolSurface*`, `RawProcessorView`,
   `workspace-ui.test`) is clean. Repo-wide `pnpm lint` fails only on the
   known pre-existing generated-file RED baseline (unrelated).
-- **Step 2 tests:** ✅ `pnpm test:run` — 1148 passed; the only 4 failures are
+- **Step 2 tests:** ✅ `pnpm test:run` — 1155 passed; the only 4 failures are
   the documented pre-existing `scripts/native-runtime/**` baseline, untouched
-  by this work. All 43 raw-processor suites (382 tests) incl. the 8 new mobile
-  suites pass. `tsc --noEmit` 0 errors.
+  by this work. All raw-processor suites incl. the 9 new mobile suites
+  (54 mobile/surface tests) pass. `tsc --noEmit` 0 errors.
 - **Step 3 build:** ✅ `pnpm build` succeeds.
-- **Step 4 browser validation:** Preview-build Playwright run (1280→390→1280),
-  12/13 checks PASS, **0 console errors**. Verified: app/shell renders;
-  desktop aside present & mobile chrome absent at 1280; photo-first chrome
-  mounts at 390 with desktop aside absent; topbar shows the file name;
-  5-mode dock; Tone pill → focus editor (Done); **long-press peek reveals
-  unprocessed RAW**; Look/Compare/Export switch; More sheet dialog opens;
-  desktop restored intact. Screenshots: `/tmp/mrl-{desktop-loaded,
-  mobile-loaded,focus,more}.png`.
-  - **One sub-clause not browser-evidenced:** "RAW decodes to loaded state →
-    slider drag updates the *decoded* preview live". BLOCKER: the stage
-    Dropzone is `clickToOpen={false}` (drag-drop only, no settable file
-    input) and the only available fixture (`raw-pixls-iphone-se.dng`, 11 MB)
-    does not complete WASM decode in headless Chromium within practical
-    limits. This is the RAW decode runtime/environment, **explicitly out of
-    scope** for this UI refactor (spec §8; CLAUDE.md runtime boundary) and
-    **not a defect in the photo-first rebuild**. The slider→real-pipeline
-    wiring is covered by passing unit/integration tests
-    (`ToneFocusEditor`/`MobileLabChrome`/`preview-pipeline`) and uses the
-    exact `onToneChange` path the unchanged desktop uses.
+- **Step 4 browser validation:** ✅ Preview-build Playwright run with the
+  user-supplied real RAW `test-images/SGL00940.ARW` (loaded via the header
+  chooser filechooser at 1280, then resized to 390), **15/15 checks PASS, 0
+  console errors**, and the 82 MB ARW **decoded to `data-raw-lab-state=
+  "loaded"`** — closing the earlier decode-evidence gap. Screenshot-verified:
+  - Empty state: NO dark chrome; full-bleed dark guided upload card
+    ("Drop one RAW here") — the earlier cream-void / unfinished-feel defect
+    is fixed (`/tmp/mrl-empty.png`).
+  - Loaded: photo full-bleed; slim topbar + collapsed tab-bar only (minimal
+    obstruction, ≈ old rail) (`/tmp/mrl-collapsed.png`); Tone tab expands the
+    strip; pill → focus editor (`/tmp/mrl-focus.png`); short tap → immersive,
+    all chrome hidden, "Show controls" restores (`/tmp/mrl-immersive.png`);
+    long-press → unprocessed RAW peek; More sheet (`/tmp/mrl-more.png`);
+    desktop resize → original surface intact.
+  - Root layout defect fixed: `WorkspaceHeader` `display:none` on mobile
+    removed it from the `.raw-lab` grid, dropping the shell into the `auto`
+    row → collapsed stage + cream void. Mobile `.raw-lab`/`.raw-lab-shell`
+    are now single full-height row → stage is genuinely full-bleed.
 
-Per the loop contract the completion promise is withheld: the done bar's
-live-decoded-preview sub-clause is environment-blocked, not satisfied. The
-refactor itself is complete and green; the blocker is reported, not faked.
+Done bar fully met with real-RAW browser evidence (incl. the decoded-preview
+path) — completion promise may be emitted truthfully.
 
 - [x] **Step 1: Lint**
 
@@ -1797,7 +1795,7 @@ unrelated pre-existing RED baseline failures; fix anything this work broke.)
 Run: `pnpm build`
 Expected: Success.
 
-- [ ] **Step 4: Browser validation** (use the webapp-testing/Playwright tools
+- [x] **Step 4: Browser validation** (use the webapp-testing/Playwright tools
   at a mobile viewport, e.g. 402×874). Load `/raw` with a sample RAW and verify:
 
   - Photo is full-bleed; floating topbar + 5-mode dock over it; desktop
@@ -1822,8 +1820,7 @@ git add -A
 git commit --no-gpg-sign -m "fix(raw): mobile lab browser-validation polish"
 ```
 
-- [ ] **Step 6: Loop stop condition** — STOP the ralph loop only when Steps
-  1–4 (and Tasks 12–13) all pass with evidence. Otherwise continue iterating.
+- [x] **Step 6: Loop stop condition** — met: Steps 1–4 + Tasks 12–14 all pass with real-RAW browser evidence (15/15, 0 console errors).
 
 ---
 
@@ -1841,7 +1838,7 @@ loaded.
 - Modify: `src/modules/raw-processor/components/RawToolSurface.tsx`
 - Test: `src/modules/raw-processor/components/RawToolSurface.test.tsx`
 
-- [ ] **Step 1: Failing test** — add to `RawToolSurface.test.tsx` (drives the
+- [x] **Step 1: Failing test** — add to `RawToolSurface.test.tsx` (drives the
   mobile branch by setting the viewport atom):
 
 ```tsx
@@ -1883,12 +1880,12 @@ it('mobile + image mounts the photo-first chrome', () => {
 })
 ```
 
-- [ ] **Step 2: Run → fail**
+- [x] **Step 2: Run → fail**
 
 Run: `pnpm test:run src/modules/raw-processor/components/RawToolSurface.test.tsx -t "mobile + no image"`
 Expected: FAIL (chrome currently renders regardless of hasImage).
 
-- [ ] **Step 3: Implement** — in `RawToolSurface.tsx`, the mobile branch:
+- [x] **Step 3: Implement** — in `RawToolSurface.tsx`, the mobile branch:
 
 ```tsx
   if (isMobileViewport) {
@@ -1911,12 +1908,12 @@ Expected: FAIL (chrome currently renders regardless of hasImage).
 returns `null` when `!hasImage`, the chrome only when `hasImage`. Desktop
 branch unchanged.)
 
-- [ ] **Step 4: Run → pass**
+- [x] **Step 4: Run → pass**
 
 Run: `pnpm test:run src/modules/raw-processor/components/RawToolSurface.test.tsx`
 Expected: PASS (all, incl. the two new cases).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/modules/raw-processor/components/RawToolSurface.tsx src/modules/raw-processor/components/RawToolSurface.test.tsx
@@ -1944,7 +1941,7 @@ topbar+dock+panel obstruct MORE of the photo than the old collapsed rail. Fix:
 - Modify: `src/modules/raw-processor/components/mobile/MobileModeDock.tsx` (+ test)
 - Modify: `src/modules/raw-processor/components/mobile/MobileLabChrome.tsx` (+ test)
 
-- [ ] **Step 1: MobilePeekSurface — add short-tap callback (failing test)**
+- [x] **Step 1: MobilePeekSurface — add short-tap callback (failing test)**
   Extend the existing test file: a quick down→up (<250ms, no long-press) calls
   `onTap`; a ≥250ms hold calls `onPeekChange(true)` then `(false)` and does
   NOT call `onTap`.
@@ -1967,18 +1964,18 @@ it('fires onTap for a short tap and not a peek', () => {
 })
 ```
 
-- [ ] **Step 2: Run → fail**
+- [x] **Step 2: Run → fail**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/MobilePeekSurface.test.tsx -t "short tap"`
 Expected: FAIL (`onTap` prop does not exist yet).
 
-- [ ] **Step 3: Implement MobilePeekSurface** — add optional `onTap?: () =>
+- [x] **Step 3: Implement MobilePeekSurface** — add optional `onTap?: () =>
   void`. On pointerup: if the long-press timer had NOT fired (still pending)
   and it was released quickly, clear the timer and call `onTap()`; if the
   peek had started, end peek (existing behavior) and do NOT call `onTap`.
   Keep `enabled` gating.
 
-- [ ] **Step 4: MobileModeDock — collapsible panel (failing test)**
+- [x] **Step 4: MobileModeDock — collapsible panel (failing test)**
   Add `expanded: boolean` + `onToggleMode` semantics: when collapsed only the
   tablist renders (no `panel`); selecting a tab expands; the active tab
   toggles. Test: with `expanded={false}` the panel content is not in the DOM;
@@ -2008,18 +2005,18 @@ it('hides the panel when collapsed and toggles on tab tap', async () => {
 })
 ```
 
-- [ ] **Step 5: Run → fail**
+- [x] **Step 5: Run → fail**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/MobileModeDock.test.tsx -t "collapsed"`
 Expected: FAIL.
 
-- [ ] **Step 6: Implement MobileModeDock** — add `expanded: boolean`,
+- [x] **Step 6: Implement MobileModeDock** — add `expanded: boolean`,
   `onCollapse: () => void`. Render `panel` only when `expanded`. Tab click:
   if tab is the active mode AND expanded → `onCollapse()`; else
   `onModeChange(tab)` (caller sets expanded=true). `more`/`export` keep
   current behavior. Update the existing dock test's props accordingly.
 
-- [ ] **Step 7: MobileLabChrome — immersive + collapse wiring (failing test)**
+- [x] **Step 7: MobileLabChrome — immersive + collapse wiring (failing test)**
   Add to `MobileLabChrome.test.tsx`: a short tap on
   `mobile-peek-surface` hides the topbar (immersive); tapping again restores;
   dock starts collapsed (no tone strip until Tone tab tapped).
@@ -2051,12 +2048,12 @@ it('dock is collapsed by default (no tone strip until Tone tapped)', async () =>
 })
 ```
 
-- [ ] **Step 8: Run → fail**
+- [x] **Step 8: Run → fail**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/MobileLabChrome.test.tsx`
 Expected: FAIL.
 
-- [ ] **Step 9: Implement MobileLabChrome**
+- [x] **Step 9: Implement MobileLabChrome**
   - `const [immersive, setImmersive] = useState(false)`
   - `const [dockExpanded, setDockExpanded] = useState(false)` (collapsed
     default → minimal footprint).
@@ -2071,12 +2068,12 @@ Expected: FAIL.
     to `MobileModeDock`. Entering focus or immersive resets to collapsed.
   - Tone pill still calls `startFocus`.
 
-- [ ] **Step 10: Run → pass; full mobile suite**
+- [x] **Step 10: Run → pass; full mobile suite**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile src/modules/raw-processor/components/RawToolSurface.test.tsx`
 Expected: PASS.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add src/modules/raw-processor/components/mobile
@@ -2090,9 +2087,9 @@ git commit --no-gpg-sign -m "feat(raw): immersive tap-to-hide + collapsed-by-def
 The user supplied real RAWs in `/workspaces/LumaForge/test-images/`
 (`SGL00940.ARW`, `SGL_1998.NEF`, …) — use one for the loaded golden path.
 
-- [ ] **Step 1:** `pnpm lint` (scoped clean), `pnpm test:run` (no new fails
+- [x] **Step 1:** `pnpm lint` (scoped clean), `pnpm test:run` (no new fails
   vs the documented native-runtime baseline), `pnpm build` green, `tsc` 0.
-- [ ] **Step 2: Browser validation** on the prebuilt preview
+- [x] **Step 2: Browser validation** on the prebuilt preview
   (`npx vite preview --port 4173 --host 0.0.0.0`), viewport 390×844:
   - Empty state: no `[data-raw-mobile-lab]`; the dark guided stage upload dock
     (`data-raw-upload-dock`) is visible and unobstructed.
@@ -2105,8 +2102,8 @@ The user supplied real RAWs in `/workspaces/LumaForge/test-images/`
     the focus slider → the **real WebGL preview visibly changes**; Done keeps,
     Cancel reverts; More sheet opens; desktop resize intact.
   - 0 console errors. Screenshots for empty / collapsed / immersive / focus.
-- [ ] **Step 3:** Update the Validation status block with evidence; commit.
-- [ ] **Step 4: Loop stop** — emit the completion promise only when Tasks
+- [x] **Step 3:** Update the Validation status block with evidence; commit.
+- [x] **Step 4: Loop stop** — emit the completion promise only when Tasks
   12–14 and the original done bar all pass with real evidence.
 
 ---
