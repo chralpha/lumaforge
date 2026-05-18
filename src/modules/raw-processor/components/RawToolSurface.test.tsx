@@ -400,16 +400,20 @@ describe('rawToolSurface', () => {
     expect(container.querySelector('[data-raw-mobile-sheet]')).toBe(styleSheet)
   })
 
-  it('closes the focused mobile sheet from the backdrop', async () => {
+  it('is non-modal (no dismiss backdrop) and closes from the sheet close button', async () => {
     const user = userEvent.setup()
     const { container } = render(<RawToolSurface {...baseProps} />)
     const surface = container.querySelector('[data-raw-tool-surface]')
 
     await user.click(screen.getByRole('button', { name: 'Style' }))
 
-    const backdrop = container.querySelector('[data-raw-mobile-backdrop]')
-    expect(backdrop).toBeInTheDocument()
-    await user.click(backdrop as HTMLElement)
+    // Non-modal editor: no backdrop layer exists, so tapping the preview
+    // can never dismiss the sheet — the photo stays inspectable.
+    expect(container.querySelector('[data-raw-mobile-backdrop]')).toBeNull()
+
+    await user.click(
+      screen.getByRole('button', { name: 'Close RAW tool sheet' }),
+    )
 
     expect(surface).toHaveAttribute('data-raw-tool-sheet', 'closed')
     expect(container.querySelector('[data-raw-mobile-sheet]')).toBeNull()

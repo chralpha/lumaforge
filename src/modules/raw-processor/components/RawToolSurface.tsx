@@ -210,9 +210,14 @@ export function RawToolSurface(props: {
     const end = () => setIsScrubbing(false)
     window.addEventListener('pointerup', end)
     window.addEventListener('pointercancel', end)
+    // Radix sets pointer capture on the slider thumb, so lostpointercapture
+    // is the reliable end signal even for off-window releases that emit
+    // neither pointerup nor pointercancel.
+    window.addEventListener('lostpointercapture', end)
     return () => {
       window.removeEventListener('pointerup', end)
       window.removeEventListener('pointercancel', end)
+      window.removeEventListener('lostpointercapture', end)
     }
   }, [isScrubbing])
 
@@ -316,21 +321,10 @@ export function RawToolSurface(props: {
       </div>
       <div className="max-[640px]:hidden">{renderExportBlock()}</div>
 
-      <AnimatePresence>
-        {mobilePanel && (
-          <m.div
-            key="backdrop"
-            data-raw-mobile-backdrop
-            /* Non-modal editor: the sheet is a tool panel, not a dialog — the
-               preview must stay fully visible while adjusting, so this layer
-               is transparent (no dim, no blur). It only catches an
-               outside-tap to dismiss. */
-            className="raw-mobile-tool-backdrop"
-            onClick={closeMobilePanel}
-          />
-        )}
-      </AnimatePresence>
-
+      {/* Non-modal editor: no backdrop. Tapping the preview must never
+          dismiss the sheet — the photo stays freely inspectable while
+          adjusting (the Lightroom/Snapseed model). Dismiss is via the
+          active rail tab, the sheet close button, or drag-down. */}
       <AnimatePresence>
         {mobilePanel && (
           <m.div
