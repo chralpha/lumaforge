@@ -3,13 +3,9 @@ import type {
   LUTProfileResolution,
   PreviewHistogramState,
 } from '@lumaforge/luma-color-runtime'
-import { Download, SlidersHorizontal, X } from 'lucide-react'
-import { AnimatePresence, m, useDragControls } from 'motion/react'
-import type { ComponentProps, PointerEvent, Ref } from 'react'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import type { ComponentProps } from 'react'
 
-import { IconButton } from '~/components/ui/button'
-import { clsxm } from '~/lib/cn'
+import { useViewport } from '~/hooks/common'
 import { useI18n } from '~/lib/i18n'
 
 import type { UseOnlineLutSourcesResult } from '../hooks/useOnlineLutSources'
@@ -21,8 +17,7 @@ import type {
   ExportRecoveryState,
   LUTProfileSelectionState,
 } from '../model/session'
-import { SHEET_SPRING, TAP_SPRING, useToolMotion } from '../motion'
-import type { ToolCardId } from '../state/tool-card.atoms'
+import { MobileLabChrome } from './mobile/MobileLabChrome'
 import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
 import { FileFactsTool } from './tools/FileFactsTool'
@@ -34,7 +29,7 @@ import type { ToneValue } from './tools/ToneTool'
 import { ToneTool } from './tools/ToneTool'
 import { ToolCard, ToolCardStack } from './tools/ToolCard'
 
-type MobileToolPanel = 'style' | 'export'
+const selectIsNarrowViewport = (v: { w: number }) => v.w <= 640 && v.w !== 0
 
 export function RawToolSurface(props: {
   activeIntensity: StrengthLevel
@@ -66,6 +61,9 @@ export function RawToolSurface(props: {
   onCopyExport: () => void
   onRecoverExportSource?: () => void
   hasImage: boolean
+  fileName: string
+  onReplaceFile: () => void
+  onResetSession: () => void
   currentLutName?: string | null
   lutProfileSelection?: LUTProfileSelectionState | null
   lutProfileResolution?: LUTProfileResolution | null
@@ -75,187 +73,61 @@ export function RawToolSurface(props: {
   stats: ComponentProps<typeof FileFactsTool>['stats']
 }) {
   const { t } = useI18n()
-  const [mobilePanel, setMobilePanel] = useState<MobileToolPanel | null>(null)
-  const [mobileOpenCards, setMobileOpenCards] = useState<ToolCardId[]>(['look'])
-  const [mobileScrollHint, setMobileScrollHint] = useState(false)
-  const [isScrubbing, setIsScrubbing] = useState(false)
-  const mobileToolSheetId = useId()
+  const isMobileViewport = useViewport(selectIsNarrowViewport)
   const disabled = !props.hasImage || props.isProcessing
-  const { canExport, isProcessing, exportResult, onExport } = props
-  const canStartMobileExport = canExport && !isProcessing && !exportResult
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const longPressTriggeredRef = useRef(false)
-  const sheetRef = useRef<HTMLDivElement | null>(null)
-  const mobileScrollRef = useRef<HTMLDivElement | null>(null)
-  const dragControls = useDragControls()
-  const { prefersReduced } = useToolMotion()
-  const mobileContentTransition = prefersReduced
-    ? undefined
-    : { type: 'spring' as const, duration: 0.22, bounce: 0 }
-  const scrubActive = isScrubbing && !prefersReduced
-  const mobilePanelTitle =
-    mobilePanel === 'style'
-      ? t('raw.mobileTools.style')
-      : mobilePanel === 'export'
-        ? t('raw.mobileTools.export')
-        : ''
-
-  const handleMobilePanelToggle = useCallback((panel: MobileToolPanel) => {
-    setMobilePanel((currentPanel) => (currentPanel === panel ? null : panel))
-  }, [])
-
-  const clearLongPress = useCallback(() => {
-    if (longPressTimerRef.current !== null) {
-      clearTimeout(longPressTimerRef.current)
-      longPressTimerRef.current = null
-    }
-  }, [])
-
-  const handleMobileExportClick = useCallback(() => {
-    clearLongPress()
-    if (longPressTriggeredRef.current) {
-      longPressTriggeredRef.current = false
-      return
-    }
-    handleMobilePanelToggle('export')
-  }, [clearLongPress, handleMobilePanelToggle])
-
-  const handleMobileStyleClick = useCallback(() => {
-    handleMobilePanelToggle('style')
-  }, [handleMobilePanelToggle])
-
-  const closeMobilePanel = useCallback(() => {
-    setMobilePanel(null)
-  }, [])
-
-  const updateMobileScrollHint = useCallback(() => {
-    const scroller = mobileScrollRef.current
-    if (!scroller) {
-      setMobileScrollHint(false)
-      return
-    }
-
-    setMobileScrollHint(
-      scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight > 2,
-    )
-  }, [])
-
-  const handleExportLongPressStart = useCallback(() => {
-    clearLongPress()
-    longPressTimerRef.current = setTimeout(() => {
-      longPressTimerRef.current = null
-      if (canStartMobileExport) {
-        longPressTriggeredRef.current = true
-        onExport({ quality: 'high', fidelity: 'balanced' })
-      }
-    }, 500)
-  }, [canStartMobileExport, clearLongPress, onExport])
 
   const histogramMeta =
     props.histogram.state === 'ready'
       ? `Shadows ${props.histogram.clipping.shadowAnyChannel} · Highlights ${props.histogram.clipping.highlightAnyChannel}`
       : undefined
 
-  useEffect(() => {
-    if (!mobilePanel) {
-      setMobileScrollHint(false)
-      return
-    }
-
-    const firstFrame = window.requestAnimationFrame(() => {
-      updateMobileScrollHint()
-      window.requestAnimationFrame(updateMobileScrollHint)
-    })
-    const scroller = mobileScrollRef.current
-    const resizeObserver =
-      typeof ResizeObserver === 'undefined'
-        ? null
-        : new ResizeObserver(updateMobileScrollHint)
-
-    if (scroller && resizeObserver) {
-      resizeObserver.observe(scroller)
-      if (scroller.firstElementChild) {
-        resizeObserver.observe(scroller.firstElementChild)
-      }
-    }
-
-    return () => {
-      window.cancelAnimationFrame(firstFrame)
-      resizeObserver?.disconnect()
-    }
-  }, [mobileOpenCards, mobilePanel, updateMobileScrollHint])
-
-  // Live-preview affordance: while a slider in the sheet is being dragged the
-  // sheet fades out of the way so the photo behind it stays visible and the
-  // edit can be judged in real time (the Lightroom "chrome recedes while you
-  // scrub" model). Opacity-only — the control stays under the finger.
-  const handleSheetPointerDown = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const target = event.target as HTMLElement
-      // The Radix Slider thumb is itself [role=slider] (and carries
-      // data-orientation), so match the thumb directly or a slider Root that
-      // contains one. The StrengthControl SegmentGroup also has
-      // data-orientation but no [role=slider] descendant, so it is excluded.
-      const root = target.closest('[data-orientation]')
-      if (
-        target.closest('[role="slider"]') ||
-        root?.querySelector('[role="slider"]')
-      ) {
-        setIsScrubbing(true)
-      }
-    },
-    [],
+  const lutBlock = (
+    <>
+      <LutContractTool
+        currentLutName={props.currentLutName}
+        disabled={props.isProcessing}
+        onLutLoad={props.onLutLoad}
+        onLutClear={props.onLutClear}
+        lutProfileSelection={props.lutProfileSelection}
+        lutProfileResolution={props.lutProfileResolution}
+        onLutProfileSelect={props.onLutProfileSelect}
+        onlineLutSources={props.onlineLutSources}
+      />
+      <div className="mt-3">
+        <StrengthControl
+          value={props.activeIntensity}
+          onChange={props.onIntensitySelect}
+          disabled={disabled}
+        />
+      </div>
+    </>
   )
 
-  useEffect(() => {
-    if (!isScrubbing) {
-      return
-    }
-    const end = () => setIsScrubbing(false)
-    window.addEventListener('pointerup', end)
-    window.addEventListener('pointercancel', end)
-    // Radix sets pointer capture on the slider thumb, so lostpointercapture
-    // is the reliable end signal even for off-window releases that emit
-    // neither pointerup nor pointercancel.
-    window.addEventListener('lostpointercapture', end)
-    return () => {
-      window.removeEventListener('pointerup', end)
-      window.removeEventListener('pointercancel', end)
-      window.removeEventListener('lostpointercapture', end)
-    }
-  }, [isScrubbing])
+  const compareBlock = (
+    <CompareTool disabled={disabled} onCompareReset={props.onCompareReset} />
+  )
 
-  useEffect(() => {
-    if (!mobilePanel) {
-      setIsScrubbing(false)
-    }
-  }, [mobilePanel])
+  const exportBlock = (
+    <ExportTool
+      canExport={props.canExport}
+      disabledReason={props.disabledReason}
+      isProcessing={props.isProcessing}
+      onExport={props.onExport}
+      exportResult={props.exportResult}
+      exportShareCapability={props.exportShareCapability}
+      recovery={props.recovery}
+      onShareExport={props.onShareExport}
+      onDownloadExport={props.onDownloadExport}
+      onCopyExport={props.onCopyExport}
+      onRecoverExportSource={props.onRecoverExportSource}
+      embedded
+    />
+  )
 
-  const renderCards = ({ mobile = false }: { mobile?: boolean } = {}) => (
-    <ToolCardStack
-      ariaLabel={t('raw.tools.aria')}
-      className={mobile ? 'raw-mobile-tool-card-stack' : undefined}
-      value={mobile ? mobileOpenCards : undefined}
-      onValueChange={mobile ? setMobileOpenCards : undefined}
-    >
+  const renderCards = () => (
+    <ToolCardStack ariaLabel={t('raw.tools.aria')}>
       <ToolCard id="look" title={t('raw.lutContract.title')}>
-        <LutContractTool
-          currentLutName={props.currentLutName}
-          disabled={props.isProcessing}
-          onLutLoad={props.onLutLoad}
-          onLutClear={props.onLutClear}
-          lutProfileSelection={props.lutProfileSelection}
-          lutProfileResolution={props.lutProfileResolution}
-          onLutProfileSelect={props.onLutProfileSelect}
-          onlineLutSources={props.onlineLutSources}
-        />
-        <div className="mt-3">
-          <StrengthControl
-            value={props.activeIntensity}
-            onChange={props.onIntensitySelect}
-            disabled={disabled}
-          />
-        </div>
+        {lutBlock}
       </ToolCard>
       <ToolCard id="tone" title={t('raw.tone.title')}>
         <ToneTool
@@ -273,10 +145,7 @@ export function RawToolSurface(props: {
         <HistogramTool histogram={props.histogram} />
       </ToolCard>
       <ToolCard id="compare" title={t('raw.compare.title')}>
-        <CompareTool
-          disabled={disabled}
-          onCompareReset={props.onCompareReset}
-        />
+        {compareBlock}
       </ToolCard>
       <ToolCard id="fileFacts" title={t('raw.fileFacts.title')}>
         <FileFactsTool
@@ -288,195 +157,107 @@ export function RawToolSurface(props: {
     </ToolCardStack>
   )
 
-  const renderExportBlock = (ref?: Ref<HTMLElement>) => (
+  const renderExportBlock = () => (
     <section
-      ref={ref}
       aria-label={t('raw.export.title')}
       data-raw-export-block="persistent"
       className="border-t border-border bg-material-medium px-3.5 py-3"
     >
-      <ExportTool
-        canExport={props.canExport}
-        disabledReason={props.disabledReason}
-        isProcessing={props.isProcessing}
-        onExport={props.onExport}
-        exportResult={props.exportResult}
-        exportShareCapability={props.exportShareCapability}
-        recovery={props.recovery}
-        onShareExport={props.onShareExport}
-        onDownloadExport={props.onDownloadExport}
-        onCopyExport={props.onCopyExport}
-        onRecoverExportSource={props.onRecoverExportSource}
-        embedded
-      />
+      {exportBlock}
     </section>
   )
 
-  return (
-    <aside
-      className="raw-tool-surface grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden border-l border-border bg-material-medium"
-      data-raw-tool-surface="raw-finishing"
-      data-raw-tool-sheet={mobilePanel ? 'open' : 'closed'}
-      data-raw-mobile-panel={mobilePanel ?? 'closed'}
-      aria-label={t('raw.tools.aria')}
-    >
-      <div className="min-h-0 overflow-y-auto px-3.5 py-3.5 max-[640px]:hidden">
-        {renderCards()}
-      </div>
-      <div className="max-[640px]:hidden">{renderExportBlock()}</div>
+  const cameraName =
+    props.metadata &&
+    `${props.metadata.make ?? ''} ${props.metadata.model ?? ''}`.trim()
+  const fileMeta = [
+    cameraName || undefined,
+    props.supportLevel === 'official'
+      ? t('raw.mobile.more.officialSupport')
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
-      {/* Non-modal editor: no backdrop. Tapping the preview must never
-          dismiss the sheet — the photo stays freely inspectable while
-          adjusting (the Lightroom/Snapseed model). Dismiss is via the
-          active rail tab, the sheet close button, or drag-down. */}
-      <AnimatePresence>
-        {mobilePanel && (
-          <m.div
-            key="sheet"
-            id={mobileToolSheetId}
-            ref={sheetRef}
-            data-raw-mobile-sheet
-            data-scrubbing={scrubActive || undefined}
-            className={clsxm(
-              'raw-mobile-tool-sheet border-t border-border bg-material-medium/85 transition-opacity duration-150',
-              scrubActive
-                ? 'opacity-15'
-                : 'opacity-100 backdrop-blur-background',
-            )}
-            initial={prefersReduced ? { opacity: 0 } : { y: '100%' }}
-            animate={prefersReduced ? { opacity: 1 } : { y: '0%' }}
-            exit={prefersReduced ? { opacity: 0 } : { y: '100%' }}
-            transition={SHEET_SPRING}
-            drag={prefersReduced ? false : 'y'}
-            dragControls={dragControls}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.4 }}
-            onDragEnd={(_, info) => {
-              const sheet = sheetRef.current
-              const threshold = sheet
-                ? Math.max(80, sheet.offsetHeight * 0.28)
-                : 80
-              if (info.offset.y > threshold || info.velocity.y > 500) {
-                closeMobilePanel()
-              }
-            }}
-          >
-            <div
-              className="raw-mobile-tool-sheet-top bg-material-opaque/80"
-              onPointerDown={(e) => dragControls.start(e)}
-            >
-              <div
-                className="raw-mobile-tool-sheet-drag-handle"
-                aria-hidden="true"
-              />
-              <div className="raw-mobile-tool-sheet-header flex items-center justify-between gap-3 border-b border-border px-3.5 pb-2.5 pt-2">
-                <h2 className="m-0 text-sm font-medium text-text">
-                  {mobilePanelTitle}
-                </h2>
-                <IconButton
-                  icon={X}
-                  size="md"
-                  aria-label={t('raw.mobileTools.close')}
-                  onClick={closeMobilePanel}
-                  className="rounded-md border border-border bg-background text-text"
-                />
-              </div>
-            </div>
-            <div
-              className="raw-mobile-tool-sheet-scroll-shell"
-              data-scroll-more={mobileScrollHint}
-              onPointerDownCapture={handleSheetPointerDown}
-            >
-              <div
-                ref={mobileScrollRef}
-                className="raw-mobile-tool-sheet-scroll"
-                onScroll={updateMobileScrollHint}
-              >
-                <AnimatePresence mode="popLayout" initial={false}>
-                  {mobilePanel === 'style' && (
-                    <m.div
-                      key="style"
-                      layout
-                      initial={prefersReduced ? false : { opacity: 0, y: 6 }}
-                      animate={
-                        prefersReduced ? undefined : { opacity: 1, y: 0 }
-                      }
-                      exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
-                      transition={mobileContentTransition}
-                    >
-                      {renderCards({ mobile: true })}
-                    </m.div>
-                  )}
-                  {mobilePanel === 'export' && (
-                    <m.div
-                      key="export"
-                      layout
-                      initial={prefersReduced ? false : { opacity: 0, y: 6 }}
-                      animate={
-                        prefersReduced ? undefined : { opacity: 1, y: 0 }
-                      }
-                      exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
-                      transition={mobileContentTransition}
-                    >
-                      {renderExportBlock()}
-                    </m.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-          </m.div>
-        )}
-      </AnimatePresence>
+  const renderTime = props.stats
+    ? `${Math.round(props.stats.processTime)} ms`
+    : '—'
+  const lutResolved =
+    props.lutProfileResolution?.kind === 'resolved'
+      ? props.lutProfileResolution.profile.role
+      : props.lutProfileResolution?.kind === 'needs-user-selection'
+        ? t('raw.histogram.notLoaded')
+        : '—'
+  const moreSheet = {
+    pipelineSteps: [
+      { index: 1, label: t('raw.fileFacts.title'), timing: '—' },
+      { index: 2, label: t('raw.tone.title'), timing: '—' },
+      {
+        index: 3,
+        label: props.currentLutName ?? t('raw.mobile.more.lutHeading'),
+        timing: '—',
+      },
+      { index: 4, label: 'Rec.709', timing: renderTime },
+    ],
+    lutRows: [
+      {
+        label: t('raw.mobile.more.lutHeading'),
+        value: props.currentLutName ?? '—',
+      },
+      { label: t('raw.fileFacts.support'), value: lutResolved },
+    ],
+    fileRows: [
+      { label: t('raw.fileFacts.camera'), value: cameraName || '—' },
+      {
+        label: t('raw.fileFacts.size'),
+        value: props.metadata
+          ? `${props.metadata.width} x ${props.metadata.height}`
+          : '—',
+      },
+      {
+        label: t('raw.fileFacts.preview'),
+        value: props.stats
+          ? `${props.stats.previewSize.width} x ${props.stats.previewSize.height}`
+          : '—',
+      },
+      { label: t('raw.fileFacts.render'), value: renderTime },
+    ],
+  }
 
-      <nav
-        className="raw-mobile-tool-rail hidden gap-2 border-t border-border bg-material-opaque/80 backdrop-blur-background pt-2 px-safe-or-2 pb-safe-or-2 max-[640px]:grid max-[640px]:grid-cols-2"
-        aria-label={t('raw.mobileTools.aria')}
+  if (!isMobileViewport) {
+    return (
+      <aside
+        className="raw-tool-surface grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden border-l border-border bg-material-medium"
+        data-raw-tool-surface="raw-finishing"
+        aria-label={t('raw.tools.aria')}
       >
-        <m.button
-          type="button"
-          className={clsxm(
-            'inline-flex min-h-[46px] min-w-0 items-center justify-center gap-1.5 rounded-md border text-xs font-medium leading-none transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-            mobilePanel === 'style'
-              ? 'border-[var(--color-accent-strong)] bg-fill-secondary text-text'
-              : 'border-border bg-background text-text',
-          )}
-          data-mobile-tool-tab="style"
-          data-active={mobilePanel === 'style'}
-          aria-expanded={mobilePanel === 'style'}
-          aria-controls={mobileToolSheetId}
-          onClick={handleMobileStyleClick}
-          whileTap={{ scale: 0.96 }}
-          transition={TAP_SPRING}
-        >
-          <SlidersHorizontal aria-hidden="true" className="size-4" />
-          {t('raw.mobileTools.style')}
-        </m.button>
-        <m.button
-          type="button"
-          className={clsxm(
-            'inline-flex min-h-[46px] min-w-0 items-center justify-center gap-1.5 rounded-md border text-xs font-medium leading-none transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-            !props.canExport || props.isProcessing
-              ? 'border-border bg-fill text-text-secondary'
-              : 'border-transparent bg-accent text-background',
-          )}
-          data-mobile-tool-tab="export"
-          data-active={mobilePanel === 'export'}
-          aria-disabled={!props.canExport || props.isProcessing}
-          aria-expanded={mobilePanel === 'export'}
-          aria-controls={mobileToolSheetId}
-          onPointerDown={handleExportLongPressStart}
-          onPointerUp={clearLongPress}
-          onPointerLeave={clearLongPress}
-          onPointerCancel={clearLongPress}
-          onClick={handleMobileExportClick}
-          whileTap={{ scale: 0.96 }}
-          transition={TAP_SPRING}
-        >
-          <Download aria-hidden="true" className="size-4" />
-          {t('raw.mobileTools.export')}
-        </m.button>
-      </nav>
-    </aside>
+        <div className="min-h-0 overflow-y-auto px-3.5 py-3.5">
+          {renderCards()}
+        </div>
+        <div>{renderExportBlock()}</div>
+      </aside>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-30" data-raw-mobile-lab>
+      <MobileLabChrome
+        tone={props.tone}
+        onToneChange={props.onToneChange}
+        onToneReset={props.onToneReset}
+        viewMode={props.viewMode}
+        onViewModeChange={props.onViewModeChange}
+        histogram={props.histogram}
+        fileName={props.fileName}
+        fileMeta={fileMeta || props.fileName}
+        supportLevel={props.supportLevel}
+        onReplaceFile={props.onReplaceFile}
+        onResetSession={props.onResetSession}
+        lutPanel={lutBlock}
+        comparePanel={compareBlock}
+        exportPanel={exportBlock}
+        moreSheet={moreSheet}
+      />
+    </div>
   )
 }

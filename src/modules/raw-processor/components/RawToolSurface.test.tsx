@@ -30,6 +30,9 @@ const baseProps = {
   onViewModeChange: vi.fn(),
   compareSplit: 0.5,
   onCompareSplitChange: vi.fn(),
+  fileName: 'DSC09142.ARW',
+  onReplaceFile: vi.fn(),
+  onResetSession: vi.fn(),
   onLutLoad: vi.fn(),
   onLutClear: vi.fn(),
   onLutProfileSelect: vi.fn(),
@@ -344,85 +347,15 @@ describe('rawToolSurface', () => {
       screen.getByRole('button', { name: 'File facts' }),
     ).toBeInTheDocument()
 
-    const desktopCards = container.querySelector(
-      '[data-raw-tool-surface] > div:first-child',
-    )
-    expect(desktopCards).toHaveClass('max-[640px]:hidden')
-    expect(desktopCards).not.toHaveClass('lg:block')
-  })
-
-  it('opens a focused mobile Style sheet without the persistent export block', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<RawToolSurface {...baseProps} />)
-    const surface = container.querySelector('[data-raw-tool-surface]')
-    expect(surface).toHaveAttribute('data-raw-tool-sheet', 'closed')
-    await user.click(screen.getByRole('button', { name: 'Style' }))
-    expect(surface).toHaveAttribute('data-raw-tool-sheet', 'open')
-    expect(surface).toHaveAttribute('data-raw-mobile-panel', 'style')
-    const sheet = container.querySelector(
-      '[data-raw-mobile-sheet]',
-    ) as HTMLElement
+    // Desktop branch renders the aside surface; the photo-first mobile
+    // chrome is JS-gated and not mounted at the jsdom default width.
     expect(
-      within(sheet).getByRole('group', { name: 'RAW finishing controls' }),
+      container.querySelector('[data-raw-mobile-lab]'),
+    ).not.toBeInTheDocument()
+    expect(
+      container.querySelector('[data-raw-tool-surface="raw-finishing"]'),
     ).toBeInTheDocument()
-    expect(
-      within(sheet).queryByRole('region', { name: 'Export' }),
-    ).not.toBeInTheDocument()
   })
-
-  it('opens a focused mobile Export sheet from a normal rail tap', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<RawToolSurface {...baseProps} />)
-    const surface = container.querySelector('[data-raw-tool-surface]')
-
-    await user.click(screen.getByRole('button', { name: 'Export' }))
-
-    expect(surface).toHaveAttribute('data-raw-tool-sheet', 'open')
-    expect(surface).toHaveAttribute('data-raw-mobile-panel', 'export')
-    const sheet = container.querySelector(
-      '[data-raw-mobile-sheet]',
-    ) as HTMLElement
-    expect(
-      within(sheet).getByRole('region', { name: 'Export' }),
-    ).toHaveAttribute('data-raw-export-block', 'persistent')
-    expect(
-      within(sheet).queryByRole('group', { name: 'RAW finishing controls' }),
-    ).not.toBeInTheDocument()
-  })
-
-  it('switches focused mobile panels without replacing the sheet shell', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<RawToolSurface {...baseProps} />)
-    const surface = container.querySelector('[data-raw-tool-surface]')
-
-    await user.click(screen.getByRole('button', { name: 'Style' }))
-    const styleSheet = container.querySelector('[data-raw-mobile-sheet]')
-
-    await user.click(screen.getByRole('button', { name: 'Export' }))
-
-    expect(surface).toHaveAttribute('data-raw-mobile-panel', 'export')
-    expect(container.querySelector('[data-raw-mobile-sheet]')).toBe(styleSheet)
-  })
-
-  it('is non-modal (no dismiss backdrop) and closes from the sheet close button', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<RawToolSurface {...baseProps} />)
-    const surface = container.querySelector('[data-raw-tool-surface]')
-
-    await user.click(screen.getByRole('button', { name: 'Style' }))
-
-    // Non-modal editor: no backdrop layer exists, so tapping the preview
-    // can never dismiss the sheet — the photo stays inspectable.
-    expect(container.querySelector('[data-raw-mobile-backdrop]')).toBeNull()
-
-    await user.click(
-      screen.getByRole('button', { name: 'Close RAW tool sheet' }),
-    )
-
-    expect(surface).toHaveAttribute('data-raw-tool-sheet', 'closed')
-    expect(container.querySelector('[data-raw-mobile-sheet]')).toBeNull()
-  })
-
   it('reveals the histogram plot when its card is expanded', async () => {
     const user = userEvent.setup()
     const luma = new Uint32Array(256)
@@ -733,24 +666,6 @@ describe('rawToolSurface', () => {
     )
 
     expect(screen.getByText('Tone settings preserved')).toBeInTheDocument()
-  })
-
-  it('triggers quick export on long press of the Export rail tab', async () => {
-    const user = userEvent.setup()
-    const onExport = vi.fn()
-    render(
-      <RawToolSurface {...baseProps} hasImage canExport onExport={onExport} />,
-    )
-
-    const exportTab = screen.getByRole('button', { name: 'Export' })
-    await user.pointer({ keys: '[MouseLeft>]', target: exportTab })
-    await new Promise((resolve) => setTimeout(resolve, 600))
-    await user.pointer({ keys: '[/MouseLeft]' })
-
-    expect(onExport).toHaveBeenCalledWith({
-      quality: 'high',
-      fidelity: 'balanced',
-    })
   })
 
   it('keeps long LUT names inside the tool column while preserving the full name', () => {

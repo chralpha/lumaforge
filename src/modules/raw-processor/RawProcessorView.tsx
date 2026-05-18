@@ -263,18 +263,20 @@ function RawProcessorViewInner({
       data-raw-lab-shell="viewport"
       data-raw-lab-state={hasImage ? 'loaded' : 'empty'}
     >
-      <WorkspaceHeader
-        fileName={sourceFileName}
-        hasImage={hasImage}
-        supportLevel={supportLevel}
-        canExport={canExport}
-        disabledReason={exportDisabledReason}
-        onReplaceFile={handleReplaceFile}
-        onResetSession={reset}
-        onOpenExport={() =>
-          handleExport({ quality: 'high', fidelity: 'balanced' })
-        }
-      />
+      <div className="max-[640px]:hidden">
+        <WorkspaceHeader
+          fileName={sourceFileName}
+          hasImage={hasImage}
+          supportLevel={supportLevel}
+          canExport={canExport}
+          disabledReason={exportDisabledReason}
+          onReplaceFile={handleReplaceFile}
+          onResetSession={reset}
+          onOpenExport={() =>
+            handleExport({ quality: 'high', fidelity: 'balanced' })
+          }
+        />
+      </div>
 
       <div className="raw-lab-shell" data-raw-lab-layout="stage-tools">
         <ComparePreviewStage
@@ -322,6 +324,9 @@ function RawProcessorViewInner({
           onIntensitySelect={selectIntensityLevel}
           onToneChange={setToneParams}
           onToneReset={resetTone}
+          fileName={sourceFileName}
+          onReplaceFile={handleReplaceFile}
+          onResetSession={reset}
           onCompareReset={handleCompareReset}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
