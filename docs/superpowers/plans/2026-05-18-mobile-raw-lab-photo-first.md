@@ -2127,3 +2127,129 @@ The user supplied real RAWs in `/workspaces/LumaForge/test-images/`
 - Known soft spots flagged inline for the implementer (Slider aria prop name;
   i18n test wrapper; real lutRows/fileRows derivation; first-pill query
   scoping) — these are runtime API confirmations, not placeholders.
+
+---
+
+# Iteration 3 — UX feedback round (2026-05-18)
+
+User feedback after the real-RAW validation:
+1. Don't start in an immersive/bare state — controls must be present on load.
+2. Long-press peek and compare-split must not both be active at once —
+   make them mutually exclusive (the user picks one per mode).
+3. Tone interactions/microinteractions still too rough — polish them.
+4. The LUT contract browser and online-LUT resources browser need a
+   mobile-specific redesign (desktop dialogs are cramped on phones).
+5. Process: hand mechanical work + code review to Codex
+   ([[feedback_codex_delegation]]).
+
+## Task 15: Controls visible on load (not immersive/bare)
+
+**Files:** `mobile/MobileLabChrome.tsx` (+ test)
+
+- [ ] **Step 1:** Failing test in `MobileLabChrome.test.tsx`: on initial
+  render (loaded session) the Tone strip IS visible
+  (`tablist name=/tone parameters/i` present) — i.e. the dock is expanded by
+  default, not collapsed/bare.
+- [ ] **Step 2:** Run → fail.
+- [ ] **Step 3:** `const [dockExpanded, setDockExpanded] = useState(true)`
+  (default expanded on the initial Tone mode). Keep collapse-on-active-tap and
+  immersive-on-photo-tap. Entering focus still resets to collapsed on exit
+  (do NOT auto-collapse just for being on load). Immersive remains
+  opt-in (default `false`, unchanged).
+- [ ] **Step 4:** Run mobile suite → pass. Update the earlier
+  "dock collapsed by default" test to assert the new default-expanded
+  behavior (collapse now happens only after the user taps the active tab).
+- [ ] **Step 5:** Commit `fix(raw): mobile dock starts expanded — controls visible on load`.
+
+## Task 16: Peek vs compare-split mutually exclusive
+
+**Files:** `mobile/MobileLabChrome.tsx` (+ test)
+
+- [ ] **Step 1:** Failing test: when `mode === 'compare'` the peek surface is
+  disabled — a long-press does NOT call `onViewModeChange('original')`
+  (compare-split is the comparison tool in that mode); in other modes
+  long-press peek still works.
+- [ ] **Step 2:** Run → fail.
+- [ ] **Step 3:** `<MobilePeekSurface enabled={!focusKey && mode !== 'compare'} …/>`.
+  Also ensure the peek hint label is suppressed in compare mode. (Result:
+  Compare mode → split UI only; every other mode → long-press peek only.
+  The two never appear together.)
+- [ ] **Step 4:** Run mobile suite → pass.
+- [ ] **Step 5:** Commit `fix(raw): peek and compare-split are mutually exclusive`.
+
+## Task 17: Tone microinteraction polish
+
+**Files:** `mobile/ToneFocusEditor.tsx`, `mobile/ToneStripPanel.tsx`,
+`mobile/MobileLabChrome.tsx` (+ tests)
+
+- [ ] **Step 1:** Wire scrub-recede. `MobileLabChrome`: add
+  `const [scrubbing, setScrubbing] = useState(false)`; pass
+  `onDragChange={setScrubbing}` to `ToneFocusEditor` (currently a no-op).
+  While `scrubbing`, fade non-essential focus chrome (head + bounds + sibling
+  strip) to low opacity via `m` so the photo dominates mid-drag — the
+  design's `data-dragging` behavior. Honor `prefersReduced`.
+- [ ] **Step 2:** Animate the focus editor enter/exit with `m` +
+  `AnimatePresence` (spring from `~/lib/spring` / `SHEET_SPRING`): head slides
+  from top, body from bottom; reduced-motion → opacity only. The editor is
+  currently mounted/unmounted with no transition.
+- [ ] **Step 3:** Tone strip pill: animate the active/selected pill with a
+  spring (layout or scale) and a smooth value-change; keep `whileTap`.
+- [ ] **Step 4:** Tests: assert `data-scrubbing` (or equivalent) toggles on
+  the chrome while the focus slider is dragged
+  (`onPointerDown`/`onPointerUp` on the slider wrapper), and that the focus
+  editor still mounts/cancels/commits as before. Run mobile suite → pass.
+- [ ] **Step 5:** Browser-spot-check (preview, real RAW): focus enter/exit is
+  animated; chrome recedes while dragging; no jank. Screenshot.
+- [ ] **Step 6:** Commit `feat(raw): polished tone microinteractions (scrub-recede, animated focus)`.
+
+## Task 18: Mobile LUT contract + online-LUT browser redesign
+
+The Look panel embeds the desktop `LutContractTool` (popovers/floating
+browser tuned for desktop) inside the ≤24vh dock panel — cramped/broken on
+phones. Give mobile its own full-height sheet-based browser.
+
+**Files (new):** `mobile/MobileLutBrowser.tsx` (+ test); **modify:**
+`RawToolSurface.tsx` (build a mobile `lutPanel` that opens the sheet),
+`mobile/MobileLabChrome.tsx` if wiring is needed. Reuse existing data/handlers
+(`onLutLoad`, `onLutClear`, `onLutProfileSelect`, `lutProfileSelection`,
+`lutProfileResolution`, `onlineLutSources`) — NO new color/LUT logic
+(CLAUDE.md: LUT is contract work). Use the project Radix Dialog/sheet
+primitives; full-height, scrollable, thumb-reachable; same non-modal /
+drag-dismiss feel as `MobileMoreSheet`.
+
+- [ ] **Step 1:** Brief Codex ([[feedback_codex_delegation]]) with a
+  self-contained spec to scaffold `MobileLutBrowser.tsx` + test: a mobile
+  sheet exposing (a) current LUT + clear, (b) manual .cube upload, (c)
+  online-LUT source list/entries (collapsed rows, load entry), (d) contract
+  profile selection — all driven by the existing props above. Verify Codex
+  output against this spec before integrating.
+- [ ] **Step 2:** Failing test `MobileLutBrowser.test.tsx`: opening the
+  Look panel exposes a "LUT browser" trigger; activating it shows the sheet
+  with the current LUT name, a clear control, an upload affordance, and
+  online-source rows when `onlineLutSources` is provided; selecting an entry
+  calls the matching handler.
+- [ ] **Step 3:** Implement (or finalize Codex's scaffold) to pass the test.
+- [ ] **Step 4:** In `RawToolSurface`, replace the mobile `lutPanel`
+  (currently `lutBlock` = desktop `LutContractTool` + `StrengthControl`) with
+  a compact Look panel: Strength inline + a button that opens
+  `MobileLutBrowser`. Desktop branch keeps `lutBlock` unchanged.
+- [ ] **Step 5:** Mobile suite + `RawToolSurface.test` green; `tsc` 0;
+  scoped lint clean.
+- [ ] **Step 6:** Commit `feat(raw): mobile LUT contract + online-LUT browser sheet`.
+
+## Task 19: Re-validate + Codex code review
+
+- [ ] **Step 1:** `tsc` 0, scoped eslint clean, `pnpm test:run`
+  (no new fails vs the documented native-runtime baseline), `pnpm build`.
+- [ ] **Step 2:** Browser validation (preview + `test-images/SGL00940.ARW`,
+  390×844): controls visible on load (not bare); Compare mode shows split and
+  NO peek, other modes peek and NO split; tone focus animates + chrome
+  recedes on scrub; mobile LUT browser sheet usable (open, list, load, clear,
+  upload affordance); empty state + immersive + More + desktop-restore still
+  good. 0 console errors. Screenshots.
+- [ ] **Step 3:** Hand the full Iteration-3 diff to Codex for an independent
+  code review ([[feedback_codex_delegation]]); triage findings, fix real
+  issues, re-run Step 1.
+- [ ] **Step 4:** Update the Validation status block with evidence; commit.
+- [ ] **Step 5: Loop stop** — emit the completion promise only when Tasks
+  15–19 all pass with real evidence and Codex review is clean.
