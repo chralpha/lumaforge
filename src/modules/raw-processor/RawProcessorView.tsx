@@ -101,6 +101,7 @@ function RawProcessorViewInner({
     supportLevel,
     progressRecoveryHint,
     previewSuspended,
+    viewMode,
     compareSplit,
     previewViewport,
     embeddedPreviewUrl,
@@ -322,6 +323,10 @@ function RawProcessorViewInner({
           onToneChange={setToneParams}
           onToneReset={resetTone}
           onCompareReset={handleCompareReset}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          compareSplit={compareSplit}
+          onCompareSplitChange={setCompareSplit}
           onLutLoad={handleLutDrop}
           onLutClear={clearLUT}
           currentLutName={currentLutName}

@@ -43,6 +43,10 @@ export function RawToolSurface(props: {
   onToneChange: (value: Partial<ToneValue>) => void
   onToneReset: () => void
   onCompareReset: () => void
+  viewMode: 'processed' | 'original' | 'compare'
+  onViewModeChange: (mode: 'processed' | 'original' | 'compare') => void
+  compareSplit: number
+  onCompareSplitChange: (split: number) => void
   onLutLoad: (files: File[]) => void
   onLutClear: () => void
   onLutProfileSelect: (profile: LUTColorProfile) => void
