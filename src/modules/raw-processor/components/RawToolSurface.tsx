@@ -225,13 +225,15 @@ export function RawToolSurface(props: {
   }
 
   if (isMobileViewport) {
-    // No RAW yet: render nothing so the dark, guided ComparePreviewStage
-    // upload dock is the unobstructed empty experience (no jarring dark
-    // chrome over an empty stage). Chrome mounts only once a RAW is loaded.
-    if (!props.hasImage) return null
+    // Photo-first scaffold is ALWAYS present on mobile — even before a RAW
+    // is loaded — so the topbar + toolbar are consistent from the first
+    // screen (the layout never "appears" after upload). When there is no
+    // image MobileLabChrome renders an empty, inert configuration over the
+    // full-bleed dark guided stage dropzone.
     return (
       <div className="fixed inset-0 z-30" data-raw-mobile-lab>
         <MobileLabChrome
+          hasImage={props.hasImage}
           tone={props.tone}
           onToneChange={props.onToneChange}
           onToneReset={props.onToneReset}

@@ -21,6 +21,7 @@ type Row = { label: string; value: string }
 type Step = { index: number; label: string; timing: string }
 
 export function MobileLabChrome(props: {
+  hasImage: boolean
   tone: ToneValue
   onToneChange: (patch: Partial<ToneValue>) => void
   onToneReset: () => void
@@ -119,14 +120,16 @@ export function MobileLabChrome(props: {
           handle is the comparison tool, so long-press peek is disabled
           there; in every other mode peek is the comparison tool. Tap to
           toggle immersive still works in both. */}
-      <MobilePeekSurface
-        enabled={!focusKey}
-        allowPeek={mode !== 'compare'}
-        onPeekChange={onPeekChange}
-        onTap={() => setImmersive((v) => !v)}
-      />
+      {props.hasImage && (
+        <MobilePeekSurface
+          enabled={!focusKey}
+          allowPeek={mode !== 'compare'}
+          onPeekChange={onPeekChange}
+          onTap={() => setImmersive((v) => !v)}
+        />
+      )}
 
-      {immersive && !focusKey && (
+      {immersive && !focusKey && props.hasImage && (
         <button
           type="button"
           aria-label={t('raw.mobile.immersive.show')}
@@ -143,7 +146,7 @@ export function MobileLabChrome(props: {
         </div>
       )}
 
-      {!focusKey && !immersive && (
+      {!focusKey && !immersive && props.hasImage && (
         <FloatingHistogramCard
           histogram={props.histogram}
           hidden={!histVisible || peeking}
@@ -153,44 +156,57 @@ export function MobileLabChrome(props: {
       {!focusKey && !immersive && (
         <>
           <MobileTopbar
+            hasImage={props.hasImage}
             fileName={props.fileName}
             fileMeta={props.fileMeta}
             supportLevel={props.supportLevel}
             histogramVisible={histVisible}
             onToggleHistogram={() => setHistVisible((v) => !v)}
-            moreMenuItems={[
-              {
-                kind: 'item',
-                icon: ImageUp,
-                label: t('raw.mobile.more.replace'),
-                onSelect: props.onReplaceFile,
-              },
-              {
-                kind: 'item',
-                icon: RotateCcw,
-                label: t('raw.mobile.more.reset'),
-                onSelect: props.onResetSession,
-              },
-              { kind: 'separator' },
-              {
-                kind: 'item',
-                icon: LockKeyhole,
-                label: t('raw.mobile.more.browserLocal'),
-                onSelect: () => {},
-                disabled: true,
-              },
-              {
-                kind: 'item',
-                icon: ShieldCheck,
-                label: t('raw.mobile.more.officialSupport'),
-                onSelect: () => {},
-                disabled: true,
-              },
-            ]}
+            moreMenuItems={
+              props.hasImage
+                ? [
+                    {
+                      kind: 'item',
+                      icon: ImageUp,
+                      label: t('raw.mobile.more.replace'),
+                      onSelect: props.onReplaceFile,
+                    },
+                    {
+                      kind: 'item',
+                      icon: RotateCcw,
+                      label: t('raw.mobile.more.reset'),
+                      onSelect: props.onResetSession,
+                    },
+                    { kind: 'separator' },
+                    {
+                      kind: 'item',
+                      icon: LockKeyhole,
+                      label: t('raw.mobile.more.browserLocal'),
+                      onSelect: () => {},
+                      disabled: true,
+                    },
+                    {
+                      kind: 'item',
+                      icon: ShieldCheck,
+                      label: t('raw.mobile.more.officialSupport'),
+                      onSelect: () => {},
+                      disabled: true,
+                    },
+                  ]
+                : [
+                    {
+                      kind: 'item',
+                      icon: ImageUp,
+                      label: t('raw.header.chooseRaw'),
+                      onSelect: props.onReplaceFile,
+                    },
+                  ]
+            }
           />
           <MobileModeDock
             mode={mode}
-            expanded={dockExpanded}
+            expanded={dockExpanded && props.hasImage}
+            disabled={!props.hasImage}
             onModeChange={(m) => {
               setMode(m)
               setDockExpanded(true)
@@ -204,7 +220,7 @@ export function MobileLabChrome(props: {
       )}
 
       <AnimatePresence>
-        {focusKey && (
+        {focusKey && props.hasImage && (
           <ToneFocusEditor
             key="tone-focus"
             tone={props.tone}

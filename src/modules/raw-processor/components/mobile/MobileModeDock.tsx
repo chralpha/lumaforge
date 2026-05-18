@@ -46,12 +46,14 @@ export function MobileModeDock(props: {
   onCollapse: () => void
   onOpenMore: () => void
   canExport: boolean
+  disabled?: boolean
   panel: ReactNode
 }) {
   const { t } = useI18n()
+  const disabled = props.disabled ?? false
   return (
     <div className="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/95 via-black/70 to-transparent pb-safe-offset-3 text-white">
-      {props.expanded && (
+      {props.expanded && !disabled && (
         <div className="relative max-h-[24vh] overflow-y-auto px-3.5 pb-2.5 pt-3.5">
           {props.panel}
         </div>
@@ -68,10 +70,13 @@ export function MobileModeDock(props: {
               key={tab.id}
               type="button"
               role="tab"
-              aria-selected={active && props.expanded}
-              whileTap={{ scale: 0.96 }}
+              aria-selected={active && props.expanded && !disabled}
+              aria-disabled={disabled || undefined}
+              disabled={disabled}
+              whileTap={disabled ? undefined : { scale: 0.96 }}
               transition={TAP_SPRING}
               onClick={() => {
+                if (disabled) return
                 if (tab.id === 'more') {
                   props.onOpenMore()
                   return
@@ -84,12 +89,16 @@ export function MobileModeDock(props: {
               }}
               className={clsxm(
                 'relative grid min-h-[50px] grid-rows-[auto_auto] place-items-center gap-1 rounded-lg px-1 py-1.5 text-[0.64rem] font-semibold uppercase tracking-wide transition-colors',
-                active ? 'text-white' : 'text-white/70',
+                disabled
+                  ? 'cursor-not-allowed text-white/35'
+                  : active
+                    ? 'text-white'
+                    : 'text-white/70',
               )}
             >
               <tab.icon aria-hidden="true" className="size-[18px]" />
               {t(tab.labelKey)}
-              {active && (
+              {active && !disabled && (
                 <span
                   className={clsxm(
                     'absolute -bottom-0.5 left-1/2 h-0.5 w-[22px] -translate-x-1/2 rounded-full',

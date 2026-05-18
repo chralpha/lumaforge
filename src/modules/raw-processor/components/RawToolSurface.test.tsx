@@ -1325,7 +1325,7 @@ describe('rawToolSurface', () => {
     expect(screen.getByText('Issue')).toBeInTheDocument()
   })
 
-  it('mobile + no image renders no chrome (clean stage upload state)', () => {
+  it('mobile + no image pre-shows the topbar + disabled dock scaffold', () => {
     const prev = jotaiStore.get(viewportAtom)
     jotaiStore.set(viewportAtom, { ...prev, w: 390, sm: false })
     try {
@@ -1334,7 +1334,25 @@ describe('rawToolSurface', () => {
           <RawToolSurface {...baseProps} hasImage={false} />
         </Provider>,
       )
-      expect(container.querySelector('[data-raw-mobile-lab]')).toBeNull()
+      // Chrome scaffold IS present (consistent layout pre-upload)…
+      expect(
+        container.querySelector('[data-raw-mobile-lab]'),
+      ).toBeInTheDocument()
+      expect(
+        container.querySelector('[data-mobile-topbar]'),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole('tablist', { name: /lab modes/i }),
+      ).toBeInTheDocument()
+      // …but inert: no peek surface, no tone strip, dock tabs disabled.
+      expect(
+        container.querySelector('[data-testid="mobile-peek-surface"]'),
+      ).toBeNull()
+      expect(
+        screen.queryByRole('tablist', { name: /tone parameters/i }),
+      ).toBeNull()
+      expect(screen.getByRole('tab', { name: /tone/i })).toBeDisabled()
+      // desktop aside not mounted on mobile
       expect(
         container.querySelector('[data-raw-tool-surface="raw-finishing"]'),
       ).toBeNull()

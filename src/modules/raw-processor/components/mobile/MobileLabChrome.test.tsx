@@ -6,6 +6,7 @@ import { MobileLabChrome } from './MobileLabChrome'
 import { TONE_NEUTRAL } from './tone-fields'
 
 const base = {
+  hasImage: true,
   tone: TONE_NEUTRAL,
   onToneChange: vi.fn(),
   onToneReset: vi.fn(),
@@ -36,6 +37,22 @@ describe('mobileLabChrome', () => {
   })
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('empty state: topbar + disabled dock scaffold, no peek/focus/histogram', () => {
+    render(<MobileLabChrome {...base} hasImage={false} />)
+    expect(
+      screen.getByRole('tablist', { name: /lab modes/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /tone/i })).toBeDisabled()
+    expect(
+      screen.queryByRole('tablist', { name: /tone parameters/i }),
+    ).toBeNull()
+    expect(screen.queryByTestId('mobile-peek-surface')).not.toBeInTheDocument()
+    // topbar shows the app title + empty hint instead of file facts
+    expect(
+      screen.getByRole('heading', { name: /raw lab/i }),
+    ).toBeInTheDocument()
   })
 
   it('starts with controls visible (tone strip shown, not bare)', async () => {

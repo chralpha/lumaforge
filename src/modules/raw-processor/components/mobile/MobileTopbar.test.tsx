@@ -9,6 +9,7 @@ describe('mobileTopbar', () => {
     const onToggle = vi.fn()
     render(
       <MobileTopbar
+        hasImage
         fileName="DSC09142.ARW"
         fileMeta="Sony α7 IV · 47.8 MB"
         supportLevel="official"
@@ -30,6 +31,7 @@ describe('mobileTopbar', () => {
     const onSelect = vi.fn()
     render(
       <MobileTopbar
+        hasImage
         fileName="DSC09142.ARW"
         fileMeta="Sony α7 IV"
         supportLevel="experimental"
