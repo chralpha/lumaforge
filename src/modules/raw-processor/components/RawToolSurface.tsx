@@ -81,6 +81,15 @@ export function RawToolSurface(props: {
       ? `Shadows ${props.histogram.clipping.shadowAnyChannel} · Highlights ${props.histogram.clipping.highlightAnyChannel}`
       : undefined
 
+  const strengthControl = (
+    <StrengthControl
+      value={props.activeIntensity}
+      onChange={props.onIntensitySelect}
+      disabled={disabled}
+    />
+  )
+
+  // Desktop Look card — full LutContractTool + Strength (unchanged).
   const lutBlock = (
     <>
       <LutContractTool
@@ -93,15 +102,22 @@ export function RawToolSurface(props: {
         onLutProfileSelect={props.onLutProfileSelect}
         onlineLutSources={props.onlineLutSources}
       />
-      <div className="mt-3">
-        <StrengthControl
-          value={props.activeIntensity}
-          onChange={props.onIntensitySelect}
-          disabled={disabled}
-        />
-      </div>
+      <div className="mt-3">{strengthControl}</div>
     </>
   )
+
+  // Mobile Look mode uses a compact Strength + a full-height LUT browser
+  // sheet instead of the desktop popovers.
+  const mobileLutBrowser = {
+    currentLutName: props.currentLutName,
+    disabled: props.isProcessing,
+    onLutLoad: props.onLutLoad,
+    onLutClear: props.onLutClear,
+    lutProfileSelection: props.lutProfileSelection,
+    lutProfileResolution: props.lutProfileResolution,
+    onLutProfileSelect: props.onLutProfileSelect,
+    onlineLutSources: props.onlineLutSources,
+  }
 
   const compareBlock = (
     <CompareTool disabled={disabled} onCompareReset={props.onCompareReset} />
@@ -245,7 +261,8 @@ export function RawToolSurface(props: {
           supportLevel={props.supportLevel}
           onReplaceFile={props.onReplaceFile}
           onResetSession={props.onResetSession}
-          lutPanel={lutBlock}
+          strengthControl={strengthControl}
+          lutBrowser={mobileLutBrowser}
           comparePanel={compareBlock}
           exportPanel={exportBlock}
           moreSheet={moreSheet}

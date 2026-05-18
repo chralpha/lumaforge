@@ -8,6 +8,8 @@ import { useI18n } from '~/lib/i18n'
 
 import type { ToneValue } from '../tools/ToneTool'
 import { FloatingHistogramCard } from './FloatingHistogramCard'
+import type { MobileLutBrowserProps } from './MobileLutBrowser'
+import { MobileLutBrowser } from './MobileLutBrowser'
 import type { MobileMode } from './MobileModeDock'
 import { MobileModeDock } from './MobileModeDock'
 import { MobileMoreSheet } from './MobileMoreSheet'
@@ -33,7 +35,8 @@ export function MobileLabChrome(props: {
   supportLevel: 'official' | 'experimental'
   onReplaceFile: () => void
   onResetSession: () => void
-  lutPanel: ReactNode
+  strengthControl: ReactNode
+  lutBrowser: Omit<MobileLutBrowserProps, 'open' | 'onClose'>
   comparePanel: ReactNode
   exportPanel: ReactNode
   moreSheet: { pipelineSteps: Step[]; lutRows: Row[]; fileRows: Row[] }
@@ -42,6 +45,7 @@ export function MobileLabChrome(props: {
   const [mode, setMode] = useState<MobileMode>('tone')
   const [focusKey, setFocusKey] = useState<keyof ToneValue | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [lutBrowserOpen, setLutBrowserOpen] = useState(false)
   const [peeking, setPeeking] = useState(false)
   const [histVisible, setHistVisible] = useState(true)
   const [immersive, setImmersive] = useState(false)
@@ -101,7 +105,16 @@ export function MobileLabChrome(props: {
         onReset={props.onToneReset}
       />
     ) : mode === 'look' ? (
-      props.lutPanel
+      <div className="grid gap-3">
+        {props.strengthControl}
+        <button
+          type="button"
+          onClick={() => setLutBrowserOpen(true)}
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-white/20 bg-black/40 px-3 text-sm font-semibold text-white transition-colors hover:border-amber-400/50 hover:text-amber-400"
+        >
+          {t('raw.mobile.lut.title')}
+        </button>
+      </div>
     ) : mode === 'compare' ? (
       props.comparePanel
     ) : (
@@ -234,6 +247,12 @@ export function MobileLabChrome(props: {
           />
         )}
       </AnimatePresence>
+
+      <MobileLutBrowser
+        open={lutBrowserOpen}
+        onClose={() => setLutBrowserOpen(false)}
+        {...props.lutBrowser}
+      />
 
       <MobileMoreSheet
         open={moreOpen}

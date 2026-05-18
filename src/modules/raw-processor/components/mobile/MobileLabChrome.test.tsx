@@ -18,7 +18,17 @@ const base = {
   supportLevel: 'official' as const,
   onReplaceFile: vi.fn(),
   onResetSession: vi.fn(),
-  lutPanel: <div>lut</div>,
+  strengthControl: <div>strength</div>,
+  lutBrowser: {
+    currentLutName: null,
+    disabled: false,
+    onLutLoad: vi.fn(),
+    onLutClear: vi.fn(),
+    lutProfileSelection: null,
+    lutProfileResolution: null,
+    onLutProfileSelect: vi.fn(),
+    onlineLutSources: undefined,
+  },
   comparePanel: <div>compare</div>,
   exportPanel: <div>export</div>,
   moreSheet: { pipelineSteps: [], lutRows: [], fileRows: [] },
@@ -52,6 +62,17 @@ describe('mobileLabChrome', () => {
     // topbar shows the app title + empty hint instead of file facts
     expect(
       screen.getByRole('heading', { name: /raw lab/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('look mode opens the mobile LUT browser sheet', async () => {
+    render(<MobileLabChrome {...base} />)
+    const dock = screen.getByRole('tablist', { name: /lab modes/i })
+    await userEvent.click(within(dock).getByRole('tab', { name: /look/i }))
+    expect(screen.getByText('strength')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /lut browser/i }))
+    expect(
+      screen.getByRole('dialog', { name: /lut browser/i }),
     ).toBeInTheDocument()
   })
 
