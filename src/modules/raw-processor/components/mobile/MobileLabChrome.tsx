@@ -110,8 +110,14 @@ export function MobileLabChrome(props: {
       data-focus={focusKey ? 'true' : 'false'}
       data-peek={peeking || undefined}
     >
+      {/* Peek and the Compare split are the SAME affordance (RAW vs finished)
+          expressed two ways — never both at once. In Compare mode the split
+          handle is the comparison tool, so long-press peek is disabled
+          there; in every other mode peek is the comparison tool. Tap to
+          toggle immersive still works in both. */}
       <MobilePeekSurface
         enabled={!focusKey}
+        allowPeek={mode !== 'compare'}
         onPeekChange={onPeekChange}
         onTap={() => setImmersive((v) => !v)}
       />

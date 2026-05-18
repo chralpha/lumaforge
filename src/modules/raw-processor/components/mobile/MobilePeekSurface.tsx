@@ -4,8 +4,12 @@ export function MobilePeekSurface(props: {
   enabled: boolean
   onPeekChange: (peeking: boolean) => void
   onTap?: () => void
+  /** When false, a short tap still works but long-press peek is disabled
+      (e.g. Compare mode owns the RAW-vs-finished comparison via the split). */
+  allowPeek?: boolean
 }) {
   const { enabled, onPeekChange, onTap } = props
+  const allowPeek = props.allowPeek ?? true
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const peeking = useRef(false)
   const pressed = useRef(false)
@@ -34,12 +38,13 @@ export function MobilePeekSurface(props: {
     if (!enabled) return
     pressed.current = true
     clear()
+    if (!allowPeek) return
     timer.current = setTimeout(() => {
       timer.current = null
       peeking.current = true
       onPeekChange(true)
     }, 250)
-  }, [clear, enabled, onPeekChange])
+  }, [clear, enabled, allowPeek, onPeekChange])
 
   return (
     <div

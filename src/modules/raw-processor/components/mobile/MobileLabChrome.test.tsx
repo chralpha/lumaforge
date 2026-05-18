@@ -98,4 +98,18 @@ describe('mobileLabChrome', () => {
     expect(onViewModeChange).toHaveBeenLastCalledWith('processed')
     vi.useRealTimers()
   })
+
+  it('disables long-press peek in Compare mode (split is the tool there)', () => {
+    vi.useFakeTimers()
+    const onViewModeChange = vi.fn()
+    render(<MobileLabChrome {...base} onViewModeChange={onViewModeChange} />)
+    const dock = screen.getByRole('tablist', { name: /lab modes/i })
+    fireEvent.click(within(dock).getByRole('tab', { name: /compare/i }))
+    const surface = screen.getByTestId('mobile-peek-surface')
+    surface.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    vi.advanceTimersByTime(400)
+    surface.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    expect(onViewModeChange).not.toHaveBeenCalledWith('original')
+    vi.useRealTimers()
+  })
 })
