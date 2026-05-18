@@ -335,10 +335,17 @@
 @media (max-width: 640px) {
   /* Photo-first: the stage is full-bleed; the mobile lab chrome
      (topbar, dock, focus editor, peek, more-sheet) floats over it as a
-     fixed overlay rendered by RawToolSurface's mobile branch. The desktop
-     tool column is JS-gated out at this width, so collapse the shell to a
-     single column instead of reserving the empty side panel. */
+     fixed overlay rendered by RawToolSurface's mobile branch.
+     WorkspaceHeader is display:none on mobile, which removes it from the
+     .raw-lab grid — so collapse .raw-lab and the shell to a single
+     full-height row/column, otherwise the shell falls into the `auto` row
+     and shrinks to the preview's intrinsic height (leaving a void). */
+  .raw-lab {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
   .raw-lab-shell {
+    grid-template-rows: minmax(0, 1fr);
     grid-template-columns: minmax(0, 1fr);
   }
 
