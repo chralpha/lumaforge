@@ -1813,7 +1813,9 @@ Expected: Success.
   - Resize to desktop width → original desktop surface intact and unchanged.
   - Capture screenshots of: tone focus mid-drag, peek, More sheet.
 
-- [ ] **Step 5: Final commit (only if Step 4 required fixes)**
+- [x] **Step 5: Final commit (only if Step 4 required fixes)** — N/A:
+  Task 11 Step 4 did not require a polish commit; all subsequent
+  validation-driven fixes were committed under their own tasks (12–20).
 
 ```bash
 git add -A
