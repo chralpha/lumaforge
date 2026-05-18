@@ -1823,8 +1823,291 @@ git commit --no-gpg-sign -m "fix(raw): mobile lab browser-validation polish"
 ```
 
 - [ ] **Step 6: Loop stop condition** — STOP the ralph loop only when Steps
-  1–4 all pass with evidence. Otherwise continue iterating from the first
-  failing step.
+  1–4 (and Tasks 12–13) all pass with evidence. Otherwise continue iterating.
+
+---
+
+## Task 12: Gate mobile chrome behind `hasImage` (fix empty-state clash)
+
+User feedback (2026-05-18): with no photo loaded the mobile lab shows the dark
+photo-first chrome over the empty/light stage — jarring colors, no guidance,
+"unfinished refactor" feel. Fix: on mobile with no image, render NOTHING from
+`RawToolSurface` so the existing dark, guided `ComparePreviewStage` upload dock
+(`data-raw-upload-dock`, `raw.stage.uploadTitle/uploadCopy`) is the
+unobstructed empty experience. `MobileLabChrome` mounts only once a RAW is
+loaded.
+
+**Files:**
+- Modify: `src/modules/raw-processor/components/RawToolSurface.tsx`
+- Test: `src/modules/raw-processor/components/RawToolSurface.test.tsx`
+
+- [ ] **Step 1: Failing test** — add to `RawToolSurface.test.tsx` (drives the
+  mobile branch by setting the viewport atom):
+
+```tsx
+import { jotaiStore } from '~/lib/jotai'
+import { viewportAtom } from '~/atoms/viewport'
+
+it('mobile + no image renders no chrome (clean stage upload state)', () => {
+  jotaiStore.set(viewportAtom, {
+    ...jotaiStore.get(viewportAtom),
+    w: 390,
+    sm: false,
+  })
+  const { container } = render(
+    <RawToolSurface {...baseProps} hasImage={false} />,
+  )
+  expect(container.querySelector('[data-raw-mobile-lab]')).toBeNull()
+  jotaiStore.set(viewportAtom, {
+    ...jotaiStore.get(viewportAtom),
+    w: 1280,
+    sm: true,
+  })
+})
+
+it('mobile + image mounts the photo-first chrome', () => {
+  jotaiStore.set(viewportAtom, {
+    ...jotaiStore.get(viewportAtom),
+    w: 390,
+    sm: false,
+  })
+  const { container } = render(<RawToolSurface {...baseProps} hasImage />)
+  expect(
+    container.querySelector('[data-raw-mobile-lab]'),
+  ).toBeInTheDocument()
+  jotaiStore.set(viewportAtom, {
+    ...jotaiStore.get(viewportAtom),
+    w: 1280,
+    sm: true,
+  })
+})
+```
+
+- [ ] **Step 2: Run → fail**
+
+Run: `pnpm test:run src/modules/raw-processor/components/RawToolSurface.test.tsx -t "mobile + no image"`
+Expected: FAIL (chrome currently renders regardless of hasImage).
+
+- [ ] **Step 3: Implement** — in `RawToolSurface.tsx`, the mobile branch:
+
+```tsx
+  if (isMobileViewport) {
+    if (!props.hasImage) return null
+    return (
+      <div className="fixed inset-0 z-30" data-raw-mobile-lab>
+        <MobileLabChrome ... />
+      </div>
+    )
+  }
+
+  return (
+    <aside className="raw-tool-surface ...">
+      ...
+    </aside>
+  )
+```
+
+(Restructure the existing `if (!isMobileViewport) { return aside }` so mobile
+returns `null` when `!hasImage`, the chrome only when `hasImage`. Desktop
+branch unchanged.)
+
+- [ ] **Step 4: Run → pass**
+
+Run: `pnpm test:run src/modules/raw-processor/components/RawToolSurface.test.tsx`
+Expected: PASS (all, incl. the two new cases).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/modules/raw-processor/components/RawToolSurface.tsx src/modules/raw-processor/components/RawToolSurface.test.tsx
+git commit --no-gpg-sign -m "fix(raw): mobile shows clean stage upload until a RAW is loaded"
+```
+
+---
+
+## Task 13: Immersive tap-to-hide + collapsed-by-default dock
+
+User feedback (2026-05-18): no immersive mode, and the always-expanded
+topbar+dock+panel obstruct MORE of the photo than the old collapsed rail. Fix:
+
+1. Dock collapsed by default — only the 5-tab bar shows (footprint ≈ old
+   rail). Tapping a mode tab expands that mode's panel above the tabs;
+   tapping the active tab again collapses it. Tone pill → focus editor as
+   before.
+2. Immersive: a short tap on the photo toggles all chrome (topbar + dock +
+   histogram) hidden/shown — the Lightroom/Snapseed model
+   ([[feedback_mobile_live_preview]]). Long-press still peeks (unchanged).
+   While chrome is hidden a single faint restore affordance remains.
+
+**Files:**
+- Modify: `src/modules/raw-processor/components/mobile/MobilePeekSurface.tsx` (+ test)
+- Modify: `src/modules/raw-processor/components/mobile/MobileModeDock.tsx` (+ test)
+- Modify: `src/modules/raw-processor/components/mobile/MobileLabChrome.tsx` (+ test)
+
+- [ ] **Step 1: MobilePeekSurface — add short-tap callback (failing test)**
+  Extend the existing test file: a quick down→up (<250ms, no long-press) calls
+  `onTap`; a ≥250ms hold calls `onPeekChange(true)` then `(false)` and does
+  NOT call `onTap`.
+
+```tsx
+it('fires onTap for a short tap and not a peek', () => {
+  vi.useFakeTimers()
+  const onTap = vi.fn()
+  const onPeekChange = vi.fn()
+  render(
+    <MobilePeekSurface enabled onPeekChange={onPeekChange} onTap={onTap} />,
+  )
+  const s = screen.getByTestId('mobile-peek-surface')
+  fireEvent.pointerDown(s)
+  act(() => vi.advanceTimersByTime(120))
+  fireEvent.pointerUp(s)
+  expect(onTap).toHaveBeenCalledTimes(1)
+  expect(onPeekChange).not.toHaveBeenCalled()
+  vi.useRealTimers()
+})
+```
+
+- [ ] **Step 2: Run → fail**
+
+Run: `pnpm test:run src/modules/raw-processor/components/mobile/MobilePeekSurface.test.tsx -t "short tap"`
+Expected: FAIL (`onTap` prop does not exist yet).
+
+- [ ] **Step 3: Implement MobilePeekSurface** — add optional `onTap?: () =>
+  void`. On pointerup: if the long-press timer had NOT fired (still pending)
+  and it was released quickly, clear the timer and call `onTap()`; if the
+  peek had started, end peek (existing behavior) and do NOT call `onTap`.
+  Keep `enabled` gating.
+
+- [ ] **Step 4: MobileModeDock — collapsible panel (failing test)**
+  Add `expanded: boolean` + `onToggleMode` semantics: when collapsed only the
+  tablist renders (no `panel`); selecting a tab expands; the active tab
+  toggles. Test: with `expanded={false}` the panel content is not in the DOM;
+  clicking a tab calls `onModeChange`; clicking the active tab when expanded
+  calls a collapse callback.
+
+```tsx
+it('hides the panel when collapsed and toggles on tab tap', async () => {
+  const onModeChange = vi.fn()
+  const onCollapse = vi.fn()
+  const { rerender } = render(
+    <MobileModeDock mode="tone" expanded={false}
+      onModeChange={onModeChange} onCollapse={onCollapse}
+      onOpenMore={vi.fn()} canExport panel={<div data-testid="p">x</div>} />,
+  )
+  expect(screen.queryByTestId('p')).toBeNull()
+  await userEvent.click(screen.getByRole('tab', { name: /tone/i }))
+  expect(onModeChange).toHaveBeenCalledWith('tone')
+  rerender(
+    <MobileModeDock mode="tone" expanded
+      onModeChange={onModeChange} onCollapse={onCollapse}
+      onOpenMore={vi.fn()} canExport panel={<div data-testid="p">x</div>} />,
+  )
+  expect(screen.getByTestId('p')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('tab', { name: /tone/i }))
+  expect(onCollapse).toHaveBeenCalled()
+})
+```
+
+- [ ] **Step 5: Run → fail**
+
+Run: `pnpm test:run src/modules/raw-processor/components/mobile/MobileModeDock.test.tsx -t "collapsed"`
+Expected: FAIL.
+
+- [ ] **Step 6: Implement MobileModeDock** — add `expanded: boolean`,
+  `onCollapse: () => void`. Render `panel` only when `expanded`. Tab click:
+  if tab is the active mode AND expanded → `onCollapse()`; else
+  `onModeChange(tab)` (caller sets expanded=true). `more`/`export` keep
+  current behavior. Update the existing dock test's props accordingly.
+
+- [ ] **Step 7: MobileLabChrome — immersive + collapse wiring (failing test)**
+  Add to `MobileLabChrome.test.tsx`: a short tap on
+  `mobile-peek-surface` hides the topbar (immersive); tapping again restores;
+  dock starts collapsed (no tone strip until Tone tab tapped).
+
+```tsx
+it('tap toggles immersive (chrome hidden) and back', () => {
+  render(<MobileLabChrome {...base} />)
+  const s = screen.getByTestId('mobile-peek-surface')
+  expect(screen.getByRole('heading', { name: 'DSC09142.ARW' })).toBeVisible()
+  s.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+  s.dispatchEvent(new Event('pointerup', { bubbles: true }))
+  expect(
+    screen.queryByRole('heading', { name: 'DSC09142.ARW' }),
+  ).not.toBeInTheDocument()
+})
+
+it('dock is collapsed by default (no tone strip until Tone tapped)', async () => {
+  render(<MobileLabChrome {...base} />)
+  expect(
+    screen.queryByRole('tablist', { name: /tone parameters/i }),
+  ).toBeNull()
+  await userEvent.click(
+    screen.getByRole('tablist', { name: /lab modes/i })
+      .getByRole('tab', { name: /tone/i }),
+  )
+  expect(
+    screen.getByRole('tablist', { name: /tone parameters/i }),
+  ).toBeInTheDocument()
+})
+```
+
+- [ ] **Step 8: Run → fail**
+
+Run: `pnpm test:run src/modules/raw-processor/components/mobile/MobileLabChrome.test.tsx`
+Expected: FAIL.
+
+- [ ] **Step 9: Implement MobileLabChrome**
+  - `const [immersive, setImmersive] = useState(false)`
+  - `const [dockExpanded, setDockExpanded] = useState(false)` (collapsed
+    default → minimal footprint).
+  - `<MobilePeekSurface enabled={!focusKey} onPeekChange={onPeekChange}
+    onTap={() => setImmersive(v => !v)} />`
+  - Hide `MobileTopbar`, `MobileModeDock`, `FloatingHistogramCard` when
+    `immersive` (in addition to the existing `!focusKey` gate). Keep the peek
+    surface active so the photo stays inspectable; render one faint restore
+    chip (tap → `setImmersive(false)`) while immersive.
+  - Mode tab: `onModeChange={(m) => { setMode(m); setDockExpanded(true) }}`,
+    `onCollapse={() => setDockExpanded(false)}`, pass `expanded={dockExpanded}`
+    to `MobileModeDock`. Entering focus or immersive resets to collapsed.
+  - Tone pill still calls `startFocus`.
+
+- [ ] **Step 10: Run → pass; full mobile suite**
+
+Run: `pnpm test:run src/modules/raw-processor/components/mobile src/modules/raw-processor/components/RawToolSurface.test.tsx`
+Expected: PASS.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add src/modules/raw-processor/components/mobile
+git commit --no-gpg-sign -m "feat(raw): immersive tap-to-hide + collapsed-by-default mobile dock"
+```
+
+---
+
+## Task 14: Re-validate (lint/test/build + browser with real RAW)
+
+The user supplied real RAWs in `/workspaces/LumaForge/test-images/`
+(`SGL00940.ARW`, `SGL_1998.NEF`, …) — use one for the loaded golden path.
+
+- [ ] **Step 1:** `pnpm lint` (scoped clean), `pnpm test:run` (no new fails
+  vs the documented native-runtime baseline), `pnpm build` green, `tsc` 0.
+- [ ] **Step 2: Browser validation** on the prebuilt preview
+  (`npx vite preview --port 4173 --host 0.0.0.0`), viewport 390×844:
+  - Empty state: no `[data-raw-mobile-lab]`; the dark guided stage upload dock
+    (`data-raw-upload-dock`) is visible and unobstructed.
+  - Load `/workspaces/LumaForge/test-images/SGL00940.ARW` (drag-drop onto the
+    stage dropzone via a synthetic `DataTransfer`, or the header chooser
+    input). Wait for `data-raw-lab-state="loaded"` (long timeout — large ARW).
+  - Loaded: chrome mounts; dock collapsed by default (no tone strip until Tone
+    tab); tap photo → immersive (topbar+dock hidden), tap → restored;
+    long-press → unprocessed RAW peek; Tone tab → pill → focus editor; drag
+    the focus slider → the **real WebGL preview visibly changes**; Done keeps,
+    Cancel reverts; More sheet opens; desktop resize intact.
+  - 0 console errors. Screenshots for empty / collapsed / immersive / focus.
+- [ ] **Step 3:** Update the Validation status block with evidence; commit.
+- [ ] **Step 4: Loop stop** — emit the completion promise only when Tasks
+  12–14 and the original done bar all pass with real evidence.
 
 ---
 
