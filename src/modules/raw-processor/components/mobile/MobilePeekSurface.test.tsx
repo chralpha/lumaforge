@@ -25,6 +25,38 @@ describe('mobilePeekSurface', () => {
     expect(onPeekChange).toHaveBeenLastCalledWith(false)
   })
 
+  it('fires onTap for a short tap and not a peek', () => {
+    const onTap = vi.fn()
+    const onPeekChange = vi.fn()
+    render(
+      <MobilePeekSurface enabled onPeekChange={onPeekChange} onTap={onTap} />,
+    )
+    const s = screen.getByTestId('mobile-peek-surface')
+    fireEvent.pointerDown(s)
+    act(() => {
+      vi.advanceTimersByTime(120)
+    })
+    fireEvent.pointerUp(s)
+    expect(onTap).toHaveBeenCalledTimes(1)
+    expect(onPeekChange).not.toHaveBeenCalled()
+  })
+
+  it('does not fire onTap after a long-press peek', () => {
+    const onTap = vi.fn()
+    const onPeekChange = vi.fn()
+    render(
+      <MobilePeekSurface enabled onPeekChange={onPeekChange} onTap={onTap} />,
+    )
+    const s = screen.getByTestId('mobile-peek-surface')
+    fireEvent.pointerDown(s)
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+    fireEvent.pointerUp(s)
+    expect(onPeekChange).toHaveBeenLastCalledWith(false)
+    expect(onTap).not.toHaveBeenCalled()
+  })
+
   it('does not peek when disabled', () => {
     const onPeekChange = vi.fn()
     render(<MobilePeekSurface enabled={false} onPeekChange={onPeekChange} />)

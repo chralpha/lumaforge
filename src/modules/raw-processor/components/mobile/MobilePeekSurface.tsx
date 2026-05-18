@@ -3,10 +3,12 @@ import { useCallback, useRef } from 'react'
 export function MobilePeekSurface(props: {
   enabled: boolean
   onPeekChange: (peeking: boolean) => void
+  onTap?: () => void
 }) {
-  const { enabled, onPeekChange } = props
+  const { enabled, onPeekChange, onTap } = props
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const peeking = useRef(false)
+  const pressed = useRef(false)
 
   const clear = useCallback(() => {
     if (timer.current) {
@@ -16,15 +18,21 @@ export function MobilePeekSurface(props: {
   }, [])
 
   const end = useCallback(() => {
+    const wasPressed = pressed.current
+    pressed.current = false
     clear()
     if (peeking.current) {
       peeking.current = false
       onPeekChange(false)
+      return
     }
-  }, [clear, onPeekChange])
+    // Released before the long-press threshold → it was a short tap.
+    if (wasPressed) onTap?.()
+  }, [clear, onPeekChange, onTap])
 
   const start = useCallback(() => {
     if (!enabled) return
+    pressed.current = true
     clear()
     timer.current = setTimeout(() => {
       timer.current = null

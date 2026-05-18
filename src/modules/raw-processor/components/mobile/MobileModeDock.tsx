@@ -41,7 +41,9 @@ const TABS: {
 
 export function MobileModeDock(props: {
   mode: MobileMode
+  expanded: boolean
   onModeChange: (mode: MobileMode) => void
+  onCollapse: () => void
   onOpenMore: () => void
   canExport: boolean
   panel: ReactNode
@@ -49,9 +51,11 @@ export function MobileModeDock(props: {
   const { t } = useI18n()
   return (
     <div className="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/95 via-black/70 to-transparent pb-safe-offset-3 text-white">
-      <div className="relative max-h-[24vh] overflow-y-auto px-3.5 pb-2.5 pt-3.5">
-        {props.panel}
-      </div>
+      {props.expanded && (
+        <div className="relative max-h-[24vh] overflow-y-auto px-3.5 pb-2.5 pt-3.5">
+          {props.panel}
+        </div>
+      )}
       <nav
         aria-label={t('raw.mobile.modes.aria')}
         role="tablist"
@@ -64,14 +68,20 @@ export function MobileModeDock(props: {
               key={tab.id}
               type="button"
               role="tab"
-              aria-selected={active}
+              aria-selected={active && props.expanded}
               whileTap={{ scale: 0.96 }}
               transition={TAP_SPRING}
-              onClick={() =>
-                tab.id === 'more'
-                  ? props.onOpenMore()
-                  : props.onModeChange(tab.id)
-              }
+              onClick={() => {
+                if (tab.id === 'more') {
+                  props.onOpenMore()
+                  return
+                }
+                if (props.mode === tab.id && props.expanded) {
+                  props.onCollapse()
+                  return
+                }
+                props.onModeChange(tab.id)
+              }}
               className={clsxm(
                 'relative grid min-h-[50px] grid-rows-[auto_auto] place-items-center gap-1 rounded-lg px-1 py-1.5 text-[0.64rem] font-semibold uppercase tracking-wide transition-colors',
                 active ? 'text-white' : 'text-white/70',

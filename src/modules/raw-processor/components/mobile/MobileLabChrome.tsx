@@ -42,6 +42,8 @@ export function MobileLabChrome(props: {
   const [moreOpen, setMoreOpen] = useState(false)
   const [peeking, setPeeking] = useState(false)
   const [histVisible, setHistVisible] = useState(true)
+  const [immersive, setImmersive] = useState(false)
+  const [dockExpanded, setDockExpanded] = useState(false)
   const snapshot = useRef<ToneValue | null>(null)
   const viewModeBeforePeek = useRef<ViewMode>('processed')
 
@@ -63,10 +65,12 @@ export function MobileLabChrome(props: {
     }
     snapshot.current = null
     setFocusKey(null)
+    setDockExpanded(false)
   }
   const commitFocus = () => {
     snapshot.current = null
     setFocusKey(null)
+    setDockExpanded(false)
   }
   const switchFocus = (k: keyof ToneValue) => {
     snapshot.current = snapshot.current ?? props.tone
@@ -106,7 +110,22 @@ export function MobileLabChrome(props: {
       data-focus={focusKey ? 'true' : 'false'}
       data-peek={peeking || undefined}
     >
-      <MobilePeekSurface enabled={!focusKey} onPeekChange={onPeekChange} />
+      <MobilePeekSurface
+        enabled={!focusKey}
+        onPeekChange={onPeekChange}
+        onTap={() => setImmersive((v) => !v)}
+      />
+
+      {immersive && !focusKey && (
+        <button
+          type="button"
+          aria-label={t('raw.mobile.immersive.show')}
+          onClick={() => setImmersive(false)}
+          className="absolute bottom-safe-offset-4 left-1/2 z-[12] -translate-x-1/2 rounded-full border border-white/25 bg-black/55 px-3 py-1.5 text-[0.7rem] font-semibold text-white/80 backdrop-blur-background transition-colors hover:text-white"
+        >
+          {t('raw.mobile.immersive.show')}
+        </button>
+      )}
 
       {peeking && (
         <div className="pointer-events-none absolute left-1/2 top-safe-offset-14 z-[12] -translate-x-1/2 rounded-full border border-white/30 bg-black/80 px-2.5 py-1.5 text-[0.7rem] font-semibold uppercase tracking-wide text-white">
@@ -114,14 +133,14 @@ export function MobileLabChrome(props: {
         </div>
       )}
 
-      {!focusKey && (
+      {!focusKey && !immersive && (
         <FloatingHistogramCard
           histogram={props.histogram}
           hidden={!histVisible || peeking}
         />
       )}
 
-      {!focusKey && (
+      {!focusKey && !immersive && (
         <>
           <MobileTopbar
             fileName={props.fileName}
@@ -161,7 +180,12 @@ export function MobileLabChrome(props: {
           />
           <MobileModeDock
             mode={mode}
-            onModeChange={setMode}
+            expanded={dockExpanded}
+            onModeChange={(m) => {
+              setMode(m)
+              setDockExpanded(true)
+            }}
+            onCollapse={() => setDockExpanded(false)}
             onOpenMore={() => setMoreOpen(true)}
             canExport
             panel={panel}

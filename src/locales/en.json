@@ -91,6 +91,8 @@
   "raw.mobile.focus.siblingsAria": "Other tone parameters",
   "raw.mobile.peek.hint": "Showing unprocessed RAW",
   "raw.mobile.peek.note": "Press & hold the photo to peek the unprocessed RAW — works in every mode.",
+  "raw.mobile.immersive.show": "Show controls",
+  "raw.mobile.immersive.hint": "Tap the photo to show or hide controls",
   "raw.mobile.histogram.toggleShow": "Show histogram",
   "raw.mobile.histogram.toggleHide": "Hide histogram",
   "raw.mobile.more.title": "Pipeline & file",

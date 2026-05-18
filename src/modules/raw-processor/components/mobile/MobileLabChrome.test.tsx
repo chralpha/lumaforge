@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -38,12 +38,26 @@ describe('mobileLabChrome', () => {
     vi.unstubAllGlobals()
   })
 
+  it('dock is collapsed by default; Tone tab reveals the strip', async () => {
+    render(<MobileLabChrome {...base} />)
+    expect(
+      screen.queryByRole('tablist', { name: /tone parameters/i }),
+    ).toBeNull()
+    const dock = screen.getByRole('tablist', { name: /lab modes/i })
+    await userEvent.click(within(dock).getByRole('tab', { name: /tone/i }))
+    expect(
+      screen.getByRole('tablist', { name: /tone parameters/i }),
+    ).toBeInTheDocument()
+  })
+
   it('enters focus mode from a tone pill and hides the topbar', async () => {
     render(<MobileLabChrome {...base} />)
     expect(
       screen.getByRole('heading', { name: 'DSC09142.ARW' }),
     ).toBeInTheDocument()
 
+    const dock = screen.getByRole('tablist', { name: /lab modes/i })
+    await userEvent.click(within(dock).getByRole('tab', { name: /tone/i }))
     const strip = screen.getByRole('tablist', { name: /tone parameters/i })
     await userEvent.click(within(strip).getAllByRole('tab')[0])
 
@@ -51,6 +65,22 @@ describe('mobileLabChrome', () => {
     expect(
       screen.queryByRole('heading', { name: 'DSC09142.ARW' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('short tap toggles immersive (chrome hidden) and back', () => {
+    render(<MobileLabChrome {...base} />)
+    const s = screen.getByTestId('mobile-peek-surface')
+    expect(screen.getByRole('heading', { name: 'DSC09142.ARW' })).toBeVisible()
+    fireEvent.pointerDown(s)
+    fireEvent.pointerUp(s)
+    expect(
+      screen.queryByRole('heading', { name: 'DSC09142.ARW' }),
+    ).not.toBeInTheDocument()
+    // restore affordance brings the chrome back
+    fireEvent.click(screen.getByRole('button', { name: /show controls/i }))
+    expect(
+      screen.getByRole('heading', { name: 'DSC09142.ARW' }),
+    ).toBeInTheDocument()
   })
 
   it('peeks the unprocessed RAW via viewMode while held', () => {
