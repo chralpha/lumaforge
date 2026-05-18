@@ -38,16 +38,21 @@ describe('mobileLabChrome', () => {
     vi.unstubAllGlobals()
   })
 
-  it('dock is collapsed by default; Tone tab reveals the strip', async () => {
+  it('starts with controls visible (tone strip shown, not bare)', async () => {
     render(<MobileLabChrome {...base} />)
-    expect(
-      screen.queryByRole('tablist', { name: /tone parameters/i }),
-    ).toBeNull()
-    const dock = screen.getByRole('tablist', { name: /lab modes/i })
-    await userEvent.click(within(dock).getByRole('tab', { name: /tone/i }))
+    // Controls are present on load — dock expanded by default, not immersive.
     expect(
       screen.getByRole('tablist', { name: /tone parameters/i }),
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'DSC09142.ARW' }),
+    ).toBeInTheDocument()
+    // Tapping the active Tone tab collapses the panel.
+    const dock = screen.getByRole('tablist', { name: /lab modes/i })
+    await userEvent.click(within(dock).getByRole('tab', { name: /tone/i }))
+    expect(
+      screen.queryByRole('tablist', { name: /tone parameters/i }),
+    ).toBeNull()
   })
 
   it('enters focus mode from a tone pill and hides the topbar', async () => {
@@ -56,8 +61,6 @@ describe('mobileLabChrome', () => {
       screen.getByRole('heading', { name: 'DSC09142.ARW' }),
     ).toBeInTheDocument()
 
-    const dock = screen.getByRole('tablist', { name: /lab modes/i })
-    await userEvent.click(within(dock).getByRole('tab', { name: /tone/i }))
     const strip = screen.getByRole('tablist', { name: /tone parameters/i })
     await userEvent.click(within(strip).getAllByRole('tab')[0])
 

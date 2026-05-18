@@ -43,7 +43,7 @@ export function MobileLabChrome(props: {
   const [peeking, setPeeking] = useState(false)
   const [histVisible, setHistVisible] = useState(true)
   const [immersive, setImmersive] = useState(false)
-  const [dockExpanded, setDockExpanded] = useState(false)
+  const [dockExpanded, setDockExpanded] = useState(true)
   const snapshot = useRef<ToneValue | null>(null)
   const viewModeBeforePeek = useRef<ViewMode>('processed')
 
