@@ -1,4 +1,5 @@
 import { AlertTriangle, Copy, Download, FolderOpen, Share2 } from 'lucide-react'
+import { AnimatePresence, m, useReducedMotion } from 'motion/react'
 
 import { localizeCopyLabel, localizeRawReason, useI18n } from '~/lib/i18n'
 
@@ -7,6 +8,27 @@ import type {
   ExportShareCapability,
 } from '../../model/export-result'
 import type { ExportRecoveryState } from '../../model/session'
+
+// Mirrors the handoff spec tokens: --mrl-ease + base 220ms duration so the
+// idle/busy/done transitions feel like the design rather than a hard snap.
+const MRL_EASE = [0.22, 1, 0.36, 1] as const
+const PANEL_TRANSITION = { duration: 0.22, ease: MRL_EASE }
+
+function BusySpinner() {
+  const reduced = useReducedMotion() ?? false
+  return (
+    <m.span
+      aria-hidden="true"
+      className="size-4 rounded-full border-2 border-background/40 border-t-background"
+      animate={reduced ? undefined : { rotate: 360 }}
+      transition={
+        reduced
+          ? undefined
+          : { duration: 0.8, ease: 'linear', repeat: Infinity }
+      }
+    />
+  )
+}
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -67,65 +89,73 @@ export function MobileExportPanel(props: {
       : localizeCopyLabel(copyCapability.label, t)
     : t('raw.export.copy')
 
-  if (props.exportResult) {
-    return (
-      <div
-        data-mobile-substrate="glass-panel"
-        className="grid gap-3 rounded-xl border border-white/15 bg-black/45 p-3.5 text-white"
-      >
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2.5">
-          <span className="grid size-5 place-items-center text-[oklch(0.84_0.09_145)]">
-            <Download aria-hidden="true" className="size-5" />
-          </span>
-          <div className="grid min-w-0 gap-1">
-            <h3
-              className="m-0 truncate text-[0.88rem] font-semibold"
-              title={props.exportResult.filename}
-            >
-              {props.exportResult.filename} ready
-            </h3>
-            <p className="m-0 text-[0.7rem] text-white/70 tabular-nums">
-              {props.exportResult.width} x {props.exportResult.height} ·{' '}
-              {formatBytes(props.exportResult.size)}
-            </p>
-          </div>
+  const body = props.exportResult ? (
+    <m.div
+      key="result"
+      data-mobile-substrate="glass-panel"
+      className="grid gap-3 rounded-xl border border-white/15 bg-black/45 p-3.5 text-white"
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={PANEL_TRANSITION}
+    >
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2.5">
+        <span className="grid size-5 place-items-center text-[oklch(0.84_0.09_145)]">
+          <Download aria-hidden="true" className="size-5" />
+        </span>
+        <div className="grid min-w-0 gap-1">
+          <h3
+            className="m-0 truncate text-[0.88rem] font-semibold"
+            title={props.exportResult.filename}
+          >
+            {props.exportResult.filename} ready
+          </h3>
+          <p className="m-0 text-[0.7rem] text-white/70 tabular-nums">
+            {props.exportResult.width} x {props.exportResult.height} ·{' '}
+            {formatBytes(props.exportResult.size)}
+          </p>
         </div>
-        <div className="grid grid-cols-3 gap-1.5">
-          <MobileExportAction
-            icon={Share2}
-            label={t('raw.export.share')}
-            disabled={!props.exportShareCapability.available}
-            onClick={props.onShareExport}
-          />
-          <MobileExportAction
-            icon={Download}
-            label={t('raw.export.download')}
-            onClick={props.onDownloadExport}
-          />
-          <MobileExportAction
-            icon={Copy}
-            label={copyButtonLabel}
-            disabled={props.exportResult.copyCapability.mode === 'unavailable'}
-            onClick={props.onCopyExport}
-          />
-        </div>
-        {!props.exportShareCapability.available && shareUnavailableReason && (
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        <MobileExportAction
+          icon={Share2}
+          label={t('raw.export.share')}
+          disabled={!props.exportShareCapability.available}
+          onClick={props.onShareExport}
+        />
+        <MobileExportAction
+          icon={Download}
+          label={t('raw.export.download')}
+          onClick={props.onDownloadExport}
+        />
+        <MobileExportAction
+          icon={Copy}
+          label={copyButtonLabel}
+          disabled={props.exportResult.copyCapability.mode === 'unavailable'}
+          onClick={props.onCopyExport}
+        />
+      </div>
+      {!props.exportShareCapability.available && shareUnavailableReason && (
+        <p className="m-0 text-[0.7rem] leading-relaxed text-white/70">
+          {shareUnavailableReason}
+        </p>
+      )}
+      {props.exportResult.copyCapability.mode !== 'full-resolution' &&
+        copyUnavailableReason && (
           <p className="m-0 text-[0.7rem] leading-relaxed text-white/70">
-            {shareUnavailableReason}
+            {copyUnavailableReason}
           </p>
         )}
-        {props.exportResult.copyCapability.mode !== 'full-resolution' &&
-          copyUnavailableReason && (
-            <p className="m-0 text-[0.7rem] leading-relaxed text-white/70">
-              {copyUnavailableReason}
-            </p>
-          )}
-      </div>
-    )
-  }
-
-  return (
-    <div className="grid gap-3 px-0.5 py-0.5">
+    </m.div>
+  ) : (
+    <m.div
+      key="idle"
+      className="grid gap-3 px-0.5 py-0.5"
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={PANEL_TRANSITION}
+    >
       {!props.canExport && (
         <div className="grid grid-cols-[22px_1fr] gap-2.5 rounded-xl border border-rose-400/40 bg-rose-500/10 p-3 text-white">
           <AlertTriangle
@@ -153,29 +183,41 @@ export function MobileExportPanel(props: {
           {t('raw.export.reselect')}
         </button>
       )}
-      <button
+      <m.button
         type="button"
         disabled={!props.canExport || props.isProcessing}
+        whileTap={
+          !props.canExport || props.isProcessing ? undefined : { scale: 0.99 }
+        }
+        transition={PANEL_TRANSITION}
         onClick={() =>
           props.onExport({ quality: 'high', fidelity: 'balanced' })
         }
         className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-xl border border-[oklch(0.54_0.14_153)] bg-accent px-3 text-[0.92rem] font-semibold text-background transition-colors hover:bg-[oklch(0.66_0.16_153)] disabled:cursor-not-allowed disabled:border-white/25 disabled:bg-white/15 disabled:text-white/45"
       >
-        <Download aria-hidden="true" className="size-4" />
+        {props.isProcessing ? (
+          <BusySpinner />
+        ) : (
+          <Download aria-hidden="true" className="size-4" />
+        )}
         {props.isProcessing ? t('raw.export.preparing') : t('raw.export.run')}
-      </button>
+      </m.button>
       <div className="flex items-baseline justify-between gap-3 px-1 text-[0.7rem] text-white/70">
         <span>
           {props.canExport
             ? t('raw.export.sourcePath')
             : t('raw.export.noFallback')}
         </span>
-        {props.isProcessing ? (
-          <em className="not-italic text-white tabular-nums">32%</em>
-        ) : (
-          props.canExport && <em className="not-italic text-white">JPEG</em>
-        )}
+        {props.isProcessing
+          ? null
+          : props.canExport && <em className="not-italic text-white">JPEG</em>}
       </div>
-    </div>
+    </m.div>
+  )
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      {body}
+    </AnimatePresence>
   )
 }

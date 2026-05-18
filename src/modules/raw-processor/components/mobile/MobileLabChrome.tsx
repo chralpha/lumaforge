@@ -307,7 +307,7 @@ export function MobileLabChrome(props: {
           className="absolute inset-0 z-[11] grid content-end bg-[radial-gradient(circle_at_50%_24%,rgba(255,255,255,0.10),transparent_32%),linear-gradient(180deg,rgba(10,12,11,0.38),rgba(7,8,7,0.94)_64%,rgba(5,6,5,0.98))] px-4 pb-safe-offset-5 pt-safe-offset-6 text-white"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="grid gap-4">
             <div className="grid gap-2">
