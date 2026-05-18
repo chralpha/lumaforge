@@ -2216,25 +2216,25 @@ phones. Give mobile its own full-height sheet-based browser.
 primitives; full-height, scrollable, thumb-reachable; same non-modal /
 drag-dismiss feel as `MobileMoreSheet`.
 
-- [ ] **Step 1:** Brief Codex ([[feedback_codex_delegation]]) with a
+- [x] **Step 1:** Brief Codex ([[feedback_codex_delegation]]) with a
   self-contained spec to scaffold `MobileLutBrowser.tsx` + test: a mobile
   sheet exposing (a) current LUT + clear, (b) manual .cube upload, (c)
   online-LUT source list/entries (collapsed rows, load entry), (d) contract
   profile selection — all driven by the existing props above. Verify Codex
   output against this spec before integrating.
-- [ ] **Step 2:** Failing test `MobileLutBrowser.test.tsx`: opening the
+- [x] **Step 2:** Failing test `MobileLutBrowser.test.tsx`: opening the
   Look panel exposes a "LUT browser" trigger; activating it shows the sheet
   with the current LUT name, a clear control, an upload affordance, and
   online-source rows when `onlineLutSources` is provided; selecting an entry
   calls the matching handler.
-- [ ] **Step 3:** Implement (or finalize Codex's scaffold) to pass the test.
-- [ ] **Step 4:** In `RawToolSurface`, replace the mobile `lutPanel`
+- [x] **Step 3:** Implement (or finalize Codex's scaffold) to pass the test.
+- [x] **Step 4:** In `RawToolSurface`, replace the mobile `lutPanel`
   (currently `lutBlock` = desktop `LutContractTool` + `StrengthControl`) with
   a compact Look panel: Strength inline + a button that opens
   `MobileLutBrowser`. Desktop branch keeps `lutBlock` unchanged.
-- [ ] **Step 5:** Mobile suite + `RawToolSurface.test` green; `tsc` 0;
+- [x] **Step 5:** Mobile suite + `RawToolSurface.test` green; `tsc` 0;
   scoped lint clean.
-- [ ] **Step 6:** Commit `feat(raw): mobile LUT contract + online-LUT browser sheet`.
+- [x] **Step 6:** Commit `feat(raw): mobile LUT contract + online-LUT browser sheet`.
 
 ## Task 19: Re-validate + Codex code review
 
