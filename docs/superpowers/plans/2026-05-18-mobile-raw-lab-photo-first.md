@@ -2238,19 +2238,19 @@ drag-dismiss feel as `MobileMoreSheet`.
 
 ## Task 19: Re-validate + Codex code review
 
-- [ ] **Step 1:** `tsc` 0, scoped eslint clean, `pnpm test:run`
+- [x] **Step 1:** `tsc` 0, scoped eslint clean, `pnpm test:run`
   (no new fails vs the documented native-runtime baseline), `pnpm build`.
-- [ ] **Step 2:** Browser validation (preview + `test-images/SGL00940.ARW`,
+- [x] **Step 2:** Browser validation (preview + `test-images/SGL00940.ARW`,
   390×844): controls visible on load (not bare); Compare mode shows split and
   NO peek, other modes peek and NO split; tone focus animates + chrome
   recedes on scrub; mobile LUT browser sheet usable (open, list, load, clear,
   upload affordance); empty state + immersive + More + desktop-restore still
   good. 0 console errors. Screenshots.
-- [ ] **Step 3:** Hand the full Iteration-3 diff to Codex for an independent
+- [x] **Step 3:** Hand the full Iteration-3 diff to Codex for an independent
   code review ([[feedback_codex_delegation]]); triage findings, fix real
   issues, re-run Step 1.
-- [ ] **Step 4:** Update the Validation status block with evidence; commit.
-- [ ] **Step 5: Loop stop** — emit the completion promise only when Tasks
+- [x] **Step 4:** Update the Validation status block with evidence; commit.
+- [x] **Step 5: Loop stop** — emit the completion promise only when Tasks
   15–19 all pass with real evidence and Codex review is clean.
 
 ## Task 20: Empty-state chrome scaffold (supersedes Task 12's null)
@@ -2289,3 +2289,25 @@ full-bleed dark guided stage dropzone.
   dock scaffold (no peek/focus/histogram)"; keep "mobile + image mounts full
   chrome". Mobile + surface suites green; `tsc` 0; scoped lint clean.
 - [x] **Step 6:** Commit `fix(raw): pre-show topbar+dock scaffold in mobile empty state`.
+
+### Iteration-3 validation status — 2026-05-18
+
+- Lint (scoped): clean. `tsc --noEmit`: 0. `pnpm test:run`: 1163 pass; only
+  the 4 documented pre-existing `scripts/native-runtime/**` baseline fails
+  (untouched). `pnpm build`: green. Mobile/surface suites: 63 pass.
+- Browser validation (preview + `test-images/SGL00940.ARW`, 390↔1280):
+  **15/15 PASS, 0 console errors**. Verified: empty state pre-shows the
+  topbar + DISABLED dock scaffold over the full-bleed guided stage (no
+  peek/focus); controls visible on load (tone strip, not bare); animated
+  tone focus + scrub-recede; peek present outside Compare and absent in
+  Compare (mutually exclusive with split); long-press peek; mobile LUT
+  browser sheet opens/closes; immersive tap; desktop restore. Screenshots:
+  `/tmp/mrl-{empty,loaded,focus,lut,immersive}.png`.
+- Codex independent review: 1 BLOCKER (transient layers not torn down when
+  `hasImage`→false; LUT/More sheets not gated on `hasImage`). Fixed via a
+  `hasImage` reset effect + `open={hasImage && …}` gating, with a regression
+  test; review now clean. Mechanical scaffold (`MobileLutBrowser`) and the
+  review were delegated to Codex per [[feedback_codex_delegation]].
+
+Iteration-3 done bar fully met with real-RAW evidence and a resolved Codex
+review.
