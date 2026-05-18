@@ -38,7 +38,13 @@ export function MobilePeekSurface(props: {
     if (!enabled) return
     pressed.current = true
     clear()
-    if (!allowPeek) return
+    if (!allowPeek) {
+      timer.current = setTimeout(() => {
+        timer.current = null
+        pressed.current = false
+      }, 250)
+      return
+    }
     timer.current = setTimeout(() => {
       timer.current = null
       peeking.current = true

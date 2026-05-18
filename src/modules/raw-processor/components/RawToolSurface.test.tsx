@@ -1377,4 +1377,34 @@ describe('rawToolSurface', () => {
       jotaiStore.set(viewportAtom, prev)
     }
   })
+
+  it('mobile Compare defaults to hold-to-peek before exposing split reset', async () => {
+    const user = userEvent.setup()
+    const prev = jotaiStore.get(viewportAtom)
+    jotaiStore.set(viewportAtom, { ...prev, w: 390, sm: false })
+    try {
+      render(
+        <Provider store={jotaiStore}>
+          <RawToolSurface {...baseProps} hasImage />
+        </Provider>,
+      )
+
+      const dock = screen.getByRole('tablist', { name: /lab modes/i })
+      await user.click(within(dock).getByRole('tab', { name: /compare/i }))
+
+      expect(screen.getByText(/touch and hold the photo/i)).toBeInTheDocument()
+      expect(screen.queryByText(/drag the split/i)).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: /reset compare view/i }),
+      ).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: /split compare/i }))
+      expect(screen.getByText(/drag the split/i)).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /reset compare view/i }),
+      ).toBeInTheDocument()
+    } finally {
+      jotaiStore.set(viewportAtom, prev)
+    }
+  })
 })

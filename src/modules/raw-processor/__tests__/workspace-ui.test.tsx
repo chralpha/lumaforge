@@ -1140,6 +1140,44 @@ describe('rawToolSurface', () => {
         }),
       ).toBeInTheDocument()
     })
+
+    it('can hide the split comparison affordance for mobile hold-to-peek mode', async () => {
+      await act(async () => {
+        render(
+          <ComparePreviewStage
+            {...compareStageProps({
+              hasImage: true,
+              splitEnabled: false,
+              imageRef: {
+                current: {
+                  data: new Float32Array(4),
+                  width: 1,
+                  height: 1,
+                  channels: 4,
+                  bitsPerChannel: 32,
+                  layout: 'rgba-float32',
+                  colorSpace: 'display-srgb-preview',
+                  metadata: { width: 1, height: 1 },
+                  renderExposure: {
+                    ev: 0,
+                    multiplier: 1,
+                    source: 'identity',
+                  },
+                },
+              },
+            })}
+          />,
+        )
+      })
+
+      expect(
+        screen.queryByRole('slider', {
+          name: 'Compare unprocessed RAW and final JPEG',
+        }),
+      ).not.toBeInTheDocument()
+      expect(screen.queryByText('Unprocessed RAW')).not.toBeInTheDocument()
+      expect(screen.queryByText('Final JPEG')).not.toBeInTheDocument()
+    })
   })
 
   it('shows an embedded RAW preview image before decoded pixels are ready', async () => {

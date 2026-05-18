@@ -24,6 +24,7 @@ export interface ComparePreviewStageProps {
   previewSuspended?: boolean
   previewViewport?: PreviewViewport
   split: number
+  splitEnabled?: boolean
   isProcessing: boolean
   progress: number
   phase: 'loading' | 'decoding' | 'processing' | 'exporting'
@@ -104,6 +105,7 @@ export function ComparePreviewStage({
   previewSuspended = false,
   previewViewport,
   split,
+  splitEnabled = true,
   isProcessing,
   progress,
   phase,
@@ -117,6 +119,7 @@ export function ComparePreviewStage({
   className,
 }: ComparePreviewStageProps) {
   const { t } = useI18n()
+  const showSplit = splitEnabled
 
   return (
     <section
@@ -156,19 +159,23 @@ export function ComparePreviewStage({
               <EmptySampleCompare split={split} />
             )}
 
-            <span className="raw-lab-compare-label pointer-events-none absolute bottom-[18px] left-[18px] z-[4] max-w-[calc(50%-32px)] rounded-full border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-2.5 py-1.5 text-xs font-medium leading-tight text-[var(--color-on-stage)] opacity-0 transition-opacity duration-[180ms] ease-[cubic-bezier(0.22,1,0.36,1)] max-[640px]:max-w-[calc(50%-22px)]">
-              {t('raw.stage.leftLabel')}
-            </span>
-            <span className="raw-lab-compare-label absolute bottom-[18px] right-[18px] left-auto z-[4] max-w-[calc(50%-32px)] rounded-full border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-2.5 py-1.5 pointer-events-none text-xs font-medium leading-tight text-[var(--color-on-stage)] opacity-0 transition-opacity duration-[180ms] ease-[cubic-bezier(0.22,1,0.36,1)] max-[640px]:max-w-[calc(50%-22px)]">
-              {t('raw.stage.rightLabel')}
-            </span>
+            {showSplit && (
+              <>
+                <span className="raw-lab-compare-label pointer-events-none absolute bottom-[18px] left-[18px] z-[4] max-w-[calc(50%-32px)] rounded-full border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-2.5 py-1.5 text-xs font-medium leading-tight text-[var(--color-on-stage)] opacity-0 transition-opacity duration-[180ms] ease-[cubic-bezier(0.22,1,0.36,1)] max-[640px]:max-w-[calc(50%-22px)]">
+                  {t('raw.stage.leftLabel')}
+                </span>
+                <span className="raw-lab-compare-label absolute bottom-[18px] right-[18px] left-auto z-[4] max-w-[calc(50%-32px)] rounded-full border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-2.5 py-1.5 pointer-events-none text-xs font-medium leading-tight text-[var(--color-on-stage)] opacity-0 transition-opacity duration-[180ms] ease-[cubic-bezier(0.22,1,0.36,1)] max-[640px]:max-w-[calc(50%-22px)]">
+                  {t('raw.stage.rightLabel')}
+                </span>
 
-            <CompareSplitHandle
-              value={split}
-              onChange={onSplitChange}
-              onPreviewChange={onSplitPreviewChange}
-              disabled={isProcessing}
-            />
+                <CompareSplitHandle
+                  value={split}
+                  onChange={onSplitChange}
+                  onPreviewChange={onSplitPreviewChange}
+                  disabled={isProcessing}
+                />
+              </>
+            )}
 
             {!hasImage && (
               <UploadDock

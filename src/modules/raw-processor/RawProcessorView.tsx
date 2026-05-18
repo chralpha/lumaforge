@@ -291,6 +291,7 @@ function RawProcessorViewInner({
           previewSuspended={previewSuspended}
           previewViewport={previewViewport}
           split={compareSplit}
+          splitEnabled={viewMode === 'compare'}
           onSplitChange={setCompareSplit}
           onSplitPreviewChange={handleCompareSplitPreviewChange}
           onPreviewViewportChange={setPreviewViewport}

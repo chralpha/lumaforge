@@ -57,7 +57,7 @@ describe('mobilePeekSurface', () => {
     expect(onTap).not.toHaveBeenCalled()
   })
 
-  it('allowPeek=false disables long-press peek but keeps tap', () => {
+  it('allowPeek=false keeps short taps but consumes held presses', () => {
     const onTap = vi.fn()
     const onPeekChange = vi.fn()
     render(
@@ -71,11 +71,20 @@ describe('mobilePeekSurface', () => {
     const s = screen.getByTestId('mobile-peek-surface')
     fireEvent.pointerDown(s)
     act(() => {
-      vi.advanceTimersByTime(400)
+      vi.advanceTimersByTime(120)
     })
     fireEvent.pointerUp(s)
     expect(onPeekChange).not.toHaveBeenCalled()
     expect(onTap).toHaveBeenCalledTimes(1)
+
+    onTap.mockClear()
+    fireEvent.pointerDown(s)
+    act(() => {
+      vi.advanceTimersByTime(400)
+    })
+    fireEvent.pointerUp(s)
+    expect(onPeekChange).not.toHaveBeenCalled()
+    expect(onTap).not.toHaveBeenCalled()
   })
 
   it('does not peek when disabled', () => {

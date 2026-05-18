@@ -15,6 +15,7 @@ import { useI18n } from '~/lib/i18n'
 
 import type { ToneValue } from '../tools/ToneTool'
 import { FloatingHistogramCard } from './FloatingHistogramCard'
+import { MobileComparePanel } from './MobileComparePanel'
 import type { MobileLutBrowserProps } from './MobileLutBrowser'
 import { MobileLutBrowser } from './MobileLutBrowser'
 import type { MobileMode } from './MobileModeDock'
@@ -57,6 +58,7 @@ export function MobileLabChrome(props: {
   const [immersive, setImmersive] = useState(false)
   const [dockExpanded, setDockExpanded] = useState(true)
   const [scrubbing, setScrubbing] = useState(false)
+  const [compareSplitOpen, setCompareSplitOpen] = useState(false)
   const snapshot = useRef<ToneValue | null>(null)
   const viewModeBeforePeek = useRef<ViewMode>('processed')
 
@@ -64,6 +66,8 @@ export function MobileLabChrome(props: {
   // empty-state scaffold can never be left behind focus / immersive / a
   // dangling LUT or More sheet.
   const hasImage = props.hasImage
+  const viewMode = props.viewMode
+  const onViewModeChange = props.onViewModeChange
   useEffect(() => {
     if (hasImage) return
     setFocusKey(null)
@@ -72,9 +76,15 @@ export function MobileLabChrome(props: {
     setMoreOpen(false)
     setScrubbing(false)
     setDockExpanded(true)
+    setCompareSplitOpen(false)
     setMode('look')
     snapshot.current = null
   }, [hasImage])
+
+  useEffect(() => {
+    if (!hasImage || compareSplitOpen || viewMode !== 'compare') return
+    onViewModeChange('processed')
+  }, [compareSplitOpen, hasImage, onViewModeChange, viewMode])
 
   const startFocus = (k: keyof ToneValue) => {
     snapshot.current = props.tone
@@ -110,12 +120,19 @@ export function MobileLabChrome(props: {
 
   const onPeekChange = (p: boolean) => {
     if (p) {
-      viewModeBeforePeek.current = props.viewMode
-      props.onViewModeChange('original')
+      viewModeBeforePeek.current = compareSplitOpen ? viewMode : 'processed'
+      onViewModeChange('original')
     } else {
-      props.onViewModeChange(viewModeBeforePeek.current)
+      onViewModeChange(
+        compareSplitOpen ? viewModeBeforePeek.current : 'processed',
+      )
     }
     setPeeking(p)
+  }
+
+  const setCompareSplitMode = (open: boolean) => {
+    setCompareSplitOpen(open)
+    onViewModeChange(open ? 'compare' : 'processed')
   }
 
   const panel =
@@ -139,7 +156,11 @@ export function MobileLabChrome(props: {
     ) : mode === 'strength' ? (
       props.strengthControl
     ) : mode === 'compare' ? (
-      props.comparePanel
+      <MobileComparePanel
+        splitOpen={compareSplitOpen}
+        splitPanel={props.comparePanel}
+        onSplitOpenChange={setCompareSplitMode}
+      />
     ) : (
       props.exportPanel
     )
@@ -151,15 +172,13 @@ export function MobileLabChrome(props: {
       data-focus={focusKey ? 'true' : 'false'}
       data-peek={peeking || undefined}
     >
-      {/* Peek and the Compare split are the SAME affordance (RAW vs finished)
-          expressed two ways — never both at once. In Compare mode the split
-          handle is the comparison tool, so long-press peek is disabled
-          there; in every other mode peek is the comparison tool. Tap to
-          toggle immersive still works in both. */}
+      {/* Peek and the Compare split are alternate RAW-vs-finished affordances.
+          Mobile Compare defaults to hold-to-peek; the split handle is only
+          enabled after the explicit split action. */}
       {props.hasImage && (
         <MobilePeekSurface
           enabled={!focusKey}
-          allowPeek={mode !== 'compare'}
+          allowPeek={!compareSplitOpen}
           onPeekChange={onPeekChange}
           onTap={() => setImmersive((v) => !v)}
         />
@@ -298,6 +317,9 @@ export function MobileLabChrome(props: {
             expanded={dockExpanded && props.hasImage}
             disabled={!props.hasImage}
             onModeChange={(m) => {
+              if (m !== 'compare' && compareSplitOpen) {
+                setCompareSplitMode(false)
+              }
               setMode(m)
               setDockExpanded(true)
             }}

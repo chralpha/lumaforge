@@ -185,17 +185,48 @@ describe('mobileLabChrome', () => {
     vi.useRealTimers()
   })
 
-  it('disables long-press peek in Compare mode (split is the tool there)', () => {
+  it('uses long-press peek as the default Compare interaction', () => {
     vi.useFakeTimers()
     const onViewModeChange = vi.fn()
     render(<MobileLabChrome {...base} onViewModeChange={onViewModeChange} />)
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
     fireEvent.click(within(dock).getByRole('tab', { name: /compare/i }))
+    expect(screen.getByText(/touch and hold the photo/i)).toBeInTheDocument()
+    expect(screen.queryByText('compare')).not.toBeInTheDocument()
+
+    const surface = screen.getByTestId('mobile-peek-surface')
+    surface.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    vi.advanceTimersByTime(400)
+    expect(onViewModeChange).toHaveBeenLastCalledWith('original')
+    surface.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    expect(onViewModeChange).toHaveBeenLastCalledWith('processed')
+    vi.useRealTimers()
+  })
+
+  it('enables split compare only through the explicit Compare panel action', () => {
+    vi.useFakeTimers()
+    const onViewModeChange = vi.fn()
+    render(<MobileLabChrome {...base} onViewModeChange={onViewModeChange} />)
+    const dock = screen.getByRole('tablist', { name: /lab modes/i })
+    fireEvent.click(within(dock).getByRole('tab', { name: /compare/i }))
+    expect(screen.queryByText('compare')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /split compare/i }))
+    expect(onViewModeChange).toHaveBeenLastCalledWith('compare')
+    expect(screen.getByText('compare')).toBeInTheDocument()
+
+    onViewModeChange.mockClear()
     const surface = screen.getByTestId('mobile-peek-surface')
     surface.dispatchEvent(new Event('pointerdown', { bubbles: true }))
     vi.advanceTimersByTime(400)
     surface.dispatchEvent(new Event('pointerup', { bubbles: true }))
     expect(onViewModeChange).not.toHaveBeenCalledWith('original')
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /touch and hold instead/i }),
+    )
+    expect(onViewModeChange).toHaveBeenLastCalledWith('processed')
+    expect(screen.getByText(/touch and hold the photo/i)).toBeInTheDocument()
     vi.useRealTimers()
   })
 })
