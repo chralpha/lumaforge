@@ -66,9 +66,9 @@ New directory: `src/modules/raw-processor/components/mobile/`
 Modified:
 - `src/modules/raw-processor/components/RawToolSurface.tsx` — replace the
   mobile rail+sheet branch with `<MobileLabChrome/>`; keep desktop branch.
-- `src/modules/raw-processor/RawProcessorView.tsx` — thread `compareSplit` +
-  `onCompareSplitChange` (and `displaySource` if needed) to `RawToolSurface`;
-  hide `WorkspaceHeader` on mobile.
+- `src/modules/raw-processor/RawProcessorView.tsx` — thread `viewMode` +
+  `onViewModeChange` + `compareSplit` + `onCompareSplitChange` to
+  `RawToolSurface`; hide `WorkspaceHeader` on mobile.
 - `src/modules/raw-processor/raw-lab.css` — remove/replace now-dead mobile
   rail/sheet rules; add minimal token-based scrim helpers only if Tailwind
   cannot express a layered gradient.
@@ -83,7 +83,7 @@ Modified:
 - Modify: `src/locales/zh-CN.json`
 - Test: `src/__tests__/i18n-locales.test.ts` (existing parity test)
 
-- [ ] **Step 1: Add new keys to `src/locales/en.json`** (place alphabetically
+- [x] **Step 1: Add new keys to `src/locales/en.json`** (place alphabetically
   near existing `raw.*` keys; keep JSON valid):
 
 ```json
@@ -116,7 +116,7 @@ Modified:
 "raw.mobile.more.fileHeading": "File facts"
 ```
 
-- [ ] **Step 2: Add the same keys with Chinese values to
+- [x] **Step 2: Add the same keys with Chinese values to
   `src/locales/zh-CN.json`** (identical key set; translate values):
 
 ```json
@@ -149,12 +149,12 @@ Modified:
 "raw.mobile.more.fileHeading": "文件信息"
 ```
 
-- [ ] **Step 3: Run the parity test**
+- [x] **Step 3: Run the parity test**
 
 Run: `pnpm test:run src/__tests__/i18n-locales.test.ts`
 Expected: PASS (en/zh-CN key sets equal).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/locales/en.json src/locales/zh-CN.json
@@ -172,7 +172,7 @@ Mirror `ToneTool`'s `FIELDS` so behavior matches the real tone path.
 - Create: `src/modules/raw-processor/components/mobile/tone-fields.ts`
 - Test: `src/modules/raw-processor/components/mobile/tone-fields.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -213,12 +213,12 @@ describe('mobile tone fields', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/tone-fields.test.ts`
 Expected: FAIL (module not found).
 
-- [ ] **Step 3: Implement `tone-fields.ts`**
+- [x] **Step 3: Implement `tone-fields.ts`**
 
 ```ts
 import type { Translate } from '~/lib/i18n'
@@ -270,12 +270,12 @@ export function isToneNeutral(value: ToneValue): boolean {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/tone-fields.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/modules/raw-processor/components/mobile/tone-fields.ts src/modules/raw-processor/components/mobile/tone-fields.test.ts
@@ -284,58 +284,63 @@ git commit --no-gpg-sign -m "feat(raw): shared mobile tone-field metadata + form
 
 ---
 
-## Task 3: Thread compare-split + peek props to RawToolSurface
+## Task 3: Thread viewMode + compare-split props to RawToolSurface
 
-Peek and Compare both need the real compare-split state. Add props (don't
-change desktop rendering).
+CORRECTION (grounded in real code): `displaySource`
+(`'embedded'|'quick'|'bounded-hq'|'none'`) is the preview *resolution*, NOT a
+RAW/finished toggle. The authoritative RAW-vs-finished mechanism is `viewMode`
+(`'processed' | 'original' | 'compare'`) from `useRawProcessor`/
+`ProcessingParams`. Peek = `setViewMode('original')` then restore. Compare mode
+uses `viewMode='compare'` + `compareSplit`. Do NOT thread `displaySource`.
 
 **Files:**
 - Modify: `src/modules/raw-processor/components/RawToolSurface.tsx` (props type only, this task)
-- Modify: `src/modules/raw-processor/RawProcessorView.tsx:311-352` (pass new props)
+- Modify: `src/modules/raw-processor/RawProcessorView.tsx` (pass new props)
 - Test: `src/modules/raw-processor/components/RawToolSurface.test.tsx` (extend baseProps)
 
-- [ ] **Step 1: Add props to `RawToolSurface` props type** (after
-  `onCompareReset`):
+- [x] **Step 1: Add props to `RawToolSurface` props type** (after
+  `onCompareReset`). Use the exact `ViewMode` union:
 
 ```tsx
   onCompareReset: () => void
+  viewMode: 'processed' | 'original' | 'compare'
+  onViewModeChange: (mode: 'processed' | 'original' | 'compare') => void
   compareSplit: number
   onCompareSplitChange: (split: number) => void
-  displaySource: 'finished' | 'raw'
 ```
 
-(Match the actual `displaySource` union from `RawProcessorView`; if it differs,
-use the exact type imported from the session model.)
-
-- [ ] **Step 2: Pass them from `RawProcessorView`** (in the `<RawToolSurface>`
-  JSX, near `onCompareReset={handleCompareReset}`):
+- [x] **Step 2: Pass them from `RawProcessorView`** (in the `<RawToolSurface>`
+  JSX, near `onCompareReset={handleCompareReset}`; `viewMode`, `setViewMode`,
+  `compareSplit`, `setCompareSplit` are already destructured in the component):
 
 ```tsx
           onCompareReset={handleCompareReset}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
           compareSplit={compareSplit}
           onCompareSplitChange={setCompareSplit}
-          displaySource={displaySource}
 ```
 
-- [ ] **Step 3: Extend test `baseProps`** in `RawToolSurface.test.tsx`:
+- [x] **Step 3: Extend test `baseProps`** in `RawToolSurface.test.tsx`:
 
 ```tsx
   onCompareReset: vi.fn(),
+  viewMode: 'processed' as const,
+  onViewModeChange: vi.fn(),
   compareSplit: 0.5,
   onCompareSplitChange: vi.fn(),
-  displaySource: 'finished' as const,
 ```
 
-- [ ] **Step 4: Typecheck + existing surface tests**
+- [x] **Step 4: Typecheck + existing surface tests**
 
 Run: `pnpm test:run src/modules/raw-processor/components/RawToolSurface.test.tsx`
 Expected: PASS (no behavior change yet).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/modules/raw-processor/components/RawToolSurface.tsx src/modules/raw-processor/RawProcessorView.tsx src/modules/raw-processor/components/RawToolSurface.test.tsx
-git commit --no-gpg-sign -m "feat(raw): thread compare-split + display source to tool surface"
+git commit --no-gpg-sign -m "feat(raw): thread viewMode + compare-split to tool surface"
 ```
 
 ---
@@ -348,7 +353,7 @@ Floating top bar over the photo. Frosted via existing Tailwind tokens.
 - Create: `src/modules/raw-processor/components/mobile/MobileTopbar.tsx`
 - Test: `src/modules/raw-processor/components/mobile/MobileTopbar.test.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```tsx
 import { render, screen } from '@testing-library/react'
@@ -390,12 +395,12 @@ describe('MobileTopbar', () => {
 `RawToolSurface` directly, so an i18n provider may be implicit/global. If
 `useI18n` works without a provider in tests, drop the wrapper.)
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/MobileTopbar.test.tsx`
 Expected: FAIL (module not found).
 
-- [ ] **Step 3: Implement `MobileTopbar.tsx`**
+- [x] **Step 3: Implement `MobileTopbar.tsx`**
 
 ```tsx
 import { BarChart3 } from 'lucide-react'
@@ -469,7 +474,7 @@ export function MobileTopbar(props: {
 }
 ```
 
-- [ ] **Step 4: Create `MobileMoreMenu.tsx`** (Radix dropdown; reuse the
+- [x] **Step 4: Create `MobileMoreMenu.tsx`** (Radix dropdown; reuse the
   project's dropdown primitive if one exists in `~/components/ui` — check
   `ls src/components/ui` for `dropdown`/`menu`/`popover`; otherwise use
   `@radix-ui/react-dropdown-menu` which is already a dependency via the UI
@@ -537,12 +542,12 @@ export function MobileMoreMenu(props: {
 }
 ```
 
-- [ ] **Step 5: Run tests to verify pass**
+- [x] **Step 5: Run tests to verify pass**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/MobileTopbar.test.tsx`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/modules/raw-processor/components/mobile/MobileTopbar.tsx src/modules/raw-processor/components/mobile/MobileMoreMenu.tsx src/modules/raw-processor/components/mobile/MobileTopbar.test.tsx
@@ -560,7 +565,7 @@ opens the focus editor). Horizontal scroll strip.
 - Create: `src/modules/raw-processor/components/mobile/ToneStripPanel.tsx`
 - Test: `src/modules/raw-processor/components/mobile/ToneStripPanel.test.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```tsx
 import { render, screen } from '@testing-library/react'
@@ -590,12 +595,12 @@ describe('ToneStripPanel', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/ToneStripPanel.test.tsx`
 Expected: FAIL (module not found).
 
-- [ ] **Step 3: Implement `ToneStripPanel.tsx`**
+- [x] **Step 3: Implement `ToneStripPanel.tsx`**
 
 ```tsx
 import { RotateCcw } from 'lucide-react'
@@ -682,12 +687,12 @@ export function ToneStripPanel(props: {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/ToneStripPanel.test.tsx`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/modules/raw-processor/components/mobile/ToneStripPanel.tsx src/modules/raw-processor/components/mobile/ToneStripPanel.test.tsx
@@ -706,7 +711,7 @@ pipeline reacts identically). Snapshot revert on Cancel.
 - Create: `src/modules/raw-processor/components/mobile/ToneFocusEditor.tsx`
 - Test: `src/modules/raw-processor/components/mobile/ToneFocusEditor.test.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```tsx
 import { render, screen } from '@testing-library/react'
@@ -762,12 +767,12 @@ describe('ToneFocusEditor', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/ToneFocusEditor.test.tsx`
 Expected: FAIL (module not found).
 
-- [ ] **Step 3: Implement `ToneFocusEditor.tsx`**
+- [x] **Step 3: Implement `ToneFocusEditor.tsx`**
 
 ```tsx
 import { CircleDot } from 'lucide-react'
@@ -908,12 +913,12 @@ export function ToneFocusEditor(props: {
 `thumbAriaLabel`, wrap with a visually-hidden label + id, or pass the label via
 the supported prop — match `~/components/ui/slider`'s real API.)
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/ToneFocusEditor.test.tsx`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/modules/raw-processor/components/mobile/ToneFocusEditor.tsx src/modules/raw-processor/components/mobile/ToneFocusEditor.test.tsx
@@ -932,7 +937,7 @@ previous split on release. Authoritative preview path; no opacity fake.
 - Create: `src/modules/raw-processor/components/mobile/MobilePeekSurface.tsx`
 - Test: `src/modules/raw-processor/components/mobile/MobilePeekSurface.test.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```tsx
 import { fireEvent, render, screen } from '@testing-library/react'
@@ -971,12 +976,12 @@ describe('MobilePeekSurface', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/MobilePeekSurface.test.tsx`
 Expected: FAIL (module not found).
 
-- [ ] **Step 3: Implement `MobilePeekSurface.tsx`**
+- [x] **Step 3: Implement `MobilePeekSurface.tsx`**
 
 ```tsx
 import { useCallback, useRef } from 'react'
@@ -1028,12 +1033,12 @@ export function MobilePeekSurface(props: {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/MobilePeekSurface.test.tsx`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/modules/raw-processor/components/mobile/MobilePeekSurface.tsx src/modules/raw-processor/components/mobile/MobilePeekSurface.test.tsx
@@ -1053,7 +1058,7 @@ label must read the real runtime boundary, not `libraw-wasm`** — use
 - Create: `src/modules/raw-processor/components/mobile/MobileMoreSheet.tsx`
 - Test: `src/modules/raw-processor/components/mobile/MobileMoreSheet.test.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```tsx
 import { render, screen } from '@testing-library/react'
@@ -1100,12 +1105,12 @@ describe('MobileMoreSheet', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/MobileMoreSheet.test.tsx`
 Expected: FAIL (module not found).
 
-- [ ] **Step 3: Implement `MobileMoreSheet.tsx`**
+- [x] **Step 3: Implement `MobileMoreSheet.tsx`**
 
 ```tsx
 import { X } from 'lucide-react'
@@ -1246,12 +1251,12 @@ export function MobileMoreSheet(props: {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/MobileMoreSheet.test.tsx`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/modules/raw-processor/components/mobile/MobileMoreSheet.tsx src/modules/raw-processor/components/mobile/MobileMoreSheet.test.tsx
@@ -1271,7 +1276,7 @@ renders `ToneStripPanel`. `more` opens the sheet via callback.
 - Create: `src/modules/raw-processor/components/mobile/MobileModeDock.tsx`
 - Test: `src/modules/raw-processor/components/mobile/MobileModeDock.test.tsx`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```tsx
 import { render, screen } from '@testing-library/react'
@@ -1304,12 +1309,12 @@ describe('MobileModeDock', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/MobileModeDock.test.tsx`
 Expected: FAIL (module not found).
 
-- [ ] **Step 3: Implement `MobileModeDock.tsx`**
+- [x] **Step 3: Implement `MobileModeDock.tsx`**
 
 ```tsx
 import {
@@ -1400,12 +1405,12 @@ export function MobileModeDock(props: {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile/MobileModeDock.test.tsx`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/modules/raw-processor/components/mobile/MobileModeDock.tsx src/modules/raw-processor/components/mobile/MobileModeDock.test.tsx
@@ -1418,7 +1423,7 @@ git commit --no-gpg-sign -m "feat(raw): 5-mode photo-first dock"
 
 Compose all layers. Owns mode/focus/peek/sheet state and the tone snapshot for
 Cancel. Look/Compare/Export panels reuse existing tool components. Peek drives
-`onCompareSplitChange(0)` and restores the prior split on release.
+`onViewModeChange('original')` and restores the prior viewMode on release.
 
 **Files:**
 - Create: `src/modules/raw-processor/components/mobile/MobileLabChrome.tsx`
@@ -1427,7 +1432,7 @@ Cancel. Look/Compare/Export panels reuse existing tool components. Peek drives
 - Modify: `src/modules/raw-processor/RawProcessorView.tsx` (hide WorkspaceHeader on mobile)
 - Modify: `src/modules/raw-processor/raw-lab.css` (drop dead mobile rail/sheet rules; ensure full-bleed mobile stage)
 
-- [ ] **Step 1: Implement `MobileLabChrome.tsx`** (props mirror the mobile
+- [x] **Step 1: Implement `MobileLabChrome.tsx`** (props mirror the mobile
   subset of `RawToolSurface`; reuse existing tool components for Look/Compare/
   Export panels):
 
@@ -1455,6 +1460,8 @@ export function MobileLabChrome(props: {
   tone: ToneValue
   onToneChange: (patch: Partial<ToneValue>) => void
   onToneReset: () => void
+  viewMode: 'processed' | 'original' | 'compare'
+  onViewModeChange: (mode: 'processed' | 'original' | 'compare') => void
   compareSplit: number
   onCompareSplitChange: (split: number) => void
   histogram: import('@lumaforge/luma-color-runtime').PreviewHistogramState
@@ -1478,7 +1485,9 @@ export function MobileLabChrome(props: {
   const [peeking, setPeeking] = useState(false)
   const [histVisible, setHistVisible] = useState(true)
   const snapshot = useRef<ToneValue | null>(null)
-  const splitBeforePeek = useRef(0.5)
+  const viewModeBeforePeek = useRef<'processed' | 'original' | 'compare'>(
+    'processed',
+  )
 
   const startFocus = (k: keyof ToneValue) => {
     snapshot.current = props.tone
@@ -1510,10 +1519,10 @@ export function MobileLabChrome(props: {
 
   const onPeekChange = (p: boolean) => {
     if (p) {
-      splitBeforePeek.current = props.compareSplit
-      props.onCompareSplitChange(0)
+      viewModeBeforePeek.current = props.viewMode
+      props.onViewModeChange('original')
     } else {
-      props.onCompareSplitChange(splitBeforePeek.current)
+      props.onViewModeChange(viewModeBeforePeek.current)
     }
     setPeeking(p)
   }
@@ -1648,7 +1657,7 @@ Notes for the implementer:
   (pass real `lutRows`/`fileRows` instead of `[]`). The label for step 1 must
   NOT contain `libraw-wasm`.
 
-- [ ] **Step 2: Wire `MobileLabChrome` into `RawToolSurface`** — replace the
+- [x] **Step 2: Wire `MobileLabChrome` into `RawToolSurface`** — replace the
   mobile rail + `AnimatePresence` sheet branch with a single mobile render that
   mounts `<MobileLabChrome .../>` (keep the desktop `max-[640px]:hidden`
   branch and `renderExportBlock`/`renderCards` desktop usage intact). The
@@ -1658,21 +1667,21 @@ Notes for the implementer:
   built from the same `LutContractTool`+`StrengthControl`, `CompareTool`,
   `ExportTool` instances the desktop branch uses.
 
-- [ ] **Step 3: Hide `WorkspaceHeader` on mobile** in `RawProcessorView.tsx` —
+- [x] **Step 3: Hide `WorkspaceHeader` on mobile** in `RawProcessorView.tsx` —
   wrap it so it is `hidden` at `≤640px` (`max-[640px]:hidden`), since the
   floating `MobileTopbar` replaces it. Confirm the mobile stage is full-bleed
   (the existing `@media (max-width:640px) .raw-lab-stage` padding that reserved
   space for the old fixed rail should be removed/reduced since the dock now
   floats over the photo).
 
-- [ ] **Step 4: Clean dead CSS** — in `raw-lab.css`, remove rules that only
+- [x] **Step 4: Clean dead CSS** — in `raw-lab.css`, remove rules that only
   served the now-deleted mobile rail/sheet (`.raw-mobile-tool-rail`,
   `.raw-mobile-tool-sheet*`, related `@media (max-width:640px)` blocks). Do not
   touch desktop or stage rules unrelated to the old mobile chrome. Add new CSS
   ONLY if a layered scrim cannot be expressed with Tailwind; keep it
   token-based and minimal.
 
-- [ ] **Step 5: Write integration test `MobileLabChrome.test.tsx`**
+- [x] **Step 5: Write integration test `MobileLabChrome.test.tsx`**
 
 ```tsx
 import { render, screen } from '@testing-library/react'
@@ -1686,6 +1695,8 @@ const base = {
   tone: TONE_NEUTRAL,
   onToneChange: vi.fn(),
   onToneReset: vi.fn(),
+  viewMode: 'processed' as const,
+  onViewModeChange: vi.fn(),
   compareSplit: 0.5,
   onCompareSplitChange: vi.fn(),
   histogram: { state: 'unavailable', reason: 'no-image' } as never,
@@ -1718,12 +1729,12 @@ describe('MobileLabChrome', () => {
 (Adjust the pill query if the first `tab` is ambiguous — scope with `within`
 the tone strip `tablist` by its aria-label.)
 
-- [ ] **Step 6: Run the mobile suite + the existing surface test**
+- [x] **Step 6: Run the mobile suite + the existing surface test**
 
 Run: `pnpm test:run src/modules/raw-processor/components/mobile src/modules/raw-processor/components/RawToolSurface.test.tsx`
 Expected: PASS (existing surface test still green — desktop unchanged).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/modules/raw-processor src/locales
@@ -1734,19 +1745,54 @@ git commit --no-gpg-sign -m "feat(raw): photo-first mobile lab chrome wired into
 
 ## Task 11: Full verification + browser validation (loop done bar)
 
-- [ ] **Step 1: Lint**
+### Validation status — 2026-05-18
+
+- **Step 1 lint:** ✅ Scoped eslint over all touched files
+  (`components/mobile/**`, `RawToolSurface*`, `RawProcessorView`,
+  `workspace-ui.test`) is clean. Repo-wide `pnpm lint` fails only on the
+  known pre-existing generated-file RED baseline (unrelated).
+- **Step 2 tests:** ✅ `pnpm test:run` — 1148 passed; the only 4 failures are
+  the documented pre-existing `scripts/native-runtime/**` baseline, untouched
+  by this work. All 43 raw-processor suites (382 tests) incl. the 8 new mobile
+  suites pass. `tsc --noEmit` 0 errors.
+- **Step 3 build:** ✅ `pnpm build` succeeds.
+- **Step 4 browser validation:** Preview-build Playwright run (1280→390→1280),
+  12/13 checks PASS, **0 console errors**. Verified: app/shell renders;
+  desktop aside present & mobile chrome absent at 1280; photo-first chrome
+  mounts at 390 with desktop aside absent; topbar shows the file name;
+  5-mode dock; Tone pill → focus editor (Done); **long-press peek reveals
+  unprocessed RAW**; Look/Compare/Export switch; More sheet dialog opens;
+  desktop restored intact. Screenshots: `/tmp/mrl-{desktop-loaded,
+  mobile-loaded,focus,more}.png`.
+  - **One sub-clause not browser-evidenced:** "RAW decodes to loaded state →
+    slider drag updates the *decoded* preview live". BLOCKER: the stage
+    Dropzone is `clickToOpen={false}` (drag-drop only, no settable file
+    input) and the only available fixture (`raw-pixls-iphone-se.dng`, 11 MB)
+    does not complete WASM decode in headless Chromium within practical
+    limits. This is the RAW decode runtime/environment, **explicitly out of
+    scope** for this UI refactor (spec §8; CLAUDE.md runtime boundary) and
+    **not a defect in the photo-first rebuild**. The slider→real-pipeline
+    wiring is covered by passing unit/integration tests
+    (`ToneFocusEditor`/`MobileLabChrome`/`preview-pipeline`) and uses the
+    exact `onToneChange` path the unchanged desktop uses.
+
+Per the loop contract the completion promise is withheld: the done bar's
+live-decoded-preview sub-clause is environment-blocked, not satisfied. The
+refactor itself is complete and green; the blocker is reported, not faked.
+
+- [x] **Step 1: Lint**
 
 Run: `pnpm lint`
 Expected: No NEW errors in touched files vs. the known pre-existing baseline.
 Fix any new issues in the mobile files.
 
-- [ ] **Step 2: Tests**
+- [x] **Step 2: Tests**
 
 Run: `pnpm test:run`
 Expected: Mobile suite green; no regressions introduced by this work. (Ignore
 unrelated pre-existing RED baseline failures; fix anything this work broke.)
 
-- [ ] **Step 3: Build**
+- [x] **Step 3: Build**
 
 Run: `pnpm build`
 Expected: Success.
@@ -1786,7 +1832,7 @@ git commit --no-gpg-sign -m "fix(raw): mobile lab browser-validation polish"
 
 - Spec §3/§4 component decomposition → Tasks 2,4–10. ✔
 - Spec §3 real pipeline (no CSS filter) → Tasks 3,6,10 (Radix Slider →
-  `onToneChange`; peek via `onCompareSplitChange`). ✔
+  `onToneChange`; peek via `onViewModeChange('original')`). ✔
 - Spec §3 `libraw-wasm` corrected → Task 8 test asserts absence; Task 10/11
   enforce. ✔
 - Spec §3 Radix/Tailwind, no vanilla CSS → all components use Tailwind/Radix;
