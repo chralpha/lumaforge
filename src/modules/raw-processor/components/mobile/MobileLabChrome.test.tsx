@@ -65,6 +65,19 @@ describe('mobileLabChrome', () => {
     ).toBeInTheDocument()
   })
 
+  it('tears down focus/sheets when the RAW is cleared (hasImage→false)', async () => {
+    const { rerender } = render(<MobileLabChrome {...base} />)
+    const strip = screen.getByRole('tablist', { name: /tone parameters/i })
+    await userEvent.click(within(strip).getAllByRole('tab')[0])
+    expect(screen.getByRole('button', { name: /done/i })).toBeInTheDocument()
+    rerender(<MobileLabChrome {...base} hasImage={false} />)
+    expect(
+      screen.queryByRole('button', { name: /done/i }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByTestId('mobile-peek-surface')).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /tone/i })).toBeDisabled()
+  })
+
   it('look mode opens the mobile LUT browser sheet', async () => {
     render(<MobileLabChrome {...base} />)
     const dock = screen.getByRole('tablist', { name: /lab modes/i })

@@ -2,7 +2,7 @@ import type { PreviewHistogramState } from '@lumaforge/luma-color-runtime'
 import { ImageUp, LockKeyhole, RotateCcw, ShieldCheck } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import type { ReactNode } from 'react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { useI18n } from '~/lib/i18n'
 
@@ -53,6 +53,21 @@ export function MobileLabChrome(props: {
   const [scrubbing, setScrubbing] = useState(false)
   const snapshot = useRef<ToneValue | null>(null)
   const viewModeBeforePeek = useRef<ViewMode>('processed')
+
+  // When the RAW is cleared/replaced, tear down every transient layer so the
+  // empty-state scaffold can never be left behind focus / immersive / a
+  // dangling LUT or More sheet.
+  const hasImage = props.hasImage
+  useEffect(() => {
+    if (hasImage) return
+    setFocusKey(null)
+    setImmersive(false)
+    setLutBrowserOpen(false)
+    setMoreOpen(false)
+    setScrubbing(false)
+    setDockExpanded(true)
+    snapshot.current = null
+  }, [hasImage])
 
   const startFocus = (k: keyof ToneValue) => {
     snapshot.current = props.tone
@@ -249,13 +264,13 @@ export function MobileLabChrome(props: {
       </AnimatePresence>
 
       <MobileLutBrowser
-        open={lutBrowserOpen}
+        open={props.hasImage && lutBrowserOpen}
         onClose={() => setLutBrowserOpen(false)}
         {...props.lutBrowser}
       />
 
       <MobileMoreSheet
-        open={moreOpen}
+        open={props.hasImage && moreOpen}
         onClose={() => setMoreOpen(false)}
         pipelineSteps={props.moreSheet.pipelineSteps}
         lutRows={props.moreSheet.lutRows}
