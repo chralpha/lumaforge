@@ -1393,13 +1393,15 @@ describe('rawToolSurface', () => {
       await user.click(within(dock).getByRole('tab', { name: /compare/i }))
 
       expect(screen.getByText(/touch and hold the photo/i)).toBeInTheDocument()
-      expect(screen.queryByText(/drag the split/i)).not.toBeInTheDocument()
+      expect(
+        screen.queryByText(/pins raw and final jpeg/i),
+      ).not.toBeInTheDocument()
       expect(
         screen.queryByRole('button', { name: /reset compare view/i }),
       ).not.toBeInTheDocument()
 
       await user.click(screen.getByRole('button', { name: /split compare/i }))
-      expect(screen.getByText(/drag the split/i)).toBeInTheDocument()
+      expect(screen.getByText(/pins raw and final jpeg/i)).toBeInTheDocument()
       expect(
         screen.getByRole('button', { name: /reset compare view/i }),
       ).toBeInTheDocument()

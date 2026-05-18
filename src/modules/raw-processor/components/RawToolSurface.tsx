@@ -19,6 +19,7 @@ import type {
 } from '../model/session'
 import { MobileExportPanel } from './mobile/MobileExportPanel'
 import { MobileLabChrome } from './mobile/MobileLabChrome'
+import { MobileStrengthPanel } from './mobile/MobileStrengthPanel'
 import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
 import { FileFactsTool } from './tools/FileFactsTool'
@@ -84,6 +85,16 @@ export function RawToolSurface(props: {
 
   const strengthControl = (
     <StrengthControl
+      value={props.activeIntensity}
+      onChange={props.onIntensitySelect}
+      disabled={disabled}
+    />
+  )
+
+  // Mobile dock uses the darkroom segmented control, never the desktop
+  // paper segment. Desktop keeps `strengthControl` for the Look card.
+  const mobileStrengthControl = (
+    <MobileStrengthPanel
       value={props.activeIntensity}
       onChange={props.onIntensitySelect}
       disabled={disabled}
@@ -278,9 +289,9 @@ export function RawToolSurface(props: {
           supportLevel={props.supportLevel}
           onReplaceFile={props.onReplaceFile}
           onResetSession={props.onResetSession}
-          strengthControl={strengthControl}
+          strengthControl={mobileStrengthControl}
           lutBrowser={mobileLutBrowser}
-          comparePanel={compareBlock}
+          onCompareReset={props.onCompareReset}
           exportPanel={mobileExportBlock}
           moreSheet={moreSheet}
         />

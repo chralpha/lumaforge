@@ -54,7 +54,7 @@ export function MobileLabChrome(props: {
   onResetSession: () => void
   strengthControl: ReactNode
   lutBrowser: Omit<MobileLutBrowserProps, 'open' | 'onClose'>
-  comparePanel: ReactNode
+  onCompareReset: () => void
   exportPanel: ReactNode
   moreSheet: { pipelineSteps: Step[]; lutRows: Row[]; fileRows: Row[] }
 }) {
@@ -67,6 +67,7 @@ export function MobileLabChrome(props: {
     useState(false)
   const [peeking, setPeeking] = useState(false)
   const [immersive, setImmersive] = useState(false)
+  const [histogramOpen, setHistogramOpen] = useState(false)
   const [dockExpanded, setDockExpanded] = useState(true)
   const [scrubbing, setScrubbing] = useState(false)
   const [compareSplitOpen, setCompareSplitOpen] = useState(false)
@@ -89,6 +90,7 @@ export function MobileLabChrome(props: {
     setScrubbing(false)
     setDockExpanded(true)
     setCompareSplitOpen(false)
+    setHistogramOpen(false)
     setMode('look')
     snapshot.current = null
   }, [hasImage])
@@ -273,7 +275,7 @@ export function MobileLabChrome(props: {
     ) : mode === 'compare' ? (
       <MobileComparePanel
         splitOpen={compareSplitOpen}
-        splitPanel={props.comparePanel}
+        onCompareReset={props.onCompareReset}
         onSplitOpenChange={setCompareSplitMode}
       />
     ) : (
@@ -372,7 +374,7 @@ export function MobileLabChrome(props: {
         </div>
       )}
 
-      {!focusKey && !immersive && props.hasImage && (
+      {histogramOpen && !focusKey && !immersive && props.hasImage && (
         <FloatingHistogramCard histogram={props.histogram} hidden={peeking} />
       )}
 
@@ -383,7 +385,8 @@ export function MobileLabChrome(props: {
             fileName={props.fileName}
             fileMeta={props.fileMeta}
             supportLevel={props.supportLevel}
-            onOpenInfo={() => setMoreOpen(true)}
+            histogramShown={histogramOpen}
+            onToggleHistogram={() => setHistogramOpen((v) => !v)}
             moreMenuItems={[
               {
                 kind: 'item',

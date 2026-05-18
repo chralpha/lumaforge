@@ -63,4 +63,24 @@ describe('mobileModeDock', () => {
     await userEvent.click(screen.getByRole('tab', { name: /tone/i }))
     expect(onCollapse).toHaveBeenCalled()
   })
+
+  it('reads no tab as active while collapsed, only when expanded', () => {
+    const common = {
+      mode: 'tone' as const,
+      onModeChange: vi.fn(),
+      onCollapse: vi.fn(),
+      onOpenMore: vi.fn(),
+      canExport: true,
+      panel: <div>x</div>,
+    }
+    const { rerender } = render(<MobileModeDock {...common} expanded={false} />)
+    expect(
+      screen.queryByRole('tab', { selected: true }),
+    ).not.toBeInTheDocument()
+
+    rerender(<MobileModeDock {...common} expanded />)
+    expect(screen.getByRole('tab', { selected: true })).toHaveAccessibleName(
+      /tone/i,
+    )
+  })
 })

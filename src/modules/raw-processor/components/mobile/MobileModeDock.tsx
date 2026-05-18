@@ -65,12 +65,16 @@ export function MobileModeDock(props: {
       >
         {TABS.map((tab) => {
           const active = props.mode === tab.id
+          // When the dock is collapsed nothing is "active" — the panel that
+          // an active tab represents isn't on screen, so showing the
+          // indicator/highlight reads as a lie about the current state.
+          const showActive = active && props.expanded && !disabled
           return (
             <m.button
               key={tab.id}
               type="button"
               role="tab"
-              aria-selected={active && props.expanded && !disabled}
+              aria-selected={showActive}
               aria-disabled={disabled || undefined}
               disabled={disabled}
               whileTap={disabled ? undefined : { scale: 0.96 }}
@@ -87,14 +91,14 @@ export function MobileModeDock(props: {
                 'relative grid min-h-[52px] grid-rows-[auto_auto] place-items-center gap-1 rounded-lg px-1 py-1.5 text-[0.64rem] font-semibold uppercase tracking-wide transition-colors',
                 disabled
                   ? 'cursor-not-allowed text-white/35'
-                  : active
+                  : showActive
                     ? 'text-white'
                     : 'text-white/70',
               )}
             >
               <tab.icon aria-hidden="true" className="size-[18px]" />
               {t(tab.labelKey)}
-              {active && !disabled && (
+              {showActive && (
                 <span
                   className={clsxm(
                     'absolute bottom-0 left-1/2 h-0.5 w-[22px] -translate-x-1/2 rounded-full',

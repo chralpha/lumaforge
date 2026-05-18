@@ -30,7 +30,7 @@ const base = {
     onLutProfileSelect: vi.fn(),
     onlineLutSources: undefined,
   },
-  comparePanel: <div>compare</div>,
+  onCompareReset: vi.fn(),
   exportPanel: <div>export</div>,
   moreSheet: { pipelineSteps: [], lutRows: [], fileRows: [] },
 }
@@ -294,11 +294,13 @@ describe('mobileLabChrome', () => {
     render(<MobileLabChrome {...base} onViewModeChange={onViewModeChange} />)
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
     fireEvent.click(within(dock).getByRole('tab', { name: /compare/i }))
-    expect(screen.queryByText('compare')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/pins raw and final jpeg/i),
+    ).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /split compare/i }))
     expect(onViewModeChange).toHaveBeenLastCalledWith('compare')
-    expect(screen.getByText('compare')).toBeInTheDocument()
+    expect(screen.getByText(/pins raw and final jpeg/i)).toBeInTheDocument()
 
     onViewModeChange.mockClear()
     const surface = screen.getByTestId('mobile-peek-surface')
