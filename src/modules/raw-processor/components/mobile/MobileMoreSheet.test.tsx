@@ -18,6 +18,11 @@ describe('mobileMoreSheet', () => {
     expect(
       screen.getByRole('heading', { name: /pipeline & file/i }),
     ).toBeInTheDocument()
+    const dialog = screen.getByRole('dialog', { name: /pipeline & file/i })
+    expect(dialog).toHaveAttribute('data-mobile-substrate', 'ink-sheet')
+    expect(dialog.className).not.toMatch(
+      /bg-material|bg-background|bg-fill|text-text|border-border/,
+    )
     expect(screen.queryByText(/libraw-wasm/i)).not.toBeInTheDocument()
     expect(screen.getByText('Sony α7 IV')).toBeInTheDocument()
   })

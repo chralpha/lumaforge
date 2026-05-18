@@ -86,7 +86,12 @@ describe('mobileLutBrowser', () => {
     const onClose = vi.fn()
     render(<MobileLutBrowser {...baseProps} onClose={onClose} />)
 
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toBeInTheDocument()
+    expect(dialog).toHaveAttribute('data-mobile-substrate', 'ink-sheet')
+    expect(dialog.className).not.toMatch(
+      /bg-material|bg-background|bg-fill|text-text|border-border/,
+    )
     expect(screen.getByText('Kodak 2383.cube')).toBeInTheDocument()
 
     await userEvent.click(
