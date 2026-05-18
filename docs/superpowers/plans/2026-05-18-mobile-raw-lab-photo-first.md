@@ -2265,11 +2265,11 @@ full-bleed dark guided stage dropzone.
 **Files:** `RawToolSurface.tsx`, `mobile/MobileLabChrome.tsx`,
 `mobile/MobileTopbar.tsx`, `mobile/MobileModeDock.tsx` (+ tests)
 
-- [ ] **Step 1:** `RawToolSurface` mobile branch: when `isMobileViewport`,
+- [x] **Step 1:** `RawToolSurface` mobile branch: when `isMobileViewport`,
   ALWAYS render `<MobileLabChrome hasImage={props.hasImage} …/>` (remove the
   `if (!props.hasImage) return null`). Add `hasImage` to `MobileLabChrome`
   props.
-- [ ] **Step 2:** `MobileLabChrome` empty config when `!hasImage`:
+- [x] **Step 2:** `MobileLabChrome` empty config when `!hasImage`:
   - Topbar: visible but empty-aware (see Step 3).
   - Dock: visible 5-tab bar as a scaffold but **disabled/inert** (panel
     collapsed, tabs `aria-disabled`, no mode switching) — the stage's own
@@ -2277,15 +2277,15 @@ full-bleed dark guided stage dropzone.
   - Do NOT render peek surface, focus editor, histogram card, More sheet
     interactions while `!hasImage` (nothing to act on). Immersive tap
     disabled too.
-- [ ] **Step 3:** `MobileTopbar` gains `hasImage`. When false: h1 =
+- [x] **Step 3:** `MobileTopbar` gains `hasImage`. When false: h1 =
   `t('raw.header.title')`, meta = `t('raw.header.subtitleEmpty')`, no support
   dot, hide the histogram toggle; More menu shows only "Choose RAW"
   (→ `onReplaceFile`). When true: unchanged.
-- [ ] **Step 4:** `MobileModeDock` gains `disabled?: boolean`. When true:
+- [x] **Step 4:** `MobileModeDock` gains `disabled?: boolean`. When true:
   render the tab bar visually (scaffold) but tabs are `aria-disabled`,
   non-interactive, panel never shown.
-- [ ] **Step 5:** Tests: replace the Task-12 "mobile + no image renders no
+- [x] **Step 5:** Tests: replace the Task-12 "mobile + no image renders no
   chrome" assertion with "mobile + no image renders the topbar + disabled
   dock scaffold (no peek/focus/histogram)"; keep "mobile + image mounts full
   chrome". Mobile + surface suites green; `tsc` 0; scoped lint clean.
-- [ ] **Step 6:** Commit `fix(raw): pre-show topbar+dock scaffold in mobile empty state`.
+- [x] **Step 6:** Commit `fix(raw): pre-show topbar+dock scaffold in mobile empty state`.
