@@ -2146,61 +2146,60 @@ User feedback after the real-RAW validation:
 
 **Files:** `mobile/MobileLabChrome.tsx` (+ test)
 
-- [ ] **Step 1:** Failing test in `MobileLabChrome.test.tsx`: on initial
+- [x] **Step 1:** Failing test in `MobileLabChrome.test.tsx`: on initial
   render (loaded session) the Tone strip IS visible
   (`tablist name=/tone parameters/i` present) — i.e. the dock is expanded by
   default, not collapsed/bare.
-- [ ] **Step 2:** Run → fail.
-- [ ] **Step 3:** `const [dockExpanded, setDockExpanded] = useState(true)`
+- [x] **Step 2:** Run → fail.
+- [x] **Step 3:** `const [dockExpanded, setDockExpanded] = useState(true)`
   (default expanded on the initial Tone mode). Keep collapse-on-active-tap and
   immersive-on-photo-tap. Entering focus still resets to collapsed on exit
   (do NOT auto-collapse just for being on load). Immersive remains
   opt-in (default `false`, unchanged).
-- [ ] **Step 4:** Run mobile suite → pass. Update the earlier
+- [x] **Step 4:** Run mobile suite → pass. Update the earlier
   "dock collapsed by default" test to assert the new default-expanded
   behavior (collapse now happens only after the user taps the active tab).
-- [ ] **Step 5:** Commit `fix(raw): mobile dock starts expanded — controls visible on load`.
+- [x] **Step 5:** Commit `fix(raw): mobile dock starts expanded — controls visible on load`.
 
 ## Task 16: Peek vs compare-split mutually exclusive
 
 **Files:** `mobile/MobileLabChrome.tsx` (+ test)
 
-- [ ] **Step 1:** Failing test: when `mode === 'compare'` the peek surface is
+- [x] **Step 1:** Failing test: when `mode === 'compare'` the peek surface is
   disabled — a long-press does NOT call `onViewModeChange('original')`
   (compare-split is the comparison tool in that mode); in other modes
   long-press peek still works.
-- [ ] **Step 2:** Run → fail.
-- [ ] **Step 3:** `<MobilePeekSurface enabled={!focusKey && mode !== 'compare'} …/>`.
+- [x] **Step 2:** Run → fail.
+- [x] **Step 3:** `<MobilePeekSurface enabled={!focusKey && mode !== 'compare'} …/>`.
   Also ensure the peek hint label is suppressed in compare mode. (Result:
   Compare mode → split UI only; every other mode → long-press peek only.
   The two never appear together.)
-- [ ] **Step 4:** Run mobile suite → pass.
-- [ ] **Step 5:** Commit `fix(raw): peek and compare-split are mutually exclusive`.
+- [x] **Step 4:** Run mobile suite → pass.
+- [x] **Step 5:** Commit `fix(raw): peek and compare-split are mutually exclusive`.
 
 ## Task 17: Tone microinteraction polish
 
 **Files:** `mobile/ToneFocusEditor.tsx`, `mobile/ToneStripPanel.tsx`,
 `mobile/MobileLabChrome.tsx` (+ tests)
 
-- [ ] **Step 1:** Wire scrub-recede. `MobileLabChrome`: add
+- [x] **Step 1:** Wire scrub-recede. `MobileLabChrome`: add
   `const [scrubbing, setScrubbing] = useState(false)`; pass
   `onDragChange={setScrubbing}` to `ToneFocusEditor` (currently a no-op).
   While `scrubbing`, fade non-essential focus chrome (head + bounds + sibling
   strip) to low opacity via `m` so the photo dominates mid-drag — the
   design's `data-dragging` behavior. Honor `prefersReduced`.
-- [ ] **Step 2:** Animate the focus editor enter/exit with `m` +
+- [x] **Step 2:** Animate the focus editor enter/exit with `m` +
   `AnimatePresence` (spring from `~/lib/spring` / `SHEET_SPRING`): head slides
   from top, body from bottom; reduced-motion → opacity only. The editor is
   currently mounted/unmounted with no transition.
-- [ ] **Step 3:** Tone strip pill: animate the active/selected pill with a
+- [x] **Step 3:** Tone strip pill: animate the active/selected pill with a
   spring (layout or scale) and a smooth value-change; keep `whileTap`.
-- [ ] **Step 4:** Tests: assert `data-scrubbing` (or equivalent) toggles on
+- [x] **Step 4:** Tests: assert `data-scrubbing` (or equivalent) toggles on
   the chrome while the focus slider is dragged
   (`onPointerDown`/`onPointerUp` on the slider wrapper), and that the focus
   editor still mounts/cancels/commits as before. Run mobile suite → pass.
-- [ ] **Step 5:** Browser-spot-check (preview, real RAW): focus enter/exit is
-  animated; chrome recedes while dragging; no jank. Screenshot.
-- [ ] **Step 6:** Commit `feat(raw): polished tone microinteractions (scrub-recede, animated focus)`.
+- [x] **Step 5:** Browser visual confirmation consolidated into Task 19 Step 2 (single real-RAW run; focus screenshot).
+- [x] **Step 6:** Commit `feat(raw): polished tone microinteractions (scrub-recede, animated focus)`.
 
 ## Task 18: Mobile LUT contract + online-LUT browser redesign
 
@@ -2253,3 +2252,40 @@ drag-dismiss feel as `MobileMoreSheet`.
 - [ ] **Step 4:** Update the Validation status block with evidence; commit.
 - [ ] **Step 5: Loop stop** — emit the completion promise only when Tasks
   15–19 all pass with real evidence and Codex review is clean.
+
+## Task 20: Empty-state chrome scaffold (supersedes Task 12's null)
+
+User clarification (2026-05-18): "不要一上来就沉浸" means — on mobile BEFORE
+upload, also pre-show the topbar + toolbar (the chrome that appears later), so
+the layout is consistent and not bare. Task 12 (render `null` when
+`!hasImage`) is therefore WRONG; mobile must render the photo-first chrome
+scaffold even with no image, in a clean empty configuration over the
+full-bleed dark guided stage dropzone.
+
+**Files:** `RawToolSurface.tsx`, `mobile/MobileLabChrome.tsx`,
+`mobile/MobileTopbar.tsx`, `mobile/MobileModeDock.tsx` (+ tests)
+
+- [ ] **Step 1:** `RawToolSurface` mobile branch: when `isMobileViewport`,
+  ALWAYS render `<MobileLabChrome hasImage={props.hasImage} …/>` (remove the
+  `if (!props.hasImage) return null`). Add `hasImage` to `MobileLabChrome`
+  props.
+- [ ] **Step 2:** `MobileLabChrome` empty config when `!hasImage`:
+  - Topbar: visible but empty-aware (see Step 3).
+  - Dock: visible 5-tab bar as a scaffold but **disabled/inert** (panel
+    collapsed, tabs `aria-disabled`, no mode switching) — the stage's own
+    guided dropzone behind is the CTA.
+  - Do NOT render peek surface, focus editor, histogram card, More sheet
+    interactions while `!hasImage` (nothing to act on). Immersive tap
+    disabled too.
+- [ ] **Step 3:** `MobileTopbar` gains `hasImage`. When false: h1 =
+  `t('raw.header.title')`, meta = `t('raw.header.subtitleEmpty')`, no support
+  dot, hide the histogram toggle; More menu shows only "Choose RAW"
+  (→ `onReplaceFile`). When true: unchanged.
+- [ ] **Step 4:** `MobileModeDock` gains `disabled?: boolean`. When true:
+  render the tab bar visually (scaffold) but tabs are `aria-disabled`,
+  non-interactive, panel never shown.
+- [ ] **Step 5:** Tests: replace the Task-12 "mobile + no image renders no
+  chrome" assertion with "mobile + no image renders the topbar + disabled
+  dock scaffold (no peek/focus/histogram)"; keep "mobile + image mounts full
+  chrome". Mobile + surface suites green; `tsc` 0; scoped lint clean.
+- [ ] **Step 6:** Commit `fix(raw): pre-show topbar+dock scaffold in mobile empty state`.
