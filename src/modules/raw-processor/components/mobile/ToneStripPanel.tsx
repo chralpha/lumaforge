@@ -70,9 +70,15 @@ export function ToneStripPanel(props: {
               >
                 {f.short}
               </span>
-              <span className="text-base font-semibold leading-none tabular-nums">
+              <m.span
+                key={formatToneValueShort(f.key, v)}
+                initial={{ opacity: 0.55, y: 2 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={TAP_SPRING}
+                className="text-base font-semibold leading-none tabular-nums"
+              >
                 {formatToneValueShort(f.key, v)}
-              </span>
+              </m.span>
             </m.button>
           )
         })}

@@ -1,5 +1,6 @@
 import type { PreviewHistogramState } from '@lumaforge/luma-color-runtime'
 import { ImageUp, LockKeyhole, RotateCcw, ShieldCheck } from 'lucide-react'
+import { AnimatePresence } from 'motion/react'
 import type { ReactNode } from 'react'
 import { useRef, useState } from 'react'
 
@@ -44,6 +45,7 @@ export function MobileLabChrome(props: {
   const [histVisible, setHistVisible] = useState(true)
   const [immersive, setImmersive] = useState(false)
   const [dockExpanded, setDockExpanded] = useState(true)
+  const [scrubbing, setScrubbing] = useState(false)
   const snapshot = useRef<ToneValue | null>(null)
   const viewModeBeforePeek = useRef<ViewMode>('processed')
 
@@ -66,11 +68,13 @@ export function MobileLabChrome(props: {
     snapshot.current = null
     setFocusKey(null)
     setDockExpanded(false)
+    setScrubbing(false)
   }
   const commitFocus = () => {
     snapshot.current = null
     setFocusKey(null)
     setDockExpanded(false)
+    setScrubbing(false)
   }
   const switchFocus = (k: keyof ToneValue) => {
     snapshot.current = snapshot.current ?? props.tone
@@ -199,17 +203,21 @@ export function MobileLabChrome(props: {
         </>
       )}
 
-      {focusKey && (
-        <ToneFocusEditor
-          tone={props.tone}
-          focusKey={focusKey}
-          onChange={props.onToneChange}
-          onPickField={switchFocus}
-          onCancel={cancelFocus}
-          onDone={commitFocus}
-          onDragChange={() => {}}
-        />
-      )}
+      <AnimatePresence>
+        {focusKey && (
+          <ToneFocusEditor
+            key="tone-focus"
+            tone={props.tone}
+            focusKey={focusKey}
+            onChange={props.onToneChange}
+            onPickField={switchFocus}
+            onCancel={cancelFocus}
+            onDone={commitFocus}
+            onDragChange={setScrubbing}
+            scrubbing={scrubbing}
+          />
+        )}
+      </AnimatePresence>
 
       <MobileMoreSheet
         open={moreOpen}

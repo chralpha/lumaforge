@@ -70,6 +70,24 @@ describe('mobileLabChrome', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('recedes focus chrome while the slider is scrubbed', async () => {
+    render(<MobileLabChrome {...base} />)
+    const strip = screen.getByRole('tablist', { name: /tone parameters/i })
+    await userEvent.click(within(strip).getAllByRole('tab')[0])
+    const focus = document.querySelector('[data-tone-focus]')
+    expect(focus).toBeInTheDocument()
+    expect(focus).not.toHaveAttribute('data-scrubbing')
+    const scrub = screen.getByTestId('tone-focus-scrub')
+    fireEvent.pointerDown(scrub)
+    expect(
+      document.querySelector('[data-tone-focus][data-scrubbing="true"]'),
+    ).toBeInTheDocument()
+    fireEvent.pointerUp(scrub)
+    expect(
+      document.querySelector('[data-tone-focus][data-scrubbing="true"]'),
+    ).toBeNull()
+  })
+
   it('short tap toggles immersive (chrome hidden) and back', () => {
     render(<MobileLabChrome {...base} />)
     const s = screen.getByTestId('mobile-peek-surface')
