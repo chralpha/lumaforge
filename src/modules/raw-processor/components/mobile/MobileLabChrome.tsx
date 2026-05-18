@@ -1,5 +1,8 @@
 import type { PreviewHistogramState } from '@lumaforge/luma-color-runtime'
 import {
+  AlertTriangle,
+  Check,
+  ChevronRight,
   ImageUp,
   Info,
   LockKeyhole,
@@ -13,6 +16,10 @@ import { useEffect, useRef, useState } from 'react'
 
 import { useI18n } from '~/lib/i18n'
 
+import {
+  getProfileOutputLabel,
+  getResolvedProfile,
+} from '../tools/lut-contract'
 import type { ToneValue } from '../tools/ToneTool'
 import { FloatingHistogramCard } from './FloatingHistogramCard'
 import { MobileComparePanel } from './MobileComparePanel'
@@ -29,6 +36,8 @@ import { ToneStripPanel } from './ToneStripPanel'
 type ViewMode = 'processed' | 'original' | 'compare'
 type Row = { label: string; value: string }
 type Step = { index: number; label: string; timing: string }
+
+const OUTPUT_REQUIRED_LABEL = 'Output profile required'
 
 export function MobileLabChrome(props: {
   hasImage: boolean
@@ -54,6 +63,8 @@ export function MobileLabChrome(props: {
   const [focusKey, setFocusKey] = useState<keyof ToneValue | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
   const [lutBrowserOpen, setLutBrowserOpen] = useState(false)
+  const [lutBrowserStartsInContract, setLutBrowserStartsInContract] =
+    useState(false)
   const [peeking, setPeeking] = useState(false)
   const [immersive, setImmersive] = useState(false)
   const [dockExpanded, setDockExpanded] = useState(true)
@@ -73,6 +84,7 @@ export function MobileLabChrome(props: {
     setFocusKey(null)
     setImmersive(false)
     setLutBrowserOpen(false)
+    setLutBrowserStartsInContract(false)
     setMoreOpen(false)
     setScrubbing(false)
     setDockExpanded(true)
@@ -134,6 +146,29 @@ export function MobileLabChrome(props: {
     setCompareSplitOpen(open)
     onViewModeChange(open ? 'compare' : 'processed')
   }
+  const resolvedLutProfile = getResolvedProfile(
+    props.lutBrowser.lutProfileSelection,
+    props.lutBrowser.lutProfileResolution,
+  )
+  const lutOutputLabel = getProfileOutputLabel(resolvedLutProfile)
+  const lutNeedsOutput = lutOutputLabel === OUTPUT_REQUIRED_LABEL
+  const displayLutOutputLabel =
+    lutOutputLabel && !lutNeedsOutput ? lutOutputLabel : undefined
+  const lutNeedsUserSelection =
+    props.lutBrowser.lutProfileResolution?.kind === 'needs-user-selection'
+  const lutContractActionLabel = lutNeedsUserSelection
+    ? t('raw.mobile.lut.chooseContract')
+    : lutNeedsOutput
+      ? t('raw.mobile.lut.chooseOutput')
+      : t('raw.mobile.lut.changeContract')
+  const openLutBrowser = () => {
+    setLutBrowserStartsInContract(false)
+    setLutBrowserOpen(true)
+  }
+  const openLutContractBrowser = () => {
+    setLutBrowserStartsInContract(true)
+    setLutBrowserOpen(true)
+  }
 
   const panel =
     mode === 'tone' ? (
@@ -144,14 +179,94 @@ export function MobileLabChrome(props: {
         onReset={props.onToneReset}
       />
     ) : mode === 'look' ? (
-      <div className="grid gap-3">
-        <button
-          type="button"
-          onClick={() => setLutBrowserOpen(true)}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-white/20 bg-black/40 px-3 text-sm font-semibold text-white transition-colors hover:border-amber-400/50 hover:text-amber-400"
-        >
-          {t('raw.mobile.lut.title')}
-        </button>
+      <div className="grid gap-2.5">
+        {props.lutBrowser.currentLutName ? (
+          <div className="grid gap-2 rounded-xl border border-white/15 bg-black/42 p-3">
+            <div className="grid min-w-0 gap-2">
+              <span className="min-w-0 truncate text-sm font-semibold text-white">
+                {props.lutBrowser.currentLutName}
+              </span>
+              <button
+                type="button"
+                onClick={openLutContractBrowser}
+                className="inline-flex min-h-10 max-w-full items-center justify-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-400/12 px-3 text-[0.7rem] font-semibold text-amber-100 transition-colors hover:border-amber-300/60 hover:text-white"
+              >
+                <span className="min-w-0 truncate">
+                  {lutContractActionLabel}
+                </span>
+                <ChevronRight aria-hidden="true" className="size-3" />
+              </button>
+            </div>
+
+            {lutNeedsUserSelection ? (
+              <p className="m-0 rounded-md border border-amber-400/35 bg-amber-400/10 px-2.5 py-2 text-xs leading-relaxed text-amber-100">
+                <AlertTriangle
+                  aria-hidden="true"
+                  className="mr-1.5 inline size-3 align-[-2px]"
+                />
+                {t('raw.lutContract.unknown')}
+              </p>
+            ) : resolvedLutProfile ? (
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/18 bg-black/35 px-2.5 py-1 text-[0.68rem] font-semibold text-white/86">
+                  <Check aria-hidden="true" className="size-3 shrink-0" />
+                  <span className="min-w-0 truncate">
+                    {resolvedLutProfile.label}
+                  </span>
+                </span>
+                <ChevronRight
+                  aria-hidden="true"
+                  className="size-3 shrink-0 text-white/35"
+                />
+                <span
+                  className={[
+                    'inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold',
+                    lutNeedsOutput
+                      ? 'border-amber-400/45 bg-amber-400/12 text-amber-200'
+                      : 'border-white/18 bg-black/35 text-white/86',
+                  ].join(' ')}
+                >
+                  {lutNeedsOutput ? (
+                    <AlertTriangle
+                      aria-hidden="true"
+                      className="size-3 shrink-0"
+                    />
+                  ) : (
+                    <Check aria-hidden="true" className="size-3 shrink-0" />
+                  )}
+                  <span className="min-w-0 truncate">
+                    {displayLutOutputLabel ??
+                      t('raw.mobile.lut.outputRequired')}
+                  </span>
+                </span>
+                {lutNeedsOutput && (
+                  <p className="m-0 w-full text-xs leading-relaxed text-amber-100">
+                    {t('raw.lutContract.needsOutput')}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="m-0 text-xs leading-relaxed text-white/68">
+                {t('raw.mobile.lut.noContract')}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-white/15 bg-black/42 p-3">
+            <span className="text-sm font-semibold text-white/76">
+              {t('raw.mobile.lut.noCurrent')}
+            </span>
+            <button
+              type="button"
+              aria-label={t('raw.mobile.lut.title')}
+              onClick={openLutBrowser}
+              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-400/12 px-3 text-[0.7rem] font-semibold text-amber-100 transition-colors hover:border-amber-300/60 hover:text-white"
+            >
+              {t('raw.mobile.lut.add')}
+              <ChevronRight aria-hidden="true" className="size-3" />
+            </button>
+          </div>
+        )}
       </div>
     ) : mode === 'strength' ? (
       props.strengthControl
@@ -230,7 +345,7 @@ export function MobileLabChrome(props: {
               </div>
               <button
                 type="button"
-                onClick={() => setLutBrowserOpen(true)}
+                onClick={openLutBrowser}
                 className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-white/20 bg-black/35 px-3 text-sm font-semibold text-white transition-colors hover:border-amber-400/50 hover:text-amber-300"
               >
                 {t('raw.mobile.empty.addLut')}
@@ -280,7 +395,7 @@ export function MobileLabChrome(props: {
                 kind: 'item',
                 icon: Wand2,
                 label: t('raw.mobile.more.addLut'),
-                onSelect: () => setLutBrowserOpen(true),
+                onSelect: openLutBrowser,
               },
               {
                 kind: 'item',
@@ -349,7 +464,11 @@ export function MobileLabChrome(props: {
 
       <MobileLutBrowser
         open={lutBrowserOpen}
-        onClose={() => setLutBrowserOpen(false)}
+        initialContractEditorOpen={lutBrowserStartsInContract}
+        onClose={() => {
+          setLutBrowserOpen(false)
+          setLutBrowserStartsInContract(false)
+        }}
         {...props.lutBrowser}
       />
 

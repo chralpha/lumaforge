@@ -1,3 +1,4 @@
+import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -102,6 +103,90 @@ describe('mobileLabChrome', () => {
     )
     await userEvent.click(within(dock).getByRole('tab', { name: /strength/i }))
     expect(screen.getByText('strength')).toBeInTheDocument()
+  })
+
+  it('surfaces the current mobile LUT contract directly in Look mode', async () => {
+    const detectedProfile = {
+      ...getLUTColorProfile('sony-sgamut3cine-slog3')!,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'srgb' as const,
+      outputRange: 'full' as const,
+    }
+
+    render(
+      <MobileLabChrome
+        {...base}
+        lutBrowser={{
+          ...base.lutBrowser,
+          currentLutName: 'client-look.cube',
+          lutProfileSelection: {
+            status: 'resolved',
+            fingerprint: 'lut-fingerprint',
+            profileId: detectedProfile.id,
+            confidence: 'metadata',
+          },
+          lutProfileResolution: {
+            kind: 'resolved',
+            profile: detectedProfile,
+            confidence: 'metadata',
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByText('client-look.cube')).toBeInTheDocument()
+    expect(screen.getByText('Sony S-Gamut3.Cine / S-Log3')).toBeInTheDocument()
+    expect(screen.getByText('Rec.709 display')).toBeInTheDocument()
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /change lut contract/i }),
+    )
+
+    expect(
+      screen.getByRole('dialog', { name: /lut browser/i }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('tablist', { name: 'LUT contract panels' }),
+    ).toBeInTheDocument()
+  })
+
+  it('keeps the mobile LUT contract entry visible when auto-detection fails', async () => {
+    render(
+      <MobileLabChrome
+        {...base}
+        lutBrowser={{
+          ...base.lutBrowser,
+          currentLutName: 'unknown-look.cube',
+          lutProfileSelection: {
+            status: 'pending',
+            fingerprint: 'lut-fingerprint',
+            title: 'Unknown look',
+            sourceName: 'unknown-look.cube',
+            suggestions: [],
+          },
+          lutProfileResolution: {
+            kind: 'needs-user-selection',
+            suggestions: [],
+          },
+        }}
+      />,
+    )
+
+    expect(
+      screen.getByText(
+        'Choose the LUT input and output contract before preview or export.',
+      ),
+    ).toBeInTheDocument()
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /choose lut contract/i }),
+    )
+
+    expect(
+      screen.getByRole('dialog', { name: /lut browser/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Search LUT contract')).toBeInTheDocument()
   })
 
   it('starts with controls visible on the Look workflow, not bare', async () => {

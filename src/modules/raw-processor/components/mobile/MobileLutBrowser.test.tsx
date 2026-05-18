@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -124,5 +125,261 @@ describe('mobileLutBrowser', () => {
     )
 
     expect(loadEntry).toHaveBeenCalledWith('kodak-2383-rec709')
+  })
+
+  it('lets an unresolved LUT choose input and output contracts from the mobile sheet', async () => {
+    const onLutProfileSelect = vi.fn()
+    render(
+      <MobileLutBrowser
+        {...baseProps}
+        currentLutName="unknown-client-look.cube"
+        lutProfileSelection={{
+          status: 'pending',
+          fingerprint: 'lut-fingerprint',
+          title: 'Unknown client look',
+          sourceName: 'unknown-client-look.cube',
+          suggestions: [getLUTColorProfile('panasonic-vgamut-vlog')!],
+        }}
+        lutProfileResolution={{
+          kind: 'needs-user-selection',
+          suggestions: [getLUTColorProfile('panasonic-vgamut-vlog')!],
+        }}
+        onLutProfileSelect={onLutProfileSelect}
+      />,
+    )
+
+    expect(
+      screen.getByText(
+        'Choose the LUT input and output contract before preview or export.',
+      ),
+    ).toBeInTheDocument()
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /choose lut contract/i }),
+    )
+
+    const panels = screen.getByRole('tablist', {
+      name: 'LUT contract panels',
+    })
+    expect(
+      within(panels).getByRole('tab', { name: 'Input', selected: true }),
+    ).toBeInTheDocument()
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Use Panasonic V-Gamut / V-Log as LUT input',
+      }),
+    )
+
+    expect(
+      within(panels).getByRole('tab', { name: 'Output', selected: true }),
+    ).toBeInTheDocument()
+
+    await userEvent.type(
+      screen.getByLabelText('Search LUT contract'),
+      'display srgb',
+    )
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Use Display sRGB as LUT output',
+      }),
+    )
+
+    expect(onLutProfileSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputGamut: 'v-gamut',
+        inputTransfer: 'v-log',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        outputRange: 'full',
+      }),
+    )
+  })
+
+  it('does not reopen the initial contract editor after selecting output', async () => {
+    const onLutProfileSelect = vi.fn()
+    const panasonic = getLUTColorProfile('panasonic-vgamut-vlog')!
+    const { rerender } = render(
+      <MobileLutBrowser
+        {...baseProps}
+        initialContractEditorOpen
+        currentLutName="unknown-client-look.cube"
+        lutProfileSelection={{
+          status: 'pending',
+          fingerprint: 'lut-fingerprint',
+          title: 'Unknown client look',
+          sourceName: 'unknown-client-look.cube',
+          suggestions: [panasonic],
+        }}
+        lutProfileResolution={{
+          kind: 'needs-user-selection',
+          suggestions: [panasonic],
+        }}
+        onLutProfileSelect={onLutProfileSelect}
+      />,
+    )
+
+    expect(screen.getByLabelText('Search LUT contract')).toBeInTheDocument()
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Use Panasonic V-Gamut / V-Log as LUT input',
+      }),
+    )
+    await userEvent.type(
+      screen.getByLabelText('Search LUT contract'),
+      'display srgb',
+    )
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Use Display sRGB as LUT output',
+      }),
+    )
+
+    const selectedProfile = onLutProfileSelect.mock.calls[0]?.[0]
+    expect(selectedProfile).toEqual(
+      expect.objectContaining({
+        inputGamut: 'v-gamut',
+        inputTransfer: 'v-log',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+      }),
+    )
+
+    rerender(
+      <MobileLutBrowser
+        {...baseProps}
+        initialContractEditorOpen
+        currentLutName="unknown-client-look.cube"
+        lutProfileSelection={{
+          status: 'resolved',
+          fingerprint: 'lut-fingerprint',
+          profileId: selectedProfile.id,
+          confidence: 'user',
+        }}
+        lutProfileResolution={{
+          kind: 'resolved',
+          profile: selectedProfile,
+          confidence: 'user',
+        }}
+        onLutProfileSelect={onLutProfileSelect}
+      />,
+    )
+
+    expect(screen.getByText('Resolved')).toBeInTheDocument()
+    expect(
+      screen.queryByLabelText('Search LUT contract'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('resets the sheet scroll position after resolving a contract', async () => {
+    const panasonic = getLUTColorProfile('panasonic-vgamut-vlog')!
+    render(
+      <MobileLutBrowser
+        {...baseProps}
+        initialContractEditorOpen
+        currentLutName="unknown-client-look.cube"
+        lutProfileSelection={{
+          status: 'pending',
+          fingerprint: 'lut-fingerprint',
+          title: 'Unknown client look',
+          sourceName: 'unknown-client-look.cube',
+          suggestions: [panasonic],
+        }}
+        lutProfileResolution={{
+          kind: 'needs-user-selection',
+          suggestions: [panasonic],
+        }}
+      />,
+    )
+
+    const dialog = screen.getByRole('dialog')
+    const sheetBody = Array.from(dialog.children).find((child) =>
+      child.className.includes('overflow-y-auto'),
+    ) as HTMLElement | undefined
+    expect(sheetBody).toBeDefined()
+    sheetBody!.scrollTop = 96
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Use Panasonic V-Gamut / V-Log as LUT input',
+      }),
+    )
+    await userEvent.type(
+      screen.getByLabelText('Search LUT contract'),
+      'display srgb',
+    )
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Use Display sRGB as LUT output',
+      }),
+    )
+
+    expect(sheetBody!.scrollTop).toBe(0)
+  })
+
+  it('lets a resolved mobile LUT contract be changed when auto-detection was wrong', async () => {
+    const onLutProfileSelect = vi.fn()
+    const detectedProfile = {
+      ...getLUTColorProfile('panasonic-vgamut-vlog')!,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'bt709' as const,
+      outputRange: 'full' as const,
+    }
+    render(
+      <MobileLutBrowser
+        {...baseProps}
+        currentLutName="wrong-detected-look.cube"
+        lutProfileSelection={{
+          status: 'resolved',
+          fingerprint: 'lut-fingerprint',
+          profileId: detectedProfile.id,
+          confidence: 'metadata',
+        }}
+        lutProfileResolution={{
+          kind: 'resolved',
+          profile: detectedProfile,
+          confidence: 'metadata',
+        }}
+        onLutProfileSelect={onLutProfileSelect}
+      />,
+    )
+
+    expect(screen.getByText('Panasonic V-Gamut / V-Log')).toBeInTheDocument()
+    expect(screen.getByText('Rec.709 display')).toBeInTheDocument()
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /change lut contract/i }),
+    )
+    await userEvent.type(
+      screen.getByLabelText('Search LUT contract'),
+      'sony slog3',
+    )
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Use Sony S-Gamut3.Cine / S-Log3 as LUT input',
+      }),
+    )
+    await userEvent.clear(screen.getByLabelText('Search LUT contract'))
+    await userEvent.type(
+      screen.getByLabelText('Search LUT contract'),
+      'display srgb',
+    )
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Use Display sRGB as LUT output',
+      }),
+    )
+
+    expect(onLutProfileSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputGamut: 's-gamut3-cine',
+        inputTransfer: 's-log3',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        outputRange: 'full',
+      }),
+    )
   })
 })
