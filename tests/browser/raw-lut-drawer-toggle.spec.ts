@@ -113,3 +113,52 @@ test('closes the LUT contract browser when its trigger is clicked again', async 
   ).toHaveCount(0)
   await expect(trigger).toHaveAttribute('aria-expanded', 'false')
 })
+
+test('keeps the LUT contract browser options inside its scroll frame on desktop', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-desktop',
+    'desktop anchored contract browser regression',
+  )
+
+  const cubePath = testInfo.outputPath('contract-browser-scroll.cube')
+  await writeFile(
+    cubePath,
+    createIdentityCube('Contract Browser Scroll'),
+    'utf8',
+  )
+  await page.goto('/raw')
+
+  await page
+    .locator('input[type="file"][accept=".cube"]')
+    .first()
+    .setInputFiles(cubePath)
+
+  const trigger = page.getByRole('button', { name: 'Change LUT contract' })
+  await expect(trigger).toBeVisible()
+  await trigger.click()
+
+  const browser = page.getByRole('dialog', { name: 'LUT contract browser' })
+  await expect(browser).toBeVisible()
+
+  const metrics = await page.evaluate(() => {
+    const dialog = document.querySelector<HTMLElement>(
+      '[data-raw-lut-browser-dialog="contract"]',
+    )
+    const list = document.querySelector<HTMLElement>(
+      '[data-raw-lut="contract-browser-list"]',
+    )
+
+    return {
+      dialog: dialog?.getBoundingClientRect().toJSON(),
+      list: list?.getBoundingClientRect().toJSON(),
+      listOverflowY: list ? getComputedStyle(list).overflowY : '',
+    }
+  })
+
+  expect(metrics.dialog).toBeTruthy()
+  expect(metrics.list).toBeTruthy()
+  expect(metrics.listOverflowY).toBe('auto')
+  expect(metrics.list!.bottom).toBeLessThanOrEqual(metrics.dialog!.bottom + 1)
+})
