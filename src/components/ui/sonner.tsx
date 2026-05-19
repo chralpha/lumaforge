@@ -14,7 +14,7 @@ export const Toaster = ({ position, ...props }: ToasterProps) => {
   return (
     <Sonner
       theme={theme}
-      position={position ?? (isMobile ? 'top-center' : undefined)}
+      position={position ?? (isMobile ? 'top-center' : 'bottom-left')}
       richColors={!isMobile}
       expand
       closeButton
