@@ -1,7 +1,11 @@
 import type { CSSProperties } from 'react'
 import { useLayoutEffect, useState } from 'react'
 
-export type OnlineLutBrowserPlacement = 'anchored' | 'docked' | 'sheet'
+export type OnlineLutBrowserPlacement =
+  | 'anchored'
+  | 'docked'
+  | 'sheet'
+  | 'sidecar'
 
 export type OnlineLutBrowserLayout = {
   placement: OnlineLutBrowserPlacement
@@ -24,6 +28,9 @@ export const LUT_BROWSER_MIN_WIDTH = 320
 export const LUT_BROWSER_MAX_WIDTH = 420
 export const LUT_BROWSER_MIN_HEIGHT = 184
 export const LUT_BROWSER_MAX_HEIGHT = 420
+export const LUT_BROWSER_SIDECAR_MIN_WIDTH = 500
+export const LUT_BROWSER_SIDECAR_MAX_WIDTH = 560
+export const LUT_BROWSER_SIDECAR_MAX_HEIGHT = 560
 
 export function clampNumber(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
@@ -45,6 +52,48 @@ export function getViewportBoundedBrowserLayout(
   }
 
   const triggerRect = trigger.getBoundingClientRect()
+  const toolSurfaceRect = trigger
+    .closest('.raw-tool-surface')
+    ?.getBoundingClientRect()
+  const sidecarAvailableWidth = toolSurfaceRect
+    ? toolSurfaceRect.left - margin - LUT_BROWSER_TRIGGER_GAP
+    : 0
+  const viewportBoundedHeight = Math.max(
+    LUT_BROWSER_MIN_HEIGHT,
+    viewportHeight - margin * 2,
+  )
+
+  if (
+    toolSurfaceRect &&
+    Number.isFinite(toolSurfaceRect.left) &&
+    toolSurfaceRect.left > 0 &&
+    sidecarAvailableWidth >= LUT_BROWSER_SIDECAR_MIN_WIDTH
+  ) {
+    const sidecarWidth = clampNumber(
+      sidecarAvailableWidth,
+      LUT_BROWSER_SIDECAR_MIN_WIDTH,
+      LUT_BROWSER_SIDECAR_MAX_WIDTH,
+    )
+    const maxHeight = clampNumber(
+      viewportBoundedHeight,
+      LUT_BROWSER_MIN_HEIGHT,
+      Math.min(LUT_BROWSER_SIDECAR_MAX_HEIGHT, viewportBoundedHeight),
+    )
+    const top = clampNumber(
+      triggerRect.top,
+      margin,
+      viewportHeight - margin - maxHeight,
+    )
+
+    return {
+      placement: 'sidecar',
+      top,
+      left: toolSurfaceRect.left - LUT_BROWSER_TRIGGER_GAP - sidecarWidth,
+      width: sidecarWidth,
+      maxHeight,
+    }
+  }
+
   const rowRect =
     trigger
       .closest('[data-raw-lut="source-resource-row"]')
@@ -60,11 +109,6 @@ export function getViewportBoundedBrowserLayout(
     margin,
     viewportWidth - margin - width,
   )
-  const viewportBoundedHeight = Math.max(
-    LUT_BROWSER_MIN_HEIGHT,
-    viewportHeight - margin * 2,
-  )
-
   if (viewportHeight <= 520) {
     return {
       placement: 'docked',

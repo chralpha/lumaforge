@@ -242,7 +242,9 @@ export function OnlineLutSourceControls({
                         <div className="text-footnote font-semibold uppercase text-text-secondary">
                           {family}
                         </div>
-                        {entries.map(renderEntry)}
+                        <div className="grid gap-1.5 sm:grid-cols-2">
+                          {entries.map(renderEntry)}
+                        </div>
                       </div>
                     ))}
                     {ungrouped.length > 0 && (
@@ -250,7 +252,9 @@ export function OnlineLutSourceControls({
                         <div className="text-footnote font-semibold uppercase text-text-secondary">
                           {t('raw.lutSource.others')}
                         </div>
-                        {ungrouped.map(renderEntry)}
+                        <div className="grid gap-1.5 sm:grid-cols-2">
+                          {ungrouped.map(renderEntry)}
+                        </div>
                       </div>
                     )}
                   </>

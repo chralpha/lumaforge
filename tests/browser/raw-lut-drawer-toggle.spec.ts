@@ -211,16 +211,25 @@ test('keeps the LUT contract browser options inside its scroll frame on desktop'
     const list = document.querySelector<HTMLElement>(
       '[data-raw-lut="contract-browser-list"]',
     )
+    const toolSurface = document.querySelector<HTMLElement>('.raw-tool-surface')
 
     return {
       dialog: dialog?.getBoundingClientRect().toJSON(),
       list: list?.getBoundingClientRect().toJSON(),
       listOverflowY: list ? getComputedStyle(list).overflowY : '',
+      placement: dialog?.getAttribute('data-lut-source-placement'),
+      toolSurface: toolSurface?.getBoundingClientRect().toJSON(),
     }
   })
 
   expect(metrics.dialog).toBeTruthy()
   expect(metrics.list).toBeTruthy()
+  expect(metrics.toolSurface).toBeTruthy()
+  expect(metrics.placement).toBe('sidecar')
+  expect(metrics.dialog!.width).toBeGreaterThanOrEqual(500)
+  expect(metrics.dialog!.right).toBeLessThanOrEqual(
+    metrics.toolSurface!.left - 8,
+  )
   expect(metrics.listOverflowY).toBe('auto')
   expect(metrics.list!.bottom).toBeLessThanOrEqual(metrics.dialog!.bottom + 1)
 })
@@ -279,18 +288,27 @@ test('keeps sparse online LUT resource entries compact on desktop', async ({
     const list = document.querySelector<HTMLElement>(
       '[data-raw-lut="source-browser-list"]',
     )
+    const toolSurface = document.querySelector<HTMLElement>('.raw-tool-surface')
 
     return {
       dialog: dialog?.getBoundingClientRect().toJSON(),
       entry: entry?.getBoundingClientRect().toJSON(),
       list: list?.getBoundingClientRect().toJSON(),
       listAlignContent: list ? getComputedStyle(list).alignContent : '',
+      placement: dialog?.getAttribute('data-lut-source-placement'),
+      toolSurface: toolSurface?.getBoundingClientRect().toJSON(),
     }
   })
 
   expect(metrics.dialog).toBeTruthy()
   expect(metrics.list).toBeTruthy()
   expect(metrics.entry).toBeTruthy()
+  expect(metrics.toolSurface).toBeTruthy()
+  expect(metrics.placement).toBe('sidecar')
+  expect(metrics.dialog!.width).toBeGreaterThanOrEqual(500)
+  expect(metrics.dialog!.right).toBeLessThanOrEqual(
+    metrics.toolSurface!.left - 8,
+  )
   expect(['start', 'flex-start']).toContain(metrics.listAlignContent)
   expect(metrics.dialog!.height).toBeLessThanOrEqual(280)
   expect(metrics.entry!.height).toBeLessThanOrEqual(56)

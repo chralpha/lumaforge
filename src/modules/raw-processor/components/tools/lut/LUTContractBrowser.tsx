@@ -258,7 +258,7 @@ export function LUTContractBrowser({
                 <p className="m-0 text-footnote font-semibold uppercase text-text-secondary">
                   {t('raw.lutContract.suggestedInput')}
                 </p>
-                <div className="space-y-1">
+                <div className="grid gap-1 sm:grid-cols-2">
                   {visibleSuggestions.map((profile) => (
                     <LUTProfileButton
                       key={profile.id}
@@ -281,7 +281,7 @@ export function LUTContractBrowser({
                 <p className="m-0 text-footnote font-semibold uppercase text-text-secondary">
                   {t('raw.lutContract.groupInput', { group: group.label })}
                 </p>
-                <div className="space-y-1">
+                <div className="grid gap-1 sm:grid-cols-2">
                   {group.items.map((profile) => (
                     <LUTProfileButton
                       key={profile.id}
@@ -311,7 +311,7 @@ export function LUTContractBrowser({
                 <p className="m-0 text-footnote font-semibold uppercase text-text-secondary">
                   {t('raw.lutContract.suggestedOutput')}
                 </p>
-                <div className="space-y-1">
+                <div className="grid gap-1 sm:grid-cols-2">
                   {suggestedOutputOptions.map((option) => (
                     <LUTOutputOptionButton
                       key={option.id}
@@ -330,7 +330,7 @@ export function LUTContractBrowser({
                 <p className="m-0 text-footnote font-semibold uppercase text-text-secondary">
                   {t('raw.lutContract.groupOutput', { group: group.label })}
                 </p>
-                <div className="space-y-1">
+                <div className="grid gap-1 sm:grid-cols-2">
                   {group.items.map((option) => (
                     <LUTOutputOptionButton
                       key={option.id}
