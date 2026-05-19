@@ -373,6 +373,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   )
 
   const abortRuntimeWork = useCallback(() => {
+    runtimeWorkSessionIdRef.current = null
     const controller = runtimeAbortControllerRef.current
     if (controller && !controller.signal.aborted) {
       controller.abort()

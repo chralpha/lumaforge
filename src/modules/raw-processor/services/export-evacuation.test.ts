@@ -53,6 +53,7 @@ describe('export evacuation', () => {
       'lut-fetch',
     ])
     expect(getPreExportEvacuationOwners('desktop-fast')).toEqual([
+      'bounded-hq',
       'export-result',
     ])
   })
@@ -79,9 +80,13 @@ describe('export evacuation', () => {
       stopLutFetches: () => events.push('stop-lut-fetches'),
     })
 
-    expect(events).toEqual(['release-export-result', 'dispose-stale-result'])
-    expect(result.requiredOwners).toEqual(['export-result'])
-    expect(result.disposedOwners).toEqual(['export-result'])
+    expect(events).toEqual([
+      'abort-bounded-hq',
+      'release-export-result',
+      'dispose-stale-result',
+    ])
+    expect(result.requiredOwners).toEqual(['bounded-hq', 'export-result'])
+    expect(result.disposedOwners).toEqual(['bounded-hq', 'export-result'])
     expect(result.registryCheck).toEqual({ ok: true })
     expect(result.remainingLive).toEqual([])
     expect(result.estimatedBytesByOwner).toEqual({})

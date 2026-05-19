@@ -2224,6 +2224,86 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
+  it('keeps desktop-fast export running when bounded HQ settles after export starts', async () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+      maxTouchPoints: 0,
+      storage: {},
+      hardwareConcurrency: 8,
+    })
+    vi.stubGlobal('crossOriginIsolated', true)
+
+    const boundedHqDecode = deferred<DecodedImage>()
+    const pendingExport = deferred<{ filename: string; blob: Blob }>()
+    const runtimeDispose = vi.fn()
+    let boundedHqSignal: AbortSignal | undefined
+
+    rawRuntimeAdapterMock.openSession.mockResolvedValue({
+      sourceDimensions: defaultSourceDimensions,
+      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+      decodeQuickRaw: vi.fn().mockResolvedValue(createDecodedImage('quick')),
+      decodeBoundedHqRaw: vi.fn((_options, _progress, signal) => {
+        boundedHqSignal = signal
+        return boundedHqDecode.promise
+      }),
+      probeExportCapability: vi
+        .fn()
+        .mockResolvedValue(createSupportedCapability()),
+      dispose: runtimeDispose,
+    })
+    exportSystemMock.runFullResolutionExportJob.mockReturnValue(
+      pendingExport.promise,
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+
+    let exportPromise!: Promise<void>
+    await act(async () => {
+      exportPromise = result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+      await Promise.resolve()
+    })
+
+    expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledTimes(1)
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.status).toBe(
+      'exporting',
+    )
+
+    await act(async () => {
+      boundedHqDecode.resolve(
+        createDecodedImage('bounded-hq', {
+          renderExposure: { ev: 1, multiplier: 2, source: 'image-statistics' },
+        }),
+      )
+      await flushPromises()
+    })
+
+    expect(boundedHqSignal?.aborted).toBe(true)
+    expect(runtimeDispose).toHaveBeenCalledTimes(1)
+    expect(jotaiStore.get(currentSessionAtom)?.exportState.status).toBe(
+      'exporting',
+    )
+
+    await act(async () => {
+      pendingExport.resolve({
+        filename: 'frame_neutral_fullres.jpg',
+        blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+      })
+      await exportPromise
+    })
+
+    expect(result.current.exportResult?.filename).toBe(
+      'frame_neutral_fullres.jpg',
+    )
+  })
+
   it('does not start unsafe 100MP iOS WebKit blob-handoff export without a durable sink', async () => {
     vi.stubGlobal('navigator', {
       userAgent:
@@ -3413,20 +3493,35 @@ describe('useRawProcessor embedded preview state', () => {
     rawRuntimeAdapterMock.decodeBoundedHqRaw.mockReturnValue(
       boundedHqDecode.promise,
     )
-    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
-      filename: 'frame_neutral_fullres.jpg',
-      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
-    })
-
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
-    await act(async () => {
-      await result.current.exportImage({
-        quality: 'high',
-        fidelity: 'balanced',
+
+    act(() => {
+      const activeSession = jotaiStore.get(currentSessionAtom)!
+      jotaiStore.set(currentSessionAtom, {
+        ...activeSession,
+        exportState: {
+          ...activeSession.exportState,
+          status: 'ready',
+          result: {
+            output: createBlobOutputResult({
+              blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+              filename: 'frame_neutral_fullres.jpg',
+            }),
+            filename: 'frame_neutral_fullres.jpg',
+            width: 6048,
+            height: 4024,
+            size: 4,
+            createdAt: 1,
+            copyCapability: {
+              mode: 'unavailable',
+              reason: 'test result',
+            },
+          },
+        },
       })
     })
 

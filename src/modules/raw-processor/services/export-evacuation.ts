@@ -49,6 +49,7 @@ const LOW_MEMORY_PRE_EXPORT_DISPOSABLE_OWNERS: LargeResourceOwner[] = [
 ]
 
 const DESKTOP_PRE_EXPORT_DISPOSABLE_OWNERS: LargeResourceOwner[] = [
+  'bounded-hq',
   'export-result',
 ]
 
