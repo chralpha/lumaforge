@@ -54,3 +54,29 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
     expect(metrics.toolStackScrollOverflow).toBeGreaterThan(0)
   }
 })
+
+test('opens the RAW picker from the empty desktop preview dock', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-desktop',
+    'desktop preview dock regression',
+  )
+
+  await page.goto('/raw')
+  await expect(page.locator('[data-raw-lab-shell="viewport"]')).toBeVisible()
+
+  const uploadDock = page.getByRole('button', { name: /Drop one RAW here/ })
+  await expect(uploadDock).toBeVisible()
+  await expect(
+    page.getByRole('slider', {
+      name: 'Compare unprocessed RAW and final JPEG',
+    }),
+  ).toBeVisible()
+
+  const fileChooserPromise = page.waitForEvent('filechooser')
+  await uploadDock.click({ timeout: 3_000 })
+
+  const fileChooser = await fileChooserPromise
+  expect(fileChooser.isMultiple()).toBe(false)
+})
