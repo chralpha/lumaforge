@@ -105,6 +105,27 @@ describe('export execution profile selection', () => {
     expect(plan.runtimeMemoryProfile).toBe('low-memory')
   })
 
+  it('uses ios-safe for desktop Safari WebKit workers', () => {
+    const plan = selectExportExecutionPlan({
+      fidelity: 'balanced',
+      sourceWidth: 5520,
+      sourceHeight: 8288,
+      runtime: { lowMemoryAvailable: true, pthreadAvailable: true },
+      output: { opfsAvailable: false, streamingAvailable: false },
+      platform: {
+        userAgent:
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Safari/605.1.15',
+        touch: false,
+        hardwareConcurrency: 8,
+      },
+    })
+
+    expect(plan.profile.name).toBe('ios-safe')
+    expect(plan.preferredRows).toBe(128)
+    expect(plan.concurrency).toBe(1)
+    expect(plan.runtimeMemoryProfile).toBe('low-memory')
+  })
+
   it.each([
     ['mobile-balanced', 256, 2],
     ['desktop-fast', 1024, 3],

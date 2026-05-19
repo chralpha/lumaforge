@@ -211,6 +211,21 @@ export function isKnownRiskWebKitMobile(input: {
   return (isiOS || isIPadOsDesktopMode) && webKit && mobile
 }
 
+export function isKnownRiskWebKitDesktop(input: {
+  userAgent?: string
+  touch?: boolean
+}) {
+  const ua = input.userAgent ?? ''
+  const desktopMac = /\bMacintosh\b/i.test(ua)
+  const webKit = /\bAppleWebKit\b/i.test(ua)
+  const safari = /\bSafari\b/i.test(ua)
+  const chromiumFamily = /\b(?:Chrome|Chromium|CriOS|Edg|OPR|FxiOS)\b/i.test(ua)
+
+  return (
+    desktopMac && webKit && safari && !chromiumFamily && input.touch !== true
+  )
+}
+
 function chooseProfile(input: {
   fidelity: ExportFidelity
   previousInterrupted?: boolean
@@ -220,6 +235,7 @@ function chooseProfile(input: {
 }): ExportExecutionProfileName {
   if (input.previousInterrupted) return 'ios-safe'
   if (isKnownRiskWebKitMobile(input.platform)) return 'ios-safe'
+  if (isKnownRiskWebKitDesktop(input.platform)) return 'ios-safe'
   if (!input.runtime.pthreadAvailable) return 'mobile-balanced'
   if (input.previousResourceFailure) {
     return input.fidelity === 'max' ? 'mobile-balanced' : 'ios-safe'

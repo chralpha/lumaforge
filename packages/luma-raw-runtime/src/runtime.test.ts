@@ -875,9 +875,30 @@ describe('createLumaRawRuntime', () => {
     runtime.dispose()
   })
 
-  it('rejects while reading and never posts the worker request', async () => {
+  it('uses file arrayBuffer for signalled reads when available', async () => {
     const { runtime, worker } = createRuntime()
-    const file = new File(['raw'], 'sample.ARW')
+    const readFile = vi.fn(() => Promise.resolve(new ArrayBuffer(4)))
+    const file = {
+      name: 'sample.ARW',
+      size: 4,
+      arrayBuffer: readFile,
+    } as unknown as File
+    const controller = new AbortController()
+
+    await runtime.decodeQuick(file, controller.signal)
+
+    expect(readFile).toHaveBeenCalledTimes(1)
+    expect(worker.requests[0]?.type).toBe('openSession')
+
+    runtime.dispose()
+  })
+
+  it('rejects while reading through FileReader fallback and never posts the worker request', async () => {
+    const { runtime, worker } = createRuntime()
+    const file = {
+      name: 'sample.ARW',
+      size: 4,
+    } as unknown as File
     const controller = new AbortController()
     const fileReaderState = {
       readCalls: 0,

@@ -99,15 +99,12 @@ function readFileBytes(file: File, signal?: AbortSignal): Promise<ArrayBuffer> {
     return Promise.reject(createJobCancelledError())
   }
 
-  if (signal) {
-    return readFileBytesWithReader(file, signal)
-  }
-
   if (typeof file.arrayBuffer === 'function') {
-    return file.arrayBuffer()
+    const readPromise = file.arrayBuffer()
+    return signal ? withAbortSignal(readPromise, signal) : readPromise
   }
 
-  return readFileBytesWithReader(file)
+  return readFileBytesWithReader(file, signal)
 }
 
 function readFileBytesWithReader(file: File, signal?: AbortSignal) {
@@ -168,6 +165,44 @@ function readFileBytesWithReader(file: File, signal?: AbortSignal) {
 
     signal?.addEventListener('abort', onAbort, { once: true })
     reader.readAsArrayBuffer(file)
+  })
+}
+
+function withAbortSignal<T>(promise: Promise<T>, signal: AbortSignal) {
+  if (signal.aborted) {
+    return Promise.reject(createJobCancelledError())
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    let settled = false
+
+    const cleanup = () => {
+      signal.removeEventListener('abort', onAbort)
+    }
+
+    const onAbort = () => {
+      if (settled) return
+      settled = true
+      cleanup()
+      reject(createJobCancelledError())
+    }
+
+    signal.addEventListener('abort', onAbort, { once: true })
+
+    promise.then(
+      (value) => {
+        if (settled) return
+        settled = true
+        cleanup()
+        resolve(value)
+      },
+      (error: unknown) => {
+        if (settled) return
+        settled = true
+        cleanup()
+        reject(error)
+      },
+    )
   })
 }
 
