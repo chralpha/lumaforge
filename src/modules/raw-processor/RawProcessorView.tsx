@@ -348,6 +348,7 @@ function RawProcessorViewInner({
           canExport={canExport}
           disabledReason={exportDisabledReason}
           isProcessing={isProcessing}
+          isExporting={status === 'exporting'}
           exportResult={exportResult}
           exportShareCapability={exportShareCapability}
           recovery={exportRecovery}

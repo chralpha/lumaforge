@@ -54,6 +54,7 @@ export function RawToolSurface(props: {
   canExport: boolean
   disabledReason?: string
   isProcessing: boolean
+  isExporting?: boolean
   exportResult: ExportResult | null
   exportShareCapability: ExportShareCapability
   histogram: PreviewHistogramState
@@ -76,7 +77,9 @@ export function RawToolSurface(props: {
 }) {
   const { t } = useI18n()
   const isMobileViewport = useViewport(selectIsNarrowViewport)
-  const disabled = !props.hasImage || props.isProcessing
+  const editorDisabled = !props.hasImage || props.isExporting === true
+  const lutDropDisabled = props.isExporting === true
+  const mobileEditorDisabled = !props.hasImage || props.isProcessing
 
   const histogramMeta =
     props.histogram.state === 'ready'
@@ -87,7 +90,7 @@ export function RawToolSurface(props: {
     <StrengthControl
       value={props.activeIntensity}
       onChange={props.onIntensitySelect}
-      disabled={disabled}
+      disabled={editorDisabled}
     />
   )
 
@@ -97,7 +100,7 @@ export function RawToolSurface(props: {
     <MobileStrengthPanel
       value={props.activeIntensity}
       onChange={props.onIntensitySelect}
-      disabled={disabled}
+      disabled={mobileEditorDisabled}
     />
   )
 
@@ -106,7 +109,7 @@ export function RawToolSurface(props: {
     <>
       <LutContractTool
         currentLutName={props.currentLutName}
-        disabled={props.isProcessing}
+        disabled={lutDropDisabled}
         onLutLoad={props.onLutLoad}
         onLutClear={props.onLutClear}
         lutProfileSelection={props.lutProfileSelection}
@@ -132,7 +135,10 @@ export function RawToolSurface(props: {
   }
 
   const compareBlock = (
-    <CompareTool disabled={disabled} onCompareReset={props.onCompareReset} />
+    <CompareTool
+      disabled={editorDisabled}
+      onCompareReset={props.onCompareReset}
+    />
   )
 
   const exportBlock = (
@@ -176,7 +182,7 @@ export function RawToolSurface(props: {
       <ToolCard id="tone" title={t('raw.tone.title')}>
         <ToneTool
           value={props.tone}
-          disabled={disabled}
+          disabled={editorDisabled}
           onChange={props.onToneChange}
           onReset={props.onToneReset}
         />

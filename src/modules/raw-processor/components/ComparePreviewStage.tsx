@@ -120,6 +120,9 @@ export function ComparePreviewStage({
 }: ComparePreviewStageProps) {
   const { t } = useI18n()
   const showSplit = splitEnabled
+  const blockStageInteraction = phase === 'exporting'
+  const showBlockingProgress =
+    isProcessing && (!hasImage || blockStageInteraction)
 
   return (
     <section
@@ -149,7 +152,7 @@ export function ComparePreviewStage({
                 embeddedPreviewUrl={embeddedPreviewUrl}
                 displaySource={displaySource}
                 suspended={previewSuspended}
-                interactionDisabled={isProcessing}
+                interactionDisabled={blockStageInteraction}
                 previewViewport={previewViewport}
                 onPreviewViewportChange={onPreviewViewportChange}
                 onStatsUpdate={onStatsUpdate}
@@ -172,7 +175,7 @@ export function ComparePreviewStage({
                   value={split}
                   onChange={onSplitChange}
                   onPreviewChange={onSplitPreviewChange}
-                  disabled={isProcessing}
+                  disabled={blockStageInteraction}
                 />
               </>
             )}
@@ -185,7 +188,7 @@ export function ComparePreviewStage({
             )}
 
             <ProgressOverlay
-              visible={isProcessing}
+              visible={showBlockingProgress}
               phase={phase}
               progress={progress}
               recoveryHint={recoveryHint}

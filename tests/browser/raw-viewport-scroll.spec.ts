@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 
+import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 
 const RAW_FIXTURE = '/workspaces/LumaForge/test-images/SGL_1998.NEF'
@@ -18,6 +19,63 @@ function createIdentityCube(title: string) {
     '0 1 1',
     '1 1 1',
   ].join('\n')
+}
+
+async function loadRawFixture(page: Page) {
+  const fileChooserPromise = page.waitForEvent('filechooser')
+  await page
+    .getByRole('button', { name: /drop one raw here/i })
+    .click({ position: { x: 24, y: 24 } })
+  const fileChooser = await fileChooserPromise
+  await fileChooser.setFiles(RAW_FIXTURE)
+}
+
+async function dragSlider(page: Page, sliderName: string, targetRatio: number) {
+  const slider = page.getByRole('slider', { name: sliderName })
+  await expect(slider).toBeVisible()
+  const box = await slider.boundingBox()
+
+  expect(box).toBeTruthy()
+
+  const before = Number(await slider.getAttribute('aria-valuenow'))
+
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(
+    box!.x + box!.width * targetRatio,
+    box!.y + box!.height / 2,
+    { steps: 10 },
+  )
+  await page.mouse.up()
+
+  await expect
+    .poll(async () => Number(await slider.getAttribute('aria-valuenow')))
+    .not.toBe(before)
+
+  return {
+    before,
+    after: Number(await slider.getAttribute('aria-valuenow')),
+  }
+}
+
+async function readPreviewViewport(page: Page) {
+  return page.evaluate(() => {
+    const surface = document.querySelector<HTMLElement>(
+      '[data-raw-preview-surface]',
+    )
+
+    if (!surface) {
+      return { zoom: 1, panX: 0, panY: 0 }
+    }
+
+    const style = getComputedStyle(surface)
+
+    return {
+      zoom: Number.parseFloat(style.getPropertyValue('--raw-preview-zoom')),
+      panX: Number.parseFloat(style.getPropertyValue('--raw-preview-pan-x')),
+      panY: Number.parseFloat(style.getPropertyValue('--raw-preview-pan-y')),
+    }
+  })
 }
 
 test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
@@ -113,12 +171,7 @@ test('keeps desktop RAW load toasts out of the persistent export action lane', a
   await page.goto('/raw')
   await expect(page.locator('[data-raw-lab-shell="viewport"]')).toBeVisible()
 
-  const fileChooserPromise = page.waitForEvent('filechooser')
-  await page
-    .getByRole('button', { name: /drop one raw here/i })
-    .click({ position: { x: 24, y: 24 } })
-  const fileChooser = await fileChooserPromise
-  await fileChooser.setFiles(RAW_FIXTURE)
+  await loadRawFixture(page)
 
   const exportButton = page
     .getByRole('region', { name: 'Export' })
@@ -152,4 +205,70 @@ test('keeps desktop RAW load toasts out of the persistent export action lane', a
   expect(metrics.button).toBeTruthy()
   expect(metrics.toast).toBeTruthy()
   expect(metrics.toast!.right).toBeLessThanOrEqual(metrics.button!.left)
+})
+
+test('keeps desktop tone, compare, zoom, and pan interactions live after RAW load', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-desktop',
+    'desktop RAW interaction regression',
+  )
+  test.skip(!existsSync(RAW_FIXTURE), `Missing RAW fixture: ${RAW_FIXTURE}`)
+
+  await page.goto('/raw')
+  await expect(page.locator('[data-raw-lab-shell="viewport"]')).toBeVisible()
+
+  await loadRawFixture(page)
+
+  await expect(
+    page.locator('.raw-lab[data-raw-lab-state="loaded"]'),
+  ).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('slider', { name: 'Exposure' })).toBeVisible()
+
+  const exposure = await dragSlider(page, 'Exposure', 0.75)
+  expect(exposure.after).toBeGreaterThan(exposure.before)
+
+  const compare = await dragSlider(
+    page,
+    'Compare unprocessed RAW and final JPEG',
+    1,
+  )
+  expect(compare.after).toBeGreaterThan(compare.before)
+
+  const previewFrame = page.locator('[data-raw-preview-frame]')
+  const previewBox = await previewFrame.boundingBox()
+
+  expect(previewBox).toBeTruthy()
+
+  await page.mouse.move(
+    previewBox!.x + previewBox!.width * 0.33,
+    previewBox!.y + previewBox!.height * 0.44,
+  )
+  await page.mouse.wheel(0, -1200)
+
+  await expect
+    .poll(async () => (await readPreviewViewport(page)).zoom)
+    .toBeGreaterThan(1)
+
+  const panBefore = await readPreviewViewport(page)
+
+  await page.mouse.down()
+  await page.mouse.move(
+    previewBox!.x + previewBox!.width * 0.5,
+    previewBox!.y + previewBox!.height * 0.6,
+    { steps: 12 },
+  )
+  await page.mouse.up()
+
+  await expect
+    .poll(async () => {
+      const next = await readPreviewViewport(page)
+
+      return (
+        Math.abs(next.panX - panBefore.panX) +
+        Math.abs(next.panY - panBefore.panY)
+      )
+    })
+    .toBeGreaterThan(0)
 })
