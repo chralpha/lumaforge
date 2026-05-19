@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   Check,
   ChevronRight,
+  FolderOpen,
   ImageUp,
   Info,
   LockKeyhole,
@@ -304,53 +305,61 @@ export function MobileLabChrome(props: {
       {!props.hasImage && (
         <m.div
           data-mobile-empty-state
-          className="absolute inset-0 z-[11] grid content-end bg-[radial-gradient(circle_at_50%_24%,rgba(255,255,255,0.10),transparent_32%),linear-gradient(180deg,rgba(10,12,11,0.38),rgba(7,8,7,0.94)_64%,rgba(5,6,5,0.98))] px-4 pb-safe-offset-5 pt-safe-offset-6 text-white"
+          data-mobile-empty-variant="handoff"
+          className="raw-mobile-empty"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div className="grid gap-4">
+          <div className="raw-mobile-empty-hero" data-mobile-empty-hero>
+            <span className="raw-mobile-empty-mark" aria-hidden="true">
+              <ImageUp className="size-[30px]" strokeWidth={1.6} />
+            </span>
             <div className="grid gap-2">
-              <h1 className="m-0 max-w-[15rem] text-balance text-[1.65rem] font-semibold leading-[1.04] text-white">
-                {t('raw.mobile.empty.title')}
-              </h1>
-              <p className="m-0 max-w-[19rem] text-sm leading-relaxed text-white/72">
+              <h1>{t('raw.mobile.empty.title')}</h1>
+              <p className="raw-mobile-empty-copy">
                 {t('raw.mobile.empty.copy')}
               </p>
-              <p className="m-0 text-[0.68rem] font-semibold uppercase tracking-wide text-white/45">
-                {t('raw.mobile.empty.formats')}
-              </p>
             </div>
-
             <button
               type="button"
               onClick={props.onReplaceFile}
-              className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-xl border border-[oklch(0.54_0.14_153)] bg-accent px-4 text-sm font-semibold text-background shadow-[0_16px_34px_rgba(0,0,0,0.28)] transition-colors hover:bg-[oklch(0.66_0.16_153)]"
+              className="raw-mobile-empty-cta"
             >
-              <ImageUp aria-hidden="true" className="size-4" />
+              <FolderOpen aria-hidden="true" className="size-4" />
               {t('raw.mobile.empty.browse')}
             </button>
+            <div
+              className="raw-mobile-empty-formats"
+              aria-label="Supported RAW formats"
+            >
+              {t('raw.mobile.empty.formats')
+                .split(' ')
+                .map((format) => (
+                  <span key={format}>{format}</span>
+                ))}
+            </div>
+          </div>
 
-            <div className="grid gap-3 rounded-2xl border border-white/15 bg-black/42 p-3.5 shadow-[0_16px_38px_rgba(0,0,0,0.32)] backdrop-blur-md">
-              <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3">
-                <span className="grid size-9 place-items-center rounded-xl border border-amber-400/30 bg-amber-400/12 text-amber-300">
-                  <Wand2 aria-hidden="true" className="size-4" />
-                </span>
-                <div className="min-w-0">
-                  <h2 className="m-0 text-sm font-semibold text-white">
-                    {t('raw.mobile.empty.prestageTitle')}
-                  </h2>
-                  <p className="m-0 mt-1 text-xs leading-relaxed text-white/65">
-                    {t('raw.mobile.empty.prestageCopy')}
-                  </p>
-                </div>
+          <div className="raw-mobile-empty-prestage" data-mobile-empty-prestage>
+            <div className="raw-mobile-empty-prestage-row">
+              <span
+                className="raw-mobile-empty-prestage-icon"
+                aria-hidden="true"
+              >
+                <Wand2 className="size-[18px]" strokeWidth={1.9} />
+              </span>
+              <div className="min-w-0">
+                <strong>{t('raw.mobile.empty.prestageTitle')}</strong>
+                <span>{t('raw.mobile.empty.prestageCopy')}</span>
               </div>
               <button
                 type="button"
                 onClick={openLutBrowser}
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-white/20 bg-black/35 px-3 text-sm font-semibold text-white transition-colors hover:border-amber-400/50 hover:text-amber-300"
+                className="raw-mobile-empty-prestage-button"
               >
                 {t('raw.mobile.empty.addLut')}
+                <ChevronRight aria-hidden="true" className="size-3" />
               </button>
             </div>
           </div>

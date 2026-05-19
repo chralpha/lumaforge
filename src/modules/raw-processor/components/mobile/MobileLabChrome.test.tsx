@@ -51,7 +51,15 @@ describe('mobileLabChrome', () => {
   })
 
   it('empty state uses the darkroom onboarding surface and can pre-stage a LUT', async () => {
-    render(<MobileLabChrome {...base} hasImage={false} />)
+    const { container } = render(<MobileLabChrome {...base} hasImage={false} />)
+    const empty = container.querySelector('[data-mobile-empty-state]')
+    expect(empty).toHaveAttribute('data-mobile-empty-variant', 'handoff')
+    expect(
+      container.querySelector('[data-mobile-empty-hero]'),
+    ).toBeInTheDocument()
+    expect(
+      container.querySelector('[data-mobile-empty-prestage]'),
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: /drop a raw to start/i }),
     ).toBeInTheDocument()
