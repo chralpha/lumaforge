@@ -3,7 +3,7 @@
  */
 
 import { useAtomValue } from 'jotai'
-import { AnimatePresence, m } from 'motion/react'
+import { AnimatePresence, m, useReducedMotion } from 'motion/react'
 
 import { clsxm } from '~/lib/cn'
 import { useI18n } from '~/lib/i18n'
@@ -29,6 +29,7 @@ export function ProgressOverlay({
   className,
 }: ProgressOverlayProps) {
   const { t } = useI18n()
+  const reduced = useReducedMotion() ?? false
   const session = useAtomValue(currentSessionAtom)
   const phaseLabels: Record<ProgressOverlayProps['phase'], string> = {
     loading: t('raw.progress.loading'),
@@ -78,19 +79,31 @@ export function ProgressOverlay({
         >
           <m.div
             className="flex flex-col items-center gap-4 rounded-md border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-7 py-6 shadow-lg"
-            initial={{ scale: 0.9, opacity: 0 }}
+            initial={{ scale: 0.96, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={Spring.presets.snappy}
+            exit={{ scale: 0.96, opacity: 0 }}
+            transition={Spring.smooth(0.32)}
           >
             <div className="relative size-[4.5rem]">
-              <svg
+              <m.svg
                 data-progress-indicator
+                data-indeterminate={normalizedProgress === null || undefined}
                 className="size-full -rotate-90"
                 viewBox="0 0 64 64"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
                 aria-hidden="true"
+                animate={
+                  normalizedProgress === null && !reduced
+                    ? { rotate: 360 }
+                    : { rotate: 0 }
+                }
+                transition={
+                  normalizedProgress === null && !reduced
+                    ? { duration: 0.9, ease: 'linear', repeat: Infinity }
+                    : { duration: 0 }
+                }
+                style={{ transformOrigin: '50% 50%' }}
               >
                 <circle
                   cx="32"
@@ -108,18 +121,20 @@ export function ProgressOverlay({
                   strokeWidth="5"
                   strokeLinecap="round"
                   strokeDasharray="100"
-                  strokeDashoffset={100 - ringProgress}
+                  strokeDashoffset={
+                    normalizedProgress === null ? 72 : 100 - ringProgress
+                  }
                   pathLength="100"
                 />
-              </svg>
+              </m.svg>
 
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xs font-semibold tabular-nums text-[var(--color-on-stage)]">
-                  {normalizedProgress === null
-                    ? '...'
-                    : `${Math.round(normalizedProgress)}%`}
-                </span>
-              </div>
+              {normalizedProgress !== null && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs font-semibold tabular-nums text-[var(--color-on-stage)]">
+                    {`${Math.round(normalizedProgress)}%`}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="text-center">

@@ -42,7 +42,7 @@ export function MobileMoreMenu(props: {
   }, [open])
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative inline-flex">
       <IconButton
         icon={MoreHorizontal}
         size="md"

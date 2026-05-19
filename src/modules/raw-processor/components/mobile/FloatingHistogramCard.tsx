@@ -12,7 +12,7 @@ export function FloatingHistogramCard(props: {
     <div
       aria-hidden={props.hidden || undefined}
       className={clsxm(
-        'pointer-events-none absolute right-3 top-safe-offset-14 z-[15] w-[148px] rounded-lg border border-white/25 bg-black/75 p-2 text-white shadow-lg backdrop-blur-background transition-opacity duration-200',
+        'pointer-events-none absolute right-3 top-safe-offset-20 z-[15] w-[148px] rounded-lg border border-white/25 bg-black/75 p-2 text-white shadow-lg backdrop-blur-background transition-opacity duration-200',
         props.hidden ? 'opacity-0' : 'opacity-100',
       )}
     >
