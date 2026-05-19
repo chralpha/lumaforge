@@ -68,12 +68,17 @@ function createCatalogFixture() {
       primaryAsset,
       entryUrl: 'https://example.com/entries/audit-rec709.json',
       lut: {
-        role: 'combined-look-output',
-        inputGamut: 's-gamut3-cine',
-        inputTransfer: 's-log3',
-        outputGamut: 'srgb-rec709',
-        outputTransfer: 'gamma24',
-        outputRange: 'legal',
+        intent: 'combined-look-output',
+        input: {
+          gamut: 's-gamut3-cine',
+          transfer: 's-log3',
+          range: 'full',
+        },
+        output: {
+          gamut: 'rec709',
+          transfer: 'gamma24',
+          range: 'legal',
+        },
       },
     },
   }
@@ -294,4 +299,9 @@ test('keeps sparse online LUT resource entries compact on desktop', async ({
     .getByRole('button', { name: 'Load Audit Rec.709 Print' })
     .click()
   await expect(browser).toHaveCount(0)
+  await expect(page.getByText('LUT input:')).toBeVisible()
+  await expect(page.getByText('s-gamut3-cine / s-log3')).toBeVisible()
+  await expect(page.getByText('LUT output:')).toBeVisible()
+  await expect(page.getByText('Rec.709 display')).toBeVisible()
+  await expect(page.getByText('LUT intent is unsupported')).toHaveCount(0)
 })
