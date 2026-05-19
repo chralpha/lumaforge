@@ -205,23 +205,35 @@ export function OnlineLutSourceControls({
                   }
                 }
 
-                const renderEntry = (entry: (typeof openEntries)[number]) => (
-                  <div
-                    key={entry.id}
-                    className="grid min-w-0 grid-cols-[minmax(0,1fr)_32px] items-center gap-2 rounded-md border border-border bg-fill/50 px-2 py-1.5"
-                    data-raw-lut="source-entry"
-                  >
-                    <span className="min-w-0 truncate text-callout font-medium text-text">
-                      {entry.title}
-                    </span>
-                    <LutIconButton
-                      label={t('raw.lutSource.load', { label: entry.title })}
-                      onClick={() => void onlineLutSources.loadEntry(entry.id)}
+                const renderEntry = (entry: (typeof openEntries)[number]) => {
+                  const handleLoadEntry = () => {
+                    void onlineLutSources.loadEntry(entry.id).then(
+                      () =>
+                        closeBrowser(openResource.id, { restoreFocus: true }),
+                      () => {},
+                    )
+                  }
+
+                  return (
+                    <div
+                      key={entry.id}
+                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_32px] items-center gap-2 rounded-md border border-border bg-fill/50 px-2 py-1.5"
+                      data-raw-lut="source-entry"
                     >
-                      <Download aria-hidden="true" />
-                    </LutIconButton>
-                  </div>
-                )
+                      <span className="min-w-0 truncate text-callout font-medium text-text">
+                        {entry.title}
+                      </span>
+                      <LutIconButton
+                        label={t('raw.lutSource.load', {
+                          label: entry.title,
+                        })}
+                        onClick={handleLoadEntry}
+                      >
+                        <Download aria-hidden="true" />
+                      </LutIconButton>
+                    </div>
+                  )
+                }
 
                 return (
                   <>

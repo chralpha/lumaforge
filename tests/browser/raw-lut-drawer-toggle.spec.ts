@@ -289,4 +289,9 @@ test('keeps sparse online LUT resource entries compact on desktop', async ({
   expect(['start', 'flex-start']).toContain(metrics.listAlignContent)
   expect(metrics.dialog!.height).toBeLessThanOrEqual(280)
   expect(metrics.entry!.height).toBeLessThanOrEqual(56)
+
+  await browser
+    .getByRole('button', { name: 'Load Audit Rec.709 Print' })
+    .click()
+  await expect(browser).toHaveCount(0)
 })
