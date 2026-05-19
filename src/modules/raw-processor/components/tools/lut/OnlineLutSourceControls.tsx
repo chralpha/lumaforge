@@ -175,6 +175,7 @@ export function OnlineLutSourceControls({
           }
           triggerElement={openButtonRefs.current.get(openResource.id)}
           passthroughElements={() => openButtonRefs.current.values()}
+          fillHeight={false}
           onOpenChange={(nextOpen) => {
             if (!nextOpen) {
               closeBrowser(openResource.id, { restoreFocus: true })

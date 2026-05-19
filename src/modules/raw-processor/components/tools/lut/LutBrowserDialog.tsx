@@ -27,6 +27,7 @@ export function LutBrowserDialog({
   restoreFocus,
   triggerElement,
   passthroughElements,
+  fillHeight = true,
   onOpenChange,
   children,
 }: {
@@ -43,6 +44,7 @@ export function LutBrowserDialog({
   restoreFocus: () => void
   triggerElement?: HTMLElement | null
   passthroughElements?: () => Iterable<HTMLElement | null | undefined>
+  fillHeight?: boolean
   onOpenChange: (open: boolean) => void
   children: ReactNode
 }) {
@@ -130,7 +132,7 @@ export function LutBrowserDialog({
           onFocusOutside={(event) => {
             event.preventDefault()
           }}
-          style={toBrowserStyle(layout)}
+          style={toBrowserStyle(layout, { fillHeight })}
         >
           <div
             className={clsxm(

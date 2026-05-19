@@ -99,16 +99,22 @@ export function getViewportBoundedBrowserLayout(
 
 export function toBrowserStyle(
   layout: OnlineLutBrowserLayout | null,
+  options: { fillHeight?: boolean } = {},
 ): OnlineLutBrowserStyle | undefined {
   if (!layout || layout.placement === 'sheet') return undefined
 
-  return {
+  const style: OnlineLutBrowserStyle = {
     '--raw-lut-source-browser-top': `${layout.top}px`,
     '--raw-lut-source-browser-left': `${layout.left}px`,
     '--raw-lut-source-browser-width': `${layout.width}px`,
     '--raw-lut-source-browser-max-height': `${layout.maxHeight}px`,
-    height: `${layout.maxHeight}px`,
   }
+
+  if (options.fillHeight !== false) {
+    style.height = `${layout.maxHeight}px`
+  }
+
+  return style
 }
 
 export function useRawLabPortalContainer(open: boolean) {

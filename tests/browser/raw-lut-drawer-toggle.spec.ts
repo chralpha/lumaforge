@@ -268,19 +268,25 @@ test('keeps sparse online LUT resource entries compact on desktop', async ({
     const entry = document.querySelector<HTMLElement>(
       '[data-raw-lut="source-entry"]',
     )
+    const dialog = document.querySelector<HTMLElement>(
+      '[data-raw-lut-browser-dialog="source"]',
+    )
     const list = document.querySelector<HTMLElement>(
       '[data-raw-lut="source-browser-list"]',
     )
 
     return {
+      dialog: dialog?.getBoundingClientRect().toJSON(),
       entry: entry?.getBoundingClientRect().toJSON(),
       list: list?.getBoundingClientRect().toJSON(),
       listAlignContent: list ? getComputedStyle(list).alignContent : '',
     }
   })
 
+  expect(metrics.dialog).toBeTruthy()
   expect(metrics.list).toBeTruthy()
   expect(metrics.entry).toBeTruthy()
   expect(['start', 'flex-start']).toContain(metrics.listAlignContent)
+  expect(metrics.dialog!.height).toBeLessThanOrEqual(280)
   expect(metrics.entry!.height).toBeLessThanOrEqual(56)
 })
