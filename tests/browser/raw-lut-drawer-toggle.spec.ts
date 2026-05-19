@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer'
+import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 
 import type { Page } from '@playwright/test'
@@ -20,6 +22,61 @@ function createIdentityCube(title: string, size = 17) {
   }
 
   return lines.join('\n')
+}
+
+function createCatalogFixture() {
+  const cube = createIdentityCube('Catalog Fixture')
+  const bytes = Buffer.byteLength(cube)
+  const sha256 = createHash('sha256').update(cube).digest('hex')
+  const primaryAsset = {
+    url: 'https://example.com/audit-rec709.cube',
+    role: 'cube-lut',
+    mediaType: 'application/x-cube-lut',
+    sha256,
+    size: bytes,
+    title: 'Audit Rec.709 Print',
+  }
+
+  return {
+    cube,
+    catalog: {
+      schemaVersion: 1,
+      entries: [
+        {
+          id: 'audit-rec709',
+          kind: 'lut',
+          version: '1.0.0',
+          title: 'Audit Rec.709 Print',
+          family: 'Print Film',
+          license: 'CC0-1.0',
+          redistributionAllowed: true,
+          primaryAsset,
+          entryUrl: 'https://example.com/entries/audit-rec709.json',
+        },
+      ],
+    },
+    entry: {
+      schemaVersion: 1,
+      id: 'audit-rec709',
+      kind: 'lut',
+      version: '1.0.0',
+      format: 'cube',
+      title: 'Audit Rec.709 Print',
+      family: 'Print Film',
+      license: 'CC0-1.0',
+      redistributionAllowed: true,
+      primaryAsset,
+      entryUrl: 'https://example.com/entries/audit-rec709.json',
+      lut: {
+        role: 'combined-look-output',
+        inputGamut: 's-gamut3-cine',
+        inputTransfer: 's-log3',
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'gamma24',
+        outputRange: 'legal',
+      },
+    },
+  }
 }
 
 async function openRawToolsIfNeeded(page: Page) {
@@ -161,4 +218,69 @@ test('keeps the LUT contract browser options inside its scroll frame on desktop'
   expect(metrics.list).toBeTruthy()
   expect(metrics.listOverflowY).toBe('auto')
   expect(metrics.list!.bottom).toBeLessThanOrEqual(metrics.dialog!.bottom + 1)
+})
+
+test('keeps sparse online LUT resource entries compact on desktop', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-desktop',
+    'desktop anchored online resource browser regression',
+  )
+
+  const fixture = createCatalogFixture()
+
+  await page.route('https://example.com/catalog.json', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify(fixture.catalog),
+    }),
+  )
+  await page.route('https://example.com/entries/audit-rec709.json', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify(fixture.entry),
+    }),
+  )
+  await page.route('https://example.com/audit-rec709.cube', (route) =>
+    route.fulfill({
+      contentType: 'text/plain',
+      body: fixture.cube,
+    }),
+  )
+
+  await page.goto(
+    `/raw?luts=${encodeURIComponent('https://example.com/catalog.json')}`,
+  )
+
+  const trigger = page.getByRole('button', {
+    name: 'Open Catalog from example.com',
+  })
+  await expect(trigger).toBeVisible()
+  await trigger.click()
+
+  const browser = page.getByRole('dialog', {
+    name: 'Catalog from example.com LUTs',
+  })
+  await expect(browser).toBeVisible()
+
+  const metrics = await page.evaluate(() => {
+    const entry = document.querySelector<HTMLElement>(
+      '[data-raw-lut="source-entry"]',
+    )
+    const list = document.querySelector<HTMLElement>(
+      '[data-raw-lut="source-browser-list"]',
+    )
+
+    return {
+      entry: entry?.getBoundingClientRect().toJSON(),
+      list: list?.getBoundingClientRect().toJSON(),
+      listAlignContent: list ? getComputedStyle(list).alignContent : '',
+    }
+  })
+
+  expect(metrics.list).toBeTruthy()
+  expect(metrics.entry).toBeTruthy()
+  expect(['start', 'flex-start']).toContain(metrics.listAlignContent)
+  expect(metrics.entry!.height).toBeLessThanOrEqual(56)
 })

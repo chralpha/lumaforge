@@ -182,7 +182,7 @@ export function OnlineLutSourceControls({
           }}
         >
           <div
-            className="grid min-h-0 gap-1.5 overflow-y-auto overscroll-contain pr-0.5"
+            className="grid min-h-0 content-start gap-1.5 overflow-y-auto overscroll-contain pr-0.5"
             data-raw-lut="source-browser-list"
             data-lut-source-scroll="internal"
           >
