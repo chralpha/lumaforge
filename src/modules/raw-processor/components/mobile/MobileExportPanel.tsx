@@ -88,6 +88,9 @@ export function MobileExportPanel(props: {
       ? t('raw.export.copy')
       : localizeCopyLabel(copyCapability.label, t)
     : t('raw.export.copy')
+  const showUnavailableReason = !props.isProcessing && !props.canExport
+  const showRecovery =
+    !props.isProcessing && props.recovery?.status === 'source-required'
 
   const body = props.exportResult ? (
     <m.div
@@ -156,7 +159,7 @@ export function MobileExportPanel(props: {
       exit={{ opacity: 0, y: -4 }}
       transition={PANEL_TRANSITION}
     >
-      {!props.canExport && (
+      {showUnavailableReason && (
         <div className="grid grid-cols-[22px_1fr] gap-2.5 rounded-xl border border-rose-400/40 bg-rose-500/10 p-3 text-white">
           <AlertTriangle
             aria-hidden="true"
@@ -172,10 +175,10 @@ export function MobileExportPanel(props: {
           </div>
         </div>
       )}
-      {props.recovery?.status === 'source-required' && (
+      {showRecovery && (
         <button
           type="button"
-          disabled={!props.onRecoverExportSource || props.isProcessing}
+          disabled={!props.onRecoverExportSource}
           onClick={props.onRecoverExportSource}
           className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-white/20 bg-black/35 px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
         >
@@ -203,11 +206,13 @@ export function MobileExportPanel(props: {
         {props.isProcessing ? t('raw.export.preparing') : t('raw.export.run')}
       </m.button>
       <div className="flex items-baseline justify-between gap-3 px-1 text-[0.7rem] text-white/70">
-        <span>
-          {props.canExport
-            ? t('raw.export.sourcePath')
-            : t('raw.export.noFallback')}
-        </span>
+        {!props.isProcessing && (
+          <span>
+            {props.canExport
+              ? t('raw.export.sourcePath')
+              : t('raw.export.noFallback')}
+          </span>
+        )}
         {props.isProcessing
           ? null
           : props.canExport && <em className="not-italic text-white">JPEG</em>}

@@ -26,6 +26,18 @@ function renderOverlayWithActivePlan(
 }
 
 describe('progressOverlay', () => {
+  it('uses a dedicated photo-visible progress layer instead of the generic stage scrim', () => {
+    renderOverlayWithActivePlan(undefined)
+
+    const overlay = screen.getByRole('status')
+    expect(overlay).toHaveAttribute('data-progress-overlay', 'exporting')
+    expect(overlay).toHaveClass('raw-progress-overlay')
+    expect(overlay).not.toHaveClass('bg-[var(--color-stage-scrim)]')
+    expect(overlay.querySelector('[data-progress-panel]')).toHaveClass(
+      'raw-progress-panel',
+    )
+  })
+
   it('labels low-memory mobile-balanced exports as safe exports', () => {
     renderOverlayWithActivePlan({
       profileName: 'mobile-balanced',

@@ -69,16 +69,21 @@ export function ProgressOverlay({
       {visible && (
         <m.div
           className={clsxm(
-            'absolute inset-0 z-50 flex items-center justify-center bg-[var(--color-stage-scrim)]',
+            'raw-progress-overlay absolute inset-0 z-50 flex items-center justify-center',
             className,
           )}
+          role="status"
+          aria-live="polite"
+          aria-label={message || phaseLabels[phase]}
+          data-progress-overlay={phase}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={Spring.presets.smooth}
         >
           <m.div
-            className="flex flex-col items-center gap-4 rounded-md border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-7 py-6 shadow-lg"
+            data-progress-panel
+            className="raw-progress-panel flex flex-col items-center gap-4 rounded-md border border-[var(--color-stage-hairline)] px-7 py-6"
             initial={{ scale: 0.96, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.96, opacity: 0 }}

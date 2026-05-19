@@ -289,6 +289,7 @@ export function RawToolSurface(props: {
           supportLevel={props.supportLevel}
           onReplaceFile={props.onReplaceFile}
           onResetSession={props.onResetSession}
+          isProcessing={props.isProcessing}
           strengthControl={mobileStrengthControl}
           lutBrowser={mobileLutBrowser}
           onCompareReset={props.onCompareReset}

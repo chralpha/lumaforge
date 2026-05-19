@@ -53,6 +53,7 @@ export function MobileLabChrome(props: {
   supportLevel: 'official' | 'experimental'
   onReplaceFile: () => void
   onResetSession: () => void
+  isProcessing: boolean
   strengthControl: ReactNode
   lutBrowser: Omit<MobileLutBrowserProps, 'open' | 'onClose'>
   onCompareReset: () => void
@@ -442,7 +443,7 @@ export function MobileLabChrome(props: {
           <MobileModeDock
             mode={mode}
             expanded={dockExpanded && props.hasImage}
-            disabled={!props.hasImage}
+            disabled={!props.hasImage || props.isProcessing}
             onModeChange={(m) => {
               if (m !== 'compare' && compareSplitOpen) {
                 setCompareSplitMode(false)

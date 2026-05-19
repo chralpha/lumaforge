@@ -19,6 +19,7 @@ const base = {
   supportLevel: 'official' as const,
   onReplaceFile: vi.fn(),
   onResetSession: vi.fn(),
+  isProcessing: false,
   strengthControl: <div>strength</div>,
   lutBrowser: {
     currentLutName: null,

@@ -1378,6 +1378,27 @@ describe('rawToolSurface', () => {
     }
   })
 
+  it('mobile hides the dock panel while processing so the stage progress owns the transition', () => {
+    const prev = jotaiStore.get(viewportAtom)
+    jotaiStore.set(viewportAtom, { ...prev, w: 390, sm: false })
+    try {
+      render(
+        <Provider store={jotaiStore}>
+          <RawToolSurface {...baseProps} hasImage isProcessing />
+        </Provider>,
+      )
+
+      expect(screen.queryByRole('button', { name: /lut browser/i })).toBeNull()
+      const dock = screen.getByRole('tablist', { name: /lab modes/i })
+      expect(within(dock).getByRole('tab', { name: /look/i })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      )
+    } finally {
+      jotaiStore.set(viewportAtom, prev)
+    }
+  })
+
   it('mobile Compare defaults to hold-to-peek before exposing split reset', async () => {
     const user = userEvent.setup()
     const prev = jotaiStore.get(viewportAtom)
