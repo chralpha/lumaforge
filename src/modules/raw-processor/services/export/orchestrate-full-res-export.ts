@@ -286,6 +286,12 @@ export async function orchestrateFullResExport(
       checkpointMode: jobExecutionPlan.checkpointMode,
     }
 
+    if (jobExecutionPlan.profile.releasePreviewPipelineBeforeExport) {
+      // Capture the current WebGL pipeline before activePlan state and
+      // preview-copy prep can suspend PreviewCanvas and clear the ref.
+      ctx.services.registerCurrentPreviewPipelineForEvacuation()
+    }
+
     emitExportDebugEvent({
       type: 'export-plan-selected',
       payload: {
@@ -351,9 +357,6 @@ export async function orchestrateFullResExport(
       }
     }
 
-    if (jobExecutionPlan.profile.releasePreviewPipelineBeforeExport) {
-      ctx.services.registerCurrentPreviewPipelineForEvacuation()
-    }
     const snapshot = createPreExportSnapshot({
       file: activeSourceFile,
       metadata: ctx.atoms.loadedImage.metadata,

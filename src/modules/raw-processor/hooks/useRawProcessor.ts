@@ -406,7 +406,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         if (pipelineRef.current === pipeline) {
           pipelineRef.current = null
         }
-        return pipeline.dispose({ releaseContext: false })
+        return pipeline.dispose({ releaseContext: true })
       },
     })
   }, [])

@@ -2560,7 +2560,7 @@ describe('useRawProcessor embedded preview state', () => {
       expect(boundedHqSignal?.aborted).toBe(true)
       expect(runtimeDispose).toHaveBeenCalledTimes(1)
       expect(pipelineDispose).toHaveBeenCalledWith({
-        releaseContext: false,
+        releaseContext: true,
       })
       expect(
         jotaiStore.get(currentSessionAtom)?.exportState.result,
@@ -2706,7 +2706,7 @@ describe('useRawProcessor embedded preview state', () => {
       })
       expect(boundedHqSignal?.aborted).toBe(true)
       expect(runtimeDispose).toHaveBeenCalledTimes(1)
-      expect(pipelineDispose).toHaveBeenCalledWith({ releaseContext: false })
+      expect(pipelineDispose).toHaveBeenCalledWith({ releaseContext: true })
 
       await act(async () => {
         boundedHqSettled = true
@@ -2798,7 +2798,7 @@ describe('useRawProcessor embedded preview state', () => {
 
     await waitFor(() => {
       expect(disposePreviewPipeline).toHaveBeenCalledWith({
-        releaseContext: false,
+        releaseContext: true,
       })
     })
 
@@ -3582,9 +3582,16 @@ describe('useRawProcessor embedded preview state', () => {
       filename: 'frame_neutral_fullres.jpg',
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
-    renderToHiddenCanvas.mockResolvedValue(fakeCanvas)
+    let clearPipelineRefDuringCopyPrep: (() => void) | null = null
+    renderToHiddenCanvas.mockImplementation(async () => {
+      clearPipelineRefDuringCopyPrep?.()
+      return fakeCanvas
+    })
 
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    clearPipelineRefDuringCopyPrep = () => {
+      result.current.pipelineRef.current = null
+    }
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -3617,7 +3624,7 @@ describe('useRawProcessor embedded preview state', () => {
       })
     })
     expect(result.current.pipelineRef.current).toBeNull()
-    expect(dispose).toHaveBeenCalledWith({ releaseContext: false })
+    expect(dispose).toHaveBeenCalledWith({ releaseContext: true })
 
     await act(async () => {
       await result.current.copyExportResult()
