@@ -86,6 +86,38 @@ function createExportId() {
   return globalThis.crypto?.randomUUID?.() ?? `export-${Date.now()}`
 }
 
+function deferSuccessfulCheckpointCleanup(task: () => void) {
+  if (typeof globalThis.requestIdleCallback === 'function') {
+    globalThis.requestIdleCallback(() => task(), { timeout: 2000 })
+    return
+  }
+
+  globalThis.setTimeout(task, 0)
+}
+
+function scheduleSuccessfulCheckpointCleanup(input: {
+  checkpointStore: ReturnType<typeof createCheckpointStore>
+  checkpoint: FullResWorkerCheckpointConfig
+  checkpointWriteChain: Promise<void>
+  recoveredExportId?: string
+}) {
+  void input.checkpointWriteChain
+    .catch(() => undefined)
+    .then(async () => {
+      await input.checkpointStore
+        .removeActiveManifest(input.checkpoint.exportId)
+        .catch(() => undefined)
+      if (
+        input.recoveredExportId &&
+        input.recoveredExportId !== input.checkpoint.exportId
+      ) {
+        await input.checkpointStore
+          .removeActiveManifest(input.recoveredExportId)
+          .catch(() => undefined)
+      }
+    })
+}
+
 export async function orchestrateFullResExport(
   options: {
     quality: 'standard' | 'high'
@@ -524,17 +556,16 @@ export async function orchestrateFullResExport(
     }
     const completedCapability = completedSession.exportState.fullResCapability
 
+    let cleanupSuccessfulCheckpoint: (() => void) | null = null
     if (checkpointStore && checkpoint) {
       checkpointWritesClosed = true
-      await checkpointWriteChain.catch(() => undefined)
-      await checkpointStore
-        .removeActiveManifest(checkpoint.exportId)
-        .catch(() => undefined)
-      if (recoveredExportId && recoveredExportId !== checkpoint.exportId) {
-        await checkpointStore
-          .removeActiveManifest(recoveredExportId)
-          .catch(() => undefined)
-      }
+      cleanupSuccessfulCheckpoint = () =>
+        scheduleSuccessfulCheckpointCleanup({
+          checkpointStore,
+          checkpoint,
+          checkpointWriteChain,
+          recoveredExportId,
+        })
     }
 
     const exportResult = createCompletedExportResult({
@@ -570,6 +601,9 @@ export async function orchestrateFullResExport(
         description: result.filename,
       }),
     )
+    if (cleanupSuccessfulCheckpoint) {
+      deferSuccessfulCheckpointCleanup(cleanupSuccessfulCheckpoint)
+    }
   } catch (err) {
     if (
       exportAbortController.signal.aborted ||

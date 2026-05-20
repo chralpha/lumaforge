@@ -367,10 +367,14 @@ async function flushPromises() {
   await Promise.resolve()
 }
 
-async function flushScheduledToasts() {
+async function flushPostCommitTasks() {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
   })
+}
+
+async function flushScheduledToasts() {
+  await flushPostCommitTasks()
 }
 
 function stubDownloadLink() {
@@ -2398,6 +2402,7 @@ describe('useRawProcessor embedded preview state', () => {
         fidelity: 'balanced',
       })
     })
+    await flushPostCommitTasks()
 
     expect(sourceFingerprintMock.createSourceFingerprint).toHaveBeenCalledWith(
       file,
@@ -2433,6 +2438,53 @@ describe('useRawProcessor embedded preview state', () => {
     expect(checkpointStoreMock.removeActiveManifest).toHaveBeenCalledWith(
       expect.any(String),
     )
+  })
+
+  it('defers successful checkpoint manifest cleanup until after the ready handoff', async () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+      maxTouchPoints: 1,
+      storage: { getDirectory: vi.fn() },
+      hardwareConcurrency: 4,
+    })
+    vi.stubGlobal('crossOriginIsolated', false)
+    const manifestRemoval = deferred<void>()
+    checkpointStoreMock.removeActiveManifest.mockReturnValue(
+      manifestRemoval.promise,
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(
+        new File(['raw'], 'frame.ARW', { lastModified: 123 }),
+      )
+    })
+    let exportPromise!: Promise<void>
+    await act(async () => {
+      exportPromise = result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+      await exportPromise
+    })
+
+    expect(result.current.exportResult?.filename).toBe(
+      'frame_neutral_fullres.jpg',
+    )
+    expect(checkpointStoreMock.removeActiveManifest).not.toHaveBeenCalled()
+
+    await flushPostCommitTasks()
+    expect(checkpointStoreMock.removeActiveManifest).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      manifestRemoval.resolve()
+      await flushPromises()
+    })
   })
 
   it('drains checkpoint metric writes before removing a successful manifest', async () => {
@@ -2501,6 +2553,7 @@ describe('useRawProcessor embedded preview state', () => {
       metricWrite.resolve()
       await exportPromise
     })
+    await flushPostCommitTasks()
 
     expect(checkpointStoreMock.removeActiveManifest).toHaveBeenCalledTimes(1)
   })
@@ -2536,6 +2589,7 @@ describe('useRawProcessor embedded preview state', () => {
         new File(['raw'], 'frame.ARW', { lastModified: 123 }),
       )
     })
+    await flushPostCommitTasks()
 
     expect(checkpointStoreMock.removeActiveManifest).toHaveBeenCalledWith(
       'interrupted-export',
