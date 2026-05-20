@@ -98,24 +98,21 @@ function deferSuccessfulCheckpointCleanup(task: () => void) {
 function scheduleSuccessfulCheckpointCleanup(input: {
   checkpointStore: ReturnType<typeof createCheckpointStore>
   checkpoint: FullResWorkerCheckpointConfig
-  checkpointWriteChain: Promise<void>
   recoveredExportId?: string
 }) {
-  void input.checkpointWriteChain
-    .catch(() => undefined)
-    .then(async () => {
+  void (async () => {
+    await input.checkpointStore
+      .removeActiveManifest(input.checkpoint.exportId)
+      .catch(() => undefined)
+    if (
+      input.recoveredExportId &&
+      input.recoveredExportId !== input.checkpoint.exportId
+    ) {
       await input.checkpointStore
-        .removeActiveManifest(input.checkpoint.exportId)
+        .removeActiveManifest(input.recoveredExportId)
         .catch(() => undefined)
-      if (
-        input.recoveredExportId &&
-        input.recoveredExportId !== input.checkpoint.exportId
-      ) {
-        await input.checkpointStore
-          .removeActiveManifest(input.recoveredExportId)
-          .catch(() => undefined)
-      }
-    })
+    }
+  })()
 }
 
 export async function orchestrateFullResExport(
@@ -216,35 +213,6 @@ export async function orchestrateFullResExport(
     let checkpointStore: ReturnType<typeof createCheckpointStore> | null = null
     let checkpointManifest: ExportCheckpointManifest | null = null
     let checkpoint: FullResWorkerCheckpointConfig | undefined
-    let checkpointWritesClosed = false
-    let checkpointWriteChain: Promise<void> = Promise.resolve()
-
-    const enqueueCheckpointWrite = (manifest: ExportCheckpointManifest) => {
-      if (!checkpointStore || checkpointWritesClosed) {
-        return
-      }
-
-      const nextManifest = manifest
-      checkpointWriteChain = checkpointWriteChain
-        .catch(() => undefined)
-        .then(() => checkpointStore?.writeActive(nextManifest))
-        .then(() => {
-          emitExportDebugEvent({
-            type: 'checkpoint-written',
-            payload: {
-              exportId: nextManifest.exportId,
-              completedRowsForDiagnostics:
-                nextManifest.completedRowsForDiagnostics,
-              totalRows: nextManifest.totalRows,
-              updatedAt: nextManifest.updatedAt,
-            },
-          })
-        })
-        .then(
-          () => undefined,
-          () => undefined,
-        )
-    }
 
     if (
       executionPlan.profile.checkpointOutput &&
@@ -480,7 +448,6 @@ export async function orchestrateFullResExport(
         if (
           !checkpointStore ||
           !checkpointManifest ||
-          checkpointWritesClosed ||
           !isCheckpointMetric(metric)
         ) {
           return
@@ -492,7 +459,6 @@ export async function orchestrateFullResExport(
           totalRows: metric.totalRows,
           updatedAt: metric.timestamp,
         }
-        enqueueCheckpointWrite(checkpointManifest)
       },
       onAttempt: (attempt) => {
         if (!isCurrentExport()) return
@@ -558,12 +524,10 @@ export async function orchestrateFullResExport(
 
     let cleanupSuccessfulCheckpoint: (() => void) | null = null
     if (checkpointStore && checkpoint) {
-      checkpointWritesClosed = true
       cleanupSuccessfulCheckpoint = () =>
         scheduleSuccessfulCheckpointCleanup({
           checkpointStore,
           checkpoint,
-          checkpointWriteChain,
           recoveredExportId,
         })
     }

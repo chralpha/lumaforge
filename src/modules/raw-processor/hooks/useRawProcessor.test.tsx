@@ -2502,7 +2502,7 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
-  it('drains checkpoint metric writes before removing a successful manifest', async () => {
+  it('does not write OPFS checkpoint manifests for every strip metric', async () => {
     vi.stubGlobal('navigator', {
       userAgent:
         'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
@@ -2511,11 +2511,7 @@ describe('useRawProcessor embedded preview state', () => {
       hardwareConcurrency: 4,
     })
     vi.stubGlobal('crossOriginIsolated', false)
-    const metricWrite = deferred<void>()
 
-    checkpointStoreMock.writeActive
-      .mockResolvedValueOnce(undefined)
-      .mockReturnValueOnce(metricWrite.promise)
     rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
     rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
       createDecodedImage('quick'),
@@ -2528,14 +2524,16 @@ describe('useRawProcessor embedded preview state', () => {
     )
     exportSystemMock.runFullResolutionExportJob.mockImplementation(
       async (request) => {
-        request.onMetric?.({
-          kind: 'checkpoint',
-          requestId: 'request-1',
-          completedRowsForDiagnostics: 128,
-          totalRows: 4024,
-          stripRows: 128,
-          timestamp: '2026-05-01T00:00:01.000Z',
-        })
+        for (const completedRowsForDiagnostics of [128, 256, 384, 512]) {
+          request.onMetric?.({
+            kind: 'checkpoint',
+            requestId: 'request-1',
+            completedRowsForDiagnostics,
+            totalRows: 4024,
+            stripRows: 128,
+            timestamp: '2026-05-01T00:00:01.000Z',
+          })
+        }
         return {
           filename: 'frame_neutral_fullres.jpg',
           blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
@@ -2556,20 +2554,18 @@ describe('useRawProcessor embedded preview state', () => {
         quality: 'high',
         fidelity: 'balanced',
       })
-      await Promise.resolve()
-    })
-    await waitFor(() => {
-      expect(checkpointStoreMock.writeActive).toHaveBeenCalledTimes(2)
-    })
-
-    expect(checkpointStoreMock.removeActiveManifest).not.toHaveBeenCalled()
-
-    await act(async () => {
-      metricWrite.resolve()
       await exportPromise
     })
+
     await flushPostCommitTasks()
 
+    expect(checkpointStoreMock.writeActive).toHaveBeenCalledTimes(1)
+    expect(checkpointStoreMock.writeActive).toHaveBeenCalledWith(
+      expect.objectContaining({
+        completedRowsForDiagnostics: 0,
+        jpegState: 'restart-required',
+      }),
+    )
     expect(checkpointStoreMock.removeActiveManifest).toHaveBeenCalledTimes(1)
   })
 
