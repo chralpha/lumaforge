@@ -45,6 +45,10 @@ const requiredSourceFiles = [
   'packages/luma-jpeg-runtime/dist/native/luma_jpeg.wasm',
 ]
 
+const fixtureEnv = {
+  LUMAFORGE_NATIVE_ARTIFACTS_DIR: 'packages/luma-native-artifacts',
+}
+
 afterEach(async () => {
   await Promise.all(
     tempDirs.splice(0).map((dir) => rm(dir, { recursive: true })),
@@ -56,7 +60,10 @@ describe('native runtime asset resolution', () => {
     const root = await makeTempProject()
     await writeFiles(root, [...requiredPrebuiltFiles, ...requiredSourceFiles])
 
-    const assetSets = resolveNativeRuntimeAssets({ rootDir: root })
+    const assetSets = resolveNativeRuntimeAssets({
+      rootDir: root,
+      env: fixtureEnv,
+    })
 
     expect(assetSets.map((assetSet) => assetSet.source)).toEqual([
       'prebuilt',
@@ -77,6 +84,7 @@ describe('native runtime asset resolution', () => {
     const assetSets = resolveNativeRuntimeAssets({
       rootDir: root,
       mode: 'source',
+      env: fixtureEnv,
     })
 
     expect(assetSets.map((assetSet) => assetSet.source)).toEqual([
@@ -95,7 +103,9 @@ describe('native runtime asset resolution', () => {
     const root = await makeTempProject()
 
     expect(() =>
-      assertNativeRuntimeAssets(resolveNativeRuntimeAssets({ rootDir: root })),
+      assertNativeRuntimeAssets(
+        resolveNativeRuntimeAssets({ rootDir: root, env: fixtureEnv }),
+      ),
     ).toThrow(
       /Install @lumaforge\/luma-native-artifacts or run `pnpm native:build`/,
     )

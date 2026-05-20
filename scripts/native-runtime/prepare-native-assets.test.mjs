@@ -42,6 +42,10 @@ async function writePrebuiltArtifacts(root) {
   )
 }
 
+const fixtureEnv = {
+  LUMAFORGE_NATIVE_ARTIFACTS_DIR: 'packages/luma-native-artifacts',
+}
+
 afterEach(async () => {
   await Promise.all(
     tempDirs.splice(0).map((dir) => rm(dir, { recursive: true })),
@@ -56,6 +60,7 @@ describe('prepare native runtime assets', () => {
     const assetSets = await prepareNativeRuntimeAssets({
       rootDir: root,
       mode: 'prebuilt',
+      env: fixtureEnv,
       fetchPrebuiltAssets: async ({ packageSpec }) => {
         fetchedPackages.push(packageSpec)
         await writePrebuiltArtifacts(root)
@@ -76,6 +81,7 @@ describe('prepare native runtime assets', () => {
 
     const assetSets = await prepareNativeRuntimeAssets({
       rootDir: root,
+      env: fixtureEnv,
       fetchPrebuiltAssets: async ({ packageSpec }) => {
         fetchedPackages.push(packageSpec)
         await writePrebuiltArtifacts(root)
