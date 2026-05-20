@@ -148,8 +148,18 @@ describe('mobileLabChrome', () => {
     expect(screen.getByText('Sony S-Gamut3.Cine / S-Log3')).toBeInTheDocument()
     expect(screen.getByText('Rec.709 display')).toBeInTheDocument()
 
+    // Primary action swaps the LUT itself — must be the most prominent affordance.
+    expect(
+      screen.getByRole('button', {
+        name: /change lut — browse, upload, or load a different lut/i,
+      }),
+    ).toBeInTheDocument()
+
+    // Tapping the contract row deep-links to the contract editor.
     await userEvent.click(
-      screen.getByRole('button', { name: /change lut contract/i }),
+      screen.getByRole('button', {
+        name: /edit color contract for sony s-gamut3\.cine \/ s-log3/i,
+      }),
     )
 
     expect(
@@ -158,6 +168,51 @@ describe('mobileLabChrome', () => {
     expect(
       screen.getByRole('tablist', { name: 'LUT contract panels' }),
     ).toBeInTheDocument()
+  })
+
+  it('opens the LUT browser at the default view when changing LUT from Look mode', async () => {
+    const detectedProfile = {
+      ...getLUTColorProfile('sony-sgamut3cine-slog3')!,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'srgb' as const,
+      outputRange: 'full' as const,
+    }
+
+    render(
+      <MobileLabChrome
+        {...base}
+        lutBrowser={{
+          ...base.lutBrowser,
+          currentLutName: 'client-look.cube',
+          lutProfileSelection: {
+            status: 'resolved',
+            fingerprint: 'lut-fingerprint',
+            profileId: detectedProfile.id,
+            confidence: 'metadata',
+          },
+          lutProfileResolution: {
+            kind: 'resolved',
+            profile: detectedProfile,
+            confidence: 'metadata',
+          },
+        }}
+      />,
+    )
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: /change lut — browse, upload, or load a different lut/i,
+      }),
+    )
+
+    expect(
+      screen.getByRole('dialog', { name: /lut browser/i }),
+    ).toBeInTheDocument()
+    // The contract editor stays collapsed — default view shows the LUT roster.
+    expect(
+      screen.queryByRole('tablist', { name: 'LUT contract panels' }),
+    ).not.toBeInTheDocument()
   })
 
   it('keeps the mobile LUT contract entry visible when auto-detection fails', async () => {
