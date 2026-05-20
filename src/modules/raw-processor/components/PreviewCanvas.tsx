@@ -84,6 +84,7 @@ export function PreviewCanvas({
   const trackRef = useRef<HTMLDivElement>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
+  const suspendedRef = useRef(suspended)
   const previewViewportRef = useRef(previewViewport)
   const activePointersRef = useRef(new Map<number, TrackedPointer>())
   const pinchStartRef = useRef<{
@@ -108,6 +109,8 @@ export function PreviewCanvas({
     (hasImageData || showEmbeddedPreview) &&
     Boolean(onPreviewViewportChange)
   const normalizedPreviewViewport = normalizePreviewViewport(previewViewport)
+
+  suspendedRef.current = suspended
 
   useEffect(() => {
     previewViewportRef.current = normalizedPreviewViewport
@@ -268,7 +271,7 @@ export function PreviewCanvas({
 
     return () => {
       cancelled = true
-      disposePipeline({ releaseContext: false })
+      disposePipeline({ releaseContext: suspendedRef.current })
       pipelineRef.current = null
       onPipelineChange?.(null)
     }

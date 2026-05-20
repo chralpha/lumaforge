@@ -471,7 +471,7 @@ describe('preview canvas upload descriptor', () => {
     )
 
     expect(firstPipeline.disposeMock).toHaveBeenCalledWith({
-      releaseContext: false,
+      releaseContext: true,
     })
     expect(onPipelineChange).toHaveBeenCalledWith(null)
     expect(pipelineMock.instances).toHaveLength(1)
