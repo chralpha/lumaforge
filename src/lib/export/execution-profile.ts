@@ -62,6 +62,13 @@ export type ExportWorkerAttemptDebugPayload = {
   priorClientDisposed?: boolean
 }
 
+export type ExportProgressDebugPayload = {
+  completedStrips: number
+  totalStrips: number
+  progress: number
+  recordedAt: string
+}
+
 export type ExportOutputMaterializedDebugPayload = {
   action: 'download' | 'share' | 'copy'
   outputKind: ExportOutputSink | 'blob' | 'file-backed'
@@ -87,6 +94,10 @@ export type ExportDebugEvent =
   | {
       type: 'export-worker-attempt'
       payload: ExportWorkerAttemptDebugPayload
+    }
+  | {
+      type: 'export-progress'
+      payload: ExportProgressDebugPayload
     }
   | {
       type: 'output-materialized'

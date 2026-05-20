@@ -480,6 +480,18 @@ export async function orchestrateFullResExport(
           return
         }
 
+        if (entry.progress >= 99) {
+          emitExportDebugEvent({
+            type: 'export-progress',
+            payload: {
+              completedStrips: entry.completedStrips,
+              totalStrips: entry.totalStrips,
+              progress: entry.progress,
+              recordedAt: new Date().toISOString(),
+            },
+          })
+        }
+
         ctx.atoms.setProgress(entry.progress)
         ctx.atoms.setSession((prev) =>
           prev && prev.id === exportSessionId
