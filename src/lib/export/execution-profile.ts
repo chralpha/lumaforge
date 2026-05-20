@@ -98,6 +98,10 @@ type RecordedExportDebugEvent = {
   event: ExportDebugEvent
 }
 
+type ExportDebugWindow = Window & {
+  __LUMAFORGE_EXPORT_DEBUG_HISTORY__?: RecordedExportDebugEvent[]
+}
+
 const exportDebugEventStorageKey = 'lumaforge.exportDebugEvents.v1'
 const exportDebugEventHistoryLimit = 256
 
@@ -194,19 +198,37 @@ export const EXPORT_EXECUTION_PROFILES: Record<
   },
 }
 
+function getExportDebugWindow() {
+  return window as unknown as ExportDebugWindow
+}
+
 function readStoredExportDebugEvents() {
+  const debugWindow = getExportDebugWindow()
+  if (Array.isArray(debugWindow.__LUMAFORGE_EXPORT_DEBUG_HISTORY__)) {
+    return debugWindow.__LUMAFORGE_EXPORT_DEBUG_HISTORY__
+  }
+
   try {
     const raw = window.localStorage.getItem(exportDebugEventStorageKey)
-    if (!raw) return []
+    if (!raw) {
+      debugWindow.__LUMAFORGE_EXPORT_DEBUG_HISTORY__ = []
+      return []
+    }
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? (parsed as RecordedExportDebugEvent[]) : []
+    const history = Array.isArray(parsed)
+      ? (parsed as RecordedExportDebugEvent[])
+      : []
+    debugWindow.__LUMAFORGE_EXPORT_DEBUG_HISTORY__ = history
+    return history
   } catch {
+    debugWindow.__LUMAFORGE_EXPORT_DEBUG_HISTORY__ = []
     return []
   }
 }
 
 function persistExportDebugEvent(event: ExportDebugEvent) {
   try {
+    const debugWindow = getExportDebugWindow()
     const history = readStoredExportDebugEvents()
     const next = [
       ...history,
@@ -215,15 +237,11 @@ function persistExportDebugEvent(event: ExportDebugEvent) {
         event,
       },
     ].slice(-exportDebugEventHistoryLimit)
+    debugWindow.__LUMAFORGE_EXPORT_DEBUG_HISTORY__ = next
     window.localStorage.setItem(
       exportDebugEventStorageKey,
       JSON.stringify(next),
     )
-    ;(
-      window as unknown as {
-        __LUMAFORGE_EXPORT_DEBUG_HISTORY__?: RecordedExportDebugEvent[]
-      }
-    ).__LUMAFORGE_EXPORT_DEBUG_HISTORY__ = next
   } catch {
     // Diagnostics must not affect export control flow.
   }

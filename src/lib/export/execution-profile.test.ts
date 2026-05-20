@@ -1,9 +1,22 @@
+import { vi } from 'vitest'
+
 import type { ExportExecutionProfileName } from './execution-profile'
 import {
   emitExportDebugEvent,
   getExportModeCopy,
   selectExportExecutionPlan,
 } from './execution-profile'
+
+const exportDebugEventStorageKey = 'lumaforge.exportDebugEvents.v1'
+
+function clearExportDebugDiagnostics() {
+  localStorage.clear()
+  delete (
+    window as unknown as {
+      __LUMAFORGE_EXPORT_DEBUG_HISTORY__?: unknown
+    }
+  ).__LUMAFORGE_EXPORT_DEBUG_HISTORY__
+}
 
 describe('export execution profile selection', () => {
   it('forces ios-safe after interrupted checkpoint regardless of platform', () => {
@@ -262,7 +275,7 @@ describe('export execution profile selection', () => {
   })
 
   it('persists recent export debug events for post-reload Safari diagnostics', () => {
-    localStorage.clear()
+    clearExportDebugDiagnostics()
 
     emitExportDebugEvent({
       type: 'export-plan-selected',
@@ -278,7 +291,7 @@ describe('export execution profile selection', () => {
     })
 
     const stored = JSON.parse(
-      localStorage.getItem('lumaforge.exportDebugEvents.v1') ?? '[]',
+      localStorage.getItem(exportDebugEventStorageKey) ?? '[]',
     )
 
     expect(stored).toEqual([
@@ -293,5 +306,28 @@ describe('export execution profile selection', () => {
         }),
       }),
     ])
+  })
+
+  it('does not reread persisted diagnostics for every checkpoint event', () => {
+    clearExportDebugDiagnostics()
+    const getItem = vi.spyOn(Storage.prototype, 'getItem')
+
+    for (
+      let completedRowsForDiagnostics = 0;
+      completedRowsForDiagnostics < 3;
+      completedRowsForDiagnostics += 1
+    ) {
+      emitExportDebugEvent({
+        type: 'checkpoint-written',
+        payload: {
+          exportId: 'export-1',
+          completedRowsForDiagnostics,
+          totalRows: 6374,
+          updatedAt: `2026-05-20T08:30:0${completedRowsForDiagnostics}.000Z`,
+        },
+      })
+    }
+
+    expect(getItem).toHaveBeenCalledTimes(1)
   })
 })
