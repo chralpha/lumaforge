@@ -166,6 +166,42 @@ export function createJpegRuntimeCore(
     return new Blob(parts, { type: 'image/jpeg' })
   }
 
+  async function readBlobBytes(blob: Blob) {
+    if (typeof blob.arrayBuffer === 'function') {
+      return new Uint8Array(await blob.arrayBuffer())
+    }
+
+    if (typeof FileReader !== 'undefined') {
+      return await new Promise<Uint8Array>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () =>
+          resolve(new Uint8Array(reader.result as ArrayBuffer))
+        reader.onerror = () =>
+          reject(reader.error ?? new Error('JPEG_RUNTIME_BLOB_READ_FAILED'))
+        reader.readAsArrayBuffer(blob)
+      })
+    }
+
+    return new Uint8Array(await new Response(blob).arrayBuffer())
+  }
+
+  async function emitBlobAsFinalChunk(requestId: string, blob: Blob) {
+    const bytes = await readBlobBytes(blob)
+    const chunk: JpegWorkerChunk = {
+      bytes,
+      byteOffset: 0,
+      final: true,
+    }
+
+    await options.onResponse?.({
+      id: requestId,
+      ok: true,
+      type: 'chunk',
+      payload: chunk,
+    })
+    emittedChunk = true
+  }
+
   return {
     async handleRequest(
       request: JpegWorkerRequest,
@@ -266,6 +302,10 @@ export function createJpegRuntimeCore(
         const chunks = await collectChunks(request.id, activeEncoder)
         assertReady()
         if (finishMode === 'chunks') {
+          if (!emittedChunk && blob.size > 0) {
+            await emitBlobAsFinalChunk(request.id, blob)
+            assertReady()
+          }
           if (!emittedChunk) {
             state = 'failed'
             encoder = null

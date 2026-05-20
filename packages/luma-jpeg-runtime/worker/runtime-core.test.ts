@@ -405,11 +405,71 @@ describe('createJpegRuntimeCore', () => {
     )
   })
 
-  it('rejects chunk-only finish when the backend emits no chunks', async () => {
+  it('emits a final chunk from the finish blob when chunk mode has no backend chunks', async () => {
+    const emitted: unknown[] = []
+    const core = createJpegRuntimeCore(
+      async () => () => ({
+        async writeRows() {},
+        async finish() {
+          return new Blob([new Uint8Array([255, 216, 255, 217])], {
+            type: 'image/jpeg',
+          })
+        },
+        abort() {},
+      }),
+      {
+        onResponse: (response) => {
+          emitted.push(response)
+        },
+      },
+    )
+
+    await core.handleRequest({
+      id: 'create-final-blob-chunk',
+      type: 'create',
+      payload: {
+        width: 1,
+        height: 1,
+        quality: 0.9,
+        finishMode: 'chunks',
+      },
+    })
+    await core.handleRequest({
+      id: 'rows-before-final-blob-chunk',
+      type: 'rows',
+      payload: { rows: new Uint8Array([255, 255, 255]), rowCount: 1 },
+    })
+
+    const response = await core.handleRequest({
+      id: 'finish-final-blob-chunk',
+      type: 'finish',
+      payload: {},
+    })
+
+    expect(emitted).toEqual([
+      {
+        id: 'finish-final-blob-chunk',
+        ok: true,
+        type: 'chunk',
+        payload: {
+          bytes: new Uint8Array([255, 216, 255, 217]),
+          byteOffset: 0,
+          final: true,
+        },
+      },
+    ])
+    expect(response.type).toBe('finish')
+    if (response.type !== 'finish') {
+      throw new Error('expected finish response')
+    }
+    expect(response.payload.blob.size).toBe(0)
+  })
+
+  it('rejects chunk-only finish when the backend emits no chunks or blob', async () => {
     const core = createJpegRuntimeCore(async () => () => ({
       async writeRows() {},
       async finish() {
-        return new Blob(['jpeg'], { type: 'image/jpeg' })
+        return new Blob([], { type: 'image/jpeg' })
       },
       abort() {},
     }))
