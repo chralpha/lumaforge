@@ -12,7 +12,7 @@
     "analyze": "ANALYZE=true pnpm build",
     "build": "vite build",
     "deploy:selected": "node scripts/deploy/deploy.mjs",
-    "deploy:build-artifact": "LUMAFORGE_NATIVE_RUNTIME_MODE=prebuilt pnpm native:prepare && pnpm --filter @lumaforge/luma-jpeg-runtime build && pnpm --filter @lumaforge/luma-raw-runtime build && pnpm build && pnpm run deploy:check",
+    "deploy:build-artifact": "pnpm native:build && pnpm native:verify && pnpm --filter @lumaforge/luma-jpeg-runtime build && pnpm --filter @lumaforge/luma-raw-runtime build && LUMAFORGE_NATIVE_RUNTIME_MODE=source pnpm build && pnpm run deploy:check",
     "deploy:build-artifact:source": "pnpm native:build && pnpm native:verify && pnpm --filter @lumaforge/luma-jpeg-runtime build && pnpm --filter @lumaforge/luma-raw-runtime build && LUMAFORGE_NATIVE_RUNTIME_MODE=source pnpm build && pnpm run deploy:check",
     "deploy:check": "node scripts/deploy/check.mjs",
     "deploy:prepare": "node scripts/deploy/prepare.mjs",

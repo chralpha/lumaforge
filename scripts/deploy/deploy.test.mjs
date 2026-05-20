@@ -59,6 +59,25 @@ afterEach(async () => {
 })
 
 describe('deploy configuration', () => {
+  it('builds deploy artifacts from source native runtimes by default', async () => {
+    const packageJson = JSON.parse(
+      await readFile(join(process.cwd(), 'package.json'), 'utf8'),
+    )
+
+    expect(packageJson.scripts['deploy:build-artifact']).toBe(
+      packageJson.scripts['deploy:build-artifact:source'],
+    )
+    expect(packageJson.scripts['deploy:build-artifact']).toContain(
+      'pnpm native:build',
+    )
+    expect(packageJson.scripts['deploy:build-artifact']).toContain(
+      'LUMAFORGE_NATIVE_RUNTIME_MODE=source pnpm build',
+    )
+    expect(packageJson.scripts['deploy:build-artifact']).not.toContain(
+      'LUMAFORGE_NATIVE_RUNTIME_MODE=prebuilt',
+    )
+  })
+
   it('requires both RAW runtime memory-profile artifact sets', () => {
     expect(createDeployConfig().nativeAssets).toEqual(
       expect.arrayContaining([
