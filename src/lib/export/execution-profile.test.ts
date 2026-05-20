@@ -260,4 +260,38 @@ describe('export execution profile selection', () => {
       },
     ])
   })
+
+  it('persists recent export debug events for post-reload Safari diagnostics', () => {
+    localStorage.clear()
+
+    emitExportDebugEvent({
+      type: 'export-plan-selected',
+      payload: {
+        profile: 'ios-safe',
+        preferredRows: 128,
+        concurrency: 1,
+        runtimeMemoryProfile: 'low-memory',
+        outputSink: 'opfs-file',
+        checkpointMode: 'safe-retry',
+        checkpointDurableExpected: true,
+      },
+    })
+
+    const stored = JSON.parse(
+      localStorage.getItem('lumaforge.exportDebugEvents.v1') ?? '[]',
+    )
+
+    expect(stored).toEqual([
+      expect.objectContaining({
+        recordedAt: expect.any(String),
+        event: expect.objectContaining({
+          type: 'export-plan-selected',
+          payload: expect.objectContaining({
+            profile: 'ios-safe',
+            outputSink: 'opfs-file',
+          }),
+        }),
+      }),
+    ])
+  })
 })

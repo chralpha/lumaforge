@@ -93,6 +93,14 @@ export type ExportDebugEvent =
       payload: ExportOutputMaterializedDebugPayload
     }
 
+type RecordedExportDebugEvent = {
+  recordedAt: string
+  event: ExportDebugEvent
+}
+
+const exportDebugEventStorageKey = 'lumaforge.exportDebugEvents.v1'
+const exportDebugEventHistoryLimit = 256
+
 export type ExportExecutionProfile = {
   name: ExportExecutionProfileName
   minRows: number
@@ -186,9 +194,45 @@ export const EXPORT_EXECUTION_PROFILES: Record<
   },
 }
 
+function readStoredExportDebugEvents() {
+  try {
+    const raw = window.localStorage.getItem(exportDebugEventStorageKey)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as RecordedExportDebugEvent[]) : []
+  } catch {
+    return []
+  }
+}
+
+function persistExportDebugEvent(event: ExportDebugEvent) {
+  try {
+    const history = readStoredExportDebugEvents()
+    const next = [
+      ...history,
+      {
+        recordedAt: new Date().toISOString(),
+        event,
+      },
+    ].slice(-exportDebugEventHistoryLimit)
+    window.localStorage.setItem(
+      exportDebugEventStorageKey,
+      JSON.stringify(next),
+    )
+    ;(
+      window as unknown as {
+        __LUMAFORGE_EXPORT_DEBUG_HISTORY__?: RecordedExportDebugEvent[]
+      }
+    ).__LUMAFORGE_EXPORT_DEBUG_HISTORY__ = next
+  } catch {
+    // Diagnostics must not affect export control flow.
+  }
+}
+
 export function emitExportDebugEvent(event: ExportDebugEvent) {
   if (typeof window === 'undefined') return
 
+  persistExportDebugEvent(event)
   window.dispatchEvent(
     new CustomEvent('lumaforge-export-debug', { detail: event }),
   )
