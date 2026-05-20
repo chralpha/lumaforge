@@ -2163,6 +2163,11 @@ describe('useRawProcessor embedded preview state', () => {
       })
       await exportPromise
     })
+
+    expect(result.current.exportResult?.filename).toBe(
+      'frame_neutral_fullres.jpg',
+    )
+    expect(result.current.previewSuspended).toBe(true)
   })
 
   it('keeps the desktop-fast preview pipeline mounted during export', async () => {

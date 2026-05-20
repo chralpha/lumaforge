@@ -1204,17 +1204,25 @@ export function useRawProcessor(): UseRawProcessorReturn {
     sessionRecovery && sessionRecovery.status !== 'none'
       ? sessionRecovery
       : discoveredRecovery
+  const exportState = session?.exportState
   const activeExportProfileName =
-    session?.exportState.status === 'exporting'
-      ? session.exportState.activePlan?.profileName
+    exportState?.status === 'exporting' ||
+    (exportState?.status === 'ready' && exportState.result)
+      ? exportState.activePlan?.profileName
       : undefined
+  const exportProfileSuspendsPreview = Boolean(
+    activeExportProfileName &&
+    EXPORT_EXECUTION_PROFILES[activeExportProfileName]
+      .releasePreviewPipelineBeforeExport,
+  )
+  const previewEvacuatedForReadyExport =
+    exportState?.status === 'ready' &&
+    Boolean(exportState.result) &&
+    !decodedImageRef.current &&
+    !embeddedPreviewUrl
   const previewSuspended =
-    status === 'exporting' &&
-    Boolean(
-      activeExportProfileName &&
-      EXPORT_EXECUTION_PROFILES[activeExportProfileName]
-        .releasePreviewPipelineBeforeExport,
-    )
+    exportProfileSuspendsPreview &&
+    (status === 'exporting' || previewEvacuatedForReadyExport)
 
   return {
     params,
