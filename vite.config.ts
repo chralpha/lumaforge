@@ -165,7 +165,7 @@ export default defineConfig(({ command }) => {
     server: {
       headers: CROSS_ORIGIN_ISOLATION_HEADERS,
       watch: {
-        ignored: ['**/.worktrees/**'],
+        ignored: ['**/.worktrees/**', '**/.claude/worktrees/**'],
       },
     },
     preview: {
