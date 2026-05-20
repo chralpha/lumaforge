@@ -3117,6 +3117,40 @@ describe('useRawProcessor embedded preview state', () => {
     expect(jotaiStore.get(currentSessionAtom)?.exportState.result).toBeDefined()
   })
 
+  it('does not probe file share capability while rendering a ready export', async () => {
+    const canShare = vi.fn((_data?: ShareData) => true)
+    vi.stubGlobal('navigator', {
+      canShare,
+      share: vi.fn().mockResolvedValue(undefined),
+    })
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    expect(result.current.exportResult).toBeDefined()
+    expect(result.current.exportShareCapability).toEqual({ available: true })
+    expect(canShare).not.toHaveBeenCalled()
+  })
+
   it('clears a ready export when render graph inputs change but not when compare split changes', async () => {
     const cleanup = vi.fn(async () => undefined)
     const output: FileBackedOutputResult = {

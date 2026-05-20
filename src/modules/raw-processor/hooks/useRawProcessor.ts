@@ -72,7 +72,7 @@ import {
   copyCanvasToClipboard,
   copyExportResultToClipboard,
   downloadExportResult as downloadStoredExportResult,
-  resolveExportShareCapability,
+  resolveExportShareButtonCapability,
   shareExportResult as shareStoredExportResult,
 } from '../services/export-result-actions'
 import {
@@ -1197,7 +1197,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   const exportResult = session?.exportState.result ?? null
   const exportShareCapability = exportResult
-    ? resolveExportShareCapability(exportResult)
+    ? resolveExportShareButtonCapability()
     : { available: false as const, reason: 'Export a JPEG before sharing.' }
   const sessionRecovery = session?.exportState.recovery
   const exportRecovery =

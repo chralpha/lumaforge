@@ -88,6 +88,22 @@ export function resolveExportShareCapability(
   }
 }
 
+export function resolveExportShareButtonCapability(
+  navigatorLike: Pick<Navigator, 'canShare' | 'share'> = navigator,
+): ExportShareCapability {
+  if (
+    typeof navigatorLike.canShare === 'function' &&
+    typeof navigatorLike.share === 'function'
+  ) {
+    return { available: true }
+  }
+
+  return {
+    available: false,
+    reason: 'This browser cannot share JPEG files.',
+  }
+}
+
 export async function shareExportResult(
   result: ExportResult,
   navigatorLike: Navigator = navigator,

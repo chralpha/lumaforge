@@ -12,6 +12,7 @@ import {
   copyExportResultToClipboard,
   downloadExportResult,
   resolveExportCopyCapability,
+  resolveExportShareButtonCapability,
   resolveExportShareCapability,
   shareExportResult,
 } from './export-result-actions'
@@ -302,6 +303,36 @@ describe('export result actions', () => {
     const files = canShare.mock.calls[0]?.[0]?.files ?? []
     expect(files[0]).toBeInstanceOf(File)
     expect(files[0].size).toBe(0)
+  })
+
+  it('resolves the share button without constructing a probe file or calling canShare', () => {
+    const OriginalFile = File
+    const canShare = vi.fn((_data?: ShareData) => true)
+
+    class InstrumentedFile extends OriginalFile {
+      constructor(
+        parts: BlobPart[],
+        filename: string,
+        options?: FilePropertyBag,
+      ) {
+        super(parts, filename, options)
+        throw new Error('share button capability should not create a File')
+      }
+    }
+
+    vi.stubGlobal('File', InstrumentedFile)
+
+    try {
+      expect(
+        resolveExportShareButtonCapability({
+          canShare,
+          share: vi.fn(),
+        } as unknown as Navigator),
+      ).toEqual({ available: true })
+      expect(canShare).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('enables share only when the browser can share the JPEG file', () => {
