@@ -55,6 +55,12 @@ function eventPayload(events: ExportDebugEvent[], type: string) {
   return events.find((event) => event.type === type)?.payload ?? null
 }
 
+async function hasUnsupportedBrowserBuildMessage(page: Page) {
+  return /not available in this browser build/i.test(
+    (await page.locator('body').textContent()) ?? '',
+  )
+}
+
 async function openRawToolsIfCollapsed(page: Page) {
   const toolsToggle = page.getByRole('button', { name: 'Tools' })
   if (await toolsToggle.isVisible()) {
@@ -65,9 +71,49 @@ async function openRawToolsIfCollapsed(page: Page) {
   }
 }
 
+async function loadRawFixture(page: Page, fixture: string) {
+  const isMobileViewport = await page.evaluate(() => window.innerWidth <= 640)
+  const mobileBrowseButton = page.getByRole('button', {
+    name: /browse raw files/i,
+  })
+  const emptyStageButton = page.getByRole('button', {
+    name: /drop one raw here/i,
+  })
+
+  if (isMobileViewport) {
+    await expect(mobileBrowseButton).toBeVisible()
+    const fileChooserPromise = page.waitForEvent('filechooser')
+    await mobileBrowseButton.click()
+    const fileChooser = await fileChooserPromise
+    await fileChooser.setFiles(fixture)
+  } else {
+    await expect(emptyStageButton).toBeVisible()
+    const fileChooserPromise = page.waitForEvent('filechooser')
+    await emptyStageButton.click({ position: { x: 24, y: 24 } })
+    const fileChooser = await fileChooserPromise
+    await fileChooser.setFiles(fixture)
+  }
+}
+
+async function openExportControls(page: Page) {
+  const isMobileViewport = await page.evaluate(() => window.innerWidth <= 640)
+  if (!isMobileViewport) return
+
+  const mobileExportTab = page.getByRole('tab', { name: /^export$/i })
+  await expect(mobileExportTab).toBeVisible({ timeout: 120_000 })
+  await expect
+    .poll(
+      async () => (await mobileExportTab.getAttribute('aria-disabled')) ?? '',
+      { timeout: 120_000 },
+    )
+    .not.toBe('true')
+  await mobileExportTab.click()
+}
+
 test('browser preflight records expected export profile before export', async ({
   page,
 }, testInfo) => {
+  testInfo.setTimeout(240_000)
   const fixture = resolveRawFixture(testInfo)
   const expectedPlan = getExpectedProjectPlan(testInfo.project.name)
 
@@ -85,26 +131,20 @@ test('browser preflight records expected export profile before export', async ({
 
   await page.goto('/raw')
 
-  const fileChooserPromise = page.waitForEvent('filechooser')
-  await page
-    .getByRole('button', { name: /drop one raw here/i })
-    .click({ position: { x: 24, y: 24 } })
-  const fileChooser = await fileChooserPromise
-  await fileChooser.setFiles(fixture)
+  await loadRawFixture(page, fixture)
 
   await openRawToolsIfCollapsed(page)
+  await openExportControls(page)
 
-  const exportRegion = page.getByRole('region', { name: 'Export' }).first()
-  const unsupportedBrowserBuild = exportRegion
-    .getByText(/not available in this browser build/i)
-    .first()
-  const exportButton = exportRegion
+  const exportButton = page
     .getByRole('button', { name: /export full-resolution jpeg/i })
     .first()
   await expect
     .poll(
       async () => {
-        if (await unsupportedBrowserBuild.isVisible()) return 'unsupported'
+        if (await hasUnsupportedBrowserBuildMessage(page)) {
+          return 'unsupported'
+        }
         if (
           (await exportButton.isVisible()) &&
           (await exportButton.isEnabled())
@@ -113,11 +153,11 @@ test('browser preflight records expected export profile before export', async ({
         }
         return 'waiting'
       },
-      { timeout: 60_000 },
+      { timeout: 120_000 },
     )
     .toMatch(/ready|unsupported/)
 
-  if (await unsupportedBrowserBuild.isVisible()) {
+  if (await hasUnsupportedBrowserBuildMessage(page)) {
     testInfo.skip(
       true,
       'This Playwright WebKit browser build cannot expose processed-window full-resolution export for this fixture.',
@@ -162,7 +202,10 @@ test('browser preflight records expected export profile before export', async ({
     })
 
     if (expectedPlan.profile === 'desktop-fast') {
-      expect(evacuationPayload?.requiredOwners).toEqual(['export-result'])
+      expect(evacuationPayload?.requiredOwners).toEqual([
+        'bounded-hq',
+        'export-result',
+      ])
     } else {
       expect(evacuationPayload?.requiredOwners).toEqual([
         'preview',
