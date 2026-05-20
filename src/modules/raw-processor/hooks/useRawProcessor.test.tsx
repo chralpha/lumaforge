@@ -2624,6 +2624,7 @@ describe('useRawProcessor embedded preview state', () => {
     expect(result.current.exportResult?.filename).toBe(
       'frame_neutral_fullres.jpg',
     )
+    expect(result.current.canExport).toBe(true)
 
     await act(async () => {
       boundedHqDecode.resolve(createDecodedImage('bounded-hq'))

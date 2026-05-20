@@ -3,6 +3,7 @@ import type {
   LUTData,
   PreviewHistogramState,
   ProcessingParams,
+  RawRenderExposure,
 } from '@lumaforge/luma-color-runtime'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -239,6 +240,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     new WeakSet(),
   )
   const decodedImageRef = useRef<DecodedImage | null>(null)
+  const rawRenderExposureRef = useRef<RawRenderExposure | null>(null)
   const [decodedImageVersion, setDecodedImageVersion] = useState(0)
   const lutDataRef = useRef<LUTData | null>(null)
   const [lutDataVersion, setLutDataVersion] = useState(0)
@@ -258,7 +260,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [],
   )
   const hasImage = session ? deriveCanEdit(session) : false
-  const rawRenderExposure = decodedImageRef.current?.renderExposure ?? null
+  const rawRenderExposure =
+    decodedImageRef.current?.renderExposure ?? rawRenderExposureRef.current
   const exportReadiness = deriveFullResExportReadiness({
     sourceFile: loadedImage.file,
     session,
@@ -504,9 +507,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   const setDecodedImageRef = useCallback(
     (nextDecoded: DecodedImage | null) => {
-      const currentExposure = decodedImageRef.current?.renderExposure ?? null
+      const currentExposure = rawRenderExposureRef.current
       const nextExposure = nextDecoded?.renderExposure ?? null
       decodedImageRef.current = nextDecoded
+      rawRenderExposureRef.current = nextExposure
       registerDecodedPreviewForEvacuation(nextDecoded)
       setDecodedImageVersion((version) => version + 1)
 
