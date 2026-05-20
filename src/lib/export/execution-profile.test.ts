@@ -61,11 +61,11 @@ describe('export execution profile selection', () => {
     expect(plan.preferredRows).toBe(64)
   })
 
-  it('marks iPhone WebKit 100MP blob handoff as unable to complete safely', () => {
+  it('marks iPhone WebKit large blob handoff exports as unable to complete safely', () => {
     const plan = selectExportExecutionPlan({
       fidelity: 'balanced',
-      sourceWidth: 11662,
-      sourceHeight: 8746,
+      sourceWidth: 9566,
+      sourceHeight: 6374,
       runtime: { lowMemoryAvailable: true, pthreadAvailable: false },
       output: { opfsAvailable: false, streamingAvailable: false },
       platform: {
@@ -79,7 +79,7 @@ describe('export execution profile selection', () => {
     expect(plan.outputSink).toBe('blob-handoff')
     expect(plan.productCopy).toBe('cannot-safely-complete')
     expect(getExportModeCopy(plan.productCopy)).toMatch(
-      /cannot safely complete a 100MP local full-resolution export/i,
+      /cannot safely complete this large local full-resolution export/i,
     )
   })
 

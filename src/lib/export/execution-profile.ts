@@ -105,6 +105,7 @@ type ExportDebugWindow = Window & {
 const exportDebugEventStorageKey = 'lumaforge.exportDebugEvents.v1'
 const exportDebugEventHistoryLimit = 256
 const exportDebugCheckpointPersistRows = 1024
+const iosSafeBlobHandoffMaxMegapixels = 50
 
 export type ExportExecutionProfile = {
   name: ExportExecutionProfileName
@@ -363,7 +364,7 @@ export function selectExportExecutionPlan(input: {
   })
   const cannotSafelyComplete =
     profileName === 'ios-safe' &&
-    megapixels >= 100 &&
+    megapixels > iosSafeBlobHandoffMaxMegapixels &&
     outputSink === 'blob-handoff'
   const runtimeMemoryProfile: ExportRuntimeMemoryProfile =
     profileName === 'desktop-fast' && input.runtime.pthreadAvailable
@@ -403,7 +404,7 @@ export function getExportModeCopy(key: ExportExecutionPlan['productCopy']) {
     'non-durable-checkpoint':
       'This browser cannot store export progress. Keep the tab open while the JPEG is being written.',
     'cannot-safely-complete':
-      'This browser cannot safely complete a 100MP local full-resolution export. Try a desktop browser or export a smaller version.',
+      'This browser cannot safely complete this large local full-resolution export without durable file storage. Use a secure browser URL with OPFS enabled, try a desktop browser, or export a smaller version.',
   }
 
   return copy[key]

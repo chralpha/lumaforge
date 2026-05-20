@@ -2304,7 +2304,7 @@ describe('useRawProcessor embedded preview state', () => {
     )
   })
 
-  it('does not start unsafe 100MP iOS WebKit blob-handoff export without a durable sink', async () => {
+  it('does not start unsafe large iOS WebKit blob-handoff export without a durable sink', async () => {
     vi.stubGlobal('navigator', {
       userAgent:
         'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
@@ -2334,7 +2334,7 @@ describe('useRawProcessor embedded preview state', () => {
 
     expect(result.current.canExport).toBe(false)
     expect(result.current.exportDisabledReason).toMatch(
-      /cannot safely complete a 100MP local full-resolution export/i,
+      /cannot safely complete this large local full-resolution export/i,
     )
 
     await act(async () => {
@@ -2350,7 +2350,7 @@ describe('useRawProcessor embedded preview state', () => {
       'Full-resolution export is not ready',
       expect.objectContaining({
         description: expect.stringMatching(
-          /cannot safely complete a 100MP local full-resolution export/i,
+          /cannot safely complete this large local full-resolution export/i,
         ),
       }),
     )

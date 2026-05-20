@@ -131,7 +131,7 @@ describe('export readiness helpers', () => {
     })
   })
 
-  it('keeps unsafe 100MP iOS blob-handoff exports disabled with product copy', () => {
+  it('keeps unsafe large iOS blob-handoff exports disabled with product copy', () => {
     vi.stubGlobal('navigator', {
       userAgent:
         'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
@@ -155,7 +155,7 @@ describe('export readiness helpers', () => {
 
     expect(readiness.canExport).toBe(false)
     expect(readiness.disabledReason).toMatch(
-      /cannot safely complete a 100MP local full-resolution export/i,
+      /cannot safely complete this large local full-resolution export/i,
     )
   })
 
