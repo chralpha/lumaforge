@@ -330,7 +330,11 @@ export async function orchestrateFullResExport(
 
     let copyCapability = resolveExportCopyCapability()
     let previewCopyCanvas: HTMLCanvasElement | null = null
-    if (copyCapability.mode === 'preview-size') {
+    const preparePreviewCopyCanvas =
+      copyCapability.mode === 'preview-size' &&
+      !jobExecutionPlan.profile.releasePreviewPipelineBeforeExport
+
+    if (preparePreviewCopyCanvas) {
       const pipeline = ctx.refs.pipelineRef.current
       const previewSize = ctx.atoms.stats?.previewSize
 

@@ -3549,7 +3549,7 @@ describe('useRawProcessor embedded preview state', () => {
     ).toBeUndefined()
   })
 
-  it('copies a preview-size export through a hidden processed preview canvas', async () => {
+  it('defers preview-size copy canvas creation until after low-memory export releases preview context', async () => {
     const clipboardWrite = vi.fn().mockResolvedValue(undefined)
     const renderToHiddenCanvas = vi.fn()
     const dispose = vi.fn()
@@ -3582,16 +3582,9 @@ describe('useRawProcessor embedded preview state', () => {
       filename: 'frame_neutral_fullres.jpg',
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
-    let clearPipelineRefDuringCopyPrep: (() => void) | null = null
-    renderToHiddenCanvas.mockImplementation(async () => {
-      clearPipelineRefDuringCopyPrep?.()
-      return fakeCanvas
-    })
+    renderToHiddenCanvas.mockResolvedValue(fakeCanvas)
 
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
-    clearPipelineRefDuringCopyPrep = () => {
-      result.current.pipelineRef.current = null
-    }
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -3625,15 +3618,23 @@ describe('useRawProcessor embedded preview state', () => {
     })
     expect(result.current.pipelineRef.current).toBeNull()
     expect(dispose).toHaveBeenCalledWith({ releaseContext: true })
+    expect(renderToHiddenCanvas).not.toHaveBeenCalled()
+    expect(result.current.exportResult?.copyCapability).toMatchObject({
+      mode: 'preview-size',
+    })
+
+    act(() => {
+      result.current.pipelineRef.current = {
+        renderToHiddenCanvas,
+        dispose,
+      } as never
+    })
 
     await act(async () => {
       await result.current.copyExportResult()
     })
     await flushScheduledToasts()
 
-    expect(result.current.exportResult?.copyCapability).toMatchObject({
-      mode: 'preview-size',
-    })
     expect(renderToHiddenCanvas).toHaveBeenCalledTimes(1)
     expect(renderToHiddenCanvas).toHaveBeenCalledWith({
       width: 640,
