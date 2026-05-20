@@ -198,13 +198,18 @@ test('browser preflight records expected export profile before export', async ({
     expect(evacuationPayload).toMatchObject({
       profile: expectedPlan.profile,
       registryCheck: { ok: true },
-      remainingLive: [],
     })
 
     if (expectedPlan.profile === 'desktop-fast') {
       expect(evacuationPayload?.requiredOwners).toEqual([
         'bounded-hq',
         'export-result',
+      ])
+      expect(evacuationPayload?.remainingLive).toEqual([
+        expect.objectContaining({
+          owner: 'preview',
+          kind: 'array-buffer',
+        }),
       ])
     } else {
       expect(evacuationPayload?.requiredOwners).toEqual([
@@ -214,6 +219,7 @@ test('browser preflight records expected export profile before export', async ({
         'export-result',
         'lut-fetch',
       ])
+      expect(evacuationPayload?.remainingLive).toEqual([])
     }
 
     const workerAttemptPayload = eventPayload(events, 'export-worker-attempt')
