@@ -2562,6 +2562,7 @@ describe('useRawProcessor embedded preview state', () => {
       expect(pipelineDispose).toHaveBeenCalledWith({
         releaseContext: true,
       })
+      expect(result.current.decodedImageRef.current).toBeNull()
       expect(
         jotaiStore.get(currentSessionAtom)?.exportState.result,
       ).toBeUndefined()

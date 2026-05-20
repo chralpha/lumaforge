@@ -33,7 +33,10 @@ import {
   emitExportDebugEvent,
   EXPORT_EXECUTION_PROFILES,
 } from '~/lib/export/execution-profile'
-import type { ResourceRegistry } from '~/lib/export/resource-registry'
+import type {
+  ResourceRegistry,
+  TrackedLargeResource,
+} from '~/lib/export/resource-registry'
 import { createResourceRegistry } from '~/lib/export/resource-registry'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
@@ -219,7 +222,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
   const resourceRegistryRef = useRef<ResourceRegistry | null>(null)
   const previewPipelineResourceIdRef = useRef(0)
+  const decodedPreviewResourceIdRef = useRef(0)
   const exportResultResourceIdRef = useRef(0)
+  const decodedPreviewResourceRef = useRef<TrackedLargeResource | null>(null)
   const previewCopyCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const sessionRef = useRef(session)
   const embeddedPreviewUrlRef = useRef<string | null>(null)
@@ -411,6 +416,40 @@ export function useRawProcessor(): UseRawProcessorReturn {
     })
   }, [])
 
+  const registerDecodedPreviewForEvacuation = useCallback(
+    (decoded: DecodedImage | null) => {
+      const previousResource = decodedPreviewResourceRef.current
+      decodedPreviewResourceRef.current = null
+      if (previousResource) {
+        void previousResource.dispose().catch((error) => {
+          console.warn('Failed to clean up decoded preview resource:', error)
+        })
+      }
+
+      const registry = resourceRegistryRef.current
+      if (!decoded || !registry) return
+
+      let tracked: TrackedLargeResource | null = null
+      tracked = registry.register({
+        id: `decoded-preview-${++decodedPreviewResourceIdRef.current}`,
+        owner: 'preview',
+        kind: 'array-buffer',
+        estimatedBytes: decoded.data.byteLength,
+        dispose: () => {
+          if (decodedPreviewResourceRef.current === tracked) {
+            decodedPreviewResourceRef.current = null
+          }
+          if (decodedImageRef.current === decoded) {
+            decodedImageRef.current = null
+            setDecodedImageVersion((version) => version + 1)
+          }
+        },
+      })
+      decodedPreviewResourceRef.current = tracked
+    },
+    [],
+  )
+
   const registerExportResultResource = useCallback((result: ExportResult) => {
     const registry = resourceRegistryRef.current
     if (!registry) return
@@ -468,13 +507,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
       const currentExposure = decodedImageRef.current?.renderExposure ?? null
       const nextExposure = nextDecoded?.renderExposure ?? null
       decodedImageRef.current = nextDecoded
+      registerDecodedPreviewForEvacuation(nextDecoded)
       setDecodedImageVersion((version) => version + 1)
 
       if (!hasSameRawRenderExposure(currentExposure, nextExposure)) {
         invalidateExportGraph()
       }
     },
-    [invalidateExportGraph],
+    [invalidateExportGraph, registerDecodedPreviewForEvacuation],
   )
 
   useEffect(() => {
