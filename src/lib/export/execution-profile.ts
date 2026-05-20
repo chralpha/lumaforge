@@ -104,6 +104,7 @@ type ExportDebugWindow = Window & {
 
 const exportDebugEventStorageKey = 'lumaforge.exportDebugEvents.v1'
 const exportDebugEventHistoryLimit = 256
+const exportDebugCheckpointPersistRows = 1024
 
 export type ExportExecutionProfile = {
   name: ExportExecutionProfileName
@@ -238,6 +239,8 @@ function persistExportDebugEvent(event: ExportDebugEvent) {
       },
     ].slice(-exportDebugEventHistoryLimit)
     debugWindow.__LUMAFORGE_EXPORT_DEBUG_HISTORY__ = next
+    if (!shouldPersistExportDebugEvent(event)) return
+
     window.localStorage.setItem(
       exportDebugEventStorageKey,
       JSON.stringify(next),
@@ -245,6 +248,15 @@ function persistExportDebugEvent(event: ExportDebugEvent) {
   } catch {
     // Diagnostics must not affect export control flow.
   }
+}
+
+function shouldPersistExportDebugEvent(event: ExportDebugEvent) {
+  if (event.type !== 'checkpoint-written') return true
+
+  const { completedRowsForDiagnostics, totalRows } = event.payload
+  if (completedRowsForDiagnostics <= 0) return true
+  if (completedRowsForDiagnostics >= totalRows) return true
+  return completedRowsForDiagnostics % exportDebugCheckpointPersistRows === 0
 }
 
 export function emitExportDebugEvent(event: ExportDebugEvent) {

@@ -1,4 +1,4 @@
-import { vi } from 'vitest'
+import { afterEach, vi } from 'vitest'
 
 import type { ExportExecutionProfileName } from './execution-profile'
 import {
@@ -19,6 +19,10 @@ function clearExportDebugDiagnostics() {
 }
 
 describe('export execution profile selection', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('forces ios-safe after interrupted checkpoint regardless of platform', () => {
     const plan = selectExportExecutionPlan({
       fidelity: 'max',
@@ -329,5 +333,44 @@ describe('export execution profile selection', () => {
     }
 
     expect(getItem).toHaveBeenCalledTimes(1)
+  })
+
+  it('throttles persisted checkpoint writes while keeping live checkpoint history', () => {
+    clearExportDebugDiagnostics()
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+
+    for (const completedRowsForDiagnostics of [0, 128, 256, 1024, 2048, 6374]) {
+      emitExportDebugEvent({
+        type: 'checkpoint-written',
+        payload: {
+          exportId: 'export-1',
+          completedRowsForDiagnostics,
+          totalRows: 6374,
+          updatedAt: `2026-05-20T08:30:${completedRowsForDiagnostics}.000Z`,
+        },
+      })
+    }
+
+    const liveHistory = (
+      window as unknown as {
+        __LUMAFORGE_EXPORT_DEBUG_HISTORY__?: unknown[]
+      }
+    ).__LUMAFORGE_EXPORT_DEBUG_HISTORY__
+    const stored = JSON.parse(
+      localStorage.getItem(exportDebugEventStorageKey) ?? '[]',
+    )
+
+    expect(setItem).toHaveBeenCalledTimes(4)
+    expect(liveHistory).toHaveLength(6)
+    expect(stored).toHaveLength(6)
+    expect(stored.at(-1)).toMatchObject({
+      event: {
+        type: 'checkpoint-written',
+        payload: {
+          completedRowsForDiagnostics: 6374,
+          totalRows: 6374,
+        },
+      },
+    })
   })
 })
