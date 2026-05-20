@@ -167,19 +167,30 @@ function asOpenTiming(value: unknown, label: keyof LumaRawNativeOpenTimings) {
   return value
 }
 
+function maybeOpenTiming(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? value
+    : undefined
+}
+
 function normalizeOpenTimings(
   timings: unknown,
 ): LumaRawNativeOpenTimings | undefined {
   if (timings === undefined) return undefined
   if (timings === null || typeof timings !== 'object') {
-    throw new TypeError('Native RAW openBuffer returned invalid timing data.')
+    return undefined
   }
 
   const raw = timings as Record<string, unknown>
+  const copyToWasm = maybeOpenTiming(raw.copyToWasm)
+  const librawOpen = maybeOpenTiming(raw.librawOpen)
+  if (copyToWasm === undefined || librawOpen === undefined) {
+    return undefined
+  }
 
   return {
-    copyToWasm: asOpenTiming(raw.copyToWasm, 'copyToWasm'),
-    librawOpen: asOpenTiming(raw.librawOpen, 'librawOpen'),
+    copyToWasm,
+    librawOpen,
   }
 }
 

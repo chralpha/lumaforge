@@ -1770,7 +1770,7 @@ describe('native-adapter', () => {
     expect(nativeCallCount).toBe(0)
   })
 
-  it('throws when open timing objects are malformed', () => {
+  it('drops open timing objects when they are malformed', () => {
     const negativeTiming = createProcessor({
       openTimings: {
         copyToWasm: -1,
@@ -1786,14 +1786,14 @@ describe('native-adapter', () => {
       openTimings: 12,
     })
 
-    expect(() =>
-      negativeTiming.openBuffer(new Uint8Array([1]), settings),
-    ).toThrow('Native RAW openBuffer returned invalid copyToWasm timing.')
-    expect(() =>
-      missingTiming.openBuffer(new Uint8Array([1]), settings),
-    ).toThrow('Native RAW openBuffer returned invalid librawOpen timing.')
-    expect(() =>
-      nonObjectTiming.openBuffer(new Uint8Array([1]), settings),
-    ).toThrow('Native RAW openBuffer returned invalid timing data.')
+    expect(negativeTiming.openBuffer(new Uint8Array([1]), settings)).toBe(
+      undefined,
+    )
+    expect(missingTiming.openBuffer(new Uint8Array([1]), settings)).toBe(
+      undefined,
+    )
+    expect(nonObjectTiming.openBuffer(new Uint8Array([1]), settings)).toBe(
+      undefined,
+    )
   })
 })

@@ -1870,7 +1870,7 @@ describe('runtime-core', () => {
     expect(response.payload.timings.librawOpen).toBeUndefined()
   })
 
-  it('returns a stable failure when native open timings are malformed', async () => {
+  it('uses measured openBuffer timing when native open timings are malformed', async () => {
     const core = createRuntimeCore({
       createProcessor() {
         const processor = makeNativeFactory().createProcessor()
@@ -1898,14 +1898,12 @@ describe('runtime-core', () => {
       },
     })
 
-    expect(response).toMatchObject({
-      ok: false,
-      type: 'decodeQuick',
-      error: {
-        code: 'RAW_OPEN_FAILED',
-        message: 'Native RAW openBuffer returned invalid copyToWasm timing.',
-      },
-    })
+    expect(response.ok && response.type === 'decodeQuick').toBe(true)
+    if (!response.ok || response.type !== 'decodeQuick') return
+
+    expect(response.payload.timings.openBuffer).toBeGreaterThanOrEqual(0)
+    expect(response.payload.timings.copyToWasm).toBeUndefined()
+    expect(response.payload.timings.librawOpen).toBeUndefined()
   })
 
   it('keeps native-owned output buffers without cloning in runtime-core', async () => {
