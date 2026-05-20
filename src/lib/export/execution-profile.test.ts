@@ -373,4 +373,42 @@ describe('export execution profile selection', () => {
       },
     })
   })
+
+  it('keeps export progress diagnostics live-only to avoid completion-path storage writes', () => {
+    clearExportDebugDiagnostics()
+    const events: unknown[] = []
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+    const listener = (event: Event) => {
+      events.push((event as CustomEvent).detail)
+    }
+
+    window.addEventListener('lumaforge-export-debug', listener)
+    try {
+      emitExportDebugEvent({
+        type: 'export-progress',
+        payload: {
+          completedStrips: 50,
+          totalStrips: 50,
+          progress: 99,
+          recordedAt: '2026-05-20T10:03:49.472Z',
+        },
+      })
+    } finally {
+      window.removeEventListener('lumaforge-export-debug', listener)
+    }
+
+    expect(events).toEqual([
+      {
+        type: 'export-progress',
+        payload: {
+          completedStrips: 50,
+          totalStrips: 50,
+          progress: 99,
+          recordedAt: '2026-05-20T10:03:49.472Z',
+        },
+      },
+    ])
+    expect(setItem).not.toHaveBeenCalled()
+    expect(localStorage.getItem(exportDebugEventStorageKey)).toBeNull()
+  })
 })

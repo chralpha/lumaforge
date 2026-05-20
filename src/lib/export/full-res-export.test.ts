@@ -363,10 +363,11 @@ describe('runFullResolutionJpegExport', () => {
       new Uint8Array(4 * 2 * 3).fill(188),
       new Uint8Array(4 * 2 * 3).fill(188),
     ])
-    expect(progress.at(-1)).toBe(100)
+    expect(progress.at(-1)).toBe(99)
+    expect(progress).not.toContain(100)
   })
 
-  it('does not report 100 percent progress until the writer output is closed', async () => {
+  it('keeps completion progress below 100 while the writer output is closing', async () => {
     const progress: number[] = []
     const writer = {
       writeRows: vi.fn(async () => undefined),
@@ -400,7 +401,8 @@ describe('runFullResolutionJpegExport', () => {
     })
 
     expect(writer.close).toHaveBeenCalledTimes(1)
-    expect(progress.at(-1)).toBe(100)
+    expect(progress.at(-1)).toBe(99)
+    expect(progress).not.toContain(100)
   })
 
   it('writes row bands that match the same LUT graph applied to the full strip', async () => {

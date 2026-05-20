@@ -536,7 +536,8 @@ describe('full-resolution export real RAW fixtures', () => {
 
           expect(blob.type).toBe('image/jpeg')
           expect(finalWrittenRows).toBe(capability.height)
-          expect(progress.at(-1)).toBe(100)
+          expect(progress.at(-1)).toBe(99)
+          expect(progress).not.toContain(100)
         } finally {
           session.dispose()
         }

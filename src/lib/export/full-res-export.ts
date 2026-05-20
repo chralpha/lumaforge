@@ -402,11 +402,6 @@ export async function runFullResolutionJpegExport(
 
       const output = await writer.close()
       closed = true
-      input.onProgress?.({
-        completedStrips: strips.length,
-        totalStrips: strips.length,
-        progress: 100,
-      })
       if (metricCollector) {
         for (const metric of attemptStripMetrics) {
           input.onMetric?.(metric)

@@ -263,6 +263,7 @@ function persistExportDebugEvent(event: ExportDebugEvent) {
 }
 
 function shouldPersistExportDebugEvent(event: ExportDebugEvent) {
+  if (event.type === 'export-progress') return false
   if (event.type !== 'checkpoint-written') return true
 
   const { completedRowsForDiagnostics, totalRows } = event.payload
