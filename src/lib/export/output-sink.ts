@@ -133,7 +133,14 @@ export function createOpfsFileBackedOutputResult(input: {
       )
       const fileHandle = await exportDirectory.getFileHandle(outputFileName)
       const file = await fileHandle.getFile()
-      return new Blob([file], { type: input.mimeType })
+      const bytes = await file.arrayBuffer()
+      const blob = new Blob([bytes], { type: input.mimeType })
+      if (typeof blob.arrayBuffer !== 'function') {
+        Object.defineProperty(blob, 'arrayBuffer', {
+          value: async () => bytes.slice(0),
+        })
+      }
+      return blob
     },
     async cleanup() {
       const exportDirectory = await getOpfsExportDirectory(

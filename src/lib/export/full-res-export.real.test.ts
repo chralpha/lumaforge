@@ -38,6 +38,7 @@ import { createRuntimeCore } from '../../../packages/luma-raw-runtime/worker/run
 import { runFullResolutionJpegExport } from './full-res-export'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
 import { createBlobOutputResult, materializeOutputBlob } from './output-sink'
+import { processedWindowToRgb16Rows } from './processed-window-transform'
 
 type NativeModuleFactory = (options?: {
   locateFile?: (path: string) => string
@@ -59,23 +60,12 @@ const packageDir = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '../../../packages/luma-raw-runtime',
 )
-const nativeProfile = 'desktop'
-const nativeJsPath = join(
-  packageDir,
-  'dist',
-  'native',
-  nativeProfile,
-  'luma_raw.js',
-)
-const nativeWasmPath = join(
-  packageDir,
-  'dist',
-  'native',
-  nativeProfile,
-  'luma_raw.wasm',
-)
+const defaultNativeProfile = 'desktop'
+const nativeJsPath = nativeArtifactPath(defaultNativeProfile, 'luma_raw.js')
+const nativeWasmPath = nativeArtifactPath(defaultNativeProfile, 'luma_raw.wasm')
 const gfxRawPath =
   '/workspaces/LumaForge/test-images/Fujifilm - GFX100RF - 16bit lossless compressed (4_3).RAF'
+const sonyRawPath = '/workspaces/LumaForge/test-images/SGL00940.ARW'
 const vLogLutPath =
   '/workspaces/LumaForge/V-Log-Alchemy/Luts/Arri/ARRI_LogC2Video_Classic709_VLog.cube'
 const hasRealFixture =
@@ -83,6 +73,14 @@ const hasRealFixture =
   existsSync(nativeWasmPath) &&
   existsSync(gfxRawPath) &&
   existsSync(vLogLutPath)
+const hasSonyLowMemoryFixture =
+  existsSync(nativeArtifactPath('low-memory', 'luma_raw.js')) &&
+  existsSync(nativeArtifactPath('low-memory', 'luma_raw.wasm')) &&
+  existsSync(sonyRawPath)
+
+function nativeArtifactPath(profile: 'desktop' | 'low-memory', file: string) {
+  return join(packageDir, 'dist', 'native', profile, file)
+}
 
 async function requireFile(absolutePath: string, label: string) {
   const entry = await stat(absolutePath)
@@ -125,9 +123,13 @@ function installFileUrlFetchFallback() {
   }
 }
 
-async function loadNativeFactory(): Promise<LumaRawNativeFactory> {
+async function loadNativeFactory(
+  profile: 'desktop' | 'low-memory' = 'desktop',
+): Promise<LumaRawNativeFactory> {
+  const profileNativeJsPath = nativeArtifactPath(profile, 'luma_raw.js')
+  const profileNativeWasmPath = nativeArtifactPath(profile, 'luma_raw.wasm')
   const moduleImport = (await import(
-    /* @vite-ignore */ pathToFileURL(nativeJsPath).href
+    /* @vite-ignore */ pathToFileURL(profileNativeJsPath).href
   )) as {
     default: NativeModuleFactory
   }
@@ -135,7 +137,7 @@ async function loadNativeFactory(): Promise<LumaRawNativeFactory> {
   const module = await moduleImport.default({
     locateFile(path) {
       if (path.endsWith('.wasm')) {
-        return pathToFileURL(nativeWasmPath).href
+        return pathToFileURL(profileNativeWasmPath).href
       }
 
       return path
@@ -162,16 +164,23 @@ async function loadNativeFactory(): Promise<LumaRawNativeFactory> {
   )
 }
 
-async function createNativeCore() {
-  const nativeFactory = await loadNativeFactory()
+async function createNativeCore(profile: 'desktop' | 'low-memory') {
+  const nativeFactory = await loadNativeFactory(profile)
   return createRuntimeCore(nativeFactory)
 }
 
-let nativeCorePromise: ReturnType<typeof createNativeCore> | undefined
+const nativeCorePromises = new Map<
+  'desktop' | 'low-memory',
+  ReturnType<typeof createNativeCore>
+>()
 
-function getNativeCore() {
-  nativeCorePromise ??= createNativeCore()
-  return nativeCorePromise
+function getNativeCore(profile: 'desktop' | 'low-memory') {
+  let corePromise = nativeCorePromises.get(profile)
+  if (!corePromise) {
+    corePromise = createNativeCore(profile)
+    nativeCorePromises.set(profile, corePromise)
+  }
+  return corePromise
 }
 
 function failureResponse(
@@ -198,6 +207,8 @@ class RealNativeWorker {
   onerror: ((event: ErrorEvent) => void) | null = null
   private terminated = false
 
+  constructor(private readonly profile: 'desktop' | 'low-memory' = 'desktop') {}
+
   postMessage(request: LumaRawWorkerRequest) {
     queueMicrotask(() => {
       void this.handleRequest(request)
@@ -213,7 +224,7 @@ class RealNativeWorker {
 
     let response: LumaRawWorkerResponse
     try {
-      const core = await getNativeCore()
+      const core = await getNativeCore(this.profile)
       response = await core.handleRequest(request)
     } catch (error) {
       response = failureResponse(request, error, 'RAW_RUNTIME_UNAVAILABLE')
@@ -546,6 +557,108 @@ describe('full-resolution export real RAW fixtures', () => {
       }
     },
     900_000,
+  )
+
+  it.skipIf(!hasSonyLowMemoryFixture)(
+    'reads continuous bottom-edge processed windows for the Sony ARW low-memory export profile',
+    async () => {
+      const runtime = createLumaRawRuntime({
+        workerFactory: () =>
+          new RealNativeWorker('low-memory') as unknown as Worker,
+      })
+
+      try {
+        await runtime.init()
+        const session = await runtime.openSession(
+          await createFileFromPath(sonyRawPath),
+          { maxOutputPixels: 2_500_000 },
+        )
+
+        try {
+          const capability = await session.probeExportCapability()
+          expect(capability.supported, JSON.stringify(capability)).toBe(true)
+          expect(capability.strategy).toBe('libraw-processed-window')
+          expect(capability.width).toBe(9566)
+          expect(capability.height).toBe(6374)
+
+          const stripRows = 128
+          const overlapRows = stripRows * 2
+          const bottomY = capability.height - stripRows
+          const overlapY = capability.height - overlapRows
+
+          const bottomWindow = await session.readProcessedWindow({
+            outputRect: {
+              x: 0,
+              y: bottomY,
+              width: capability.width,
+              height: stripRows,
+            },
+            halo: { left: 2, top: 2, right: 2, bottom: 2 },
+          })
+          const overlapWindow = await session.readProcessedWindow({
+            outputRect: {
+              x: 0,
+              y: overlapY,
+              width: capability.width,
+              height: overlapRows,
+            },
+            halo: { left: 2, top: 2, right: 2, bottom: 2 },
+          })
+
+          const bottomRows = processedWindowToRgb16Rows(bottomWindow, {
+            x: 0,
+            y: bottomY,
+            width: capability.width,
+            height: stripRows,
+          })
+          const overlapRowsView = processedWindowToRgb16Rows(overlapWindow, {
+            x: 0,
+            y: overlapY,
+            width: capability.width,
+            height: overlapRows,
+          })
+
+          let maxDelta = 0
+          let totalDelta = 0
+          let mismatchedSamples = 0
+          let comparedSamples = 0
+
+          for (let row = 0; row < stripRows; row += 1) {
+            const bottomRow = bottomRows.row(row)
+            const overlapRow = overlapRowsView.row(row + stripRows)
+            for (let index = 0; index < bottomRow.length; index += 1) {
+              const delta = Math.abs(
+                (bottomRow[index] ?? 0) - (overlapRow[index] ?? 0),
+              )
+              if (delta > 0) {
+                mismatchedSamples += 1
+                totalDelta += delta
+                maxDelta = Math.max(maxDelta, delta)
+              }
+              comparedSamples += 1
+            }
+          }
+
+          expect({
+            comparedSamples,
+            mismatchedSamples,
+            maxDelta,
+            meanMismatchDelta:
+              mismatchedSamples === 0 ? 0 : totalDelta / mismatchedSamples,
+          }).toEqual({
+            comparedSamples: capability.width * stripRows * 3,
+            mismatchedSamples: 0,
+            maxDelta: 0,
+            meanMismatchDelta: 0,
+          })
+        } finally {
+          session.dispose()
+        }
+      } finally {
+        runtime.dispose()
+      }
+    },
+    180_000,
   )
 
   it.skipIf(!hasRealFixture)(

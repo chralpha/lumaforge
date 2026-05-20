@@ -1,3 +1,5 @@
+import { vi } from 'vitest'
+
 import {
   createBlobOutputResult,
   createMemoryFileBackedOutputResult,
@@ -8,6 +10,34 @@ import {
 
 function createMemoryOpfsStorage() {
   const files = new Map<string, Blob>()
+
+  function createBlob(parts: BlobPart[]) {
+    const blob = new Blob(parts, { type: 'image/jpeg' })
+    if (typeof blob.arrayBuffer !== 'function') {
+      Object.defineProperty(blob, 'arrayBuffer', {
+        configurable: true,
+        value: async () => {
+          const buffers = parts.map((part) =>
+            part instanceof Uint8Array
+              ? part
+              : new TextEncoder().encode(String(part)),
+          )
+          const byteLength = buffers.reduce(
+            (total, buffer) => total + buffer.byteLength,
+            0,
+          )
+          const bytes = new Uint8Array(byteLength)
+          let offset = 0
+          for (const buffer of buffers) {
+            bytes.set(buffer, offset)
+            offset += buffer.byteLength
+          }
+          return bytes.buffer
+        },
+      })
+    }
+    return blob
+  }
 
   function createDirectory(path: string): FileSystemDirectoryHandle {
     return {
@@ -28,7 +58,7 @@ function createMemoryOpfsStorage() {
                 chunks.push(chunk)
               },
               async close() {
-                files.set(filePath, new Blob(chunks, { type: 'image/jpeg' }))
+                files.set(filePath, createBlob(chunks))
               },
             } as FileSystemWritableFileStream
           },
@@ -119,5 +149,43 @@ describe('export output sink', () => {
 
     await result.cleanup?.()
     expect(files.size).toBe(0)
+  })
+
+  it('snapshots OPFS file bytes when materializing for browser handoff', async () => {
+    const { storage, files } = createMemoryOpfsStorage()
+    const writable = await createOpfsOutputWritable({
+      exportId: 'export-opfs-snapshot',
+      storage,
+    })
+    await writable.write(new Uint8Array([4, 5, 6]))
+    await writable.close()
+
+    const filePath =
+      '/.lumaforge-exports/active/export-opfs-snapshot/output.jpg'
+    const file = files.get(filePath)
+    if (!file) throw new Error('expected in-memory OPFS fixture file')
+    const originalArrayBuffer = file.arrayBuffer.bind(file)
+    const arrayBuffer = vi.fn(() => originalArrayBuffer())
+    Object.defineProperty(file, 'arrayBuffer', {
+      configurable: true,
+      value: arrayBuffer,
+    })
+
+    const result = createOpfsFileBackedOutputResult({
+      exportId: 'export-opfs-snapshot',
+      filename: 'frame.jpg',
+      byteLength: 3,
+      mimeType: 'image/jpeg',
+      storage,
+    })
+
+    const blob = await materializeOutputBlob(result)
+
+    expect(arrayBuffer).toHaveBeenCalledTimes(1)
+    await result.cleanup?.()
+    expect(files.size).toBe(0)
+    await expect(blob.arrayBuffer()).resolves.toEqual(
+      new Uint8Array([4, 5, 6]).buffer,
+    )
   })
 })
