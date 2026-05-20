@@ -387,7 +387,10 @@ export async function runFullResolutionJpegExport(
           input.onProgress?.({
             completedStrips,
             totalStrips: strips.length,
-            progress: Math.round((completedStrips / strips.length) * 100),
+            progress:
+              completedStrips === strips.length
+                ? 99
+                : Math.round((completedStrips / strips.length) * 100),
           })
         },
         {
@@ -399,6 +402,11 @@ export async function runFullResolutionJpegExport(
 
       const output = await writer.close()
       closed = true
+      input.onProgress?.({
+        completedStrips: strips.length,
+        totalStrips: strips.length,
+        progress: 100,
+      })
       if (metricCollector) {
         for (const metric of attemptStripMetrics) {
           input.onMetric?.(metric)

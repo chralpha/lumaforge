@@ -366,6 +366,43 @@ describe('runFullResolutionJpegExport', () => {
     expect(progress.at(-1)).toBe(100)
   })
 
+  it('does not report 100 percent progress until the writer output is closed', async () => {
+    const progress: number[] = []
+    const writer = {
+      writeRows: vi.fn(async () => undefined),
+      close: vi.fn(async () => {
+        expect(progress).not.toContain(100)
+        return makeJpegOutput([new Uint8Array([1, 2, 3])])
+      }),
+      abort: vi.fn(async () => undefined),
+    }
+
+    await runFullResolutionJpegExport({
+      capability: makeCapability(),
+      graph: {
+        supported: true,
+        outputGamut: 'srgb-rec709',
+        outputTransfer: 'srgb',
+        lutProfile: null,
+        steps: [
+          { kind: 'input-linear-prophoto' },
+          IDENTITY_RAW_RENDER_EXPOSURE_STEP,
+          ...neutralToneSteps(),
+          { kind: 'output-srgb' },
+        ],
+      },
+      preferredRows: 2,
+      readProcessedWindow: async (request) => makeProcessedWindow(request),
+      writerFactory: () => writer,
+      onProgress(entry) {
+        progress.push(entry.progress)
+      },
+    })
+
+    expect(writer.close).toHaveBeenCalledTimes(1)
+    expect(progress.at(-1)).toBe(100)
+  })
+
   it('writes row bands that match the same LUT graph applied to the full strip', async () => {
     const outputRect = { x: 0, y: 0, width: 3, height: 130 }
     const graph: SupportedExportColorGraphDescriptor = {
