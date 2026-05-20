@@ -2441,6 +2441,14 @@ describe('useRawProcessor embedded preview state', () => {
   })
 
   it('defers successful checkpoint manifest cleanup until after the ready handoff', async () => {
+    let idleCallback: IdleRequestCallback | null = null
+    vi.stubGlobal(
+      'requestIdleCallback',
+      vi.fn((callback: IdleRequestCallback) => {
+        idleCallback = callback
+        return 1
+      }),
+    )
     vi.stubGlobal('navigator', {
       userAgent:
         'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
@@ -2477,8 +2485,15 @@ describe('useRawProcessor embedded preview state', () => {
       'frame_neutral_fullres.jpg',
     )
     expect(checkpointStoreMock.removeActiveManifest).not.toHaveBeenCalled()
+    expect(idleCallback).toEqual(expect.any(Function))
 
-    await flushPostCommitTasks()
+    await act(async () => {
+      idleCallback?.({
+        didTimeout: false,
+        timeRemaining: () => 50,
+      } as IdleDeadline)
+      await flushPromises()
+    })
     expect(checkpointStoreMock.removeActiveManifest).toHaveBeenCalledTimes(1)
 
     await act(async () => {

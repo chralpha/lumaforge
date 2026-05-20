@@ -244,6 +244,15 @@ async function handleStart(
     memoryProfile,
     requireCrossOriginIsolation: memoryProfile === 'desktop',
   })
+  let runtimeDisposed = false
+  const disposeRuntime = () => {
+    if (runtimeDisposed) {
+      return
+    }
+
+    runtimeDisposed = true
+    runtime.dispose()
+  }
 
   try {
     await runtime.init()
@@ -252,6 +261,16 @@ async function handleStart(
       undefined,
       controller.signal,
     )
+    let sessionDisposed = false
+    const disposeSession = () => {
+      if (sessionDisposed) {
+        return
+      }
+
+      sessionDisposed = true
+      session.dispose()
+    }
+
     try {
       const exportSession = createRawExportSession(session)
       const capability = await exportSession.probeExportCapability(
@@ -329,18 +348,21 @@ async function handleStart(
         },
       })
 
+      const result = await prepareSuccessOutput({
+        output,
+        metadata: session.probe,
+        width: capability.width,
+        height: capability.height,
+      })
+      disposeSession()
+      disposeRuntime()
       self.postMessage({
         kind: 'success',
         requestId: message.requestId,
-        result: await prepareSuccessOutput({
-          output,
-          metadata: session.probe,
-          width: capability.width,
-          height: capability.height,
-        }),
+        result,
       } satisfies FullResExportWorkerResponse)
     } finally {
-      session.dispose()
+      disposeSession()
     }
   } catch (error) {
     const nextRows = getErrorNextRows(error)
@@ -352,7 +374,7 @@ async function handleStart(
     } satisfies FullResExportWorkerResponse)
   } finally {
     activeRequests.delete(message.requestId)
-    runtime.dispose()
+    disposeRuntime()
   }
 }
 

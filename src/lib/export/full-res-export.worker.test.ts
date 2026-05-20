@@ -401,6 +401,96 @@ describe('full-resolution export worker lifecycle responses', () => {
     })
   })
 
+  it('releases the RAW runtime before posting a file-backed success response', async () => {
+    const order: string[] = []
+    const terminalResponse = new Promise<FullResExportWorkerResponse>(
+      (resolve) => {
+        vi.spyOn(self, 'postMessage').mockImplementation((message) => {
+          const response = message as FullResExportWorkerResponse
+          if (response.kind === 'success' || response.kind === 'error') {
+            order.push(response.kind)
+            resolve(response)
+          }
+        })
+      },
+    )
+    const session = {
+      probe: {
+        width: 4,
+        height: 4,
+        supportLevel: 'full',
+        timings: { total: 1 },
+      },
+      probeExportCapability: vi.fn(async () => ({
+        supported: true,
+        width: 4,
+        height: 4,
+      })),
+      readProcessedWindow: vi.fn(),
+      beginProcessedWindowExport: vi.fn(async () => undefined),
+      endProcessedWindowExport: vi.fn(async () => undefined),
+      dispose: vi.fn(() => {
+        order.push('session.dispose')
+      }),
+    }
+    const runtime = {
+      init: vi.fn(async () => undefined),
+      openSession: vi.fn(async () => session),
+      dispose: vi.fn(() => {
+        order.push('runtime.dispose')
+      }),
+    }
+    vi.mocked(createLumaRawRuntime).mockReturnValue(runtime as never)
+    vi.mocked(runFullResolutionJpegExport).mockResolvedValue(
+      createMemoryFileBackedOutputResult({
+        exportId: 'export-1',
+        filename: 'safe-output.jpg',
+        mimeType: 'image/jpeg',
+        bytes: new Uint8Array([1, 2, 3]),
+      }),
+    )
+
+    self.onmessage?.({
+      data: {
+        kind: 'start',
+        requestId: 'request-file-backed-release',
+        file: new File(['raw'], 'sample.RAF'),
+        filename: 'safe-output.jpg',
+        graph: {
+          supported: true,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'srgb',
+          lutProfile: null,
+          steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+        },
+        executionPlan: {
+          profileName: 'ios-safe',
+          preferredRows: 64,
+          concurrency: 1,
+          runtimeMemoryProfile: 'low-memory',
+          outputSink: 'opfs-file',
+          checkpointMode: 'safe-retry',
+        },
+        checkpoint: {
+          exportId: 'export-1',
+          graphFingerprint: 'graph-1',
+          sourceFingerprint: {
+            name: 'sample.RAF',
+            size: 3,
+            lastModified: 0,
+            hashPrefixHex: 'abc',
+          },
+        },
+        collectMetrics: false,
+      },
+    } as MessageEvent)
+
+    await expect(terminalResponse).resolves.toMatchObject({ kind: 'success' })
+    expect(order).toEqual(['session.dispose', 'runtime.dispose', 'success'])
+    expect(session.dispose).toHaveBeenCalledTimes(1)
+    expect(runtime.dispose).toHaveBeenCalledTimes(1)
+  })
+
   it('includes next row hints when worker resource retry fails', async () => {
     const terminalResponse = new Promise<FullResExportWorkerResponse>(
       (resolve) => {
