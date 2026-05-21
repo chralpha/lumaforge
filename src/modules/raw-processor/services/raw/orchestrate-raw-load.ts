@@ -135,8 +135,6 @@ export async function orchestrateRawLoad(
     ctx.atoms.setProgress(0)
     ctx.atoms.setError(null)
 
-    await ctx.services.yieldToPaint()
-
     ctx.refs.runtimeWorkSessionIdRef.current = null
     ctx.refs.pendingLoadSessionIdRef.current = null
     ctx.atoms.setPendingRecoveryRetry(null)
@@ -179,6 +177,11 @@ export async function orchestrateRawLoad(
 
       return applyPreviewLoadStarted(prev, loadState.compareSplit)
     })
+
+    await ctx.services.yieldToPaint()
+    if (!ctx.refs.isMountedRef.current) {
+      return
+    }
 
     if (initialPhase === 'warming') {
       const outcome = await ctx.services.prewarm()
