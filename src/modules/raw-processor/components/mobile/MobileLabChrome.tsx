@@ -60,6 +60,8 @@ export function MobileLabChrome(props: {
   onCompareReset: () => void
   exportPanel: ReactNode
   moreSheet: { pipelineSteps: Step[]; lutRows: Row[]; fileRows: Row[] }
+  previewSuspended?: boolean
+  preferExportMode?: boolean
 }) {
   const { t } = useI18n()
   const [mode, setMode] = useState<MobileMode>('look')
@@ -74,8 +76,13 @@ export function MobileLabChrome(props: {
   const [dockExpanded, setDockExpanded] = useState(true)
   const [scrubbing, setScrubbing] = useState(false)
   const [compareSplitOpen, setCompareSplitOpen] = useState(false)
+  const previewReleasedReady =
+    props.hasImage && props.previewSuspended === true && !props.isProcessing
+  const handoffActive =
+    props.hasImage && (props.isProcessing || previewReleasedReady)
   const snapshot = useRef<ToneValue | null>(null)
   const viewModeBeforePeek = useRef<ViewMode>('processed')
+  const preferExportModeWasActive = useRef(false)
 
   // When the RAW is cleared/replaced, tear down every transient layer so the
   // empty-state scaffold can never be left behind focus / immersive / a
@@ -99,9 +106,44 @@ export function MobileLabChrome(props: {
   }, [hasImage])
 
   useEffect(() => {
+    if (!handoffActive) return
+    setFocusKey(null)
+    setImmersive(false)
+    setLutBrowserOpen(false)
+    setLutBrowserStartsInContract(false)
+    setMoreOpen(false)
+    setScrubbing(false)
+    setCompareSplitOpen(false)
+    setHistogramOpen(false)
+    setPeeking(false)
+    snapshot.current = null
+  }, [handoffActive])
+
+  useEffect(() => {
     if (!hasImage || compareSplitOpen || viewMode !== 'compare') return
     onViewModeChange('processed')
   }, [compareSplitOpen, hasImage, onViewModeChange, viewMode])
+
+  useEffect(() => {
+    const preferExportMode = props.preferExportMode === true
+    const shouldActivate =
+      preferExportMode && !preferExportModeWasActive.current && hasImage
+    preferExportModeWasActive.current = preferExportMode
+
+    if (!shouldActivate) return
+
+    setMode('export')
+    setDockExpanded(true)
+    setFocusKey(null)
+    setImmersive(false)
+    setLutBrowserOpen(false)
+    setLutBrowserStartsInContract(false)
+    setMoreOpen(false)
+    setScrubbing(false)
+    setCompareSplitOpen(false)
+    setHistogramOpen(false)
+    snapshot.current = null
+  }, [hasImage, props.preferExportMode])
 
   const startFocus = (k: keyof ToneValue) => {
     snapshot.current = props.tone
@@ -327,7 +369,12 @@ export function MobileLabChrome(props: {
 
   return (
     <div
-      className="absolute inset-0 z-20"
+      className={[
+        'absolute inset-0 z-20',
+        handoffActive ? 'pointer-events-none' : null,
+      ]
+        .filter(Boolean)
+        .join(' ')}
       data-mobile-lab-chrome
       data-focus={focusKey ? 'true' : 'false'}
       data-peek={peeking || undefined}
@@ -335,7 +382,7 @@ export function MobileLabChrome(props: {
       {/* Peek and the Compare split are alternate RAW-vs-finished affordances.
           Mobile Compare defaults to hold-to-peek; the split handle is only
           enabled after the explicit split action. */}
-      {props.hasImage && (
+      {props.hasImage && !handoffActive && (
         <MobilePeekSurface
           enabled={!focusKey}
           allowPeek={!compareSplitOpen}
@@ -408,7 +455,7 @@ export function MobileLabChrome(props: {
         </m.div>
       )}
 
-      {immersive && !focusKey && props.hasImage && (
+      {immersive && !focusKey && props.hasImage && !handoffActive && (
         <button
           type="button"
           aria-label={t('raw.mobile.immersive.show')}
@@ -419,17 +466,21 @@ export function MobileLabChrome(props: {
         </button>
       )}
 
-      {peeking && props.hasImage && (
+      {peeking && props.hasImage && !handoffActive && (
         <div className="pointer-events-none absolute left-1/2 top-safe-offset-14 z-[12] -translate-x-1/2 rounded-full border border-white/30 bg-black/80 px-2.5 py-1.5 text-[0.7rem] font-semibold uppercase tracking-wide text-white">
           {t('raw.mobile.peek.hint')}
         </div>
       )}
 
-      {histogramOpen && !focusKey && !immersive && props.hasImage && (
-        <FloatingHistogramCard histogram={props.histogram} hidden={peeking} />
-      )}
+      {histogramOpen &&
+        !focusKey &&
+        !immersive &&
+        props.hasImage &&
+        !handoffActive && (
+          <FloatingHistogramCard histogram={props.histogram} hidden={peeking} />
+        )}
 
-      {!focusKey && !immersive && props.hasImage && (
+      {!focusKey && !immersive && props.hasImage && !previewReleasedReady && (
         <>
           <MobileTopbar
             hasImage
@@ -484,7 +535,11 @@ export function MobileLabChrome(props: {
           <MobileModeDock
             mode={mode}
             expanded={dockExpanded && props.hasImage}
-            disabled={!props.hasImage || props.isProcessing}
+            disabled={
+              !props.hasImage ||
+              props.isProcessing ||
+              props.previewSuspended === true
+            }
             onModeChange={(m) => {
               if (m !== 'compare' && compareSplitOpen) {
                 setCompareSplitMode(false)
@@ -500,8 +555,23 @@ export function MobileLabChrome(props: {
         </>
       )}
 
+      {previewReleasedReady && props.preferExportMode && (
+        <m.div
+          data-mobile-released-export-actions
+          className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/95 via-black/72 to-transparent pb-safe-offset-3 text-white"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 8 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div className="max-h-[34vh] overflow-y-auto px-3.5 pb-3 pt-4">
+            {props.exportPanel}
+          </div>
+        </m.div>
+      )}
+
       <AnimatePresence>
-        {focusKey && props.hasImage && (
+        {focusKey && props.hasImage && !handoffActive && (
           <ToneFocusEditor
             key="tone-focus"
             tone={props.tone}
@@ -517,7 +587,7 @@ export function MobileLabChrome(props: {
       </AnimatePresence>
 
       <MobileLutBrowser
-        open={lutBrowserOpen}
+        open={!handoffActive && lutBrowserOpen}
         initialContractEditorOpen={lutBrowserStartsInContract}
         onClose={() => {
           setLutBrowserOpen(false)
@@ -527,7 +597,7 @@ export function MobileLabChrome(props: {
       />
 
       <MobileMoreSheet
-        open={props.hasImage && moreOpen}
+        open={props.hasImage && !handoffActive && moreOpen}
         onClose={() => setMoreOpen(false)}
         pipelineSteps={props.moreSheet.pipelineSteps}
         lutRows={props.moreSheet.lutRows}

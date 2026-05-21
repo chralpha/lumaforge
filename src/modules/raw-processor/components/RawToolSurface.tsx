@@ -55,6 +55,7 @@ export function RawToolSurface(props: {
   disabledReason?: string
   isProcessing: boolean
   isExporting?: boolean
+  previewSuspended?: boolean
   exportResult: ExportResult | null
   exportShareCapability: ExportShareCapability
   histogram: PreviewHistogramState
@@ -77,9 +78,14 @@ export function RawToolSurface(props: {
 }) {
   const { t } = useI18n()
   const isMobileViewport = useViewport(selectIsNarrowViewport)
-  const editorDisabled = !props.hasImage || props.isExporting === true
-  const lutDropDisabled = props.isExporting === true
-  const mobileEditorDisabled = !props.hasImage || props.isProcessing
+  const previewSuspended = props.previewSuspended === true
+  const mobilePassThrough =
+    props.hasImage && (props.isProcessing || previewSuspended)
+  const editorDisabled =
+    !props.hasImage || props.isExporting === true || previewSuspended
+  const lutDropDisabled = props.isExporting === true || previewSuspended
+  const mobileEditorDisabled =
+    !props.hasImage || props.isProcessing || previewSuspended
 
   const histogramMeta =
     props.histogram.state === 'ready'
@@ -125,7 +131,7 @@ export function RawToolSurface(props: {
   // sheet instead of the desktop popovers.
   const mobileLutBrowser = {
     currentLutName: props.currentLutName,
-    disabled: props.isProcessing,
+    disabled: props.isProcessing || lutDropDisabled,
     onLutLoad: props.onLutLoad,
     onLutClear: props.onLutClear,
     lutProfileSelection: props.lutProfileSelection,
@@ -281,7 +287,15 @@ export function RawToolSurface(props: {
     // image MobileLabChrome renders an empty, inert configuration over the
     // full-bleed dark guided stage dropzone.
     return (
-      <div className="fixed inset-0 z-30" data-raw-mobile-lab>
+      <div
+        className={[
+          'fixed inset-0 z-30',
+          mobilePassThrough ? 'pointer-events-none' : null,
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        data-raw-mobile-lab
+      >
         <MobileLabChrome
           hasImage={props.hasImage}
           tone={props.tone}
@@ -301,6 +315,8 @@ export function RawToolSurface(props: {
           onCompareReset={props.onCompareReset}
           exportPanel={mobileExportBlock}
           moreSheet={moreSheet}
+          previewSuspended={previewSuspended}
+          preferExportMode={previewSuspended && props.exportResult != null}
         />
       </div>
     )

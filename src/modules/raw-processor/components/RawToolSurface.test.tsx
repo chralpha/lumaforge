@@ -510,6 +510,17 @@ describe('rawToolSurface', () => {
     expect(screen.getByRole('button', { name: 'Reset tone' })).toBeDisabled()
   })
 
+  it('disables preview-dependent editing while the preview is released after export', () => {
+    render(<RawToolSurface {...baseProps} hasImage previewSuspended />)
+
+    const tone = getToneRegion()
+    expect(
+      within(tone).getByRole('slider', { name: 'Exposure' }),
+    ).toHaveAttribute('data-disabled')
+    expect(screen.getByRole('button', { name: 'Reset tone' })).toBeDisabled()
+    expect(screen.getByLabelText(/add \.cube lut/i)).toBeDisabled()
+  })
+
   it('uses Raw Lab-specific reset controls for tone and compare', async () => {
     const user = userEvent.setup()
     const onCompareReset = vi.fn()
@@ -1378,22 +1389,74 @@ describe('rawToolSurface', () => {
     }
   })
 
-  it('mobile hides the dock panel while processing so the stage progress owns the transition', () => {
+  it('mobile lets the stage handoff receive touch while processing', () => {
     const prev = jotaiStore.get(viewportAtom)
     jotaiStore.set(viewportAtom, { ...prev, w: 390, sm: false })
     try {
-      render(
+      const { container } = render(
         <Provider store={jotaiStore}>
           <RawToolSurface {...baseProps} hasImage isProcessing />
         </Provider>,
       )
 
-      expect(screen.queryByRole('button', { name: /lut browser/i })).toBeNull()
-      const dock = screen.getByRole('tablist', { name: /lab modes/i })
-      expect(within(dock).getByRole('tab', { name: /look/i })).toHaveAttribute(
-        'aria-disabled',
-        'true',
+      expect(container.querySelector('[data-raw-mobile-lab]')).toHaveClass(
+        'pointer-events-none',
       )
+      expect(
+        container.querySelector('[data-mobile-topbar]'),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole('tablist', { name: /lab modes/i }),
+      ).toBeInTheDocument()
+    } finally {
+      jotaiStore.set(viewportAtom, prev)
+    }
+  })
+
+  it('mobile keeps export result actions reachable while the preview is released', () => {
+    const prev = jotaiStore.get(viewportAtom)
+    jotaiStore.set(viewportAtom, { ...prev, w: 390, sm: false })
+    try {
+      const { container } = render(
+        <Provider store={jotaiStore}>
+          <RawToolSurface
+            {...baseProps}
+            hasImage
+            previewSuspended
+            exportResult={{
+              output: {
+                kind: 'blob',
+                filename: 'DSC09142_fullres.jpg',
+                blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+                byteLength: 4,
+                mimeType: 'image/jpeg',
+              },
+              filename: 'DSC09142_fullres.jpg',
+              width: 6000,
+              height: 4000,
+              size: 4,
+              createdAt: 0,
+              copyCapability: {
+                mode: 'preview-size',
+                label: 'Copy preview-size image',
+                reason: 'Full-resolution copy is not available.',
+              },
+            }}
+            exportShareCapability={{ available: true }}
+          />
+        </Provider>,
+      )
+
+      expect(container.querySelector('[data-raw-mobile-lab]')).toHaveClass(
+        'pointer-events-none',
+      )
+      expect(
+        container.querySelector('[data-mobile-released-export-actions]'),
+      ).toHaveClass('pointer-events-auto')
+      expect(
+        screen.getByRole('button', { name: /download/i }),
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('tablist', { name: /lab modes/i })).toBeNull()
     } finally {
       jotaiStore.set(viewportAtom, prev)
     }

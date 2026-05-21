@@ -125,6 +125,7 @@ function RawProcessorViewInner({
     downloadExportResult,
     shareExportResult,
     copyExportResult,
+    restorePreviewAfterExport,
     reset,
     resetTone,
     dismissError,
@@ -340,6 +341,7 @@ function RawProcessorViewInner({
           onRawDrop={handleFileDrop}
           onStatsUpdate={handleStatsUpdate}
           onPipelineChange={handlePipelineChange}
+          onRestorePreview={restorePreviewAfterExport}
         />
 
         <RawToolSurface
@@ -379,6 +381,7 @@ function RawProcessorViewInner({
           disabledReason={exportDisabledReason}
           isProcessing={isProcessing}
           isExporting={status === 'exporting'}
+          previewSuspended={previewSuspended}
           exportResult={exportResult}
           exportShareCapability={exportShareCapability}
           recovery={exportRecovery}

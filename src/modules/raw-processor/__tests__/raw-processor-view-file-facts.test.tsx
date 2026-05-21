@@ -182,6 +182,7 @@ function createLoadedProcessorState(
     },
     setPreviewViewport: overrides.setPreviewViewport ?? vi.fn(),
     resetPreviewViewport: overrides.resetPreviewViewport ?? vi.fn(),
+    restorePreviewAfterExport: overrides.restorePreviewAfterExport ?? vi.fn(),
   }
 }
 

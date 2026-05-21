@@ -114,6 +114,90 @@ describe('mobileLabChrome', () => {
     expect(screen.getByText('strength')).toBeInTheDocument()
   })
 
+  it('surfaces the export panel when the result handoff should own mobile focus', async () => {
+    render(
+      <MobileLabChrome
+        {...base}
+        preferExportMode
+        exportPanel={<div>ready export actions</div>}
+      />,
+    )
+
+    expect(await screen.findByText('ready export actions')).toBeInTheDocument()
+    expect(screen.queryByText('No LUT yet, tone only.')).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /export/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+  })
+
+  it('keeps the mobile topbar and toolbar visible while processing replaces the preview layer', () => {
+    const { container } = render(<MobileLabChrome {...base} isProcessing />)
+
+    expect(container.querySelector('[data-mobile-lab-chrome]')).toHaveClass(
+      'pointer-events-none',
+    )
+    expect(screen.queryByTestId('mobile-peek-surface')).not.toBeInTheDocument()
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+    const dock = screen.getByRole('tablist', { name: /lab modes/i })
+    expect(within(dock).getByRole('tab', { name: /look/i })).toBeDisabled()
+    expect(within(dock).getByRole('tab', { name: /export/i })).toBeDisabled()
+    expect(screen.queryByText('strength')).not.toBeInTheDocument()
+  })
+
+  it('closes transient mobile sheets when the blocking handoff starts', async () => {
+    const { rerender } = render(<MobileLabChrome {...base} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /lut browser/i }))
+    expect(
+      screen.getByRole('dialog', { name: /lut browser/i }),
+    ).toBeInTheDocument()
+
+    rerender(<MobileLabChrome {...base} isProcessing />)
+
+    expect(
+      screen.queryByRole('dialog', { name: /lut browser/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('keeps mobile controls away while the preview remains released after export', () => {
+    const { container } = render(<MobileLabChrome {...base} previewSuspended />)
+
+    expect(container.querySelector('[data-mobile-lab-chrome]')).toHaveClass(
+      'pointer-events-none',
+    )
+    expect(screen.queryByTestId('mobile-peek-surface')).not.toBeInTheDocument()
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('tablist', { name: /lab modes/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('keeps export result actions available while the preview remains released', () => {
+    const { container } = render(
+      <MobileLabChrome
+        {...base}
+        previewSuspended
+        preferExportMode
+        exportPanel={<button type="button">Download JPEG</button>}
+      />,
+    )
+
+    const actions = container.querySelector(
+      '[data-mobile-released-export-actions]',
+    )
+    expect(actions).toBeInTheDocument()
+    expect(actions).toHaveClass('pointer-events-auto')
+    expect(
+      screen.getByRole('button', { name: /download jpeg/i }),
+    ).toBeInTheDocument()
+    expect(screen.queryByTestId('mobile-peek-surface')).not.toBeInTheDocument()
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('tablist', { name: /lab modes/i }),
+    ).not.toBeInTheDocument()
+  })
+
   it('surfaces the current mobile LUT contract directly in Look mode', async () => {
     const detectedProfile = {
       ...getLUTColorProfile('sony-sgamut3cine-slog3')!,
