@@ -9,6 +9,11 @@ import type {
 } from '@lumaforge/luma-raw-runtime'
 
 import { JPEG_RUNTIME_UNAVAILABLE_MESSAGE } from '~/lib/export/jpeg/wasm-row-sink'
+import {
+  detectCapabilityVector,
+  getCapabilityVectorSnapshot,
+} from '~/lib/runtime/capability-vector'
+import { deriveInteractivePolicy } from '~/lib/runtime/interactive-policy'
 import { RawDecodeBridge } from '~/lib/workers/raw-decode-bridge'
 
 import type { DecodedImage, ImageMetadata, ProgressCallback } from './decoder'
@@ -54,8 +59,14 @@ function createDefaultRawDecodeBridge() {
     runtimeFactory: async () => {
       const { createLumaRawRuntime } =
         await import('@lumaforge/luma-raw-runtime')
+      const capability =
+        getCapabilityVectorSnapshot() ?? (await detectCapabilityVector())
+      const policy = deriveInteractivePolicy(capability)
+
       return createLumaRawRuntime({
-        requireCrossOriginIsolation: true,
+        memoryProfile: policy.previewWorkerMemoryProfile,
+        requireCrossOriginIsolation:
+          policy.previewWorkerMemoryProfile === 'desktop',
       })
     },
   })

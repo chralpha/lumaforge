@@ -2,6 +2,11 @@ import type { LumaRawFrame, LumaRawRuntime } from '@lumaforge/luma-raw-runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  resetCapabilityVectorForTest,
+  setCapabilityVectorForTest,
+} from '~/lib/runtime/capability-vector'
+
+import {
   decodeQuickRawWithLuma,
   disposeLumaRawRuntime,
   terminateLumaRawDecodeBridge,
@@ -48,6 +53,8 @@ function fakeRuntime(
 
 afterEach(() => {
   disposeLumaRawRuntime()
+  resetCapabilityVectorForTest()
+  vi.doUnmock('@lumaforge/luma-raw-runtime')
 })
 
 describe('lumaRuntimeAdapter bridge migration', () => {
@@ -92,5 +99,28 @@ describe('lumaRuntimeAdapter bridge migration', () => {
     await terminateLumaRawDecodeBridge()
 
     expect(runtime.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('honours deriveInteractivePolicy for the preview runtime memory profile', async () => {
+    setCapabilityVectorForTest({
+      coi: true,
+      pthread: true,
+      deviceMemoryGB: 4,
+      hwConcurrency: 4,
+      webKitClass: 'webkit-mobile',
+      maybeOpfsSupported: true,
+    })
+    const runtime = fakeRuntime()
+    const createLumaRawRuntime = vi.fn(() => runtime)
+    vi.doMock('@lumaforge/luma-raw-runtime', () => ({
+      createLumaRawRuntime,
+    }))
+
+    await decodeQuickRawWithLuma(new File([], 'a.dng'))
+
+    expect(createLumaRawRuntime).toHaveBeenCalledWith({
+      memoryProfile: 'low-memory',
+      requireCrossOriginIsolation: false,
+    })
   })
 })
