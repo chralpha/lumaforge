@@ -42,6 +42,7 @@ const toastMock = vi.hoisted(() => ({
   success: vi.fn(),
   error: vi.fn(),
   info: vi.fn(),
+  dismiss: vi.fn(),
 }))
 
 const exportSystemMock = vi.hoisted(() => ({
@@ -425,6 +426,7 @@ describe('useRawProcessor embedded preview state', () => {
     toastMock.success.mockReset()
     toastMock.error.mockReset()
     toastMock.info.mockReset()
+    toastMock.dismiss.mockReset()
     localStorage.clear()
 
     vi.stubGlobal('URL', {
@@ -2180,7 +2182,46 @@ describe('useRawProcessor embedded preview state', () => {
     expect(result.current.previewSuspended).toBe(true)
   })
 
-  it('keeps the desktop-fast preview pipeline mounted during export', async () => {
+  it('dismisses existing toasts before the export handoff takes over', async () => {
+    const pendingExport = deferred<{ filename: string; blob: Blob }>()
+    exportSystemMock.runFullResolutionExportJob.mockReturnValue(
+      pendingExport.promise,
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    expect(toastMock.dismiss).not.toHaveBeenCalled()
+
+    let exportPromise!: Promise<void>
+    await act(async () => {
+      exportPromise = result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+      await Promise.resolve()
+    })
+
+    expect(toastMock.dismiss).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      pendingExport.resolve({
+        filename: 'frame_neutral_fullres.jpg',
+        blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+      })
+      await exportPromise
+    })
+    await flushScheduledToasts()
+
+    expect(toastMock.success).not.toHaveBeenCalledWith(
+      'JPEG ready',
+      expect.anything(),
+    )
+  })
+
+  it('releases the desktop-fast preview pipeline during export', async () => {
     vi.stubGlobal('navigator', {
       userAgent:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
@@ -2226,9 +2267,9 @@ describe('useRawProcessor embedded preview state', () => {
         }),
       }),
     )
-    expect(result.current.previewSuspended).toBe(false)
-    expect(pipelineDispose).not.toHaveBeenCalled()
-    expect(result.current.pipelineRef.current).toBe(pipeline)
+    expect(result.current.previewSuspended).toBe(true)
+    expect(pipelineDispose).toHaveBeenCalledWith({ releaseContext: true })
+    expect(result.current.pipelineRef.current).toBeNull()
 
     await act(async () => {
       pendingExport.resolve({
@@ -2237,6 +2278,57 @@ describe('useRawProcessor embedded preview state', () => {
       })
       await exportPromise
     })
+  })
+
+  it('restores an evacuated preview after export without discarding the result', async () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+      maxTouchPoints: 0,
+      storage: {},
+      hardwareConcurrency: 8,
+    })
+    vi.stubGlobal('crossOriginIsolated', true)
+
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const file = new File(['raw'], 'frame.ARW')
+
+    await act(async () => {
+      await result.current.loadFile(file)
+    })
+
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    expect(result.current.previewSuspended).toBe(true)
+    expect(result.current.decodedImageRef.current).toBeNull()
+    expect(result.current.exportResult?.filename).toBe(
+      'frame_neutral_fullres.jpg',
+    )
+
+    await act(async () => {
+      await (
+        result.current as unknown as {
+          restorePreviewAfterExport: () => Promise<void>
+        }
+      ).restorePreviewAfterExport()
+    })
+
+    expect(rawRuntimeAdapterMock.openSession).toHaveBeenCalledTimes(2)
+    expect(result.current.previewSuspended).toBe(false)
+    expect(result.current.decodedImageRef.current?.source).toBe('quick')
+    expect(result.current.exportResult?.filename).toBe(
+      'frame_neutral_fullres.jpg',
+    )
   })
 
   it('keeps desktop-fast export running when bounded HQ settles after export starts', async () => {

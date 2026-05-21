@@ -202,6 +202,7 @@ export async function orchestrateFullResExport(
     ctx.atoms.setStatus('exporting')
     ctx.atoms.setProgress(0)
     ctx.atoms.setError(null)
+    toast.dismiss()
     ctx.refs.previewCopyCanvasRef.current = null
     const executionPlan = selectCurrentExportExecutionPlan({
       fidelity,
@@ -560,11 +561,6 @@ export async function orchestrateFullResExport(
         : prev,
     )
     ctx.atoms.setStatus('ready')
-    ctx.services.scheduleToast(() =>
-      toast.success('JPEG ready', {
-        description: result.filename,
-      }),
-    )
     if (cleanupSuccessfulCheckpoint) {
       deferSuccessfulCheckpointCleanup(cleanupSuccessfulCheckpoint)
     }
