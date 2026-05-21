@@ -13,10 +13,6 @@
     "./glsl": {
       "types": "./dist/glsl.d.ts",
       "import": "./dist/glsl.js"
-    },
-    "./testing": {
-      "types": "./dist/testing.d.ts",
-      "import": "./dist/testing.js"
     }
   },
   "main": "./dist/index.js",
