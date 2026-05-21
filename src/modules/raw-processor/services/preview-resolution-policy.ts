@@ -14,7 +14,6 @@ export function decideBoundedHqPreview({
 }: {
   sourceWidth: number
   sourceHeight: number
-  userAgent?: string
   boundedHqMaxPixels?: number
 }): BoundedHqPreviewDecision {
   const sourcePixels = sourceWidth * sourceHeight

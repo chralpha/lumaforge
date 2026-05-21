@@ -15,8 +15,6 @@ describe('decideBoundedHqPreview', () => {
       decideBoundedHqPreview({
         sourceWidth: 6000,
         sourceHeight: 4000,
-        userAgent:
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/605.1 Safari/605.1',
       }),
     ).toEqual({
       kind: 'decode',
@@ -51,7 +49,6 @@ describe('decideBoundedHqPreview', () => {
       decideBoundedHqPreview({
         sourceWidth: 1200,
         sourceHeight: 900,
-        userAgent: 'unit-test',
       }),
     ).toEqual({
       kind: 'skip',

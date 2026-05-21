@@ -1,9 +1,16 @@
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { CapabilityVector } from '~/lib/runtime/capability-vector'
 
 import { createImageSession } from '../../model/session-factory'
 import type { RawLoadContext } from './orchestrate-raw-load'
 import { orchestrateRawLoad } from './orchestrate-raw-load'
+
+const capabilityVectorMock = vi.hoisted(() => ({
+  detectCapabilityVector: vi.fn(),
+  getCapabilityVectorSnapshot: vi.fn(),
+}))
 
 vi.mock('~/lib/raw/runtime-adapter', () => ({
   rawRuntimeAdapter: {
@@ -15,6 +22,8 @@ vi.mock('~/lib/raw/runtime-adapter', () => ({
     getPrewarmState: vi.fn(),
   },
 }))
+
+vi.mock('~/lib/runtime/capability-vector', () => capabilityVectorMock)
 
 const defaultParams: ProcessingParams = {
   intensity: 0.7,
@@ -108,7 +117,37 @@ async function flushMicrotasks(rounds = 4) {
   }
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve
+    reject = innerReject
+  })
+
+  return { promise, resolve, reject }
+}
+
 describe('orchestrateRawLoad ack-before-work contract', () => {
+  const defaultCapability: CapabilityVector = {
+    coi: false,
+    pthread: false,
+    deviceMemoryGB: null,
+    hwConcurrency: 2,
+    webKitClass: 'unknown',
+    maybeOpfsSupported: false,
+  }
+
+  beforeEach(async () => {
+    const { rawRuntimeAdapter } = await import('~/lib/raw/runtime-adapter')
+    vi.mocked(rawRuntimeAdapter.openSession).mockReset()
+
+    capabilityVectorMock.getCapabilityVectorSnapshot.mockReset()
+    capabilityVectorMock.detectCapabilityVector
+      .mockReset()
+      .mockResolvedValue(defaultCapability)
+  })
+
   it('commits visible status and sync setup before awaiting the paint boundary', async () => {
     const order: string[] = []
     const { rawRuntimeAdapter } = await import('~/lib/raw/runtime-adapter')
@@ -153,6 +192,38 @@ describe('orchestrateRawLoad ack-before-work contract', () => {
     )
 
     loadPromise.catch(() => undefined)
+  })
+
+  it('does not open a runtime session when superseded during capability detection', async () => {
+    const order: string[] = []
+    const { rawRuntimeAdapter } = await import('~/lib/raw/runtime-adapter')
+    const capability = deferred<CapabilityVector>()
+    capabilityVectorMock.detectCapabilityVector.mockReturnValue(
+      capability.promise,
+    )
+    vi.mocked(rawRuntimeAdapter.openSession).mockImplementation(
+      () =>
+        new Promise(() => {
+          order.push('openSession')
+        }),
+    )
+
+    const ctx = buildContext({
+      order,
+      yieldToPaint: () => Promise.resolve(),
+      getPrewarmState: () => 'ready',
+    })
+
+    const file = new File(['raw'], 'sample.ARW')
+    const loadPromise = orchestrateRawLoad(file, defaultParams, null, null, ctx)
+
+    await flushMicrotasks()
+
+    ctx.refs.runtimeWorkSessionIdRef.current = 'newer-session'
+    capability.resolve(defaultCapability)
+    await loadPromise
+
+    expect(rawRuntimeAdapter.openSession).not.toHaveBeenCalled()
   })
 
   it('enters warming when prewarm is pending and flips to loading after prewarm resolves', async () => {

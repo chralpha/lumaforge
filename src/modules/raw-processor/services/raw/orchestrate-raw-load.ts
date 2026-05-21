@@ -242,6 +242,11 @@ export async function orchestrateRawLoad(
     const capability =
       getCapabilityVectorSnapshot() ?? (await detectCapabilityVector())
     const interactivePolicy = deriveInteractivePolicy(capability)
+    if (!matchesActiveSession()) {
+      runtimeAbortController.abort()
+      return
+    }
+
     runtimeSession = await rawRuntimeAdapter.openSession(file, runtimeSignal)
     if (!matchesActiveSession()) {
       runtimeAbortController.abort()
@@ -255,8 +260,6 @@ export async function orchestrateRawLoad(
       sourceWidth: activeRuntimeSession.sourceDimensions.width ?? 0,
       sourceHeight: activeRuntimeSession.sourceDimensions.height ?? 0,
       boundedHqMaxPixels: interactivePolicy.boundedHqMaxPixels,
-      userAgent:
-        typeof navigator === 'undefined' ? '' : navigator.userAgent || '',
     })
 
     const probeExportCapability =

@@ -637,15 +637,20 @@ describe('useRawProcessor embedded preview state', () => {
   })
 
   it('does not auto-export a superseded recovery load', async () => {
+    const recoveryFile = new File(['raw'], 'frame.ARW', { lastModified: 123 })
+    const replacementFile = new File(['other'], 'other.ARW')
     const recoverySession =
       deferred<Awaited<ReturnType<typeof rawRuntimeAdapterMock.openSession>>>()
     const checkpointManifest = createCheckpointManifest()
     checkpointStoreMock.listSafeRetryCandidates.mockResolvedValue([
       checkpointManifest,
     ])
-    rawRuntimeAdapterMock.openSession
-      .mockReturnValueOnce(recoverySession.promise)
-      .mockResolvedValueOnce({
+    rawRuntimeAdapterMock.openSession.mockImplementation((file) => {
+      if (file.name === recoveryFile.name) {
+        return recoverySession.promise
+      }
+
+      return Promise.resolve({
         sourceDimensions: defaultSourceDimensions,
         extractEmbeddedPreview: rawRuntimeAdapterMock.extractEmbeddedPreview,
         decodeQuickRaw: rawRuntimeAdapterMock.decodeQuickRaw,
@@ -653,6 +658,7 @@ describe('useRawProcessor embedded preview state', () => {
         probeExportCapability: rawRuntimeAdapterMock.probeExportCapability,
         dispose: vi.fn(),
       })
+    })
 
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
 
@@ -662,14 +668,12 @@ describe('useRawProcessor embedded preview state', () => {
 
     let recoverPromise!: Promise<void>
     await act(async () => {
-      recoverPromise = result.current.recoverInterruptedExport(
-        new File(['raw'], 'frame.ARW', { lastModified: 123 }),
-      )
+      recoverPromise = result.current.recoverInterruptedExport(recoveryFile)
       await Promise.resolve()
     })
 
     await act(async () => {
-      await result.current.loadFile(new File(['other'], 'other.ARW'))
+      await result.current.loadFile(replacementFile)
     })
 
     await act(async () => {
