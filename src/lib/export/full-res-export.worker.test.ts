@@ -249,7 +249,7 @@ describe('full-resolution export worker lifecycle responses', () => {
           steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
         },
         executionPlan: {
-          profileName: 'ios-safe',
+          profileName: 'desktop-fast',
           preferredRows: 64,
           concurrency: 1,
           runtimeMemoryProfile: 'low-memory',

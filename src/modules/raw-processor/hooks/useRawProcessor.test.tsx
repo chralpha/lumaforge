@@ -2107,7 +2107,7 @@ describe('useRawProcessor embedded preview state', () => {
     expect(revokeObjectURL).not.toHaveBeenCalled()
   })
 
-  it('records ios-safe active plan and checkpoint durability while full-resolution export is running', async () => {
+  it('records derived active plan and checkpoint durability while full-resolution export is running', async () => {
     const pendingExport = deferred<{ filename: string; blob: Blob }>()
 
     vi.stubGlobal('navigator', {
@@ -2151,7 +2151,6 @@ describe('useRawProcessor embedded preview state', () => {
     expect(exportState).toMatchObject({
       status: 'exporting',
       activePlan: {
-        profileName: 'ios-safe',
         preferredRows: 128,
         concurrency: 1,
         runtimeMemoryProfile: 'low-memory',

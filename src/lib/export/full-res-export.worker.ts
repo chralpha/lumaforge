@@ -301,7 +301,7 @@ async function handleStart(
             signal: controller.signal,
             readProcessedWindow: exportSession.readProcessedWindow,
             retryPolicy:
-              message.executionPlan?.profileName === 'ios-safe'
+              message.executionPlan?.checkpointMode === 'safe-retry'
                 ? 'surface-resource-failure'
                 : 'in-process',
             onCheckpoint: message.checkpoint
