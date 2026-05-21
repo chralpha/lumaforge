@@ -755,7 +755,7 @@ git commit -m "refactor(raw-export): orchestrate full-res export through ExportB
 
 Spec §6 Phase 1. Without this step, the export bridge could spawn its worker while the decode bridge's idle timer keeps the RAW runtime alive — both heavy resources would coexist briefly, breaking Phase 1's behaviour-equivalent claim.
 
-- [ ] **Step 1 — Failing test**
+- [x] **Step 1 — Failing test**
 
 Append to the bridge wiring test file:
 
@@ -781,21 +781,21 @@ Append to the bridge wiring test file:
   })
 ```
 
-- [ ] **Step 2 — Run; FAIL**
+- [x] **Step 2 — Run; FAIL**
 
 Run: `pnpm vitest run src/modules/raw-processor/__tests__/orchestrate-full-res-export-bridge.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3 — Wire the awaited terminate**
+- [x] **Step 3 — Wire the awaited terminate**
 
 In `orchestrate-full-res-export.ts`, add `await decodeBridge.terminate()` as the first step of the export run (immediately after argument validation, before any `bridge.runExport(...)`). Add the optional `decodeBridge` parameter to the orchestrator's options with the module-level singleton from `luma-runtime-adapter.ts` as default.
 
-- [ ] **Step 4 — Run; PASS**
+- [x] **Step 4 — Run; PASS**
 
 Run: `pnpm vitest run src/modules/raw-processor`
 Expected: PASS.
 
-- [ ] **Step 5 — Commit**
+- [x] **Step 5 — Commit**
 
 ```bash
 git add src/modules/raw-processor/services/export/orchestrate-full-res-export.ts \
