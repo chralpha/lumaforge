@@ -8,7 +8,6 @@ import type {
 } from '~/lib/runtime/export-policy'
 import { deriveExportPolicy } from '~/lib/runtime/export-policy'
 import type { ExportRuntimeResources } from '~/lib/runtime/export-runtime-resources'
-import { deriveInteractivePolicy } from '~/lib/runtime/interactive-policy'
 
 import type {
   LargeResourceOwner,
@@ -138,7 +137,6 @@ export type ExportExecutionProfile = {
   rowBandRows: number
   initialConcurrency: number
   maxConcurrency: number
-  boundedHqMaxPixels: number
   releasePreviewPipelineBeforeExport: boolean
   releaseBoundedHqBufferBeforeExport: boolean
   releasePreviousExportResultBeforeExport: boolean
@@ -379,10 +377,7 @@ function resolveRuntimeResources(
 function synthesizeProfile(
   profileName: ExportExecutionProfileName,
   policy: ExportPolicy,
-  capability: CapabilityVector,
 ): ExportExecutionProfile {
-  const interactivePolicy = deriveInteractivePolicy(capability)
-
   return {
     name: profileName,
     minRows: 64,
@@ -392,7 +387,6 @@ function synthesizeProfile(
     rowBandRows: 64,
     initialConcurrency: policy.concurrency,
     maxConcurrency: policy.maxConcurrency,
-    boundedHqMaxPixels: interactivePolicy.boundedHqMaxPixels,
     releasePreviewPipelineBeforeExport: true,
     releaseBoundedHqBufferBeforeExport: true,
     releasePreviousExportResultBeforeExport: true,
@@ -426,7 +420,7 @@ export function selectExportExecutionPlan(
     runtime,
   )
   const profileName = chooseProfile(policy, capability)
-  const profile = synthesizeProfile(profileName, policy, capability)
+  const profile = synthesizeProfile(profileName, policy)
 
   return {
     profile,
