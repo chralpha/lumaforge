@@ -2077,25 +2077,25 @@ git commit -m "refactor(export): remove restartWorkerOnResourceRetry field (brid
 - Modify: `src/lib/export/execution-profile.ts` (the `ExportExecutionProfile` type)
 - Modify: every consumer reading `plan.profile.boundedHqMaxPixels`
 
-- [ ] **Step 1 — Grep consumers**
+- [x] **Step 1 — Grep consumers**
 
 Run: `grep -rn "boundedHqMaxPixels" src/`
 Expected: the preview pipeline (`preview-pipeline.ts`, the orchestrator's resume path) reads this value.
 
-- [ ] **Step 2 — Replace reads**
+- [x] **Step 2 — Replace reads**
 
 Replace each `plan.profile.boundedHqMaxPixels` with `deriveInteractivePolicy(capability).boundedHqMaxPixels`. The capability snapshot is already in scope wherever a plan is in scope.
 
-- [ ] **Step 3 — Remove the field**
+- [x] **Step 3 — Remove the field**
 
 Delete `boundedHqMaxPixels: number` from the `ExportExecutionProfile` type. Update the synthesised profile in `selectExportExecutionPlan` to no longer set it.
 
-- [ ] **Step 4 — Run; PASS**
+- [x] **Step 4 — Run; PASS**
 
 Run: `pnpm vitest run && pnpm lint && pnpm build`
 Expected: PASS.
 
-- [ ] **Step 5 — Commit**
+- [x] **Step 5 — Commit**
 
 ```bash
 git add src/lib/export/execution-profile.ts src/modules/raw-processor/services/preview-pipeline.ts \
