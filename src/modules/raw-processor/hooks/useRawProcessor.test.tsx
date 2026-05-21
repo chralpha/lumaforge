@@ -34,6 +34,8 @@ const rawRuntimeAdapterMock = vi.hoisted(() => ({
   decodeQuickRaw: vi.fn(),
   decodeBoundedHqRaw: vi.fn(),
   probeExportCapability: vi.fn(),
+  prewarm: vi.fn(),
+  getPrewarmState: vi.fn(),
 }))
 
 const toastMock = vi.hoisted(() => ({
@@ -406,6 +408,10 @@ describe('useRawProcessor embedded preview state', () => {
     rawRuntimeAdapterMock.decodeQuickRaw.mockReset()
     rawRuntimeAdapterMock.decodeBoundedHqRaw.mockReset()
     rawRuntimeAdapterMock.probeExportCapability.mockReset()
+    rawRuntimeAdapterMock.getPrewarmState.mockReset().mockReturnValue('ready')
+    rawRuntimeAdapterMock.prewarm
+      .mockReset()
+      .mockResolvedValue({ status: 'ready' })
     exportSystemMock.runFullResolutionExportJob.mockReset()
     checkpointStoreMock.createCheckpointStore.mockReset()
     checkpointStoreMock.createOpfsCheckpointBackend.mockReset()
