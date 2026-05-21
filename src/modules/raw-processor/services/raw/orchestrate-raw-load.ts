@@ -9,6 +9,11 @@ import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
 import { isSupportedRaw } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
 import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
+import {
+  detectCapabilityVector,
+  getCapabilityVectorSnapshot,
+} from '~/lib/runtime/capability-vector'
+import { deriveInteractivePolicy } from '~/lib/runtime/interactive-policy'
 
 import type {
   DisplaySource,
@@ -234,6 +239,9 @@ export async function orchestrateRawLoad(
       }
     }
 
+    const capability =
+      getCapabilityVectorSnapshot() ?? (await detectCapabilityVector())
+    const interactivePolicy = deriveInteractivePolicy(capability)
     runtimeSession = await rawRuntimeAdapter.openSession(file, runtimeSignal)
     if (!matchesActiveSession()) {
       runtimeAbortController.abort()
@@ -246,6 +254,7 @@ export async function orchestrateRawLoad(
     const boundedHqDecision = decideBoundedHqPreview({
       sourceWidth: activeRuntimeSession.sourceDimensions.width ?? 0,
       sourceHeight: activeRuntimeSession.sourceDimensions.height ?? 0,
+      boundedHqMaxPixels: interactivePolicy.boundedHqMaxPixels,
       userAgent:
         typeof navigator === 'undefined' ? '' : navigator.userAgent || '',
     })

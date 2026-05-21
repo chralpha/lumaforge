@@ -10,10 +10,12 @@ export type BoundedHqPreviewDecision =
 export function decideBoundedHqPreview({
   sourceWidth,
   sourceHeight,
+  boundedHqMaxPixels = BOUNDED_HQ_PREVIEW_MAX_PIXELS,
 }: {
   sourceWidth: number
   sourceHeight: number
-  userAgent: string
+  userAgent?: string
+  boundedHqMaxPixels?: number
 }): BoundedHqPreviewDecision {
   const sourcePixels = sourceWidth * sourceHeight
   if (sourcePixels <= QUICK_PREVIEW_MAX_PIXELS) {
@@ -25,6 +27,6 @@ export function decideBoundedHqPreview({
 
   return {
     kind: 'decode',
-    maxOutputPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
+    maxOutputPixels: boundedHqMaxPixels,
   }
 }

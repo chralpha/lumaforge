@@ -24,6 +24,7 @@ import {
   fetchVerifiedCubeAsset,
 } from '~/lib/profiles/fetch'
 import type { DecodedImage } from '~/lib/raw/decoder'
+import { BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS } from '~/lib/raw/decoder'
 import { resetCapabilityVectorForTest } from '~/lib/runtime/capability-vector'
 
 import { currentSessionAtom } from '../state/session.atoms'
@@ -1476,7 +1477,7 @@ describe('useRawProcessor embedded preview state', () => {
       openSignal,
     )
     expect(decodeBoundedHqRaw).toHaveBeenCalledWith(
-      { maxOutputPixels: 12_000_000 },
+      { maxOutputPixels: BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS },
       undefined,
       openSignal,
     )

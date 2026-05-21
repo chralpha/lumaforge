@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
   BOUNDED_HQ_PREVIEW_MAX_PIXELS,
   QUICK_PREVIEW_MAX_PIXELS,
 } from '~/lib/raw/decoder'
+import { deriveInteractivePolicy } from '~/lib/runtime/interactive-policy'
 
 import { decideBoundedHqPreview } from './preview-resolution-policy'
 
@@ -22,17 +24,25 @@ describe('decideBoundedHqPreview', () => {
     })
   })
 
-  it('uses the default bounded HQ cap on mobile-class input', () => {
+  it('uses the capability-derived bounded HQ cap on mobile-class input', () => {
+    const policy = deriveInteractivePolicy({
+      coi: false,
+      pthread: false,
+      deviceMemoryGB: null,
+      hwConcurrency: 2,
+      webKitClass: 'webkit-mobile',
+      maybeOpfsSupported: false,
+    })
+
     expect(
       decideBoundedHqPreview({
         sourceWidth: 11662,
         sourceHeight: 8746,
-        userAgent:
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1',
+        boundedHqMaxPixels: policy.boundedHqMaxPixels,
       }),
     ).toEqual({
       kind: 'decode',
-      maxOutputPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
+      maxOutputPixels: BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
     })
   })
 
