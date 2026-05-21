@@ -1,14 +1,22 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import type { LargeResourceOwner } from '~/lib/export/resource-registry'
 import { createResourceRegistry } from '~/lib/export/resource-registry'
 
 import type { ExportEvacuationError } from './export-evacuation'
 import {
   createPreExportSnapshot,
   evacuateBeforeExport,
-  getPreExportEvacuationOwners,
   toResourceEvacuatedDebugPayload,
 } from './export-evacuation'
+
+const fullEvacuationOwners: LargeResourceOwner[] = [
+  'preview',
+  'bounded-hq',
+  'webgl',
+  'export-result',
+  'lut-fetch',
+]
 
 function snapshot() {
   return createPreExportSnapshot({
@@ -37,22 +45,8 @@ function snapshot() {
 }
 
 describe('export evacuation', () => {
-  it('selects full evacuation for every export profile', () => {
-    expect(getPreExportEvacuationOwners('ios-safe')).toEqual([
-      'preview',
-      'bounded-hq',
-      'webgl',
-      'export-result',
-      'lut-fetch',
-    ])
-    expect(getPreExportEvacuationOwners('mobile-balanced')).toEqual([
-      'preview',
-      'bounded-hq',
-      'webgl',
-      'export-result',
-      'lut-fetch',
-    ])
-    expect(getPreExportEvacuationOwners('desktop-fast')).toEqual([
+  it('uses the full evacuation owner set before export', () => {
+    expect(fullEvacuationOwners).toEqual([
       'preview',
       'bounded-hq',
       'webgl',
@@ -61,7 +55,7 @@ describe('export evacuation', () => {
     ])
   })
 
-  it('runs the shared memory-efficient callbacks for desktop-fast exports too', async () => {
+  it('runs the shared memory-efficient callbacks before export', async () => {
     const registry = createResourceRegistry()
     const events: string[] = []
     registry.register({
@@ -84,7 +78,7 @@ describe('export evacuation', () => {
     const result = await evacuateBeforeExport({
       registry,
       snapshot: snapshot(),
-      owners: getPreExportEvacuationOwners('desktop-fast'),
+      owners: fullEvacuationOwners,
       abortPreview: () => events.push('abort-preview'),
       abortBoundedHq: () => events.push('abort-bounded-hq'),
       releasePreviousExportResult: () => events.push('release-export-result'),
@@ -153,7 +147,7 @@ describe('export evacuation', () => {
     const result = await evacuateBeforeExport({
       registry,
       snapshot: snapshot(),
-      owners: getPreExportEvacuationOwners('ios-safe'),
+      owners: fullEvacuationOwners,
       abortPreview: () => events.push('abort-preview'),
       abortBoundedHq: () => events.push('abort-bounded-hq'),
       releasePreviousExportResult: () => events.push('release-export-result'),
@@ -190,7 +184,7 @@ describe('export evacuation', () => {
       evacuateBeforeExport({
         registry,
         snapshot: snapshot(),
-        owners: getPreExportEvacuationOwners('ios-safe'),
+        owners: fullEvacuationOwners,
         abortPreview: vi.fn(),
         abortBoundedHq: vi.fn(),
         releasePreviousExportResult: vi.fn(),
