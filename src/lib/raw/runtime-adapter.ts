@@ -12,6 +12,7 @@ import {
   decodeQuickRawWithLuma,
   extractEmbeddedPreviewWithLuma,
   openRawSessionWithLuma,
+  prewarmLumaRawRuntime,
 } from './luma-runtime-adapter'
 
 export type RawRuntimeSession = {
@@ -38,6 +39,7 @@ export type RawRuntimeSession = {
 }
 
 export type RawRuntimeAdapter = {
+  prewarm: () => Promise<void>
   openSession: (file: File, signal?: AbortSignal) => Promise<RawRuntimeSession>
   extractEmbeddedPreview: (file: File) => Promise<LumaEmbeddedPreview | null>
   decodeQuickRaw: (
@@ -61,6 +63,9 @@ export function createRawRuntimeAdapter({
   jpegRuntimeAvailabilityProbe?: JpegRuntimeAvailabilityProbe
 } = {}): RawRuntimeAdapter {
   return {
+    prewarm() {
+      return prewarmLumaRawRuntime(lumaRuntimeFactory)
+    },
     openSession(file, signal) {
       return openRawSessionWithLuma(
         file,

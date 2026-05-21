@@ -211,6 +211,17 @@ export function frameToDecodedImage(frame: LumaRawFrame): DecodedImage {
   }
 }
 
+export async function prewarmLumaRawRuntime(
+  runtimeFactory?: () => LumaRawRuntime,
+): Promise<void> {
+  try {
+    const runtime = await getRuntime(runtimeFactory)
+    await runtime.init()
+  } catch {
+    // Prewarm is best-effort: actual upload paths surface errors with full context.
+  }
+}
+
 export async function extractEmbeddedPreviewWithLuma(
   file: File,
   runtimeFactory?: () => LumaRawRuntime,

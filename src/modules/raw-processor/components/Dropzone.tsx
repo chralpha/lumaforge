@@ -118,25 +118,8 @@ export function Dropzone({
 
   const openFilePicker = useCallback(() => {
     if (disabled) return
-    if (inputRef.current) {
-      inputRef.current.click()
-      return
-    }
-
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.multiple = multiple
-    if (accept) {
-      input.accept = accept.join(',')
-    }
-
-    input.onchange = () => {
-      const files = Array.from(input.files || [])
-      handleFiles(files)
-    }
-
-    input.click()
-  }, [handleFiles, accept, multiple, disabled])
+    inputRef.current?.click()
+  }, [disabled])
 
   const handleClick = useCallback(() => {
     if (!clickToOpen) return
@@ -257,6 +240,19 @@ export function Dropzone({
       transition={Spring.presets.snappy}
     >
       {content}
+      <input
+        ref={inputRef}
+        id={inputId}
+        type="file"
+        multiple={multiple}
+        accept={accept?.join(',')}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        aria-hidden="true"
+        tabIndex={-1}
+        className="sr-only"
+        onChange={handleInputChange}
+      />
     </m.div>
   )
 }

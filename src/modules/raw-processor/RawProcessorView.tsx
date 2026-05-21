@@ -5,12 +5,13 @@
 
 import './raw-lab.css'
 
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useInRouterContext, useLocation } from 'react-router'
 
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import { useI18n } from '~/lib/i18n'
+import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
 import {
   ComparePreviewStage,
@@ -134,6 +135,35 @@ function RawProcessorViewInner({
     pathname: rawRouteLocation.pathname,
     loadOnlineLUT,
   })
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (import.meta.env.MODE === 'test') return
+    let cancelled = false
+    const trigger = () => {
+      if (cancelled) return
+      void rawRuntimeAdapter.prewarm()
+    }
+    const win = window as Window & {
+      requestIdleCallback?: (
+        cb: () => void,
+        opts?: { timeout?: number },
+      ) => number
+      cancelIdleCallback?: (handle: number) => void
+    }
+    if (typeof win.requestIdleCallback === 'function') {
+      const handle = win.requestIdleCallback(trigger, { timeout: 1500 })
+      return () => {
+        cancelled = true
+        win.cancelIdleCallback?.(handle)
+      }
+    }
+    const handle = window.setTimeout(trigger, 200)
+    return () => {
+      cancelled = true
+      window.clearTimeout(handle)
+    }
+  }, [])
 
   // Handle file drop
   const handleFileDrop = useCallback(

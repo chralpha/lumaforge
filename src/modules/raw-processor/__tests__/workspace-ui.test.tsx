@@ -1036,15 +1036,16 @@ describe('rawToolSurface', () => {
     expect(stageFrame).toContainElement(uploadButton)
     expect(stageFrame).toContainElement(compareSlider)
 
-    const input = document.createElement('input')
-    const inputClick = vi.spyOn(input, 'click').mockImplementation(() => {})
-    const createElement = vi
-      .spyOn(document, 'createElement')
-      .mockReturnValue(input)
+    const fileInput =
+      stageFrame?.querySelector<HTMLInputElement>('input[type="file"]')
+    expect(fileInput).toBeTruthy()
+    expect(fileInput).toHaveAttribute('aria-hidden', 'true')
+    const inputClick = vi
+      .spyOn(fileInput!, 'click')
+      .mockImplementation(() => {})
 
     await user.click(uploadButton)
 
-    expect(createElement).toHaveBeenCalledWith('input')
     expect(inputClick).toHaveBeenCalledTimes(1)
   })
 
