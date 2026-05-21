@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   decodeQuickRawWithLuma,
   disposeLumaRawRuntime,
+  terminateLumaRawDecodeBridge,
 } from '../luma-runtime-adapter'
 
 function makeFrame(): LumaRawFrame {
@@ -77,5 +78,19 @@ describe('lumaRuntimeAdapter bridge migration', () => {
     )
 
     expect(seenSignals).toEqual([controller.signal])
+  })
+
+  it('terminates the active RawDecodeBridge runtime', async () => {
+    const runtime = fakeRuntime()
+    const runtimeFactory = vi.fn(() => runtime)
+
+    await decodeQuickRawWithLuma(
+      new File([], 'a.dng'),
+      undefined,
+      runtimeFactory,
+    )
+    await terminateLumaRawDecodeBridge()
+
+    expect(runtime.dispose).toHaveBeenCalledTimes(1)
   })
 })

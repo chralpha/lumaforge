@@ -76,6 +76,7 @@ export interface ExportContext {
     scheduleToast: (fn: () => void) => void
     abortExportWork: () => void
     abortRuntimeWork: () => void
+    terminateRawDecodeBridge: () => void | Promise<void>
     registerCurrentPreviewPipelineForEvacuation: () => void
     registerExportResultResource: (result: ExportResult) => void
     revokeCurrentEmbeddedPreviewUrl: () => void
@@ -507,6 +508,7 @@ export async function orchestrateFullResExport(
             : prev,
         )
       },
+      beforeStart: ctx.services.terminateRawDecodeBridge,
       signal: exportAbortController.signal,
     })
 

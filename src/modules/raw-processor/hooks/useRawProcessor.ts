@@ -843,6 +843,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         scheduleToast,
         abortExportWork,
         abortRuntimeWork,
+        terminateRawDecodeBridge: rawRuntimeAdapter.terminateDecodeBridge,
         registerCurrentPreviewPipelineForEvacuation,
         registerExportResultResource,
         revokeCurrentEmbeddedPreviewUrl,

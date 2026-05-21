@@ -14,6 +14,7 @@ import {
   getPrewarmStateForLuma,
   openRawSessionWithLuma,
   prewarmLumaRawRuntime,
+  terminateLumaRawDecodeBridge,
 } from './luma-runtime-adapter'
 export type { PrewarmOutcome, PrewarmState } from './luma-runtime-adapter'
 
@@ -54,6 +55,7 @@ export type RawRuntimeAdapter = {
     options: { maxOutputPixels: number },
     onProgress?: ProgressCallback,
   ) => Promise<DecodedImage>
+  terminateDecodeBridge: () => Promise<void>
 }
 
 export type JpegRuntimeAvailabilityProbe = () => boolean | Promise<boolean>
@@ -93,6 +95,9 @@ export function createRawRuntimeAdapter({
         onProgress,
         lumaRuntimeFactory,
       )
+    },
+    terminateDecodeBridge() {
+      return terminateLumaRawDecodeBridge()
     },
   }
 }

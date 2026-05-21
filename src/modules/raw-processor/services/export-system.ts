@@ -213,6 +213,7 @@ export async function runFullResolutionExportJob({
   onProgress,
   onMetric,
   onAttempt,
+  beforeStart,
   signal,
   clientFactory = createFullResolutionExportClient,
 }: {
@@ -227,6 +228,7 @@ export async function runFullResolutionExportJob({
   onProgress?: (progress: FullResolutionExportProgress) => void
   onMetric?: RunFullResolutionJpegExportInWorkerInput['onMetric']
   onAttempt?: (event: FullResolutionExportAttemptEvent) => void
+  beforeStart?: () => void | Promise<void>
   signal?: AbortSignal
   clientFactory?: () => FullResolutionExportWorkerClient
 }) {
@@ -248,6 +250,8 @@ export async function runFullResolutionExportJob({
         phase: 'started',
         freshWorker: true,
       })
+
+      await beforeStart?.()
 
       const output = await bridge.runExport(attemptSignal, {
         file,

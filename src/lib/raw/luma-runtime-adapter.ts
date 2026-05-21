@@ -78,6 +78,13 @@ function createRuntimeSignal(signal?: AbortSignal) {
   return signal ?? new AbortController().signal
 }
 
+async function resetRawDecodeBridges() {
+  const bridges = [singletonBridge, ...runtimeFactoryBridges.values()]
+  singletonBridge = createDefaultRawDecodeBridge()
+  runtimeFactoryBridges.clear()
+  await Promise.all(bridges.map((bridge) => bridge.terminate()))
+}
+
 function getRawErrorCode(error: unknown): RawAdapterErrorCode | undefined {
   if (typeof error !== 'object' || !error || !('code' in error)) {
     return undefined
@@ -429,15 +436,14 @@ export async function openRawSessionWithLuma(
 }
 
 export function disposeLumaRawRuntime() {
-  void singletonBridge.terminate()
-  singletonBridge = createDefaultRawDecodeBridge()
-  for (const bridge of runtimeFactoryBridges.values()) {
-    void bridge.terminate()
-  }
-  runtimeFactoryBridges.clear()
+  void resetRawDecodeBridges()
   prewarmState = 'idle'
   prewarmOutcome = null
   prewarmInFlight = null
+}
+
+export function terminateLumaRawDecodeBridge() {
+  return resetRawDecodeBridges()
 }
 
 export function toRawAdapterError(error: unknown) {

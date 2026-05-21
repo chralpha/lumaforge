@@ -154,6 +154,43 @@ describe('export-system', () => {
     })
   })
 
+  it('runs the pre-export hook before starting the export client', async () => {
+    const order: string[] = []
+    const file = new File(['raw'], 'frame.ARW')
+    const output = createBlobOutputResult({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+    const run = vi.fn(async () => {
+      order.push('export')
+      return output
+    })
+    const dispose = vi.fn()
+    const graph: ExportColorGraphDescriptor = {
+      supported: true,
+      outputGamut: 'srgb-rec709',
+      outputTransfer: 'srgb',
+      lutProfile: null,
+      steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
+    }
+
+    await runFullResolutionExportJob({
+      file,
+      filename: 'frame_neutral_fullres.jpg',
+      graph,
+      beforeStart: async () => {
+        order.push('decode-terminate')
+      },
+      clientFactory: () =>
+        ({
+          run,
+          dispose,
+        }) as never,
+    })
+
+    expect(order).toEqual(['decode-terminate', 'export'])
+  })
+
   it('passes execution plan to the worker client and returns attempt count', async () => {
     const file = new File(['raw'], 'frame.ARW')
     const output = createBlobOutputResult({
