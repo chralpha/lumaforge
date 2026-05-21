@@ -17,6 +17,17 @@ import type {
   RawRuntimeSession,
 } from './runtime-adapter'
 
+export type PrewarmState = 'idle' | 'pending' | 'ready' | 'failed'
+
+export interface PrewarmOutcome {
+  status: 'ready' | 'failed'
+  reason?: string
+  recoverable?: boolean
+}
+
+let prewarmState: PrewarmState = 'idle'
+let prewarmOutcome: PrewarmOutcome | null = null
+
 let singletonRuntime: LumaRawRuntime | null = null
 let singletonRuntimePromise: Promise<LumaRawRuntime> | null = null
 
@@ -213,13 +224,52 @@ export function frameToDecodedImage(frame: LumaRawFrame): DecodedImage {
 
 export async function prewarmLumaRawRuntime(
   runtimeFactory?: () => LumaRawRuntime,
-): Promise<void> {
+): Promise<PrewarmOutcome> {
+  if (prewarmState === 'ready' && prewarmOutcome) {
+    return prewarmOutcome
+  }
+  if (prewarmState === 'failed' && prewarmOutcome) {
+    return prewarmOutcome
+  }
+  prewarmState = 'pending'
   try {
     const runtime = await getRuntime(runtimeFactory)
     await runtime.init()
-  } catch {
-    // Prewarm is best-effort: actual upload paths surface errors with full context.
+    const outcome: PrewarmOutcome = { status: 'ready' }
+    prewarmOutcome = outcome
+    prewarmState = 'ready'
+    return outcome
+  } catch (error) {
+    const classification = classifyPrewarmFailure(error)
+    const outcome: PrewarmOutcome = {
+      status: 'failed',
+      reason: classification.reason,
+      recoverable: classification.recoverable,
+    }
+    prewarmOutcome = outcome
+    prewarmState = 'failed'
+    return outcome
   }
+}
+
+export function getPrewarmStateForLuma(): PrewarmState {
+  return prewarmState
+}
+
+function classifyPrewarmFailure(error: unknown): {
+  reason: string
+  recoverable: boolean
+} {
+  const code = getRawErrorCode(error)
+  if (code === 'RAW_CROSS_ORIGIN_ISOLATION_REQUIRED') {
+    return {
+      reason: error instanceof Error ? error.message : code,
+      recoverable: false,
+    }
+  }
+  const reason =
+    error instanceof Error ? error.message : 'RAW runtime prewarm failed.'
+  return { reason, recoverable: true }
 }
 
 export async function extractEmbeddedPreviewWithLuma(
@@ -357,6 +407,8 @@ export function disposeLumaRawRuntime() {
   singletonRuntime?.dispose()
   singletonRuntime = null
   singletonRuntimePromise = null
+  prewarmState = 'idle'
+  prewarmOutcome = null
 }
 
 export function toRawAdapterError(error: unknown) {
