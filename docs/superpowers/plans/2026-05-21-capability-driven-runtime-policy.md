@@ -2112,23 +2112,23 @@ git commit -m "refactor(preview): read boundedHqMaxPixels from deriveInteractive
 - Modify: `src/modules/raw-processor/__tests__/export-system.test.ts`
 - Modify: any other test that asserts on `'ios-safe'` / `'mobile-balanced'` / `'desktop-fast'` literals as decision sources
 
-- [ ] **Step 1 — Grep tests**
+- [x] **Step 1 — Grep tests**
 
 Run: `grep -rln "'ios-safe'\\|'mobile-balanced'\\|'desktop-fast'" src/`
 Expected: a list of test files (and the legacy mappers inside the checkpoint store and telemetry, which are intentionally retained for back-compat).
 
-- [ ] **Step 2 — Rewrite assertions**
+- [x] **Step 2 — Rewrite assertions**
 
 For each test:
 - If the test asserts on `plan.profile.name === 'ios-safe'` as a *decision*, replace it with assertions on derived fields (e.g. `plan.runtimeMemoryProfile === 'low-memory'`, `plan.preferredRows <= 128`, `plan.derivedLabel.includes('webkit-mobile')`).
 - If the test asserts on a stored `profile` field in a checkpoint record, leave the literal in place (this is the intentional metadata field per §4).
 
-- [ ] **Step 3 — Run the migrated suites**
+- [x] **Step 3 — Run the migrated suites**
 
 Run: `pnpm vitest run`
 Expected: PASS.
 
-- [ ] **Step 4 — Commit**
+- [x] **Step 4 — Commit**
 
 ```bash
 git add src/lib/export src/modules/raw-processor
