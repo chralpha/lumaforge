@@ -1031,7 +1031,7 @@ git commit -m "feat(runtime): add CapabilityVector detector with normalisation a
 - Create: `src/lib/runtime/export-runtime-resources.ts`
 - Test: `src/lib/runtime/export-runtime-resources.test.ts`
 
-- [ ] **Step 1 — Failing tests**
+- [x] **Step 1 — Failing tests**
 
 ```ts
 // src/lib/runtime/export-runtime-resources.test.ts
@@ -1075,12 +1075,12 @@ describe('snapshotExportRuntimeResources', () => {
 })
 ```
 
-- [ ] **Step 2 — Run; FAIL**
+- [x] **Step 2 — Run; FAIL**
 
 Run: `pnpm vitest run src/lib/runtime/export-runtime-resources.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3 — Implement**
+- [x] **Step 3 — Implement**
 
 ```ts
 // src/lib/runtime/export-runtime-resources.ts
@@ -1128,12 +1128,12 @@ export async function snapshotExportRuntimeResources(
 }
 ```
 
-- [ ] **Step 4 — Run; PASS**
+- [x] **Step 4 — Run; PASS**
 
 Run: `pnpm vitest run src/lib/runtime/export-runtime-resources.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5 — Commit**
+- [x] **Step 5 — Commit**
 
 ```bash
 git add src/lib/runtime/export-runtime-resources.ts src/lib/runtime/export-runtime-resources.test.ts
