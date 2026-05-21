@@ -7,6 +7,7 @@ import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
 import {
   createCheckpointStore,
   createOpfsCheckpointBackend,
+  selectCheckpointResumeExecutionPlan,
 } from '~/lib/export/checkpoint-store'
 import {
   emitExportDebugEvent,
@@ -126,6 +127,7 @@ export async function orchestrateFullResExport(
     fidelity: 'safe' | 'balanced' | 'max'
     previousInterrupted?: boolean
     recoveredExportId?: string
+    recoveredManifest?: ExportCheckpointManifest
   },
   ctx: ExportContext,
 ): Promise<void> {
@@ -209,14 +211,20 @@ export async function orchestrateFullResExport(
     ctx.atoms.setError(null)
     toast.dismiss()
     ctx.refs.previewCopyCanvasRef.current = null
-    const executionPlan = await selectCurrentExportExecutionPlan({
-      fidelity,
-      sourceWidth: exportCapability.width,
-      sourceHeight: exportCapability.height,
-      previousCrashLikeInterruption: previousInterrupted,
-      previousResourceFailure: false,
-      previousUserInterrupted: false,
-    })
+    const executionPlan =
+      previousInterrupted && options.recoveredManifest
+        ? await selectCheckpointResumeExecutionPlan({
+            manifest: options.recoveredManifest,
+            fidelity,
+          })
+        : await selectCurrentExportExecutionPlan({
+            fidelity,
+            sourceWidth: exportCapability.width,
+            sourceHeight: exportCapability.height,
+            previousCrashLikeInterruption: previousInterrupted,
+            previousResourceFailure: false,
+            previousUserInterrupted: false,
+          })
     if (executionPlan.productCopy === 'cannot-safely-complete') {
       throw Object.assign(
         new Error(getExportModeCopy(executionPlan.productCopy)),
@@ -250,6 +258,7 @@ export async function orchestrateFullResExport(
           outputHeight: exportCapability.height,
           graphFingerprint,
           profile: executionPlan.profile.name,
+          derivedLabel: executionPlan.derivedLabel,
           preferredRows: executionPlan.preferredRows,
           outputSink: executionPlan.outputSink,
         })

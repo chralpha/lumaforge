@@ -63,15 +63,7 @@ export interface RawLoadContext {
     ) => void
     setDecodedImageVersion: (value: number | ((prev: number) => number)) => void
     setStats: (stats: PipelineStats | null) => void
-    setPendingRecoveryRetry: (
-      retry: {
-        sourceExportId: string
-        sessionId: string
-        fileName: string
-        size: number
-        lastModified: number
-      } | null,
-    ) => void
+    setPendingRecoveryRetry: (retry: null) => void
   }
   services: {
     scheduleToast: (notify: () => void) => void

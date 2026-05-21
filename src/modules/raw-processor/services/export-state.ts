@@ -50,6 +50,7 @@ export function createSafeRetryManifest(input: {
   outputHeight: number
   graphFingerprint: string
   profile: ExportCheckpointManifest['profile']
+  derivedLabel: string
   preferredRows: number
   outputSink: ExportCheckpointManifest['outputSink']
   completedRowsForDiagnostics?: number
@@ -66,6 +67,7 @@ export function createSafeRetryManifest(input: {
     outputHeight: input.outputHeight,
     graphFingerprint: input.graphFingerprint,
     profile: input.profile,
+    derivedLabel: input.derivedLabel,
     attempt: 1,
     preferredRows: input.preferredRows,
     totalRows: input.outputHeight,

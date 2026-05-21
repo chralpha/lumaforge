@@ -27,6 +27,7 @@ import {
   useSetProgress,
 } from '~/atoms/raw-processor'
 import { yieldToPaint } from '~/lib/dom'
+import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
 import {
   createCheckpointStore,
   createOpfsCheckpointBackend,
@@ -184,6 +185,7 @@ export interface UseRawProcessorReturn {
     fidelity: 'safe' | 'balanced' | 'max'
     previousInterrupted?: boolean
     recoveredExportId?: string
+    recoveredManifest?: ExportCheckpointManifest
   }) => Promise<void>
   recoverInterruptedExport: (file: File) => Promise<void>
   downloadExportResult: () => Promise<void>
@@ -200,6 +202,7 @@ export interface UseRawProcessorReturn {
 
 type PendingRecoveryRetry = {
   sourceExportId: string
+  manifest: ExportCheckpointManifest
   sessionId: string
   fileName: string
   size: number
@@ -1073,6 +1076,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       fidelity: 'safe' | 'balanced' | 'max'
       previousInterrupted?: boolean
       recoveredExportId?: string
+      recoveredManifest?: ExportCheckpointManifest
     }) => {
       await orchestrateFullResExport(options, exportCtx)
     },
@@ -1111,6 +1115,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       fidelity: 'safe',
       previousInterrupted: true,
       recoveredExportId: pendingRecoveryRetry.sourceExportId,
+      recoveredManifest: pendingRecoveryRetry.manifest,
     })
   }, [canExport, exportImage, loadedImage.file, pendingRecoveryRetry, status])
 
@@ -1152,6 +1157,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
       setPendingRecoveryRetry({
         sourceExportId: recovery.exportId,
+        manifest: recovery.manifest,
         sessionId: activeSession.id,
         fileName: file.name,
         size: file.size,

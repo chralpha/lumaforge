@@ -1,8 +1,14 @@
+import type { ExportFidelity } from '~/lib/gl/export'
+import { detectCapabilityVector } from '~/lib/runtime/capability-vector'
+import { snapshotExportRuntimeResources } from '~/lib/runtime/export-runtime-resources'
+
 import type {
   ExportCheckpointMode,
+  ExportExecutionPlan,
   ExportExecutionProfileName,
   ExportOutputSink,
 } from './execution-profile'
+import { selectExportExecutionPlan } from './execution-profile'
 import type { SourceFingerprint } from './source-fingerprint'
 
 export type SourceReacquisitionMode =
@@ -30,7 +36,9 @@ export type ExportCheckpointManifest = {
   outputWidth: number
   outputHeight: number
   graphFingerprint: string
+  // Stored profile is metadata only; resume policy is always re-derived.
   profile: ExportExecutionProfileName
+  derivedLabel?: string
   attempt: number
   preferredRows: number
   totalRows: number
@@ -137,6 +145,8 @@ function isExportCheckpointManifest(
     typeof value.graphFingerprint === 'string' &&
     typeof value.profile === 'string' &&
     EXPORT_PROFILES.has(value.profile as ExportExecutionProfileName) &&
+    (value.derivedLabel === undefined ||
+      typeof value.derivedLabel === 'string') &&
     typeof value.attempt === 'number' &&
     typeof value.preferredRows === 'number' &&
     typeof value.totalRows === 'number' &&
@@ -269,6 +279,27 @@ export function normalizeSafeRetryManifest(
     recoveryMode: 'safe-retry',
     jpegState: 'restart-required',
   }
+}
+
+export async function selectCheckpointResumeExecutionPlan(input: {
+  manifest: ExportCheckpointManifest
+  fidelity: ExportFidelity
+}): Promise<ExportExecutionPlan> {
+  const capability = await detectCapabilityVector()
+  const runtime = await snapshotExportRuntimeResources({
+    streamingSinkAvailable: false,
+  })
+
+  return selectExportExecutionPlan({
+    performancePreference: input.fidelity,
+    sourceWidth: input.manifest.outputWidth,
+    sourceHeight: input.manifest.outputHeight,
+    previousCrashLikeInterruption: true,
+    previousResourceFailure: false,
+    previousUserInterrupted: false,
+    capability,
+    runtime,
+  })
 }
 
 export function createCheckpointStore(backend: CheckpointBackend) {

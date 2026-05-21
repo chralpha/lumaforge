@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
+import {
+  resetCapabilityVectorForTest,
+  setCapabilityVectorForTest,
+} from '~/lib/runtime/capability-vector'
+
 import type { ExportCheckpointManifest } from './checkpoint-store'
 import {
   createCheckpointStore,
   createMemoryCheckpointBackend,
   createOpfsCheckpointBackend,
+  selectCheckpointResumeExecutionPlan,
 } from './checkpoint-store'
 
 function manifest(overrides: Partial<ExportCheckpointManifest> = {}) {
@@ -196,6 +202,48 @@ describe('checkpoint store', () => {
     )
 
     await expect(store.listSafeRetryCandidates()).resolves.toEqual([safe])
+  })
+
+  it('re-derives policy from current capability on resume, ignoring stored profile', async () => {
+    setCapabilityVectorForTest({
+      coi: false,
+      pthread: false,
+      deviceMemoryGB: 4,
+      hwConcurrency: 4,
+      webKitClass: 'webkit-mobile',
+      maybeOpfsSupported: false,
+    })
+
+    try {
+      const backend = createMemoryCheckpointBackend()
+      const store = createCheckpointStore(backend)
+      await backend.write(
+        'legacy-desktop',
+        manifest({
+          exportId: 'legacy-desktop',
+          profile: 'desktop-fast',
+          preferredRows: 1024,
+          outputWidth: 11662,
+          outputHeight: 8746,
+          totalRows: 8746,
+        }),
+      )
+
+      const [record] = await store.listSafeRetryCandidates()
+      expect(record?.profile).toBe('desktop-fast')
+
+      const plan = await selectCheckpointResumeExecutionPlan({
+        manifest: record!,
+        fidelity: 'safe',
+      })
+
+      expect(plan.runtimeMemoryProfile).toBe('low-memory')
+      expect(plan.profile.name).toBe('ios-safe')
+      expect(plan.preferredRows).toBeLessThanOrEqual(64)
+      expect(plan.derivedLabel).toContain('wkwebkit-mobile')
+    } finally {
+      resetCapabilityVectorForTest()
+    }
   })
 
   it('stores OPFS manifests under active export directories and removes recursively', async () => {
