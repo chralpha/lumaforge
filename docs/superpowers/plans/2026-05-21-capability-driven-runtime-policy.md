@@ -843,10 +843,10 @@ git commit -m "test(raw-export): pin preview-size copy capability after preview 
 
 No code changes.
 
-- [ ] **Step 1 — Lint**: `pnpm lint` — PASS.
-- [ ] **Step 2 — Tests**: `pnpm test:run` — PASS.
-- [ ] **Step 3 — Build**: `pnpm build` — PASS.
-- [ ] **Step 4 — Browser smoke** (per `project_raw_browser_validation.md`): `pnpm build && pnpm preview`. Upload RAW, walk through embedded → quick → HQ, apply a LUT, run an export. Confirm no visible difference vs `main` before this branch.
+- [x] **Step 1 — Lint**: `pnpm lint` — PASS.
+- [x] **Step 2 — Tests**: `pnpm test:run` — PASS.
+- [x] **Step 3 — Build**: `pnpm build` — PASS.
+- [x] **Step 4 — Browser smoke** (per `project_raw_browser_validation.md`): `pnpm build && pnpm preview`. Upload RAW, walk through embedded → quick → HQ, apply a LUT, run an export. Confirm no visible difference vs `main` before this branch.
 
 **Phase 1 complete. Merge and confirm green on `main` before starting Phase 2.**
 
