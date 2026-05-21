@@ -575,7 +575,7 @@ git commit -m "refactor(raw-adapter): delegate runtime lifecycle to RawDecodeBri
 - Create: `src/lib/workers/export-bridge.ts`
 - Test: `src/lib/workers/export-bridge.test.ts`
 
-- [ ] **Step 1 — Failing test**
+- [x] **Step 1 — Failing test**
 
 ```ts
 // src/lib/workers/export-bridge.test.ts
@@ -618,12 +618,12 @@ describe('ExportBridge', () => {
 })
 ```
 
-- [ ] **Step 2 — Run; FAIL**
+- [x] **Step 2 — Run; FAIL**
 
 Run: `pnpm vitest run src/lib/workers/export-bridge.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3 — Implement**
+- [x] **Step 3 — Implement**
 
 ```ts
 // src/lib/workers/export-bridge.ts
@@ -683,12 +683,12 @@ export class ExportBridge {
 }
 ```
 
-- [ ] **Step 4 — Run; PASS**
+- [x] **Step 4 — Run; PASS**
 
 Run: `pnpm vitest run src/lib/workers/export-bridge.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5 — Commit**
+- [x] **Step 5 — Commit**
 
 ```bash
 git add src/lib/workers/export-bridge.ts src/lib/workers/export-bridge.test.ts
