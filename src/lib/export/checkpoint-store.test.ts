@@ -283,7 +283,7 @@ describe('checkpoint store', () => {
     expect(active.entriesByName.has(current.exportId)).toBe(false)
   })
 
-  it('removes only OPFS manifest files when preserving file-backed output', async () => {
+  it('removes only OPFS manifest files when preserving finalized file-backed output', async () => {
     const root = new MockDirectoryHandle('root')
     const backend = createOpfsCheckpointBackend(storageFor(root))
     const store = createCheckpointStore(backend)
@@ -292,6 +292,9 @@ describe('checkpoint store', () => {
 
     await store.writeActive(current)
     active.directory('export-opfs').file('output.jpg', 'jpeg')
+    active
+      .directory('export-opfs')
+      .file('output.jpg.finalized.json', '{"version":1}')
 
     await store.removeActiveManifest('export-opfs')
 
@@ -299,5 +302,29 @@ describe('checkpoint store', () => {
     expect(
       active.directory('export-opfs').entriesByName.get('output.jpg'),
     ).toBeDefined()
+    expect(
+      active
+        .directory('export-opfs')
+        .entriesByName.get('output.jpg.finalized.json'),
+    ).toBeDefined()
+  })
+
+  it('removes unfinalized OPFS output when clearing a manifest', async () => {
+    const root = new MockDirectoryHandle('root')
+    const backend = createOpfsCheckpointBackend(storageFor(root))
+    const store = createCheckpointStore(backend)
+    const active = root.directory('.lumaforge-exports').directory('active')
+    const current = manifest({ exportId: 'export-opfs-partial' })
+
+    await store.writeActive(current)
+    active.directory('export-opfs-partial').file('output.jpg', 'partial')
+    active.directory('export-opfs-partial').file('output.jpg.tmp', 'tmp')
+
+    await store.removeActiveManifest('export-opfs-partial')
+
+    const exportDirectory = active.directory('export-opfs-partial')
+    expect(exportDirectory.entriesByName.has('manifest.json')).toBe(false)
+    expect(exportDirectory.entriesByName.has('output.jpg')).toBe(false)
+    expect(exportDirectory.entriesByName.has('output.jpg.tmp')).toBe(false)
   })
 })

@@ -23,6 +23,8 @@ type OpfsStorage = Pick<StorageManager, 'getDirectory'>
 const OPFS_EXPORTS_DIR = '.lumaforge-exports'
 const OPFS_ACTIVE_DIR = 'active'
 const DEFAULT_OPFS_OUTPUT_FILE = 'output.jpg'
+const OPFS_OUTPUT_TEMP_SUFFIX = '.tmp'
+const OPFS_OUTPUT_FINALIZED_SUFFIX = '.finalized.json'
 
 function getDefaultOpfsStorage(): OpfsStorage {
   const storage = globalThis.navigator?.storage
@@ -47,6 +49,42 @@ async function getOpfsExportDirectory(
   )
 
   return activeDirectory.getDirectoryHandle(exportId, { create: true })
+}
+
+async function removeOpfsEntryIfExists(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+) {
+  try {
+    await directory.removeEntry(name)
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'NotFoundError') {
+      return
+    }
+    throw error
+  }
+}
+
+async function writeOpfsFile(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+  data: Blob | string,
+) {
+  const fileHandle = await directory.getFileHandle(name, { create: true })
+  const writable = await fileHandle.createWritable()
+  try {
+    await writable.write(data instanceof Blob ? await data.arrayBuffer() : data)
+    await writable.close()
+  } catch (error) {
+    try {
+      if ('abort' in writable && typeof writable.abort === 'function') {
+        await writable.abort()
+      }
+    } catch {
+      // Preserve the primary write/close failure.
+    }
+    throw error
+  }
 }
 
 export function createBlobOutputResult(input: {
@@ -102,12 +140,77 @@ export async function createOpfsOutputWritable(input: {
     input.exportId,
     input.storage,
   )
-  const fileHandle = await exportDirectory.getFileHandle(
-    input.outputFileName ?? DEFAULT_OPFS_OUTPUT_FILE,
-    { create: true },
-  )
+  const outputFileName = input.outputFileName ?? DEFAULT_OPFS_OUTPUT_FILE
+  const tempFileName = `${outputFileName}${OPFS_OUTPUT_TEMP_SUFFIX}`
+  const finalizedFileName = `${outputFileName}${OPFS_OUTPUT_FINALIZED_SUFFIX}`
+  await removeOpfsEntryIfExists(exportDirectory, tempFileName)
+  await removeOpfsEntryIfExists(exportDirectory, finalizedFileName)
+  await removeOpfsEntryIfExists(exportDirectory, outputFileName)
 
-  return fileHandle.createWritable()
+  const fileHandle = await exportDirectory.getFileHandle(tempFileName, {
+    create: true,
+  })
+  const writable = await fileHandle.createWritable()
+  let state: 'open' | 'closed' | 'aborted' = 'open'
+
+  async function removeUnfinalizedOutput() {
+    await removeOpfsEntryIfExists(exportDirectory, tempFileName)
+    await removeOpfsEntryIfExists(exportDirectory, finalizedFileName)
+    await removeOpfsEntryIfExists(exportDirectory, outputFileName)
+  }
+
+  return {
+    async write(chunk) {
+      if (state !== 'open') throw new Error('OPFS_OUTPUT_WRITER_CLOSED')
+      await writable.write(chunk)
+    },
+    async close() {
+      if (state !== 'open') throw new Error('OPFS_OUTPUT_WRITER_CLOSED')
+      try {
+        await writable.close()
+        const tempFile = await fileHandle.getFile()
+        await writeOpfsFile(exportDirectory, outputFileName, tempFile)
+        await writeOpfsFile(
+          exportDirectory,
+          finalizedFileName,
+          JSON.stringify({
+            version: 1,
+            outputFileName,
+            byteLength: tempFile.size,
+            finalizedAt: new Date().toISOString(),
+          }),
+        )
+        await removeOpfsEntryIfExists(exportDirectory, tempFileName)
+        state = 'closed'
+      } catch (error) {
+        state = 'aborted'
+        try {
+          if ('abort' in writable && typeof writable.abort === 'function') {
+            await writable.abort()
+          }
+        } catch {
+          // Preserve the primary finalize failure.
+        }
+        try {
+          await removeUnfinalizedOutput()
+        } catch {
+          // Preserve the primary finalize failure.
+        }
+        throw error
+      }
+    },
+    async abort() {
+      if (state === 'closed' || state === 'aborted') return
+      state = 'aborted'
+      try {
+        if ('abort' in writable && typeof writable.abort === 'function') {
+          await writable.abort()
+        }
+      } finally {
+        await removeUnfinalizedOutput()
+      }
+    },
+  } satisfies Pick<FileSystemWritableFileStream, 'write' | 'close' | 'abort'>
 }
 
 export function createOpfsFileBackedOutputResult(input: {
@@ -119,6 +222,8 @@ export function createOpfsFileBackedOutputResult(input: {
   storage?: OpfsStorage
 }): FileBackedOutputResult {
   const outputFileName = input.outputFileName ?? DEFAULT_OPFS_OUTPUT_FILE
+  const tempFileName = `${outputFileName}${OPFS_OUTPUT_TEMP_SUFFIX}`
+  const finalizedFileName = `${outputFileName}${OPFS_OUTPUT_FINALIZED_SUFFIX}`
 
   return {
     kind: 'file-backed',
@@ -131,6 +236,7 @@ export function createOpfsFileBackedOutputResult(input: {
         input.exportId,
         input.storage,
       )
+      await exportDirectory.getFileHandle(finalizedFileName)
       const fileHandle = await exportDirectory.getFileHandle(outputFileName)
       const file = await fileHandle.getFile()
       const bytes = await file.arrayBuffer()
@@ -147,7 +253,9 @@ export function createOpfsFileBackedOutputResult(input: {
         input.exportId,
         input.storage,
       )
-      await exportDirectory.removeEntry(outputFileName)
+      await removeOpfsEntryIfExists(exportDirectory, tempFileName)
+      await removeOpfsEntryIfExists(exportDirectory, finalizedFileName)
+      await removeOpfsEntryIfExists(exportDirectory, outputFileName)
     },
   }
 }

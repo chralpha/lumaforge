@@ -85,6 +85,9 @@ const JPEG_STATES = new Set<ExportCheckpointJpegState>([
   'restart-required',
   'resumable',
 ])
+const OPFS_OUTPUT_FILE = 'output.jpg'
+const OPFS_OUTPUT_TEMP_FILE = `${OPFS_OUTPUT_FILE}.tmp`
+const OPFS_OUTPUT_FINALIZED_FILE = `${OPFS_OUTPUT_FILE}.finalized.json`
 
 function cloneManifest(manifest: ExportCheckpointManifest) {
   return JSON.parse(JSON.stringify(manifest)) as ExportCheckpointManifest
@@ -184,6 +187,42 @@ async function getActiveDirectory(storage: OpfsStorage) {
   return exportsDirectory.getDirectoryHandle('active', { create: true })
 }
 
+async function removeOpfsEntryIfExists(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+) {
+  try {
+    await directory.removeEntry(name)
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'NotFoundError') {
+      return
+    }
+    throw error
+  }
+}
+
+async function hasOpfsFile(directory: FileSystemDirectoryHandle, name: string) {
+  try {
+    await directory.getFileHandle(name)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function removeUnfinalizedOpfsOutput(
+  directory: FileSystemDirectoryHandle,
+) {
+  const hasFinalizedMarker = await hasOpfsFile(
+    directory,
+    OPFS_OUTPUT_FINALIZED_FILE,
+  )
+  await removeOpfsEntryIfExists(directory, OPFS_OUTPUT_TEMP_FILE)
+  if (!hasFinalizedMarker) {
+    await removeOpfsEntryIfExists(directory, OPFS_OUTPUT_FILE)
+  }
+}
+
 function readBlobAsText(blob: Blob) {
   if (typeof blob.text === 'function') return blob.text()
 
@@ -261,6 +300,7 @@ export function createOpfsCheckpointBackend(
       const active = await getActiveDirectory(storage)
       const exportDirectory = await active.getDirectoryHandle(exportId)
       await exportDirectory.removeEntry('manifest.json')
+      await removeUnfinalizedOpfsOutput(exportDirectory)
     },
   }
 }

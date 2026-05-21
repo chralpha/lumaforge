@@ -18,9 +18,13 @@ function createMemoryOpfsStorage() {
         configurable: true,
         value: async () => {
           const buffers = parts.map((part) =>
-            part instanceof Uint8Array
-              ? part
-              : new TextEncoder().encode(String(part)),
+            part instanceof ArrayBuffer
+              ? new Uint8Array(part)
+              : ArrayBuffer.isView(part)
+                ? new Uint8Array(part.buffer, part.byteOffset, part.byteLength)
+                : part instanceof Uint8Array
+                  ? part
+                  : new TextEncoder().encode(String(part)),
           )
           const byteLength = buffers.reduce(
             (total, buffer) => total + buffer.byteLength,
@@ -46,8 +50,11 @@ function createMemoryOpfsStorage() {
       async getDirectoryHandle(name: string) {
         return createDirectory(`${path}/${name}`)
       },
-      async getFileHandle(name: string) {
+      async getFileHandle(name: string, options?: FileSystemGetFileOptions) {
         const filePath = `${path}/${name}`
+        if (!files.has(filePath) && !options?.create) {
+          throw new Error(`missing-file:${filePath}`)
+        }
         return {
           kind: 'file',
           name,
@@ -56,6 +63,9 @@ function createMemoryOpfsStorage() {
             return {
               async write(chunk: BlobPart) {
                 chunks.push(chunk)
+              },
+              async abort() {
+                chunks.length = 0
               },
               async close() {
                 files.set(filePath, createBlob(chunks))
@@ -142,13 +152,68 @@ describe('export output sink', () => {
 
     expect(result.kind).toBe('file-backed')
     expect(result.byteLength).toBe(3)
-    await expect(materializeOutputBlob(result)).resolves.toMatchObject({
-      type: 'image/jpeg',
-      size: 3,
-    })
+    const blob = await materializeOutputBlob(result)
+    expect(blob.type).toBe('image/jpeg')
+    expect(blob.size).toBe(3)
 
     await result.cleanup?.()
     expect(files.size).toBe(0)
+  })
+
+  it('publishes OPFS output only after a finalized temp write', async () => {
+    const { storage, files } = createMemoryOpfsStorage()
+    const writable = await createOpfsOutputWritable({
+      exportId: 'export-opfs-finalized',
+      storage,
+    })
+
+    await writable.write(new Uint8Array([1, 2, 3]))
+    await writable.close()
+
+    expect(
+      files.has('/.lumaforge-exports/active/export-opfs-finalized/output.jpg'),
+    ).toBe(true)
+    expect(
+      files.has(
+        '/.lumaforge-exports/active/export-opfs-finalized/output.jpg.finalized.json',
+      ),
+    ).toBe(true)
+    expect(
+      files.has(
+        '/.lumaforge-exports/active/export-opfs-finalized/output.jpg.tmp',
+      ),
+    ).toBe(false)
+  })
+
+  it('removes OPFS temp output after abort without publishing final output', async () => {
+    const { storage, files } = createMemoryOpfsStorage()
+    const writable = await createOpfsOutputWritable({
+      exportId: 'export-opfs-aborted',
+      storage,
+    })
+
+    await writable.write(new Uint8Array([1, 2, 3]))
+    await writable.abort()
+
+    expect(files.size).toBe(0)
+  })
+
+  it('refuses to open OPFS output without a finalized marker', async () => {
+    const { storage, files } = createMemoryOpfsStorage()
+    files.set(
+      '/.lumaforge-exports/active/export-opfs-unfinalized/output.jpg',
+      new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }),
+    )
+
+    const result = createOpfsFileBackedOutputResult({
+      exportId: 'export-opfs-unfinalized',
+      filename: 'frame.jpg',
+      byteLength: 3,
+      mimeType: 'image/jpeg',
+      storage,
+    })
+
+    await expect(materializeOutputBlob(result)).rejects.toThrow(/missing-file/)
   })
 
   it('snapshots OPFS file bytes when materializing for browser handoff', async () => {
