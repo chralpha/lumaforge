@@ -1243,7 +1243,7 @@ git commit -m "feat(runtime): add deriveInteractivePolicy with conservative desk
 - Create: `src/lib/runtime/export-policy.ts`
 - Test: `src/lib/runtime/export-policy.test.ts`
 
-- [ ] **Step 1 — Failing tests (seven scenarios)**
+- [x] **Step 1 — Failing tests (seven scenarios)**
 
 ```ts
 // src/lib/runtime/export-policy.test.ts
@@ -1338,12 +1338,12 @@ describe('deriveExportPolicy', () => {
 })
 ```
 
-- [ ] **Step 2 — Run; FAIL**
+- [x] **Step 2 — Run; FAIL**
 
 Run: `pnpm vitest run src/lib/runtime/export-policy.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3 — Implement per spec §2.2**
+- [x] **Step 3 — Implement per spec §2.2**
 
 ```ts
 // src/lib/runtime/export-policy.ts
@@ -1456,12 +1456,12 @@ export function deriveExportPolicy(
 }
 ```
 
-- [ ] **Step 4 — Run; PASS**
+- [x] **Step 4 — Run; PASS**
 
 Run: `pnpm vitest run src/lib/runtime/export-policy.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5 — Commit**
+- [x] **Step 5 — Commit**
 
 ```bash
 git add src/lib/runtime/export-policy.ts src/lib/runtime/export-policy.test.ts
