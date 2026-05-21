@@ -1797,7 +1797,7 @@ git commit -m "refactor(export-system): snapshot ExportRuntimeResources per plan
 - Modify: `src/lib/export/execution-profile.ts` (the `ExportPlanSelectedDebugPayload` type and emitter)
 - Modify: `src/lib/export/execution-profile.test.ts`
 
-- [ ] **Step 1 — Failing test**
+- [x] **Step 1 — Failing test**
 
 ```ts
 // Append to src/lib/export/execution-profile.test.ts
@@ -1817,12 +1817,12 @@ it('emits derivedLabel and policyVector alongside legacy profile in debug events
 })
 ```
 
-- [ ] **Step 2 — Run; FAIL**
+- [x] **Step 2 — Run; FAIL**
 
 Run: `pnpm vitest run src/lib/export/execution-profile.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3 — Extend payload type and emitter**
+- [x] **Step 3 — Extend payload type and emitter**
 
 Update `ExportPlanSelectedDebugPayload`:
 
@@ -1842,12 +1842,12 @@ export type ExportPlanSelectedDebugPayload = {
 
 In the plan-selection emitter, populate the new fields from the derived policy.
 
-- [ ] **Step 4 — Run; PASS**
+- [x] **Step 4 — Run; PASS**
 
 Run: `pnpm vitest run src/lib/export/execution-profile.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5 — Commit**
+- [x] **Step 5 — Commit**
 
 ```bash
 git add src/lib/export/execution-profile.ts src/lib/export/execution-profile.test.ts
