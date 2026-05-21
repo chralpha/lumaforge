@@ -26,6 +26,8 @@ export type ExportRuntimeMemoryProfile = 'low-memory' | 'desktop'
 
 export type ExportPlanSelectedDebugPayload = {
   profile: ExportExecutionProfileName
+  derivedLabel: string
+  policyVector: ExportPolicy
   preferredRows: number
   concurrency: number
   runtimeMemoryProfile: ExportRuntimeMemoryProfile
@@ -283,6 +285,23 @@ export function emitExportDebugEvent(event: ExportDebugEvent) {
   window.dispatchEvent(
     new CustomEvent('lumaforge-export-debug', { detail: event }),
   )
+}
+
+export function toExportPlanSelectedDebugPayload(
+  plan: ExportExecutionPlan,
+  checkpointDurableExpected: boolean,
+): ExportPlanSelectedDebugPayload {
+  return {
+    profile: plan.profile.name,
+    derivedLabel: plan.derivedLabel,
+    policyVector: plan.policyVector,
+    preferredRows: plan.preferredRows,
+    concurrency: plan.concurrency,
+    runtimeMemoryProfile: plan.runtimeMemoryProfile,
+    outputSink: plan.outputSink,
+    checkpointMode: plan.checkpointMode,
+    checkpointDurableExpected,
+  }
 }
 
 export function getImageMegapixels(width?: number, height?: number) {

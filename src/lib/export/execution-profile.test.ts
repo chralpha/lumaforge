@@ -4,6 +4,7 @@ import {
   emitExportDebugEvent,
   getExportModeCopy,
   selectExportExecutionPlan,
+  toExportPlanSelectedDebugPayload,
 } from './execution-profile'
 
 const exportDebugEventStorageKey = 'lumaforge.exportDebugEvents.v1'
@@ -320,18 +321,28 @@ describe('export execution profile selection', () => {
 
   it('persists recent export debug events for post-reload Safari diagnostics', () => {
     clearExportDebugDiagnostics()
+    const plan = selectExportExecutionPlan({
+      performancePreference: 'balanced',
+      sourceWidth: 6000,
+      sourceHeight: 4000,
+      capability: {
+        coi: false,
+        pthread: false,
+        deviceMemoryGB: null,
+        hwConcurrency: 1,
+        webKitClass: 'webkit-mobile',
+        maybeOpfsSupported: true,
+      },
+      runtime: {
+        opfsSinkAvailable: true,
+        opfsAvailableMB: 4_000,
+        streamingSinkAvailable: false,
+      },
+    })
 
     emitExportDebugEvent({
       type: 'export-plan-selected',
-      payload: {
-        profile: 'ios-safe',
-        preferredRows: 128,
-        concurrency: 1,
-        runtimeMemoryProfile: 'low-memory',
-        outputSink: 'opfs-file',
-        checkpointMode: 'safe-retry',
-        checkpointDurableExpected: true,
-      },
+      payload: toExportPlanSelectedDebugPayload(plan, true),
     })
 
     const stored = JSON.parse(
@@ -350,6 +361,54 @@ describe('export execution profile selection', () => {
         }),
       }),
     ])
+  })
+
+  it('emits derivedLabel and policyVector alongside legacy profile in debug events', () => {
+    const events: unknown[] = []
+    const handler = (event: Event) => events.push((event as CustomEvent).detail)
+    window.addEventListener('lumaforge-export-debug', handler)
+
+    try {
+      const plan = selectExportExecutionPlan({
+        performancePreference: 'balanced',
+        previousResourceFailure: false,
+        previousCrashLikeInterruption: false,
+        previousUserInterrupted: false,
+        sourceWidth: 6000,
+        sourceHeight: 4000,
+        capability: {
+          coi: true,
+          pthread: true,
+          deviceMemoryGB: 16,
+          hwConcurrency: 8,
+          webKitClass: 'chromium',
+          maybeOpfsSupported: true,
+        },
+        runtime: {
+          opfsSinkAvailable: true,
+          opfsAvailableMB: 4_000,
+          streamingSinkAvailable: true,
+        },
+      })
+
+      emitExportDebugEvent({
+        type: 'export-plan-selected',
+        payload: toExportPlanSelectedDebugPayload(plan, true),
+      })
+
+      const selected = events.find(
+        (event): event is { type: string; payload: Record<string, unknown> } =>
+          typeof event === 'object' &&
+          event !== null &&
+          'type' in event &&
+          event.type === 'export-plan-selected',
+      )
+      expect(selected?.payload.derivedLabel).toBeTruthy()
+      expect(selected?.payload.policyVector).toBeDefined()
+      expect(selected?.payload.profile).toBeDefined()
+    } finally {
+      window.removeEventListener('lumaforge-export-debug', handler)
+    }
   })
 
   it('does not reread persisted diagnostics for every checkpoint event', () => {

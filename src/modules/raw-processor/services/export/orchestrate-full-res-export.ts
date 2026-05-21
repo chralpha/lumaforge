@@ -8,7 +8,10 @@ import {
   createCheckpointStore,
   createOpfsCheckpointBackend,
 } from '~/lib/export/checkpoint-store'
-import { emitExportDebugEvent } from '~/lib/export/execution-profile'
+import {
+  emitExportDebugEvent,
+  toExportPlanSelectedDebugPayload,
+} from '~/lib/export/execution-profile'
 import type { FullResWorkerCheckpointConfig } from '~/lib/export/full-res-export-client'
 import type { ResourceRegistry } from '~/lib/export/resource-registry'
 import { createSourceFingerprint } from '~/lib/export/source-fingerprint'
@@ -298,17 +301,11 @@ export async function orchestrateFullResExport(
 
     emitExportDebugEvent({
       type: 'export-plan-selected',
-      payload: {
-        profile: jobExecutionPlan.profile.name,
-        preferredRows: jobExecutionPlan.preferredRows,
-        concurrency: jobExecutionPlan.concurrency,
-        runtimeMemoryProfile: jobExecutionPlan.runtimeMemoryProfile,
-        checkpointMode: jobExecutionPlan.checkpointMode,
-        outputSink: jobExecutionPlan.outputSink,
-        checkpointDurableExpected:
-          jobExecutionPlan.profile.checkpointOutput &&
+      payload: toExportPlanSelectedDebugPayload(
+        jobExecutionPlan,
+        jobExecutionPlan.profile.checkpointOutput &&
           jobExecutionPlan.outputSink === 'opfs-file',
-      },
+      ),
     })
 
     ctx.atoms.setSession((prev) =>
