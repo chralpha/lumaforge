@@ -2018,25 +2018,25 @@ git commit -m "refactor(export): remove dead lowMemoryAvailable parameter"
 - Modify: `src/lib/export/execution-profile.ts` (delete the const)
 - Modify: any consumer that imports `EXPORT_EXECUTION_PROFILES`
 
-- [ ] **Step 1 — Grep consumers**
+- [x] **Step 1 — Grep consumers**
 
 Run: `grep -rn "EXPORT_EXECUTION_PROFILES" src/`
 Expected: a small list — the table is used inside `selectExportExecutionPlan` itself (replaced in Phase 2) and possibly in some legacy test fixtures.
 
-- [ ] **Step 2 — Remove imports and the const**
+- [x] **Step 2 — Remove imports and the const**
 
 Delete the `EXPORT_EXECUTION_PROFILES` const definition. Any remaining consumer should already be using the derived path; if not, update the consumer to derive from `selectExportExecutionPlan` output.
 
-- [ ] **Step 3 — Keep `ExportExecutionProfileName` type alive (one more phase)**
+- [x] **Step 3 — Keep `ExportExecutionProfileName` type alive (one more phase)**
 
 The `ExportExecutionProfileName` string-union type is still referenced by the checkpoint store record schema and by the legacy `profile` telemetry field. Keep the type alias. Only the **table** (the const) goes.
 
-- [ ] **Step 4 — Run; PASS**
+- [x] **Step 4 — Run; PASS**
 
 Run: `pnpm vitest run && pnpm lint && pnpm build`
 Expected: PASS.
 
-- [ ] **Step 5 — Commit**
+- [x] **Step 5 — Commit**
 
 ```bash
 git add src/lib/export/execution-profile.ts
