@@ -807,7 +807,7 @@ git commit -m "fix(raw-export): terminate decode bridge before export to preserv
 
 Spec §6 Phase 1. Locks down the invariant after commits `12a5ea6` and `3f06313` already addressed the bug.
 
-- [ ] **Step 1 — Failing assertion**
+- [x] **Step 1 — Failing assertion**
 
 ```ts
   it('does not advertise preview-size copy when no canvas was captured and the pipeline was released', async () => {
@@ -821,17 +821,17 @@ Spec §6 Phase 1. Locks down the invariant after commits `12a5ea6` and `3f06313`
   })
 ```
 
-- [ ] **Step 2 — Run; FAIL or PASS-as-regression-pin**
+- [x] **Step 2 — Run; FAIL or PASS-as-regression-pin**
 
 Run: `pnpm vitest run src/modules/raw-processor/__tests__/orchestrate-full-res-export-bridge.test.ts`
 Expected: FAIL if the bug regressed; PASS as a regression pin if the existing fix held. If FAIL, fix the orchestrator's `copyCapability` block near `orchestrate-full-res-export.ts:332-337` to downgrade `previewSize.available` when `previewCopyCanvas` is null.
 
-- [ ] **Step 3 — Run; PASS**
+- [x] **Step 3 — Run; PASS**
 
 Run: `pnpm vitest run src/modules/raw-processor/__tests__/orchestrate-full-res-export-bridge.test.ts`
 Expected: PASS.
 
-- [ ] **Step 4 — Commit**
+- [x] **Step 4 — Commit**
 
 ```bash
 git add src/modules/raw-processor/__tests__/orchestrate-full-res-export-bridge.test.ts \
