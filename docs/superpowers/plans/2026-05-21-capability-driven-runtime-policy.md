@@ -2049,21 +2049,21 @@ git commit -m "refactor(export): delete EXPORT_EXECUTION_PROFILES table (decisio
 - Modify: `src/lib/export/execution-profile.ts` (the `ExportExecutionProfile` type)
 - Modify: any consumer reading `profile.restartWorkerOnResourceRetry`
 
-- [ ] **Step 1 — Grep consumers**
+- [x] **Step 1 — Grep consumers**
 
 Run: `grep -rn "restartWorkerOnResourceRetry" src/`
 Expected: a handful of consumers in `full-res-export-client.ts` and the export-system retry path. With Phase 1's bridges in place, all of them are effectively unconditional (always-true after Phase 2).
 
-- [ ] **Step 2 — Remove the field**
+- [x] **Step 2 — Remove the field**
 
 Delete `restartWorkerOnResourceRetry` from the `ExportExecutionProfile` type. Replace each consumer's read with the constant `true` (or simply remove the gate entirely; the bridge handles restart).
 
-- [ ] **Step 3 — Run; PASS**
+- [x] **Step 3 — Run; PASS**
 
 Run: `pnpm vitest run && pnpm lint && pnpm build`
 Expected: PASS.
 
-- [ ] **Step 4 — Commit**
+- [x] **Step 4 — Commit**
 
 ```bash
 git add src/lib/export/execution-profile.ts src/lib/export/full-res-export-client.ts \
