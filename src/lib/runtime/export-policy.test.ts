@@ -1,0 +1,161 @@
+import { describe, expect, it } from 'vitest'
+
+import type { CapabilityVector } from './capability-vector'
+import { deriveExportPolicy } from './export-policy'
+import type { ExportRuntimeResources } from './export-runtime-resources'
+
+const baseCap: CapabilityVector = {
+  coi: true,
+  pthread: true,
+  deviceMemoryGB: 16,
+  hwConcurrency: 8,
+  webKitClass: 'chromium',
+  maybeOpfsSupported: true,
+}
+const opfsRuntime: ExportRuntimeResources = Object.freeze({
+  opfsSinkAvailable: true,
+  opfsAvailableMB: 4_000,
+  streamingSinkAvailable: true,
+})
+
+describe('deriveExportPolicy', () => {
+  it('produces high-performance on chromium desktop / balanced preference', () => {
+    const p = deriveExportPolicy(
+      baseCap,
+      { width: 6000, height: 4000 },
+      {
+        performancePreference: 'balanced',
+        previousResourceFailure: false,
+        previousCrashLikeInterruption: false,
+        previousUserInterrupted: false,
+      },
+      opfsRuntime,
+    )
+
+    expect(p.rowSlice).toBe(512)
+    expect(p.concurrency).toBe(2)
+    expect(p.workerMemoryProfile).toBe('desktop')
+    expect(p.outputSink).toBe('opfs-file')
+    expect(p.productCopy).toBe('high-performance')
+    expect(p.persistEveryNRows).toBe(4096)
+    expect(p.derivedLabel).toBe('desktop-thr2-rs512-opfs-file-wkchromium')
+  })
+
+  it('caps webkit-mobile to rowSlice 128 / conc 1 / low-memory', () => {
+    const p = deriveExportPolicy(
+      { ...baseCap, webKitClass: 'webkit-mobile' },
+      { width: 6000, height: 4000 },
+      {
+        performancePreference: 'max',
+        previousResourceFailure: false,
+        previousCrashLikeInterruption: false,
+        previousUserInterrupted: false,
+      },
+      opfsRuntime,
+    )
+
+    expect(p.rowSlice).toBeLessThanOrEqual(128)
+    expect(p.concurrency).toBe(1)
+    expect(p.workerMemoryProfile).toBe('low-memory')
+  })
+
+  it('user-cancel is idempotent vs no prior state', () => {
+    const intent = {
+      performancePreference: 'balanced' as const,
+      previousResourceFailure: false,
+      previousCrashLikeInterruption: false,
+      previousUserInterrupted: false,
+    }
+    const a = deriveExportPolicy(
+      baseCap,
+      { width: 6000, height: 4000 },
+      intent,
+      opfsRuntime,
+    )
+    const b = deriveExportPolicy(
+      baseCap,
+      { width: 6000, height: 4000 },
+      { ...intent, previousUserInterrupted: true },
+      opfsRuntime,
+    )
+
+    expect(b).toEqual(a)
+  })
+
+  it('previousResourceFailure halves rowSlice and floors concurrency', () => {
+    const p = deriveExportPolicy(
+      baseCap,
+      { width: 6000, height: 4000 },
+      {
+        performancePreference: 'max',
+        previousResourceFailure: true,
+        previousCrashLikeInterruption: false,
+        previousUserInterrupted: false,
+      },
+      opfsRuntime,
+    )
+
+    expect(p.rowSlice).toBe(256)
+    expect(p.concurrency).toBe(1)
+    expect(p.productCopy).toBe('resource-retry')
+  })
+
+  it('previousCrashLikeInterruption quarters rowSlice', () => {
+    const p = deriveExportPolicy(
+      baseCap,
+      { width: 6000, height: 4000 },
+      {
+        performancePreference: 'max',
+        previousResourceFailure: false,
+        previousCrashLikeInterruption: true,
+        previousUserInterrupted: false,
+      },
+      opfsRuntime,
+    )
+
+    expect(p.rowSlice).toBe(128)
+    expect(p.concurrency).toBe(1)
+    expect(p.productCopy).toBe('interrupted-retry')
+  })
+
+  it('falls through to streaming when OPFS cannot fit', () => {
+    const p = deriveExportPolicy(
+      baseCap,
+      { width: 20_000, height: 15_000 },
+      {
+        performancePreference: 'balanced',
+        previousResourceFailure: false,
+        previousCrashLikeInterruption: false,
+        previousUserInterrupted: false,
+      },
+      Object.freeze({
+        opfsSinkAvailable: true,
+        opfsAvailableMB: 100,
+        streamingSinkAvailable: true,
+      }),
+    )
+
+    expect(p.outputSink).toBe('streaming')
+  })
+
+  it('cannot-safely-complete on webkit-mobile + 60MP + blob-handoff', () => {
+    const p = deriveExportPolicy(
+      { ...baseCap, webKitClass: 'webkit-mobile' },
+      { width: 9000, height: 6700 },
+      {
+        performancePreference: 'safe',
+        previousResourceFailure: false,
+        previousCrashLikeInterruption: false,
+        previousUserInterrupted: false,
+      },
+      Object.freeze({
+        opfsSinkAvailable: false,
+        opfsAvailableMB: null,
+        streamingSinkAvailable: false,
+      }),
+    )
+
+    expect(p.outputSink).toBe('blob-handoff')
+    expect(p.productCopy).toBe('cannot-safely-complete')
+  })
+})
