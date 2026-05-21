@@ -62,7 +62,7 @@ Goal: introduce the bridge substrate without changing decision math or safety fl
 - Create: `src/lib/workers/worker-bridge.ts`
 - Test: `src/lib/workers/worker-bridge.test.ts`
 
-- [ ] **Step 1 — Write the first failing test (queue ordering)**
+- [x] **Step 1 — Write the first failing test (queue ordering)**
 
 ```ts
 // src/lib/workers/worker-bridge.test.ts
@@ -105,12 +105,12 @@ describe('WorkerBridge', () => {
 })
 ```
 
-- [ ] **Step 2 — Run test to verify it fails**
+- [x] **Step 2 — Run test to verify it fails**
 
 Run: `pnpm vitest run src/lib/workers/worker-bridge.test.ts`
 Expected: FAIL with `Cannot find module './worker-bridge'`.
 
-- [ ] **Step 3 — Implement the minimal bridge**
+- [x] **Step 3 — Implement the minimal bridge**
 
 ```ts
 // src/lib/workers/worker-bridge.ts
@@ -187,12 +187,12 @@ export class WorkerBridge<TApi extends Record<string, (...args: any[]) => Promis
 }
 ```
 
-- [ ] **Step 4 — Run; PASS**
+- [x] **Step 4 — Run; PASS**
 
 Run: `pnpm vitest run src/lib/workers/worker-bridge.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5 — Add the rejection-recovery test**
+- [x] **Step 5 — Add the rejection-recovery test**
 
 Append to the test file:
 
@@ -219,7 +219,7 @@ Append to the test file:
 Run: `pnpm vitest run src/lib/workers/worker-bridge.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6 — Add abort-while-queued test**
+- [x] **Step 6 — Add abort-while-queued test**
 
 Append:
 
@@ -252,7 +252,7 @@ Append:
 
 Run; expected PASS.
 
-- [ ] **Step 7 — Add abort-during-active-call test**
+- [x] **Step 7 — Add abort-during-active-call test**
 
 Append:
 
@@ -282,7 +282,7 @@ Append:
 
 Run; expected PASS.
 
-- [ ] **Step 8 — Add idle-terminate tests (success, failure, cancel)**
+- [x] **Step 8 — Add idle-terminate tests (success, failure, cancel)**
 
 Append:
 
@@ -350,7 +350,7 @@ Append:
 
 Run; all PASS.
 
-- [ ] **Step 9 — Commit**
+- [x] **Step 9 — Commit**
 
 ```bash
 git add src/lib/workers/worker-bridge.ts src/lib/workers/worker-bridge.test.ts
