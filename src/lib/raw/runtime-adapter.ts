@@ -11,9 +11,11 @@ import {
   decodeBoundedHqRawWithLuma,
   decodeQuickRawWithLuma,
   extractEmbeddedPreviewWithLuma,
+  getPrewarmStateForLuma,
   openRawSessionWithLuma,
   prewarmLumaRawRuntime,
 } from './luma-runtime-adapter'
+export type { PrewarmOutcome, PrewarmState } from './luma-runtime-adapter'
 
 export type RawRuntimeSession = {
   sourceDimensions: {
@@ -39,7 +41,8 @@ export type RawRuntimeSession = {
 }
 
 export type RawRuntimeAdapter = {
-  prewarm: () => Promise<void>
+  prewarm: () => Promise<import('./luma-runtime-adapter').PrewarmOutcome>
+  getPrewarmState: () => import('./luma-runtime-adapter').PrewarmState
   openSession: (file: File, signal?: AbortSignal) => Promise<RawRuntimeSession>
   extractEmbeddedPreview: (file: File) => Promise<LumaEmbeddedPreview | null>
   decodeQuickRaw: (
@@ -65,6 +68,9 @@ export function createRawRuntimeAdapter({
   return {
     prewarm() {
       return prewarmLumaRawRuntime(lumaRuntimeFactory)
+    },
+    getPrewarmState() {
+      return getPrewarmStateForLuma()
     },
     openSession(file, signal) {
       return openRawSessionWithLuma(
