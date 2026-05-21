@@ -22,6 +22,7 @@ import {
 } from './components'
 import { useRawProcessor } from './hooks'
 import { useCapabilityGate } from './hooks/useCapabilityGate'
+import { useHiddenFilePicker } from './hooks/useHiddenFilePicker'
 import { useOnlineLutSources } from './hooks/useOnlineLutSources'
 import { clampCompareSplit } from './services/compare-split'
 
@@ -196,33 +197,29 @@ function RawProcessorViewInner({
     [exportImage],
   )
 
+  const replacePicker = useHiddenFilePicker({
+    accept:
+      '.cr2,.cr3,.nef,.arw,.raf,.rw2,.orf,.dng,.pef,.srw,.3fr,.fff,.iiq,.raw',
+    onFile: (file) => {
+      void loadFile(file)
+    },
+  })
+
+  const recoveryPicker = useHiddenFilePicker({
+    accept:
+      '.cr2,.cr3,.nef,.arw,.raf,.rw2,.orf,.dng,.pef,.srw,.3fr,.fff,.iiq,.raw',
+    onFile: (file) => {
+      void recoverInterruptedExport(file)
+    },
+  })
+
   const handleReplaceFile = useCallback(() => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept =
-      '.cr2,.cr3,.nef,.arw,.raf,.rw2,.orf,.dng,.pef,.srw,.3fr,.fff,.iiq,.raw'
-    input.onchange = () => {
-      const nextFile = input.files?.[0]
-      if (nextFile) {
-        loadFile(nextFile)
-      }
-    }
-    input.click()
-  }, [loadFile])
+    replacePicker.open()
+  }, [replacePicker])
 
   const handleRecoveryFileSelect = useCallback(() => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept =
-      '.cr2,.cr3,.nef,.arw,.raf,.rw2,.orf,.dng,.pef,.srw,.3fr,.fff,.iiq,.raw'
-    input.onchange = () => {
-      const nextFile = input.files?.[0]
-      if (nextFile) {
-        void recoverInterruptedExport(nextFile)
-      }
-    }
-    input.click()
-  }, [recoverInterruptedExport])
+    recoveryPicker.open()
+  }, [recoveryPicker])
 
   // Handle stats update from canvas
   const handleStatsUpdate = useCallback(
@@ -402,6 +399,9 @@ function RawProcessorViewInner({
         message={error || ''}
         onDismiss={dismissError}
       />
+
+      <input {...replacePicker.inputProps} />
+      <input {...recoveryPicker.inputProps} />
     </div>
   )
 }
