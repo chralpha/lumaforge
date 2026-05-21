@@ -9,6 +9,7 @@ import type {
 } from '@lumaforge/luma-raw-runtime'
 
 import { JPEG_RUNTIME_UNAVAILABLE_MESSAGE } from '~/lib/export/jpeg/wasm-row-sink'
+import { RawDecodeBridge } from '~/lib/workers/raw-decode-bridge'
 
 import type { DecodedImage, ImageMetadata, ProgressCallback } from './decoder'
 import { QUICK_PREVIEW_MAX_PIXELS } from './decoder'
@@ -29,8 +30,8 @@ let prewarmState: PrewarmState = 'idle'
 let prewarmOutcome: PrewarmOutcome | null = null
 let prewarmInFlight: Promise<PrewarmOutcome> | null = null
 
-let singletonRuntime: LumaRawRuntime | null = null
-let singletonRuntimePromise: Promise<LumaRawRuntime> | null = null
+let singletonBridge = createDefaultRawDecodeBridge()
+const runtimeFactoryBridges = new Map<() => LumaRawRuntime, RawDecodeBridge>()
 
 type RawAdapterErrorCode = LumaRawErrorCode | 'RAW_BOUNDED_HQ_DECODE_FAILED'
 
@@ -48,32 +49,33 @@ export class RawAdapterError extends Error {
   }
 }
 
-async function getRuntime(runtimeFactory?: () => LumaRawRuntime) {
+function createDefaultRawDecodeBridge() {
+  return new RawDecodeBridge({
+    runtimeFactory: async () => {
+      const { createLumaRawRuntime } =
+        await import('@lumaforge/luma-raw-runtime')
+      return createLumaRawRuntime({
+        requireCrossOriginIsolation: true,
+      })
+    },
+  })
+}
+
+function getRawDecodeBridge(runtimeFactory?: () => LumaRawRuntime) {
   if (runtimeFactory) {
-    return runtimeFactory()
+    const existing = runtimeFactoryBridges.get(runtimeFactory)
+    if (existing) return existing
+
+    const bridge = new RawDecodeBridge({ runtimeFactory })
+    runtimeFactoryBridges.set(runtimeFactory, bridge)
+    return bridge
   }
 
-  if (singletonRuntime) {
-    return singletonRuntime
-  }
+  return singletonBridge
+}
 
-  singletonRuntimePromise ??= import('@lumaforge/luma-raw-runtime')
-    .then(({ createLumaRawRuntime }) => {
-      const runtime =
-        singletonRuntime ??
-        createLumaRawRuntime({
-          requireCrossOriginIsolation: true,
-        })
-
-      singletonRuntime = runtime
-      return runtime
-    })
-    .catch((error: unknown) => {
-      singletonRuntimePromise = null
-      throw error
-    })
-
-  return singletonRuntimePromise
+function createRuntimeSignal(signal?: AbortSignal) {
+  return signal ?? new AbortController().signal
 }
 
 function getRawErrorCode(error: unknown): RawAdapterErrorCode | undefined {
@@ -225,6 +227,7 @@ export function frameToDecodedImage(frame: LumaRawFrame): DecodedImage {
 
 export function prewarmLumaRawRuntime(
   runtimeFactory?: () => LumaRawRuntime,
+  signal?: AbortSignal,
 ): Promise<PrewarmOutcome> {
   if (prewarmState === 'ready' && prewarmOutcome) {
     return Promise.resolve(prewarmOutcome)
@@ -238,8 +241,8 @@ export function prewarmLumaRawRuntime(
   prewarmState = 'pending'
   prewarmInFlight = (async () => {
     try {
-      const runtime = await getRuntime(runtimeFactory)
-      await runtime.init()
+      const bridge = getRawDecodeBridge(runtimeFactory)
+      await bridge.prewarm(createRuntimeSignal(signal))
       const outcome: PrewarmOutcome = { status: 'ready' }
       prewarmOutcome = outcome
       prewarmState = 'ready'
@@ -284,11 +287,13 @@ function classifyPrewarmFailure(error: unknown): {
 export async function extractEmbeddedPreviewWithLuma(
   file: File,
   runtimeFactory?: () => LumaRawRuntime,
+  signal?: AbortSignal,
 ): Promise<LumaEmbeddedPreview | null> {
+  const runtimeSignal = createRuntimeSignal(signal)
   try {
-    const runtime = await getRuntime(runtimeFactory)
-    await runtime.init()
-    return runtime.extractEmbeddedPreview(file)
+    const bridge = getRawDecodeBridge(runtimeFactory)
+    await bridge.prewarm(runtimeSignal)
+    return bridge.decodeEmbedded(runtimeSignal, file, runtimeSignal)
   } catch (error) {
     throw normalizeRawAdapterError(error, 'RAW_THUMBNAIL_UNAVAILABLE')
   }
@@ -298,16 +303,18 @@ export async function decodeQuickRawWithLuma(
   file: File,
   onProgress?: ProgressCallback,
   runtimeFactory?: () => LumaRawRuntime,
+  signal?: AbortSignal,
 ): Promise<DecodedImage> {
+  const runtimeSignal = createRuntimeSignal(signal)
   try {
     onProgress?.({ phase: 'loading', progress: 0 })
 
-    const runtime = await getRuntime(runtimeFactory)
-    await runtime.init()
+    const bridge = getRawDecodeBridge(runtimeFactory)
+    await bridge.prewarm(runtimeSignal)
 
     onProgress?.({ phase: 'decoding', progress: 50 })
 
-    const frame = await runtime.decodeQuick(file)
+    const frame = await bridge.decodeQuick(runtimeSignal, file, runtimeSignal)
 
     onProgress?.({ phase: 'complete', progress: 100 })
 
@@ -322,12 +329,19 @@ export async function decodeBoundedHqRawWithLuma(
   options: { maxOutputPixels: number },
   onProgress?: ProgressCallback,
   runtimeFactory?: () => LumaRawRuntime,
+  signal?: AbortSignal,
 ): Promise<DecodedImage> {
+  const runtimeSignal = createRuntimeSignal(signal)
   try {
     onProgress?.({ phase: 'decoding', progress: 0 })
-    const runtime = await getRuntime(runtimeFactory)
-    await runtime.init()
-    const frame = await runtime.decodeBoundedHq(file, options)
+    const bridge = getRawDecodeBridge(runtimeFactory)
+    await bridge.prewarm(runtimeSignal)
+    const frame = await bridge.decodeBoundedHq(
+      runtimeSignal,
+      file,
+      options,
+      runtimeSignal,
+    )
     onProgress?.({ phase: 'complete', progress: 100 })
     return frameToDecodedImage(frame)
   } catch (error) {
@@ -342,15 +356,17 @@ export async function openRawSessionWithLuma(
   jpegRuntimeAvailabilityProbe?: JpegRuntimeAvailabilityProbe,
 ): Promise<RawRuntimeSession> {
   let session: Awaited<ReturnType<LumaRawRuntime['openSession']>>
+  const runtimeSignal = createRuntimeSignal(signal)
   try {
-    const runtime = await getRuntime(runtimeFactory)
-    await runtime.init()
-    session = await runtime.openSession(
+    const bridge = getRawDecodeBridge(runtimeFactory)
+    await bridge.prewarm(runtimeSignal)
+    session = await bridge.openSession(
+      runtimeSignal,
       file,
       {
         maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
       },
-      signal,
+      runtimeSignal,
     )
   } catch (error) {
     throw normalizeRawAdapterError(error, 'RAW_OPEN_FAILED')
@@ -413,9 +429,12 @@ export async function openRawSessionWithLuma(
 }
 
 export function disposeLumaRawRuntime() {
-  singletonRuntime?.dispose()
-  singletonRuntime = null
-  singletonRuntimePromise = null
+  void singletonBridge.terminate()
+  singletonBridge = createDefaultRawDecodeBridge()
+  for (const bridge of runtimeFactoryBridges.values()) {
+    void bridge.terminate()
+  }
+  runtimeFactoryBridges.clear()
   prewarmState = 'idle'
   prewarmOutcome = null
   prewarmInFlight = null

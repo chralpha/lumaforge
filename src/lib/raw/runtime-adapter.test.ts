@@ -756,10 +756,7 @@ describe('raw runtime adapter', () => {
     const second = adapter.prewarm()
     expect(adapter.getPrewarmState()).toBe('pending')
 
-    // Let the in-flight async chain reach the awaited runtime.init() so the
-    // resolver is wired up before we fire it.
-    await Promise.resolve()
-    await Promise.resolve()
+    await vi.waitFor(() => expect(resolveInit).toBeTypeOf('function'))
     resolveInit?.(makeRuntimeInfo())
 
     const [a, b] = await Promise.all([first, second])
