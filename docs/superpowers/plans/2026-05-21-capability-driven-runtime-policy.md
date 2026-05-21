@@ -1658,7 +1658,7 @@ git commit -m "refactor(export): delegate selectExportExecutionPlan to deriveExp
 - Modify: `src/lib/raw/luma-runtime-adapter.ts`
 - Test: `src/lib/raw/__tests__/luma-runtime-adapter-bridge.test.ts` (append)
 
-- [ ] **Step 1 — Failing test**
+- [x] **Step 1 — Failing test**
 
 Append to the existing bridge test file:
 
@@ -1682,12 +1682,12 @@ Append to the existing bridge test file:
   })
 ```
 
-- [ ] **Step 2 — Run; FAIL**
+- [x] **Step 2 — Run; FAIL**
 
 Run: `pnpm vitest run src/lib/raw`
 Expected: FAIL.
 
-- [ ] **Step 3 — Edit `luma-runtime-adapter.ts`**
+- [x] **Step 3 — Edit `luma-runtime-adapter.ts`**
 
 Replace:
 
@@ -1712,12 +1712,12 @@ return createLumaRawRuntime({
 
 Confirm `createLumaRawRuntime` accepts `memoryProfile` (see `packages/luma-raw-runtime/src/runtime.ts:20`).
 
-- [ ] **Step 4 — Run; PASS**
+- [x] **Step 4 — Run; PASS**
 
 Run: `pnpm vitest run src/lib/raw`
 Expected: PASS.
 
-- [ ] **Step 5 — Commit**
+- [x] **Step 5 — Commit**
 
 ```bash
 git add src/lib/raw/luma-runtime-adapter.ts src/lib/raw/__tests__/luma-runtime-adapter-bridge.test.ts
