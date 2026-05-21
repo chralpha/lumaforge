@@ -1730,7 +1730,7 @@ git commit -m "refactor(raw-adapter): consult deriveInteractivePolicy for runtim
 - Modify: `src/modules/raw-processor/services/export-system.ts`
 - Modify: any caller passing `fidelity` / `previousInterrupted` to `selectExportExecutionPlan`
 
-- [ ] **Step 1 — Failing test**
+- [x] **Step 1 — Failing test**
 
 ```ts
 // Append to src/modules/raw-processor/__tests__/export-system.test.ts
@@ -1744,12 +1744,12 @@ it('snapshots ExportRuntimeResources at plan time, not boot time', async () => {
 })
 ```
 
-- [ ] **Step 2 — Run; FAIL**
+- [x] **Step 2 — Run; FAIL**
 
 Run: `pnpm vitest run src/modules/raw-processor/__tests__/export-system.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3 — Edit `export-system.ts`**
+- [x] **Step 3 — Edit `export-system.ts`**
 
 At each `selectExportExecutionPlan` call site (`:44`, `:72`):
 
@@ -1773,17 +1773,17 @@ const plan = selectExportExecutionPlan({
 - Delete the hard-coded `lowMemoryAvailable: true` at both call sites (the field stays on the chooser interface as a no-op alias for one phase; Phase 3 removes it).
 - For the three new `previous*` flags, map from the session state your existing code uses (today there is one `previousInterrupted` boolean; on Phase 2 split it into resource vs crash via the failure reason if available, otherwise default to `previousCrashLikeInterruption: previousInterrupted` to preserve current behaviour).
 
-- [ ] **Step 4 — Run; PASS**
+- [x] **Step 4 — Run; PASS**
 
 Run: `pnpm vitest run src/modules/raw-processor/__tests__/export-system.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5 — Run broader suite**
+- [x] **Step 5 — Run broader suite**
 
 Run: `pnpm vitest run src/modules/raw-processor`
 Expected: PASS.
 
-- [ ] **Step 6 — Commit**
+- [x] **Step 6 — Commit**
 
 ```bash
 git add src/modules/raw-processor/services/export-system.ts \
