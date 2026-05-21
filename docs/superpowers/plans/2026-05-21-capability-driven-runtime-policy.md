@@ -2137,17 +2137,18 @@ git commit -m "test(export): migrate assertions from named profiles to derived l
 
 ## Task 26 — Phase 3 verification
 
-No code changes.
+No production code changes.
 
-- [ ] **Step 1 — Lint**: `pnpm lint` — PASS.
-- [ ] **Step 2 — Tests**: `pnpm test:run` — PASS.
-- [ ] **Step 3 — Build**: `pnpm build` — PASS.
-- [ ] **Step 4 — Browser matrix smoke** (vite preview): repeat the Phase 2 matrix and confirm behaviour identical.
-- [ ] **Step 5 — Grep audit**: `grep -rn "EXPORT_EXECUTION_PROFILES\\|lowMemoryAvailable\\|restartWorkerOnResourceRetry\\|boundedHqMaxPixels" src/` should return only:
-  - the type alias `ExportExecutionProfileName` (intentionally retained),
-  - the legacy `profile` field in checkpoint records (intentional metadata),
-  - the legacy `profile` field in telemetry payloads (intentional, deprecated for a future phase).
-  Any other hit indicates a missed cleanup.
+- [x] **Step 1 — Lint**: `pnpm lint` — PASS.
+- [x] **Step 2 — Tests**: `pnpm test:run` — PASS.
+- [x] **Step 3 — Build**: `pnpm build` — PASS.
+- [x] **Step 4 — Browser matrix smoke** (vite preview): repeat the Phase 2 matrix and confirm behaviour identical.
+  - Chromium desktop: OPFS-backed policy preflight and Sony ARW export-output smoke passed.
+  - Playwright WebKit/iPhone: large local full-resolution exports fail closed without durable file storage, as expected.
+- [x] **Step 5 — Grep audit**: `grep -rn "EXPORT_EXECUTION_PROFILES\\|lowMemoryAvailable\\|restartWorkerOnResourceRetry\\|boundedHqMaxPixels" src/` returns only intentional residuals:
+  - `boundedHqMaxPixels` in `src/lib/runtime/interactive-policy.ts`, its tests, and the preview-resolution wiring that now reads from `deriveInteractivePolicy`.
+  - `lowMemoryAvailable` in the type-level rejection test that proves the dead runtime input is no longer accepted.
+  - No `EXPORT_EXECUTION_PROFILES` or `restartWorkerOnResourceRetry` hits remain.
 
 **Phase 3 complete. The capability-driven runtime policy is fully landed.**
 
