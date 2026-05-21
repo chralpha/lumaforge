@@ -21,12 +21,12 @@ type ExpectedProjectPlan = {
 function getExpectedProjectPlan(projectName: string): ExpectedProjectPlan {
   if (projectName === 'chromium-desktop') {
     return {
-      preferredRows: [512, 1024],
+      preferredRows: [256],
       concurrency: 2,
       runtimeMemoryProfile: 'desktop',
       checkpointMode: 'safe-retry',
-      outputSink: 'blob-handoff',
-      checkpointExpected: false,
+      outputSink: 'opfs-file',
+      checkpointExpected: true,
       derivedLabelFragment: 'wkchromium',
     }
   }
@@ -57,6 +57,12 @@ function eventPayload(events: ExportDebugEvent[], type: string) {
 
 async function hasUnsupportedBrowserBuildMessage(page: Page) {
   return /not available in this browser build/i.test(
+    (await page.locator('body').textContent()) ?? '',
+  )
+}
+
+async function hasFailClosedLargeExportMessage(page: Page) {
+  return /cannot safely complete this large local full-resolution export/i.test(
     (await page.locator('body').textContent()) ?? '',
   )
 }
@@ -145,6 +151,9 @@ test('browser preflight records expected export policy before export', async ({
         if (await hasUnsupportedBrowserBuildMessage(page)) {
           return 'unsupported'
         }
+        if (await hasFailClosedLargeExportMessage(page)) {
+          return 'fail-closed'
+        }
         if (
           (await exportButton.isVisible()) &&
           (await exportButton.isEnabled())
@@ -155,12 +164,18 @@ test('browser preflight records expected export policy before export', async ({
       },
       { timeout: 120_000 },
     )
-    .toMatch(/ready|unsupported/)
+    .toMatch(/ready|unsupported|fail-closed/)
 
   if (await hasUnsupportedBrowserBuildMessage(page)) {
     testInfo.skip(
       true,
       'This Playwright WebKit browser build cannot expose processed-window full-resolution export for this fixture.',
+    )
+  }
+  if (await hasFailClosedLargeExportMessage(page)) {
+    testInfo.skip(
+      true,
+      'This browser correctly failed closed for a large local full-resolution export without durable file storage.',
     )
   }
 

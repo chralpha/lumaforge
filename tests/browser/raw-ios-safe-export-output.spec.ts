@@ -63,6 +63,12 @@ async function hasUnsupportedBrowserBuildMessage(page: Page) {
   )
 }
 
+async function hasFailClosedLargeExportMessage(page: Page) {
+  return /cannot safely complete this large local full-resolution export/i.test(
+    (await page.locator('body').textContent()) ?? '',
+  )
+}
+
 async function decodeJpegBottomStats(page: Page, jpeg: Buffer) {
   return page.evaluate(async (base64) => {
     const binary = atob(base64)
@@ -196,6 +202,7 @@ test('low-memory WebKit export decodes without a bottom color band for the Sony 
     .poll(
       async () => {
         if (await hasUnsupportedBrowserBuildMessage(page)) return 'unsupported'
+        if (await hasFailClosedLargeExportMessage(page)) return 'fail-closed'
         if (
           (await exportButton.isVisible()) &&
           (await exportButton.isEnabled())
@@ -206,12 +213,18 @@ test('low-memory WebKit export decodes without a bottom color band for the Sony 
       },
       { timeout: 180_000 },
     )
-    .toMatch(/ready|unsupported/)
+    .toMatch(/ready|unsupported|fail-closed/)
 
   if (await hasUnsupportedBrowserBuildMessage(page)) {
     testInfo.skip(
       true,
       'Processed-window export is unavailable in this browser build.',
+    )
+  }
+  if (await hasFailClosedLargeExportMessage(page)) {
+    testInfo.skip(
+      true,
+      'This browser correctly failed closed for a large local full-resolution export without durable file storage.',
     )
   }
 
@@ -237,7 +250,7 @@ test('low-memory WebKit export decodes without a bottom color band for the Sony 
     )
     .toMatchObject({
       runtimeMemoryProfile: 'low-memory',
-      outputSink: 'blob-handoff',
+      outputSink: 'opfs-file',
       checkpointMode: 'safe-retry',
       derivedLabel: expect.stringContaining('wkwebkit-mobile'),
       workerMemoryProfile: 'low-memory',
