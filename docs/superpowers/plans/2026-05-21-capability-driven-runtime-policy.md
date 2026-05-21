@@ -496,7 +496,7 @@ git commit -m "feat(workers): add RawDecodeBridge wrapping LumaRawRuntime"
 - Modify: `src/lib/raw/luma-runtime-adapter.ts` (lines 28-77 own the singleton)
 - Test: `src/lib/raw/__tests__/luma-runtime-adapter-bridge.test.ts` (new)
 
-- [ ] **Step 1 — Pin behaviour-equivalence**
+- [x] **Step 1 — Pin behaviour-equivalence**
 
 ```ts
 // src/lib/raw/__tests__/luma-runtime-adapter-bridge.test.ts
@@ -529,12 +529,12 @@ describe('luma-runtime-adapter (bridge migration)', () => {
 })
 ```
 
-- [ ] **Step 2 — Run; PASS or adapt signatures**
+- [x] **Step 2 — Run; PASS or adapt signatures**
 
 Run: `pnpm vitest run src/lib/raw/__tests__/luma-runtime-adapter-bridge.test.ts`
 Expected: PASS if `decodeQuickPreviewLuma` already accepts `runtimeFactory`. If signatures have drifted, adjust the test to match real ones before continuing.
 
-- [ ] **Step 3 — Replace singleton with `RawDecodeBridge`**
+- [x] **Step 3 — Replace singleton with `RawDecodeBridge`**
 
 In `src/lib/raw/luma-runtime-adapter.ts`, replace `singletonRuntime` / `singletonRuntimePromise` / `getRuntime()` with a module-level `RawDecodeBridge`. Sketch:
 
@@ -551,17 +551,17 @@ const singletonBridge = new RawDecodeBridge({
 
 Every existing call site that previously did `runtime.decodeQuickPreview(...)` now goes through `singletonBridge.decodeQuick(signal, ...)`. Add an optional `signal?: AbortSignal` parameter to each exported function with a default of `new AbortController().signal`. Keep all exported symbols (`RawAdapterError`, `PrewarmState`, `PrewarmOutcome`, etc.) and `prewarmState` / `prewarmOutcome` / `prewarmInFlight` module-level state unchanged.
 
-- [ ] **Step 4 — Run adapter tests**
+- [x] **Step 4 — Run adapter tests**
 
 Run: `pnpm vitest run src/lib/raw`
 Expected: PASS.
 
-- [ ] **Step 5 — Lint**
+- [x] **Step 5 — Lint**
 
 Run: `pnpm lint`
 Expected: PASS.
 
-- [ ] **Step 6 — Commit**
+- [x] **Step 6 — Commit**
 
 ```bash
 git add src/lib/raw/luma-runtime-adapter.ts src/lib/raw/__tests__/luma-runtime-adapter-bridge.test.ts
