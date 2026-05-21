@@ -1478,6 +1478,7 @@ git commit -m "feat(runtime): add deriveExportPolicy with per-spec derivation"
 Run: `pnpm pkg get devDependencies.fast-check`
 - If a version is returned → use it directly.
 - If `undefined` → install: `pnpm add -D fast-check` (announce the dep add explicitly; this is a small additional dev dependency).
+- Note: repo-pinned `pnpm@10.18.0` reports `ERR_PNPM_NOT_IMPLEMENTED` for `pnpm pkg get`; this run verified absence with `rg '"fast-check"' package.json pnpm-lock.yaml`, then added it with `pnpm add -D fast-check`.
 
 - [x] **Step 2 — Write the property tests**
 
