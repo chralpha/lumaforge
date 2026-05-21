@@ -1861,7 +1861,7 @@ git commit -m "feat(telemetry): emit derivedLabel and policyVector alongside leg
 - Test: `src/lib/export/checkpoint-store.test.ts`
 - Modify: `src/modules/raw-processor/services/export/orchestrate-full-res-export.ts` (resume path)
 
-- [ ] **Step 1 — Failing test**
+- [x] **Step 1 — Failing test**
 
 ```ts
 // Append to src/lib/export/checkpoint-store.test.ts
@@ -1882,30 +1882,30 @@ it('re-derives policy from current capability on resume, ignoring stored profile
 })
 ```
 
-- [ ] **Step 2 — Run; FAIL**
+- [x] **Step 2 — Run; FAIL**
 
 Run: `pnpm vitest run src/lib/export/checkpoint-store.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3 — Edit `checkpoint-store.ts`**
+- [x] **Step 3 — Edit `checkpoint-store.ts`**
 
 1. Extend the record type with `derivedLabel?: string`. New writes always set it; old reads tolerate absence.
 2. Update the reader: it returns the stored fields as data. It does **not** synthesise a policy.
 3. Add a code comment marking the invariant: stored `profile` is metadata only.
 
-- [ ] **Step 4 — Edit the resume path in the orchestrator**
+- [x] **Step 4 — Edit the resume path in the orchestrator**
 
 In `orchestrate-full-res-export.ts`, when a checkpoint is found:
 - Call `selectExportExecutionPlan({...})` with the **current** capability + the **current** runtime snapshot + the **manifest's** image dimensions.
 - Use the resulting plan for resume execution.
 - Do not consult `record.profile` for any decision.
 
-- [ ] **Step 5 — Run; PASS**
+- [x] **Step 5 — Run; PASS**
 
 Run: `pnpm vitest run src/lib/export/checkpoint-store.test.ts src/modules/raw-processor/__tests__`
 Expected: PASS.
 
-- [ ] **Step 6 — Commit**
+- [x] **Step 6 — Commit**
 
 ```bash
 git add src/lib/export/checkpoint-store.ts src/lib/export/checkpoint-store.test.ts \
