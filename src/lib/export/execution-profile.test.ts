@@ -23,13 +23,23 @@ describe('export execution profile selection', () => {
     vi.restoreAllMocks()
   })
 
+  it('rejects lowMemoryAvailable in legacy runtime input at type level', () => {
+    const selectPlanWithDeadLowMemoryFlag = () =>
+      selectExportExecutionPlan({
+        // @ts-expect-error lowMemoryAvailable was removed from legacy runtime input.
+        runtime: { lowMemoryAvailable: true, pthreadAvailable: true },
+      })
+
+    expect(selectPlanWithDeadLowMemoryFlag).toBeTypeOf('function')
+  })
+
   it('uses crash-retry policy after interrupted checkpoint regardless of platform', () => {
     const plan = selectExportExecutionPlan({
       fidelity: 'max',
       sourceWidth: 11662,
       sourceHeight: 8746,
       previousInterrupted: true,
-      runtime: { lowMemoryAvailable: true, pthreadAvailable: true },
+      runtime: { pthreadAvailable: true },
       output: { opfsAvailable: true, streamingAvailable: true },
       platform: { userAgent: 'Mozilla/5.0 (Windows NT 10.0)', touch: false },
     })
@@ -47,7 +57,7 @@ describe('export execution profile selection', () => {
       fidelity: 'balanced',
       sourceWidth: 11662,
       sourceHeight: 8746,
-      runtime: { lowMemoryAvailable: true, pthreadAvailable: true },
+      runtime: { pthreadAvailable: true },
       output: { opfsAvailable: true, streamingAvailable: false },
       platform: {
         userAgent:
@@ -67,7 +77,7 @@ describe('export execution profile selection', () => {
       fidelity: 'balanced',
       sourceWidth: 9566,
       sourceHeight: 6374,
-      runtime: { lowMemoryAvailable: true, pthreadAvailable: false },
+      runtime: { pthreadAvailable: false },
       output: { opfsAvailable: false, streamingAvailable: false },
       platform: {
         userAgent:
@@ -89,7 +99,7 @@ describe('export execution profile selection', () => {
       fidelity: 'balanced',
       sourceWidth: 6048,
       sourceHeight: 4024,
-      runtime: { lowMemoryAvailable: true, pthreadAvailable: false },
+      runtime: { pthreadAvailable: false },
       output: { opfsAvailable: false, streamingAvailable: false },
       platform: {
         userAgent:
@@ -108,7 +118,7 @@ describe('export execution profile selection', () => {
       fidelity: 'max',
       sourceWidth: 11662,
       sourceHeight: 8746,
-      runtime: { lowMemoryAvailable: true, pthreadAvailable: true },
+      runtime: { pthreadAvailable: true },
       output: { opfsAvailable: true, streamingAvailable: false },
       platform: {
         userAgent:
@@ -129,7 +139,7 @@ describe('export execution profile selection', () => {
       fidelity: 'balanced',
       sourceWidth: 5520,
       sourceHeight: 8288,
-      runtime: { lowMemoryAvailable: true, pthreadAvailable: true },
+      runtime: { pthreadAvailable: true },
       output: { opfsAvailable: false, streamingAvailable: false },
       platform: {
         userAgent:
@@ -167,7 +177,7 @@ describe('export execution profile selection', () => {
         fidelity,
         sourceWidth: 10000,
         sourceHeight: 9000,
-        runtime: { lowMemoryAvailable: true, pthreadAvailable: true },
+        runtime: { pthreadAvailable: true },
         output: { opfsAvailable: false, streamingAvailable: true },
         platform: {
           userAgent,

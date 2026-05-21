@@ -366,7 +366,6 @@ function classifyLegacyPlatform(input: {
 }
 
 type LegacyRuntimeInput = {
-  lowMemoryAvailable: boolean
   pthreadAvailable: boolean
 }
 
