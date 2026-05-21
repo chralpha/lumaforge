@@ -1919,7 +1919,7 @@ git commit -m "feat(checkpoint): write derivedLabel and always re-derive policy 
 - Modify: `src/locales/en.json` + `src/locales/zh-CN.json`
 - Modify: `src/lib/export/execution-profile.ts` (wire `raw.export.highPerformance` into `getExportModeCopy`)
 
-- [ ] **Step 1 — Add keys**
+- [x] **Step 1 — Add keys**
 
 `en.json`:
 ```json
@@ -1943,16 +1943,16 @@ git commit -m "feat(checkpoint): write derivedLabel and always re-derive policy 
 
 (Merge into the existing nested structure — do not overwrite siblings.)
 
-- [ ] **Step 2 — Wire `getExportModeCopy`**
+- [x] **Step 2 — Wire `getExportModeCopy`**
 
 Replace the inline English string for `'high-performance'` with a `t('raw.export.highPerformance')` lookup. Leave `derivedLabelHint` available for Phase 3 wiring into the debug panel.
 
-- [ ] **Step 3 — Run i18n-sensitive tests**
+- [x] **Step 3 — Run i18n-sensitive tests**
 
 Run: `pnpm vitest run`
 Expected: PASS.
 
-- [ ] **Step 4 — Commit**
+- [x] **Step 4 — Commit**
 
 ```bash
 git add src/locales/en.json src/locales/zh-CN.json src/lib/export/execution-profile.ts
