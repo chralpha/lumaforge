@@ -142,7 +142,6 @@ export type ExportExecutionProfile = {
   releasePreviewPipelineBeforeExport: boolean
   releaseBoundedHqBufferBeforeExport: boolean
   releasePreviousExportResultBeforeExport: boolean
-  restartWorkerOnResourceRetry: boolean
   checkpointOutput: boolean
   checkpointMode: ExportCheckpointMode
 }
@@ -397,7 +396,6 @@ function synthesizeProfile(
     releasePreviewPipelineBeforeExport: true,
     releaseBoundedHqBufferBeforeExport: true,
     releasePreviousExportResultBeforeExport: true,
-    restartWorkerOnResourceRetry: true,
     checkpointOutput: true,
     checkpointMode: 'safe-retry',
   }

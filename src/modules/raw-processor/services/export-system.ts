@@ -261,7 +261,7 @@ export async function runFullResolutionExportJob({
       return { filename, output, attempts }
     } catch (error) {
       if (
-        !attemptPlan?.profile.restartWorkerOnResourceRetry ||
+        !attemptPlan ||
         attempts >= 3 ||
         !errorLooksLikeFreshWorkerRetry(error)
       ) {

@@ -217,7 +217,6 @@ describe('export execution profile selection', () => {
     } as never)
 
     expect(plan.profile.checkpointOutput).toBe(true)
-    expect(plan.profile.restartWorkerOnResourceRetry).toBe(true)
     expect(plan.runtimeMemoryProfile).toBe('desktop')
     expect((plan as { derivedLabel?: string }).derivedLabel).toMatch(/chromium/)
   })
