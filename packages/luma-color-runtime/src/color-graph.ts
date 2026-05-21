@@ -277,21 +277,3 @@ export function resolveExportColorGraph(input: {
 export type ColorGraphStep = ExportColorGraphStep
 export type ColorGraph = ExportColorGraphDescriptor
 export type SupportedColorGraph = SupportedExportColorGraphDescriptor
-
-export type ResolveColorGraphInput = {
-  styleKind: ProcessingParams['styleKind']
-  intensity: number
-  builtinPreset: ProcessingParams['builtinPreset']
-  lut: LUTData | null
-  rawRenderExposure?: RawRenderExposure
-  userExposureEv?: number
-  userContrast?: number
-  userHighlights?: number
-  userShadows?: number
-  userWhites?: number
-  userBlacks?: number
-}
-
-export function resolveColorGraph(input: ResolveColorGraphInput): ColorGraph {
-  return resolveExportColorGraph(input)
-}
