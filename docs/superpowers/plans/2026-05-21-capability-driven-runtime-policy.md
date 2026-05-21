@@ -1583,7 +1583,7 @@ git commit -m "test(runtime): add property tests for deriveExportPolicy invarian
 - Modify: `src/lib/export/execution-profile.ts` (lines 316–403 own the chooser + plan selector)
 - Modify: `src/lib/export/execution-profile.test.ts`
 
-- [ ] **Step 1 — Failing test asserting new input shape**
+- [x] **Step 1 — Failing test asserting new input shape**
 
 Append to `execution-profile.test.ts`:
 
@@ -1611,12 +1611,12 @@ it('accepts performancePreference, three previous-failure flags, capability, and
 })
 ```
 
-- [ ] **Step 2 — Run; FAIL**
+- [x] **Step 2 — Run; FAIL**
 
 Run: `pnpm vitest run src/lib/export/execution-profile.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3 — Update `selectExportExecutionPlan` signature and delegate**
+- [x] **Step 3 — Update `selectExportExecutionPlan` signature and delegate**
 
 In `src/lib/export/execution-profile.ts`:
 
@@ -1635,17 +1635,17 @@ In `src/lib/export/execution-profile.ts`:
    - New fields: `derivedLabel: derivedPolicy.derivedLabel`, `policyVector: derivedPolicy`.
 6. `chooseProfile` becomes a thin shim returning a synthesised `ExportExecutionProfileName` for the persisted `profile` field (for §4 back-compat): `derivedPolicy.workerMemoryProfile === 'desktop' && derivedPolicy.concurrency >= 2 && derivedPolicy.rowSlice >= 512 ? 'desktop-fast' : capability.webKitClass === 'webkit-mobile' ? 'ios-safe' : 'mobile-balanced'`.
 
-- [ ] **Step 4 — Run the entire `execution-profile.test.ts` and fix existing assertions**
+- [x] **Step 4 — Run the entire `execution-profile.test.ts` and fix existing assertions**
 
 Run: `pnpm vitest run src/lib/export/execution-profile.test.ts`
 Expected: most existing tests still pass; the few that asserted on named-profile constants (e.g. `profile.maxRows === 256`) need to assert on derived fields (`plan.preferredRows`, `plan.concurrency`, `plan.derivedLabel`) instead. Update each affected assertion.
 
-- [ ] **Step 5 — Run the wider export surface**
+- [x] **Step 5 — Run the wider export surface**
 
 Run: `pnpm vitest run src/lib/export src/modules/raw-processor/services/export src/modules/raw-processor/__tests__`
 Expected: PASS. Update any test in the export-system or orchestrator suites that relied on the old named-profile row counts to assert on derived values.
 
-- [ ] **Step 6 — Commit**
+- [x] **Step 6 — Commit**
 
 ```bash
 git add src/lib/export/execution-profile.ts src/lib/export/execution-profile.test.ts
