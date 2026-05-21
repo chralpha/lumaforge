@@ -2416,6 +2416,63 @@ describe('useRawProcessor embedded preview state', () => {
     )
   })
 
+  it('fails closed when plan-time resources cannot safely complete export', async () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+      maxTouchPoints: 1,
+      storage: {
+        getDirectory: vi.fn(),
+        estimate: vi.fn(async () => ({ quota: 100_000_000, usage: 0 })),
+      },
+      hardwareConcurrency: 4,
+    })
+    vi.stubGlobal('crossOriginIsolated', false)
+
+    rawRuntimeAdapterMock.probeExportCapability.mockResolvedValue({
+      ...createSupportedCapability(),
+      width: 11662,
+      height: 8746,
+      rawWidth: 11662,
+      rawHeight: 8746,
+    })
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.RAF'))
+    })
+
+    expect(result.current.canExport).toBe(true)
+
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+    await flushScheduledToasts()
+
+    expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
+    expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({
+      status: 'failed',
+      lastErrorCode: 'EXPORT_POLICY_CANNOT_COMPLETE',
+      retryRecommended: false,
+    })
+    expect(toastMock.error).toHaveBeenCalledWith(
+      'Export failed',
+      expect.objectContaining({
+        description: expect.stringMatching(
+          /cannot safely complete this large local full-resolution export/i,
+        ),
+      }),
+    )
+  })
+
   it('does not start unsafe large iOS WebKit blob-handoff export without a durable sink', async () => {
     vi.stubGlobal('navigator', {
       userAgent:

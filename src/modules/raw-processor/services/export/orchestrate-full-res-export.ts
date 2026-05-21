@@ -10,6 +10,7 @@ import {
 } from '~/lib/export/checkpoint-store'
 import {
   emitExportDebugEvent,
+  getExportModeCopy,
   toExportPlanSelectedDebugPayload,
 } from '~/lib/export/execution-profile'
 import type { FullResWorkerCheckpointConfig } from '~/lib/export/full-res-export-client'
@@ -216,6 +217,12 @@ export async function orchestrateFullResExport(
       previousResourceFailure: false,
       previousUserInterrupted: false,
     })
+    if (executionPlan.productCopy === 'cannot-safely-complete') {
+      throw Object.assign(
+        new Error(getExportModeCopy(executionPlan.productCopy)),
+        { code: 'EXPORT_POLICY_CANNOT_COMPLETE' },
+      )
+    }
     let jobExecutionPlan = executionPlan
     let checkpointStore: ReturnType<typeof createCheckpointStore> | null = null
     let checkpointManifest: ExportCheckpointManifest | null = null
