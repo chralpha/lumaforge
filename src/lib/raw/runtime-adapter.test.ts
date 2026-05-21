@@ -685,4 +685,85 @@ describe('raw runtime adapter', () => {
       vi.resetModules()
     }
   })
+
+  it('returns ready outcome and ready state after a successful prewarm', async () => {
+    const { runtime } = makeLumaRuntime()
+    const adapter = createRawRuntimeAdapter({
+      lumaRuntimeFactory: () => runtime,
+    })
+
+    expect(adapter.getPrewarmState()).toBe('idle')
+
+    const outcome = await adapter.prewarm()
+
+    expect(outcome).toEqual({ status: 'ready' })
+    expect(adapter.getPrewarmState()).toBe('ready')
+    expect(runtime.init).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns failed outcome with recoverable=false for irrecoverable RAW_CROSS_ORIGIN_ISOLATION_REQUIRED', async () => {
+    const { runtime } = makeLumaRuntime()
+    const error = Object.assign(
+      new Error('Cross-origin isolation is required.'),
+      { code: 'RAW_CROSS_ORIGIN_ISOLATION_REQUIRED' },
+    )
+    vi.mocked(runtime.init).mockRejectedValue(error)
+    const adapter = createRawRuntimeAdapter({
+      lumaRuntimeFactory: () => runtime,
+    })
+
+    const outcome = await adapter.prewarm()
+
+    expect(outcome).toMatchObject({
+      status: 'failed',
+      recoverable: false,
+    })
+    expect(outcome.reason).toContain('Cross-origin isolation')
+    expect(adapter.getPrewarmState()).toBe('failed')
+  })
+
+  it('classifies unknown errors as recoverable failures', async () => {
+    const { runtime } = makeLumaRuntime()
+    vi.mocked(runtime.init).mockRejectedValue(new Error('network blip'))
+    const adapter = createRawRuntimeAdapter({
+      lumaRuntimeFactory: () => runtime,
+    })
+
+    const outcome = await adapter.prewarm()
+
+    expect(outcome).toMatchObject({
+      status: 'failed',
+      recoverable: true,
+      reason: 'network blip',
+    })
+    expect(adapter.getPrewarmState()).toBe('failed')
+  })
+
+  it('memoizes outcome across calls (no re-init on repeat prewarm)', async () => {
+    const { runtime } = makeLumaRuntime()
+    const adapter = createRawRuntimeAdapter({
+      lumaRuntimeFactory: () => runtime,
+    })
+
+    const first = await adapter.prewarm()
+    const second = await adapter.prewarm()
+
+    expect(first).toEqual({ status: 'ready' })
+    expect(second).toEqual({ status: 'ready' })
+    expect(runtime.init).toHaveBeenCalledTimes(1)
+  })
+
+  it('disposeLumaRawRuntime resets prewarm state to idle', async () => {
+    const { runtime } = makeLumaRuntime()
+    const adapter = createRawRuntimeAdapter({
+      lumaRuntimeFactory: () => runtime,
+    })
+
+    await adapter.prewarm()
+    expect(adapter.getPrewarmState()).toBe('ready')
+
+    disposeLumaRawRuntime()
+
+    expect(adapter.getPrewarmState()).toBe('idle')
+  })
 })
