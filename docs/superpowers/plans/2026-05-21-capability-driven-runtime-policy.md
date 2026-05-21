@@ -862,7 +862,7 @@ Goal: replace the named-profile decision model with a capability-vector + derive
 - Create: `src/lib/runtime/capability-vector.ts`
 - Test: `src/lib/runtime/capability-vector.test.ts`
 
-- [ ] **Step 1 — Failing test (hostile-navigator normalisation)**
+- [x] **Step 1 — Failing test (hostile-navigator normalisation)**
 
 ```ts
 // src/lib/runtime/capability-vector.test.ts
@@ -900,12 +900,12 @@ describe('detectCapabilityVector', () => {
 })
 ```
 
-- [ ] **Step 2 — Run; FAIL**
+- [x] **Step 2 — Run; FAIL**
 
 Run: `pnpm vitest run src/lib/runtime/capability-vector.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3 — Implement detector**
+- [x] **Step 3 — Implement detector**
 
 ```ts
 // src/lib/runtime/capability-vector.ts
@@ -1009,16 +1009,16 @@ export function resetCapabilityVectorForTest(): void {
 }
 ```
 
-- [ ] **Step 4 — Run; PASS**
+- [x] **Step 4 — Run; PASS**
 
 Run: `pnpm vitest run src/lib/runtime/capability-vector.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5 — Add UA-class tests and invariant tests**
+- [x] **Step 5 — Add UA-class tests and invariant tests**
 
 Append the four UA buckets (`chromium`, `webkit-mobile`, `webkit-desktop-safari`, `unknown`) and the two invariants (`pthread implies coi`, `hwConcurrency >= 1` under hostile inputs) per the test pattern in step 1. Run; PASS.
 
-- [ ] **Step 6 — Commit**
+- [x] **Step 6 — Commit**
 
 ```bash
 git add src/lib/runtime/capability-vector.ts src/lib/runtime/capability-vector.test.ts
