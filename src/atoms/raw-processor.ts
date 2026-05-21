@@ -15,6 +15,7 @@ import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
  */
 export type ProcessingStatus =
   | 'idle'
+  | 'warming'
   | 'loading'
   | 'decoding'
   | 'processing'

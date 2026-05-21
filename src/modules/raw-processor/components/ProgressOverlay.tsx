@@ -13,7 +13,7 @@ import { currentSessionAtom } from '../state/session.atoms'
 
 export interface ProgressOverlayProps {
   visible: boolean
-  phase: 'loading' | 'decoding' | 'processing' | 'exporting'
+  phase: 'warming' | 'loading' | 'decoding' | 'processing' | 'exporting'
   progress?: number // 0-100
   message?: string
   recoveryHint?: string
@@ -32,6 +32,7 @@ export function ProgressOverlay({
   const reduced = useReducedMotion() ?? false
   const session = useAtomValue(currentSessionAtom)
   const phaseLabels: Record<ProgressOverlayProps['phase'], string> = {
+    warming: t('raw.progress.warming'),
     loading: t('raw.progress.loading'),
     decoding: t('raw.progress.decoding'),
     processing: t('raw.progress.processing'),
