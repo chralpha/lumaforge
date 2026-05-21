@@ -27,6 +27,7 @@ export interface PrewarmOutcome {
 
 let prewarmState: PrewarmState = 'idle'
 let prewarmOutcome: PrewarmOutcome | null = null
+let prewarmInFlight: Promise<PrewarmOutcome> | null = null
 
 let singletonRuntime: LumaRawRuntime | null = null
 let singletonRuntimePromise: Promise<LumaRawRuntime> | null = null
@@ -222,34 +223,42 @@ export function frameToDecodedImage(frame: LumaRawFrame): DecodedImage {
   }
 }
 
-export async function prewarmLumaRawRuntime(
+export function prewarmLumaRawRuntime(
   runtimeFactory?: () => LumaRawRuntime,
 ): Promise<PrewarmOutcome> {
   if (prewarmState === 'ready' && prewarmOutcome) {
-    return prewarmOutcome
+    return Promise.resolve(prewarmOutcome)
   }
   if (prewarmState === 'failed' && prewarmOutcome) {
-    return prewarmOutcome
+    return Promise.resolve(prewarmOutcome)
+  }
+  if (prewarmInFlight) {
+    return prewarmInFlight
   }
   prewarmState = 'pending'
-  try {
-    const runtime = await getRuntime(runtimeFactory)
-    await runtime.init()
-    const outcome: PrewarmOutcome = { status: 'ready' }
-    prewarmOutcome = outcome
-    prewarmState = 'ready'
-    return outcome
-  } catch (error) {
-    const classification = classifyPrewarmFailure(error)
-    const outcome: PrewarmOutcome = {
-      status: 'failed',
-      reason: classification.reason,
-      recoverable: classification.recoverable,
+  prewarmInFlight = (async () => {
+    try {
+      const runtime = await getRuntime(runtimeFactory)
+      await runtime.init()
+      const outcome: PrewarmOutcome = { status: 'ready' }
+      prewarmOutcome = outcome
+      prewarmState = 'ready'
+      return outcome
+    } catch (error) {
+      const classification = classifyPrewarmFailure(error)
+      const outcome: PrewarmOutcome = {
+        status: 'failed',
+        reason: classification.reason,
+        recoverable: classification.recoverable,
+      }
+      prewarmOutcome = outcome
+      prewarmState = 'failed'
+      return outcome
+    } finally {
+      prewarmInFlight = null
     }
-    prewarmOutcome = outcome
-    prewarmState = 'failed'
-    return outcome
-  }
+  })()
+  return prewarmInFlight
 }
 
 export function getPrewarmStateForLuma(): PrewarmState {
@@ -409,6 +418,7 @@ export function disposeLumaRawRuntime() {
   singletonRuntimePromise = null
   prewarmState = 'idle'
   prewarmOutcome = null
+  prewarmInFlight = null
 }
 
 export function toRawAdapterError(error: unknown) {

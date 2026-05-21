@@ -739,6 +739,35 @@ describe('raw runtime adapter', () => {
     expect(adapter.getPrewarmState()).toBe('failed')
   })
 
+  it('shares one in-flight prewarm across concurrent callers', async () => {
+    let resolveInit: ((info: LumaRawRuntimeInfo) => void) | undefined
+    const { runtime } = makeLumaRuntime()
+    vi.mocked(runtime.init).mockImplementation(
+      () =>
+        new Promise<LumaRawRuntimeInfo>((resolve) => {
+          resolveInit = resolve
+        }),
+    )
+    const adapter = createRawRuntimeAdapter({
+      lumaRuntimeFactory: () => runtime,
+    })
+
+    const first = adapter.prewarm()
+    const second = adapter.prewarm()
+    expect(adapter.getPrewarmState()).toBe('pending')
+
+    // Let the in-flight async chain reach the awaited runtime.init() so the
+    // resolver is wired up before we fire it.
+    await Promise.resolve()
+    await Promise.resolve()
+    resolveInit?.(makeRuntimeInfo())
+
+    const [a, b] = await Promise.all([first, second])
+    expect(a).toEqual({ status: 'ready' })
+    expect(b).toEqual({ status: 'ready' })
+    expect(runtime.init).toHaveBeenCalledTimes(1)
+  })
+
   it('memoizes outcome across calls (no re-init on repeat prewarm)', async () => {
     const { runtime } = makeLumaRuntime()
     const adapter = createRawRuntimeAdapter({
