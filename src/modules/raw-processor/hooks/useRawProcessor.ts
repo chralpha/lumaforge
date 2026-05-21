@@ -32,10 +32,7 @@ import {
   createCheckpointStore,
   createOpfsCheckpointBackend,
 } from '~/lib/export/checkpoint-store'
-import {
-  emitExportDebugEvent,
-  EXPORT_EXECUTION_PROFILES,
-} from '~/lib/export/execution-profile'
+import { emitExportDebugEvent } from '~/lib/export/execution-profile'
 import type {
   ResourceRegistry,
   TrackedLargeResource,
@@ -1342,23 +1339,19 @@ export function useRawProcessor(): UseRawProcessorReturn {
       ? sessionRecovery
       : discoveredRecovery
   const exportState = session?.exportState
-  const activeExportProfileName =
+  const activeExportPlan =
     exportState?.status === 'exporting' ||
     (exportState?.status === 'ready' && exportState.result)
-      ? exportState.activePlan?.profileName
+      ? exportState.activePlan
       : undefined
-  const exportProfileSuspendsPreview = Boolean(
-    activeExportProfileName &&
-    EXPORT_EXECUTION_PROFILES[activeExportProfileName]
-      .releasePreviewPipelineBeforeExport,
-  )
+  const exportPlanSuspendsPreview = Boolean(activeExportPlan)
   const previewEvacuatedForReadyExport =
     exportState?.status === 'ready' &&
     Boolean(exportState.result) &&
     !decodedImageRef.current &&
     !embeddedPreviewUrl
   const previewSuspended =
-    exportProfileSuspendsPreview &&
+    exportPlanSuspendsPreview &&
     (status === 'exporting' || previewEvacuatedForReadyExport)
 
   return {

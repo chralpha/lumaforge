@@ -160,63 +160,6 @@ export type ExportExecutionPlan = {
   policyVector: ExportPolicy
 }
 
-export const EXPORT_EXECUTION_PROFILES: Record<
-  ExportExecutionProfileName,
-  ExportExecutionProfile
-> = {
-  'ios-safe': {
-    name: 'ios-safe',
-    minRows: 64,
-    maxRows: 256,
-    preferredRowsFor100Mp: 64,
-    preferredRowsBelow100Mp: 128,
-    rowBandRows: 64,
-    initialConcurrency: 1,
-    maxConcurrency: 1,
-    boundedHqMaxPixels: 8_000_000,
-    releasePreviewPipelineBeforeExport: true,
-    releaseBoundedHqBufferBeforeExport: true,
-    releasePreviousExportResultBeforeExport: true,
-    restartWorkerOnResourceRetry: true,
-    checkpointOutput: true,
-    checkpointMode: 'safe-retry',
-  },
-  'mobile-balanced': {
-    name: 'mobile-balanced',
-    minRows: 64,
-    maxRows: 512,
-    preferredRowsFor100Mp: 128,
-    preferredRowsBelow100Mp: 256,
-    rowBandRows: 64,
-    initialConcurrency: 1,
-    maxConcurrency: 2,
-    boundedHqMaxPixels: 8_000_000,
-    releasePreviewPipelineBeforeExport: true,
-    releaseBoundedHqBufferBeforeExport: true,
-    releasePreviousExportResultBeforeExport: true,
-    restartWorkerOnResourceRetry: true,
-    checkpointOutput: true,
-    checkpointMode: 'safe-retry',
-  },
-  'desktop-fast': {
-    name: 'desktop-fast',
-    minRows: 256,
-    maxRows: 2048,
-    preferredRowsFor100Mp: 512,
-    preferredRowsBelow100Mp: 1024,
-    rowBandRows: 64,
-    initialConcurrency: 2,
-    maxConcurrency: 3,
-    boundedHqMaxPixels: 12_000_000,
-    releasePreviewPipelineBeforeExport: true,
-    releaseBoundedHqBufferBeforeExport: true,
-    releasePreviousExportResultBeforeExport: true,
-    restartWorkerOnResourceRetry: false,
-    checkpointOutput: false,
-    checkpointMode: 'safe-retry',
-  },
-}
-
 function getExportDebugWindow() {
   return window as unknown as ExportDebugWindow
 }
