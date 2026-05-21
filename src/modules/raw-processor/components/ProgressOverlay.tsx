@@ -17,6 +17,7 @@ export interface ProgressOverlayProps {
   progress?: number // 0-100
   message?: string
   recoveryHint?: string
+  variant?: 'flat-handoff'
   className?: string
 }
 
@@ -26,6 +27,7 @@ export function ProgressOverlay({
   progress,
   message,
   recoveryHint,
+  variant,
   className,
 }: ProgressOverlayProps) {
   const { t } = useI18n()
@@ -46,6 +48,8 @@ export function ProgressOverlay({
     phase === 'exporting' ? session?.exportState.lastProgress : undefined
   const activePlan =
     phase === 'exporting' ? session?.exportState.activePlan : undefined
+  const isExportHandoff = phase === 'exporting'
+  const isFlatHandoff = isExportHandoff || variant === 'flat-handoff'
   const exportProfileCopy =
     activePlan?.runtimeMemoryProfile === 'low-memory'
       ? t('raw.progress.safeExport', {
@@ -64,127 +68,197 @@ export function ProgressOverlay({
       : null
   const ringProgress =
     normalizedProgress === null ? 32 : Math.max(8, normalizedProgress)
+  const progressTitle =
+    message ||
+    (isExportHandoff ? t('raw.progress.previewReleased') : phaseLabels[phase])
+  const renderProgressRing = (frameClassName: string, showPercent: boolean) => (
+    <div className={frameClassName}>
+      <m.svg
+        data-progress-indicator
+        data-indeterminate={normalizedProgress === null || undefined}
+        className="raw-progress-ring size-full -rotate-90"
+        viewBox="0 0 64 64"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+        animate={
+          normalizedProgress === null && !reduced
+            ? { rotate: 360 }
+            : { rotate: 0 }
+        }
+        transition={
+          normalizedProgress === null && !reduced
+            ? { duration: 0.9, ease: 'linear', repeat: Infinity }
+            : { duration: 0 }
+        }
+        style={{ transformOrigin: '50% 50%' }}
+      >
+        <circle
+          cx="32"
+          cy="32"
+          r="28"
+          stroke="var(--color-progress-track)"
+          strokeWidth="5"
+        />
+        <circle
+          data-progress-arc
+          cx="32"
+          cy="32"
+          r="28"
+          stroke="var(--color-progress)"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeDasharray="100"
+          strokeDashoffset={
+            normalizedProgress === null ? 72 : 100 - ringProgress
+          }
+          pathLength="100"
+        />
+      </m.svg>
 
-  return (
+      {normalizedProgress !== null && showPercent && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-xs font-semibold tabular-nums text-[var(--color-on-stage)]">
+            {`${Math.round(normalizedProgress)}%`}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+
+  const overlay = (
     <AnimatePresence>
       {visible && (
         <m.div
           className={clsxm(
-            'raw-progress-overlay absolute inset-0 z-50 flex items-center justify-center',
+            'raw-progress-overlay inset-0 flex items-center justify-center',
+            'absolute z-50',
             className,
           )}
           role="status"
           aria-live="polite"
-          aria-label={message || phaseLabels[phase]}
+          aria-label={progressTitle}
           data-progress-overlay={phase}
-          initial={{ opacity: 0 }}
+          data-progress-variant={isFlatHandoff ? 'flat-handoff' : undefined}
+          initial={{ opacity: isFlatHandoff ? 1 : 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={Spring.presets.smooth}
         >
-          <m.div
-            data-progress-panel
-            className="raw-progress-panel flex flex-col items-center gap-4 rounded-md border border-[var(--color-stage-hairline)] px-7 py-6"
-            initial={{ scale: 0.96, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.96, opacity: 0 }}
-            transition={Spring.smooth(0.32)}
-          >
-            <div className="relative size-[4.5rem]">
-              <m.svg
-                data-progress-indicator
-                data-indeterminate={normalizedProgress === null || undefined}
-                className="size-full -rotate-90"
-                viewBox="0 0 64 64"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-                animate={
-                  normalizedProgress === null && !reduced
-                    ? { rotate: 360 }
-                    : { rotate: 0 }
-                }
-                transition={
-                  normalizedProgress === null && !reduced
-                    ? { duration: 0.9, ease: 'linear', repeat: Infinity }
-                    : { duration: 0 }
-                }
-                style={{ transformOrigin: '50% 50%' }}
+          {isFlatHandoff ? (
+            <>
+              <div className="raw-progress-darkroom-field" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </div>
+              <m.div
+                data-progress-flat-handoff
+                className="raw-progress-flat-handoff grid w-full max-w-[24rem] justify-items-center gap-4 px-6 text-center"
+                initial={{ y: 8, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 8, opacity: 0 }}
+                transition={Spring.smooth(0.32)}
               >
-                <circle
-                  cx="32"
-                  cy="32"
-                  r="28"
-                  stroke="var(--color-progress-track)"
-                  strokeWidth="5"
-                />
-                <circle
-                  data-progress-arc
-                  cx="32"
-                  cy="32"
-                  r="28"
-                  stroke="var(--color-progress)"
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                  strokeDasharray="100"
-                  strokeDashoffset={
-                    normalizedProgress === null ? 72 : 100 - ringProgress
-                  }
-                  pathLength="100"
-                />
-              </m.svg>
+                {renderProgressRing(
+                  'raw-progress-ring-frame relative size-14',
+                  false,
+                )}
 
-              {normalizedProgress !== null && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-semibold tabular-nums text-[var(--color-on-stage)]">
-                    {`${Math.round(normalizedProgress)}%`}
-                  </span>
+                <div className="raw-progress-copy grid justify-items-center gap-2">
+                  <h3 className="raw-progress-title text-[0.92rem] font-semibold leading-snug text-[var(--color-on-stage)]">
+                    {progressTitle}
+                  </h3>
+                  {isExportHandoff ? (
+                    <p className="raw-progress-detail max-w-[18rem] text-xs leading-relaxed text-[var(--color-on-stage-soft)]">
+                      {t('raw.progress.previewReleasedDetail')}
+                    </p>
+                  ) : recoveryHint ? (
+                    <p className="raw-progress-detail max-w-[18rem] text-xs leading-relaxed text-[var(--color-on-stage-soft)]">
+                      {recoveryHint}
+                    </p>
+                  ) : null}
                 </div>
-              )}
-            </div>
 
-            <div className="text-center">
-              <p className="text-sm font-medium text-[var(--color-on-stage)]">
-                {message || phaseLabels[phase]}
-              </p>
+                <div className="raw-progress-readout grid gap-1.5 text-xs tabular-nums text-[var(--color-on-stage-soft)]">
+                  {normalizedProgress !== null && (
+                    <p className="raw-progress-detail">
+                      <span>{t('raw.progress.exporting')}</span>
+                      <em>{`${Math.round(normalizedProgress)}%`}</em>
+                    </p>
+                  )}
 
-              {recoveryHint && (
-                <p className="mt-2 max-w-xs text-center text-xs text-[var(--color-on-stage-soft)]">
-                  {recoveryHint}
-                </p>
-              )}
+                  {stripProgress && (
+                    <p className="raw-progress-detail">
+                      {t('raw.progress.strip', {
+                        completed: stripProgress.completedStrips,
+                        total: stripProgress.totalStrips,
+                      })}
+                    </p>
+                  )}
 
-              {stripProgress && (
-                <p className="mt-2 text-xs tabular-nums text-[var(--color-on-stage-soft)]">
-                  {t('raw.progress.strip', {
-                    completed: stripProgress.completedStrips,
-                    total: stripProgress.totalStrips,
-                  })}
-                </p>
-              )}
-
-              {exportProfileCopy && (
-                <p className="mt-2 text-xs tabular-nums text-[var(--color-on-stage-soft)]">
-                  {exportProfileCopy}
-                </p>
-              )}
-
-              {normalizedProgress !== null && (
-                <div className="mt-3 h-1.5 w-48 overflow-hidden rounded-full bg-[var(--color-progress-track)]">
-                  <m.div
-                    className="h-full rounded-full bg-[var(--color-progress)]"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${normalizedProgress}%` }}
-                    transition={{ duration: 0.3, ease: 'easeOut' }}
-                  />
+                  {exportProfileCopy && (
+                    <p className="raw-progress-detail">{exportProfileCopy}</p>
+                  )}
                 </div>
-              )}
-            </div>
-          </m.div>
+              </m.div>
+            </>
+          ) : (
+            <m.div
+              data-progress-panel
+              className="raw-progress-panel flex flex-col items-center gap-4 rounded-md border border-[var(--color-stage-hairline)] px-7 py-6"
+              initial={{ scale: 0.96, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              transition={Spring.smooth(0.32)}
+            >
+              {renderProgressRing('relative size-[4.5rem]', true)}
+
+              <div className="text-center">
+                <p className="text-sm font-medium text-[var(--color-on-stage)]">
+                  {progressTitle}
+                </p>
+
+                {recoveryHint && (
+                  <p className="mt-2 max-w-xs text-center text-xs text-[var(--color-on-stage-soft)]">
+                    {recoveryHint}
+                  </p>
+                )}
+
+                {stripProgress && (
+                  <p className="mt-2 text-xs tabular-nums text-[var(--color-on-stage-soft)]">
+                    {t('raw.progress.strip', {
+                      completed: stripProgress.completedStrips,
+                      total: stripProgress.totalStrips,
+                    })}
+                  </p>
+                )}
+
+                {exportProfileCopy && (
+                  <p className="mt-2 text-xs tabular-nums text-[var(--color-on-stage-soft)]">
+                    {exportProfileCopy}
+                  </p>
+                )}
+
+                {normalizedProgress !== null && (
+                  <div className="mt-3 h-1.5 w-48 overflow-hidden rounded-full bg-[var(--color-progress-track)]">
+                    <m.div
+                      className="h-full rounded-full bg-[var(--color-progress)]"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${normalizedProgress}%` }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                    />
+                  </div>
+                )}
+              </div>
+            </m.div>
+          )}
         </m.div>
       )}
     </AnimatePresence>
   )
+
+  return overlay
 }
 
 /**

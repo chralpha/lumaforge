@@ -18,7 +18,7 @@ function renderOverlayWithActivePlan(
     },
   } as ImageSession)
 
-  render(
+  return render(
     <Provider store={store}>
       <ProgressOverlay visible phase="exporting" />
     </Provider>,
@@ -26,16 +26,22 @@ function renderOverlayWithActivePlan(
 }
 
 describe('progressOverlay', () => {
-  it('uses a dedicated photo-visible progress layer instead of the generic stage scrim', () => {
-    renderOverlayWithActivePlan(undefined)
+  it('uses the flat export handoff instead of the generic stage panel', () => {
+    const { container } = renderOverlayWithActivePlan(undefined)
 
     const overlay = screen.getByRole('status')
     expect(overlay).toHaveAttribute('data-progress-overlay', 'exporting')
+    expect(overlay).toHaveAttribute('data-progress-variant', 'flat-handoff')
     expect(overlay).toHaveClass('raw-progress-overlay')
+    expect(overlay).toHaveClass('absolute')
+    expect(overlay).not.toHaveClass('fixed')
+    expect(container).toContainElement(overlay)
+    expect(overlay.parentElement).not.toBe(document.body)
     expect(overlay).not.toHaveClass('bg-[var(--color-stage-scrim)]')
-    expect(overlay.querySelector('[data-progress-panel]')).toHaveClass(
-      'raw-progress-panel',
-    )
+    expect(overlay.querySelector('[data-progress-panel]')).toBeNull()
+    expect(
+      overlay.querySelector('[data-progress-flat-handoff]'),
+    ).toBeInTheDocument()
   })
 
   it('labels low-memory mobile-balanced exports as safe exports', () => {
@@ -50,6 +56,32 @@ describe('progressOverlay', () => {
 
     expect(
       screen.getByText('Safe export · 256 rows · 2 workers'),
+    ).toBeInTheDocument()
+  })
+
+  it('uses the same flat export handoff for desktop plans', () => {
+    renderOverlayWithActivePlan({
+      profileName: 'desktop-fast',
+      preferredRows: 1024,
+      concurrency: 3,
+      runtimeMemoryProfile: 'desktop',
+      outputSink: 'streaming',
+      checkpointMode: 'safe-retry',
+    })
+
+    const overlay = screen.getByRole('status')
+    expect(overlay).toHaveAttribute('data-progress-variant', 'flat-handoff')
+    expect(overlay.querySelector('[data-progress-panel]')).toBeNull()
+    expect(
+      overlay.querySelector('[data-progress-flat-handoff]'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Preview released for memory-safe export'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'LumaForge freed the WebGL preview before encoding this full-resolution JPEG.',
+      ),
     ).toBeInTheDocument()
   })
 

@@ -173,6 +173,7 @@ function rawProcessorViewState(
     downloadExportResult: vi.fn(),
     shareExportResult: vi.fn(),
     copyExportResult: vi.fn(),
+    restorePreviewAfterExport: vi.fn(),
     reset: vi.fn(),
     dismissError: vi.fn(),
     updateStats: vi.fn(),
@@ -1178,6 +1179,136 @@ describe('rawToolSurface', () => {
       ).not.toBeInTheDocument()
       expect(screen.queryByText('Unprocessed RAW')).not.toBeInTheDocument()
       expect(screen.queryByText('Final JPEG')).not.toBeInTheDocument()
+    })
+
+    it('hides compare controls during a memory-safe export handoff', async () => {
+      await act(async () => {
+        render(
+          <ComparePreviewStage
+            {...compareStageProps({
+              hasImage: true,
+              isProcessing: true,
+              phase: 'exporting',
+              previewSuspended: true,
+              imageRef: {
+                current: {
+                  data: new Float32Array(4),
+                  width: 1,
+                  height: 1,
+                  channels: 4,
+                  bitsPerChannel: 32,
+                  layout: 'rgba-float32',
+                  colorSpace: 'display-srgb-preview',
+                  metadata: { width: 1, height: 1 },
+                  renderExposure: {
+                    ev: 0,
+                    multiplier: 1,
+                    source: 'identity',
+                  },
+                },
+              },
+            })}
+          />,
+        )
+      })
+
+      expect(
+        screen.queryByRole('slider', {
+          name: 'Compare unprocessed RAW and final JPEG',
+        }),
+      ).not.toBeInTheDocument()
+      expect(screen.queryByText('Unprocessed RAW')).not.toBeInTheDocument()
+      expect(screen.queryByText('Final JPEG')).not.toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveAttribute(
+        'data-progress-overlay',
+        'exporting',
+      )
+    })
+
+    it('keeps the evacuated export transition on a dark flat stage instead of an empty preview', async () => {
+      const { container } = render(
+        <ComparePreviewStage
+          {...compareStageProps({
+            hasImage: true,
+            isProcessing: true,
+            phase: 'exporting',
+            previewSuspended: true,
+            imageRef: { current: null },
+          })}
+        />,
+      )
+
+      const stage = container.querySelector('.raw-lab-stage')
+      const stageFrame = container.querySelector('.raw-lab-stage-frame')
+      expect(stage).toHaveAttribute('data-preview-state', 'exporting-released')
+      expect(stageFrame).not.toHaveClass('opacity-50')
+      expect(
+        container.querySelector('[data-raw-export-processing-handoff]'),
+      ).toBeInTheDocument()
+      expect(screen.queryByText('No image loaded')).not.toBeInTheDocument()
+    })
+
+    it('keeps preview restore on the same flat dark handoff after evacuation', async () => {
+      const { container } = render(
+        <ComparePreviewStage
+          {...compareStageProps({
+            hasImage: true,
+            isProcessing: true,
+            phase: 'decoding',
+            previewSuspended: true,
+            imageRef: { current: null },
+          })}
+        />,
+      )
+
+      expect(container.querySelector('.raw-lab-stage')).toHaveAttribute(
+        'data-preview-state',
+        'restoring-released',
+      )
+      expect(
+        container.querySelector('[data-raw-export-processing-handoff]'),
+      ).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveAttribute(
+        'data-progress-variant',
+        'flat-handoff',
+      )
+      expect(screen.queryByText('No image loaded')).not.toBeInTheDocument()
+    })
+
+    it('keeps a ready export handoff instead of showing an empty preview after evacuation', async () => {
+      const onRestorePreview = vi.fn()
+      await act(async () => {
+        render(
+          <ComparePreviewStage
+            {...({
+              ...compareStageProps({
+                hasImage: true,
+                isProcessing: false,
+                phase: 'processing',
+                previewSuspended: true,
+                imageRef: { current: null },
+              }),
+              onRestorePreview,
+            } as ComponentProps<typeof ComparePreviewStage> & {
+              onRestorePreview: () => void
+            })}
+          />,
+        )
+      })
+
+      expect(screen.queryByText('No image loaded')).not.toBeInTheDocument()
+      expect(screen.getByText('JPEG ready')).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          'Preview remains released so the browser can keep the full-resolution result stable.',
+        ),
+      ).toBeInTheDocument()
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Restore preview' }),
+      )
+
+      expect(onRestorePreview).toHaveBeenCalledTimes(1)
     })
   })
 

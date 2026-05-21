@@ -191,10 +191,17 @@
 
 .raw-lab-stage {
   position: relative;
+  isolation: isolate;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   padding: clamp(12px, 2vw, 22px);
+}
+
+.raw-lab-stage[data-preview-state='exporting-released'],
+.raw-lab-stage[data-preview-state='restoring-released'],
+.raw-lab-stage[data-preview-state='ready-released'] {
+  background: var(--color-stage-background);
 }
 
 .raw-lab-sample {
@@ -330,6 +337,82 @@
   box-shadow:
     0 18px 54px oklch(0.04 0.012 76 / 0.34),
     inset 0 1px 0 oklch(0.96 0.012 86 / 0.1);
+}
+
+.raw-progress-title,
+.raw-progress-detail {
+  margin: 0;
+}
+
+.raw-progress-overlay[data-progress-variant='flat-handoff'] {
+  overflow: hidden;
+  background:
+    radial-gradient(
+      68% 44% at 50% 42%,
+      oklch(0.22 0.026 78),
+      oklch(0.13 0.02 76) 72%
+    ),
+    linear-gradient(180deg, oklch(0.16 0.02 76), oklch(0.1 0.016 76));
+  color: var(--color-on-stage);
+}
+
+.raw-progress-overlay[data-progress-variant='flat-handoff']::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, oklch(0.06 0.012 76 / 0.18), transparent 36%),
+    radial-gradient(
+      62% 38% at 50% 46%,
+      transparent,
+      oklch(0.06 0.012 76 / 0.42)
+    );
+}
+
+.raw-progress-darkroom-field {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  opacity: 0.52;
+  pointer-events: none;
+}
+
+.raw-progress-darkroom-field span {
+  border-right: 1px solid oklch(0.95 0.01 86 / 0.08);
+  background:
+    linear-gradient(
+      180deg,
+      transparent 0 18%,
+      oklch(0.95 0.01 86 / 0.055) 18% 18.5%,
+      transparent 18.5% 100%
+    );
+}
+
+.raw-progress-darkroom-field span:last-child {
+  border-right: 0;
+}
+
+.raw-progress-flat-handoff {
+  position: relative;
+  z-index: 1;
+}
+
+.raw-progress-flat-handoff .raw-progress-ring {
+  filter: drop-shadow(0 10px 24px oklch(0.04 0.012 76 / 0.42));
+}
+
+.raw-progress-readout p {
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.raw-progress-readout em {
+  color: var(--color-progress);
+  font-style: normal;
+  font-weight: 720;
 }
 
 @media (max-width: 980px) {

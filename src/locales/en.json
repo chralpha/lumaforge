@@ -287,6 +287,10 @@
   "raw.progress.safeExport": "Safe export · {{rows}} rows · {{workers}}",
   "raw.progress.fastExport": "High-performance export · {{rows}} rows · {{workers}}",
   "raw.progress.strip": "Strip {{completed}} of {{total}}",
+  "raw.progress.previewReleased": "Preview released for memory-safe export",
+  "raw.progress.previewReleasedDetail": "LumaForge freed the WebGL preview before encoding this full-resolution JPEG.",
+  "raw.progress.readyPreviewReleasedDetail": "Preview remains released so the browser can keep the full-resolution result stable.",
+  "raw.progress.restorePreview": "Restore preview",
   "raw.error.title": "Error",
   "raw.error.dismiss": "Dismiss"
 }

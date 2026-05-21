@@ -35,6 +35,7 @@ export interface ComparePreviewStageProps {
   onPreviewViewportChange?: (viewport: PreviewViewport) => void
   onStatsUpdate?: (stats: PipelineStats) => void
   onPipelineChange?: (pipeline: RawProcessingPipeline | null) => void
+  onRestorePreview?: () => void | Promise<void>
   className?: string
 }
 
@@ -93,6 +94,57 @@ function UploadDock({
   )
 }
 
+function ExportReadyHandoff({
+  onRestorePreview,
+}: {
+  onRestorePreview?: () => void | Promise<void>
+}) {
+  const { t } = useI18n()
+
+  return (
+    <div
+      className="absolute inset-0 z-[60] grid place-items-center bg-[var(--color-stage-background)] px-6 text-center"
+      data-raw-export-ready-handoff
+    >
+      <div className="grid max-w-[22rem] gap-3">
+        <span
+          className="mx-auto grid size-12 place-items-center rounded-[8px] border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] text-[1.35rem] font-semibold text-[var(--color-progress)]"
+          aria-hidden="true"
+        >
+          ✓
+        </span>
+        <div className="grid gap-2">
+          <h2 className="m-0 text-base font-semibold text-[var(--color-on-stage)]">
+            {t('raw.export.ready')}
+          </h2>
+          <p className="m-0 text-sm leading-relaxed text-[var(--color-on-stage-soft)]">
+            {t('raw.progress.readyPreviewReleasedDetail')}
+          </p>
+          {onRestorePreview && (
+            <button
+              type="button"
+              onClick={onRestorePreview}
+              className="mx-auto mt-2 inline-flex min-h-[42px] items-center justify-center rounded-[8px] border border-[oklch(0.54_0.14_153)] bg-accent px-4 text-sm font-semibold text-background transition-colors hover:bg-[oklch(0.66_0.16_153)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              {t('raw.progress.restorePreview')}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ExportProcessingHandoffBackdrop() {
+  return (
+    <div
+      className="absolute inset-0 bg-[var(--color-stage-background)]"
+      data-raw-export-processing-handoff
+      aria-hidden="true"
+    />
+  )
+}
+
 export function ComparePreviewStage({
   hasImage,
   imageRef,
@@ -116,18 +168,34 @@ export function ComparePreviewStage({
   onPreviewViewportChange,
   onStatsUpdate,
   onPipelineChange,
+  onRestorePreview,
   className,
 }: ComparePreviewStageProps) {
   const { t } = useI18n()
-  const showSplit = splitEnabled
   const blockStageInteraction = phase === 'exporting'
+  const isPreviewEvacuated = previewSuspended && hasImage
+  const isEvacuatedProcessingHandoff = isPreviewEvacuated && isProcessing
+  const isExportProcessingHandoff =
+    isEvacuatedProcessingHandoff && phase === 'exporting'
+  const isExportReadyHandoff = isPreviewEvacuated && !isProcessing
+  const showSplit = splitEnabled && !isPreviewEvacuated
   const showBlockingProgress =
-    isProcessing && (!hasImage || blockStageInteraction)
+    isProcessing &&
+    (!hasImage || blockStageInteraction || isEvacuatedProcessingHandoff)
 
   return (
     <section
       className={clsxm('raw-lab-stage', className)}
       aria-label={t('raw.stage.aria')}
+      data-preview-state={
+        isExportProcessingHandoff
+          ? 'exporting-released'
+          : isEvacuatedProcessingHandoff
+            ? 'restoring-released'
+            : isExportReadyHandoff
+              ? 'ready-released'
+              : undefined
+      }
     >
       <Dropzone
         variant="stage"
@@ -142,7 +210,11 @@ export function ComparePreviewStage({
       >
         {({ openFilePicker, disabled }) => (
           <>
-            {hasImage ? (
+            {isExportReadyHandoff ? (
+              <ExportReadyHandoff onRestorePreview={onRestorePreview} />
+            ) : isEvacuatedProcessingHandoff ? (
+              <ExportProcessingHandoffBackdrop />
+            ) : hasImage ? (
               <PreviewCanvas
                 imageRef={imageRef}
                 imageVersion={imageVersion}
@@ -192,6 +264,9 @@ export function ComparePreviewStage({
               phase={phase}
               progress={progress}
               recoveryHint={recoveryHint}
+              variant={
+                isEvacuatedProcessingHandoff ? 'flat-handoff' : undefined
+              }
             />
           </>
         )}

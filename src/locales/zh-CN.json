@@ -287,6 +287,10 @@
   "raw.progress.safeExport": "安全导出 · {{rows}} 行 · {{workers}}",
   "raw.progress.fastExport": "高性能导出 · {{rows}} 行 · {{workers}}",
   "raw.progress.strip": "条带 {{completed}} / {{total}}",
+  "raw.progress.previewReleased": "已释放预览以安全导出",
+  "raw.progress.previewReleasedDetail": "LumaForge 已在编码全分辨率 JPEG 前释放 WebGL 预览，避免浏览器内存膨胀。",
+  "raw.progress.readyPreviewReleasedDetail": "预览会继续保持释放状态，以便浏览器稳定保留全分辨率结果。",
+  "raw.progress.restorePreview": "恢复预览",
   "raw.error.title": "错误",
   "raw.error.dismiss": "关闭"
 }

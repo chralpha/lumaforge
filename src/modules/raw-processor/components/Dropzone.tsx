@@ -186,7 +186,10 @@ export function Dropzone({
       : variant === 'stage'
         ? clickToOpen && 'hover:border-accent/70'
         : 'border-border hover:border-accent/50 hover:bg-fill/50',
-    disabled && 'opacity-50 cursor-not-allowed',
+    disabled &&
+      (variant === 'stage'
+        ? 'cursor-not-allowed'
+        : 'opacity-50 cursor-not-allowed'),
     className,
   )
 
