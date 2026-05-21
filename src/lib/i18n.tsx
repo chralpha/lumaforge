@@ -128,6 +128,10 @@ export function localizeRawReason(reason: string | undefined, t: Translate) {
     return t('raw.export.shareUnsupported')
   }
 
+  if (reason === enMessages['raw.export.highPerformance']) {
+    return t('raw.export.highPerformance')
+  }
+
   return reason
 }
 

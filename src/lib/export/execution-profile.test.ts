@@ -221,6 +221,12 @@ describe('export execution profile selection', () => {
     )
   })
 
+  it('allows high-performance copy to be localized without coupling policy code to i18n', () => {
+    expect(
+      getExportModeCopy('high-performance', (key) => `translated:${key}`),
+    ).toBe('translated:raw.export.highPerformance')
+  })
+
   it('emits typed export debug events with machine-checkable payloads', () => {
     const events: unknown[] = []
     const listener = (event: Event) => {

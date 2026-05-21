@@ -10,5 +10,7 @@ describe('i18n locale catalogs', () => {
     )
     expect(enMessages['landing.kicker']).toBe('Browser RAW finishing lab')
     expect(zhMessages['landing.kicker']).toBe('浏览器里的 RAW 成片工作台')
+    expect(enMessages['raw.export.derivedLabelHint']).toContain('{{label}}')
+    expect(zhMessages['raw.export.derivedLabelHint']).toContain('{{label}}')
   })
 })
