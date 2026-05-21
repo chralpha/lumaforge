@@ -40,7 +40,7 @@ export class ExportEvacuationError extends Error {
   }
 }
 
-const LOW_MEMORY_PRE_EXPORT_DISPOSABLE_OWNERS: LargeResourceOwner[] = [
+const PRE_EXPORT_DISPOSABLE_OWNERS: LargeResourceOwner[] = [
   'preview',
   'bounded-hq',
   'webgl',
@@ -48,17 +48,10 @@ const LOW_MEMORY_PRE_EXPORT_DISPOSABLE_OWNERS: LargeResourceOwner[] = [
   'lut-fetch',
 ]
 
-const DESKTOP_PRE_EXPORT_DISPOSABLE_OWNERS: LargeResourceOwner[] = [
-  'bounded-hq',
-  'export-result',
-]
-
 export function getPreExportEvacuationOwners(
-  profile: ExportExecutionProfileName,
+  _profile: ExportExecutionProfileName,
 ): LargeResourceOwner[] {
-  return profile === 'desktop-fast'
-    ? [...DESKTOP_PRE_EXPORT_DISPOSABLE_OWNERS]
-    : [...LOW_MEMORY_PRE_EXPORT_DISPOSABLE_OWNERS]
+  return [...PRE_EXPORT_DISPOSABLE_OWNERS]
 }
 
 export type ExportEvacuationResult = {

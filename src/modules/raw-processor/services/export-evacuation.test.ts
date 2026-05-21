@@ -37,7 +37,7 @@ function snapshot() {
 }
 
 describe('export evacuation', () => {
-  it('selects full evacuation for low-memory profiles and result-only cleanup for desktop-fast', () => {
+  it('selects full evacuation for every export profile', () => {
     expect(getPreExportEvacuationOwners('ios-safe')).toEqual([
       'preview',
       'bounded-hq',
@@ -53,14 +53,25 @@ describe('export evacuation', () => {
       'lut-fetch',
     ])
     expect(getPreExportEvacuationOwners('desktop-fast')).toEqual([
+      'preview',
       'bounded-hq',
+      'webgl',
       'export-result',
+      'lut-fetch',
     ])
   })
 
-  it('runs only callbacks required by the selected owner set', async () => {
+  it('runs the shared memory-efficient callbacks for desktop-fast exports too', async () => {
     const registry = createResourceRegistry()
     const events: string[] = []
+    registry.register({
+      id: 'webgl-pipeline',
+      owner: 'webgl',
+      kind: 'webgl-pipeline',
+      dispose: () => {
+        events.push('dispose-webgl-pipeline')
+      },
+    })
     registry.register({
       id: 'stale-result',
       owner: 'export-result',
@@ -81,12 +92,27 @@ describe('export evacuation', () => {
     })
 
     expect(events).toEqual([
+      'abort-preview',
       'abort-bounded-hq',
       'release-export-result',
+      'stop-lut-fetches',
       'dispose-stale-result',
+      'dispose-webgl-pipeline',
     ])
-    expect(result.requiredOwners).toEqual(['bounded-hq', 'export-result'])
-    expect(result.disposedOwners).toEqual(['bounded-hq', 'export-result'])
+    expect(result.requiredOwners).toEqual([
+      'preview',
+      'bounded-hq',
+      'webgl',
+      'export-result',
+      'lut-fetch',
+    ])
+    expect(result.disposedOwners).toEqual([
+      'preview',
+      'bounded-hq',
+      'webgl',
+      'export-result',
+      'lut-fetch',
+    ])
     expect(result.registryCheck).toEqual({ ok: true })
     expect(result.remainingLive).toEqual([])
     expect(result.estimatedBytesByOwner).toEqual({})
