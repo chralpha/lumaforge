@@ -1,8 +1,8 @@
 # Capability-Driven Runtime Policy
 
-- Date: 2026-05-21
+- Date: 2026-05-21 (revised after adversarial review the same day)
 - Status: Aligned with user — proceeding to plan
-- Scope: The decision surface that selects export row slice, worker concurrency, runtime memory profile, checkpoint behaviour, preview HQ budget, and worker lifecycle across `/raw`. Affects `src/lib/export/execution-profile.ts`, `src/lib/export/full-res-export-client.ts`, `src/lib/export/full-res-export.worker.ts`, `src/lib/export/checkpoint-store.ts`, `src/lib/raw/luma-runtime-adapter.ts`, and the export-system orchestration in `src/modules/raw-processor/services/`. Out of scope: the LUT graph, GL preview shaders, mobile vs desktop UI chrome (those remain interaction-driven splits).
+- Scope: The decision surface that selects export row slice, worker concurrency, runtime memory profile, checkpoint behaviour, preview HQ budget, and worker lifecycle across `/raw`. Affects `src/lib/export/execution-profile.ts`, `src/lib/export/full-res-export-client.ts`, `src/lib/export/full-res-export.worker.ts`, `src/lib/export/checkpoint-store.ts`, `src/lib/raw/luma-runtime-adapter.ts`, the export-system and export orchestrators under `src/modules/raw-processor/services/`, and the preview-copy capability surface in `orchestrate-full-res-export.ts`. Out of scope: the LUT graph, GL preview shaders, mobile vs desktop UI chrome (those remain interaction-driven splits).
 - Predecessor work: the export profile table introduced `ios-safe`/`mobile-balanced`/`desktop-fast` named tiers and the heavy-component lifecycle spec landed earlier today. This spec replaces the named-tier decision model with a capability vector + derived policy and adopts a squoosh-style worker bridge for lifecycle.
 
 ## Background & Problem
@@ -11,74 +11,112 @@
 
 1. Three named **export execution profiles** (`ios-safe`, `mobile-balanced`, `desktop-fast`) in `src/lib/export/execution-profile.ts`. Each fixes fifteen fields, of which six are identical across tiers (`rowBandRows`, `checkpointMode`, three `release...BeforeExport` flags, and `preferredRows` baseline shape).
 2. A **runtime memory profile** axis (`'low-memory' | 'desktop'`) in `packages/luma-raw-runtime`. Today only one branch enables `'desktop'` (desktop-fast + pthread), and the preview adapter (`src/lib/raw/luma-runtime-adapter.ts`) hard-codes `requireCrossOriginIsolation: true`, which implicitly forces `'desktop'` for the preview path regardless of platform.
-3. A **fidelity** user preference (`max | balanced | safe`) that combines multiplicatively with platform detection inside `chooseProfile`.
-4. A **previous-failure** session signal that demotes the chosen profile.
+3. A **fidelity** user preference (`max | balanced | safe`) that combines multiplicatively with platform detection inside `chooseProfile`. The name is misleading: it does not affect JPEG quality, demosaic precision, or colour fidelity — it only modulates concurrency. This spec renames it to `performancePreference`.
+4. A **previous-failure** session signal that demotes the chosen profile. Today this signal conflates two distinct outcomes: user cancel (intent) and OOM-like interruption (resource pressure). Penalties applied to a cancel are punitive without cause.
 
-The chooser collapses five independent boolean/enum facts into three named tiers, then re-expands them when consumers need to derive concurrency, sink, or memory profile. Two long-standing principle violations live inside this collapse:
+Three long-standing principle violations live inside this collapse:
 
-- **`desktop-fast` sets `checkpointOutput: false` and `restartWorkerOnResourceRetry: false`** — trading recoverability for ~5–15% throughput on the fast path. This contradicts the project rule "compatibility first, then performance within compatibility." A user who hits a transient resource failure on desktop today must reload and start over.
-- **The preview adapter forces `requireCrossOriginIsolation: true`** unconditionally. On `webkit-mobile` this produces a desktop-grade RAW runtime that is more OOM-prone than the export path on the same device, an inconsistency only justified by "preview is allowed to optimize for responsiveness" — which is true, but the *upper bound* of preview should still respect the device.
+- **`desktop-fast` sets `checkpointOutput: false` and `restartWorkerOnResourceRetry: false`** — trading recoverability for throughput on the fast path. This contradicts the project rule "compatibility first, then performance within compatibility." A user who hits a transient resource failure on desktop today must reload and start over.
+- **The preview adapter forces `requireCrossOriginIsolation: true`** unconditionally. On `webkit-mobile` this produces a desktop-grade RAW runtime that is more OOM-prone than the export path on the same device.
 - The `lowMemoryAvailable: boolean` field on the chooser interface is hard-coded `true` at both call sites (`export-system.ts:44`, `export-system.ts:72`). It is a lying capability.
 
-A separate concern is **worker lifecycle**. Today the export profile carries three `release...BeforeExport` booleans (all `true` in every tier) plus an explicit `restartWorkerOnResourceRetry` flag. These are profile fields only because the codebase has no per-worker lifecycle discipline. Squoosh handles the equivalent problem in a 71-line `worker-bridge` module: a per-bridge promise chain, an `AbortSignal` that triggers `worker.terminate()`, and a 10-second idle timeout that auto-terminates the worker. That pattern subsumes "release before next phase" by lazy reclamation.
+A separate concern is **worker lifecycle**. Today the export profile carries three `release...BeforeExport` booleans plus an explicit `restartWorkerOnResourceRetry` flag. These are profile fields only because the codebase has no per-worker lifecycle discipline. Squoosh handles the equivalent problem in a 71-line `worker-bridge` module: a per-bridge promise chain, an `AbortSignal` that triggers `worker.terminate()`, and a 10-second idle timeout that auto-terminates the worker. That pattern subsumes "release before next phase" by lazy reclamation.
 
-## Decisions (confirmed with user)
+### Working-tree state at spec time
 
-- **Decision surface**: collapse the three named export profiles to a single derived policy function. Names survive only as derived telemetry labels (e.g. `"derived-low-memory-thr1"`), never as decision sources.
-- **Two policy targets**, one shared input: `deriveInteractivePolicy(cap)` for the preview path, `deriveExportPolicy(cap, image, opts)` for the export path. Both consume the same `CapabilityVector`. The product boundary "preview is allowed to optimize for responsiveness" survives as a *target-function difference*, not as a mode toggle.
-- **Safety features are invariants**, not tier fields. `restartWorkerOnResourceRetry` and `checkpointOutput` are removed; both behaviours are always on. Checkpoint flush cadence is derived from row size so the desktop fast path pays near-zero overhead (`persistEveryNRows ≈ 4096 ÷ rowSlice * rowSlice`).
-- **Worker lifecycle** adopts the squoosh bridge pattern. One bridge per heavy worker (RAW decode, full-res export). Each bridge owns a serial promise chain, propagates an `AbortSignal` that triggers `terminate()`, and auto-terminates after a configurable idle window. The three `release...BeforeExport` profile flags are deleted; the bridge handles reclamation by being idle.
+The unstaged working tree has already flipped `desktop-fast`'s three `release...BeforeExport` flags from `false` to `true` (preview pipeline + bounded-HQ buffer + previous-export result are now released on the desktop path before export). This is a **partial rollout**: the desktop path now disposes preview resources before export but still has `checkpointOutput: false` and `restartWorkerOnResourceRetry: false`. A resource failure on this path leaves the user with a blank stage and no resumable export. The Phase 1 PR must close this gap before Phase 2 ships — see §6.
+
+## Decisions (confirmed with user, revised after adversarial review)
+
+- **Decision surface**: collapse the three named export profiles to a single derived policy function. Names survive only as derived telemetry labels, never as decision sources.
+- **Two policy targets**, one shared input: `deriveInteractivePolicy(cap)` for the preview path, `deriveExportPolicy(cap, image, intent, runtime)` for the export path. Both consume the same `CapabilityVector`. The product boundary "preview is allowed to optimize for responsiveness" survives as a *target-function difference*, not as a mode toggle.
+- **Strict separation: stable capability vs export-time runtime resource.** `CapabilityVector` contains only facts that are stable over the session. Storage availability (OPFS quota minus usage, OPFS / streaming sink reachability) is snapshotted *at export-plan time*, not at boot.
+- **Safety features are invariants in Phase 2, not in Phase 1.** Phase 1 is strictly behaviour-equivalent (preserves today's `restartWorkerOnResourceRetry: false` and `checkpointOutput: false` on `desktop-fast`). Phase 2 flips both to always-on across all derived policies and removes the fields.
+- **`performancePreference`, not `fidelity`.** The user-preference type is renamed across the export plan, telemetry, and i18n. The migration is mechanical (one-to-one mapping) and lands in Phase 2.
+- **Previous-failure source is distinguished.** Three flags replace today's single `previousInterrupted`: `previousResourceFailure`, `previousCrashLikeInterruption`, `previousUserInterrupted`. Only resource and crash-like outcomes apply a penalty; user cancel does not.
+- **Worker lifecycle** adopts the squoosh bridge pattern. Each bridge owns a serial promise chain that explicitly recovers from rejection (`_queue = _queue.catch(() => undefined).then(...)`), propagates an `AbortSignal` that triggers `terminate()`, and auto-terminates after a configurable idle window.
+- **OPFS output is written atomically.** Temp path → finalize marker → atomic rename. Aborted or failed exports clean up the temp path; checkpoint readers ignore temp paths without a finalize marker.
+- **Legacy checkpoints never feed runtime decisions.** Old records' `profile` field is metadata for diagnostics/copy only. Resume re-derives a fresh conservative policy from the current capability vector, current export-time storage snapshot, and the manifest's image dimensions.
 - **No legacy escape hatch.** The user explicitly declined a `LUMAFORGE_FORCE_DESKTOP_FAST_LEGACY` flag. Rollback strategy is `git revert` on the phase commits, not a runtime toggle.
-- **Phased rollout, three phases**. Each phase is independently shippable and revertable. Phase 1 is the bridge refactor (behaviour-equivalent), Phase 2 introduces the capability vector and derived policies, Phase 3 deletes dead fields and migrates telemetry/i18n.
+- **Phased rollout, three phases**. Each phase is independently shippable and revertable.
 
 ## Glossary
 
-- *Capability vector*: a frozen, six-field struct of platform-observable facts produced once at app boot. See §2.
-- *Policy*: the concrete output of a derive function — what row slice, what concurrency, which sink. Policies are derived from capability + intent, never set by name.
-- *Bridge*: a per-worker class that owns the worker handle, serializes calls, propagates an `AbortSignal` to `worker.terminate()`, and reclaims the worker after an idle window.
-- *Derived label*: a string telemetry name computed from a policy (e.g. `"low-memory-thr1-opfs"`). It exists only for log filtering and does not feed back into decisions.
+- *Capability vector*: a frozen, sanitised struct of session-stable platform facts produced once at app boot. See §1.
+- *Export runtime resources*: an export-time snapshot of session-volatile facts (OPFS quota minus usage, sink reachability). Recomputed at every export-plan call. See §1.5.
+- *Policy*: the concrete output of a derive function — what row slice, what concurrency, which sink. Policies are derived from capability + intent + runtime resources, never set by name.
+- *Bridge*: a per-worker class that owns the worker handle, serialises calls, propagates an `AbortSignal` to `worker.terminate()`, and reclaims the worker after an idle window.
+- *Derived label*: a string telemetry name computed from a policy. It exists only for log filtering and does not feed back into decisions.
 
 ## Carry-Over Principles
 
-- The `/raw` product boundary in `CLAUDE.md` is unchanged: single RAW file in, JPEG out, single user intent at a time. The bridge pattern works precisely because product flow already serializes the heavy paths.
-- Preview is still authorized to use a higher budget than export (`deriveInteractivePolicy` returns a more generous `boundedHqMaxPixels` than the export path picks for row work).
-- Export remains the authoritative full-resolution path. Where capability is insufficient to safely produce the declared output, export must fail closed (the `'cannot-safely-complete'` product copy is retained and rederived from the policy).
+- The `/raw` product boundary in `CLAUDE.md` is unchanged: single RAW file in, JPEG out, single user intent at a time. The bridge pattern works precisely because product flow already serialises the heavy paths.
+- Preview is still authorised to use a higher budget than export (`deriveInteractivePolicy` returns a more generous `boundedHqMaxPixels` than the export path picks for row work).
+- Export remains the authoritative full-resolution path. Where capability + resources are insufficient to safely produce the declared output, export must fail closed.
 - The mobile/desktop UI chrome split (`MobileLabChrome` vs `RawToolSurface`) is interaction-driven and untouched.
 
 ## Section 1 · Capability Vector
 
-**Principle.** Decisions take observable platform facts as input, not pre-named tiers. Each fact is collected once, exposed as a frozen object, and consumed by pure derive functions.
+**Principle.** Stable platform facts only. Sanitised at the boundary. Frozen. Never includes anything that can change during a session.
 
 **Contract.**
 
-The vector has six fields. There are no other capability inputs anywhere in the decision pipeline.
-
-| Field | Type | Source | Notes |
+| Field | Type | Source | Invariant |
 |---|---|---|---|
-| `coi` | `boolean` | `globalThis.crossOriginIsolated` | Self-hosted deploys force COI via `vite.config.ts` headers; `false` only when embedded/iframed. |
-| `pthread` | `boolean` | Existing `supports-wasm-threads` style detect | Implied false when `coi` is false. |
-| `opfsQuotaMB` | `number \| null` | `navigator.storage.estimate()`, cached at boot | `null` = unknown; treat as "no OPFS" for safety. |
-| `deviceMemoryGB` | `number \| null` | `navigator.deviceMemory` | Safari returns `undefined`; null-tolerant. |
-| `hwConcurrency` | `number` | `navigator.hardwareConcurrency` | Safari caps to 8, sometimes lies; consumers always clamp. |
-| `webKitClass` | `'chromium' \| 'webkit-desktop-safari' \| 'webkit-mobile' \| 'unknown'` | Existing UA-class function (`isKnownRiskWebKitMobile` + `isKnownRiskWebKitDesktop` refactored) | Hard signal — overrides numeric fields when it implies a stricter ceiling. |
+| `coi` | `boolean` | `globalThis.crossOriginIsolated` | — |
+| `pthread` | `boolean` | wasm-threads detect AND `coi` | `pthread === false when coi === false` |
+| `deviceMemoryGB` | `number \| null` | `navigator.deviceMemory` | Safari returns `undefined` → `null` |
+| `hwConcurrency` | `number` | `clampInteger(navigator.hardwareConcurrency ?? 1, 1, 64)` | `hwConcurrency >= 1` (hard floor at detector) |
+| `webKitClass` | `'chromium' \| 'webkit-desktop-safari' \| 'webkit-mobile' \| 'unknown'` | UA classifier | never `null`, never empty string |
+| `maybeOpfsSupported` | `boolean` | feature-detect `navigator.storage?.getDirectory != null` | does not include quota |
 
 **Explicitly absent from the vector** (and the reason in each case):
 
+- `opfsQuotaMB`, `opfsAvailableMB`, `opfsSinkAvailable`, `streamingSinkAvailable`: **storage availability is volatile**; it changes with prior outputs, checkpoints, other tabs, browser cleanup. These belong in `ExportRuntimeResources` (§1.5) and are recomputed at every export-plan call.
 - `touch`: an interaction-model fact, not a capability. Lives in the UI layer.
-- `fidelity`: a user preference; passed to `deriveExportPolicy` as an `opts` weight.
-- `previousResourceFailure` / `previousInterrupted`: session state; passed to `deriveExportPolicy` as `opts` penalty inputs.
-- `lowMemoryAvailable`: deleted. It was a lying parameter (hard-coded `true` everywhere it was called).
+- `performancePreference`: a user preference; passed to `deriveExportPolicy` as `intent`.
+- `previousResourceFailure` / `previousCrashLikeInterruption` / `previousUserInterrupted`: session state; passed as `intent`.
+- `lowMemoryAvailable`: deleted. It was a lying parameter.
 
-**Contract on the detector.**
+**Detector contract.**
 
-- One factory module `src/lib/runtime/capability-vector.ts` exposes `getCapabilityVector(): Promise<CapabilityVector>` (async to allow `navigator.storage.estimate()`) and a synchronous `getCapabilityVectorSnapshot(): CapabilityVector | null` for hot-path consumers (returns the cached value if boot detection completed, else `null` to force the caller to await).
-- The vector is computed exactly once per session. Re-detection is not supported (capability facts are stable enough for our purposes and re-running `storage.estimate()` is a perf trap).
-- The detector is test-deterministic: `import.meta.env.MODE === 'test'` returns a fixed safe-default vector unless the test injects a fixture. No `Math.random`, no clocks.
+- One factory module `src/lib/runtime/capability-vector.ts` exposes:
+  - `getCapabilityVector(): Promise<CapabilityVector>` — async to allow storage feature detection; runs once per session and memoises.
+  - `getCapabilityVectorSnapshot(): CapabilityVector | null` — synchronous accessor for hot-path consumers; returns the cached value if detection completed, else `null`.
+  - `setCapabilityVectorForTest(vector: CapabilityVector): void` and `resetCapabilityVectorForTest(): void` — test-only injection.
+- The returned vector is `Object.freeze`'d and field-by-field normalised. Invariants enforced at the detector boundary, not at consumers.
+- `import.meta.env.MODE === 'test'` returns a safe-default vector unless `setCapabilityVectorForTest` was called.
 
 **Verification.**
 
-- Pure-function unit tests for the UA-class refactor (input UA → expected `webKitClass`).
-- Integration test that boots the vector in an `happy-dom` environment with mocked `navigator`/`globalThis` flags and asserts the produced vector.
+- Unit tests for the UA-class refactor (input UA → expected `webKitClass`).
+- Detector tests assert all invariants under hostile `navigator` shapes (missing fields, zero/negative `hardwareConcurrency`, undefined `deviceMemory`).
+- A property test for invariant enforcement (`pthread implies coi`, `hwConcurrency >= 1`, `webKitClass !== null`).
+
+## Section 1.5 · Export Runtime Resources
+
+**Principle.** Volatile facts are computed at the moment of decision, not at boot.
+
+**Contract.**
+
+```
+interface ExportRuntimeResources {
+  opfsSinkAvailable: boolean
+  opfsAvailableMB: number | null   // null = unknown; treat as no-OPFS for safety
+  streamingSinkAvailable: boolean
+}
+```
+
+Computation rule (called *immediately before* `deriveExportPolicy`, never cached):
+
+- `opfsSinkAvailable = cap.maybeOpfsSupported && (await navigator.storage.estimate()).quota != null`
+- `opfsAvailableMB = clamp((quota ?? 0) - (usage ?? 0), 0, ∞) / 1_000_000` when supported; `null` otherwise. The available bytes, not the total quota.
+- `streamingSinkAvailable` from the existing feature probe (unchanged).
+
+**Verification.**
+
+- Unit tests with mocked `navigator.storage.estimate()` returning various `(quota, usage)` shapes.
+- Integration test: simulate quota drop between two consecutive plans and assert the second plan reflects the new resource state.
 
 ## Section 2 · Derive Functions
 
@@ -86,7 +124,7 @@ The vector has six fields. There are no other capability inputs anywhere in the 
 
 ### 2.1 `deriveInteractivePolicy(cap: CapabilityVector): InteractivePolicy`
 
-Output shape:
+Output:
 
 ```
 interface InteractivePolicy {
@@ -96,42 +134,43 @@ interface InteractivePolicy {
 }
 ```
 
-Derivation (concise; the implementation may refactor, but the *effective ceiling per branch* must match):
+Derivation:
 
-- `boundedHqMaxPixels`:
-  - Start at `16_000_000`.
-  - Floor `8_000_000` if `webKitClass === 'webkit-mobile'`.
-  - Floor `8_000_000` if `!pthread`.
-  - Floor `deviceMemoryGB * 4_000_000` if `deviceMemoryGB != null` (caps the budget on low-RAM devices).
-  - Result is `min` of all caps.
-- `previewWorkerMemoryProfile`:
-  - `'desktop'` only when `coi && pthread && webKitClass !== 'webkit-mobile'`.
-  - Otherwise `'low-memory'`.
-- `allowConcurrentDecodeAndLutParse`:
-  - `pthread && hwConcurrency >= 4`. Used by the LUT parsing path to decide whether it can overlap with an in-flight decode.
+- `boundedHqMaxPixels`: start `16_000_000`; floor `8_000_000` if `webKitClass === 'webkit-mobile' || !pthread`; floor `deviceMemoryGB * 4_000_000` if `deviceMemoryGB != null`. Result = `min` of caps.
+- `previewWorkerMemoryProfile`: `'desktop'` only when `coi && pthread && webKitClass === 'chromium'` (Phase 2 first version — conservative; Safari desktop unlocks via Phase 2.1 calibration). Otherwise `'low-memory'`.
+- `allowConcurrentDecodeAndLutParse`: `pthread && hwConcurrency >= 4`.
 
-**Why these shapes.** The preview target is "maximize visible HQ within OOM-safety margins." The webkit-mobile ceiling matches the current `ios-safe` boundedHq cap (8 MP); the chromium/desktop ceiling lifts to 16 MP from today's 12 MP because the bridge pattern reclaims memory aggressively (see §3), removing a constraint that today's profile table conservatively bakes in.
+### 2.2 `deriveExportPolicy(cap, image, intent, runtime): ExportPolicy`
 
-### 2.2 `deriveExportPolicy(cap, image, opts): ExportPolicy`
-
-Inputs:
+Signature:
 
 ```
-interface ExportInputs {
-  image: { width: number; height: number }
-  opts: {
-    fidelity: 'safe' | 'balanced' | 'max'
-    previousResourceFailure: boolean
-    previousInterrupted: boolean
-    opfsSinkAvailable: boolean
-    streamingSinkAvailable: boolean
-  }
+interface ExportIntent {
+  performancePreference: 'safe' | 'balanced' | 'max'
+  previousResourceFailure: boolean
+  previousCrashLikeInterruption: boolean
+  previousUserInterrupted: boolean   // recorded but applies no penalty
 }
+
+function deriveExportPolicy(
+  cap: CapabilityVector,
+  image: { width: number; height: number },
+  intent: ExportIntent,
+  runtime: ExportRuntimeResources,
+): ExportPolicy
 ```
 
-Output shape:
+Output:
 
 ```
+type PolicyProductCopy =
+  | 'high-performance'
+  | 'safe-export'
+  | 'resource-retry'
+  | 'interrupted-retry'
+  | 'non-durable-checkpoint'
+  | 'cannot-safely-complete'
+
 interface ExportPolicy {
   rowSlice: number
   concurrency: number
@@ -139,200 +178,269 @@ interface ExportPolicy {
   workerMemoryProfile: 'low-memory' | 'desktop'
   persistEveryNRows: number
   outputSink: 'opfs-file' | 'streaming' | 'blob-handoff'
-  productCopy:
-    | 'high-performance'
-    | 'safe-export'
-    | 'resource-retry'
-    | 'interrupted-retry'
-    | 'interrupted-source-needed'
-    | 'non-durable-checkpoint'
-    | 'cannot-safely-complete'
+  productCopy: PolicyProductCopy
   derivedLabel: string
 }
 ```
 
-Derivation rules (the implementation must produce values equivalent to these; algebra may refactor):
+The export orchestration may *override* `productCopy` with the orchestration-only value `'interrupted-source-needed'` when the source `File` is missing on resume. That value is **not** producible by `deriveExportPolicy`; it lives at the orchestration boundary:
 
-- **Row slice**:
-  - Baseline `512`.
-  - Halve when megapixels ≥ 100.
-  - `min(256)` when `!pthread`.
-  - `min(128)` when `webKitClass === 'webkit-mobile'`.
-  - `min(256)` when `webKitClass === 'webkit-desktop-safari'`.
-  - `min(128)` when `deviceMemoryGB != null && deviceMemoryGB <= 4`.
-  - Apply penalty `÷ 2` on `previousResourceFailure`, `÷ 4` on `previousInterrupted`.
-  - Final `clamp(64, 2048)`.
-- **Concurrency**:
-  - Cap `cMax = pthread ? min(hwConcurrency - 1, 3) : 1`.
-  - Override `cMax = 1` when `webKitClass ∈ {'webkit-mobile', 'webkit-desktop-safari'}`.
-  - Pick `concurrency = clamp(fidelityWeight, 1, cMax)`, where `fidelityWeight = { safe: 1, balanced: 2, max: 3 }`.
-  - Return `maxConcurrency: cMax` separately for the retry path.
-- **Worker memory profile**: same rule as `deriveInteractivePolicy` (`'desktop'` only when `coi && pthread && webKitClass !== 'webkit-mobile'`).
-- **Persist cadence (always on)**:
-  - `persistEveryNRows = clamp(round(2048 / rowSlice) * rowSlice, rowSlice, 4096)`.
-  - At `rowSlice=64` this flushes ~every 2048 rows. At `rowSlice=1024` it flushes ~every 4096 rows. The desktop path therefore retains checkpoint recoverability at near-zero IO cost.
-- **Output sink**:
-  - `'opfs-file'` when `opfsSinkAvailable && opfsQuotaMB != null && opfsQuotaMB > megapixels * 4`. The `4 MB/MP` factor is a conservative upper bound for a high-quality JPEG plus the writer's working buffer; calibration of this constant is part of the Phase 2 telemetry follow-up.
-  - Else `'streaming'` when `streamingSinkAvailable`.
-  - Else `'blob-handoff'`.
-- **Product copy**: re-derived from the policy, not from a profile name:
-  - `'cannot-safely-complete'` when image is large (> 50 MP), sink fell through to `'blob-handoff'`, and `webKitClass === 'webkit-mobile'`.
-  - `'interrupted-retry'` when `previousInterrupted`.
-  - `'resource-retry'` when `previousResourceFailure`.
-  - `'non-durable-checkpoint'` when sink is `'blob-handoff'` and image is large.
-  - `'high-performance'` when `workerMemoryProfile === 'desktop' && concurrency >= 2 && rowSlice >= 512`.
-  - `'safe-export'` otherwise.
-  - Note: `'interrupted-source-needed'` is **not** derived here. It is set by the export orchestration when a checkpoint exists but the source `File` is no longer in memory (the user reloaded the page and must reselect the same RAW). It remains a session-state outcome, not a capability outcome, and lives in `src/modules/raw-processor/services/`.
-- **Derived label** (telemetry only, never branched on): `${workerMemoryProfile}-thr${concurrency}-${outputSink}` — e.g. `"low-memory-thr1-opfs-file"`. Stable across sessions, easy to group in logs.
+```
+type ExportOrchestrationCopy = PolicyProductCopy | 'interrupted-source-needed'
+```
+
+**Row slice**:
+- Baseline `512`.
+- Halve when megapixels ≥ 100.
+- `min(256)` when `!pthread`.
+- `min(128)` when `webKitClass === 'webkit-mobile'`.
+- `min(256)` when `webKitClass === 'webkit-desktop-safari'`.
+- `min(128)` when `deviceMemoryGB != null && deviceMemoryGB <= 4`.
+- Penalty `÷ 2` on `previousResourceFailure`; `÷ 4` on `previousCrashLikeInterruption`. `previousUserInterrupted` applies no penalty.
+- Final `clamp(64, 2048)`.
+
+**Concurrency**:
+- `threadBudget = Math.max(1, cap.hwConcurrency - 1)`
+- `cMax = pthread ? Math.min(threadBudget, 3) : 1`
+- `cMax = 1` when `webKitClass ∈ {'webkit-mobile', 'webkit-desktop-safari'}`.
+- `cMax = 1` when `intent.previousResourceFailure || intent.previousCrashLikeInterruption`.
+- `preferenceWeight = { safe: 1, balanced: 2, max: 3 }[performancePreference]`.
+- `concurrency = clamp(preferenceWeight, 1, cMax)`; `maxConcurrency = Math.max(1, cMax)` (hard floor — guards against any drift below 1).
+
+**Worker memory profile** (Phase 2 first version, conservative):
+- `'desktop'` only when `coi && pthread && webKitClass === 'chromium'`.
+- Otherwise `'low-memory'`.
+- Phase 2.1 (post-telemetry) may expand to `webkit-desktop-safari && deviceMemoryGB >= 8`.
+
+**Persist cadence** (always on in Phase 2):
+- `targetRows = rowSlice <= 128 ? 2048 : 4096`
+- `persistEveryNRows = clamp(Math.ceil(targetRows / rowSlice) * rowSlice, rowSlice, 4096)`
+
+  | rowSlice | persistEveryNRows |
+  |---:|---:|
+  | 64 | 2048 |
+  | 128 | 2048 |
+  | 256 | 4096 |
+  | 512 | 4096 |
+  | 1024 | 4096 |
+
+**Output sink** (uses runtime resources, not capability):
+- `'opfs-file'` when `runtime.opfsSinkAvailable && runtime.opfsAvailableMB != null && runtime.opfsAvailableMB > megapixels * 4 + 64` (4 MB/MP JPEG headroom plus 64 MB safety margin; constants calibrated in Phase 2.1).
+- Else `'streaming'` when `runtime.streamingSinkAvailable`.
+- Else `'blob-handoff'`.
+
+**Product copy**:
+- `'cannot-safely-complete'` when `megapixels > 50 && outputSink === 'blob-handoff' && webKitClass === 'webkit-mobile'`.
+- `'interrupted-retry'` when `intent.previousCrashLikeInterruption`.
+- `'resource-retry'` when `intent.previousResourceFailure`.
+- `'non-durable-checkpoint'` when `outputSink === 'blob-handoff' && megapixels > 50` (the 50 MP threshold is a constant defined alongside the derive function — `LARGE_EXPORT_MEGAPIXEL_THRESHOLD = 50`).
+- `'high-performance'` when `workerMemoryProfile === 'desktop' && concurrency >= 2 && rowSlice >= 512`.
+- `'safe-export'` otherwise.
+- `'interrupted-source-needed'` is set only by the export orchestration on resume when the source `File` is missing — never by this derive.
+
+**Derived label** (telemetry only, never branched on):
+```
+`${workerMemoryProfile}-thr${concurrency}-rs${rowSlice}-${outputSink}-wk${webKitClass}`
+```
+Example: `"low-memory-thr1-rs128-opfs-file-wkwebkit-mobile"`. The `rs` and `wk` segments are essential because two policies with the same memory profile and concurrency can differ on row slice and platform — without them, dashboards group rows of unlike behaviour.
 
 **Verification.**
 
-- Property test: for ten thousand random vectors and inputs, assert invariants: `rowSlice ∈ [64, 2048]`, `concurrency ≥ 1`, `persistEveryNRows ≥ rowSlice`, `persistEveryNRows ≤ 4096`, `workerMemoryProfile === 'low-memory' || (coi && pthread && webKitClass !== 'webkit-mobile')`.
-- Snapshot tests for ten representative cases (iPhone Safari + 24 MP, Pixel Chrome + 60 MP, M1 Safari desktop + 100 MP, Chromium Linux + 60 MP + previous-resource-failure, etc.) so changes to the derive math show up as reviewable diffs.
+- Property test: 10k random vectors and inputs. Assert invariants:
+  - `rowSlice ∈ [64, 2048]`.
+  - `concurrency >= 1` and `maxConcurrency >= 1` (this is the bug-resistant invariant; `concurrency <= maxConcurrency` always).
+  - `persistEveryNRows >= rowSlice && persistEveryNRows <= 4096`.
+  - `workerMemoryProfile === 'low-memory' || (coi && pthread && webKitClass === 'chromium')`.
+  - Worker memory profile never `'desktop'` when `webKitClass === 'webkit-mobile'`.
+  - Penalty monotonicity: `previousResourceFailure: true` weakly decreases `rowSlice` and `concurrency` vs `false`; `previousCrashLikeInterruption: true` strictly decreases vs `false`.
+  - User cancel idempotency: flipping only `previousUserInterrupted` produces the same policy.
+- Snapshot tests for ten representative cases (iPhone Safari 24 MP, Pixel Chrome 60 MP, M1 Safari desktop 100 MP, Chromium Linux 60 MP + previous resource failure, Chromium Linux + previous user cancel — must equal no-penalty case, etc.).
 
 ## Section 3 · Worker Bridges
 
-**Principle.** Each heavy worker is owned by a bridge instance that serializes calls, propagates `AbortSignal` end-to-end, and auto-terminates on idle. Lifecycle is mechanical, not procedural. Squoosh's `worker-bridge/index.ts` is the working precedent; LumaForge reuses its shape.
+**Principle.** Each heavy worker is owned by a bridge instance that serialises calls, propagates `AbortSignal` end-to-end, and auto-terminates on idle. Lifecycle is mechanical, not procedural. Squoosh's `worker-bridge/index.ts` is the working precedent.
 
 **Contract on each bridge.**
 
 - Internal state: `_queue: Promise<unknown>`, `_worker?: Worker`, `_workerApi?: Wrapped`, `_idleTimer?: number`.
 - Each public method:
   1. Takes an `AbortSignal` as its first argument.
-  2. Chains itself on `_queue`.
-  3. Throws `AbortError` synchronously if the signal is already aborted.
+  2. Updates the queue with **explicit rejection recovery**: `this._queue = this._queue.catch(() => undefined).then(async () => { ... })`. This is mandatory, not a "nice to have" — a single rejected call must not brick subsequent calls.
+  3. Throws `AbortError` synchronously if the signal is already aborted, before any worker work.
   4. Lazy-starts the worker if `_worker` is undefined; clears any pending idle timer.
-  5. Registers an `abort` listener that calls `_terminateWorker()` (worker.terminate is the cancel — there is no cooperative cancel).
+  5. Registers an `abort` listener that calls `_terminateWorker()`.
   6. After the wrapped call settles (success or failure), removes the abort listener and starts a new `_idleTimer` to terminate the worker after `IDLE_MS`.
-- `IDLE_MS` is configurable per bridge. Default `10_000` (squoosh's value). Both bridges adopt this default unless measurement says otherwise.
-- The bridge does not expose `_worker` or `_workerApi` directly. Consumers go through the typed method surface only.
+- `IDLE_MS` default `10_000` (squoosh's value).
+- The bridge does not expose `_worker` or `_workerApi`. Consumers use the typed method surface only.
 
 **Two bridges in scope.**
 
 1. `RawDecodeBridge` wrapping the RAW runtime worker. Replaces the singleton + ad-hoc lifecycle in `src/lib/raw/luma-runtime-adapter.ts`. Methods: `prewarm`, `decodeEmbedded`, `decodeQuick`, `decodeBoundedHq`, `decodeForExport`. Each takes an `AbortSignal`.
-2. `ExportBridge` wrapping `full-res-export.worker.ts`. Replaces the lifecycle code currently scattered across `full-res-export-client.ts` and the `export-system` orchestration. Methods: `runExport`, `cancelExport`.
+2. `ExportBridge` wrapping `full-res-export.worker.ts`. Replaces lifecycle code in `full-res-export-client.ts` and the export orchestration. Methods: `runExport`, `cancelExport`.
 
-**What this lets us delete.**
+**What this lets us delete (Phase 2, after the policy collapse).**
 
-- `releasePreviewPipelineBeforeExport`, `releaseBoundedHqBufferBeforeExport`, `releasePreviousExportResultBeforeExport` — three booleans in every profile, all `true`. When `ExportBridge.runExport` starts, the *separate* `RawDecodeBridge` instance is idle and its 10-second timer will reclaim it; for the cases where we cannot wait, `runExport` can call `RawDecodeBridge.terminate()` directly. No profile flag needed.
-- `restartWorkerOnResourceRetry` — the bridge already terminates the worker on abort, and a subsequent call lazy-starts a fresh one. Restart-on-retry is the default behaviour.
+- `releasePreviewPipelineBeforeExport`, `releaseBoundedHqBufferBeforeExport`, `releasePreviousExportResultBeforeExport` — three booleans in every profile. When `ExportBridge.runExport` starts, it explicitly `await rawDecodeBridge.terminate()` to preserve today's pre-export memory-peak shape (the bridge's idle timer alone would leave a 10-second window where both workers coexist).
+- `restartWorkerOnResourceRetry` — the bridge already terminates the worker on abort, and a subsequent call lazy-starts a fresh one. Restart-on-retry becomes default behaviour.
 
 **Boundary discipline.**
 
-- `LutParsing`, `GlPaint`, and per-frame preview math do **not** get bridges. They are not Worker-bound or they are short-lived enough that bridge ceremony is overhead. The bridge pattern applies only to crossings of (a) a Worker boundary AND (b) heavy work (wasm/large buffers).
-- `prewarm` on the RAW bridge remains UI-silent per the predecessor spec. It cancels its own idle timer (so the warm worker survives long enough for the user to commit) and resolves with the existing structured outcome `{ status: 'ready' | 'failed', ... }`.
+- `LutParsing`, `GlPaint`, per-frame preview math do **not** get bridges. The bridge pattern applies only to crossings of (a) a Worker boundary AND (b) heavy work (wasm/large buffers).
+- `prewarm` on the RAW bridge remains UI-silent per the predecessor spec. It cancels its own idle timer so the warm worker survives long enough for the user to commit; it resolves with the existing structured outcome `{ status: 'ready' | 'failed', ... }`.
 
 **Verification.**
 
-- Unit tests using a stubbed `Worker` global: assert that two parallel `decode(...)` calls execute serially; assert that `abortSignal.abort()` calls `worker.terminate()` and clears the bridge state; assert that idling for `IDLE_MS` triggers terminate; assert that a new call after idle-terminate spawns a fresh worker.
-- Integration test: full export + new export cancel-and-restart on the same bridge; assert no leaked workers (worker count returns to zero after `IDLE_MS`).
+Unit tests using a stubbed `Worker` global must cover:
+- Two parallel calls execute serially (queue ordering).
+- Call A fails → Call B still runs (rejection recovery — this is the bug Codex flagged).
+- Call B aborts while queued behind Call A → Call B does **not** lazy-start a worker after A finishes.
+- Abort during an active call → `worker.terminate()` is called, internal state is cleared, the next call starts a fresh worker.
+- Idle-terminate after success AND after failure both fire (`_idleTimer` is set in `finally`, not in `then`).
+- Idle-terminate is cancelled when a new call arrives within the window.
+
+## Section 3.5 · OPFS Output Atomicity
+
+**Principle.** Aggressive worker termination + checkpointed OPFS output means writes can be interrupted mid-stream. The on-disk state must never present a partial file as complete.
+
+**Contract.**
+
+- Export writes to a temp path: `${target}.tmp-${exportId}`.
+- A finalize marker is written only after the last byte is flushed: `${target}.tmp-${exportId}.finalized` (sentinel file, zero-byte, or a metadata key — implementation choice deferred to plan).
+- Atomic commit: rename `${target}.tmp-${exportId}` → `${target}` only after the finalize marker is present. The rename is atomic on OPFS.
+- Abort or failure path: delete the temp path when reachable; if delete fails (browser/OPFS quirks), leave the temp path — it will not be picked up by checkpoint readers because no finalize marker exists.
+- Checkpoint readers: ignore any `*.tmp-*` path without a sibling `.finalized` marker. Garbage-collect orphaned temp paths older than 24 hours on the next successful export.
+
+**Verification.**
+
+- Integration test: start export, abort mid-write, assert no committed output and no checkpoint resume points to the temp path.
+- Integration test: kill the worker via `terminate()` mid-write; assert reader does not pick up the temp file on next session.
 
 ## Section 4 · Checkpoint Store Compatibility
 
-**Constraint.** `src/lib/export/checkpoint-store.ts:33` persists a `profile: ExportExecutionProfileName` field. The store is durable across sessions; a hard schema break would invalidate in-progress checkpoints on rollout.
+**Constraint.** `src/lib/export/checkpoint-store.ts:33` persists a `profile: ExportExecutionProfileName` field. The store is durable across sessions; a hard schema break would invalidate in-progress checkpoints.
 
-**Decision.** Keep the field, change its semantics.
+**Decision.** Keep the field as **metadata only**. It never feeds runtime decisions.
 
 - The persisted record gains a new field `derivedLabel: string` written from the policy.
-- The old `profile` field is retained for read compatibility. New writes set it to a deterministic mapping of the policy: `workerMemoryProfile === 'desktop' && concurrency >= 2 && rowSlice >= 512 ? 'desktop-fast' : workerMemoryProfile === 'low-memory' && webKitClass === 'webkit-mobile' ? 'ios-safe' : 'mobile-balanced'`. This keeps the field's type valid without anchoring the decision back to a name.
-- Readers prefer `derivedLabel` when present, fall back to `profile` when reading a Phase 1–era record.
-- After all three phases ship and a deprecation window passes, `profile` may be dropped in a future migration. Not in scope for this spec.
+- `profile` is retained for read compatibility and human-readable debug copy. New writes set it deterministically from the policy (`workerMemoryProfile === 'desktop' && concurrency >= 2 && rowSlice >= 512 ? 'desktop-fast' : webKitClass === 'webkit-mobile' && workerMemoryProfile === 'low-memory' ? 'ios-safe' : 'mobile-balanced'`) so the field type stays valid.
+- **Resume rule**: when reading a checkpoint, **always re-derive a fresh policy** from the current `CapabilityVector`, the current `ExportRuntimeResources` snapshot, and the manifest's image dimensions. The stored `profile` and `derivedLabel` are *only* read for:
+  - telemetry fallback labels in resume events,
+  - human-readable diagnostic copy on the recovery surface,
+  - conservative-resume hinting (e.g. if the stored profile was `ios-safe`, the resume UI may surface "this was a low-memory export" copy).
+- Stored `profile` MUST NOT select row slice, concurrency, memory profile, or output sink on resume. If the freshly derived policy diverges from the stored values, the fresh policy wins; if that materially changes the output (e.g. smaller row slice means resuming requires re-computing already-emitted strips), the resume path fails closed and the user is prompted to start a new export.
+- After Phase 3 ships and a deprecation window passes, `profile` may be dropped in a future migration. Not in scope.
 
 **Verification.**
 
-- Round-trip test: write a Phase 2 record, read with a Phase 2 reader, assert `derivedLabel` is the source of truth and `profile` is informational.
-- Backward-read test: write a record with only the legacy `profile` field, read with the new reader, assert the reader synthesizes a usable policy from the legacy mapping.
+- Round-trip test: write a current-policy record, read with the new reader, assert `derivedLabel` is the source of truth on debug surfaces and that resume re-derives policy from current capability/runtime.
+- Backward-read test: write a record with only the legacy `profile` field, read with the new reader, assert that resume re-derives a fresh conservative policy from current state — **never** synthesises policy values from the profile name.
 
 ## Section 5 · Telemetry and i18n
 
 **Telemetry.**
 
-- `export-plan-selected` debug event keeps the same dispatch path. The payload gains `derivedLabel: string` and `policyVector: ExportPolicy` (the full policy struct, redacted of `productCopy` which is duplicated).
-- The legacy `profile: ExportExecutionProfileName` field is retained in the payload until Phase 3 ships, with the same mapping as the checkpoint store.
-- `runtimeMemoryProfile` in the payload now reflects `workerMemoryProfile` from the policy.
+- `export-plan-selected` debug event keeps the same dispatch path. The payload gains `derivedLabel: string` and `policyVector: ExportPolicy`.
+- The legacy `profile: ExportExecutionProfileName` field is retained in the payload until Phase 3 ships.
+- `runtimeMemoryProfile` in the payload reflects `workerMemoryProfile` from the policy.
 
 **i18n.**
 
-- `raw.export.lowMemory` (the existing low-memory note) is retained.
-- New keys: `raw.export.highPerformance`, `raw.export.derivedLabelHint` (used in the developer-facing debug panel only). Both English and zh-CN catalogs in `src/locales/`.
-- `getExportModeCopy(...)` continues to map `productCopy` enum values to human strings; the enum stays stable. Only the *derivation* of which enum value is chosen changes.
+- `raw.export.lowMemory` retained.
+- New keys: `raw.export.highPerformance`, `raw.export.derivedLabelHint` (debug panel only). Both `en.json` and `zh-CN.json`.
+- `getExportModeCopy(...)` continues to map `productCopy` enum values to human strings; the enum stays stable.
+- The `fidelity` → `performancePreference` rename touches one user-facing string in each locale and the matching key in `src/locales/`.
 
 ## Section 6 · Phasing
 
 Each phase is a single PR (or a tight stack), ships independently, and is revertable via `git revert`.
 
-### Phase 1 · Bridge refactor (behaviour-equivalent)
+### Phase 1 · Bridge refactor (strictly behaviour-equivalent)
 
-- Introduce `RawDecodeBridge` and `ExportBridge` per §3.
+- Introduce `RawDecodeBridge` and `ExportBridge` per §3, including explicit `_queue.catch(() => undefined).then(...)` queue shape.
 - Migrate `src/lib/raw/luma-runtime-adapter.ts` to use `RawDecodeBridge`.
-- Migrate `full-res-export-client.ts` and the export-system orchestration to use `ExportBridge`.
-- Preserve the existing pre-export memory-peak shape: `ExportBridge.runExport`'s first step is `await rawDecodeBridge.terminate()` (synchronous reclamation, not lazy idle wait). This keeps Phase 1 behaviour-equivalent — the bridge's idle timer alone would leave a 10-second window during which both workers could coexist in memory.
-- Delete the three `release...BeforeExport` boolean fields from the export profile table; delete the call sites that read them.
-- `restartWorkerOnResourceRetry` becomes implicit (bridge terminates on retry). Keep the named field for one release cycle to ease review, default it to `true` everywhere, then delete in Phase 3.
-- **No policy / decision changes in this phase.** All three named profiles still exist and still produce the same numbers (minus the deleted lifecycle flags). The expected behavioural delta is "tighter cleanup; no observable visual change."
+- Migrate `full-res-export-client.ts` and the export orchestration to use `ExportBridge`.
+- `ExportBridge.runExport`'s first step is `await rawDecodeBridge.terminate()` (synchronous reclamation) to match today's pre-export memory-peak shape.
+- **No safety-invariant changes.** `restartWorkerOnResourceRetry` and `checkpointOutput` retain their current per-profile values. Phase 1 does not enable always-on checkpoint or always-on retry.
+- **Pre-Phase 1 prerequisite**: the unstaged working tree already flipped `desktop-fast`'s three `release...BeforeExport` flags to `true`. This left the desktop path in a partial state where preview is released but neither checkpoint nor auto-restart is active — a resource failure produces a blank stage with no resume. Phase 1 must EITHER:
+  - (a) revert those flags so Phase 1 truly preserves prior behaviour, OR
+  - (b) treat Phase 1 as Phase 1 + Phase 2 stacked: ship bridge **and** flip checkpoint/restart invariants together in the same PR, with the regression tests below.
+  - The plan that follows this spec will pick one. Default recommendation: **(a)** — revert and defer to Phase 2.
+- **Regression test (always required, regardless of (a) or (b))**: preview-size copy capability. The export result currently advertises preview-size copy when the browser supports PNG clipboard fallback (`orchestrate-full-res-export.ts:332-337`), but `previewCopyCanvas` is only prepared when the plan does NOT release the preview pipeline. The bridge refactor must either capture the preview-copy canvas before evacuation, downgrade `copyCapability` when evacuation is planned, or restore the preview before the Copy action fires. The test asserts that any code path which sets `copyCapability.previewSize.available = true` also has a reachable canvas source.
 
 ### Phase 2 · Capability vector and derived policies
 
-- Add `src/lib/runtime/capability-vector.ts`.
+- Add `src/lib/runtime/capability-vector.ts` and `src/lib/runtime/export-runtime-resources.ts`.
 - Add `src/lib/runtime/interactive-policy.ts` and `src/lib/runtime/export-policy.ts`.
-- Replace `chooseProfile` / `selectExportExecutionPlan` internals: keep the *function signature* (still returns an `ExportExecutionPlan`-shaped object), but compute via `deriveExportPolicy`.
+- Replace `chooseProfile` / `selectExportExecutionPlan` internals; keep their public function signatures returning an `ExportExecutionPlan`-shaped object, but compute via `deriveExportPolicy`.
 - Update `src/lib/raw/luma-runtime-adapter.ts` to consult `deriveInteractivePolicy` instead of hard-coding `requireCrossOriginIsolation: true`.
-- Always-on checkpoint: `checkpointOutput: true` for every derived plan; persist cadence from §2.2.
-- Always-on retry restart: bridge handles it; the `restartWorkerOnResourceRetry` field becomes a no-op that always reads `true`.
-- The named profile labels (`'ios-safe'` etc.) survive in the persisted `profile` field per §4 and in the telemetry payload alongside `derivedLabel`.
+- **Flip safety invariants to always-on**: `checkpointOutput: true` for every derived plan; persist cadence from §2.2; `restartWorkerOnResourceRetry` becomes implicit via bridge. Add the regression tests for "desktop export → resource failure → automatic restart → completes" and "desktop export → resource failure → checkpoint resumes from durable record."
+- Rename `fidelity` to `performancePreference` across types, telemetry payload, and i18n keys.
+- Split `previousInterrupted` into `previousResourceFailure`, `previousCrashLikeInterruption`, `previousUserInterrupted` at the call sites that record these signals.
+- The named profile labels survive in the persisted `profile` field per §4 and in the telemetry payload alongside `derivedLabel`.
+
+### Phase 2.1 · Calibration (post-telemetry, optional)
+
+- Observe `policyVector` distribution and `cannot-safely-complete` rate across `chromium`, `webkit-desktop-safari`, `webkit-mobile` for two weeks.
+- Tune constants if data warrants: OPFS safety margin (default 64 MB), the 4 MB/MP JPEG factor, desktop Safari memory-profile gate (`webkit-desktop-safari && deviceMemoryGB >= 8` → `'desktop'`).
+- This phase is data-driven, not a code refactor. Scope it as a separate PR only if calibration actually moves a constant.
 
 ### Phase 3 · Cleanup
 
 - Delete `lowMemoryAvailable` from the chooser interface and the two call sites.
-- Delete the `EXPORT_EXECUTION_PROFILES` table (the const object). Profile-name `string` literals survive only inside the checkpoint legacy reader and the telemetry legacy field.
+- Delete the `EXPORT_EXECUTION_PROFILES` table. Profile-name `string` literals survive only inside the checkpoint legacy reader and the telemetry legacy field.
 - Delete `restartWorkerOnResourceRetry` field from the plan type.
-- Replace `boundedHqMaxPixels` field in the plan type with a reference to `deriveInteractivePolicy(cap).boundedHqMaxPixels` at every call site.
+- Replace `boundedHqMaxPixels` field in the plan type with a call to `deriveInteractivePolicy(cap)` at every consumer site.
 - Update tests that asserted on named profiles to assert on derived labels or policy vectors.
 
 ## Section 7 · Cost & Benefit
 
-**Cost (point estimates; ranges in parentheses are pessimistic).**
+**Cost (revised after adversarial review).**
 
 | Item | Estimate |
 |---|---|
-| Files touched (direct grep) | 18 (existing references to named profile literals) + 5 new files |
-| Net code delta | +150 lines new derive logic, −250 lines deleted profile / lifecycle flags / dead params ≈ **−100 LOC** |
-| Worker code changes | Zero (the worker still reads `workerMemoryProfile` and `rowSlice` from its message payload) |
-| Checkpoint-store schema | Additive (new `derivedLabel` field); old `profile` field retained for read |
-| Test rewrite | Property test (new), ~10 snapshot tests (new), removal of named-profile fixtures across `execution-profile.test.ts` and a handful of `export-system` tests |
-| i18n | 2 new keys per locale; no existing key removed in scope |
-| Engineering days | **3–4** implementation, **1–2** browser-matrix verification (Chrome/Chromium, Firefox, Safari mac, Safari iOS, Edge). Total **4–6 days**, pessimistic **8 days** |
+| Files touched (direct grep) | 18 existing references + 6 new files (`capability-vector.ts`, `export-runtime-resources.ts`, `interactive-policy.ts`, `export-policy.ts`, `raw-decode-bridge.ts`, `export-bridge.ts`) |
+| Net code delta | +250 lines new logic (more than original estimate due to atomic-output contract, runtime-resource snapshot, expanded property tests), −250 lines deleted ≈ **net zero LOC** |
+| Worker code changes | Minimal: worker still reads `workerMemoryProfile` and `rowSlice` from message payload. The OPFS atomic-write contract may add a small finalize-marker step inside the worker (~30 lines). |
+| Checkpoint-store schema | Additive (new `derivedLabel`); old `profile` retained as metadata only |
+| Test rewrite | Property test (new) + ~10 snapshot tests (new) + bridge unit tests (the 6 listed scenarios) + OPFS atomicity integration tests + resume-re-derive tests; total new test code ~600 lines. Existing named-profile fixtures across `execution-profile.test.ts` and `export-system` tests are migrated, not deleted. |
+| i18n | 2 new keys per locale; `fidelity` → `performancePreference` is a mechanical rename |
+| Engineering days | **5–7** implementation, **2–3** browser-matrix verification. Total **7–10 days**, pessimistic **12 days**. (Up from 4–6 because the adversarial pass added atomic OPFS contract, resource snapshot, property-test invariants, and the preview-copy regression test.) |
 
 **Benefit.**
 
-- Decision surface collapses from `platform(3) × profile(3) × fidelity(3) = 27` named combinations to a continuous policy over a six-field vector. The chooser's nested `if` chain disappears.
-- Two long-standing principle violations are fixed:
-  - Desktop fast path retains checkpoint recoverability (always-on checkpoint with derived flush cadence — measured overhead trends toward zero as row slice grows).
-  - Preview runtime respects platform (`webkit-mobile` no longer forced into `'desktop'` memory profile).
-- The lying capability flag `lowMemoryAvailable` is deleted.
-- Worker lifecycle becomes mechanical (idle-terminate) instead of procedural (`release...BeforeExport` flags). Three boolean fields, multiple call sites, vanish.
-- Telemetry gains the *vector* alongside the label, making post-hoc analysis tractable without losing the ability to filter by a stable label string.
+- Decision surface collapses from a `platform × profile × fidelity` matrix to a continuous policy over a sanitised vector + an export-time resource snapshot.
+- Three long-standing principle violations are fixed (always-on checkpoint, always-on restart, preview respects platform).
+- Lying capability flag `lowMemoryAvailable` deleted.
+- Worker lifecycle is mechanical (idle-terminate) instead of procedural (`release...BeforeExport` flags).
+- OPFS partial-output corruption is impossible by construction.
+- Resume from old checkpoints is safe (always re-derive policy; never resurrect stale profile semantics).
+- Telemetry gains the policy vector AND a richer `derivedLabel` (now including `rowSlice` and `webKitClass`) — distinct strategies no longer collapse to the same label.
+- The misnamed `fidelity` becomes the accurate `performancePreference`.
 
 **Explicit non-goals.**
 
-- No SSR-time capability detection. The current `/raw` shell is client-only.
-- No "throttle preview when battery low" or similar dynamic re-detection — the vector is captured once.
-- No legacy feature flag. The user explicitly declined `LUMAFORGE_FORCE_DESKTOP_FAST_LEGACY`. Rollback is `git revert`.
+- No SSR-time capability detection.
+- No dynamic re-detection of capability mid-session.
+- No legacy feature flag.
 
 ## Section 8 · Risks and Mitigations
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| First-version derive thresholds (e.g. row slice baseline `512`) are wrong on real hardware | Medium | Phase 2 ships behind the existing per-event telemetry; collect `policyVector` for two weeks, calibrate constants in a follow-up Phase 2.1. |
-| `navigator.deviceMemory` returns `undefined` on Safari — derive math falls through to `null` branches | Certain | Already handled by null-tolerant clauses; `webKitClass` covers the Safari ceiling separately. |
-| OPFS quota estimate races with first export on cold boot | Low | `getCapabilityVector()` is awaited at app boot before `/raw` mount; export path always uses the resolved vector. |
-| Phase 1 bridge refactor introduces a regression that only surfaces under retry | Medium | Phase 1 keeps the existing chooser numbers; add an explicit integration test for "decode + cancel + new decode" and "export + cancel + new export." |
-| Property tests over-constrain and reject legitimate derive math changes | Low | Property invariants are weak (bounds + monotonic, not exact values); snapshot tests catch intentional changes via reviewable diffs. |
-| Checkpoint-store legacy reader synthesizes a wrong policy from a stale `profile` field | Medium | The legacy mapping is conservative (synthesizes a `'low-memory'` posture on ambiguity); a Phase 2 unit test pins it. |
+| Phase 1 partial-state regression (preview released without checkpoint/restart) | High if not addressed | Phase 1 prerequisite in §6 explicitly resolves this before Phase 1 lands. Regression test for "desktop resource failure has resumable state" is mandatory if going the (b) path. |
+| Preview-size Copy advertised after preview release | Already a working-tree bug | Phase 1 regression test asserts `copyCapability.previewSize.available === true ⇒ canvas reachable`. |
+| First-version derive thresholds wrong on real hardware | Medium | Phase 2.1 calibration window with `policyVector` telemetry. |
+| `navigator.deviceMemory` undefined on Safari | Certain | Null-tolerant derive; `webKitClass` covers Safari ceiling separately. |
+| OPFS estimate races with first export | Low | `ExportRuntimeResources` computed immediately before each plan call, not at boot. |
+| Phase 1 bridge regression under retry | Medium | Bridge unit tests cover the 6 scenarios in §3 verification. |
+| Property tests over-constrain derive math | Low | Invariants are bounds-and-monotonicity, not exact values; snapshot tests catch intentional changes via reviewable diffs. |
+| Legacy reader synthesises wrong policy from stale `profile` | Eliminated by design | §4 forbids using `profile` for runtime decisions; resume always re-derives from current state. Phase 2 unit test pins this. |
+| Bridge `_queue` brick on first rejection | Eliminated by design | §3 mandates `_queue.catch(() => undefined).then(...)`; bridge test "call A fails → call B still runs" is mandatory. |
+| OPFS partial-output corruption | Eliminated by design | §3.5 temp-path + finalize-marker contract; abort tests assert no committed output. |
 
 ## Section 9 · Appendix · Affected Files Inventory
 
-Direct references to named profile literals (`'ios-safe' | 'mobile-balanced' | 'desktop-fast'`) or to `ExportExecutionProfileName` — 18 files:
+Direct references to named profile literals or `ExportExecutionProfileName` — 18 files:
 
 ```
 src/modules/raw-processor/components/tools/ExportTool.test.tsx
@@ -355,14 +463,22 @@ src/modules/raw-processor/hooks/useRawProcessor.ts
 src/modules/raw-processor/hooks/useRawProcessor.test.tsx
 ```
 
+Working-tree partial rollout to resolve in Phase 1 prerequisite:
+
+```
+src/lib/export/execution-profile.ts (desktop-fast release flags flipped to true)
+src/modules/raw-processor/services/export/orchestrate-full-res-export.ts (preview-copy capability path)
+```
+
 New files introduced by this spec:
 
 ```
 src/lib/runtime/capability-vector.ts
+src/lib/runtime/export-runtime-resources.ts
 src/lib/runtime/interactive-policy.ts
 src/lib/runtime/export-policy.ts
 src/lib/workers/raw-decode-bridge.ts
 src/lib/workers/export-bridge.ts
 ```
 
-(Bridge file locations are illustrative; the plan PR may choose a different path under `src/lib/`.)
+(Paths are illustrative; the plan PR may choose a different location under `src/lib/`.)
