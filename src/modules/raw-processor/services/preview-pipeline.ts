@@ -98,10 +98,6 @@ export async function runPreviewPipeline({
   return { boundedHqPromise }
 }
 
-export async function extractEmbeddedPreviewBestEffort() {
-  return null
-}
-
 function yieldToPreviewPaint() {
   if (
     typeof window !== 'undefined' &&
