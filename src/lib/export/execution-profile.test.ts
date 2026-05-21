@@ -52,7 +52,7 @@ describe('export execution profile selection', () => {
     expect(plan.productCopy).toBe('interrupted-retry')
   })
 
-  it('uses ios-safe for iPhone WebKit-like environments', () => {
+  it('uses low-memory OPFS policy for iPhone WebKit-like environments', () => {
     const plan = selectExportExecutionPlan({
       fidelity: 'balanced',
       sourceWidth: 11662,
@@ -66,10 +66,18 @@ describe('export execution profile selection', () => {
       },
     })
 
-    expect(plan.profile.name).toBe('ios-safe')
     expect(plan.maxConcurrency).toBe(1)
     expect(plan.preferredRows).toBe(128)
+    expect(plan.concurrency).toBe(1)
+    expect(plan.runtimeMemoryProfile).toBe('low-memory')
+    expect(plan.outputSink).toBe('opfs-file')
     expect(plan.derivedLabel).toContain('wkwebkit-mobile')
+    expect(plan.policyVector).toMatchObject({
+      workerMemoryProfile: 'low-memory',
+      rowSlice: 128,
+      concurrency: 1,
+      outputSink: 'opfs-file',
+    })
   })
 
   it('marks iPhone WebKit large blob handoff exports as unable to complete safely', () => {
@@ -86,8 +94,9 @@ describe('export execution profile selection', () => {
       },
     })
 
-    expect(plan.profile.name).toBe('ios-safe')
     expect(plan.outputSink).toBe('blob-handoff')
+    expect(plan.runtimeMemoryProfile).toBe('low-memory')
+    expect(plan.derivedLabel).toContain('wkwebkit-mobile')
     expect(plan.productCopy).toBe('cannot-safely-complete')
     expect(getExportModeCopy(plan.productCopy)).toMatch(
       /cannot safely complete this large local full-resolution export/i,
@@ -108,12 +117,13 @@ describe('export execution profile selection', () => {
       },
     })
 
-    expect(plan.profile.name).toBe('ios-safe')
     expect(plan.outputSink).toBe('blob-handoff')
+    expect(plan.runtimeMemoryProfile).toBe('low-memory')
+    expect(plan.derivedLabel).toContain('wkwebkit-mobile')
     expect(plan.productCopy).toBe('safe-export')
   })
 
-  it('uses ios-safe for iPadOS Safari desktop-mode user agents with touch', () => {
+  it('uses low-memory policy for iPadOS Safari desktop-mode user agents with touch', () => {
     const plan = selectExportExecutionPlan({
       fidelity: 'max',
       sourceWidth: 11662,
@@ -127,11 +137,17 @@ describe('export execution profile selection', () => {
       },
     })
 
-    expect(plan.profile.name).toBe('ios-safe')
     expect(plan.preferredRows).toBe(128)
     expect(plan.concurrency).toBe(1)
     expect(plan.runtimeMemoryProfile).toBe('low-memory')
+    expect(plan.outputSink).toBe('opfs-file')
     expect(plan.derivedLabel).toContain('wkwebkit-mobile')
+    expect(plan.policyVector).toMatchObject({
+      workerMemoryProfile: 'low-memory',
+      rowSlice: 128,
+      concurrency: 1,
+      outputSink: 'opfs-file',
+    })
   })
 
   it('uses low-memory policy for desktop Safari WebKit workers', () => {
@@ -186,10 +202,17 @@ describe('export execution profile selection', () => {
         },
       })
 
-      expect(plan.profile.name).toBe('desktop-fast')
       expect(plan.preferredRows).toBe(512)
       expect(plan.concurrency).toBe(expectedConcurrency)
+      expect(plan.runtimeMemoryProfile).toBe('desktop')
+      expect(plan.outputSink).toBe('streaming')
       expect(plan.derivedLabel).toContain('wkchromium')
+      expect(plan.policyVector).toMatchObject({
+        workerMemoryProfile: 'desktop',
+        rowSlice: 512,
+        concurrency: expectedConcurrency,
+        outputSink: 'streaming',
+      })
     },
   )
 

@@ -2168,7 +2168,6 @@ describe('useRawProcessor embedded preview state', () => {
     expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledWith(
       expect.objectContaining({
         executionPlan: expect.objectContaining({
-          profile: expect.objectContaining({ name: 'ios-safe' }),
           preferredRows: 128,
           concurrency: 1,
           runtimeMemoryProfile: 'low-memory',
@@ -2231,7 +2230,7 @@ describe('useRawProcessor embedded preview state', () => {
     )
   })
 
-  it('releases the desktop-fast preview pipeline during export', async () => {
+  it('releases the desktop preview pipeline during export', async () => {
     vi.stubGlobal('navigator', {
       userAgent:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
@@ -2273,7 +2272,12 @@ describe('useRawProcessor embedded preview state', () => {
     expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledWith(
       expect.objectContaining({
         executionPlan: expect.objectContaining({
-          profile: expect.objectContaining({ name: 'desktop-fast' }),
+          preferredRows: 512,
+          concurrency: 2,
+          runtimeMemoryProfile: 'desktop',
+          outputSink: 'blob-handoff',
+          checkpointMode: 'safe-retry',
+          derivedLabel: expect.stringContaining('wkchromium'),
         }),
       }),
     )
@@ -2592,8 +2596,12 @@ describe('useRawProcessor embedded preview state', () => {
     expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledWith(
       expect.objectContaining({
         executionPlan: expect.objectContaining({
-          profile: expect.objectContaining({ name: 'ios-safe' }),
+          preferredRows: 128,
+          concurrency: 1,
+          runtimeMemoryProfile: 'low-memory',
           outputSink: 'opfs-file',
+          checkpointMode: 'safe-retry',
+          derivedLabel: expect.stringContaining('wkwebkit-mobile'),
         }),
         checkpoint: expect.objectContaining({
           graphFingerprint: expect.any(String),

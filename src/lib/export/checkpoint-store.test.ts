@@ -238,9 +238,17 @@ describe('checkpoint store', () => {
       })
 
       expect(plan.runtimeMemoryProfile).toBe('low-memory')
-      expect(plan.profile.name).toBe('ios-safe')
       expect(plan.preferredRows).toBeLessThanOrEqual(64)
+      expect(plan.concurrency).toBe(1)
+      expect(plan.outputSink).toBe('blob-handoff')
+      expect(plan.checkpointMode).toBe('safe-retry')
       expect(plan.derivedLabel).toContain('wkwebkit-mobile')
+      expect(plan.policyVector).toMatchObject({
+        workerMemoryProfile: 'low-memory',
+        rowSlice: 64,
+        concurrency: 1,
+        outputSink: 'blob-handoff',
+      })
     } finally {
       resetCapabilityVectorForTest()
     }
