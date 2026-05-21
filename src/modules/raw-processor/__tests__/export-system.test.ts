@@ -36,33 +36,33 @@ describe('export-system', () => {
     expect(recommendRetryLevel('safe')).toBe(null)
   })
 
-  it('maps fidelity levels to profile-backed preferred row budgets', () => {
-    expect(getPreferredRowsForFidelity('safe')).toBe(256)
-    expect(getPreferredRowsForFidelity('balanced')).toBe(1024)
-    expect(getPreferredRowsForFidelity('max')).toBe(1024)
+  it('maps fidelity levels to derived fallback row budgets', () => {
+    expect(getPreferredRowsForFidelity('safe')).toBe(512)
+    expect(getPreferredRowsForFidelity('balanced')).toBe(512)
+    expect(getPreferredRowsForFidelity('max')).toBe(512)
   })
 
-  it('maps fidelity levels to bounded pipeline concurrency', () => {
+  it('maps fidelity levels to derived fallback concurrency', () => {
     expect(getConcurrencyForFidelity('safe')).toBe(1)
-    expect(getConcurrencyForFidelity('balanced')).toBe(2)
-    expect(getConcurrencyForFidelity('max')).toBe(3)
+    expect(getConcurrencyForFidelity('balanced')).toBe(1)
+    expect(getConcurrencyForFidelity('max')).toBe(1)
   })
 
   it('keeps legacy fidelity helper budgets independent of ambient isolation globals', () => {
     vi.unstubAllGlobals()
 
-    expect(getPreferredRowsForFidelity('max')).toBe(1024)
-    expect(getConcurrencyForFidelity('max')).toBe(3)
+    expect(getPreferredRowsForFidelity('max')).toBe(512)
+    expect(getConcurrencyForFidelity('max')).toBe(1)
   })
 
-  it('selects ios-safe rows for 100MP current-session safe export', () => {
+  it('selects derived 100MP rows for current-session safe export', () => {
     const plan = selectCurrentExportExecutionPlan({
       fidelity: 'safe',
       sourceWidth: 11662,
       sourceHeight: 8746,
     })
 
-    expect(plan.preferredRows).toBeLessThanOrEqual(128)
+    expect(plan.preferredRows).toBe(256)
     expect(plan.concurrency).toBe(1)
     expect(plan.checkpointMode).toBe('safe-retry')
   })
@@ -85,7 +85,8 @@ describe('export-system', () => {
       sourceHeight: 8746,
     })
 
-    expect(plan.profile.name).toBe('desktop-fast')
+    expect(plan.runtimeMemoryProfile).toBe('desktop')
+    expect(plan.derivedLabel).toContain('wkchromium')
     expect(plan.outputSink).toBe('blob-handoff')
   })
 

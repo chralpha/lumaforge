@@ -1,6 +1,5 @@
 import { afterEach, vi } from 'vitest'
 
-import type { ExportExecutionProfileName } from './execution-profile'
 import {
   emitExportDebugEvent,
   getExportModeCopy,
@@ -23,7 +22,7 @@ describe('export execution profile selection', () => {
     vi.restoreAllMocks()
   })
 
-  it('forces ios-safe after interrupted checkpoint regardless of platform', () => {
+  it('uses crash-retry policy after interrupted checkpoint regardless of platform', () => {
     const plan = selectExportExecutionPlan({
       fidelity: 'max',
       sourceWidth: 11662,
@@ -34,12 +33,12 @@ describe('export execution profile selection', () => {
       platform: { userAgent: 'Mozilla/5.0 (Windows NT 10.0)', touch: false },
     })
 
-    expect(plan.profile.name).toBe('ios-safe')
     expect(plan.preferredRows).toBe(64)
     expect(plan.concurrency).toBe(1)
     expect(plan.runtimeMemoryProfile).toBe('low-memory')
     expect(plan.checkpointMode).toBe('safe-retry')
     expect(plan.outputSink).toBe('opfs-file')
+    expect(plan.productCopy).toBe('interrupted-retry')
   })
 
   it('uses ios-safe for iPhone WebKit-like environments', () => {
@@ -58,7 +57,8 @@ describe('export execution profile selection', () => {
 
     expect(plan.profile.name).toBe('ios-safe')
     expect(plan.maxConcurrency).toBe(1)
-    expect(plan.preferredRows).toBe(64)
+    expect(plan.preferredRows).toBe(128)
+    expect(plan.derivedLabel).toContain('wkwebkit-mobile')
   })
 
   it('marks iPhone WebKit large blob handoff exports as unable to complete safely', () => {
@@ -117,12 +117,13 @@ describe('export execution profile selection', () => {
     })
 
     expect(plan.profile.name).toBe('ios-safe')
-    expect(plan.preferredRows).toBe(64)
+    expect(plan.preferredRows).toBe(128)
     expect(plan.concurrency).toBe(1)
     expect(plan.runtimeMemoryProfile).toBe('low-memory')
+    expect(plan.derivedLabel).toContain('wkwebkit-mobile')
   })
 
-  it('uses ios-safe for desktop Safari WebKit workers', () => {
+  it('uses low-memory policy for desktop Safari WebKit workers', () => {
     const plan = selectExportExecutionPlan({
       fidelity: 'balanced',
       sourceWidth: 5520,
@@ -137,39 +138,78 @@ describe('export execution profile selection', () => {
       },
     })
 
-    expect(plan.profile.name).toBe('ios-safe')
-    expect(plan.preferredRows).toBe(128)
+    expect(plan.preferredRows).toBe(256)
     expect(plan.concurrency).toBe(1)
     expect(plan.runtimeMemoryProfile).toBe('low-memory')
+    expect(plan.derivedLabel).toContain('wkwebkit-desktop-safari')
   })
 
   it.each([
-    ['mobile-balanced', 256, 2],
-    ['desktop-fast', 1024, 3],
-  ] as Array<[ExportExecutionProfileName, number, number]>)(
-    'keeps non-iOS %s throughput defaults',
-    (expectedProfile, expectedRows, expectedConcurrency) => {
+    [
+      'Android Chromium balanced',
+      'balanced',
+      true,
+      2,
+      'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36',
+    ],
+    [
+      'desktop Chromium max',
+      'max',
+      false,
+      3,
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/537.36 Chrome/126 Safari/537.36',
+    ],
+  ] as Array<[string, 'balanced' | 'max', boolean, number, string]>)(
+    'derives non-WebKit %s throughput policy',
+    (_label, fidelity, touch, expectedConcurrency, userAgent) => {
       const plan = selectExportExecutionPlan({
-        fidelity: expectedProfile === 'desktop-fast' ? 'max' : 'balanced',
+        fidelity,
         sourceWidth: 10000,
         sourceHeight: 9000,
         runtime: { lowMemoryAvailable: true, pthreadAvailable: true },
         output: { opfsAvailable: false, streamingAvailable: true },
         platform: {
-          userAgent:
-            expectedProfile === 'desktop-fast'
-              ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/537.36 Chrome/126 Safari/537.36'
-              : 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36',
-          touch: expectedProfile !== 'desktop-fast',
+          userAgent,
+          touch,
           hardwareConcurrency: 8,
         },
       })
 
-      expect(plan.profile.name).toBe(expectedProfile)
-      expect(plan.preferredRows).toBe(expectedRows)
+      expect(plan.profile.name).toBe('desktop-fast')
+      expect(plan.preferredRows).toBe(512)
       expect(plan.concurrency).toBe(expectedConcurrency)
+      expect(plan.derivedLabel).toContain('wkchromium')
     },
   )
+
+  it('accepts performancePreference, three previous-failure flags, capability, and runtime resources', () => {
+    const plan = selectExportExecutionPlan({
+      performancePreference: 'balanced',
+      previousResourceFailure: false,
+      previousCrashLikeInterruption: false,
+      previousUserInterrupted: false,
+      sourceWidth: 6000,
+      sourceHeight: 4000,
+      capability: {
+        coi: true,
+        pthread: true,
+        deviceMemoryGB: 16,
+        hwConcurrency: 8,
+        webKitClass: 'chromium',
+        maybeOpfsSupported: true,
+      },
+      runtime: {
+        opfsSinkAvailable: true,
+        opfsAvailableMB: 4_000,
+        streamingSinkAvailable: true,
+      },
+    } as never)
+
+    expect(plan.profile.checkpointOutput).toBe(true)
+    expect(plan.profile.restartWorkerOnResourceRetry).toBe(true)
+    expect(plan.runtimeMemoryProfile).toBe('desktop')
+    expect((plan as { derivedLabel?: string }).derivedLabel).toMatch(/chromium/)
+  })
 
   it('maps product copy without saying resume for safe retry', () => {
     expect(getExportModeCopy('interrupted-source-needed')).toBe(

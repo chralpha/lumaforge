@@ -1,4 +1,14 @@
 import type { ExportFidelity } from '~/lib/gl/export'
+import type { CapabilityVector } from '~/lib/runtime/capability-vector'
+import { getCapabilityVectorSnapshot } from '~/lib/runtime/capability-vector'
+import type {
+  ExportOrchestrationCopy,
+  ExportPolicy,
+  PerformancePreference,
+} from '~/lib/runtime/export-policy'
+import { deriveExportPolicy } from '~/lib/runtime/export-policy'
+import type { ExportRuntimeResources } from '~/lib/runtime/export-runtime-resources'
+import { deriveInteractivePolicy } from '~/lib/runtime/interactive-policy'
 
 import type {
   LargeResourceOwner,
@@ -116,7 +126,6 @@ type ExportDebugWindow = Window & {
 const exportDebugEventStorageKey = 'lumaforge.exportDebugEvents.v1'
 const exportDebugEventHistoryLimit = 256
 const exportDebugCheckpointPersistRows = 1024
-const iosSafeBlobHandoffMaxMegapixels = 50
 
 export type ExportExecutionProfile = {
   name: ExportExecutionProfileName
@@ -144,14 +153,9 @@ export type ExportExecutionPlan = {
   runtimeMemoryProfile: ExportRuntimeMemoryProfile
   outputSink: ExportOutputSink
   checkpointMode: ExportCheckpointMode
-  productCopy:
-    | 'high-performance'
-    | 'safe-export'
-    | 'resource-retry'
-    | 'interrupted-retry'
-    | 'interrupted-source-needed'
-    | 'non-durable-checkpoint'
-    | 'cannot-safely-complete'
+  productCopy: ExportOrchestrationCopy
+  derivedLabel: string
+  policyVector: ExportPolicy
 }
 
 export const EXPORT_EXECUTION_PROFILES: Record<
@@ -313,92 +317,169 @@ export function isKnownRiskWebKitDesktop(input: {
   )
 }
 
-function chooseProfile(input: {
-  fidelity: ExportFidelity
-  previousInterrupted?: boolean
-  previousResourceFailure?: boolean
-  runtime: { lowMemoryAvailable: boolean; pthreadAvailable: boolean }
-  platform: { userAgent?: string; touch?: boolean }
-}): ExportExecutionProfileName {
-  if (input.previousInterrupted) return 'ios-safe'
-  if (isKnownRiskWebKitMobile(input.platform)) return 'ios-safe'
-  if (isKnownRiskWebKitDesktop(input.platform)) return 'ios-safe'
-  if (!input.runtime.pthreadAvailable) return 'mobile-balanced'
-  if (input.previousResourceFailure) {
-    return input.fidelity === 'max' ? 'mobile-balanced' : 'ios-safe'
+function chooseProfile(
+  derivedPolicy: ExportPolicy,
+  capability: CapabilityVector,
+): ExportExecutionProfileName {
+  if (
+    derivedPolicy.workerMemoryProfile === 'desktop' &&
+    derivedPolicy.concurrency >= 2 &&
+    derivedPolicy.rowSlice >= 512
+  ) {
+    return 'desktop-fast'
   }
-  if (input.fidelity === 'max') return 'desktop-fast'
-  if (input.fidelity === 'balanced') {
-    return input.platform.touch ? 'mobile-balanced' : 'desktop-fast'
-  }
-  return input.platform.touch ? 'ios-safe' : 'mobile-balanced'
+  if (capability.webKitClass === 'webkit-mobile') return 'ios-safe'
+  return 'mobile-balanced'
 }
 
-function chooseOutputSink(input: {
-  profile: ExportExecutionProfileName
-  output: { opfsAvailable: boolean; streamingAvailable: boolean }
-}): ExportOutputSink {
-  if (input.profile === 'ios-safe' && input.output.opfsAvailable) {
-    return 'opfs-file'
+function classifyLegacyPlatform(input: {
+  userAgent?: string
+  touch?: boolean
+}): CapabilityVector['webKitClass'] {
+  if (isKnownRiskWebKitMobile(input)) return 'webkit-mobile'
+  if (isKnownRiskWebKitDesktop(input)) return 'webkit-desktop-safari'
+  if (
+    /\b(?:Chrome|Chromium|CriOS|Edg|OPR|FxiOS)\b/i.test(input.userAgent ?? '')
+  ) {
+    return 'chromium'
   }
-  if (input.output.streamingAvailable) return 'streaming'
-  return 'blob-handoff'
+  return 'unknown'
 }
 
-function getDefaultConcurrencyForFidelity(fidelity: ExportFidelity) {
-  return fidelity === 'safe' ? 1 : fidelity === 'balanced' ? 2 : 3
+type LegacyRuntimeInput = {
+  lowMemoryAvailable: boolean
+  pthreadAvailable: boolean
 }
 
-export function selectExportExecutionPlan(input: {
-  fidelity: ExportFidelity
+type LegacyOutputInput = {
+  opfsAvailable: boolean
+  streamingAvailable: boolean
+}
+
+type SelectExportExecutionPlanInput = {
+  performancePreference?: PerformancePreference
+  fidelity?: ExportFidelity
   sourceWidth?: number
   sourceHeight?: number
   previousInterrupted?: boolean
+  previousCrashLikeInterruption?: boolean
+  previousUserInterrupted?: boolean
   previousResourceFailure?: boolean
-  runtime: { lowMemoryAvailable: boolean; pthreadAvailable: boolean }
-  output: { opfsAvailable: boolean; streamingAvailable: boolean }
-  platform: {
+  capability?: CapabilityVector
+  runtime: ExportRuntimeResources | LegacyRuntimeInput
+  output?: LegacyOutputInput
+  platform?: {
     userAgent?: string
     touch?: boolean
     hardwareConcurrency?: number
   }
-}): ExportExecutionPlan {
-  const profileName = chooseProfile(input)
-  const profile = EXPORT_EXECUTION_PROFILES[profileName]
-  const megapixels = getImageMegapixels(input.sourceWidth, input.sourceHeight)
-  const preferredRows =
-    megapixels >= 100
-      ? profile.preferredRowsFor100Mp
-      : profile.preferredRowsBelow100Mp
-  const outputSink = chooseOutputSink({
-    profile: profileName,
-    output: input.output,
+}
+
+function isExportRuntimeResources(
+  runtime: ExportRuntimeResources | LegacyRuntimeInput,
+): runtime is ExportRuntimeResources {
+  return 'opfsSinkAvailable' in runtime
+}
+
+function resolveCapability(
+  input: SelectExportExecutionPlanInput,
+): CapabilityVector {
+  if (input.capability) return input.capability
+
+  const snapshot = getCapabilityVectorSnapshot()
+  if (snapshot) return snapshot
+
+  const runtime = input.runtime
+  const legacyRuntime = isExportRuntimeResources(runtime) ? null : runtime
+  const platform = input.platform ?? {}
+  return Object.freeze({
+    coi: legacyRuntime?.pthreadAvailable ?? false,
+    pthread: legacyRuntime?.pthreadAvailable ?? false,
+    deviceMemoryGB: null,
+    hwConcurrency: Math.max(1, Math.floor(platform.hardwareConcurrency ?? 1)),
+    webKitClass: classifyLegacyPlatform(platform),
+    maybeOpfsSupported: input.output?.opfsAvailable ?? false,
   })
-  const cannotSafelyComplete =
-    profileName === 'ios-safe' &&
-    megapixels > iosSafeBlobHandoffMaxMegapixels &&
-    outputSink === 'blob-handoff'
-  const runtimeMemoryProfile: ExportRuntimeMemoryProfile =
-    profileName === 'desktop-fast' && input.runtime.pthreadAvailable
-      ? 'desktop'
-      : 'low-memory'
+}
+
+function resolveRuntimeResources(
+  input: SelectExportExecutionPlanInput,
+): ExportRuntimeResources {
+  if (isExportRuntimeResources(input.runtime)) return input.runtime
+
+  return Object.freeze({
+    opfsSinkAvailable: input.output?.opfsAvailable ?? false,
+    opfsAvailableMB: input.output?.opfsAvailable
+      ? Number.POSITIVE_INFINITY
+      : null,
+    streamingSinkAvailable: input.output?.streamingAvailable ?? false,
+  })
+}
+
+function synthesizeProfile(
+  profileName: ExportExecutionProfileName,
+  policy: ExportPolicy,
+  capability: CapabilityVector,
+): ExportExecutionProfile {
+  const interactivePolicy = deriveInteractivePolicy(capability)
+
+  return {
+    name: profileName,
+    minRows: 64,
+    maxRows: Math.max(64, policy.rowSlice),
+    preferredRowsFor100Mp: policy.rowSlice,
+    preferredRowsBelow100Mp: policy.rowSlice,
+    rowBandRows: 64,
+    initialConcurrency: policy.concurrency,
+    maxConcurrency: policy.maxConcurrency,
+    boundedHqMaxPixels: interactivePolicy.boundedHqMaxPixels,
+    releasePreviewPipelineBeforeExport: true,
+    releaseBoundedHqBufferBeforeExport: true,
+    releasePreviousExportResultBeforeExport: true,
+    restartWorkerOnResourceRetry: true,
+    checkpointOutput: true,
+    checkpointMode: 'safe-retry',
+  }
+}
+
+export function selectExportExecutionPlan(
+  input: SelectExportExecutionPlanInput,
+): ExportExecutionPlan {
+  const performancePreference =
+    input.performancePreference ?? input.fidelity ?? 'balanced'
+  const capability = resolveCapability(input)
+  const runtime = resolveRuntimeResources(input)
+  const policy = deriveExportPolicy(
+    capability,
+    {
+      width: input.sourceWidth ?? 0,
+      height: input.sourceHeight ?? 0,
+    },
+    {
+      performancePreference,
+      previousResourceFailure: input.previousResourceFailure ?? false,
+      previousCrashLikeInterruption:
+        input.previousCrashLikeInterruption ??
+        input.previousInterrupted ??
+        false,
+      previousUserInterrupted: input.previousUserInterrupted ?? false,
+    },
+    runtime,
+  )
+  const profileName = chooseProfile(policy, capability)
+  const profile = synthesizeProfile(profileName, policy, capability)
 
   return {
     profile,
-    preferredRows,
-    concurrency: Math.min(
-      profile.maxConcurrency,
-      getDefaultConcurrencyForFidelity(input.fidelity),
-    ),
-    maxConcurrency: profile.maxConcurrency,
-    runtimeMemoryProfile,
-    outputSink,
+    preferredRows: policy.rowSlice,
+    concurrency: policy.concurrency,
+    maxConcurrency: policy.maxConcurrency,
+    runtimeMemoryProfile: policy.workerMemoryProfile,
+    outputSink: policy.outputSink,
     checkpointMode: profile.checkpointMode,
-    productCopy: cannotSafelyComplete
-      ? 'cannot-safely-complete'
-      : profileName === 'desktop-fast'
-        ? 'high-performance'
-        : 'safe-export',
+    productCopy: policy.productCopy,
+    derivedLabel: policy.derivedLabel,
+    policyVector: policy,
   }
 }
 
