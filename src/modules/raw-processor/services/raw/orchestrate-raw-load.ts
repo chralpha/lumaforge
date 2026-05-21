@@ -33,6 +33,14 @@ import {
 import { prepareRawLoadState } from '../raw-load-preparation'
 import { getStableErrorCode, toUserFacingErrorCode } from '../workflow-status'
 
+class RawAdapterErrorLike extends Error {
+  readonly code = 'RAW_PREWARM_FAILED'
+  constructor(message: string) {
+    super(message)
+    this.name = 'RawAdapterError'
+  }
+}
+
 export interface RawLoadContext {
   atoms: {
     setStatus: (status: ProcessingStatus) => void
@@ -120,6 +128,15 @@ export async function orchestrateRawLoad(
   let disposeRuntimeSessionInFinally = true
 
   try {
+    const initialPhase: 'warming' | 'loading' =
+      ctx.services.getPrewarmState() === 'ready' ? 'loading' : 'warming'
+
+    ctx.atoms.setStatus(initialPhase)
+    ctx.atoms.setProgress(0)
+    ctx.atoms.setError(null)
+
+    await ctx.services.yieldToPaint()
+
     ctx.refs.runtimeWorkSessionIdRef.current = null
     ctx.refs.pendingLoadSessionIdRef.current = null
     ctx.atoms.setPendingRecoveryRetry(null)
@@ -150,9 +167,6 @@ export async function orchestrateRawLoad(
     ctx.refs.pendingLoadSessionIdRef.current = nextSession.id
     ctx.services.setDecodedImageRef(null)
     ctx.atoms.setLoadedImage({ file, decoded: null, metadata: null })
-    ctx.atoms.setStatus('loading')
-    ctx.atoms.setProgress(0)
-    ctx.atoms.setError(null)
     ctx.atoms.setParams((prev) => ({
       ...prev,
       ...loadState.processingParamsPatch,
@@ -165,6 +179,17 @@ export async function orchestrateRawLoad(
 
       return applyPreviewLoadStarted(prev, loadState.compareSplit)
     })
+
+    if (initialPhase === 'warming') {
+      const outcome = await ctx.services.prewarm()
+      if (!ctx.refs.isMountedRef.current) {
+        return
+      }
+      if (outcome.status === 'failed') {
+        throw new RawAdapterErrorLike(outcome.reason ?? 'Prewarm failed.')
+      }
+      ctx.atoms.setStatus('loading')
+    }
 
     const matchesActiveSession = () =>
       ctx.refs.isMountedRef.current &&
