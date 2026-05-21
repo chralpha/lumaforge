@@ -26,6 +26,7 @@ import {
   useSetProcessingStatus,
   useSetProgress,
 } from '~/atoms/raw-processor'
+import { yieldToPaint } from '~/lib/dom'
 import {
   createCheckpointStore,
   createOpfsCheckpointBackend,
@@ -45,6 +46,7 @@ import { toLUTData } from '~/lib/lut/cube-parser'
 import type { OnlineLUTEntry } from '~/lib/profiles/catalog'
 import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
+import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
 import { deriveCanEdit } from '../model/derive-session'
 import type {
@@ -638,6 +640,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
         invalidateExportGraph,
         registerCurrentPreviewPipelineForEvacuation,
         disposeRuntimeSession,
+        yieldToPaint,
+        getPrewarmState: () => rawRuntimeAdapter.getPrewarmState(),
+        prewarm: () => rawRuntimeAdapter.prewarm(),
       },
       refs: {
         runtimeAbortControllerRef,

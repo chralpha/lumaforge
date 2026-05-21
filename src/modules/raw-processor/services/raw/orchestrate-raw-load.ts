@@ -80,6 +80,9 @@ export interface RawLoadContext {
     invalidateExportGraph: () => void
     registerCurrentPreviewPipelineForEvacuation: () => void
     disposeRuntimeSession: (session?: RawRuntimeSession | null) => void
+    yieldToPaint: () => Promise<void>
+    getPrewarmState: () => import('~/lib/raw/runtime-adapter').PrewarmState
+    prewarm: () => Promise<import('~/lib/raw/runtime-adapter').PrewarmOutcome>
   }
   refs: {
     runtimeAbortControllerRef: { current: AbortController | null }
