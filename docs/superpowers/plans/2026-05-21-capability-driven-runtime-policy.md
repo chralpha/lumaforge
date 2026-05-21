@@ -1992,20 +1992,20 @@ Goal: delete the now-dead `EXPORT_EXECUTION_PROFILES` table, the lying `lowMemor
 - Modify: `src/lib/export/execution-profile.ts` (input type for `selectExportExecutionPlan`)
 - Modify: `src/modules/raw-processor/services/export-system.ts` (the two call sites that pass `lowMemoryAvailable: true`)
 
-- [ ] **Step 1 — Failing assertion**
+- [x] **Step 1 — Failing assertion**
 
 Add a TypeScript-level check: extending the `selectExportExecutionPlan` input with `lowMemoryAvailable: true` should now be a type error. Manual check is fine — alternatively, add a `// @ts-expect-error` annotation in a test that intentionally passes the dead field and asserts the compiler errors.
 
-- [ ] **Step 2 — Delete the field**
+- [x] **Step 2 — Delete the field**
 
 Remove `lowMemoryAvailable: boolean` from the `runtime: { ... }` input type. Remove all references in `export-system.ts` and the test fixtures.
 
-- [ ] **Step 3 — Run; PASS**
+- [x] **Step 3 — Run; PASS**
 
 Run: `pnpm vitest run && pnpm lint`
 Expected: PASS.
 
-- [ ] **Step 4 — Commit**
+- [x] **Step 4 — Commit**
 
 ```bash
 git add src/lib/export/execution-profile.ts src/modules/raw-processor/services/export-system.ts
