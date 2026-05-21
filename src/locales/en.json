@@ -259,6 +259,8 @@
   "raw.export.copyUnsupported": "Clipboard image copy is not supported in this browser.",
   "raw.export.copyPreviewReason": "This browser cannot copy full-resolution JPEG files.",
   "raw.export.shareUnsupported": "This browser cannot share JPEG files.",
+  "raw.export.highPerformance": "Using high-performance full-resolution export.",
+  "raw.export.derivedLabelHint": "Export profile: {label}",
   "raw.export.lowMemory": "This device is using low-memory export mode. Export may take longer.",
   "raw.export.nonDurable": "This browser cannot store export progress. Keep the tab open while the JPEG is being written.",
   "raw.export.reselect": "Reselect RAW and retry",

@@ -259,6 +259,8 @@
   "raw.export.copyUnsupported": "此浏览器不支持复制图像到剪贴板。",
   "raw.export.copyPreviewReason": "此浏览器无法复制全分辨率 JPEG 文件。",
   "raw.export.shareUnsupported": "此浏览器无法分享 JPEG 文件。",
+  "raw.export.highPerformance": "正在使用高性能全分辨率导出。",
+  "raw.export.derivedLabelHint": "导出策略：{label}",
   "raw.export.lowMemory": "当前设备会使用低内存导出模式，导出可能更慢。",
   "raw.export.nonDurable": "当前浏览器无法保存导出进度。写入 JPEG 时请保持标签页打开。",
   "raw.export.reselect": "重新选择 RAW 后重试",

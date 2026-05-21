@@ -1,3 +1,7 @@
+import '~/lib/i18n'
+
+import i18n from 'i18next'
+
 import type { ExportFidelity } from '~/lib/gl/export'
 import type { CapabilityVector } from '~/lib/runtime/capability-vector'
 import { getCapabilityVectorSnapshot } from '~/lib/runtime/capability-vector'
@@ -504,7 +508,7 @@ export function selectExportExecutionPlan(
 
 export function getExportModeCopy(key: ExportExecutionPlan['productCopy']) {
   const copy: Record<ExportExecutionPlan['productCopy'], string> = {
-    'high-performance': 'Using high-performance full-resolution export.',
+    'high-performance': i18n.t('raw.export.highPerformance'),
     'safe-export':
       'This device is using low-memory export mode. Export may take longer.',
     'resource-retry':
