@@ -9,36 +9,36 @@ type ExportDebugEvent = {
 }
 
 type ExpectedProjectPlan = {
-  profile: string
   preferredRows: number[]
   concurrency: number
   runtimeMemoryProfile: string
   checkpointMode: string
   outputSink: string
   checkpointExpected: boolean
+  derivedLabelFragment: string
 }
 
 function getExpectedProjectPlan(projectName: string): ExpectedProjectPlan {
   if (projectName === 'chromium-desktop') {
     return {
-      profile: 'desktop-fast',
       preferredRows: [512, 1024],
       concurrency: 2,
       runtimeMemoryProfile: 'desktop',
       checkpointMode: 'safe-retry',
       outputSink: 'blob-handoff',
       checkpointExpected: false,
+      derivedLabelFragment: 'wkchromium',
     }
   }
 
   return {
-    profile: 'ios-safe',
     preferredRows: [64, 128],
     concurrency: 1,
     runtimeMemoryProfile: 'low-memory',
     checkpointMode: 'safe-retry',
     outputSink: 'opfs-file',
     checkpointExpected: true,
+    derivedLabelFragment: 'wkwebkit-mobile',
   }
 }
 
@@ -110,7 +110,7 @@ async function openExportControls(page: Page) {
   await mobileExportTab.click()
 }
 
-test('browser preflight records expected export profile before export', async ({
+test('browser preflight records expected export policy before export', async ({
   page,
 }, testInfo) => {
   testInfo.setTimeout(240_000)
@@ -186,46 +186,41 @@ test('browser preflight records expected export profile before export', async ({
     const events = await collectExportEvents(page)
     const planPayload = eventPayload(events, 'export-plan-selected')
     expect(planPayload).toMatchObject({
-      profile: expectedPlan.profile,
       concurrency: expectedPlan.concurrency,
       runtimeMemoryProfile: expectedPlan.runtimeMemoryProfile,
       checkpointMode: expectedPlan.checkpointMode,
       outputSink: expectedPlan.outputSink,
+      policyVector: {
+        workerMemoryProfile: expectedPlan.runtimeMemoryProfile,
+        concurrency: expectedPlan.concurrency,
+        outputSink: expectedPlan.outputSink,
+      },
     })
     expect(expectedPlan.preferredRows).toContain(planPayload?.preferredRows)
+    expect(expectedPlan.preferredRows).toContain(
+      (planPayload?.policyVector as { rowSlice?: unknown } | undefined)
+        ?.rowSlice,
+    )
+    expect(planPayload?.derivedLabel).toEqual(
+      expect.stringContaining(expectedPlan.derivedLabelFragment),
+    )
 
     const evacuationPayload = eventPayload(events, 'resource-evacuated')
     expect(evacuationPayload).toMatchObject({
-      profile: expectedPlan.profile,
       registryCheck: { ok: true },
     })
-
-    if (expectedPlan.profile === 'desktop-fast') {
-      expect(evacuationPayload?.requiredOwners).toEqual([
-        'bounded-hq',
-        'export-result',
-      ])
-      expect(evacuationPayload?.remainingLive).toEqual([
-        expect.objectContaining({
-          owner: 'preview',
-          kind: 'array-buffer',
-        }),
-      ])
-    } else {
-      expect(evacuationPayload?.requiredOwners).toEqual([
-        'preview',
-        'bounded-hq',
-        'webgl',
-        'export-result',
-        'lut-fetch',
-      ])
-      expect(evacuationPayload?.remainingLive).toEqual([])
-    }
+    expect(evacuationPayload?.requiredOwners).toEqual([
+      'preview',
+      'bounded-hq',
+      'webgl',
+      'export-result',
+      'lut-fetch',
+    ])
+    expect(evacuationPayload?.remainingLive).toEqual([])
 
     const workerAttemptPayload = eventPayload(events, 'export-worker-attempt')
     expect(workerAttemptPayload).toMatchObject({
       attempt: 1,
-      profile: expectedPlan.profile,
       phase: 'started',
       freshWorker: true,
     })

@@ -164,7 +164,7 @@ async function decodeJpegBottomStats(page: Page, jpeg: Buffer) {
   }, jpeg.toString('base64'))
 }
 
-test('iPhone-profile export decodes without a bottom color band for the Sony ARW', async ({
+test('low-memory WebKit export decodes without a bottom color band for the Sony ARW', async ({
   page,
 }, testInfo) => {
   test.skip(
@@ -223,11 +223,25 @@ test('iPhone-profile export decodes without a bottom color band for the Sony ARW
         const plan = (await collectExportEvents(page)).find(
           (event) => event.type === 'export-plan-selected',
         )?.payload
-        return `${plan?.profile ?? ''}:${plan?.runtimeMemoryProfile ?? ''}`
+        return {
+          runtimeMemoryProfile: plan?.runtimeMemoryProfile,
+          outputSink: plan?.outputSink,
+          checkpointMode: plan?.checkpointMode,
+          derivedLabel: plan?.derivedLabel,
+          workerMemoryProfile: (
+            plan?.policyVector as { workerMemoryProfile?: unknown } | undefined
+          )?.workerMemoryProfile,
+        }
       },
       { timeout: 60_000 },
     )
-    .toBe('ios-safe:low-memory')
+    .toMatchObject({
+      runtimeMemoryProfile: 'low-memory',
+      outputSink: 'blob-handoff',
+      checkpointMode: 'safe-retry',
+      derivedLabel: expect.stringContaining('wkwebkit-mobile'),
+      workerMemoryProfile: 'low-memory',
+    })
 
   const downloadButton = page.getByRole('button', { name: /^download$/i })
   await expect(downloadButton).toBeVisible({ timeout: 420_000 })
@@ -239,7 +253,7 @@ test('iPhone-profile export decodes without a bottom color band for the Sony ARW
   const jpeg = await readFile(downloadedPath!)
 
   const stats = await decodeJpegBottomStats(page, jpeg)
-  await testInfo.attach('sony-ios-safe-bottom-stats.json', {
+  await testInfo.attach('sony-low-memory-webkit-bottom-stats.json', {
     body: JSON.stringify(stats, null, 2),
     contentType: 'application/json',
   })
