@@ -1,6 +1,7 @@
-import type { ReactEventHandler } from "react"
+import type { ReactEventHandler } from 'react'
 
-export const stopPropagation: ReactEventHandler<any> = (e) => e.stopPropagation()
+export const stopPropagation: ReactEventHandler<any> = (e) =>
+  e.stopPropagation()
 
 export const preventDefault: ReactEventHandler<any> = (e) => e.preventDefault()
 
@@ -11,6 +12,24 @@ export const nextFrame = (fn: (...args: any[]) => any) => {
     })
   })
 }
+
+/**
+ * Promise-flavoured single-frame yield. Resolves after the next animation
+ * frame has fired — used as the paint boundary required by the
+ * `/raw` heavy-interaction spec §2 (ack-before-work).
+ *
+ * In jsdom (vitest) requestAnimationFrame is shimmed via setTimeout, so this
+ * still resolves; tests that need to observe the boundary should spy on the
+ * orchestrator's injected `yieldToPaint` rather than this module-level export.
+ */
+export const yieldToPaint = (): Promise<void> =>
+  new Promise<void>((resolve) => {
+    if (typeof requestAnimationFrame !== 'function') {
+      setTimeout(resolve, 0)
+      return
+    }
+    requestAnimationFrame(() => resolve())
+  })
 
 export const getElementTop = (element: HTMLElement) => {
   let actualTop = element.offsetTop
