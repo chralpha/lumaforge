@@ -1,0 +1,126 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import type { CapabilityVector } from './capability-vector'
+import {
+  detectCapabilityVector,
+  getCapabilityVectorSnapshot,
+  resetCapabilityVectorForTest,
+  setCapabilityVectorForTest,
+} from './capability-vector'
+
+afterEach(() => {
+  resetCapabilityVectorForTest()
+  vi.unstubAllGlobals()
+})
+
+describe('detectCapabilityVector', () => {
+  it('produces a frozen vector with sane defaults when navigator fields are missing', async () => {
+    vi.stubGlobal('navigator', {
+      userAgent: '',
+      hardwareConcurrency: undefined,
+      deviceMemory: undefined,
+      storage: undefined,
+    } as never)
+    vi.stubGlobal('crossOriginIsolated', false)
+
+    const vector: CapabilityVector = await detectCapabilityVector()
+
+    expect(Object.isFrozen(vector)).toBe(true)
+    expect(vector.coi).toBe(false)
+    expect(vector.pthread).toBe(false)
+    expect(vector.hwConcurrency).toBeGreaterThanOrEqual(1)
+    expect(vector.deviceMemoryGB).toBeNull()
+    expect(vector.webKitClass).toBe('unknown')
+    expect(vector.maybeOpfsSupported).toBe(false)
+  })
+
+  it.each([
+    [
+      'chromium',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+      0,
+      'chromium',
+    ],
+    [
+      'webkit-mobile',
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+      5,
+      'webkit-mobile',
+    ],
+    [
+      'webkit-desktop-safari',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Safari/605.1.15',
+      0,
+      'webkit-desktop-safari',
+    ],
+    ['unknown', 'LumaForgeTest/1.0', 0, 'unknown'],
+  ] as const)(
+    'classifies %s user agents',
+    async (_label, userAgent, maxTouchPoints, expected) => {
+      vi.stubGlobal('navigator', {
+        userAgent,
+        maxTouchPoints,
+        hardwareConcurrency: 8,
+        deviceMemory: 16,
+        storage: {
+          getDirectory: vi.fn(),
+          estimate: vi.fn(),
+        },
+      } as never)
+      vi.stubGlobal('crossOriginIsolated', true)
+
+      const vector = await detectCapabilityVector()
+
+      expect(vector.webKitClass).toBe(expected)
+      expect(vector.maybeOpfsSupported).toBe(true)
+    },
+  )
+
+  it('never reports pthread without cross-origin isolation', async () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/537.36 Chrome/126 Safari/537.36',
+      hardwareConcurrency: 8,
+    } as never)
+    vi.stubGlobal('crossOriginIsolated', false)
+    vi.stubGlobal('SharedArrayBuffer', class SharedArrayBuffer {})
+
+    const vector = await detectCapabilityVector()
+
+    expect(vector.coi).toBe(false)
+    expect(vector.pthread).toBe(false)
+  })
+
+  it.each([0, -8, Number.NaN, Number.POSITIVE_INFINITY, 'many'] as const)(
+    'normalizes hostile hardwareConcurrency %s to at least one',
+    async (hardwareConcurrency) => {
+      vi.stubGlobal('navigator', {
+        userAgent: '',
+        hardwareConcurrency,
+      } as never)
+      vi.stubGlobal('crossOriginIsolated', false)
+
+      const vector = await detectCapabilityVector()
+
+      expect(vector.hwConcurrency).toBeGreaterThanOrEqual(1)
+    },
+  )
+
+  it('uses a frozen test override as the current snapshot', async () => {
+    const override: CapabilityVector = {
+      coi: true,
+      pthread: true,
+      deviceMemoryGB: 8,
+      hwConcurrency: 8,
+      webKitClass: 'chromium',
+      maybeOpfsSupported: true,
+    }
+
+    setCapabilityVectorForTest(override)
+
+    const vector = await detectCapabilityVector()
+    expect(vector).toEqual(override)
+    expect(vector).toBe(getCapabilityVectorSnapshot())
+    expect(Object.isFrozen(vector)).toBe(true)
+  })
+})
