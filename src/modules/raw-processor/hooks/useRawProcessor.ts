@@ -32,6 +32,7 @@ import {
   createCheckpointStore,
   createOpfsCheckpointBackend,
 } from '~/lib/export/checkpoint-store'
+import type { ExportResourceCleanupReason } from '~/lib/export/execution-profile'
 import { emitExportDebugEvent } from '~/lib/export/execution-profile'
 import type {
   LargeResourceOwner,
@@ -110,8 +111,6 @@ import {
 import { getProgressRecoveryHint } from '../services/workflow-status'
 import { useImageSession } from './useImageSession'
 import { usePreviewHistogram } from './usePreviewHistogram'
-
-type ExportResultCleanupReason = 'reset-session'
 
 function enqueuePostCommitTask(task: () => void) {
   setTimeout(task, 0)
@@ -475,7 +474,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   }, [])
 
   const disposeExportResultResources = useCallback(
-    async (reason?: ExportResultCleanupReason) => {
+    async (reason?: ExportResourceCleanupReason) => {
       const registry = resourceRegistryRef.current
       if (!registry) return
 
@@ -498,7 +497,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   )
 
   const queueExportResultResourceDisposal = useCallback(
-    (reason?: ExportResultCleanupReason) => {
+    (reason?: ExportResourceCleanupReason) => {
       void disposeExportResultResources(reason).catch((error) => {
         console.warn('Failed to clean up export result resources:', error)
       })
