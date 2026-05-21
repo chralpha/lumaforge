@@ -7,16 +7,21 @@ import type { ExportEvacuationError } from './export-evacuation'
 import {
   createPreExportSnapshot,
   evacuateBeforeExport,
+  getPreExportEvacuationOwners,
   toResourceEvacuatedDebugPayload,
 } from './export-evacuation'
 
-const fullEvacuationOwners: LargeResourceOwner[] = [
+const expectedFullEvacuationOwners: LargeResourceOwner[] = [
   'preview',
   'bounded-hq',
   'webgl',
   'export-result',
   'lut-fetch',
 ]
+
+function fullEvacuationOwners() {
+  return getPreExportEvacuationOwners('desktop-fast')
+}
 
 function snapshot() {
   return createPreExportSnapshot({
@@ -45,14 +50,16 @@ function snapshot() {
 }
 
 describe('export evacuation', () => {
-  it('uses the full evacuation owner set before export', () => {
-    expect(fullEvacuationOwners).toEqual([
-      'preview',
-      'bounded-hq',
-      'webgl',
-      'export-result',
-      'lut-fetch',
-    ])
+  it('uses the full evacuation owner set for every legacy metadata label', () => {
+    expect(getPreExportEvacuationOwners('ios-safe')).toEqual(
+      expectedFullEvacuationOwners,
+    )
+    expect(getPreExportEvacuationOwners('mobile-balanced')).toEqual(
+      expectedFullEvacuationOwners,
+    )
+    expect(getPreExportEvacuationOwners('desktop-fast')).toEqual(
+      expectedFullEvacuationOwners,
+    )
   })
 
   it('runs the shared memory-efficient callbacks before export', async () => {
@@ -78,7 +85,7 @@ describe('export evacuation', () => {
     const result = await evacuateBeforeExport({
       registry,
       snapshot: snapshot(),
-      owners: fullEvacuationOwners,
+      owners: fullEvacuationOwners(),
       abortPreview: () => events.push('abort-preview'),
       abortBoundedHq: () => events.push('abort-bounded-hq'),
       releasePreviousExportResult: () => events.push('release-export-result'),
@@ -147,7 +154,7 @@ describe('export evacuation', () => {
     const result = await evacuateBeforeExport({
       registry,
       snapshot: snapshot(),
-      owners: fullEvacuationOwners,
+      owners: fullEvacuationOwners(),
       abortPreview: () => events.push('abort-preview'),
       abortBoundedHq: () => events.push('abort-bounded-hq'),
       releasePreviousExportResult: () => events.push('release-export-result'),
@@ -184,7 +191,7 @@ describe('export evacuation', () => {
       evacuateBeforeExport({
         registry,
         snapshot: snapshot(),
-        owners: fullEvacuationOwners,
+        owners: fullEvacuationOwners(),
         abortPreview: vi.fn(),
         abortBoundedHq: vi.fn(),
         releasePreviousExportResult: vi.fn(),
