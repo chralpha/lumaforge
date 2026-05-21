@@ -252,6 +252,7 @@ function RawProcessorViewInner({
   )
 
   const isProcessing =
+    status === 'warming' ||
     status === 'loading' ||
     status === 'decoding' ||
     status === 'processing' ||
@@ -327,13 +328,15 @@ function RawProcessorViewInner({
           onPreviewViewportChange={setPreviewViewport}
           isProcessing={isProcessing}
           phase={
-            status === 'loading'
-              ? 'loading'
-              : status === 'decoding'
-                ? 'decoding'
-                : status === 'exporting'
-                  ? 'exporting'
-                  : 'processing'
+            status === 'warming'
+              ? 'warming'
+              : status === 'loading'
+                ? 'loading'
+                : status === 'decoding'
+                  ? 'decoding'
+                  : status === 'exporting'
+                    ? 'exporting'
+                    : 'processing'
           }
           progress={progress}
           recoveryHint={progressRecoveryHint}

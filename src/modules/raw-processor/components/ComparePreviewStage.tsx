@@ -27,7 +27,7 @@ export interface ComparePreviewStageProps {
   splitEnabled?: boolean
   isProcessing: boolean
   progress: number
-  phase: 'loading' | 'decoding' | 'processing' | 'exporting'
+  phase: 'warming' | 'loading' | 'decoding' | 'processing' | 'exporting'
   recoveryHint?: string
   onRawDrop: (files: File[]) => void
   onSplitChange: (split: number) => void
