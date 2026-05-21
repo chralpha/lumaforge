@@ -10,6 +10,7 @@ import type {
 } from '~/lib/export/full-res-export-client'
 import { FullResolutionExportWorkerClient } from '~/lib/export/full-res-export-client'
 import type { ExportFidelity } from '~/lib/gl/export'
+import { ExportBridge } from '~/lib/workers/export-bridge'
 
 export function buildExportFilename(inputName: string, styleName: string) {
   const basename = inputName.replace(/\.[^.]+$/, '')
@@ -160,6 +161,14 @@ export function createFullResolutionExportClient() {
   return new FullResolutionExportWorkerClient()
 }
 
+function createFullResolutionExportBridge(
+  clientFactory: () => FullResolutionExportWorkerClient,
+) {
+  return new ExportBridge({
+    createClient: clientFactory,
+  })
+}
+
 function errorLooksLikeFreshWorkerRetry(error: unknown) {
   return (
     error instanceof Error &&
@@ -226,8 +235,9 @@ export async function runFullResolutionExportJob({
 
   while (true) {
     attempts += 1
-    const client = clientFactory()
+    const bridge = createFullResolutionExportBridge(clientFactory)
     const attemptPlan = plan
+    const attemptSignal = signal ?? new AbortController().signal
 
     try {
       emitFullResolutionExportAttempt(onAttempt, {
@@ -239,7 +249,7 @@ export async function runFullResolutionExportJob({
         freshWorker: true,
       })
 
-      const output = await client.run({
+      const output = await bridge.runExport(attemptSignal, {
         file,
         filename,
         graph,
@@ -254,7 +264,6 @@ export async function runFullResolutionExportJob({
           : undefined,
         onProgress,
         onMetric,
-        signal,
       })
 
       return { filename, output, attempts }
@@ -300,7 +309,7 @@ export async function runFullResolutionExportJob({
         productCopy: 'resource-retry',
       }
     } finally {
-      client.dispose()
+      await bridge.terminate()
       emitFullResolutionExportAttempt(onAttempt, {
         attempt: attempts,
         profile: attemptPlan?.profile.name,
