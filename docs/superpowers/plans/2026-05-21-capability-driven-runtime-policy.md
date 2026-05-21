@@ -1473,13 +1473,13 @@ git commit -m "feat(runtime): add deriveExportPolicy with per-spec derivation"
 **Files:**
 - Create: `src/lib/runtime/export-policy.property.test.ts`
 
-- [ ] **Step 1 — Check `fast-check` dep**
+- [x] **Step 1 — Check `fast-check` dep**
 
 Run: `pnpm pkg get devDependencies.fast-check`
 - If a version is returned → use it directly.
 - If `undefined` → install: `pnpm add -D fast-check` (announce the dep add explicitly; this is a small additional dev dependency).
 
-- [ ] **Step 2 — Write the property tests**
+- [x] **Step 2 — Write the property tests**
 
 ```ts
 // src/lib/runtime/export-policy.property.test.ts
@@ -1564,12 +1564,12 @@ describe('deriveExportPolicy invariants (property)', () => {
 })
 ```
 
-- [ ] **Step 3 — Run; PASS**
+- [x] **Step 3 — Run; PASS**
 
 Run: `pnpm vitest run src/lib/runtime/export-policy.property.test.ts`
 Expected: PASS. If any property fails, the failing case is a real bug in `deriveExportPolicy` — fix the derive math, not the property.
 
-- [ ] **Step 4 — Commit**
+- [x] **Step 4 — Commit**
 
 ```bash
 git add src/lib/runtime/export-policy.property.test.ts
