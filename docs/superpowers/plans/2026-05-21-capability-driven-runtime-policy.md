@@ -702,11 +702,11 @@ git commit -m "feat(workers): add ExportBridge wrapping FullResolutionExportClie
 - Modify: `src/lib/export/full-res-export-client.ts` (adapter methods only if needed)
 - Test: `src/modules/raw-processor/__tests__/orchestrate-full-res-export-bridge.test.ts`
 
-- [ ] **Step 1 — Read the current orchestrator instantiation site and existing tests**
+- [x] **Step 1 — Read the current orchestrator instantiation site and existing tests**
 
 Open `src/modules/raw-processor/services/export/orchestrate-full-res-export.ts`. Locate `new FullResolutionExportClient(...)` and the existing test fixtures under `src/modules/raw-processor/__tests__/`.
 
-- [ ] **Step 2 — Add a regression test**
+- [x] **Step 2 — Add a regression test**
 
 ```ts
 // src/modules/raw-processor/__tests__/orchestrate-full-res-export-bridge.test.ts
@@ -726,23 +726,23 @@ describe('orchestrateFullResolutionExport (bridge wiring)', () => {
 
 > The test body is intentionally light here because the orchestrator has 600+ lines of fixture context. Fill in by following the existing nearby test in `__tests__/`.
 
-- [ ] **Step 3 — Replace direct client construction with bridge**
+- [x] **Step 3 — Replace direct client construction with bridge**
 
 In `orchestrate-full-res-export.ts`:
 - Construct `new ExportBridge({ createClient: () => new FullResolutionExportClient(...) })` (one bridge per orchestrator run — or module-scoped if existing orchestrator memoises the client).
 - Replace `await client.start(input)` with `await bridge.runExport(signal, input)`.
 - Remove any explicit `client.terminate()` cleanup at the end of orchestration; the bridge's idle timer reclaims, or call `bridge.terminate()` on the existing cleanup hook if one exists.
 
-- [ ] **Step 4 — Ensure `FullResolutionExportClient` exposes the `ExportClient` shape**
+- [x] **Step 4 — Ensure `FullResolutionExportClient` exposes the `ExportClient` shape**
 
 If the class today exposes `terminate()` rather than `dispose()`, add a `dispose()` method that delegates to `terminate()`. Do not rename existing methods.
 
-- [ ] **Step 5 — Run export suite**
+- [x] **Step 5 — Run export suite**
 
 Run: `pnpm vitest run src/lib/export src/modules/raw-processor/services/export src/modules/raw-processor/__tests__/orchestrate-full-res-export-bridge.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6 — Commit**
+- [x] **Step 6 — Commit**
 
 ```bash
 git add src/modules/raw-processor/services/export/orchestrate-full-res-export.ts \
