@@ -67,12 +67,6 @@ export const LOG_TO_WORKING_SPACE: Record<string, string> = {
   Log3G10: 'REDWideGamutRGB',
 }
 
-// Maps composite log names to actual function names
-export const LOG_ENCODING_MAP: Record<string, string> = {
-  'S-Log3.Cine': 'S-Log3',
-  'F-Log2C': 'F-Log2',
-}
-
 // Available log spaces for UI selection
 export const LOG_SPACES = Object.keys(LOG_TO_WORKING_SPACE)
 
