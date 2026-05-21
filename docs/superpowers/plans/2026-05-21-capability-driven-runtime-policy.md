@@ -1963,14 +1963,20 @@ git commit -m "i18n(raw-export): add highPerformance and derivedLabelHint keys"
 
 No code changes.
 
-- [ ] **Step 1 — Lint**: `pnpm lint` — PASS.
-- [ ] **Step 2 — Tests**: `pnpm test:run` — PASS.
-- [ ] **Step 3 — Build**: `pnpm build` — PASS.
-- [ ] **Step 4 — Browser matrix smoke** (vite preview):
+- [x] **Step 1 — Lint**: `pnpm lint` — PASS.
+- [x] **Step 2 — Tests**: `pnpm test:run` — PASS.
+- [x] **Step 3 — Build**: `pnpm build` — PASS.
+- [x] **Step 4 — Browser matrix smoke** (vite preview) — PASS:
   - Chromium desktop: telemetry `derivedLabel` matches `desktop-thrN-rsM-...-wkchromium`.
   - Safari desktop: matches `low-memory-thr1-rs256-...-wkwebkit-desktop-safari`.
   - iOS Safari: matches `low-memory-thr1-rs128-...-wkwebkit-mobile`, checkpoint enabled.
   - Trigger a deliberate resource failure on chromium (small OPFS quota or large image) and confirm the retry surfaces `'resource-retry'` copy and re-runs through the bridge.
+
+Browser evidence captured on 2026-05-21:
+- Chromium desktop (`Desktop Chrome` descriptor, valid 17-point display LUT): `desktop-thr2-rs512-opfs-file-wkchromium`, `checkpointDurableExpected: true`, resource evacuation OK.
+- Playwright WebKit desktop (valid 17-point display LUT): `low-memory-thr1-rs256-blob-handoff-wkwebkit-desktop-safari`, resource evacuation OK. The Playwright WebKit environment did not expose OPFS, so the sink correctly fell back to `blob-handoff`.
+- Playwright iPhone WebKit (no LUT; policy-only export smoke): `low-memory-thr1-rs128-blob-handoff-wkwebkit-mobile`, resource evacuation OK. The Playwright WebKit environment did not expose OPFS, so durable checkpointing could not be browser-validated there.
+- Chromium resource retry: first full-res export worker was intercepted to emit `FULL_RES_EXPORT_RESOURCE_FAILURE`; the app emitted `retry-scheduled` with `nextRows: 64`, disposed the first worker, then started attempt 2 with a fresh worker.
 
 **Phase 2 complete. Merge and confirm green on `main` before starting Phase 3.**
 
