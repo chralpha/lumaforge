@@ -4219,14 +4219,13 @@ describe('useRawProcessor embedded preview state', () => {
   })
 
   it('ignores stale load failures after a replacement session starts', async () => {
-    const staleQuickDecode = deferred<DecodedImage>()
     const currentQuickDecode = deferred<DecodedImage>()
     const currentBoundedHqDecode = deferred<DecodedImage>()
 
     rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
-    rawRuntimeAdapterMock.decodeQuickRaw
-      .mockReturnValueOnce(staleQuickDecode.promise)
-      .mockReturnValue(currentQuickDecode.promise)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockReturnValue(
+      currentQuickDecode.promise,
+    )
     rawRuntimeAdapterMock.decodeBoundedHqRaw.mockReturnValue(
       currentBoundedHqDecode.promise,
     )
@@ -4258,8 +4257,11 @@ describe('useRawProcessor embedded preview state', () => {
       expect(result.current.status).toBe('ready')
     })
 
+    // After the ack-before-work reorder, a superseded load bails at the
+    // matchesActiveSession check that runs right after openSession resolves,
+    // so it never reaches decodeQuickRaw. The stale promise resolves
+    // cleanly without surfacing an error to the active session.
     await act(async () => {
-      staleQuickDecode.reject(new Error('stale decode failed'))
       await staleLoadPromise
     })
 
@@ -4273,6 +4275,10 @@ describe('useRawProcessor embedded preview state', () => {
 
   it('clears in-flight loading state on unmount so remount starts idle', async () => {
     const quickDecode = deferred<DecodedImage>()
+    // Paint-boundary aware: orchestrator may exit before awaiting this
+    // promise. Attach a no-op rejection handler to suppress the
+    // spurious unhandled-rejection warning.
+    quickDecode.promise.catch(() => undefined)
 
     rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
     rawRuntimeAdapterMock.decodeQuickRaw.mockReturnValue(quickDecode.promise)
@@ -4319,6 +4325,10 @@ describe('useRawProcessor embedded preview state', () => {
 
   it('preserves completed failure state across unmount after active load failure', async () => {
     const quickDecode = deferred<DecodedImage>()
+    // Rejection is racy with the paint-boundary yield; ensure a handler
+    // is attached up-front to avoid an unhandled-rejection warning when
+    // the rejection lands before the orchestrator resumes.
+    quickDecode.promise.catch(() => undefined)
 
     rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
     rawRuntimeAdapterMock.decodeQuickRaw.mockReturnValue(quickDecode.promise)
