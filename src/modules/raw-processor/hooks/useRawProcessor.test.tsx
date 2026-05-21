@@ -24,6 +24,7 @@ import {
   fetchVerifiedCubeAsset,
 } from '~/lib/profiles/fetch'
 import type { DecodedImage } from '~/lib/raw/decoder'
+import { resetCapabilityVectorForTest } from '~/lib/runtime/capability-vector'
 
 import { currentSessionAtom } from '../state/session.atoms'
 import { useRawProcessor } from './useRawProcessor'
@@ -428,6 +429,7 @@ describe('useRawProcessor embedded preview state', () => {
     toastMock.info.mockReset()
     toastMock.dismiss.mockReset()
     localStorage.clear()
+    resetCapabilityVectorForTest()
 
     vi.stubGlobal('URL', {
       createObjectURL: vi.fn(() => 'blob:embedded-preview'),
@@ -483,6 +485,7 @@ describe('useRawProcessor embedded preview state', () => {
     vi.unstubAllGlobals()
     vi.useRealTimers()
     localStorage.clear()
+    resetCapabilityVectorForTest()
   })
 
   it('rejects unsupported files without replacing the active session or opening the runtime', async () => {
@@ -623,7 +626,9 @@ describe('useRawProcessor embedded preview state', () => {
         expect.objectContaining({
           quality: 0.92,
           executionPlan: expect.objectContaining({
-            profile: expect.objectContaining({ name: 'ios-safe' }),
+            preferredRows: 128,
+            productCopy: 'interrupted-retry',
+            runtimeMemoryProfile: 'low-memory',
           }),
         }),
       )
@@ -2468,7 +2473,10 @@ describe('useRawProcessor embedded preview state', () => {
       userAgent:
         'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
       maxTouchPoints: 1,
-      storage: { getDirectory: vi.fn() },
+      storage: {
+        getDirectory: vi.fn(),
+        estimate: vi.fn(async () => ({ quota: 1_000_000_000, usage: 0 })),
+      },
       hardwareConcurrency: 4,
     })
     vi.stubGlobal('crossOriginIsolated', false)
@@ -2551,7 +2559,10 @@ describe('useRawProcessor embedded preview state', () => {
       userAgent:
         'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
       maxTouchPoints: 1,
-      storage: { getDirectory: vi.fn() },
+      storage: {
+        getDirectory: vi.fn(),
+        estimate: vi.fn(async () => ({ quota: 1_000_000_000, usage: 0 })),
+      },
       hardwareConcurrency: 4,
     })
     vi.stubGlobal('crossOriginIsolated', false)
@@ -2605,7 +2616,10 @@ describe('useRawProcessor embedded preview state', () => {
       userAgent:
         'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
       maxTouchPoints: 1,
-      storage: { getDirectory: vi.fn() },
+      storage: {
+        getDirectory: vi.fn(),
+        estimate: vi.fn(async () => ({ quota: 1_000_000_000, usage: 0 })),
+      },
       hardwareConcurrency: 4,
     })
     vi.stubGlobal('crossOriginIsolated', false)
@@ -2672,7 +2686,10 @@ describe('useRawProcessor embedded preview state', () => {
       userAgent:
         'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
       maxTouchPoints: 1,
-      storage: { getDirectory: vi.fn() },
+      storage: {
+        getDirectory: vi.fn(),
+        estimate: vi.fn(async () => ({ quota: 1_000_000_000, usage: 0 })),
+      },
       hardwareConcurrency: 4,
     })
     vi.stubGlobal('crossOriginIsolated', false)

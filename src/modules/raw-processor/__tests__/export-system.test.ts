@@ -2,6 +2,7 @@ import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createBlobOutputResult } from '~/lib/export/output-sink'
+import { resetCapabilityVectorForTest } from '~/lib/runtime/capability-vector'
 
 import {
   buildExportFilename,
@@ -18,6 +19,7 @@ describe('export-system', () => {
   })
 
   afterEach(() => {
+    resetCapabilityVectorForTest()
     vi.unstubAllGlobals()
   })
 
@@ -55,8 +57,8 @@ describe('export-system', () => {
     expect(getConcurrencyForFidelity('max')).toBe(1)
   })
 
-  it('selects derived 100MP rows for current-session safe export', () => {
-    const plan = selectCurrentExportExecutionPlan({
+  it('selects derived 100MP rows for current-session safe export', async () => {
+    const plan = await selectCurrentExportExecutionPlan({
       fidelity: 'safe',
       sourceWidth: 11662,
       sourceHeight: 8746,
@@ -67,7 +69,7 @@ describe('export-system', () => {
     expect(plan.checkpointMode).toBe('safe-retry')
   })
 
-  it('does not report a streaming output sink from ambient Web Streams alone', () => {
+  it('does not report a streaming output sink from ambient Web Streams alone', async () => {
     vi.stubGlobal('navigator', {
       userAgent:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/537.36 Chrome/126 Safari/537.36',
@@ -79,7 +81,7 @@ describe('export-system', () => {
     vi.stubGlobal('ReadableStream', class ReadableStream {})
     vi.stubGlobal('crossOriginIsolated', true)
 
-    const plan = selectCurrentExportExecutionPlan({
+    const plan = await selectCurrentExportExecutionPlan({
       fidelity: 'max',
       sourceWidth: 11662,
       sourceHeight: 8746,
@@ -88,6 +90,40 @@ describe('export-system', () => {
     expect(plan.runtimeMemoryProfile).toBe('desktop')
     expect(plan.derivedLabel).toContain('wkchromium')
     expect(plan.outputSink).toBe('blob-handoff')
+  })
+
+  it('snapshots ExportRuntimeResources at plan time, not boot time', async () => {
+    const estimate = vi
+      .fn()
+      .mockResolvedValueOnce({ quota: 1_000_000_000, usage: 0 })
+      .mockResolvedValueOnce({ quota: 100_000_000, usage: 0 })
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/537.36 Chrome/126 Safari/537.36',
+      maxTouchPoints: 0,
+      hardwareConcurrency: 8,
+      storage: {
+        getDirectory: vi.fn(),
+        estimate,
+      },
+    })
+    vi.stubGlobal('SharedArrayBuffer', class SharedArrayBuffer {})
+    vi.stubGlobal('crossOriginIsolated', true)
+
+    const first = await selectCurrentExportExecutionPlan({
+      fidelity: 'balanced',
+      sourceWidth: 6000,
+      sourceHeight: 4000,
+    })
+    const second = await selectCurrentExportExecutionPlan({
+      fidelity: 'balanced',
+      sourceWidth: 6000,
+      sourceHeight: 4000,
+    })
+
+    expect(first.outputSink).toBe('opfs-file')
+    expect(second.outputSink).toBe('blob-handoff')
+    expect(estimate).toHaveBeenCalledTimes(2)
   })
 
   it('runs the full-resolution export client and disposes it', async () => {
@@ -207,7 +243,7 @@ describe('export-system', () => {
       lutProfile: null,
       steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
     }
-    const executionPlan = selectCurrentExportExecutionPlan({
+    const executionPlan = await selectCurrentExportExecutionPlan({
       fidelity: 'safe',
       sourceWidth: 11662,
       sourceHeight: 8746,
@@ -271,7 +307,7 @@ describe('export-system', () => {
       lutProfile: null,
       steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
     }
-    const executionPlan = selectCurrentExportExecutionPlan({
+    const executionPlan = await selectCurrentExportExecutionPlan({
       fidelity: 'safe',
       sourceWidth: 11662,
       sourceHeight: 8746,
@@ -325,7 +361,7 @@ describe('export-system', () => {
       lutProfile: null,
       steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
     }
-    const executionPlan = selectCurrentExportExecutionPlan({
+    const executionPlan = await selectCurrentExportExecutionPlan({
       fidelity: 'safe',
       sourceWidth: 11662,
       sourceHeight: 8746,
@@ -385,7 +421,7 @@ describe('export-system', () => {
       lutProfile: null,
       steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
     }
-    const executionPlan = selectCurrentExportExecutionPlan({
+    const executionPlan = await selectCurrentExportExecutionPlan({
       fidelity: 'max',
       sourceWidth: 11662,
       sourceHeight: 8746,
@@ -438,7 +474,7 @@ describe('export-system', () => {
       lutProfile: null,
       steps: [{ kind: 'input-linear-prophoto' }, { kind: 'output-srgb' }],
     }
-    const executionPlan = selectCurrentExportExecutionPlan({
+    const executionPlan = await selectCurrentExportExecutionPlan({
       fidelity: 'safe',
       sourceWidth: 11662,
       sourceHeight: 8746,

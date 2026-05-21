@@ -205,11 +205,13 @@ export async function orchestrateFullResExport(
     ctx.atoms.setError(null)
     toast.dismiss()
     ctx.refs.previewCopyCanvasRef.current = null
-    const executionPlan = selectCurrentExportExecutionPlan({
+    const executionPlan = await selectCurrentExportExecutionPlan({
       fidelity,
       sourceWidth: exportCapability.width,
       sourceHeight: exportCapability.height,
-      previousInterrupted,
+      previousCrashLikeInterruption: previousInterrupted,
+      previousResourceFailure: false,
+      previousUserInterrupted: false,
     })
     let jobExecutionPlan = executionPlan
     let checkpointStore: ReturnType<typeof createCheckpointStore> | null = null

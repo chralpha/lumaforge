@@ -10,20 +10,13 @@ import type {
 } from '~/lib/export/full-res-export-client'
 import { FullResolutionExportWorkerClient } from '~/lib/export/full-res-export-client'
 import type { ExportFidelity } from '~/lib/gl/export'
+import { detectCapabilityVector } from '~/lib/runtime/capability-vector'
+import { snapshotExportRuntimeResources } from '~/lib/runtime/export-runtime-resources'
 import { ExportBridge } from '~/lib/workers/export-bridge'
 
 export function buildExportFilename(inputName: string, styleName: string) {
   const basename = inputName.replace(/\.[^.]+$/, '')
   return `${basename}_${styleName}_fullres.jpg`
-}
-
-function isOpfsAvailable() {
-  if (typeof navigator === 'undefined') return false
-
-  return Boolean(
-    (navigator.storage as { getDirectory?: () => unknown } | undefined)
-      ?.getDirectory,
-  )
 }
 
 function isJpegStreamingOutputSinkAvailable() {
@@ -32,54 +25,49 @@ function isJpegStreamingOutputSinkAvailable() {
   return false
 }
 
-export function selectCurrentExportExecutionPlan(input: {
+export async function selectCurrentExportExecutionPlan(input: {
   fidelity: ExportFidelity
   sourceWidth?: number
   sourceHeight?: number
   previousInterrupted?: boolean
+  previousCrashLikeInterruption?: boolean
+  previousUserInterrupted?: boolean
   previousResourceFailure?: boolean
 }) {
+  const streamingSinkAvailable = isJpegStreamingOutputSinkAvailable()
+  const capability = await detectCapabilityVector()
+  const runtime = await snapshotExportRuntimeResources({
+    streamingSinkAvailable,
+  })
+
   return selectExportExecutionPlan({
-    ...input,
-    runtime: {
-      lowMemoryAvailable: true,
-      pthreadAvailable:
-        typeof globalThis.crossOriginIsolated === 'boolean'
-          ? globalThis.crossOriginIsolated
-          : false,
-    },
-    output: {
-      opfsAvailable: isOpfsAvailable(),
-      streamingAvailable: isJpegStreamingOutputSinkAvailable(),
-    },
-    platform: {
-      userAgent: typeof navigator === 'undefined' ? '' : navigator.userAgent,
-      touch:
-        typeof navigator !== 'undefined' &&
-        navigator.maxTouchPoints !== undefined &&
-        navigator.maxTouchPoints > 0,
-      hardwareConcurrency:
-        typeof navigator === 'undefined'
-          ? undefined
-          : navigator.hardwareConcurrency,
-    },
+    performancePreference: input.fidelity,
+    previousResourceFailure: input.previousResourceFailure ?? false,
+    previousCrashLikeInterruption:
+      input.previousCrashLikeInterruption ?? input.previousInterrupted ?? false,
+    previousUserInterrupted: input.previousUserInterrupted ?? false,
+    sourceWidth: input.sourceWidth,
+    sourceHeight: input.sourceHeight,
+    capability,
+    runtime,
   })
 }
 
 function selectDefaultExportExecutionPlanForFidelity(fidelity: ExportFidelity) {
   return selectExportExecutionPlan({
-    fidelity,
+    performancePreference: fidelity,
+    capability: {
+      coi: true,
+      pthread: true,
+      deviceMemoryGB: null,
+      hwConcurrency: 1,
+      webKitClass: 'unknown',
+      maybeOpfsSupported: false,
+    },
     runtime: {
-      lowMemoryAvailable: true,
-      pthreadAvailable: true,
-    },
-    output: {
-      opfsAvailable: false,
-      streamingAvailable: false,
-    },
-    platform: {
-      userAgent: '',
-      touch: false,
+      opfsSinkAvailable: false,
+      opfsAvailableMB: null,
+      streamingSinkAvailable: false,
     },
   })
 }
