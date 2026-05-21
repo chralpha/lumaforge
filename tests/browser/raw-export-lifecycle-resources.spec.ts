@@ -1,0 +1,380 @@
+import { existsSync } from 'node:fs'
+import process from 'node:process'
+
+import type { Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+
+type ExportDebugEvent = {
+  type: string
+  payload: Record<string, unknown>
+}
+
+type LifecycleResourceSample = {
+  label: string
+  timestamp: number
+  heap: null | {
+    usedJSHeapSize: number
+    totalJSHeapSize: number
+    jsHeapSizeLimit: number
+  }
+  userAgentSpecificMemory:
+    | { available: false; reason?: string }
+    | { available: true; bytes: number; breakdownCount: number }
+  resourceEntries: Array<{
+    name: string
+    initiatorType: string
+    transferSize: number
+    encodedBodySize: number
+    decodedBodySize: number
+    duration: number
+  }>
+}
+
+const sonyRawPath =
+  process.env.LUMAFORGE_SONY_ARW ??
+  '/workspaces/LumaForge/test-images/SGL00940.ARW'
+
+async function collectExportEvents(page: Page) {
+  return (await page.evaluate(() => {
+    return (
+      (window as unknown as { __LUMAFORGE_EXPORT_EVENTS__?: unknown[] })
+        .__LUMAFORGE_EXPORT_EVENTS__ ?? []
+    )
+  })) as ExportDebugEvent[]
+}
+
+function eventPayload(events: ExportDebugEvent[], type: string) {
+  return events.find((event) => event.type === type)?.payload ?? null
+}
+
+function eventIndex(events: ExportDebugEvent[], type: string) {
+  return events.findIndex((event) => event.type === type)
+}
+
+async function sampleResourceUsage(
+  page: Page,
+  label: string,
+): Promise<LifecycleResourceSample> {
+  return page.evaluate(async (sampleLabel) => {
+    const memory =
+      'memory' in performance
+        ? (
+            performance as Performance & {
+              memory?: {
+                usedJSHeapSize: number
+                totalJSHeapSize: number
+                jsHeapSizeLimit: number
+              }
+            }
+          ).memory
+        : undefined
+    const memoryApi = performance as Performance & {
+      measureUserAgentSpecificMemory?: () => Promise<{
+        bytes: number
+        breakdown?: unknown[]
+      }>
+    }
+    let userAgentSpecificMemory:
+      | { available: false; reason?: string }
+      | { available: true; bytes: number; breakdownCount: number } = {
+      available: false,
+    }
+
+    if (typeof memoryApi.measureUserAgentSpecificMemory === 'function') {
+      try {
+        const result = await memoryApi.measureUserAgentSpecificMemory()
+        userAgentSpecificMemory = {
+          available: true,
+          bytes: result.bytes,
+          breakdownCount: result.breakdown?.length ?? 0,
+        }
+      } catch (error) {
+        userAgentSpecificMemory = {
+          available: false,
+          reason: error instanceof Error ? error.message : String(error),
+        }
+      }
+    }
+
+    const interestingResource = /raw|raf|arw|nef|wasm|worker|jpeg|jpg/i
+    const resourceEntries = performance
+      .getEntriesByType('resource')
+      .filter((entry): entry is PerformanceResourceTiming => {
+        return (
+          entry instanceof PerformanceResourceTiming &&
+          interestingResource.test(entry.name)
+        )
+      })
+      .map((entry) => ({
+        name: entry.name,
+        initiatorType: entry.initiatorType,
+        transferSize: entry.transferSize,
+        encodedBodySize: entry.encodedBodySize,
+        decodedBodySize: entry.decodedBodySize,
+        duration: entry.duration,
+      }))
+
+    return {
+      label: sampleLabel,
+      timestamp: performance.now(),
+      heap: memory
+        ? {
+            usedJSHeapSize: memory.usedJSHeapSize,
+            totalJSHeapSize: memory.totalJSHeapSize,
+            jsHeapSizeLimit: memory.jsHeapSizeLimit,
+          }
+        : null,
+      userAgentSpecificMemory,
+      resourceEntries,
+    }
+  }, label)
+}
+
+async function loadRawFixture(page: Page, fixture: string) {
+  const fileChooserPromise = page.waitForEvent('filechooser')
+  await page
+    .getByRole('button', { name: /drop one raw here/i })
+    .click({ position: { x: 24, y: 24 } })
+  const fileChooser = await fileChooserPromise
+  await fileChooser.setFiles(fixture)
+}
+
+async function dragSlider(page: Page, sliderName: string, targetRatio: number) {
+  const slider = page.getByRole('slider', { name: sliderName })
+  await expect(slider).toBeVisible()
+  const box = await slider.boundingBox()
+
+  expect(box).toBeTruthy()
+
+  const before = Number(await slider.getAttribute('aria-valuenow'))
+
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(
+    box!.x + box!.width * targetRatio,
+    box!.y + box!.height / 2,
+    { steps: 10 },
+  )
+  await page.mouse.up()
+
+  await expect
+    .poll(async () => Number(await slider.getAttribute('aria-valuenow')))
+    .not.toBe(before)
+}
+
+function expectFiniteHeapSample(sample: LifecycleResourceSample) {
+  expect(Number.isFinite(sample.timestamp)).toBe(true)
+  if (sample.heap) {
+    expect(Number.isFinite(sample.heap.usedJSHeapSize)).toBe(true)
+    expect(Number.isFinite(sample.heap.totalJSHeapSize)).toBe(true)
+    expect(Number.isFinite(sample.heap.jsHeapSizeLimit)).toBe(true)
+  }
+  if (sample.userAgentSpecificMemory.available) {
+    expect(Number.isFinite(sample.userAgentSpecificMemory.bytes)).toBe(true)
+    expect(Number.isFinite(sample.userAgentSpecificMemory.breakdownCount)).toBe(
+      true,
+    )
+  }
+  for (const entry of sample.resourceEntries) {
+    expect(Number.isFinite(entry.duration)).toBe(true)
+    expect(Number.isFinite(entry.transferSize)).toBe(true)
+    expect(Number.isFinite(entry.encodedBodySize)).toBe(true)
+    expect(Number.isFinite(entry.decodedBodySize)).toBe(true)
+  }
+}
+
+test('monitors a full desktop RAW export lifecycle with resource diagnostics', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-desktop',
+    'desktop lifecycle resource monitor uses Chromium performance APIs and OPFS',
+  )
+  test.skip(
+    !existsSync(sonyRawPath),
+    `Missing Sony ARW fixture: ${sonyRawPath}`,
+  )
+  testInfo.setTimeout(600_000)
+
+  const samples: LifecycleResourceSample[] = []
+
+  await page.addInitScript(() => {
+    window.addEventListener('lumaforge-export-debug', (event) => {
+      const custom = event as CustomEvent
+      ;(
+        window as unknown as { __LUMAFORGE_EXPORT_EVENTS__: unknown[] }
+      ).__LUMAFORGE_EXPORT_EVENTS__ ??= []
+      ;(
+        window as unknown as { __LUMAFORGE_EXPORT_EVENTS__: unknown[] }
+      ).__LUMAFORGE_EXPORT_EVENTS__.push(custom.detail)
+    })
+  })
+
+  await page.goto('/raw')
+  samples.push(await sampleResourceUsage(page, 'initial'))
+
+  await loadRawFixture(page, sonyRawPath)
+  await expect(
+    page.locator('.raw-lab[data-raw-lab-state="loaded"]'),
+  ).toBeVisible({ timeout: 90_000 })
+  await expect(
+    page
+      .getByRole('region', { name: 'Export' })
+      .first()
+      .getByRole('button', { name: /export full-resolution jpeg/i }),
+  ).toBeEnabled({ timeout: 90_000 })
+  samples.push(await sampleResourceUsage(page, 'raw-ready'))
+
+  await dragSlider(page, 'Exposure', 0.7)
+  samples.push(await sampleResourceUsage(page, 'tone-adjusted'))
+
+  const exportRegion = page.getByRole('region', { name: 'Export' }).first()
+  const exportButton = exportRegion
+    .getByRole('button', { name: /export full-resolution jpeg/i })
+    .first()
+  await expect(exportButton).toBeEnabled()
+  samples.push(await sampleResourceUsage(page, 'before-export'))
+  await exportButton.click()
+
+  await expect
+    .poll(async () => {
+      const eventTypes = new Set(
+        (await collectExportEvents(page)).map((event) => event.type),
+      )
+      return (
+        eventTypes.has('export-plan-selected') &&
+        eventTypes.has('resource-evacuated') &&
+        eventTypes.has('export-worker-attempt')
+      )
+    })
+    .toBe(true)
+  samples.push(await sampleResourceUsage(page, 'after-evacuation'))
+
+  await expect(exportRegion.getByText('JPEG ready')).toBeVisible({
+    timeout: 420_000,
+  })
+  const downloadButton = exportRegion.getByRole('button', {
+    name: /^download$/i,
+  })
+  await expect(downloadButton).toBeVisible()
+  samples.push(await sampleResourceUsage(page, 'jpeg-ready'))
+
+  const downloadPromise = page.waitForEvent('download')
+  await downloadButton.click()
+  const download = await downloadPromise
+  expect(await download.path()).toBeTruthy()
+  await expect
+    .poll(async () => {
+      return (await collectExportEvents(page)).some(
+        (event) => event.type === 'output-materialized',
+      )
+    })
+    .toBe(true)
+  samples.push(await sampleResourceUsage(page, 'download-materialized'))
+
+  await page.getByRole('button', { name: /^reset$/i }).click()
+  await expect(
+    page.getByRole('button', { name: /drop one raw here/i }),
+  ).toBeVisible({ timeout: 30_000 })
+  await expect
+    .poll(async () => {
+      return (await collectExportEvents(page)).some(
+        (event) =>
+          event.type === 'resource-cleanup' &&
+          event.payload.reason === 'reset-session',
+      )
+    })
+    .toBe(true)
+  samples.push(await sampleResourceUsage(page, 'after-reset'))
+
+  const events = await collectExportEvents(page)
+  const planPayload = eventPayload(events, 'export-plan-selected')
+  expect(planPayload).toMatchObject({
+    concurrency: 2,
+    runtimeMemoryProfile: 'desktop',
+    checkpointMode: 'safe-retry',
+    outputSink: 'opfs-file',
+    policyVector: {
+      workerMemoryProfile: 'desktop',
+      concurrency: 2,
+      outputSink: 'opfs-file',
+      productCopy: 'high-performance',
+      rowSlice: 512,
+    },
+    preferredRows: 512,
+  })
+  expect(planPayload?.derivedLabel).toEqual(
+    expect.stringContaining('wkchromium'),
+  )
+
+  const evacuationPayload = eventPayload(events, 'resource-evacuated')
+  expect(evacuationPayload).toMatchObject({
+    registryCheck: { ok: true },
+  })
+  expect(evacuationPayload?.requiredOwners).toEqual([
+    'preview',
+    'bounded-hq',
+    'webgl',
+    'export-result',
+    'lut-fetch',
+  ])
+  expect(evacuationPayload?.disposedOwners).toEqual([
+    'preview',
+    'bounded-hq',
+    'webgl',
+    'export-result',
+    'lut-fetch',
+  ])
+  expect(evacuationPayload?.remainingLive).toEqual([])
+
+  expect(eventPayload(events, 'export-worker-attempt')).toMatchObject({
+    attempt: 1,
+    phase: 'started',
+    freshWorker: true,
+  })
+  expect(events).toContainEqual(
+    expect.objectContaining({ type: 'checkpoint-written' }),
+  )
+  expect(eventPayload(events, 'output-materialized')).toMatchObject({
+    action: 'download',
+    outputKind: 'file-backed',
+    cleanup: 'scheduled',
+  })
+  expect(eventPayload(events, 'resource-cleanup')).toMatchObject({
+    reason: 'reset-session',
+    disposedOwners: ['export-result'],
+    registryCheck: { ok: true },
+    remainingLive: [],
+  })
+
+  expect(eventIndex(events, 'export-plan-selected')).toBeGreaterThanOrEqual(0)
+  expect(eventIndex(events, 'resource-evacuated')).toBeGreaterThan(
+    eventIndex(events, 'export-plan-selected'),
+  )
+  expect(eventIndex(events, 'export-worker-attempt')).toBeGreaterThan(
+    eventIndex(events, 'resource-evacuated'),
+  )
+  expect(eventIndex(events, 'output-materialized')).toBeGreaterThan(
+    eventIndex(events, 'export-worker-attempt'),
+  )
+  expect(eventIndex(events, 'resource-cleanup')).toBeGreaterThan(
+    eventIndex(events, 'output-materialized'),
+  )
+
+  expect(samples.map((sample) => sample.label)).toEqual([
+    'initial',
+    'raw-ready',
+    'tone-adjusted',
+    'before-export',
+    'after-evacuation',
+    'jpeg-ready',
+    'download-materialized',
+    'after-reset',
+  ])
+  samples.forEach(expectFiniteHeapSample)
+
+  await testInfo.attach('raw-export-lifecycle-resources.json', {
+    body: JSON.stringify({ events, samples }, null, 2),
+    contentType: 'application/json',
+  })
+})

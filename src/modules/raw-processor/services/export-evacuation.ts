@@ -2,6 +2,8 @@ import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
 
 import type {
   ExportExecutionProfileName,
+  ExportResourceCleanupDebugPayload,
+  ExportResourceCleanupReason,
   ExportResourceEvacuatedDebugPayload,
 } from '~/lib/export/execution-profile'
 import type {
@@ -100,6 +102,31 @@ export function toResourceEvacuatedDebugPayload(input: {
     estimatedBytesByOwner: input.evacuation.estimatedBytesByOwner,
     totalEstimatedBytes: input.evacuation.totalEstimatedBytes,
     evacuatedAt: input.evacuation.evacuatedAt,
+  }
+}
+
+export function toResourceCleanupDebugPayload(input: {
+  reason: ExportResourceCleanupReason
+  disposedOwners: LargeResourceOwner[]
+  registryCheck: ResourceRegistryCheck
+  snapshot: ResourceRegistrySnapshot
+  cleanedAt?: string
+}): ExportResourceCleanupDebugPayload {
+  return {
+    reason: input.reason,
+    disposedOwners: input.disposedOwners,
+    registryCheck: toDebugRegistryCheck(input.registryCheck),
+    remainingLive: input.snapshot.live.map(
+      ({ id, owner, kind, estimatedBytes }) => ({
+        id,
+        owner,
+        kind,
+        estimatedBytes,
+      }),
+    ),
+    estimatedBytesByOwner: input.snapshot.estimatedBytesByOwner,
+    totalEstimatedBytes: input.snapshot.totalEstimatedBytes,
+    cleanedAt: input.cleanedAt ?? new Date().toISOString(),
   }
 }
 

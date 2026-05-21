@@ -8,6 +8,7 @@ import {
   createPreExportSnapshot,
   evacuateBeforeExport,
   getPreExportEvacuationOwners,
+  toResourceCleanupDebugPayload,
   toResourceEvacuatedDebugPayload,
 } from './export-evacuation'
 
@@ -258,6 +259,63 @@ describe('export evacuation', () => {
       estimatedBytesByOwner: { webgl: 4096 },
       totalEstimatedBytes: 4096,
       evacuatedAt: '2026-05-04T00:00:00.000Z',
+    })
+  })
+
+  it('serializes lifecycle cleanup diagnostics after export-result disposal', () => {
+    const payload = toResourceCleanupDebugPayload({
+      reason: 'reset-session',
+      disposedOwners: ['export-result'],
+      registryCheck: {
+        ok: false,
+        live: [
+          {
+            id: 'webgl-pipeline',
+            owner: 'webgl',
+            kind: 'webgl-pipeline',
+          },
+        ],
+      },
+      snapshot: {
+        live: [
+          {
+            id: 'webgl-pipeline',
+            owner: 'webgl',
+            kind: 'webgl-pipeline',
+            estimatedBytes: 4096,
+          },
+        ],
+        liveByOwner: { webgl: 1 },
+        estimatedBytesByOwner: { webgl: 4096 },
+        totalEstimatedBytes: 4096,
+      },
+      cleanedAt: '2026-05-04T00:00:02.000Z',
+    })
+
+    expect(payload).toEqual({
+      reason: 'reset-session',
+      disposedOwners: ['export-result'],
+      registryCheck: {
+        ok: false,
+        live: [
+          {
+            id: 'webgl-pipeline',
+            owner: 'webgl',
+            kind: 'webgl-pipeline',
+          },
+        ],
+      },
+      remainingLive: [
+        {
+          id: 'webgl-pipeline',
+          owner: 'webgl',
+          kind: 'webgl-pipeline',
+          estimatedBytes: 4096,
+        },
+      ],
+      estimatedBytesByOwner: { webgl: 4096 },
+      totalEstimatedBytes: 4096,
+      cleanedAt: '2026-05-04T00:00:02.000Z',
     })
   })
 })

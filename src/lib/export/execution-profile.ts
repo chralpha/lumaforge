@@ -51,6 +51,23 @@ export type ExportResourceEvacuatedDebugPayload = {
   evacuatedAt: string
 }
 
+export type ExportResourceCleanupReason = 'reset-session'
+
+export type ExportResourceCleanupDebugPayload = {
+  reason: ExportResourceCleanupReason
+  disposedOwners: LargeResourceOwner[]
+  registryCheck: ResourceRegistryCheck
+  remainingLive: Array<{
+    id: string
+    owner: LargeResourceOwner
+    kind: string
+    estimatedBytes?: number
+  }>
+  estimatedBytesByOwner: Partial<Record<LargeResourceOwner, number>>
+  totalEstimatedBytes: number
+  cleanedAt: string
+}
+
 export type ExportCheckpointWrittenDebugPayload = {
   exportId: string
   completedRowsForDiagnostics: number
@@ -97,6 +114,10 @@ export type ExportDebugEvent =
   | {
       type: 'resource-evacuated'
       payload: ExportResourceEvacuatedDebugPayload
+    }
+  | {
+      type: 'resource-cleanup'
+      payload: ExportResourceCleanupDebugPayload
     }
   | {
       type: 'checkpoint-written'

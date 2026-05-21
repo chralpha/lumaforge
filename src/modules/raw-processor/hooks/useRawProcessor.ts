@@ -34,6 +34,7 @@ import {
 } from '~/lib/export/checkpoint-store'
 import { emitExportDebugEvent } from '~/lib/export/execution-profile'
 import type {
+  LargeResourceOwner,
   ResourceRegistry,
   TrackedLargeResource,
 } from '~/lib/export/resource-registry'
@@ -63,6 +64,7 @@ import {
 } from '../services/embedded-preview-url'
 import type { ExportContext } from '../services/export/orchestrate-full-res-export'
 import { orchestrateFullResExport } from '../services/export/orchestrate-full-res-export'
+import { toResourceCleanupDebugPayload } from '../services/export-evacuation'
 import { deriveFullResExportReadiness } from '../services/export-readiness'
 import {
   createInterruptedExportRecovery,
@@ -108,6 +110,8 @@ import {
 import { getProgressRecoveryHint } from '../services/workflow-status'
 import { useImageSession } from './useImageSession'
 import { usePreviewHistogram } from './usePreviewHistogram'
+
+type ExportResultCleanupReason = 'reset-session'
 
 function enqueuePostCommitTask(task: () => void) {
   setTimeout(task, 0)
@@ -470,18 +474,37 @@ export function useRawProcessor(): UseRawProcessorReturn {
     })
   }, [])
 
-  const disposeExportResultResources = useCallback(async () => {
-    const registry = resourceRegistryRef.current
-    if (!registry) return
+  const disposeExportResultResources = useCallback(
+    async (reason?: ExportResultCleanupReason) => {
+      const registry = resourceRegistryRef.current
+      if (!registry) return
 
-    await registry.disposeOwners(['export-result'])
-  }, [])
+      const disposedOwners: LargeResourceOwner[] = ['export-result']
+      await registry.disposeOwners(disposedOwners)
 
-  const queueExportResultResourceDisposal = useCallback(() => {
-    void disposeExportResultResources().catch((error) => {
-      console.warn('Failed to clean up export result resources:', error)
-    })
-  }, [disposeExportResultResources])
+      if (!reason) return
+
+      emitExportDebugEvent({
+        type: 'resource-cleanup',
+        payload: toResourceCleanupDebugPayload({
+          reason,
+          disposedOwners,
+          registryCheck: registry.assertZeroLive(disposedOwners),
+          snapshot: registry.snapshot(),
+        }),
+      })
+    },
+    [],
+  )
+
+  const queueExportResultResourceDisposal = useCallback(
+    (reason?: ExportResultCleanupReason) => {
+      void disposeExportResultResources(reason).catch((error) => {
+        console.warn('Failed to clean up export result resources:', error)
+      })
+    },
+    [disposeExportResultResources],
+  )
 
   const invalidateExportGraph = useCallback(() => {
     exportGraphVersionRef.current += 1
@@ -1288,7 +1311,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setPendingRecoveryRetry(null)
     abortExportWork()
     abortRuntimeWork()
-    queueExportResultResourceDisposal()
+    queueExportResultResourceDisposal('reset-session')
     revokeCurrentEmbeddedPreviewUrl()
     previewCopyCanvasRef.current = null
     setDecodedImageRef(null)
