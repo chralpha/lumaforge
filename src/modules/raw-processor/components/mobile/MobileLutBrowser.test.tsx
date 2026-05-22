@@ -127,6 +127,34 @@ describe('mobileLutBrowser', () => {
     expect(loadEntry).toHaveBeenCalledWith('kodak-2383-rec709')
   })
 
+  it('lets the user add an online LUT source URL from the mobile sheet', async () => {
+    const fixture = onlineLutSourcesFixture()
+    fixture.sourceUrlInput = 'https://profiles.example.com/extra.json'
+    render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
+
+    const input = screen.getByLabelText(/online lut source url/i)
+    await userEvent.click(input)
+    await userEvent.keyboard('{Enter}')
+
+    expect(fixture.addSourceFromInput).toHaveBeenCalledTimes(1)
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /add lut source/i }),
+    )
+
+    expect(fixture.addSourceFromInput).toHaveBeenCalledTimes(2)
+  })
+
+  it('disables the add button when the online LUT source URL is empty', () => {
+    const fixture = onlineLutSourcesFixture()
+    fixture.sourceUrlInput = ''
+    render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
+
+    expect(
+      screen.getByRole('button', { name: /add lut source/i }),
+    ).toBeDisabled()
+  })
+
   it('lets an unresolved LUT choose input and output contracts from the mobile sheet', async () => {
     const onLutProfileSelect = vi.fn()
     render(

@@ -4,14 +4,15 @@ import type {
 } from '@lumaforge/luma-color-runtime'
 import { searchLUTColorProfiles } from '@lumaforge/luma-color-runtime'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { AlertTriangle, Check, SlidersHorizontal, X } from 'lucide-react'
+import { AlertTriangle, Check, Plus, SlidersHorizontal, X } from 'lucide-react'
 import { AnimatePresence, m, useDragControls } from 'motion/react'
 import type { ReactNode } from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { IconButton } from '~/components/ui/button'
 import { Chip } from '~/components/ui/chip'
 import { Dialog } from '~/components/ui/dialog'
+import { Input } from '~/components/ui/input'
 import { useI18n } from '~/lib/i18n'
 import { sheetSpring } from '~/lib/spring'
 
@@ -121,6 +122,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
   const { t } = useI18n()
   const { prefersReduced } = useToolMotion()
   const dragControls = useDragControls()
+  const onlineSourceInputId = useId()
   const [contractEditorOpen, setContractEditorOpen] = useState(false)
   const [contractStep, setContractStep] = useState<ContractStep>('input')
   const [contractQuery, setContractQuery] = useState('')
@@ -709,6 +711,50 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                       <h3 className="m-0 text-lf-control font-semibold text-lf-hero-ink">
                         {t('raw.mobile.lut.onlineHeading')}
                       </h3>
+                      <form
+                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+                        onSubmit={(event) => {
+                          event.preventDefault()
+                          if (!props.onlineLutSources?.sourceUrlInput.trim()) {
+                            return
+                          }
+                          void props.onlineLutSources?.addSourceFromInput()
+                        }}
+                      >
+                        <label
+                          htmlFor={onlineSourceInputId}
+                          className="sr-only"
+                        >
+                          {t('raw.lutSource.url')}
+                        </label>
+                        <Input
+                          id={onlineSourceInputId}
+                          type="url"
+                          inputMode="url"
+                          autoComplete="off"
+                          autoCapitalize="off"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          value={props.onlineLutSources.sourceUrlInput}
+                          placeholder="https://.../catalog.json"
+                          onChange={(event) =>
+                            props.onlineLutSources?.setSourceUrlInput(
+                              event.currentTarget.value,
+                            )
+                          }
+                          inputClassName="h-11 rounded-lf-control border-lf-on-photo-bord-soft bg-lf-on-photo-bg text-lf-control text-lf-hero-ink shadow-none placeholder:text-lf-hero-ink/48 focus:border-lf-green focus:ring-lf-green/20"
+                        />
+                        <button
+                          type="submit"
+                          aria-label={t('raw.lutSource.add')}
+                          disabled={
+                            !props.onlineLutSources.sourceUrlInput.trim()
+                          }
+                          className="grid size-11 shrink-0 place-items-center rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg text-lf-hero-ink transition-colors hover:border-lf-amber/40 hover:text-lf-hero-ink disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Plus aria-hidden="true" className="size-5" />
+                        </button>
+                      </form>
                       <div
                         className="grid gap-2"
                         aria-busy={props.onlineLutSources.state.isLoading}
