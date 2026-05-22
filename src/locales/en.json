@@ -247,6 +247,8 @@
   "raw.lutSource.noneCompatible": "No compatible LUTs loaded from this source.",
   "raw.lutSource.noneYet": "No compatible LUTs yet.",
   "raw.lutSource.emptyHint": "Paste a catalog.json or lumaforge-profiles.json URL to load shared LUTs.",
+  "raw.lutSource.copied": "LUT source link copied",
+  "raw.lutSource.copyFailed": "Could not copy LUT source link",
   "raw.export.title": "Export",
   "raw.export.eyebrow": "Full-res JPEG",
   "raw.export.ready": "JPEG ready",

@@ -17,6 +17,7 @@ import {
 import { AnimatePresence, m, useDragControls } from 'motion/react'
 import type { ReactNode } from 'react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 import { IconButton } from '~/components/ui/button'
 import { Chip } from '~/components/ui/chip'
@@ -740,9 +741,12 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                           type="button"
                           aria-label={t('raw.lutSource.copy')}
                           disabled={!props.onlineLutSources.share.enabled}
-                          onClick={() =>
-                            void props.onlineLutSources?.share.copy()
-                          }
+                          onClick={() => {
+                            props.onlineLutSources?.share.copy().then(
+                              () => toast.success(t('raw.lutSource.copied')),
+                              () => toast.error(t('raw.lutSource.copyFailed')),
+                            )
+                          }}
                           className="grid size-11 shrink-0 place-items-center rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg text-lf-hero-ink transition-colors hover:border-lf-amber/40 hover:text-lf-hero-ink disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <Share2 aria-hidden="true" className="size-5" />

@@ -84,6 +84,7 @@ _(empty — populate as iterations split work)_
 
 _(one line per iteration — newest first)_
 
+- 2026-05-22 — Bucket 2/3/4 — wired sonner toast feedback for the online LUT source Share/copy button on both desktop and mobile. Hook now swallows `AbortError` from `navigator.share` (user cancellations are not errors) and propagates real failures so callers can surface them as `toast.error`. Two new i18n keys: `raw.lutSource.copied`, `raw.lutSource.copyFailed`. Test fixtures updated to return promises from `share.copy`.
 - 2026-05-22 — Bucket 1/2/3 — added an empty-state hint on both desktop and mobile that explains the expected manifest URL shape (`catalog.json` / `lumaforge-profiles.json`) when no sources are loaded yet, so first-use isn't a guessing game. New i18n key `raw.lutSource.emptyHint` in en + zh-CN.
 - 2026-05-22 — Bucket 2/3 — added a Share/copy-link button to the mobile online sources section header (mirrors desktop's `Share2` button). Disables when `share.enabled` is false; calls `share.copy()` otherwise. Mobile-only sessions can now share the configured manifest set for the first time.
 - 2026-05-22 — Bucket 1/3 — surfaced per-resource issue messages inline on desktop `OnlineLutSourceControls` (via amber `Chip` primitive, `surface="paper"`, `normal-case`), parity with mobile iteration 3. Scoped the tail global block to only render `!resourceId` issues so per-resource messages no longer double up.

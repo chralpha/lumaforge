@@ -342,7 +342,12 @@ export function useOnlineLutSources({
         }
 
         if (navigator.share) {
-          await navigator.share({ url: shareUrl })
+          try {
+            await navigator.share({ url: shareUrl })
+          } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') return
+            throw error
+          }
         }
       },
     }),

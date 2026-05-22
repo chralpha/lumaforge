@@ -61,7 +61,7 @@ function onlineLutSourcesFixture(
     share: {
       enabled: false,
       url: '',
-      copy: vi.fn(),
+      copy: vi.fn().mockResolvedValue(undefined),
     },
   }
 }
@@ -194,7 +194,7 @@ describe('mobileLutBrowser', () => {
   })
 
   it('copies the share URL when the mobile share button is tapped', async () => {
-    const copy = vi.fn()
+    const copy = vi.fn().mockResolvedValue(undefined)
     const fixture = onlineLutSourcesFixture()
     fixture.share = {
       enabled: true,
@@ -212,7 +212,11 @@ describe('mobileLutBrowser', () => {
 
   it('disables the mobile share button when there is nothing to share', () => {
     const fixture = onlineLutSourcesFixture()
-    fixture.share = { enabled: false, url: '', copy: vi.fn() }
+    fixture.share = {
+      enabled: false,
+      url: '',
+      copy: vi.fn().mockResolvedValue(undefined),
+    }
     render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
 
     expect(

@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { toast } from 'sonner'
 
 import { Chip } from '~/components/ui/chip'
 import { Input } from '~/components/ui/input'
@@ -309,7 +310,12 @@ export function OnlineLutSourceControls({
         <LutIconButton
           label={t('raw.lutSource.copy')}
           disabled={!onlineLutSources.share.enabled}
-          onClick={() => void onlineLutSources.share.copy()}
+          onClick={() => {
+            onlineLutSources.share.copy().then(
+              () => toast.success(t('raw.lutSource.copied')),
+              () => toast.error(t('raw.lutSource.copyFailed')),
+            )
+          }}
         >
           <Share2 aria-hidden="true" />
         </LutIconButton>

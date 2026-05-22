@@ -113,7 +113,7 @@ function onlineLutSourcesFixture(
     share: {
       enabled: true,
       url: '/raw?luts=https%3A%2F%2Fprofiles.example.com%2Freleases%2Fv2026.05.01%2Fcatalog.json',
-      copy: vi.fn(),
+      copy: vi.fn().mockResolvedValue(undefined),
     },
     ...overrides,
   }
@@ -1237,7 +1237,11 @@ describe('rawToolSurface', () => {
       <RawToolSurface
         {...baseProps}
         onlineLutSources={onlineLutSourcesFixture({
-          share: { enabled: false, url: '/raw', copy: vi.fn() },
+          share: {
+            enabled: false,
+            url: '/raw',
+            copy: vi.fn().mockResolvedValue(undefined),
+          },
         })}
       />,
     )
