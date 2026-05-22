@@ -9,6 +9,7 @@ import {
   Check,
   Plus,
   RefreshCw,
+  Share2,
   SlidersHorizontal,
   Trash2,
   X,
@@ -731,9 +732,22 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
 
                   {props.onlineLutSources && (
                     <section className="grid gap-2.5">
-                      <h3 className="m-0 text-lf-control font-semibold text-lf-hero-ink">
-                        {t('raw.mobile.lut.onlineHeading')}
-                      </h3>
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="m-0 text-lf-control font-semibold text-lf-hero-ink">
+                          {t('raw.mobile.lut.onlineHeading')}
+                        </h3>
+                        <button
+                          type="button"
+                          aria-label={t('raw.lutSource.copy')}
+                          disabled={!props.onlineLutSources.share.enabled}
+                          onClick={() =>
+                            void props.onlineLutSources?.share.copy()
+                          }
+                          className="grid size-11 shrink-0 place-items-center rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg text-lf-hero-ink transition-colors hover:border-lf-amber/40 hover:text-lf-hero-ink disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Share2 aria-hidden="true" className="size-5" />
+                        </button>
+                      </div>
                       <form
                         className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
                         onSubmit={(event) => {

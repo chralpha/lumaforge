@@ -193,6 +193,33 @@ describe('mobileLutBrowser', () => {
     expect(refreshButton).toHaveAttribute('aria-busy', 'true')
   })
 
+  it('copies the share URL when the mobile share button is tapped', async () => {
+    const copy = vi.fn()
+    const fixture = onlineLutSourcesFixture()
+    fixture.share = {
+      enabled: true,
+      url: '/raw?luts=https%3A%2F%2Fprofiles.example.com%2Fcatalog.json',
+      copy,
+    }
+    render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /copy lut source link/i }),
+    )
+
+    expect(copy).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables the mobile share button when there is nothing to share', () => {
+    const fixture = onlineLutSourcesFixture()
+    fixture.share = { enabled: false, url: '', copy: vi.fn() }
+    render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
+
+    expect(
+      screen.getByRole('button', { name: /copy lut source link/i }),
+    ).toBeDisabled()
+  })
+
   it('surfaces per-resource issue messages inside the resource card', () => {
     const fixture = onlineLutSourcesFixture()
     fixture.state = {
