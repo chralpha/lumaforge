@@ -84,6 +84,7 @@ _(empty — populate as iterations split work)_
 
 _(one line per iteration — newest first)_
 
+- 2026-05-22 — Bucket 1/3 — surfaced per-resource issue messages inline on desktop `OnlineLutSourceControls` (via amber `Chip` primitive, `surface="paper"`, `normal-case`), parity with mobile iteration 3. Scoped the tail global block to only render `!resourceId` issues so per-resource messages no longer double up.
 - 2026-05-22 — Bucket 1/3 — swept `OnlineLutSourceControls` clean of legacy tokens (`text-callout`/`text-footnote`/`text-text*`/`bg-fill`/`bg-background`/`border-border`/`text-accent`/raw yellow/`text-[0.64rem]`/`rounded-md`/`rounded-full`) onto the desktop paper-surface `lf-*` family (`lf-ink`, `lf-ink-soft`, `lf-paper`, `lf-hairline`, `lf-green`, `lf-amber-soft`, `lf-control`, `lf-label`, `lf-body`, `lf-eyebrow`, `lf-pill`). Brings desktop into the consistency baseline established by the look-mode audit.
 - 2026-05-22 — Bucket 2 — surfaced per-resource issue messages inside each mobile resource card via the `Chip` primitive (amber tone + AlertTriangle). Filters `state.issues` by `resourceId`. Mobile users now see *why* a source failed instead of guessing from a generic "Issue" badge.
 - 2026-05-22 — Bucket 2 — added per-resource Refresh + Remove controls and a per-resource loading badge to the mobile online sources cards in `MobileLutBrowser`, mirroring the desktop affordances. Refresh button surfaces `aria-busy` and disables while the active resource resolves.

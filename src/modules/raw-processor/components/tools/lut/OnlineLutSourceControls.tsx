@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   Download,
   FolderOpen,
   Plus,
@@ -16,6 +17,7 @@ import {
   useState,
 } from 'react'
 
+import { Chip } from '~/components/ui/chip'
 import { Input } from '~/components/ui/input'
 import { useI18n } from '~/lib/i18n'
 
@@ -398,6 +400,44 @@ export function OnlineLutSourceControls({
                     </LutIconButton>
                   </div>
                 </div>
+                {(issuesByResourceId.get(resource.id) ?? []).length > 0 && (
+                  <ul
+                    className="m-0 grid list-none gap-1 p-0 pt-1.5"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {(issuesByResourceId.get(resource.id) ?? []).map(
+                      (issue, index) => (
+                        <li
+                          key={[
+                            issue.code,
+                            issue.entryId ??
+                              issue.sourceUrl ??
+                              issue.raw ??
+                              'resource',
+                            index,
+                          ].join(':')}
+                          className="m-0"
+                        >
+                          <Chip
+                            tone="amber"
+                            surface="paper"
+                            size="sm"
+                            className="max-w-full normal-case tracking-normal"
+                          >
+                            <AlertTriangle
+                              aria-hidden="true"
+                              className="size-3 shrink-0"
+                            />
+                            <span className="min-w-0 truncate">
+                              {issue.message}
+                            </span>
+                          </Chip>
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                )}
               </div>
             )
           })}
@@ -406,27 +446,31 @@ export function OnlineLutSourceControls({
 
       {openBrowser}
 
-      {state.issues.length > 0 && (
-        <div
-          className="grid gap-1 text-lf-label leading-relaxed text-lf-ink-soft"
-          role="status"
-          aria-live="polite"
-        >
-          {state.issues.slice(-2).map((issue, index) => (
-            <p
-              key={[
-                issue.code,
-                issue.resourceId ?? issue.raw ?? 'source',
-                issue.entryId ?? issue.sourceUrl ?? issue.message,
-                index,
-              ].join(':')}
-              className="m-0"
-            >
-              {issue.message}
-            </p>
-          ))}
-        </div>
-      )}
+      {(() => {
+        const looseIssues = state.issues.filter((issue) => !issue.resourceId)
+        if (looseIssues.length === 0) return null
+
+        return (
+          <div
+            className="grid gap-1 text-lf-label leading-relaxed text-lf-ink-soft"
+            role="status"
+            aria-live="polite"
+          >
+            {looseIssues.slice(-2).map((issue, index) => (
+              <p
+                key={[
+                  issue.code,
+                  issue.raw ?? issue.sourceUrl ?? issue.message,
+                  index,
+                ].join(':')}
+                className="m-0"
+              >
+                {issue.message}
+              </p>
+            ))}
+          </div>
+        )
+      })()}
     </div>
   )
 }

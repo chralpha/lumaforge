@@ -1329,11 +1329,17 @@ describe('rawToolSurface', () => {
       />,
     )
 
-    const status = screen.getByRole('status')
+    const resource = screen
+      .getByRole('button', {
+        name: /open catalog/i,
+      })
+      .closest('[data-raw-lut="source-resource"]') as HTMLElement
+    expect(resource).not.toBeNull()
+    const status = within(resource).getByRole('status')
 
     expect(status).toHaveAttribute('aria-live', 'polite')
     expect(status).toHaveTextContent('Failed to fetch online profile resource.')
-    expect(screen.getByText('Issue')).toBeInTheDocument()
+    expect(within(resource).getByText('Issue')).toBeInTheDocument()
   })
 
   it('mobile + no image shows the darkroom onboarding lifecycle state', () => {
