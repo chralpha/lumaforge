@@ -79,7 +79,7 @@ function MobileContractOptionButton({
       aria-pressed={active}
       onClick={onClick}
       className={[
-        'grid min-w-0 gap-1 rounded-lf-control border px-2.5 py-2 text-left text-sm transition-colors',
+        'grid min-w-0 gap-1 rounded-lf-control border px-2.5 py-2 text-left text-lf-control transition-colors',
         active
           ? 'border-lf-green bg-lf-green/15 text-lf-hero-ink'
           : highlighted
@@ -455,7 +455,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
 
                         <button
                           type="button"
-                          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lf-control border border-lf-amber/35 bg-lf-amber/12 px-3 text-sm font-semibold text-lf-amber-soft transition-colors hover:border-lf-amber/60 hover:text-lf-hero-ink disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lf-control border border-lf-amber/35 bg-lf-amber/12 px-3 text-lf-control font-semibold text-lf-amber-soft transition-colors hover:border-lf-amber/60 hover:text-lf-hero-ink disabled:cursor-not-allowed disabled:opacity-50"
                           disabled={props.disabled}
                           onClick={() =>
                             openContractEditor(
@@ -484,7 +484,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                               type="button"
                               role="tab"
                               aria-selected={contractStep === 'input'}
-                              className="min-h-9 rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2 text-sm font-semibold text-lf-hero-ink/68 transition-colors aria-selected:border-lf-amber/45 aria-selected:bg-lf-amber/12 aria-selected:text-lf-amber-soft"
+                              className="min-h-9 rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2 text-lf-control font-semibold text-lf-hero-ink/68 transition-colors aria-selected:border-lf-amber/45 aria-selected:bg-lf-amber/12 aria-selected:text-lf-amber-soft"
                               onClick={() => setContractStep('input')}
                             >
                               {t('raw.lutContract.inputTab')}
@@ -493,7 +493,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                               type="button"
                               role="tab"
                               aria-selected={contractStep === 'output'}
-                              className="min-h-9 rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2 text-sm font-semibold text-lf-hero-ink/68 transition-colors aria-selected:border-lf-amber/45 aria-selected:bg-lf-amber/12 aria-selected:text-lf-amber-soft"
+                              className="min-h-9 rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2 text-lf-control font-semibold text-lf-hero-ink/68 transition-colors aria-selected:border-lf-amber/45 aria-selected:bg-lf-amber/12 aria-selected:text-lf-amber-soft"
                               onClick={() => setContractStep('output')}
                             >
                               {t('raw.lutContract.outputTab')}
@@ -515,7 +515,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                             onChange={(event) =>
                               setContractQuery(event.currentTarget.value)
                             }
-                            className="min-h-10 rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 text-sm text-lf-hero-ink outline-none placeholder:text-lf-hero-ink/42 focus:border-lf-amber/55"
+                            className="min-h-10 rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 text-lf-control text-lf-hero-ink outline-none placeholder:text-lf-hero-ink/42 focus:border-lf-amber/55"
                           />
 
                           <div
@@ -596,7 +596,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                                 ))}
 
                                 {!hasInputMatches && (
-                                  <p className="m-0 text-sm leading-relaxed text-lf-hero-ink/68">
+                                  <p className="m-0 text-lf-control leading-relaxed text-lf-hero-ink/68">
                                     {t('raw.lutContract.noInput')}
                                   </p>
                                 )}
@@ -668,7 +668,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                                 ))}
 
                                 {!hasOutputMatches && (
-                                  <p className="m-0 text-sm leading-relaxed text-lf-hero-ink/68">
+                                  <p className="m-0 text-lf-control leading-relaxed text-lf-hero-ink/68">
                                     {t('raw.lutContract.noOutput')}
                                   </p>
                                 )}
@@ -694,7 +694,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                       interactiveMotion={false}
                     >
                       <div className="grid gap-1">
-                        <span className="text-sm font-semibold text-lf-hero-ink">
+                        <span className="text-lf-control font-semibold text-lf-hero-ink">
                           {t('raw.mobile.lut.uploadTitle')}
                         </span>
                         <span className="text-xs text-lf-hero-ink/70">
@@ -732,7 +732,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                                 className="grid gap-1.5 rounded-lf-panel border border-lf-on-photo-bord-soft bg-lf-on-photo-bg p-2.5"
                               >
                                 <div className="flex min-w-0 items-center justify-between gap-2">
-                                  <span className="min-w-0 truncate text-sm font-semibold text-lf-hero-ink">
+                                  <span className="min-w-0 truncate text-lf-control font-semibold text-lf-hero-ink">
                                     {resourceLabel(resource)}
                                   </span>
                                   <span className="shrink-0 rounded-lf-pill border border-lf-on-photo-bord bg-lf-on-photo-bg px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-hero-ink/70">
@@ -760,7 +760,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                                         )
                                       }
                                     >
-                                      <span className="min-w-0 truncate text-sm font-medium text-lf-hero-ink">
+                                      <span className="min-w-0 truncate text-lf-control font-medium text-lf-hero-ink">
                                         {entry.title}
                                       </span>
                                       <span className="text-xs font-semibold text-lf-amber">
