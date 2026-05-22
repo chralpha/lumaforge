@@ -164,6 +164,58 @@ body {
   --color-primary: var(--color-accent);
   --color-primary-light: var(--color-accent-light);
   --color-primary-dark: var(--color-accent-dark);
+
+  /* LumaForge design tokens — see colors_and_type.css in design handoff */
+  --color-lf-paper:        oklch(0.964 0.018 86);
+  --color-lf-paper-high:   oklch(0.948 0.022 86);
+  --color-lf-paper-low:    oklch(0.918 0.026 86);
+  --color-lf-paper-warm:   oklch(0.900 0.034 82);
+  --color-lf-ink:          oklch(0.180 0.018 76);
+  --color-lf-ink-soft:     oklch(0.380 0.032 75);
+  --color-lf-hairline:     oklch(0.740 0.035 78);
+  --color-lf-hero-ink:     oklch(0.970 0.014 86);
+  --color-lf-dark:         oklch(0.180 0.020 76);
+  --color-lf-dark-low:     oklch(0.230 0.026 76);
+  --color-lf-green:        oklch(0.590 0.150 153);
+  --color-lf-green-hover:  oklch(0.660 0.160 153);
+  --color-lf-green-deep:   oklch(0.370 0.105 155);
+  --color-lf-green-soft:   oklch(0.840 0.090 145);
+  --color-lf-amber:        oklch(0.780 0.160 63);
+  --color-lf-amber-soft:   oklch(0.900 0.055 76);
+  --color-lf-rose:         oklch(0.620 0.170 346);
+  --color-lf-sky:          oklch(0.650 0.100 214);
+  --color-lf-hist-red:     oklch(0.78 0.18 29);
+  --color-lf-hist-green:   oklch(0.86 0.15 126);
+  --color-lf-hist-blue:    oklch(0.82 0.12 215);
+  --color-lf-hist-luma:    oklch(0.96 0.018 86);
+  --color-lf-on-photo-bg:        oklch(0.16 0.018 76 / 0.48);
+  --color-lf-on-photo-bg-strong: oklch(0.16 0.018 76 / 0.76);
+  --color-lf-on-photo-bord:      oklch(0.95 0.01  86 / 0.45);
+  --color-lf-on-photo-bord-soft: oklch(0.96 0.012 86 / 0.26);
+
+  --radius-lf-mark:    5px;
+  --radius-lf-control: 8px;
+  --radius-lf-panel:   8px;
+  --radius-lf-pill:    999px;
+
+  --spacing-lf-hairline:     1px;
+  --spacing-lf-chip-gap:     7px;
+  --spacing-lf-control-gap:  12px;
+  --spacing-lf-tap:          48px;
+
+  --shadow-lf-photo:   0 24px 80px oklch(0.18 0.018 76 / 0.18);
+  --shadow-lf-popover: 0 16px 42px oklch(0.18 0.018 76 / 0.18);
+  --shadow-lf-mark:    0 8px 22px  oklch(0.10 0.020 78 / 0.24);
+
+  --ease-lf-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-lf-standard: 180ms;
+  --duration-lf-fast:     160ms;
+
+  --text-lf-title:   1.46rem;
+  --text-lf-body:    1.03rem;
+  --text-lf-label:   0.76rem;
+  --text-lf-control: 0.78rem;
+  --text-lf-eyebrow: 0.66rem;
 }
 
 @layer theme {
