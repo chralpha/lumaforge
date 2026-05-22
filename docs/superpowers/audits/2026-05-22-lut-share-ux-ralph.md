@@ -78,11 +78,29 @@ and appends a one-line entry. When no pain point remains, the loop appends
 
 ## Backlog (slices waiting for a future iteration)
 
-_(empty — populate as iterations split work)_
+Micro-polish items intentionally left out of the converged set — none move the
+comfort needle materially, but reasonable to pick up later:
+
+- Add an inline sub-heading inside `LutContractTool` above the
+  `OnlineLutSourceControls` block on desktop (parent `ToolCard` already shows
+  the "Look" title, so the block is not truly anonymous — strictly cosmetic).
+- Rename `raw.mobile.lut.onlineHeading` → `raw.lutSource.heading` once that
+  sub-heading lands so the key isn't named "mobile" while serving both
+  surfaces.
+- Decompose the 432-line `OnlineLutSourceControls.tsx` into smaller files
+  (e.g. browser-dialog body, resource-row component). Architectural; not a UX
+  improvement.
+- Toast feedback for add/refresh/remove (currently silent — but those
+  affordances have inherent visual feedback via the resource list updates).
+- Clipboard fallback path when neither `navigator.clipboard.writeText` nor
+  `navigator.share` is available (e.g. ancient Safari): currently `share.copy`
+  is a no-op there; should at least show the URL for manual copy.
 
 ## Completed work
 
 _(one line per iteration — newest first)_
+
+- 2026-05-22 — **LOOP CONVERGED** — eight iterations brought the manifest-driven LUT-share UX to comfortable parity across desktop + mobile. Mobile-only sessions can now add/refresh/remove/share/browse online sources for the first time (previously had zero affordances); desktop is token-aligned to the `lf-*` paper family with per-resource issue messages; both surfaces have empty-state hints and toast feedback for share; the hook swallows benign `navigator.share` AbortError. Remaining items are micro-polish in Backlog and do not block comfort.
 
 - 2026-05-22 — Bucket 2/3/4 — wired sonner toast feedback for the online LUT source Share/copy button on both desktop and mobile. Hook now swallows `AbortError` from `navigator.share` (user cancellations are not errors) and propagates real failures so callers can surface them as `toast.error`. Two new i18n keys: `raw.lutSource.copied`, `raw.lutSource.copyFailed`. Test fixtures updated to return promises from `share.copy`.
 - 2026-05-22 — Bucket 1/2/3 — added an empty-state hint on both desktop and mobile that explains the expected manifest URL shape (`catalog.json` / `lumaforge-profiles.json`) when no sources are loaded yet, so first-use isn't a guessing game. New i18n key `raw.lutSource.emptyHint` in en + zh-CN.
