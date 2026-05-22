@@ -148,6 +148,13 @@ resolve to an `lf-*` token from the plan. File paths are repo-relative.
 | 123 | ControlsPanel.tsx:312 | `gap-6`, `p-5`, `bg-material-medium`, `rounded-xl`, `border-border` (panel root) | className | spacing keeps; `bg-lf-paper-high`, `rounded-lf-panel`, `border-lf-hairline` |
 | 124 | ControlsPanel.tsx:321,331,348,371 | `text-sm`, `font-medium`, `text-text` (section labels) | className | propose `lf-control` or `lf-label`; `text-lf-ink` |
 | 125 | ControlsPanel.tsx:332,363,383 | `text-xs`, `leading-relaxed`, `text-text-secondary` / `text-text-tertiary` (helper copy) | className | `text-lf-control`, `text-lf-ink-soft` |
+| 126 | mobile/MobileLutBrowser.tsx:324 | `px-3.5 pb-3 pt-2.5` | className | retain (sheet header padding — no exact token; flag as candidate for `lf-control-gap`/inline px) |
+| 127 | mobile/MobileLutBrowser.tsx:347 | `gap-[18px]` | className | candidate `spacing-lf-control-gap` (closest at 12px) OR retain as inline (note: 18px has no exact lf token) |
+| 128 | mobile/MobileLutBrowser.tsx:332 | `text-base` | className | `text-lf-title` (heading size) |
+| 129 | mobile/MobileLutBrowser.tsx:350 | `text-sm` | className | `text-lf-control` (body/secondary line) |
+| 130 | mobile/MobileLutBrowser.tsx:457 | `rounded-md` | className | `rounded-lf-control` |
+| 131 | mobile/MobileLutBrowser.tsx:466 | `rounded-md` | className | `rounded-lf-control` |
+| 132 | mobile/MobileLutBrowser.tsx:488 | `rounded-md` | className | `rounded-lf-control` |
 
 Notes / gaps (for Task 2 token additions):
 - 12px radius (`rounded-xl`) is used on every mobile card. The token set has
@@ -188,7 +195,7 @@ table. Each row below is a selector block in `src/modules/raw-processor/raw-lab.
 | 18 | `.raw-mobile-empty*` | `MobileLabChrome.tsx` empty branch (Look surface is hidden in empty) | OUT OF SCOPE (empty branch, not Look chrome) | n/a |
 | 19 | `@media (max-width: 980px) .raw-lab` / `.raw-lab-shell` / `.raw-tool-surface` | shell, tool surface | B | move to `RawLab`/`RawToolSurface` responsive className |
 | 20 | `@media (max-width: 640px) .raw-lab` (mobile palette override) | shell-wide on mobile | B (palette tokens) | replace `--color-*` overrides with `--color-lf-*` (dark mode set) and inline at `RawLab` |
-| 21 | `@media (max-width: 640px) .raw-lab-shell, .raw-lab-stage, .raw-lab-stage-frame` | shell/stage | OUT OF SCOPE (stage), B (shell) for Look mode container |
+| 21 | `@media (max-width: 640px) .raw-lab-shell, .raw-lab-stage, .raw-lab-stage-frame` | shell/stage | OUT OF SCOPE (stage), B (shell) for Look mode container | shell parts → `RawProcessorView.tsx` (the `.raw-lab-shell` div at `:310`) responsive className; stage/stage-frame parts stay until the Compare/Stage pilot |
 | 22 | `@media (max-height: 480px) .raw-lab header[role='banner']` | header compaction | B | move to `WorkspaceHeader` className |
 | 23 | `@media (prefers-reduced-motion: reduce) .raw-lab *` | universal | D | `raw-lab.surface.css` |
 
@@ -233,3 +240,18 @@ Concrete gaps for Task 5 (route mobile through Radix Dialog):
 | Close (X) button | `IconButton` at `MobileLutBrowser.tsx:335-341` | `DialogPrimitive.Close` styled inline at `LutBrowserDialog.tsx:157-164` | Partial (mobile uses shared `IconButton`; desktop uses Radix Close styled directly) | Align via tokens; no new primitive |
 | LUT thumbnail (per design handoff `mrl-look-card`) | not implemented in mobile sheet today (resource-entry text rows only) | not implemented in desktop today (`LUTProfileButton` is text-only) | No | Out of scope for Look pilot Tasks 2–12; flag as a later add — when it lands it should consume `LutCard` |
 | Backdrop / overlay | none on mobile (sheet is `bg-[linear-gradient(...)]` over preview, no scrim) | transparent `<div data-raw-lut-browser-overlay />` (no visual scrim) | n/a | When Task 5 routes mobile through Radix Dialog, both surfaces will share the same `surfaceFade` overlay treatment |
+
+## Decisions inherited from codex review (2026-05-22)
+
+The following decisions resolve ambiguities surfaced during Task 1 self-review and confirmed by codex. They constrain Tasks 2 and 5:
+
+**Token additions (Task 2):**
+- Add `--text-lf-eyebrow: 0.66rem` to the @theme block alongside `lf-label/lf-body/lf-title/lf-control`.
+- Add `--spacing-lf-tap: 48px` to the @theme block alongside `lf-hairline/lf-chip-gap/lf-control-gap`.
+- Do **not** add `--radius-lf-card`. Mobile cards currently using `rounded-xl` (12px) rebase to `rounded-lf-panel` (8px) during Tasks 6–8. If the design team later wants 12px, the canonical `colors_and_type.css` updates first and Task 2 picks it up naturally.
+
+**Mobile LUT browser sheet mode (Task 5):**
+- Mobile LUT browser uses Radix `Dialog` with `modal={false}`, following the desktop `LutBrowserDialog.tsx` (~line 97) pattern, not the default `DialogContent` wrapper (which injects a black overlay + blur per `src/components/ui/dialog/Dialog.tsx:84–90,128–136`).
+- Scroll lock is added as a manual side-effect tied to sheet open state (e.g. `document.body.style.overflow = 'hidden'`), not from Radix's modal scroll lock.
+- Escape-to-dismiss is preserved via Radix's `onEscapeKeyDown` / the close interaction (kept even when `modal={false}`).
+- Reason: product memory says "tool sheet is non-modal; never dim/blur the preview while adjusting; model on Lightroom/Snapseed" — Option A (`modal={true}` + hidden overlay) blocks pointer events on the preview and is rejected.
