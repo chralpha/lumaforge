@@ -203,6 +203,15 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     resolvedProfile,
   ])
 
+  useEffect(() => {
+    if (!props.open) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [props.open])
+
   const contractSearchResults = useMemo(
     () => searchLUTColorProfiles(contractQuery),
     [contractQuery],
