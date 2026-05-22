@@ -237,7 +237,7 @@ export function MobileLabChrome(props: {
                 type="button"
                 aria-label={t('raw.mobile.lut.changeAria')}
                 onClick={openLutBrowser}
-                className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lf-pill border border-lf-amber/35 bg-lf-amber/12 px-3 text-[0.7rem] font-semibold text-lf-amber-soft transition-colors hover:border-lf-amber/60 hover:text-lf-hero-ink"
+                className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lf-pill border border-lf-amber/35 bg-lf-amber/12 px-3 text-lf-label font-semibold text-lf-amber-soft transition-colors hover:border-lf-amber/60 hover:text-lf-hero-ink"
               >
                 {t('raw.mobile.lut.change')}
                 <ChevronRight aria-hidden="true" className="size-3" />
@@ -347,7 +347,7 @@ export function MobileLabChrome(props: {
               type="button"
               aria-label={t('raw.mobile.lut.title')}
               onClick={openLutBrowser}
-              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lf-pill border border-lf-amber/35 bg-lf-amber/12 px-3 text-[0.7rem] font-semibold text-lf-amber-soft transition-colors hover:border-lf-amber/60 hover:text-lf-hero-ink"
+              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lf-pill border border-lf-amber/35 bg-lf-amber/12 px-3 text-lf-label font-semibold text-lf-amber-soft transition-colors hover:border-lf-amber/60 hover:text-lf-hero-ink"
             >
               {t('raw.mobile.lut.add')}
               <ChevronRight aria-hidden="true" className="size-3" />
