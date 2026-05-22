@@ -179,6 +179,10 @@ export type ExportExecutionPlan = {
   productCopy: ExportOrchestrationCopy
   derivedLabel: string
   policyVector: ExportPolicy
+  sourceWidth?: number
+  sourceHeight?: number
+  capabilitySnapshot?: CapabilityVector
+  runtimeSnapshot?: ExportRuntimeResources
 }
 
 function getExportDebugWindow() {
@@ -419,6 +423,10 @@ export function selectExportExecutionPlan(
     productCopy: policy.productCopy,
     derivedLabel: policy.derivedLabel,
     policyVector: policy,
+    sourceWidth: input.sourceWidth,
+    sourceHeight: input.sourceHeight,
+    capabilitySnapshot: capability,
+    runtimeSnapshot: runtime,
   }
 }
 

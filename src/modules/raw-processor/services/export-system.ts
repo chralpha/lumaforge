@@ -11,6 +11,7 @@ import type {
 import { FullResolutionExportWorkerClient } from '~/lib/export/full-res-export-client'
 import type { ExportFidelity } from '~/lib/gl/export'
 import { detectCapabilityVector } from '~/lib/runtime/capability-vector'
+import type { ExportRuntimeResources } from '~/lib/runtime/export-runtime-resources'
 import { snapshotExportRuntimeResources } from '~/lib/runtime/export-runtime-resources'
 import { ExportBridge } from '~/lib/workers/export-bridge'
 
@@ -241,13 +242,28 @@ export async function runFullResolutionExportJob({
         throw error
       }
 
+      const retryPlan = selectExportExecutionPlan({
+        performancePreference: 'safe',
+        sourceWidth: attemptPlan.sourceWidth,
+        sourceHeight: attemptPlan.sourceHeight,
+        previousResourceFailure: true,
+        previousCrashLikeInterruption: false,
+        previousUserInterrupted: false,
+        capability: attemptPlan.capabilitySnapshot,
+        runtime:
+          attemptPlan.runtimeSnapshot ??
+          ({
+            opfsSinkAvailable: false,
+            opfsAvailableMB: null,
+            streamingSinkAvailable: false,
+          } satisfies ExportRuntimeResources),
+      })
+
+      const workerNextRows = getFreshWorkerRetryRows(error)
       const nextRows =
-        getFreshWorkerRetryRows(error) ??
-        Math.floor(attemptPlan.preferredRows / 2)
-      const normalizedNextRows = Math.min(
-        attemptPlan.profile.maxRows,
-        Math.max(attemptPlan.profile.minRows, nextRows),
-      )
+        workerNextRows != null
+          ? Math.min(workerNextRows, retryPlan.preferredRows)
+          : retryPlan.preferredRows
 
       emitFullResolutionExportAttempt(onAttempt, {
         attempt: attempts,
@@ -260,19 +276,17 @@ export async function runFullResolutionExportJob({
             ? error.message
             : 'FULL_RES_EXPORT_WORKER_FAILED',
         previousRows: attemptPlan.preferredRows,
-        nextRows: normalizedNextRows,
+        nextRows,
         previousConcurrency: attemptPlan.concurrency,
-        nextConcurrency: 1,
+        nextConcurrency: retryPlan.concurrency,
         freshWorker: true,
         priorClientDisposed: false,
       })
 
-      plan = {
-        ...attemptPlan,
-        preferredRows: normalizedNextRows,
-        concurrency: 1,
-        productCopy: 'resource-retry',
-      }
+      plan =
+        retryPlan.preferredRows === nextRows
+          ? retryPlan
+          : { ...retryPlan, preferredRows: nextRows }
     } finally {
       await bridge.terminate()
       emitFullResolutionExportAttempt(onAttempt, {
