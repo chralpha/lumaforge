@@ -217,10 +217,10 @@ export function OnlineLutSourceControls({
                   return (
                     <div
                       key={entry.id}
-                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_32px] items-center gap-2 rounded-md border border-border bg-fill/50 px-2 py-1.5"
+                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_32px] items-center gap-2 rounded-lf-control border border-lf-hairline bg-lf-paper px-2 py-1.5"
                       data-raw-lut="source-entry"
                     >
-                      <span className="min-w-0 truncate text-callout font-medium text-text">
+                      <span className="min-w-0 truncate text-lf-control font-medium text-lf-ink">
                         {entry.title}
                       </span>
                       <LutIconButton
@@ -239,7 +239,7 @@ export function OnlineLutSourceControls({
                   <>
                     {Array.from(familyGroups, ([family, entries]) => (
                       <div key={family} className="grid gap-1.5">
-                        <div className="text-footnote font-semibold uppercase text-text-secondary">
+                        <div className="text-lf-label font-semibold uppercase text-lf-ink-soft">
                           {family}
                         </div>
                         <div className="grid gap-1.5 sm:grid-cols-2">
@@ -249,7 +249,7 @@ export function OnlineLutSourceControls({
                     ))}
                     {ungrouped.length > 0 && (
                       <div className="grid gap-1.5">
-                        <div className="text-footnote font-semibold uppercase text-text-secondary">
+                        <div className="text-lf-label font-semibold uppercase text-lf-ink-soft">
                           {t('raw.lutSource.others')}
                         </div>
                         <div className="grid gap-1.5 sm:grid-cols-2">
@@ -261,7 +261,7 @@ export function OnlineLutSourceControls({
                 )
               })()
             ) : (
-              <p className="text-callout leading-relaxed text-text-secondary">
+              <p className="text-lf-body leading-relaxed text-lf-ink-soft">
                 {openIssues.length > 0
                   ? t('raw.lutSource.noneCompatible')
                   : t('raw.lutSource.noneYet')}
@@ -295,7 +295,7 @@ export function OnlineLutSourceControls({
               void onlineLutSources.addSourceFromInput()
             }
           }}
-          inputClassName="h-8 border-border bg-background text-xs text-text shadow-none placeholder:text-text-tertiary focus:border-accent focus:ring-accent/20"
+          inputClassName="h-8 rounded-lf-control border-lf-hairline bg-lf-paper text-lf-control text-lf-ink shadow-none placeholder:text-lf-ink-soft/65 focus:border-lf-green focus:ring-lf-green/20"
         />
         <LutIconButton
           label={t('raw.lutSource.add')}
@@ -326,7 +326,7 @@ export function OnlineLutSourceControls({
             return (
               <div
                 key={resource.id}
-                className="grid min-w-0 border-t border-border py-2"
+                className="grid min-w-0 border-t border-lf-hairline py-2"
                 data-raw-lut="source-resource"
               >
                 <div
@@ -334,19 +334,19 @@ export function OnlineLutSourceControls({
                   data-raw-lut="source-resource-row"
                 >
                   <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                    <span className="min-w-0 truncate text-callout font-semibold text-accent">
+                    <span className="min-w-0 truncate text-lf-control font-semibold text-lf-green">
                       {resource.label}
                     </span>
-                    <span className="shrink-0 rounded-full border border-border bg-background px-1.5 py-0.5 text-[0.64rem] font-semibold leading-none text-text-secondary">
+                    <span className="shrink-0 rounded-lf-pill border border-lf-hairline bg-lf-paper px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-ink-soft">
                       {formatEntryCount(entries.length)}
                     </span>
                     {isResourceLoading && (
-                      <span className="shrink-0 rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[0.64rem] font-semibold leading-none text-accent">
+                      <span className="shrink-0 rounded-lf-pill border border-lf-green/30 bg-lf-green/10 px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-green">
                         {t('raw.lutSource.loading')}
                       </span>
                     )}
                     {hasIssue && (
-                      <span className="shrink-0 rounded-full border border-yellow-600/30 bg-yellow-500/10 px-1.5 py-0.5 text-[0.64rem] font-semibold leading-none text-yellow-700">
+                      <span className="shrink-0 rounded-lf-pill border border-lf-amber/35 bg-lf-amber/12 px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-amber-soft">
                         {t('raw.lutSource.issue')}
                       </span>
                     )}
@@ -408,7 +408,7 @@ export function OnlineLutSourceControls({
 
       {state.issues.length > 0 && (
         <div
-          className="grid gap-1 text-footnote leading-relaxed text-text-secondary"
+          className="grid gap-1 text-lf-label leading-relaxed text-lf-ink-soft"
           role="status"
           aria-live="polite"
         >
