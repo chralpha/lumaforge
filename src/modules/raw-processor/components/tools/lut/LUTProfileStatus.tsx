@@ -48,14 +48,14 @@ export function LUTProfileStatus({
     <div className="space-y-2 pt-1">
       {isUnsupportedOutput ? (
         <p
-          className="m-0 rounded-lf-control border border-lf-amber/45 bg-lf-amber/12 px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink-soft"
+          className="m-0 rounded-lf-control border border-lf-amber/45 bg-lf-amber-soft/15 px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink-soft"
           data-raw-lut="contract-status"
         >
           {t('raw.lutContract.unsupportedOutput')}
         </p>
       ) : isPending ? (
         <p
-          className="m-0 rounded-lf-control border border-lf-amber/45 bg-lf-amber/12 px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink-soft"
+          className="m-0 rounded-lf-control border border-lf-amber/45 bg-lf-amber-soft/15 px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink-soft"
           data-raw-lut="contract-status"
         >
           {t('raw.lutContract.unknown')}
@@ -82,7 +82,7 @@ export function LUTProfileStatus({
           )}
           {needsOutputContract && (
             <p
-              className="m-0 rounded-lf-control border border-lf-amber/45 bg-lf-amber/12 px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink-soft"
+              className="m-0 rounded-lf-control border border-lf-amber/45 bg-lf-amber-soft/15 px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink-soft"
               data-raw-lut="contract-status"
             >
               {t('raw.lutContract.needsOutput')}
