@@ -1,19 +1,23 @@
 .raw-lab {
-  --color-background: oklch(0.964 0.018 86);
-  --color-text: oklch(0.18 0.018 76);
-  --color-text-secondary: oklch(0.38 0.032 75);
+  /* Palette aliases — retokenized to lf-* where an exact match exists
+     (Task 10, audit Table B row 1). Values without an exact lf-* match
+     remain as oklch literals; those belong to out-of-scope surfaces
+     (Tone/Compare/Progress/Empty/Stage) and migrate in successor specs. */
+  --color-background: var(--color-lf-paper);
+  --color-text: var(--color-lf-ink);
+  --color-text-secondary: var(--color-lf-ink-soft);
   --color-text-tertiary: oklch(0.5 0.035 75);
-  --color-border: oklch(0.74 0.035 78 / 0.62);
-  --color-border-secondary: oklch(0.74 0.035 78 / 0.4);
-  --color-accent: oklch(0.59 0.15 153);
-  --color-fill: oklch(0.918 0.026 86);
-  --color-fill-secondary: oklch(0.9 0.034 82 / 0.9);
+  --color-border: oklch(from var(--color-lf-hairline) l c h / 0.62);
+  --color-border-secondary: oklch(from var(--color-lf-hairline) l c h / 0.4);
+  --color-accent: var(--color-lf-green);
+  --color-fill: var(--color-lf-paper-low);
+  --color-fill-secondary: oklch(from var(--color-lf-paper-warm) l c h / 0.9);
   --color-fill-tertiary: oklch(0.86 0.03 80 / 0.56);
-  --color-material-opaque: oklch(0.948 0.022 86);
+  --color-material-opaque: var(--color-lf-paper-high);
   --color-material-medium: oklch(0.942 0.024 86);
-  --color-accent-strong: oklch(0.37 0.105 155);
-  --color-stage-background: oklch(0.18 0.02 76);
-  --color-stage-grad-1: oklch(0.23 0.026 76);
+  --color-accent-strong: var(--color-lf-green-deep);
+  --color-stage-background: var(--color-lf-dark);
+  --color-stage-grad-1: var(--color-lf-dark-low);
   --color-stage-grad-2: oklch(0.16 0.02 76);
   --color-stage-scrim: oklch(0.16 0.018 76 / 0.82);
   --color-stage-panel: oklch(0.16 0.018 76 / 0.78);
@@ -22,9 +26,9 @@
   --color-progress-panel: oklch(0.15 0.018 76 / 0.64);
   --color-on-stage-soft: oklch(0.91 0.02 86 / 0.82);
   --color-stage-hairline: oklch(0.96 0.012 86 / 0.18);
-  --color-progress: oklch(0.78 0.16 63);
-  --color-progress-track: oklch(0.97 0.014 86 / 0.18);
-  --color-on-stage: oklch(0.97 0.014 86);
+  --color-progress: var(--color-lf-amber);
+  --color-progress-track: oklch(from var(--color-lf-hero-ink) l c h / 0.18);
+  --color-on-stage: var(--color-lf-hero-ink);
   --color-scrollbar-thumb: oklch(0.54 0.055 78 / 0.64);
   --color-scrollbar-thumb-hover: oklch(0.43 0.082 152 / 0.78);
 
@@ -43,55 +47,6 @@
     linear-gradient(180deg, var(--color-background), var(--color-fill)),
     var(--color-background);
   color: var(--color-text);
-}
-
-.raw-lab,
-.raw-lab *,
-.raw-lab *::before,
-.raw-lab *::after {
-  box-sizing: border-box;
-}
-
-.raw-tool-surface,
-[data-raw-lut='source-browser-list'],
-[data-raw-lut='contract-browser-list'] {
-  scrollbar-color: var(--color-scrollbar-thumb) transparent;
-  scrollbar-width: thin;
-}
-
-.raw-tool-surface::-webkit-scrollbar,
-[data-raw-lut='source-browser-list']::-webkit-scrollbar,
-[data-raw-lut='contract-browser-list']::-webkit-scrollbar {
-  width: 10px;
-}
-
-.raw-tool-surface::-webkit-scrollbar-track,
-[data-raw-lut='source-browser-list']::-webkit-scrollbar-track,
-[data-raw-lut='contract-browser-list']::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.raw-tool-surface::-webkit-scrollbar-thumb,
-[data-raw-lut='source-browser-list']::-webkit-scrollbar-thumb,
-[data-raw-lut='contract-browser-list']::-webkit-scrollbar-thumb {
-  min-height: 44px;
-  border: 3px solid transparent;
-  border-radius: 999px;
-  background: var(--color-scrollbar-thumb);
-  background-clip: content-box;
-}
-
-.raw-tool-surface::-webkit-scrollbar-thumb:hover,
-[data-raw-lut='source-browser-list']::-webkit-scrollbar-thumb:hover,
-[data-raw-lut='contract-browser-list']::-webkit-scrollbar-thumb:hover {
-  background: var(--color-scrollbar-thumb-hover);
-  background-clip: content-box;
-}
-
-.raw-tool-surface::-webkit-scrollbar-corner,
-[data-raw-lut='source-browser-list']::-webkit-scrollbar-corner,
-[data-raw-lut='contract-browser-list']::-webkit-scrollbar-corner {
-  background: transparent;
 }
 
 .raw-histogram-plot {
@@ -129,16 +84,20 @@
   stroke: none;
 }
 
+/* Histogram channel fills use hand-tuned L/C for visual separation from the
+   line strokes; hue is anchored to the lf-hist-* family. Successor histogram
+   spec may collapse these to relative-color derivations once the look is
+   re-evaluated end-to-end. */
 .raw-histogram-channel-fill-red {
-  fill: oklch(0.66 0.19 29 / 0.38);
+  fill: oklch(from var(--color-lf-hist-red) 0.66 0.19 h / 0.38);
 }
 
 .raw-histogram-channel-fill-green {
-  fill: oklch(0.76 0.16 128 / 0.36);
+  fill: oklch(from var(--color-lf-hist-green) 0.76 0.16 128 / 0.36);
 }
 
 .raw-histogram-channel-fill-blue {
-  fill: oklch(0.72 0.13 220 / 0.46);
+  fill: oklch(from var(--color-lf-hist-blue) 0.72 0.13 220 / 0.46);
 }
 
 .raw-histogram-channel-line {
@@ -148,20 +107,20 @@
 }
 
 .raw-histogram-channel-line-red {
-  stroke: oklch(0.78 0.18 29 / 0.62);
+  stroke: oklch(from var(--color-lf-hist-red) l c h / 0.62);
 }
 
 .raw-histogram-channel-line-green {
-  stroke: oklch(0.86 0.15 126 / 0.58);
+  stroke: oklch(from var(--color-lf-hist-green) l c h / 0.58);
 }
 
 .raw-histogram-channel-line-blue {
-  stroke: oklch(0.82 0.12 215 / 0.68);
+  stroke: oklch(from var(--color-lf-hist-blue) l c h / 0.68);
 }
 
 .raw-histogram-luma {
   fill: none;
-  stroke: oklch(0.96 0.018 86);
+  stroke: var(--color-lf-hist-luma);
   stroke-width: 1.6;
   opacity: 0.94;
   filter: drop-shadow(0 1px 1px oklch(0.11 0.018 76 / 0.52));
@@ -402,10 +361,13 @@
      full-height row/column, otherwise the shell falls into the `auto` row
      and shrinks to the preview's intrinsic height (leaving a void). */
   .raw-lab {
-    --color-background: oklch(0.16 0.02 76);
+    /* Mobile dark-palette override (Task 10, audit Table B row 20).
+       Retokenized to lf-* where an exact match exists; the remaining
+       oklch literals belong to out-of-scope surfaces. */
+    --color-background: var(--color-lf-dark);
     --color-fill: oklch(0.13 0.02 76);
     --color-fill-secondary: oklch(0.18 0.022 76);
-    --color-material-opaque: oklch(0.16 0.02 76);
+    --color-material-opaque: var(--color-lf-dark);
     --color-material-medium: oklch(0.13 0.02 76);
 
     grid-template-rows: minmax(0, 1fr);
@@ -605,11 +567,3 @@
   padding: 5px 9px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .raw-lab *,
-  .raw-lab *::before,
-  .raw-lab *::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-  }
-}

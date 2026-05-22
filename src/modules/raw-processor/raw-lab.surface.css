@@ -1,0 +1,65 @@
+/*
+ * raw-lab surface: scrollbar + reset rules.
+ * Intentional vanilla CSS — Tailwind has limited reach into ::-webkit-scrollbar
+ * pseudo-elements and the .raw-lab *  universal reset block.
+ * Do not add token-bearing rules here; those live in raw-lab.css (SVG/canvas)
+ * or in component className strings.
+ */
+
+.raw-lab,
+.raw-lab *,
+.raw-lab *::before,
+.raw-lab *::after {
+  box-sizing: border-box;
+}
+
+.raw-tool-surface,
+[data-raw-lut='source-browser-list'],
+[data-raw-lut='contract-browser-list'] {
+  scrollbar-color: var(--color-scrollbar-thumb) transparent;
+  scrollbar-width: thin;
+}
+
+.raw-tool-surface::-webkit-scrollbar,
+[data-raw-lut='source-browser-list']::-webkit-scrollbar,
+[data-raw-lut='contract-browser-list']::-webkit-scrollbar {
+  width: 10px;
+}
+
+.raw-tool-surface::-webkit-scrollbar-track,
+[data-raw-lut='source-browser-list']::-webkit-scrollbar-track,
+[data-raw-lut='contract-browser-list']::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.raw-tool-surface::-webkit-scrollbar-thumb,
+[data-raw-lut='source-browser-list']::-webkit-scrollbar-thumb,
+[data-raw-lut='contract-browser-list']::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--color-scrollbar-thumb);
+  background-clip: content-box;
+}
+
+.raw-tool-surface::-webkit-scrollbar-thumb:hover,
+[data-raw-lut='source-browser-list']::-webkit-scrollbar-thumb:hover,
+[data-raw-lut='contract-browser-list']::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scrollbar-thumb-hover);
+  background-clip: content-box;
+}
+
+.raw-tool-surface::-webkit-scrollbar-corner,
+[data-raw-lut='source-browser-list']::-webkit-scrollbar-corner,
+[data-raw-lut='contract-browser-list']::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .raw-lab *,
+  .raw-lab *::before,
+  .raw-lab *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
