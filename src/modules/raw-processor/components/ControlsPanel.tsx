@@ -77,13 +77,13 @@ function LUTProfileButton({
       aria-pressed={isActive}
       onClick={() => onSelect(profile)}
       className={clsxm(
-        'w-full rounded-md border px-2.5 py-2 text-left text-xs leading-snug transition-colors',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+        'w-full rounded-lf-control border px-2.5 py-2 text-left text-lf-control leading-snug transition-colors',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lf-green',
         isActive
-          ? 'border-accent bg-accent/10 text-text'
+          ? 'border-lf-green bg-lf-green/10 text-lf-ink'
           : highlighted
-            ? 'border-accent/40 bg-fill text-text'
-            : 'border-border bg-background text-text-secondary hover:border-accent/40 hover:text-text',
+            ? 'border-lf-green/40 bg-lf-paper-low text-lf-ink'
+            : 'border-lf-hairline bg-lf-paper text-lf-ink-soft hover:border-lf-green/40 hover:text-lf-ink',
       )}
     >
       <span className="block min-w-0 break-words">{label}</span>
@@ -146,13 +146,13 @@ function LUTProfileSelector({
         value={query}
         placeholder="Search camera/log or output"
         onChange={(event) => setQuery(event.currentTarget.value)}
-        inputClassName="h-8 text-xs"
+        inputClassName="h-8 text-lf-control"
       />
 
       <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
         {visibleSuggestions.length > 0 && (
           <div className="space-y-1">
-            <p className="text-[11px] font-medium uppercase text-text-tertiary">
+            <p className="text-lf-eyebrow font-medium uppercase text-lf-ink-soft">
               Suggested
             </p>
             <div className="space-y-1">
@@ -171,7 +171,7 @@ function LUTProfileSelector({
 
         {groupedProfiles.map((group) => (
           <div key={group.label} className="space-y-1">
-            <p className="text-[11px] font-medium uppercase text-text-tertiary">
+            <p className="text-lf-eyebrow font-medium uppercase text-lf-ink-soft">
               {group.label}
             </p>
             <div className="space-y-1">
@@ -188,7 +188,7 @@ function LUTProfileSelector({
         ))}
 
         {!hasMatches && (
-          <p className="text-xs text-text-tertiary">
+          <p className="text-lf-control text-lf-ink-soft">
             No matching LUT contract.
           </p>
         )}
@@ -231,32 +231,32 @@ function LUTProfileStatus({
   return (
     <div className="space-y-2 pt-1">
       {isUnsupportedOutput ? (
-        <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs leading-relaxed text-text-secondary">
+        <p className="rounded-lf-control border border-lf-green/30 bg-lf-green/10 px-3 py-2 text-lf-control leading-relaxed text-lf-ink-soft">
           This LUT output is not supported yet. Use a Rec.709 display LUT for
           this build.
         </p>
       ) : isPending ? (
-        <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs leading-relaxed text-text-secondary">
+        <p className="rounded-lf-control border border-lf-green/30 bg-lf-green/10 px-3 py-2 text-lf-control leading-relaxed text-lf-ink-soft">
           {UNKNOWN_LUT_COPY}
         </p>
       ) : resolvedProfile ? (
         <div className="space-y-1.5 text-xs leading-relaxed">
           <p className="grid grid-cols-[4.7rem_minmax(0,1fr)] gap-2">
-            <span className="text-text-tertiary">LUT input:</span>
-            <span className="min-w-0 break-words text-text">
+            <span className="text-lf-ink-soft">LUT input:</span>
+            <span className="min-w-0 break-words text-lf-ink">
               {resolvedProfile.label}
             </span>
           </p>
           {outputLabel && (
             <p className="grid grid-cols-[4.7rem_minmax(0,1fr)] gap-2">
-              <span className="text-text-tertiary">LUT output:</span>
-              <span className="min-w-0 break-words text-text">
+              <span className="text-lf-ink-soft">LUT output:</span>
+              <span className="min-w-0 break-words text-lf-ink">
                 {outputLabel}
               </span>
             </p>
           )}
           {needsOutputContract && (
-            <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs leading-relaxed text-text-secondary">
+            <p className="rounded-lf-control border border-lf-green/30 bg-lf-green/10 px-3 py-2 text-lf-control leading-relaxed text-lf-ink-soft">
               Choose the LUT output before preview or export.
             </p>
           )}
@@ -309,7 +309,7 @@ export function ControlsPanel({
     <m.div
       data-raw-panel="controls"
       className={clsxm(
-        'flex flex-col gap-6 p-5 bg-material-medium rounded-xl border border-border',
+        'flex flex-col gap-6 p-5 bg-lf-paper-high rounded-lf-panel border border-lf-hairline',
         className,
       )}
       initial={{ opacity: 0, x: 20 }}
@@ -318,7 +318,9 @@ export function ControlsPanel({
     >
       <div className="raw-lab-controls-grid space-y-6">
         <section className="space-y-3">
-          <label className="text-sm font-medium text-text">Intensity</label>
+          <label className="text-lf-control font-medium text-lf-ink">
+            Intensity
+          </label>
           <IntensityChips
             value={activeIntensity}
             onChange={onIntensitySelect}
@@ -345,7 +347,9 @@ export function ControlsPanel({
         <Divider />
 
         <section className="space-y-2">
-          <label className="text-sm font-medium text-text">Custom LUT</label>
+          <label className="text-lf-control font-medium text-lf-ink">
+            Custom LUT
+          </label>
           <LutDropzone
             onFileDrop={onLutLoad}
             currentLut={currentLutName}
@@ -360,7 +364,7 @@ export function ControlsPanel({
               onSelect={onLutProfileSelect}
             />
           )}
-          <p className="text-xs text-text-tertiary">
+          <p className="text-lf-control text-lf-ink-soft">
             `.cube` LUTs run in a best effort path for Phase 1.
           </p>
         </section>

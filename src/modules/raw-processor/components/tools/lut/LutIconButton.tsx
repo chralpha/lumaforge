@@ -36,7 +36,7 @@ export function LutIconButton({
       disabled={disabled}
       onClick={onClick}
       className={clsxm(
-        "relative inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-text-secondary transition before:absolute before:inset-x-0 before:-inset-y-[7px] before:content-[''] hover:-translate-y-px hover:border-accent/50 hover:bg-fill-secondary hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-[15px] [&_svg]:stroke-2",
+        "relative inline-flex size-8 items-center justify-center rounded-lf-control border border-lf-hairline bg-lf-paper text-lf-ink-soft transition before:absolute before:inset-x-0 before:-inset-y-[7px] before:content-[''] hover:-translate-y-px hover:border-lf-green/50 hover:bg-lf-paper-low hover:text-lf-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-[15px] [&_svg]:stroke-2",
         busy && '[&_svg]:animate-spin motion-reduce:[&_svg]:animate-none',
       )}
       data-raw-lut="source-icon-button"

@@ -218,7 +218,7 @@ export function LUTContractBrowser({
           type="button"
           role="tab"
           aria-selected={step === 'input'}
-          className="min-h-8 rounded-md border border-border bg-background px-2 text-callout font-semibold text-text-secondary transition hover:border-accent/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-selected:border-accent/50 aria-selected:bg-accent/10 aria-selected:text-accent"
+          className="min-h-8 rounded-lf-control border border-lf-hairline bg-lf-paper px-2 text-lf-body font-semibold text-lf-ink-soft transition hover:border-lf-green/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lf-green aria-selected:border-lf-green/50 aria-selected:bg-lf-green/10 aria-selected:text-lf-green"
           onClick={() => setStep('input')}
         >
           {t('raw.lutContract.inputTab')}
@@ -227,7 +227,7 @@ export function LUTContractBrowser({
           type="button"
           role="tab"
           aria-selected={step === 'output'}
-          className="min-h-8 rounded-md border border-border bg-background px-2 text-callout font-semibold text-text-secondary transition hover:border-accent/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-selected:border-accent/50 aria-selected:bg-accent/10 aria-selected:text-accent"
+          className="min-h-8 rounded-lf-control border border-lf-hairline bg-lf-paper px-2 text-lf-body font-semibold text-lf-ink-soft transition hover:border-lf-green/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lf-green aria-selected:border-lf-green/50 aria-selected:bg-lf-green/10 aria-selected:text-lf-green"
           onClick={() => setStep('output')}
         >
           {t('raw.lutContract.outputTab')}
@@ -243,7 +243,7 @@ export function LUTContractBrowser({
         value={query}
         placeholder={t('raw.lutContract.searchPlaceholder')}
         onChange={(event) => setQuery(event.currentTarget.value)}
-        inputClassName="h-8 border-border bg-background text-xs text-text shadow-none placeholder:text-text-tertiary focus:border-accent focus:ring-accent/20"
+        inputClassName="h-8 border-lf-hairline bg-lf-paper text-lf-control text-lf-ink shadow-none placeholder:text-lf-ink-soft/65 focus:border-lf-green focus:ring-lf-green/20"
       />
 
       <div
@@ -255,7 +255,7 @@ export function LUTContractBrowser({
           <>
             {visibleSuggestions.length > 0 && (
               <div className="space-y-1">
-                <p className="m-0 text-footnote font-semibold uppercase text-text-secondary">
+                <p className="m-0 text-lf-label font-semibold uppercase text-lf-ink-soft">
                   {t('raw.lutContract.suggestedInput')}
                 </p>
                 <div className="grid gap-1 sm:grid-cols-2">
@@ -278,7 +278,7 @@ export function LUTContractBrowser({
 
             {groupedInputProfiles.map((group) => (
               <div key={`input-${group.label}`} className="space-y-1">
-                <p className="m-0 text-footnote font-semibold uppercase text-text-secondary">
+                <p className="m-0 text-lf-label font-semibold uppercase text-lf-ink-soft">
                   {t('raw.lutContract.groupInput', { group: group.label })}
                 </p>
                 <div className="grid gap-1 sm:grid-cols-2">
@@ -299,7 +299,7 @@ export function LUTContractBrowser({
             ))}
 
             {!hasInputMatches && (
-              <p className="m-0 text-callout leading-relaxed text-text-secondary">
+              <p className="m-0 text-lf-body leading-relaxed text-lf-ink-soft">
                 {t('raw.lutContract.noInput')}
               </p>
             )}
@@ -308,7 +308,7 @@ export function LUTContractBrowser({
           <>
             {suggestedOutputOptions.length > 0 && (
               <div className="space-y-1">
-                <p className="m-0 text-footnote font-semibold uppercase text-text-secondary">
+                <p className="m-0 text-lf-label font-semibold uppercase text-lf-ink-soft">
                   {t('raw.lutContract.suggestedOutput')}
                 </p>
                 <div className="grid gap-1 sm:grid-cols-2">
@@ -327,7 +327,7 @@ export function LUTContractBrowser({
 
             {groupedOutputOptions.map((group) => (
               <div key={`output-${group.label}`} className="space-y-1">
-                <p className="m-0 text-footnote font-semibold uppercase text-text-secondary">
+                <p className="m-0 text-lf-label font-semibold uppercase text-lf-ink-soft">
                   {t('raw.lutContract.groupOutput', { group: group.label })}
                 </p>
                 <div className="grid gap-1 sm:grid-cols-2">
@@ -344,7 +344,7 @@ export function LUTContractBrowser({
             ))}
 
             {!hasOutputMatches && (
-              <p className="m-0 text-callout leading-relaxed text-text-secondary">
+              <p className="m-0 text-lf-body leading-relaxed text-lf-ink-soft">
                 {t('raw.lutContract.noOutput')}
               </p>
             )}
