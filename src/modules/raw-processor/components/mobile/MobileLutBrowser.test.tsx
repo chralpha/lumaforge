@@ -193,6 +193,23 @@ describe('mobileLutBrowser', () => {
     expect(refreshButton).toHaveAttribute('aria-busy', 'true')
   })
 
+  it('surfaces per-resource issue messages inside the resource card', () => {
+    const fixture = onlineLutSourcesFixture()
+    fixture.state = {
+      ...fixture.state,
+      issues: [
+        {
+          code: 'fetch-failed',
+          message: 'Could not reach catalog',
+          resourceId: 'source-1',
+        },
+      ],
+    }
+    render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
+
+    expect(screen.getByText('Could not reach catalog')).toBeInTheDocument()
+  })
+
   it('lets an unresolved LUT choose input and output contracts from the mobile sheet', async () => {
     const onLutProfileSelect = vi.fn()
     render(

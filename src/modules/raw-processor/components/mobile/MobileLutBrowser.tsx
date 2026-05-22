@@ -60,6 +60,7 @@ export interface MobileLutBrowserProps {
 
 type OnlineResource = UseOnlineLutSourcesResult['state']['resources'][number]
 type OnlineEntry = UseOnlineLutSourcesResult['state']['entries'][number]
+type OnlineIssue = UseOnlineLutSourcesResult['state']['issues'][number]
 type ContractStep = 'input' | 'output'
 
 const OUTPUT_REQUIRED_LABEL = 'Output profile required'
@@ -155,6 +156,20 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     props.onlineLutSources?.state.entries,
     props.onlineLutSources?.state.resources,
   ])
+  const issuesByResourceId = useMemo(() => {
+    const issues = new Map<string, OnlineIssue[]>()
+
+    for (const issue of props.onlineLutSources?.state.issues ?? []) {
+      if (!issue.resourceId) continue
+
+      issues.set(issue.resourceId, [
+        ...(issues.get(issue.resourceId) ?? []),
+        issue,
+      ])
+    }
+
+    return issues
+  }, [props.onlineLutSources?.state.issues])
 
   const profileSuggestions = useMemo(
     () =>
@@ -779,6 +794,8 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                           (resource) => {
                             const entries =
                               entriesByResourceId.get(resource.id) ?? []
+                            const resourceIssues =
+                              issuesByResourceId.get(resource.id) ?? []
                             const isResourceLoading =
                               props.onlineLutSources!.state.isLoading &&
                               props.onlineLutSources!.state.activeResourceId ===
@@ -847,6 +864,41 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                                     </button>
                                   </div>
                                 </div>
+                                {resourceIssues.length > 0 && (
+                                  <ul
+                                    className="m-0 grid list-none gap-1 p-0"
+                                    role="status"
+                                    aria-live="polite"
+                                  >
+                                    {resourceIssues.map((issue, index) => (
+                                      <li
+                                        key={[
+                                          issue.code,
+                                          issue.entryId ??
+                                            issue.sourceUrl ??
+                                            'resource',
+                                          index,
+                                        ].join(':')}
+                                        className="m-0"
+                                      >
+                                        <Chip
+                                          tone="amber"
+                                          surface="on-photo"
+                                          size="sm"
+                                          className="max-w-full"
+                                        >
+                                          <AlertTriangle
+                                            aria-hidden="true"
+                                            className="size-3 shrink-0"
+                                          />
+                                          <span className="min-w-0 truncate">
+                                            {issue.message}
+                                          </span>
+                                        </Chip>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
                                 <div className="grid gap-1.5">
                                   {entries.map((entry) => (
                                     <button
