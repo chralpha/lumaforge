@@ -1,13 +1,12 @@
 import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { selectExportExecutionPlan } from '~/lib/export/execution-profile'
 import { createBlobOutputResult } from '~/lib/export/output-sink'
 import { resetCapabilityVectorForTest } from '~/lib/runtime/capability-vector'
 
 import {
   buildExportFilename,
-  getConcurrencyForFidelity,
-  getPreferredRowsForFidelity,
   recommendRetryLevel,
   runFullResolutionExportJob,
   selectCurrentExportExecutionPlan,
@@ -38,23 +37,32 @@ describe('export-system', () => {
     expect(recommendRetryLevel('safe')).toBe(null)
   })
 
-  it('maps fidelity levels to derived fallback row budgets', () => {
-    expect(getPreferredRowsForFidelity('safe')).toBe(512)
-    expect(getPreferredRowsForFidelity('balanced')).toBe(512)
-    expect(getPreferredRowsForFidelity('max')).toBe(512)
-  })
+  it('returns safe fallback defaults for each fidelity with unknown capability', () => {
+    const unknownCap = Object.freeze({
+      coi: true,
+      pthread: true,
+      deviceMemoryGB: null,
+      hwConcurrency: 1,
+      webKitClass: 'unknown' as const,
+      maybeOpfsSupported: false,
+    })
+    const noopfsRuntime = Object.freeze({
+      opfsSinkAvailable: false,
+      opfsAvailableMB: null,
+      streamingSinkAvailable: false,
+    })
 
-  it('maps fidelity levels to derived fallback concurrency', () => {
-    expect(getConcurrencyForFidelity('safe')).toBe(1)
-    expect(getConcurrencyForFidelity('balanced')).toBe(1)
-    expect(getConcurrencyForFidelity('max')).toBe(1)
-  })
-
-  it('keeps legacy fidelity helper budgets independent of ambient isolation globals', () => {
-    vi.unstubAllGlobals()
-
-    expect(getPreferredRowsForFidelity('max')).toBe(512)
-    expect(getConcurrencyForFidelity('max')).toBe(1)
+    for (const fidelity of ['safe', 'balanced', 'max'] as const) {
+      const plan = selectExportExecutionPlan({
+        performancePreference: fidelity,
+        sourceWidth: 6000,
+        sourceHeight: 4000,
+        capability: unknownCap,
+        runtime: noopfsRuntime,
+      })
+      expect(plan.preferredRows).toBe(512)
+      expect(plan.concurrency).toBe(1)
+    }
   })
 
   it('selects derived 100MP rows for current-session safe export', async () => {

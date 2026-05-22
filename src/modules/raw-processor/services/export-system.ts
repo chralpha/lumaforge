@@ -53,33 +53,6 @@ export async function selectCurrentExportExecutionPlan(input: {
   })
 }
 
-function selectDefaultExportExecutionPlanForFidelity(fidelity: ExportFidelity) {
-  return selectExportExecutionPlan({
-    performancePreference: fidelity,
-    capability: {
-      coi: true,
-      pthread: true,
-      deviceMemoryGB: null,
-      hwConcurrency: 1,
-      webKitClass: 'unknown',
-      maybeOpfsSupported: false,
-    },
-    runtime: {
-      opfsSinkAvailable: false,
-      opfsAvailableMB: null,
-      streamingSinkAvailable: false,
-    },
-  })
-}
-
-export function getPreferredRowsForFidelity(fidelity: ExportFidelity) {
-  return selectDefaultExportExecutionPlanForFidelity(fidelity).preferredRows
-}
-
-export function getConcurrencyForFidelity(fidelity: ExportFidelity) {
-  return selectDefaultExportExecutionPlanForFidelity(fidelity).concurrency
-}
-
 export type { ExportExecutionPlan }
 
 export type FullResolutionExportAttemptEvent = {
