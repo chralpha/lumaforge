@@ -33,7 +33,7 @@ function clampInteger(
   return Math.min(max, Math.max(min, n))
 }
 
-function classifyUserAgent(
+export function classifyUserAgent(
   ua: string,
   touch: boolean,
 ): CapabilityVector['webKitClass'] {

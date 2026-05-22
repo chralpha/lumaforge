@@ -2,10 +2,12 @@ import type { RawRenderExposure } from '@lumaforge/luma-color-runtime'
 
 import {
   getExportModeCopy,
-  isKnownRiskWebKitDesktop,
-  isKnownRiskWebKitMobile,
   selectExportExecutionPlan,
 } from '~/lib/export/execution-profile'
+import {
+  classifyUserAgent,
+  getCapabilityVectorSnapshot,
+} from '~/lib/runtime/capability-vector'
 
 import { deriveExportDisabledReason } from '../model/derive-session'
 import type { ImageSession } from '../model/session'
@@ -20,31 +22,6 @@ function isOpfsAvailableForReadiness() {
     (navigator.storage as { getDirectory?: () => unknown } | undefined)
       ?.getDirectory,
   )
-}
-
-function getReadinessPlatform() {
-  return {
-    userAgent: typeof navigator === 'undefined' ? '' : navigator.userAgent,
-    touch:
-      typeof navigator !== 'undefined' &&
-      navigator.maxTouchPoints !== undefined &&
-      navigator.maxTouchPoints > 0,
-    hardwareConcurrency:
-      typeof navigator === 'undefined'
-        ? undefined
-        : navigator.hardwareConcurrency,
-  }
-}
-
-function getReadinessWebKitClass(
-  platform: ReturnType<typeof getReadinessPlatform>,
-) {
-  if (isKnownRiskWebKitMobile(platform)) return 'webkit-mobile'
-  if (isKnownRiskWebKitDesktop(platform)) return 'webkit-desktop-safari'
-  if (/\b(?:Chrome|Chromium|CriOS|Edg|OPR|FxiOS)\b/i.test(platform.userAgent)) {
-    return 'chromium'
-  }
-  return 'unknown'
 }
 
 type SupportedFullResCapability = Extract<
@@ -72,21 +49,31 @@ function getUnsafeFullResExportReason(input: {
 }) {
   const capability = input.session.exportState.fullResCapability
   if (capability.status !== 'supported') return undefined
-  const platform = getReadinessPlatform()
   const opfsAvailable = isOpfsAvailableForReadiness()
+
+  const cap =
+    getCapabilityVectorSnapshot() ??
+    Object.freeze({
+      coi: Boolean(globalThis.crossOriginIsolated),
+      pthread: Boolean(globalThis.crossOriginIsolated),
+      deviceMemoryGB: null,
+      hwConcurrency: Math.max(
+        1,
+        Math.floor(globalThis.navigator?.hardwareConcurrency ?? 1),
+      ),
+      webKitClass: classifyUserAgent(
+        globalThis.navigator?.userAgent ?? '',
+        typeof globalThis.navigator?.maxTouchPoints === 'number' &&
+          globalThis.navigator.maxTouchPoints > 0,
+      ),
+      maybeOpfsSupported: opfsAvailable,
+    })
 
   const plan = selectExportExecutionPlan({
     performancePreference: input.fidelity ?? 'balanced',
     sourceWidth: capability.width,
     sourceHeight: capability.height,
-    capability: {
-      coi: Boolean(globalThis.crossOriginIsolated),
-      pthread: Boolean(globalThis.crossOriginIsolated),
-      deviceMemoryGB: null,
-      hwConcurrency: Math.max(1, Math.floor(platform.hardwareConcurrency ?? 1)),
-      webKitClass: getReadinessWebKitClass(platform),
-      maybeOpfsSupported: opfsAvailable,
-    },
+    capability: cap,
     runtime: {
       opfsSinkAvailable: opfsAvailable,
       opfsAvailableMB: opfsAvailable ? Number.POSITIVE_INFINITY : null,

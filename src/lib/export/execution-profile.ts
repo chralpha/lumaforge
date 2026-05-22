@@ -1,6 +1,9 @@
 import type { ExportFidelity } from '~/lib/gl/export'
 import type { CapabilityVector } from '~/lib/runtime/capability-vector'
-import { getCapabilityVectorSnapshot } from '~/lib/runtime/capability-vector'
+import {
+  classifyUserAgent,
+  getCapabilityVectorSnapshot,
+} from '~/lib/runtime/capability-vector'
 import type {
   ExportOrchestrationCopy,
   ExportPolicy,
@@ -270,33 +273,6 @@ export function getImageMegapixels(width?: number, height?: number) {
   return (width * height) / 1_000_000
 }
 
-export function isKnownRiskWebKitMobile(input: {
-  userAgent?: string
-  touch?: boolean
-}) {
-  const ua = input.userAgent ?? ''
-  const isiOS = /\b(?:iPhone|iPad|iPod)\b/i.test(ua)
-  const isIPadOsDesktopMode = /\bMacintosh\b/i.test(ua) && input.touch === true
-  const webKit = /\bAppleWebKit\b/i.test(ua)
-  const mobile = input.touch === true || /\bMobile\b/i.test(ua)
-  return (isiOS || isIPadOsDesktopMode) && webKit && mobile
-}
-
-export function isKnownRiskWebKitDesktop(input: {
-  userAgent?: string
-  touch?: boolean
-}) {
-  const ua = input.userAgent ?? ''
-  const desktopMac = /\bMacintosh\b/i.test(ua)
-  const webKit = /\bAppleWebKit\b/i.test(ua)
-  const safari = /\bSafari\b/i.test(ua)
-  const chromiumFamily = /\b(?:Chrome|Chromium|CriOS|Edg|OPR|FxiOS)\b/i.test(ua)
-
-  return (
-    desktopMac && webKit && safari && !chromiumFamily && input.touch !== true
-  )
-}
-
 function chooseProfile(
   derivedPolicy: ExportPolicy,
   capability: CapabilityVector,
@@ -310,20 +286,6 @@ function chooseProfile(
   }
   if (capability.webKitClass === 'webkit-mobile') return 'ios-safe'
   return 'mobile-balanced'
-}
-
-function classifyLegacyPlatform(input: {
-  userAgent?: string
-  touch?: boolean
-}): CapabilityVector['webKitClass'] {
-  if (isKnownRiskWebKitMobile(input)) return 'webkit-mobile'
-  if (isKnownRiskWebKitDesktop(input)) return 'webkit-desktop-safari'
-  if (
-    /\b(?:Chrome|Chromium|CriOS|Edg|OPR|FxiOS)\b/i.test(input.userAgent ?? '')
-  ) {
-    return 'chromium'
-  }
-  return 'unknown'
 }
 
 type LegacyRuntimeInput = {
@@ -376,7 +338,10 @@ function resolveCapability(
     pthread: legacyRuntime?.pthreadAvailable ?? false,
     deviceMemoryGB: null,
     hwConcurrency: Math.max(1, Math.floor(platform.hardwareConcurrency ?? 1)),
-    webKitClass: classifyLegacyPlatform(platform),
+    webKitClass: classifyUserAgent(
+      platform.userAgent ?? '',
+      platform.touch ?? false,
+    ),
     maybeOpfsSupported: input.output?.opfsAvailable ?? false,
   })
 }
