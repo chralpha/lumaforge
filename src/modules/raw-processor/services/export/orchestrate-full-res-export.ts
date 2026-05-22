@@ -231,7 +231,7 @@ export async function orchestrateFullResExport(
         { code: 'EXPORT_POLICY_CANNOT_COMPLETE' },
       )
     }
-    let jobExecutionPlan = executionPlan
+    const jobExecutionPlan = executionPlan
     let checkpointStore: ReturnType<typeof createCheckpointStore> | null = null
     let checkpointManifest: ExportCheckpointManifest | null = null
     let checkpoint: FullResWorkerCheckpointConfig | undefined
@@ -290,13 +290,6 @@ export async function orchestrateFullResExport(
       return
     }
 
-    if (executionPlan.outputSink === 'opfs-file' && !checkpoint) {
-      jobExecutionPlan = {
-        ...executionPlan,
-        outputSink: 'blob-handoff',
-        productCopy: 'non-durable-checkpoint',
-      }
-    }
     if (previousInterrupted) {
       ctx.atoms.setDiscoveredRecoveryState({ status: 'none' })
     }

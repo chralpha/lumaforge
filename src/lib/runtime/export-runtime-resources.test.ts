@@ -27,6 +27,7 @@ describe('snapshotExportRuntimeResources', () => {
           quota: 1_000_000_000,
           usage: 200_000_000,
         })),
+        getDirectory: vi.fn(async () => ({})),
       },
     } as never)
 

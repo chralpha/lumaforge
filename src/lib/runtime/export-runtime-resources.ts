@@ -23,6 +23,18 @@ type NavigatorWithStorage = Navigator & {
   storage?: StorageManagerLike
 }
 
+async function probeOpfsReachable(): Promise<boolean> {
+  try {
+    const storage = (globalThis.navigator as NavigatorWithStorage | undefined)
+      ?.storage
+    if (typeof storage?.getDirectory !== 'function') return false
+    await storage.getDirectory()
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function snapshotExportRuntimeResources(
   input: ExportRuntimeResourcesInput,
 ): Promise<ExportRuntimeResources> {
@@ -41,12 +53,14 @@ export async function snapshotExportRuntimeResources(
     const quota = estimate?.quota ?? 0
     const usage = estimate?.usage ?? 0
     const availableBytes = Math.max(0, quota - usage)
-    const opfsAvailableMB =
-      quota > 0 ? Math.floor(availableBytes / 1_000_000) : null
+    const opfsQuotaOk = quota > 0
+    const opfsReachable = opfsQuotaOk ? await probeOpfsReachable() : false
 
     return Object.freeze({
-      opfsSinkAvailable: quota > 0,
-      opfsAvailableMB,
+      opfsSinkAvailable: opfsReachable,
+      opfsAvailableMB: opfsQuotaOk
+        ? Math.floor(availableBytes / 1_000_000)
+        : null,
       streamingSinkAvailable: input.streamingSinkAvailable,
     })
   } catch {
