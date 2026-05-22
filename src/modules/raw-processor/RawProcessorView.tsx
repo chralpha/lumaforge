@@ -307,7 +307,10 @@ function RawProcessorViewInner({
         />
       </div>
 
-      <div className="raw-lab-shell" data-raw-lab-layout="stage-tools">
+      <div
+        className="raw-lab-shell grid min-h-0 min-w-0 overflow-hidden [grid-template-columns:minmax(0,1fr)_minmax(340px,400px)] max-[980px]:[grid-template-columns:minmax(0,1fr)] max-[980px]:[grid-template-rows:minmax(0,1fr)_auto] max-[640px]:[grid-template-columns:minmax(0,1fr)] max-[640px]:[grid-template-rows:minmax(0,1fr)]"
+        data-raw-lab-layout="stage-tools"
+      >
         <ComparePreviewStage
           hasImage={hasImage}
           imageRef={decodedImageRef}

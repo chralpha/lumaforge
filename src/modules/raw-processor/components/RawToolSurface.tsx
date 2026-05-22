@@ -324,7 +324,7 @@ export function RawToolSurface(props: {
 
   return (
     <aside
-      className="raw-tool-surface grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden border-l border-border bg-material-medium"
+      className="raw-tool-surface grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden border-l border-border bg-[linear-gradient(180deg,oklch(0.942_0.024_86),oklch(0.91_0.03_84)),var(--color-fill)] p-0 max-[980px]:max-h-[min(42svh,390px)] max-[980px]:border-t max-[980px]:border-l-0"
       data-raw-tool-surface="raw-finishing"
       aria-label={t('raw.tools.aria')}
     >

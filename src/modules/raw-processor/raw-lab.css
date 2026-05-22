@@ -52,28 +52,6 @@
   box-sizing: border-box;
 }
 
-.raw-lab-shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.raw-tool-surface {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: 0;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  border-left: 1px solid var(--color-border);
-  background:
-    linear-gradient(180deg, oklch(0.942 0.024 86), oklch(0.91 0.03 84)),
-    var(--color-fill);
-  padding: 0;
-}
-
 .raw-tool-surface,
 [data-raw-lut='source-browser-list'],
 [data-raw-lut='contract-browser-list'] {
@@ -415,26 +393,6 @@
   font-weight: 720;
 }
 
-@media (max-width: 980px) {
-  .raw-lab {
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-
-  .raw-lab-shell {
-    display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
-    grid-template-columns: minmax(0, 1fr);
-    overflow: hidden;
-  }
-
-  .raw-tool-surface {
-    max-height: min(42svh, 390px);
-    overflow: hidden;
-    border-top: 1px solid var(--color-border);
-    border-left: 0;
-  }
-}
-
 @media (max-width: 640px) {
   /* Photo-first: the stage is full-bleed; the mobile lab chrome
      (topbar, dock, focus editor, peek, more-sheet) floats over it as a
@@ -453,11 +411,6 @@
     grid-template-rows: minmax(0, 1fr);
     background: var(--color-stage-background);
     color: var(--color-on-stage);
-  }
-
-  .raw-lab-shell {
-    grid-template-rows: minmax(0, 1fr);
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .raw-lab-stage {
@@ -650,21 +603,6 @@
   font-size: 0.68rem;
   font-weight: 720;
   padding: 5px 9px;
-}
-
-/* Short viewports (landscape phones): the 100svh overflow:hidden shell
-   squeezes the stage; reclaim vertical space by compacting the header —
-   tighten its block padding and drop the supplementary subtitle / export-
-   unavailable lines (title + actions remain). */
-@media (max-height: 480px) {
-  .raw-lab header[role='banner'] {
-    padding-top: calc(6px + env(safe-area-inset-top));
-    padding-bottom: 6px;
-  }
-
-  .raw-lab header[role='banner'] p {
-    display: none;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

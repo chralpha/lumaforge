@@ -49,7 +49,7 @@ export function WorkspaceHeader({
 
   return (
     <header
-      className="flex min-w-0 items-center justify-between gap-4 border-b border-border bg-material-opaque/85 backdrop-blur-background pb-3 pt-safe-offset-3 px-safe-offset-3 sm:px-safe-offset-4"
+      className="flex min-w-0 items-center justify-between gap-4 border-b border-border bg-material-opaque/85 backdrop-blur-background pb-3 pt-safe-offset-3 px-safe-offset-3 sm:px-safe-offset-4 [@media(max-height:480px)]:pt-[calc(6px+env(safe-area-inset-top))] [@media(max-height:480px)]:pb-1.5"
       role="banner"
     >
       <div className="min-w-0">
@@ -70,13 +70,13 @@ export function WorkspaceHeader({
           )}
         </div>
         <div className="ps-10">
-          <p className="mt-1 truncate text-xs text-text-secondary">
+          <p className="mt-1 truncate text-xs text-text-secondary [@media(max-height:480px)]:hidden">
             {hasImage
               ? t('raw.header.subtitleLoaded')
               : t('raw.header.subtitleEmpty')}
           </p>
           {exportDisabledReason && (
-            <p className="mt-1 truncate text-xs text-text-secondary max-[640px]:hidden">
+            <p className="mt-1 truncate text-xs text-text-secondary max-[640px]:hidden [@media(max-height:480px)]:hidden">
               {t('raw.header.unavailablePrefix', {
                 reason: exportDisabledReason,
               })}
