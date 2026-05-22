@@ -84,4 +84,5 @@ _(empty — populate as iterations split work)_
 
 _(one line per iteration — newest first)_
 
+- 2026-05-22 — Bucket 2 — added per-resource Refresh + Remove controls and a per-resource loading badge to the mobile online sources cards in `MobileLutBrowser`, mirroring the desktop affordances. Refresh button surfaces `aria-busy` and disables while the active resource resolves.
 - 2026-05-22 — Bucket 2 — added URL input + Add submit button to the mobile online LUT sources section of `MobileLutBrowser`, wired through to `useOnlineLutSources.sourceUrlInput / addSourceFromInput`. Mobile-only sessions can now add a manifest source for the first time. Empty-state of the section now self-explains the entry.

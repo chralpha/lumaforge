@@ -155,6 +155,44 @@ describe('mobileLutBrowser', () => {
     ).toBeDisabled()
   })
 
+  it('refreshes an online LUT source from the mobile sheet', async () => {
+    const fixture = onlineLutSourcesFixture()
+    render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /refresh profiles catalog/i }),
+    )
+
+    expect(fixture.refreshSource).toHaveBeenCalledWith('source-1')
+  })
+
+  it('removes an online LUT source from the mobile sheet', async () => {
+    const fixture = onlineLutSourcesFixture()
+    render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /remove profiles catalog/i }),
+    )
+
+    expect(fixture.removeSource).toHaveBeenCalledWith('source-1')
+  })
+
+  it('marks the active resource as loading and disables its refresh button', () => {
+    const fixture = onlineLutSourcesFixture()
+    fixture.state = {
+      ...fixture.state,
+      isLoading: true,
+      activeResourceId: 'source-1',
+    }
+    render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
+
+    const refreshButton = screen.getByRole('button', {
+      name: /refresh profiles catalog/i,
+    })
+    expect(refreshButton).toBeDisabled()
+    expect(refreshButton).toHaveAttribute('aria-busy', 'true')
+  })
+
   it('lets an unresolved LUT choose input and output contracts from the mobile sheet', async () => {
     const onLutProfileSelect = vi.fn()
     render(

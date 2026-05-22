@@ -4,7 +4,15 @@ import type {
 } from '@lumaforge/luma-color-runtime'
 import { searchLUTColorProfiles } from '@lumaforge/luma-color-runtime'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { AlertTriangle, Check, Plus, SlidersHorizontal, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  Check,
+  Plus,
+  RefreshCw,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { AnimatePresence, m, useDragControls } from 'motion/react'
 import type { ReactNode } from 'react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
@@ -771,21 +779,73 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                           (resource) => {
                             const entries =
                               entriesByResourceId.get(resource.id) ?? []
+                            const isResourceLoading =
+                              props.onlineLutSources!.state.isLoading &&
+                              props.onlineLutSources!.state.activeResourceId ===
+                                resource.id
 
                             return (
                               <div
                                 key={resource.id}
                                 className="grid gap-1.5 rounded-lf-panel border border-lf-on-photo-bord-soft bg-lf-on-photo-bg p-2.5"
                               >
-                                <div className="flex min-w-0 items-center justify-between gap-2">
-                                  <span className="min-w-0 truncate text-lf-control font-semibold text-lf-hero-ink">
-                                    {resourceLabel(resource)}
-                                  </span>
-                                  <span className="shrink-0 rounded-lf-pill border border-lf-on-photo-bord bg-lf-on-photo-bg px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-hero-ink/70">
-                                    {t('raw.mobile.lut.entryCount', {
-                                      count: entries.length,
-                                    })}
-                                  </span>
+                                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                                    <span className="min-w-0 truncate text-lf-control font-semibold text-lf-hero-ink">
+                                      {resourceLabel(resource)}
+                                    </span>
+                                    <span className="shrink-0 rounded-lf-pill border border-lf-on-photo-bord bg-lf-on-photo-bg px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-hero-ink/70">
+                                      {t('raw.mobile.lut.entryCount', {
+                                        count: entries.length,
+                                      })}
+                                    </span>
+                                    {isResourceLoading && (
+                                      <span
+                                        className="shrink-0 rounded-lf-pill border border-lf-green/30 bg-lf-green/10 px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-green"
+                                        role="status"
+                                      >
+                                        {t('raw.lutSource.loading')}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex shrink-0 gap-1">
+                                    <button
+                                      type="button"
+                                      aria-label={t('raw.lutSource.refresh', {
+                                        label: resourceLabel(resource),
+                                      })}
+                                      aria-busy={isResourceLoading}
+                                      disabled={isResourceLoading}
+                                      onClick={() =>
+                                        void props.onlineLutSources?.refreshSource(
+                                          resource.id,
+                                        )
+                                      }
+                                      className="grid size-11 place-items-center rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg text-lf-hero-ink transition-colors hover:border-lf-amber/40 hover:text-lf-hero-ink disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      <RefreshCw
+                                        aria-hidden="true"
+                                        className={`size-5 ${isResourceLoading ? 'animate-spin' : ''}`}
+                                      />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      aria-label={t('raw.lutSource.remove', {
+                                        label: resourceLabel(resource),
+                                      })}
+                                      onClick={() =>
+                                        props.onlineLutSources?.removeSource(
+                                          resource.id,
+                                        )
+                                      }
+                                      className="grid size-11 place-items-center rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg text-lf-hero-ink transition-colors hover:border-lf-amber/40 hover:text-lf-hero-ink"
+                                    >
+                                      <Trash2
+                                        aria-hidden="true"
+                                        className="size-5"
+                                      />
+                                    </button>
+                                  </div>
                                 </div>
                                 <div className="grid gap-1.5">
                                   {entries.map((entry) => (
