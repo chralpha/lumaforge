@@ -792,6 +792,11 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                           <Plus aria-hidden="true" className="size-5" />
                         </button>
                       </form>
+                      {props.onlineLutSources.state.resources.length === 0 && (
+                        <p className="m-0 text-xs leading-relaxed text-lf-hero-ink/68">
+                          {t('raw.lutSource.emptyHint')}
+                        </p>
+                      )}
                       <div
                         className="grid gap-2"
                         aria-busy={props.onlineLutSources.state.isLoading}

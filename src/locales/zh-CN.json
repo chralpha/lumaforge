@@ -246,6 +246,7 @@
   "raw.lutSource.others": "其他",
   "raw.lutSource.noneCompatible": "此来源未载入兼容 LUT。",
   "raw.lutSource.noneYet": "还没有兼容 LUT。",
+  "raw.lutSource.emptyHint": "粘贴 catalog.json 或 lumaforge-profiles.json 链接，即可载入分享的 LUT。",
   "raw.export.title": "导出",
   "raw.export.eyebrow": "全分辨率 JPEG",
   "raw.export.ready": "JPEG 已就绪",

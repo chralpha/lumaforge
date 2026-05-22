@@ -315,6 +315,12 @@ export function OnlineLutSourceControls({
         </LutIconButton>
       </div>
 
+      {state.resources.length === 0 && (
+        <p className="m-0 text-lf-label leading-relaxed text-lf-ink-soft">
+          {t('raw.lutSource.emptyHint')}
+        </p>
+      )}
+
       {state.resources.length > 0 && (
         <div className="grid min-w-0 gap-2">
           {state.resources.map((resource) => {

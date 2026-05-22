@@ -220,6 +220,22 @@ describe('mobileLutBrowser', () => {
     ).toBeDisabled()
   })
 
+  it('hints at the expected manifest URL shape when no online sources exist', () => {
+    const fixture = onlineLutSourcesFixture()
+    fixture.state = {
+      resources: [],
+      entries: [],
+      issues: [],
+      activeResourceId: null,
+      isLoading: false,
+    }
+    render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
+
+    expect(
+      screen.getByText(/paste a catalog\.json or lumaforge-profiles\.json/i),
+    ).toBeInTheDocument()
+  })
+
   it('surfaces per-resource issue messages inside the resource card', () => {
     const fixture = onlineLutSourcesFixture()
     fixture.state = {
