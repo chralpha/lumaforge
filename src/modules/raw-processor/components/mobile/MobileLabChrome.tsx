@@ -228,16 +228,16 @@ export function MobileLabChrome(props: {
     ) : mode === 'look' ? (
       <div className="grid gap-2.5">
         {props.lutBrowser.currentLutName ? (
-          <div className="grid gap-2 rounded-xl border border-white/15 bg-black/42 p-3">
+          <div className="grid gap-2 rounded-lf-panel border border-lf-on-photo-bord-soft bg-lf-on-photo-bg p-3">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-              <span className="min-w-0 truncate text-sm font-semibold text-white">
+              <span className="min-w-0 truncate text-lf-control font-semibold text-lf-hero-ink">
                 {props.lutBrowser.currentLutName}
               </span>
               <button
                 type="button"
                 aria-label={t('raw.mobile.lut.changeAria')}
                 onClick={openLutBrowser}
-                className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-400/12 px-3 text-[0.7rem] font-semibold text-amber-100 transition-colors hover:border-amber-300/60 hover:text-white"
+                className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lf-pill border border-lf-amber/35 bg-lf-amber/12 px-3 text-[0.7rem] font-semibold text-lf-amber-soft transition-colors hover:border-lf-amber/60 hover:text-lf-hero-ink"
               >
                 {t('raw.mobile.lut.change')}
                 <ChevronRight aria-hidden="true" className="size-3" />
@@ -249,7 +249,7 @@ export function MobileLabChrome(props: {
                 type="button"
                 onClick={openLutContractBrowser}
                 aria-label={lutContractWarningLabel ?? undefined}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-amber-400/35 bg-amber-400/10 px-2.5 py-2 text-left text-xs leading-relaxed text-amber-100 transition-colors hover:border-amber-300/60 hover:text-white"
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lf-control border border-lf-amber/35 bg-lf-amber/10 px-2.5 py-2 text-left text-xs leading-relaxed text-lf-amber-soft transition-colors hover:border-lf-amber/60 hover:text-lf-hero-ink"
               >
                 <span className="inline-flex min-w-0 items-start gap-1.5">
                   <AlertTriangle
@@ -260,7 +260,7 @@ export function MobileLabChrome(props: {
                     {t('raw.lutContract.unknown')}
                   </span>
                 </span>
-                <span className="inline-flex shrink-0 items-center gap-1 text-[0.68rem] font-semibold uppercase tracking-wide text-amber-200">
+                <span className="inline-flex shrink-0 items-center gap-1 text-lf-eyebrow font-semibold uppercase tracking-wide text-lf-amber-soft">
                   {lutContractWarningLabel}
                   <ChevronRight aria-hidden="true" className="size-3" />
                 </span>
@@ -272,17 +272,17 @@ export function MobileLabChrome(props: {
                 aria-label={t('raw.mobile.lut.editContractAria', {
                   label: resolvedLutProfile.label,
                 })}
-                className="grid gap-1.5 rounded-md border border-white/15 bg-black/35 px-2.5 py-2 text-left transition-colors hover:border-amber-400/40"
+                className="grid gap-1.5 rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 py-2 text-left transition-colors hover:border-lf-amber/40"
               >
-                <span className="flex items-center justify-between gap-2 text-[0.62rem] font-semibold uppercase tracking-wide text-white/45">
+                <span className="flex items-center justify-between gap-2 text-lf-eyebrow font-semibold uppercase tracking-wide text-lf-hero-ink/45">
                   {t('raw.mobile.lut.contractHeading')}
-                  <span className="inline-flex items-center gap-1 text-amber-300/80">
+                  <span className="inline-flex items-center gap-1 text-lf-amber/80">
                     <SlidersHorizontal aria-hidden="true" className="size-3" />
                     {t('raw.mobile.lut.editContract')}
                   </span>
                 </span>
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                  <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/18 bg-black/35 px-2.5 py-1 text-[0.68rem] font-semibold text-white/86">
+                  <span className="inline-flex max-w-full items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 py-1 text-lf-eyebrow font-semibold text-lf-hero-ink/86">
                     <Check aria-hidden="true" className="size-3 shrink-0" />
                     <span className="min-w-0 truncate">
                       {resolvedLutProfile.label}
@@ -290,14 +290,14 @@ export function MobileLabChrome(props: {
                   </span>
                   <ChevronRight
                     aria-hidden="true"
-                    className="size-3 shrink-0 text-white/35"
+                    className="size-3 shrink-0 text-lf-hero-ink/35"
                   />
                   <span
                     className={[
-                      'inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold',
+                      'inline-flex max-w-full items-center gap-1.5 rounded-lf-pill border px-2.5 py-1 text-lf-eyebrow font-semibold',
                       lutNeedsOutput
-                        ? 'border-amber-400/45 bg-amber-400/12 text-amber-200'
-                        : 'border-white/18 bg-black/35 text-white/86',
+                        ? 'border-lf-amber/45 bg-lf-amber/12 text-lf-amber-soft'
+                        : 'border-lf-on-photo-bord-soft bg-lf-on-photo-bg text-lf-hero-ink/86',
                     ].join(' ')}
                   >
                     {lutNeedsOutput ? (
@@ -315,7 +315,7 @@ export function MobileLabChrome(props: {
                   </span>
                 </div>
                 {lutNeedsOutput && lutContractWarningLabel && (
-                  <span className="inline-flex items-center gap-1 text-[0.68rem] font-semibold text-amber-200">
+                  <span className="inline-flex items-center gap-1 text-lf-eyebrow font-semibold text-lf-amber-soft">
                     {lutContractWarningLabel}
                     <ChevronRight aria-hidden="true" className="size-3" />
                   </span>
@@ -326,12 +326,12 @@ export function MobileLabChrome(props: {
                 type="button"
                 onClick={openLutContractBrowser}
                 aria-label={t('raw.mobile.lut.chooseContract')}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-white/15 bg-black/35 px-2.5 py-2 text-left text-xs leading-relaxed text-white/68 transition-colors hover:border-amber-400/40 hover:text-white"
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 py-2 text-left text-xs leading-relaxed text-lf-hero-ink/68 transition-colors hover:border-lf-amber/40 hover:text-lf-hero-ink"
               >
                 <span className="min-w-0">
                   {t('raw.mobile.lut.noContract')}
                 </span>
-                <span className="inline-flex shrink-0 items-center gap-1 text-[0.68rem] font-semibold uppercase tracking-wide text-amber-200">
+                <span className="inline-flex shrink-0 items-center gap-1 text-lf-eyebrow font-semibold uppercase tracking-wide text-lf-amber-soft">
                   {t('raw.mobile.lut.chooseContract')}
                   <ChevronRight aria-hidden="true" className="size-3" />
                 </span>
@@ -339,15 +339,15 @@ export function MobileLabChrome(props: {
             )}
           </div>
         ) : (
-          <div className="flex items-center justify-between gap-2 rounded-xl border border-white/15 bg-black/42 p-3">
-            <span className="text-sm font-semibold text-white/76">
+          <div className="flex items-center justify-between gap-2 rounded-lf-panel border border-lf-on-photo-bord-soft bg-lf-on-photo-bg p-3">
+            <span className="text-lf-control font-semibold text-lf-hero-ink/76">
               {t('raw.mobile.lut.noCurrent')}
             </span>
             <button
               type="button"
               aria-label={t('raw.mobile.lut.title')}
               onClick={openLutBrowser}
-              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-400/12 px-3 text-[0.7rem] font-semibold text-amber-100 transition-colors hover:border-amber-300/60 hover:text-white"
+              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lf-pill border border-lf-amber/35 bg-lf-amber/12 px-3 text-[0.7rem] font-semibold text-lf-amber-soft transition-colors hover:border-lf-amber/60 hover:text-lf-hero-ink"
             >
               {t('raw.mobile.lut.add')}
               <ChevronRight aria-hidden="true" className="size-3" />

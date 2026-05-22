@@ -45,10 +45,10 @@ export function MobileStrengthPanel(props: {
               transition={TAP_SPRING}
               onClick={() => props.onChange(level)}
               className={clsxm(
-                'min-h-[46px] rounded-lg border text-[0.82rem] font-semibold transition-colors',
+                'min-h-lf-tap rounded-lf-control border text-lf-control font-semibold transition-colors',
                 active
-                  ? 'border-amber-400 bg-amber-400/15 text-amber-300'
-                  : 'border-white/15 bg-black/38 text-white backdrop-blur-background hover:border-white/30',
+                  ? 'border-lf-amber bg-lf-amber/15 text-lf-amber'
+                  : 'border-lf-on-photo-bord-soft bg-lf-on-photo-bg text-lf-hero-ink backdrop-blur-background hover:border-lf-on-photo-bord',
               )}
             >
               {labels[level]}
@@ -56,7 +56,7 @@ export function MobileStrengthPanel(props: {
           )
         })}
       </div>
-      <p className="m-0 text-xs leading-relaxed text-white/65">
+      <p className="m-0 text-xs leading-relaxed text-lf-hero-ink/65">
         {t('raw.mobile.strength.note')}
       </p>
     </div>
