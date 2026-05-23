@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { DecodedImage } from '~/lib/raw/decoder'
 
+import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
 import { DEFAULT_PREVIEW_VIEWPORT } from '../services/preview-viewport'
 import {
   createRawUploadInput,
@@ -29,24 +30,26 @@ const pipelineMock = vi.hoisted(() => ({
 }))
 
 vi.mock('~/lib/gl/pipeline', () => ({
-  RawProcessingPipeline: vi.fn().mockImplementation(() => {
-    const disposeMock = vi.fn()
-    const instance = {
-      initialize: pipelineMock.initialize,
-      dispose: disposeMock,
-      disposeMock,
-      resize: vi.fn(),
-      render: vi.fn(() => ({ renderMs: 1 })),
-      clearImage: vi.fn(),
-      uploadImage: vi.fn(),
-      clearLUT: vi.fn(),
-      uploadLUT: vi.fn(),
-      setParams: vi.fn(),
-    }
+  RawProcessingPipeline: vi
+    .fn()
+    .mockImplementation((canvas: HTMLCanvasElement) => {
+      const disposeMock = vi.fn()
+      const instance = {
+        initialize: vi.fn(() => pipelineMock.initialize(canvas)),
+        dispose: disposeMock,
+        disposeMock,
+        resize: vi.fn(),
+        render: vi.fn(() => ({ renderMs: 1 })),
+        clearImage: vi.fn(),
+        uploadImage: vi.fn(),
+        clearLUT: vi.fn(),
+        uploadLUT: vi.fn(),
+        setParams: vi.fn(),
+      }
 
-    pipelineMock.instances.push(instance)
-    return instance
-  }),
+      pipelineMock.instances.push(instance)
+      return instance
+    }),
 }))
 
 function deferred<T>() {
@@ -87,6 +90,12 @@ const decodedImage: DecodedImage = {
     height: 300,
   },
   renderExposure: { ev: 0, multiplier: 1, source: 'identity' },
+}
+
+function getPipelineParamCalls() {
+  return pipelineMock.instances.flatMap((instance) =>
+    instance.setParams.mock.calls.map(([params]) => params),
+  )
 }
 
 function elementRect({
@@ -176,6 +185,9 @@ describe('preview canvas upload descriptor', () => {
         disconnect: vi.fn(),
       })),
     )
+    vi.stubGlobal('CSS', {
+      supports: vi.fn(() => true),
+    })
   })
 
   afterEach(() => {
@@ -488,6 +500,139 @@ describe('preview canvas upload descriptor', () => {
     })
   })
 
+  it('uses layered dual-webgl compare and keeps the processed canvas out of shader compare mode', async () => {
+    const snapshot: OriginalReferenceSnapshot = {
+      key: 'original-reference|session:test',
+      objectUrl: 'blob:original-reference',
+      width: 400,
+      height: 300,
+      source: 'quick',
+      mimeType: 'image/jpeg',
+      estimatedBytes: 1024,
+    }
+
+    const { container } = render(
+      createElement(PreviewCanvas, {
+        imageRef: { current: decodedImage },
+        imageVersion: 1,
+        params: {
+          ...defaultParams,
+          viewMode: 'compare',
+        },
+        lutDataRef: { current: null },
+        lutDataVersion: 0,
+        dualWebglAllowed: true,
+        originalReferenceSnapshot: snapshot,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-compare-mode="dual-webgl"]'),
+      ).toBeTruthy()
+    })
+
+    expect(
+      container.querySelector('.raw-preview-original-webgl-layer'),
+    ).toBeTruthy()
+    expect(container.querySelector('.raw-preview-original-layer')).toBeNull()
+    expect(container.querySelector('.raw-preview-processed-layer')).toHaveClass(
+      'raw-preview-layer-clipped',
+    )
+    await waitFor(() => {
+      expect(getPipelineParamCalls()).toContainEqual(
+        expect.objectContaining({
+          viewMode: 'processed',
+          compareSplit: 0.5,
+        }),
+      )
+    })
+    expect(getPipelineParamCalls()).not.toContainEqual(
+      expect.objectContaining({ viewMode: 'compare' }),
+    )
+  })
+
+  it('requests jpeg fallback when the original WebGL layer fails', async () => {
+    const requestOriginalReferenceFallback = vi.fn()
+    pipelineMock.initialize.mockImplementation((canvas: HTMLCanvasElement) => {
+      if (canvas.className.includes('raw-preview-original-webgl-canvas')) {
+        return Promise.reject(new Error('Original layer failed'))
+      }
+
+      return Promise.resolve()
+    })
+
+    render(
+      createElement(PreviewCanvas, {
+        imageRef: { current: decodedImage },
+        imageVersion: 1,
+        params: {
+          ...defaultParams,
+          viewMode: 'compare',
+        },
+        lutDataRef: { current: null },
+        lutDataVersion: 0,
+        dualWebglAllowed: true,
+        onRequestOriginalReferenceFallback: requestOriginalReferenceFallback,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(requestOriginalReferenceFallback).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('uses jpeg fallback compare when a snapshot is ready and dual-webgl is unavailable', async () => {
+    const snapshot: OriginalReferenceSnapshot = {
+      key: 'original-reference|session:test',
+      objectUrl: 'blob:original-reference',
+      width: 400,
+      height: 300,
+      source: 'quick',
+      mimeType: 'image/jpeg',
+      estimatedBytes: 1024,
+    }
+
+    const { container } = render(
+      createElement(PreviewCanvas, {
+        imageRef: { current: decodedImage },
+        imageVersion: 1,
+        params: {
+          ...defaultParams,
+          viewMode: 'compare',
+        },
+        lutDataRef: { current: null },
+        lutDataVersion: 0,
+        dualWebglAllowed: false,
+        originalReferenceSnapshot: snapshot,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-compare-mode="jpeg-fallback"]'),
+      ).toBeTruthy()
+    })
+
+    expect(
+      container.querySelector('.raw-preview-original-layer img'),
+    ).toHaveAttribute('src', 'blob:original-reference')
+    expect(container.querySelector('.raw-preview-processed-layer')).toHaveClass(
+      'raw-preview-layer-clipped',
+    )
+    await waitFor(() => {
+      expect(getPipelineParamCalls()).toContainEqual(
+        expect.objectContaining({
+          viewMode: 'processed',
+          compareSplit: 0.5,
+        }),
+      )
+    })
+    expect(getPipelineParamCalls()).not.toContainEqual(
+      expect.objectContaining({ viewMode: 'compare' }),
+    )
+  })
+
   it('zooms the preview around the wheel pointer without mutating processing params', async () => {
     const paramsBefore = { ...defaultParams }
     const { frame, onPreviewViewportChange } = renderInteractivePreview()
@@ -546,6 +691,71 @@ describe('preview canvas upload descriptor', () => {
     expect(track).not.toBe(surface)
     expect(track?.style.getPropertyValue('--raw-preview-zoom')).toBe('')
     expect(surface?.style.getPropertyValue('--raw-preview-zoom')).toBe('2')
+  })
+
+  it('keeps layered compare clipping in track space while zoom transforms layer content', async () => {
+    const snapshot: OriginalReferenceSnapshot = {
+      key: 'original-reference|session:test',
+      objectUrl: 'blob:original-reference',
+      width: 400,
+      height: 300,
+      source: 'quick',
+      mimeType: 'image/jpeg',
+      estimatedBytes: 1024,
+    }
+
+    const { container } = render(
+      createElement(PreviewCanvas, {
+        imageRef: { current: decodedImage },
+        imageVersion: 1,
+        params: {
+          ...defaultParams,
+          viewMode: 'compare',
+        },
+        lutDataRef: { current: null },
+        lutDataVersion: 0,
+        dualWebglAllowed: false,
+        originalReferenceSnapshot: snapshot,
+        previewViewport: {
+          zoom: 2,
+          panX: 80,
+          panY: -40,
+          fitMode: 'custom',
+        },
+      }),
+    )
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-compare-mode="jpeg-fallback"]'),
+      ).toBeTruthy()
+    })
+
+    const surface = container.querySelector<HTMLElement>(
+      '[data-raw-preview-surface]',
+    )
+    const processedLayer = container.querySelector<HTMLElement>(
+      '.raw-preview-processed-layer',
+    )
+    const processedCanvas = container.querySelector<HTMLElement>(
+      '.raw-preview-canvas',
+    )
+    const originalImage = container.querySelector<HTMLElement>(
+      '.raw-preview-original-image',
+    )
+
+    expect(surface).not.toBeNull()
+    expect(processedLayer).not.toBeNull()
+    expect(processedCanvas).not.toBeNull()
+    expect(originalImage).not.toBeNull()
+    expect(getComputedStyle(surface!).transform).toBe('')
+    expect(getComputedStyle(processedLayer!).clipPath).toContain(
+      'var(--raw-compare-split',
+    )
+    expect(getComputedStyle(processedCanvas!).transform).toContain(
+      'translate3d',
+    )
+    expect(getComputedStyle(originalImage!).transform).toContain('translate3d')
   })
 
   it('pans a zoomed preview with pointer drag', async () => {

@@ -24,6 +24,14 @@ export type SelectCompareRenderModeInput = {
   jpegSnapshotReady: boolean
 }
 
+export function supportsLayeredCompareCss(): boolean {
+  return (
+    typeof CSS !== 'undefined' &&
+    typeof CSS.supports === 'function' &&
+    CSS.supports('clip-path', 'inset(0 50% 0 0)')
+  )
+}
+
 export function selectCompareRenderMode({
   requestedViewMode,
   supportsCssClip,

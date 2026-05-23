@@ -29,6 +29,14 @@ export type UseOriginalReferenceSnapshotInput = {
   styleVersion?: number
   renderSnapshot?: typeof renderOriginalReferenceSnapshot
   releaseSnapshot?: typeof releaseOriginalReferenceSnapshot
+  onPendingRenderChange?: (
+    pending: PendingOriginalReferenceSnapshotRender | null,
+  ) => void
+}
+
+export type PendingOriginalReferenceSnapshotRender = {
+  key: string
+  dispose: () => Promise<void>
 }
 
 function getOriginalReferenceSnapshotFallbackReason(error: unknown): string {
@@ -53,12 +61,14 @@ export function useOriginalReferenceSnapshot({
   capability,
   renderSnapshot = renderOriginalReferenceSnapshot,
   releaseSnapshot = releaseOriginalReferenceSnapshot,
+  onPendingRenderChange,
 }: UseOriginalReferenceSnapshotInput) {
   const [snapshot, setSnapshot] = useState<OriginalReferenceSnapshot | null>(
     null,
   )
   const [fallbackReason, setFallbackReason] = useState<string | null>(null)
   const snapshotRef = useRef<OriginalReferenceSnapshot | null>(null)
+  const snapshotSessionIdRef = useRef<string | null>(null)
 
   const key = useMemo(() => {
     if (!sessionId || !image) return null
@@ -84,12 +94,22 @@ export function useOriginalReferenceSnapshot({
       const previous = snapshotRef.current
       if (previous) {
         snapshotRef.current = null
+        snapshotSessionIdRef.current = null
         setSnapshot(null)
         releaseSnapshot(previous)
       }
       setFallbackReason(null)
       return
     }
+
+    if (snapshotRef.current && snapshotSessionIdRef.current !== sessionId) {
+      const previous = snapshotRef.current
+      snapshotRef.current = null
+      snapshotSessionIdRef.current = null
+      setSnapshot(null)
+      releaseSnapshot(previous)
+    }
+
     if (snapshotRef.current?.key === key) return
 
     let cancelled = false
@@ -101,7 +121,7 @@ export function useOriginalReferenceSnapshot({
       pthread: capability.pthread,
     })
 
-    void renderSnapshot({ image, key, maxPixels })
+    const renderPromise = renderSnapshot({ image, key, maxPixels })
       .then((nextSnapshot) => {
         if (cancelled) {
           releaseSnapshot(nextSnapshot)
@@ -109,6 +129,7 @@ export function useOriginalReferenceSnapshot({
         }
         const previous = snapshotRef.current
         snapshotRef.current = nextSnapshot
+        snapshotSessionIdRef.current = sessionId
         setSnapshot(nextSnapshot)
         if (previous && previous.objectUrl !== nextSnapshot.objectUrl) {
           releaseSnapshot(previous)
@@ -118,9 +139,21 @@ export function useOriginalReferenceSnapshot({
         if (cancelled) return
         setFallbackReason(getOriginalReferenceSnapshotFallbackReason(error))
       })
+      .finally(() => {
+        onPendingRenderChange?.(null)
+      })
+
+    onPendingRenderChange?.({
+      key,
+      dispose: async () => {
+        cancelled = true
+        await renderPromise
+      },
+    })
 
     return () => {
       cancelled = true
+      onPendingRenderChange?.(null)
     }
   }, [
     capability.pthread,
@@ -130,12 +163,15 @@ export function useOriginalReferenceSnapshot({
     key,
     releaseSnapshot,
     renderSnapshot,
+    sessionId,
+    onPendingRenderChange,
   ])
 
   useEffect(() => {
     return () => {
       releaseSnapshot(snapshotRef.current)
       snapshotRef.current = null
+      snapshotSessionIdRef.current = null
     }
   }, [releaseSnapshot])
 

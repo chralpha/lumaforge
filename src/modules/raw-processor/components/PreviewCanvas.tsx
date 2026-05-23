@@ -6,13 +6,7 @@ import './preview-canvas.css'
 
 import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { m } from 'motion/react'
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats } from '~/lib/gl/pipeline'
@@ -22,19 +16,27 @@ import type { DecodedImage } from '~/lib/raw/decoder'
 import { Spring } from '~/lib/spring'
 
 import type { DisplaySource } from '../model/session'
+import type { CompareRenderMode } from '../services/compare-render-mode'
+import {
+  selectCompareRenderMode,
+  supportsLayeredCompareCss,
+} from '../services/compare-render-mode'
+import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
 import type {
   PreviewViewport,
   PreviewViewportGeometry,
 } from '../services/preview-viewport'
 import {
   DEFAULT_PREVIEW_VIEWPORT,
-  getCanvasCompareSplit,
   getWheelPreviewZoomTarget,
   normalizePreviewViewport,
   panPreviewViewport,
   resetPreviewViewport,
   zoomPreviewViewportAtPoint,
 } from '../services/preview-viewport'
+import { OriginalReferenceLayer } from './OriginalReferenceLayer'
+import type { OriginalWebglPipelineHandle } from './OriginalWebglLayer'
+import { OriginalWebglLayer } from './OriginalWebglLayer'
 import type { TrackedPointer } from './preview-canvas-helpers'
 import {
   createRawUploadInput,
@@ -53,12 +55,20 @@ export interface PreviewCanvasProps {
   lutDataVersion: number
   embeddedPreviewUrl?: string | null
   displaySource?: DisplaySource
+  originalReferenceSnapshot?: OriginalReferenceSnapshot | null
+  originalReferenceFallbackReason?: string | null
+  dualWebglAllowed?: boolean
   suspended?: boolean
   interactionDisabled?: boolean
   previewViewport?: PreviewViewport
   onPreviewViewportChange?: (viewport: PreviewViewport) => void
   onStatsUpdate?: (stats: PipelineStats) => void
   onPipelineChange?: (pipeline: RawProcessingPipeline | null) => void
+  onOriginalPreviewPipelineChange?: (
+    pipeline: OriginalWebglPipelineHandle | null,
+  ) => void
+  onCompareRenderModeChange?: (mode: CompareRenderMode['kind']) => void
+  onRequestOriginalReferenceFallback?: () => void
   /**
    * Callback ref that receives the interactive preview frame element.
    * Used by overlay UI (e.g. mobile chrome) to attach gesture listeners
@@ -77,12 +87,18 @@ export function PreviewCanvas({
   lutDataVersion,
   embeddedPreviewUrl,
   displaySource = 'none',
+  originalReferenceSnapshot = null,
+  originalReferenceFallbackReason = null,
+  dualWebglAllowed = false,
   suspended = false,
   interactionDisabled = false,
   previewViewport = DEFAULT_PREVIEW_VIEWPORT,
   onPreviewViewportChange,
   onStatsUpdate,
   onPipelineChange,
+  onOriginalPreviewPipelineChange,
+  onCompareRenderModeChange,
+  onRequestOriginalReferenceFallback,
   frameRef,
   className,
 }: PreviewCanvasProps) {
@@ -104,6 +120,8 @@ export function PreviewCanvas({
   const pendingViewportRafRef = useRef<number | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
   const [isPointerPanning, setIsPointerPanning] = useState(false)
+  const [originalWebglReady, setOriginalWebglReady] = useState(false)
+  const [originalWebglFailed, setOriginalWebglFailed] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const showEmbeddedPreview =
     displaySource === 'embedded' && Boolean(embeddedPreviewUrl)
@@ -117,6 +135,57 @@ export function PreviewCanvas({
     (hasImageData || showEmbeddedPreview) &&
     Boolean(onPreviewViewportChange)
   const normalizedPreviewViewport = normalizePreviewViewport(previewViewport)
+  const supportsCssClip = supportsLayeredCompareCss()
+  const compareRenderMode: CompareRenderMode = selectCompareRenderMode({
+    requestedViewMode: showEmbeddedPreview ? 'processed' : params.viewMode,
+    supportsCssClip,
+    dualWebglAllowed,
+    originalWebglReady,
+    originalWebglFailed,
+    jpegSnapshotReady: Boolean(originalReferenceSnapshot),
+  })
+  const isLayeredCompareActive =
+    compareRenderMode.kind === 'dual-webgl' ||
+    compareRenderMode.kind === 'jpeg-fallback'
+  const pipelineCompareSplit =
+    params.viewMode === 'compare' ? 0.5 : params.compareSplit
+  const processedCanvasParams = useMemo(
+    () =>
+      ({
+        intensity: params.intensity,
+        viewMode: params.viewMode === 'compare' ? 'processed' : params.viewMode,
+        compareSplit: pipelineCompareSplit,
+        styleKind: params.styleKind,
+        builtinPreset: params.builtinPreset,
+        userExposureEv: params.userExposureEv,
+        userContrast: params.userContrast,
+        userHighlights: params.userHighlights,
+        userShadows: params.userShadows,
+        userWhites: params.userWhites,
+        userBlacks: params.userBlacks,
+      }) satisfies ProcessingParams,
+    [
+      params.builtinPreset,
+      params.intensity,
+      params.styleKind,
+      params.userBlacks,
+      params.userContrast,
+      params.userExposureEv,
+      params.userHighlights,
+      params.userShadows,
+      params.userWhites,
+      params.viewMode,
+      pipelineCompareSplit,
+    ],
+  )
+  const shouldMountOriginalWebglLayer =
+    !showEmbeddedPreview &&
+    !suspended &&
+    hasImageData &&
+    params.viewMode === 'compare' &&
+    supportsCssClip &&
+    dualWebglAllowed &&
+    !originalWebglFailed
 
   suspendedRef.current = suspended
 
@@ -131,6 +200,21 @@ export function PreviewCanvas({
   useEffect(() => {
     previewViewportRef.current = normalizedPreviewViewport
   }, [normalizedPreviewViewport])
+
+  useEffect(() => {
+    onCompareRenderModeChange?.(compareRenderMode.kind)
+  }, [compareRenderMode.kind, onCompareRenderModeChange])
+
+  useEffect(() => {
+    setOriginalWebglReady(false)
+    setOriginalWebglFailed(false)
+  }, [
+    imageVersion,
+    displaySource,
+    dualWebglAllowed,
+    params.viewMode,
+    suspended,
+  ])
 
   const getViewportGeometry = useCallback(() => {
     const container = containerRef.current
@@ -562,9 +646,9 @@ export function PreviewCanvas({
     }
   }, [lutDataRef, lutDataVersion, isInitialized])
 
-  // Update params and render (full pipeline update when params/image changes).
-  // Viewport compensation is applied here too: params updates during zoomed compare
-  // mode must carry the compensated split into the shader.
+  // Update params and render when the processed preview inputs change.
+  // Compare mode now stays in CSS/DOM space, so the processed canvas never
+  // enters the legacy single-canvas shader split path.
   useEffect(() => {
     const pipeline = pipelineRef.current
     if (!pipeline || !isInitialized) return
@@ -579,73 +663,15 @@ export function PreviewCanvas({
     })
     if (!uploadInput) return
 
-    const currentViewport = previewViewportRef.current
-    const vpGeo = getViewportGeometry()
-    let compareSplit = params.compareSplit
-
-    if (
-      params.viewMode === 'compare' &&
-      currentViewport.zoom > 1 &&
-      vpGeo &&
-      vpGeo.geometry.contentWidth > 0
-    ) {
-      compareSplit = getCanvasCompareSplit(
-        params.compareSplit,
-        currentViewport.zoom,
-        currentViewport.panX,
-        vpGeo.geometry.contentWidth,
-      )
-    }
-
-    pipeline.setParams({ ...params, compareSplit })
+    pipeline.setParams(processedCanvasParams)
     const stats = pipeline.render()
     onStatsUpdate?.(stats)
   }, [
-    params,
+    processedCanvasParams,
     imageRef,
     imageVersion,
     isInitialized,
     onStatsUpdate,
-    getViewportGeometry,
-  ])
-
-  // Refresh the comparison split when zoom/pan changes during compare mode.
-  // Kept separate from the params effect above so that zoom/pan does not
-  // re-create uploadInput, re-upload image data, or fire onStatsUpdate.
-  // Uses useLayoutEffect so the canvas update lands in the same frame as the
-  // CSS transform, keeping the split bar and shader split line synchronised.
-  useLayoutEffect(() => {
-    const pipeline = pipelineRef.current
-    if (!pipeline || !isInitialized) return
-    if (params.viewMode !== 'compare') return
-
-    const { zoom } = normalizedPreviewViewport
-
-    let compareSplit: number
-    if (zoom <= 1) {
-      compareSplit = params.compareSplit
-    } else {
-      const vpGeo = getViewportGeometry()
-      if (!vpGeo || vpGeo.geometry.contentWidth <= 0) return
-
-      compareSplit = getCanvasCompareSplit(
-        params.compareSplit,
-        zoom,
-        normalizedPreviewViewport.panX,
-        vpGeo.geometry.contentWidth,
-      )
-    }
-
-    pipeline.setParams({ compareSplit })
-    pipeline.render({ waitForGpu: false })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- normalizedPreviewViewport is a fresh object each render; zoom/panX are stable primitives
-  }, [
-    normalizedPreviewViewport.zoom,
-    normalizedPreviewViewport.panX,
-    params.viewMode,
-    params.compareSplit,
-    isInitialized,
-    getViewportGeometry,
   ])
 
   // Re-render when LUT changes
@@ -709,13 +735,57 @@ export function PreviewCanvas({
             } as React.CSSProperties
           }
         >
-          <canvas
-            ref={canvasRef}
-            className={clsxm(
-              'raw-preview-canvas',
-              showEmbeddedPreview && 'opacity-0',
+          {shouldMountOriginalWebglLayer && (
+            <div
+              className={clsxm(
+                'raw-preview-original-webgl-shell',
+                compareRenderMode.kind === 'dual-webgl'
+                  ? 'raw-preview-layer-clipped'
+                  : 'opacity-0 pointer-events-none',
+              )}
+            >
+              <OriginalWebglLayer
+                imageRef={imageRef}
+                imageVersion={imageVersion}
+                onPipelineChange={onOriginalPreviewPipelineChange}
+                onReady={() => {
+                  setOriginalWebglReady(true)
+                  setOriginalWebglFailed(false)
+                }}
+                onError={() => {
+                  setOriginalWebglReady(false)
+                  setOriginalWebglFailed(true)
+                  onRequestOriginalReferenceFallback?.()
+                }}
+              />
+            </div>
+          )}
+
+          {compareRenderMode.kind === 'jpeg-fallback' &&
+            originalReferenceSnapshot && (
+              <OriginalReferenceLayer snapshot={originalReferenceSnapshot} />
             )}
-          />
+
+          <div
+            className={clsxm(
+              'raw-preview-processed-layer',
+              isLayeredCompareActive && 'raw-preview-layer-clipped',
+            )}
+            data-compare-mode={compareRenderMode.kind}
+            data-compare-fallback-reason={
+              compareRenderMode.kind === 'processed-only'
+                ? (originalReferenceFallbackReason ?? undefined)
+                : undefined
+            }
+          >
+            <canvas
+              ref={canvasRef}
+              className={clsxm(
+                'raw-preview-canvas',
+                showEmbeddedPreview && 'opacity-0',
+              )}
+            />
+          </div>
 
           {showEmbeddedPreview && (
             <img

@@ -47,6 +47,10 @@ import type { OnlineLUTEntry } from '~/lib/profiles/catalog'
 import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
 import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
+import {
+  classifyUserAgent,
+  getCapabilityVectorSnapshot,
+} from '~/lib/runtime/capability-vector'
 
 import { deriveCanEdit } from '../model/derive-session'
 import type {
@@ -59,6 +63,7 @@ import type {
   LUTProfileSelectionState,
   StyleAsset,
 } from '../model/session'
+import { supportsLayeredCompareCss } from '../services/compare-render-mode'
 import {
   clearEmbeddedPreviewUrlFromSession,
   revokeEmbeddedPreviewObjectUrls,
@@ -89,6 +94,8 @@ import {
   orchestrateOnlineLutLoad,
   orchestrateProfileSelection,
 } from '../services/lut/orchestrate-lut-load'
+import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
+import { releaseOriginalReferenceSnapshot } from '../services/original-reference-snapshot'
 import {
   computeClearLUT,
   computeCompareSplitChange,
@@ -110,10 +117,42 @@ import {
 } from '../services/style-system'
 import { getProgressRecoveryHint } from '../services/workflow-status'
 import { useImageSession } from './useImageSession'
+import type {
+  OriginalReferenceSnapshotCapability,
+  PendingOriginalReferenceSnapshotRender,
+} from './useOriginalReferenceSnapshot'
+import { useOriginalReferenceSnapshot } from './useOriginalReferenceSnapshot'
 import { usePreviewHistogram } from './usePreviewHistogram'
 
 function enqueuePostCommitTask(task: () => void) {
   setTimeout(task, 0)
+}
+
+function getOriginalReferenceSnapshotCapability(): OriginalReferenceSnapshotCapability {
+  const capability = getCapabilityVectorSnapshot()
+  if (capability) {
+    return {
+      webKitClass: capability.webKitClass,
+      pthread: capability.pthread,
+    }
+  }
+
+  const nav = globalThis.navigator
+  const touch =
+    typeof nav?.maxTouchPoints === 'number' ? nav.maxTouchPoints > 0 : false
+
+  return {
+    webKitClass: classifyUserAgent(nav?.userAgent ?? '', touch),
+    pthread:
+      Boolean(globalThis.crossOriginIsolated) &&
+      typeof SharedArrayBuffer !== 'undefined',
+  }
+}
+
+function allowDualWebglCompare(
+  capability: OriginalReferenceSnapshotCapability,
+) {
+  return capability.webKitClass === 'chromium' && capability.pthread
 }
 
 export interface UseRawProcessorReturn {
@@ -148,6 +187,9 @@ export interface UseRawProcessorReturn {
   progressRecoveryHint?: string
   embeddedPreviewUrl: string | null
   displaySource: DisplaySource
+  originalReferenceSnapshot: OriginalReferenceSnapshot | null
+  originalReferenceFallbackReason: string | null
+  dualWebglAllowed: boolean
   histogram: PreviewHistogramState
   previewSuspended: boolean
 
@@ -192,6 +234,10 @@ export interface UseRawProcessorReturn {
   shareExportResult: () => Promise<void>
   copyExportResult: () => Promise<void>
   restorePreviewAfterExport: () => Promise<void>
+  requestOriginalReferenceFallback: () => void
+  setOriginalPreviewPipeline: (
+    pipeline: PreviewPipelineEvacuationHandle | null,
+  ) => void
   reset: () => void
   dismissError: () => void
   updateStats: (stats: PipelineStats) => void
@@ -208,6 +254,8 @@ type PendingRecoveryRetry = {
   size: number
   lastModified: number
 }
+
+type PreviewPipelineEvacuationHandle = Pick<RawProcessingPipeline, 'dispose'>
 
 export function useRawProcessor(): UseRawProcessorReturn {
   const params = useProcessingParamsValue()
@@ -231,7 +279,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const previewPipelineResourceIdRef = useRef(0)
   const decodedPreviewResourceIdRef = useRef(0)
   const exportResultResourceIdRef = useRef(0)
+  const originalReferenceSnapshotResourceIdRef = useRef(0)
+  const originalReferenceSnapshotPendingResourceIdRef = useRef(0)
   const decodedPreviewResourceRef = useRef<TrackedLargeResource | null>(null)
+  const originalReferenceSnapshotResourceRef =
+    useRef<TrackedLargeResource | null>(null)
+  const originalReferenceSnapshotResourceKeyRef = useRef<string | null>(null)
+  const originalReferenceSnapshotPendingResourceRef =
+    useRef<TrackedLargeResource | null>(null)
+  const originalReferenceSnapshotPendingResourceKeyRef = useRef<string | null>(
+    null,
+  )
   const previewCopyCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const sessionRef = useRef(session)
   const embeddedPreviewUrlRef = useRef<string | null>(null)
@@ -246,6 +304,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
     new WeakSet(),
   )
   const decodedImageRef = useRef<DecodedImage | null>(null)
+  const originalPreviewPipelineRef =
+    useRef<PreviewPipelineEvacuationHandle | null>(null)
   const rawRenderExposureRef = useRef<RawRenderExposure | null>(null)
   const [decodedImageVersion, setDecodedImageVersion] = useState(0)
   const lutDataRef = useRef<LUTData | null>(null)
@@ -255,9 +315,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
     useState<ExportRecoveryState>({ status: 'none' })
   const [pendingRecoveryRetry, setPendingRecoveryRetry] =
     useState<PendingRecoveryRetry | null>(null)
+  const [
+    originalReferenceFallbackRequestSessionId,
+    setOriginalReferenceFallbackRequestSessionId,
+  ] = useState<string | null>(null)
   if (!resourceRegistryRef.current) {
     resourceRegistryRef.current = createResourceRegistry()
   }
+  sessionRef.current = session
   const setDiscoveredRecoveryState = useCallback(
     (next: ExportRecoveryState) => {
       discoveredRecoveryRef.current = next
@@ -368,6 +433,61 @@ export function useRawProcessor(): UseRawProcessorReturn {
     clearSessionEmbeddedPreviewUrl(sessionId)
   }, [clearSessionEmbeddedPreviewUrl])
 
+  const requestOriginalReferenceFallback = useCallback(() => {
+    setOriginalReferenceFallbackRequestSessionId(sessionRef.current?.id ?? null)
+  }, [])
+
+  const setOriginalPreviewPipeline = useCallback(
+    (pipeline: PreviewPipelineEvacuationHandle | null) => {
+      originalPreviewPipelineRef.current = pipeline
+    },
+    [],
+  )
+
+  const setPendingOriginalReferenceSnapshotRender = useCallback(
+    (pending: PendingOriginalReferenceSnapshotRender | null) => {
+      const previous = originalReferenceSnapshotPendingResourceRef.current
+      const previousKey = originalReferenceSnapshotPendingResourceKeyRef.current
+
+      if (previous && previousKey !== pending?.key) {
+        originalReferenceSnapshotPendingResourceRef.current = null
+        originalReferenceSnapshotPendingResourceKeyRef.current = null
+        void previous.dispose().catch((error) => {
+          console.warn(
+            'Failed to clean up pending original reference snapshot:',
+            error,
+          )
+        })
+      }
+
+      if (!pending || previousKey === pending.key) {
+        return
+      }
+
+      const registry = resourceRegistryRef.current
+      if (!registry) {
+        return
+      }
+
+      let tracked: TrackedLargeResource | null = null
+      tracked = registry.register({
+        id: `original-reference-snapshot-render-${++originalReferenceSnapshotPendingResourceIdRef.current}`,
+        owner: 'preview',
+        kind: 'webgl-pipeline',
+        dispose: () => {
+          if (originalReferenceSnapshotPendingResourceRef.current === tracked) {
+            originalReferenceSnapshotPendingResourceRef.current = null
+            originalReferenceSnapshotPendingResourceKeyRef.current = null
+          }
+          return pending.dispose()
+        },
+      })
+      originalReferenceSnapshotPendingResourceRef.current = tracked
+      originalReferenceSnapshotPendingResourceKeyRef.current = pending.key
+    },
+    [],
+  )
+
   const disposeRuntimeSession = useCallback(
     (runtimeSession = runtimeSessionRef.current) => {
       if (
@@ -405,23 +525,44 @@ export function useRawProcessor(): UseRawProcessorReturn {
   }, [])
 
   const registerCurrentPreviewPipelineForEvacuation = useCallback(() => {
-    const pipeline = pipelineRef.current
     const registry = resourceRegistryRef.current
-    if (!pipeline || !registry || typeof pipeline.dispose !== 'function') {
+    if (!registry) {
       return
     }
 
-    const id = `webgl-pipeline-${++previewPipelineResourceIdRef.current}`
-    registry.register({
-      id,
-      owner: 'webgl',
-      kind: 'webgl-pipeline',
-      dispose: () => {
-        if (pipelineRef.current === pipeline) {
-          pipelineRef.current = null
-        }
-        return pipeline.dispose({ releaseContext: true })
-      },
+    const registerPipeline = (
+      label: 'processed' | 'original',
+      pipeline: PreviewPipelineEvacuationHandle | null,
+      clearCurrent: () => void,
+    ) => {
+      if (!pipeline || typeof pipeline.dispose !== 'function') {
+        return
+      }
+
+      const id = `webgl-pipeline-${++previewPipelineResourceIdRef.current}-${label}`
+      registry.register({
+        id,
+        owner: 'webgl',
+        kind: 'webgl-pipeline',
+        dispose: () => {
+          clearCurrent()
+          return pipeline.dispose({ releaseContext: true })
+        },
+      })
+    }
+
+    const processedPipeline = pipelineRef.current
+    registerPipeline('processed', processedPipeline, () => {
+      if (pipelineRef.current === processedPipeline) {
+        pipelineRef.current = null
+      }
+    })
+
+    const originalPipeline = originalPreviewPipelineRef.current
+    registerPipeline('original', originalPipeline, () => {
+      if (originalPreviewPipelineRef.current === originalPipeline) {
+        originalPreviewPipelineRef.current = null
+      }
     })
   }, [])
 
@@ -551,10 +692,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     },
     [invalidateExportGraph, registerDecodedPreviewForEvacuation],
   )
-
-  useEffect(() => {
-    sessionRef.current = session
-  }, [session])
 
   useEffect(() => {
     let cancelled = false
@@ -1375,6 +1512,96 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const previewSuspended =
     exportPlanSuspendsPreview &&
     (status === 'exporting' || previewEvacuatedForReadyExport)
+  const originalReferenceCapability = getOriginalReferenceSnapshotCapability()
+  const dualWebglAllowed = allowDualWebglCompare(originalReferenceCapability)
+  const supportsCssCompare = supportsLayeredCompareCss()
+  const originalReferenceFallbackRequested =
+    Boolean(session?.id) &&
+    originalReferenceFallbackRequestSessionId === session?.id
+
+  useEffect(() => {
+    if (viewMode !== 'compare' || previewSuspended) {
+      setOriginalReferenceFallbackRequestSessionId(null)
+    }
+  }, [previewSuspended, viewMode])
+
+  const shouldPrepareOriginalReferenceSnapshot =
+    viewMode === 'compare' &&
+    !previewSuspended &&
+    supportsCssCompare &&
+    (!dualWebglAllowed || originalReferenceFallbackRequested)
+  const originalReference = useOriginalReferenceSnapshot({
+    sessionId: session?.id ?? null,
+    image: shouldPrepareOriginalReferenceSnapshot
+      ? decodedImageRef.current
+      : null,
+    imageVersion: decodedImageVersion,
+    displaySource,
+    capability: originalReferenceCapability,
+    onPendingRenderChange: setPendingOriginalReferenceSnapshotRender,
+  })
+
+  useEffect(() => {
+    const snapshot = originalReference.snapshot
+    const currentResource = originalReferenceSnapshotResourceRef.current
+    const currentResourceKey = originalReferenceSnapshotResourceKeyRef.current
+
+    if (currentResource && currentResourceKey !== snapshot?.key) {
+      originalReferenceSnapshotResourceRef.current = null
+      originalReferenceSnapshotResourceKeyRef.current = null
+      void currentResource.dispose().catch((error) => {
+        console.warn('Failed to clean up original reference snapshot:', error)
+      })
+    }
+
+    if (!snapshot || currentResourceKey === snapshot.key) {
+      return
+    }
+
+    const registry = resourceRegistryRef.current
+    if (!registry) {
+      return
+    }
+
+    let tracked: TrackedLargeResource | null = null
+    tracked = registry.register({
+      id: `original-reference-snapshot-${++originalReferenceSnapshotResourceIdRef.current}`,
+      owner: 'preview',
+      kind: 'object-url',
+      estimatedBytes: snapshot.estimatedBytes,
+      dispose: () => {
+        if (originalReferenceSnapshotResourceRef.current === tracked) {
+          originalReferenceSnapshotResourceRef.current = null
+          originalReferenceSnapshotResourceKeyRef.current = null
+        }
+        releaseOriginalReferenceSnapshot(snapshot)
+      },
+    })
+    originalReferenceSnapshotResourceRef.current = tracked
+    originalReferenceSnapshotResourceKeyRef.current = snapshot.key
+  }, [originalReference.snapshot])
+
+  useEffect(() => {
+    return () => {
+      const pendingResource =
+        originalReferenceSnapshotPendingResourceRef.current
+      originalReferenceSnapshotPendingResourceRef.current = null
+      originalReferenceSnapshotPendingResourceKeyRef.current = null
+      void pendingResource?.dispose().catch((error) => {
+        console.warn(
+          'Failed to clean up pending original reference snapshot:',
+          error,
+        )
+      })
+
+      const resource = originalReferenceSnapshotResourceRef.current
+      originalReferenceSnapshotResourceRef.current = null
+      originalReferenceSnapshotResourceKeyRef.current = null
+      void resource?.dispose().catch((error) => {
+        console.warn('Failed to clean up original reference snapshot:', error)
+      })
+    }
+  }, [])
 
   return {
     params,
@@ -1410,6 +1637,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
     progressRecoveryHint,
     embeddedPreviewUrl,
     displaySource,
+    originalReferenceSnapshot: originalReference.snapshot,
+    originalReferenceFallbackReason: originalReference.fallbackReason,
+    dualWebglAllowed,
     histogram,
     previewSuspended,
     loadFile,
@@ -1431,6 +1661,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
     shareExportResult,
     copyExportResult,
     restorePreviewAfterExport,
+    requestOriginalReferenceFallback,
+    setOriginalPreviewPipeline,
     reset,
     dismissError,
     updateStats,

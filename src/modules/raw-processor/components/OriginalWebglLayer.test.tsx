@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 
 import type { DecodedImage } from '~/lib/raw/decoder'
 
@@ -79,6 +79,46 @@ describe('originalWebglLayer', () => {
     expect(dispose).toHaveBeenCalledWith({ releaseContext: true })
   })
 
+  it('publishes an evacuation handle and clears it after disposal', async () => {
+    const dispose = vi.fn()
+    const onPipelineChange = vi.fn()
+
+    render(
+      <OriginalWebglLayer
+        imageRef={{ current: decodedImage }}
+        imageVersion={1}
+        createPipeline={() =>
+          ({
+            initialize: vi.fn().mockResolvedValue(undefined),
+            uploadImage: vi.fn(),
+            setParams: vi.fn(),
+            render: vi.fn(),
+            resize: vi.fn(),
+            dispose,
+          }) as never
+        }
+        onPipelineChange={onPipelineChange}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(onPipelineChange).toHaveBeenCalledWith(
+        expect.objectContaining({ dispose: expect.any(Function) }),
+      )
+    })
+
+    const handle = onPipelineChange.mock.calls.find(
+      ([value]) => value && typeof value === 'object',
+    )?.[0] as { dispose: () => void }
+
+    act(() => {
+      handle.dispose()
+    })
+
+    expect(dispose).toHaveBeenCalledWith({ releaseContext: true })
+    expect(onPipelineChange).toHaveBeenLastCalledWith(null)
+  })
+
   it('reports pipeline creation failures without leaking an async rejection', async () => {
     const onError = vi.fn()
 
@@ -100,5 +140,37 @@ describe('originalWebglLayer', () => {
         }),
       )
     })
+  })
+
+  it('reports render failures and releases the original WebGL context', async () => {
+    const dispose = vi.fn()
+    const onError = vi.fn()
+
+    render(
+      <OriginalWebglLayer
+        imageRef={{ current: decodedImage }}
+        imageVersion={1}
+        createPipeline={() =>
+          ({
+            initialize: vi.fn().mockResolvedValue(undefined),
+            uploadImage: vi.fn(() => {
+              throw new Error('Original upload failed')
+            }),
+            setParams: vi.fn(),
+            render: vi.fn(),
+            resize: vi.fn(),
+            dispose,
+          }) as never
+        }
+        onError={onError}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Original upload failed' }),
+      )
+    })
+    expect(dispose).toHaveBeenCalledWith({ releaseContext: true })
   })
 })

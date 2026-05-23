@@ -10,6 +10,7 @@ import { PreviewCanvas } from '../components/PreviewCanvas'
 import { RawToolSurface } from '../components/RawToolSurface'
 import type { UseRawProcessorReturn } from '../hooks/useRawProcessor'
 import { RawProcessorView } from '../RawProcessorView'
+import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
 
 const mockUseRawProcessor = vi.hoisted(() => vi.fn())
 const mockUseCapabilityGate = vi.hoisted(() => vi.fn())
@@ -155,6 +156,9 @@ function rawProcessorViewState(
     progressRecoveryHint: undefined,
     embeddedPreviewUrl: null,
     displaySource: 'none',
+    originalReferenceSnapshot: null,
+    originalReferenceFallbackReason: null,
+    dualWebglAllowed: false,
     histogram: { state: 'unavailable', reason: 'no-image' },
     previewSuspended: false,
     loadFile: vi.fn(),
@@ -174,6 +178,8 @@ function rawProcessorViewState(
     shareExportResult: vi.fn(),
     copyExportResult: vi.fn(),
     restorePreviewAfterExport: vi.fn(),
+    requestOriginalReferenceFallback: vi.fn(),
+    setOriginalPreviewPipeline: vi.fn(),
     reset: vi.fn(),
     dismissError: vi.fn(),
     updateStats: vi.fn(),
@@ -288,6 +294,10 @@ beforeEach(() => {
     ready: true,
     supportStatus: 'supported',
     reason: null,
+  })
+
+  vi.stubGlobal('CSS', {
+    supports: vi.fn(() => true),
   })
 
   vi.stubGlobal(
@@ -1108,6 +1118,7 @@ describe('rawToolSurface', () => {
           <ComparePreviewStage
             {...compareStageProps({
               hasImage: true,
+              dualWebglAllowed: true,
               imageRef: {
                 current: {
                   data: new Float32Array(4),
@@ -1141,6 +1152,249 @@ describe('rawToolSurface', () => {
           name: 'Compare unprocessed RAW and final JPEG',
         }),
       ).toBeInTheDocument()
+    })
+
+    it('hides compare controls when compare rendering is processed-only', async () => {
+      await act(async () => {
+        render(
+          <ComparePreviewStage
+            {...compareStageProps({
+              hasImage: true,
+              dualWebglAllowed: false,
+              originalReferenceSnapshot: null,
+              imageRef: {
+                current: {
+                  data: new Float32Array(4),
+                  width: 1,
+                  height: 1,
+                  channels: 4,
+                  bitsPerChannel: 32,
+                  layout: 'rgba-float32',
+                  colorSpace: 'display-srgb-preview',
+                  metadata: { width: 1, height: 1 },
+                  renderExposure: {
+                    ev: 0,
+                    multiplier: 1,
+                    source: 'identity',
+                  },
+                },
+              },
+            })}
+          />,
+        )
+      })
+
+      expect(
+        screen.queryByRole('slider', {
+          name: 'Compare unprocessed RAW and final JPEG',
+        }),
+      ).not.toBeInTheDocument()
+      expect(screen.queryByText('Unprocessed RAW')).not.toBeInTheDocument()
+      expect(screen.queryByText('Final JPEG')).not.toBeInTheDocument()
+    })
+
+    it('hides compare controls when CSS clipping disables snapshot compare', async () => {
+      vi.stubGlobal('CSS', {
+        supports: vi.fn(() => false),
+      })
+
+      const snapshot: OriginalReferenceSnapshot = {
+        key: 'original-reference|session:test',
+        objectUrl: 'blob:original-reference',
+        width: 1,
+        height: 1,
+        source: 'quick',
+        mimeType: 'image/jpeg',
+        estimatedBytes: 512,
+      }
+
+      const { container } = render(
+        <ComparePreviewStage
+          {...compareStageProps({
+            hasImage: true,
+            dualWebglAllowed: false,
+            originalReferenceSnapshot: snapshot,
+            imageRef: {
+              current: {
+                data: new Float32Array(4),
+                width: 1,
+                height: 1,
+                channels: 4,
+                bitsPerChannel: 32,
+                layout: 'rgba-float32',
+                colorSpace: 'display-srgb-preview',
+                metadata: { width: 1, height: 1 },
+                renderExposure: {
+                  ev: 0,
+                  multiplier: 1,
+                  source: 'identity',
+                },
+              },
+            },
+          })}
+        />,
+      )
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+
+      expect(
+        container.querySelector('[data-compare-mode="processed-only"]'),
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByRole('slider', {
+          name: 'Compare unprocessed RAW and final JPEG',
+        }),
+      ).not.toBeInTheDocument()
+      expect(screen.queryByText('Unprocessed RAW')).not.toBeInTheDocument()
+      expect(screen.queryByText('Final JPEG')).not.toBeInTheDocument()
+    })
+
+    it('threads dual-webgl compare DOM into the loaded preview surface', async () => {
+      const { container } = render(
+        <ComparePreviewStage
+          {...compareStageProps({
+            hasImage: true,
+            dualWebglAllowed: true,
+            imageRef: {
+              current: {
+                data: new Float32Array(4),
+                width: 1,
+                height: 1,
+                channels: 4,
+                bitsPerChannel: 32,
+                layout: 'rgba-float32',
+                colorSpace: 'display-srgb-preview',
+                metadata: { width: 1, height: 1 },
+                renderExposure: {
+                  ev: 0,
+                  multiplier: 1,
+                  source: 'identity',
+                },
+              },
+            },
+          })}
+        />,
+      )
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+
+      expect(
+        container.querySelector('[data-compare-mode="dual-webgl"]'),
+      ).toBeInTheDocument()
+      expect(
+        container.querySelector('.raw-preview-original-webgl-layer'),
+      ).toBeInTheDocument()
+      expect(
+        container.querySelector('.raw-preview-processed-layer'),
+      ).toHaveClass('raw-preview-layer-clipped')
+    })
+
+    it('threads jpeg fallback compare DOM into the loaded preview surface', async () => {
+      const snapshot: OriginalReferenceSnapshot = {
+        key: 'original-reference|session:test',
+        objectUrl: 'blob:original-reference',
+        width: 1,
+        height: 1,
+        source: 'quick',
+        mimeType: 'image/jpeg',
+        estimatedBytes: 512,
+      }
+
+      const { container } = render(
+        <ComparePreviewStage
+          {...compareStageProps({
+            hasImage: true,
+            dualWebglAllowed: false,
+            originalReferenceSnapshot: snapshot,
+            imageRef: {
+              current: {
+                data: new Float32Array(4),
+                width: 1,
+                height: 1,
+                channels: 4,
+                bitsPerChannel: 32,
+                layout: 'rgba-float32',
+                colorSpace: 'display-srgb-preview',
+                metadata: { width: 1, height: 1 },
+                renderExposure: {
+                  ev: 0,
+                  multiplier: 1,
+                  source: 'identity',
+                },
+              },
+            },
+          })}
+        />,
+      )
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+
+      expect(
+        container.querySelector('[data-compare-mode="jpeg-fallback"]'),
+      ).toBeInTheDocument()
+      expect(
+        container.querySelector('.raw-preview-original-layer img'),
+      ).toHaveAttribute('src', 'blob:original-reference')
+      expect(
+        container.querySelector('.raw-preview-processed-layer'),
+      ).toHaveClass('raw-preview-layer-clipped')
+    })
+
+    it('threads original reference compare state through the real RAW view', async () => {
+      const snapshot: OriginalReferenceSnapshot = {
+        key: 'original-reference|session:test',
+        objectUrl: 'blob:original-reference',
+        width: 1,
+        height: 1,
+        source: 'quick',
+        mimeType: 'image/jpeg',
+        estimatedBytes: 512,
+      }
+
+      mockUseRawProcessor.mockReturnValue({
+        ...rawProcessorViewState({
+          hasImage: true,
+          decodedImageRef: {
+            current: {
+              data: new Float32Array(4),
+              width: 1,
+              height: 1,
+              channels: 4,
+              bitsPerChannel: 32,
+              layout: 'rgba-float32',
+              colorSpace: 'display-srgb-preview',
+              metadata: { width: 1, height: 1 },
+              renderExposure: {
+                ev: 0,
+                multiplier: 1,
+                source: 'identity',
+              },
+            },
+          },
+        }),
+        dualWebglAllowed: false,
+        originalReferenceSnapshot: snapshot,
+        originalReferenceFallbackReason: null,
+      })
+
+      const { container } = render(<RawProcessorView />)
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+
+      expect(
+        container.querySelector('[data-compare-mode="jpeg-fallback"]'),
+      ).toBeInTheDocument()
+      expect(
+        container.querySelector('.raw-preview-original-layer img'),
+      ).toHaveAttribute('src', 'blob:original-reference')
     })
 
     it('can hide the split comparison affordance for mobile hold-to-peek mode', async () => {

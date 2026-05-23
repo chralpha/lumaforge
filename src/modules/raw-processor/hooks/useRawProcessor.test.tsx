@@ -25,7 +25,10 @@ import {
 } from '~/lib/profiles/fetch'
 import type { DecodedImage } from '~/lib/raw/decoder'
 import { BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS } from '~/lib/raw/decoder'
-import { resetCapabilityVectorForTest } from '~/lib/runtime/capability-vector'
+import {
+  resetCapabilityVectorForTest,
+  setCapabilityVectorForTest,
+} from '~/lib/runtime/capability-vector'
 
 import { currentSessionAtom } from '../state/session.atoms'
 import { useRawProcessor } from './useRawProcessor'
@@ -70,6 +73,11 @@ const onlineProfileFetchMock = vi.hoisted(() => ({
   fetchVerifiedCubeAsset: vi.fn(),
 }))
 
+const originalReferenceSnapshotMock = vi.hoisted(() => ({
+  renderOriginalReferenceSnapshot: vi.fn(),
+  releaseOriginalReferenceSnapshot: vi.fn(),
+}))
+
 vi.mock('~/lib/raw/runtime-adapter', () => ({
   rawRuntimeAdapter: rawRuntimeAdapterMock,
 }))
@@ -111,6 +119,28 @@ vi.mock('~/lib/profiles/fetch', async () => {
     ...actual,
     fetchCachedBytesWithLimit: onlineProfileFetchMock.fetchCachedBytesWithLimit,
     fetchVerifiedCubeAsset: onlineProfileFetchMock.fetchVerifiedCubeAsset,
+  }
+})
+
+vi.mock('../services/original-reference-renderer', async () => {
+  const actual = await vi.importActual(
+    '../services/original-reference-renderer',
+  )
+  return {
+    ...actual,
+    renderOriginalReferenceSnapshot:
+      originalReferenceSnapshotMock.renderOriginalReferenceSnapshot,
+  }
+})
+
+vi.mock('../services/original-reference-snapshot', async () => {
+  const actual = await vi.importActual(
+    '../services/original-reference-snapshot',
+  )
+  return {
+    ...actual,
+    releaseOriginalReferenceSnapshot:
+      originalReferenceSnapshotMock.releaseOriginalReferenceSnapshot,
   }
 })
 
@@ -425,6 +455,12 @@ describe('useRawProcessor embedded preview state', () => {
     sourceFingerprintMock.sourceFingerprintMatches.mockReset()
     onlineProfileFetchMock.fetchCachedBytesWithLimit.mockReset()
     onlineProfileFetchMock.fetchVerifiedCubeAsset.mockReset()
+    originalReferenceSnapshotMock.renderOriginalReferenceSnapshot
+      .mockReset()
+      .mockRejectedValue(
+        new Error('Original reference snapshot disabled in hook tests'),
+      )
+    originalReferenceSnapshotMock.releaseOriginalReferenceSnapshot.mockReset()
     toastMock.success.mockReset()
     toastMock.error.mockReset()
     toastMock.info.mockReset()
@@ -1544,6 +1580,74 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
+  it('starts an original reference fallback snapshot after dual WebGL fails', async () => {
+    vi.stubGlobal('CSS', {
+      supports: vi.fn(() => true),
+    })
+    setCapabilityVectorForTest({
+      coi: true,
+      pthread: true,
+      deviceMemoryGB: 8,
+      hwConcurrency: 8,
+      webKitClass: 'chromium',
+      maybeOpfsSupported: true,
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    act(() => {
+      result.current.setViewMode('compare')
+    })
+    await flushPromises()
+
+    expect(result.current.dualWebglAllowed).toBe(true)
+    expect(
+      originalReferenceSnapshotMock.renderOriginalReferenceSnapshot,
+    ).not.toHaveBeenCalled()
+
+    act(() => {
+      result.current.requestOriginalReferenceFallback()
+    })
+
+    await waitFor(() => {
+      expect(
+        originalReferenceSnapshotMock.renderOriginalReferenceSnapshot,
+      ).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('does not prepare original reference snapshots when CSS clipping is unavailable', async () => {
+    vi.stubGlobal('CSS', {
+      supports: vi.fn(() => false),
+    })
+    setCapabilityVectorForTest({
+      coi: false,
+      pthread: false,
+      deviceMemoryGB: 4,
+      hwConcurrency: 4,
+      webKitClass: 'webkit-mobile',
+      maybeOpfsSupported: false,
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    act(() => {
+      result.current.setViewMode('compare')
+    })
+    await flushPromises()
+
+    expect(result.current.dualWebglAllowed).toBe(false)
+    expect(
+      originalReferenceSnapshotMock.renderOriginalReferenceSnapshot,
+    ).not.toHaveBeenCalled()
+  })
+
   it('keeps preview viewport session-only without touching processing params or export state', () => {
     const session = createTestSession()
     jotaiStore.set(currentSessionAtom, session)
@@ -2240,8 +2344,12 @@ describe('useRawProcessor embedded preview state', () => {
     vi.stubGlobal('crossOriginIsolated', true)
 
     const pipelineDispose = vi.fn()
+    const originalPipelineDispose = vi.fn()
     const pipeline = {
       dispose: pipelineDispose,
+    } as never
+    const originalPipeline = {
+      dispose: originalPipelineDispose,
     } as never
 
     const pendingExport = deferred<{ filename: string; blob: Blob }>()
@@ -2257,6 +2365,7 @@ describe('useRawProcessor embedded preview state', () => {
 
     act(() => {
       result.current.pipelineRef.current = pipeline
+      result.current.setOriginalPreviewPipeline(originalPipeline)
     })
 
     let exportPromise!: Promise<void>
@@ -2282,6 +2391,9 @@ describe('useRawProcessor embedded preview state', () => {
     )
     expect(result.current.previewSuspended).toBe(true)
     expect(pipelineDispose).toHaveBeenCalledWith({ releaseContext: true })
+    expect(originalPipelineDispose).toHaveBeenCalledWith({
+      releaseContext: true,
+    })
     expect(result.current.pipelineRef.current).toBeNull()
 
     await act(async () => {
@@ -2883,6 +2995,198 @@ describe('useRawProcessor embedded preview state', () => {
     await act(async () => {
       boundedHqDecode.resolve(createDecodedImage('bounded-hq'))
       await flushPromises()
+    })
+  })
+
+  it('evacuates original reference snapshots before starting full-resolution export', async () => {
+    vi.stubGlobal('CSS', {
+      supports: vi.fn(() => true),
+    })
+    setCapabilityVectorForTest({
+      coi: false,
+      pthread: false,
+      deviceMemoryGB: 4,
+      hwConcurrency: 4,
+      webKitClass: 'webkit-mobile',
+      maybeOpfsSupported: false,
+    })
+    const snapshot = {
+      key: 'original-reference|session:test',
+      objectUrl: 'blob:original-reference',
+      width: 400,
+      height: 300,
+      source: 'quick' as const,
+      mimeType: 'image/jpeg',
+      estimatedBytes: 1024,
+    }
+    originalReferenceSnapshotMock.renderOriginalReferenceSnapshot.mockResolvedValue(
+      snapshot,
+    )
+    exportSystemMock.runFullResolutionExportJob.mockImplementation(async () => {
+      expect(
+        originalReferenceSnapshotMock.releaseOriginalReferenceSnapshot,
+      ).toHaveBeenCalledWith(snapshot)
+
+      return {
+        filename: 'frame_neutral_fullres.jpg',
+        blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+      }
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    act(() => {
+      result.current.setViewMode('compare')
+    })
+    await waitFor(() => {
+      expect(result.current.originalReferenceSnapshot).toBe(snapshot)
+    })
+
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledTimes(1)
+  })
+
+  it('waits for pending original reference snapshot work before starting full-resolution export', async () => {
+    vi.stubGlobal('CSS', {
+      supports: vi.fn(() => true),
+    })
+    setCapabilityVectorForTest({
+      coi: false,
+      pthread: false,
+      deviceMemoryGB: 4,
+      hwConcurrency: 4,
+      webKitClass: 'webkit-mobile',
+      maybeOpfsSupported: false,
+    })
+    const pendingSnapshot = deferred<{
+      key: string
+      objectUrl: string
+      width: number
+      height: number
+      source: 'quick'
+      mimeType: string
+      estimatedBytes: number
+    }>()
+    const snapshot = {
+      key: 'original-reference|session:test',
+      objectUrl: 'blob:original-reference',
+      width: 400,
+      height: 300,
+      source: 'quick' as const,
+      mimeType: 'image/jpeg',
+      estimatedBytes: 1024,
+    }
+    originalReferenceSnapshotMock.renderOriginalReferenceSnapshot.mockReturnValue(
+      pendingSnapshot.promise,
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    act(() => {
+      result.current.setViewMode('compare')
+    })
+    await waitFor(() => {
+      expect(
+        originalReferenceSnapshotMock.renderOriginalReferenceSnapshot,
+      ).toHaveBeenCalled()
+    })
+
+    let exportPromise!: Promise<void>
+    await act(async () => {
+      exportPromise = result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+      await Promise.resolve()
+    })
+
+    expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
+
+    await act(async () => {
+      pendingSnapshot.resolve(snapshot)
+      await exportPromise
+    })
+
+    expect(
+      originalReferenceSnapshotMock.releaseOriginalReferenceSnapshot,
+    ).toHaveBeenCalledWith(snapshot)
+    expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledTimes(1)
+  })
+
+  it('fails before starting export when original reference snapshot evacuation throws', async () => {
+    vi.stubGlobal('CSS', {
+      supports: vi.fn(() => true),
+    })
+    setCapabilityVectorForTest({
+      coi: false,
+      pthread: false,
+      deviceMemoryGB: 4,
+      hwConcurrency: 4,
+      webKitClass: 'webkit-mobile',
+      maybeOpfsSupported: false,
+    })
+    const snapshot = {
+      key: 'original-reference|session:test',
+      objectUrl: 'blob:original-reference',
+      width: 400,
+      height: 300,
+      source: 'quick' as const,
+      mimeType: 'image/jpeg',
+      estimatedBytes: 1024,
+    }
+    originalReferenceSnapshotMock.renderOriginalReferenceSnapshot.mockResolvedValue(
+      snapshot,
+    )
+    originalReferenceSnapshotMock.releaseOriginalReferenceSnapshot.mockImplementationOnce(
+      () => {
+        throw new Error('snapshot release failed')
+      },
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_neutral_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    act(() => {
+      result.current.setViewMode('compare')
+    })
+    await waitFor(() => {
+      expect(result.current.originalReferenceSnapshot).toBe(snapshot)
+    })
+
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
+    expect(jotaiStore.get(currentSessionAtom)?.exportState).toMatchObject({
+      status: 'failed',
+      lastErrorCode: 'EXPORT_RESOURCE_EVICTION_INCOMPLETE',
+      retryRecommended: false,
     })
   })
 

@@ -2,6 +2,8 @@ import { renderHook, waitFor } from '@testing-library/react'
 
 import type { DecodedImage } from '~/lib/raw/decoder'
 
+import type { DisplaySource } from '../model/session'
+import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
 import { useOriginalReferenceSnapshot } from './useOriginalReferenceSnapshot'
 
 function createImage(
@@ -66,7 +68,7 @@ describe('useOriginalReferenceSnapshot', () => {
         objectUrl: 'blob:quick',
         width: 100,
         height: 50,
-        source: 'quick',
+        source: 'quick' as const,
         mimeType: 'image/jpeg',
         estimatedBytes: 10,
       })
@@ -91,7 +93,7 @@ describe('useOriginalReferenceSnapshot', () => {
       {
         initialProps: {
           image: createImage('quick'),
-          displaySource: 'quick' as const,
+          displaySource: 'quick' as DisplaySource,
           imageVersion: 1,
         },
       },
@@ -103,7 +105,7 @@ describe('useOriginalReferenceSnapshot', () => {
 
     rerender({
       image: createImage('bounded-hq', 2400),
-      displaySource: 'bounded-hq',
+      displaySource: 'bounded-hq' as DisplaySource,
       imageVersion: 2,
     })
 
@@ -211,7 +213,7 @@ describe('useOriginalReferenceSnapshot', () => {
       {
         initialProps: {
           image: createImage('quick') as DecodedImage | null,
-          displaySource: 'quick' as const,
+          displaySource: 'quick' as DisplaySource,
         },
       },
     )
@@ -222,7 +224,7 @@ describe('useOriginalReferenceSnapshot', () => {
 
     rerender({
       image: null,
-      displaySource: 'none',
+      displaySource: 'none' as DisplaySource,
     })
 
     await waitFor(() => expect(result.current.snapshot).toBeNull())
@@ -273,6 +275,77 @@ describe('useOriginalReferenceSnapshot', () => {
     )
   })
 
+  it('clears the previous session snapshot while the replacement is pending', async () => {
+    let resolveReplacement!: (value: OriginalReferenceSnapshot) => void
+    const releaseSnapshot = vi.fn()
+    const replacementPromise = new Promise<OriginalReferenceSnapshot>(
+      (resolve) => {
+        resolveReplacement = resolve
+      },
+    )
+    const renderSnapshot = vi.fn(
+      ({ key }): Promise<OriginalReferenceSnapshot> => {
+        if (String(key).includes('session-b')) {
+          return replacementPromise
+        }
+
+        return Promise.resolve({
+          key: 'quick-key-a',
+          objectUrl: 'blob:quick-a',
+          width: 100,
+          height: 50,
+          source: 'quick',
+          mimeType: 'image/jpeg',
+          estimatedBytes: 10,
+        })
+      },
+    )
+    const image = createImage('quick')
+
+    const { result, rerender } = renderHook(
+      ({ sessionId }) =>
+        useOriginalReferenceSnapshot({
+          sessionId,
+          image,
+          imageVersion: 1,
+          displaySource: 'quick',
+          capability: { webKitClass: 'chromium', pthread: true },
+          renderSnapshot,
+          releaseSnapshot,
+        }),
+      {
+        initialProps: {
+          sessionId: 'session-a',
+        },
+      },
+    )
+
+    await waitFor(() =>
+      expect(result.current.snapshot?.objectUrl).toBe('blob:quick-a'),
+    )
+
+    rerender({ sessionId: 'session-b' })
+
+    expect(result.current.snapshot).toBeNull()
+    expect(releaseSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ objectUrl: 'blob:quick-a' }),
+    )
+
+    resolveReplacement({
+      key: 'quick-key-b',
+      objectUrl: 'blob:quick-b',
+      width: 120,
+      height: 60,
+      source: 'quick',
+      mimeType: 'image/jpeg',
+      estimatedBytes: 12,
+    })
+
+    await waitFor(() =>
+      expect(result.current.snapshot?.objectUrl).toBe('blob:quick-b'),
+    )
+  })
+
   it('releases a cancelled replacement snapshot when it resolves late', async () => {
     let resolveReplacement!: (value: unknown) => void
     const releaseSnapshot = vi.fn()
@@ -307,7 +380,7 @@ describe('useOriginalReferenceSnapshot', () => {
       {
         initialProps: {
           image: createImage('quick') as DecodedImage | null,
-          displaySource: 'quick' as const,
+          displaySource: 'quick' as DisplaySource,
           imageVersion: 1,
         },
       },
@@ -319,12 +392,12 @@ describe('useOriginalReferenceSnapshot', () => {
 
     rerender({
       image: createImage('bounded-hq', 2400),
-      displaySource: 'bounded-hq',
+      displaySource: 'bounded-hq' as DisplaySource,
       imageVersion: 2,
     })
     rerender({
       image: null,
-      displaySource: 'none',
+      displaySource: 'none' as DisplaySource,
       imageVersion: 2,
     })
 
@@ -401,11 +474,9 @@ describe('useOriginalReferenceSnapshot', () => {
         imageVersion: 1,
         displaySource: 'quick',
         capability: { webKitClass: 'chromium', pthread: true },
-        renderSnapshot: vi
-          .fn()
-          .mockRejectedValue({
-            message: 'ORIGINAL_REFERENCE_SNAPSHOT_TIMEOUT',
-          }),
+        renderSnapshot: vi.fn().mockRejectedValue({
+          message: 'ORIGINAL_REFERENCE_SNAPSHOT_TIMEOUT',
+        }),
       }),
     )
 

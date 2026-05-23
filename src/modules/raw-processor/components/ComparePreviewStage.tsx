@@ -1,4 +1,5 @@
 import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
+import { useState } from 'react'
 
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
@@ -6,9 +7,12 @@ import { useI18n } from '~/lib/i18n'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
 import type { DisplaySource } from '../model/session'
+import type { CompareRenderMode } from '../services/compare-render-mode'
+import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
 import type { PreviewViewport } from '../services/preview-viewport'
 import { CompareSplitHandle } from './CompareSplitHandle'
 import { Dropzone, RAW_FILE_EXTENSIONS } from './Dropzone'
+import type { OriginalWebglPipelineHandle } from './OriginalWebglLayer'
 import { PreviewCanvas } from './PreviewCanvas'
 import { ProgressOverlay } from './ProgressOverlay'
 
@@ -21,6 +25,9 @@ export interface ComparePreviewStageProps {
   lutDataVersion: number
   embeddedPreviewUrl?: string | null
   displaySource?: DisplaySource
+  originalReferenceSnapshot?: OriginalReferenceSnapshot | null
+  originalReferenceFallbackReason?: string | null
+  dualWebglAllowed?: boolean
   previewSuspended?: boolean
   previewViewport?: PreviewViewport
   split: number
@@ -35,6 +42,10 @@ export interface ComparePreviewStageProps {
   onPreviewViewportChange?: (viewport: PreviewViewport) => void
   onStatsUpdate?: (stats: PipelineStats) => void
   onPipelineChange?: (pipeline: RawProcessingPipeline | null) => void
+  onOriginalPreviewPipelineChange?: (
+    pipeline: OriginalWebglPipelineHandle | null,
+  ) => void
+  onRequestOriginalReferenceFallback?: () => void
   onRestorePreview?: () => void | Promise<void>
   previewFrameRef?: (element: HTMLDivElement | null) => void
   className?: string
@@ -155,6 +166,9 @@ export function ComparePreviewStage({
   lutDataVersion,
   embeddedPreviewUrl,
   displaySource = 'none',
+  originalReferenceSnapshot,
+  originalReferenceFallbackReason,
+  dualWebglAllowed = false,
   previewSuspended = false,
   previewViewport,
   split,
@@ -169,18 +183,26 @@ export function ComparePreviewStage({
   onPreviewViewportChange,
   onStatsUpdate,
   onPipelineChange,
+  onOriginalPreviewPipelineChange,
+  onRequestOriginalReferenceFallback,
   onRestorePreview,
   previewFrameRef,
   className,
 }: ComparePreviewStageProps) {
   const { t } = useI18n()
+  const [activeCompareRenderMode, setActiveCompareRenderMode] =
+    useState<CompareRenderMode['kind']>('off')
   const blockStageInteraction = phase === 'exporting'
   const isPreviewEvacuated = previewSuspended && hasImage
   const isEvacuatedProcessingHandoff = isPreviewEvacuated && isProcessing
   const isExportProcessingHandoff =
     isEvacuatedProcessingHandoff && phase === 'exporting'
   const isExportReadyHandoff = isPreviewEvacuated && !isProcessing
-  const showSplit = splitEnabled && !isPreviewEvacuated
+  const activeLayeredCompare =
+    activeCompareRenderMode === 'dual-webgl' ||
+    activeCompareRenderMode === 'jpeg-fallback'
+  const showSplit =
+    splitEnabled && (!hasImage || activeLayeredCompare) && !isPreviewEvacuated
   const showBlockingProgress =
     isProcessing &&
     (!hasImage || blockStageInteraction || isEvacuatedProcessingHandoff)
@@ -225,12 +247,24 @@ export function ComparePreviewStage({
                 lutDataVersion={lutDataVersion}
                 embeddedPreviewUrl={embeddedPreviewUrl}
                 displaySource={displaySource}
+                originalReferenceSnapshot={originalReferenceSnapshot}
+                originalReferenceFallbackReason={
+                  originalReferenceFallbackReason
+                }
+                dualWebglAllowed={dualWebglAllowed}
                 suspended={previewSuspended}
                 interactionDisabled={blockStageInteraction}
                 previewViewport={previewViewport}
                 onPreviewViewportChange={onPreviewViewportChange}
                 onStatsUpdate={onStatsUpdate}
                 onPipelineChange={onPipelineChange}
+                onOriginalPreviewPipelineChange={
+                  onOriginalPreviewPipelineChange
+                }
+                onCompareRenderModeChange={setActiveCompareRenderMode}
+                onRequestOriginalReferenceFallback={
+                  onRequestOriginalReferenceFallback
+                }
                 frameRef={previewFrameRef}
               />
             ) : (

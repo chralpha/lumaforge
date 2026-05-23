@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { RawProcessingPipeline } from '~/lib/gl/pipeline'
 import { RawProcessingPipeline as DefaultRawProcessingPipeline } from '~/lib/gl/pipeline'
@@ -10,6 +10,8 @@ type OriginalPipeline = Pick<
   RawProcessingPipeline,
   'initialize' | 'uploadImage' | 'setParams' | 'render' | 'resize' | 'dispose'
 >
+
+export type OriginalWebglPipelineHandle = Pick<OriginalPipeline, 'dispose'>
 
 const ORIGINAL_LAYER_PARAMS = {
   viewMode: 'original',
@@ -35,30 +37,46 @@ export function OriginalWebglLayer({
   createPipeline = createDefaultOriginalPipeline,
   onReady,
   onError,
+  onPipelineChange,
 }: {
   imageRef: React.RefObject<DecodedImage | null>
   imageVersion: number
   createPipeline?: (canvas: HTMLCanvasElement) => OriginalPipeline
   onReady?: () => void
   onError?: (error: unknown) => void
+  onPipelineChange?: (pipeline: OriginalWebglPipelineHandle | null) => void
 }) {
   const layerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pipelineRef = useRef<OriginalPipeline | null>(null)
+  const pipelineHandleRef = useRef<OriginalWebglPipelineHandle | null>(null)
   const onReadyRef = useRef(onReady)
   const onErrorRef = useRef(onError)
+  const onPipelineChangeRef = useRef(onPipelineChange)
   const [isInitialized, setIsInitialized] = useState(false)
 
   useEffect(() => {
     onReadyRef.current = onReady
     onErrorRef.current = onError
-  }, [onReady, onError])
+    onPipelineChangeRef.current = onPipelineChange
+  }, [onReady, onError, onPipelineChange])
+
+  const disposeCurrentPipeline = useRef<
+    (options?: Parameters<OriginalPipeline['dispose']>[0]) => void
+  >(() => {})
+
+  const reportPipelineError = useCallback((error: unknown) => {
+    disposeCurrentPipeline.current({ releaseContext: true })
+    onErrorRef.current?.(error)
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    const activeCanvas = canvas
 
     let pipeline: OriginalPipeline | null = null
+    let handle: OriginalWebglPipelineHandle | null = null
     let cancelled = false
     let disposed = false
 
@@ -67,23 +85,32 @@ export function OriginalWebglLayer({
       disposed = true
       const disposedPipeline = pipeline
       pipeline = null
+      if (pipelineHandleRef.current === handle) {
+        pipelineHandleRef.current = null
+      }
       if (pipelineRef.current === disposedPipeline) {
         pipelineRef.current = null
       }
+      onPipelineChangeRef.current?.(null)
       disposedPipeline.dispose({ releaseContext: true })
+      setIsInitialized(false)
     }
+    handle = { dispose: disposePipeline }
+    disposeCurrentPipeline.current = disposePipeline
 
     async function initializePipeline() {
       setIsInitialized(false)
       try {
-        pipeline = createPipeline(canvas)
+        pipeline = createPipeline(activeCanvas)
         await pipeline.initialize()
         if (cancelled) {
           disposePipeline()
           return
         }
         pipelineRef.current = pipeline
+        pipelineHandleRef.current = handle
         setIsInitialized(true)
+        onPipelineChangeRef.current?.(handle)
         onReadyRef.current?.()
       } catch (error) {
         disposePipeline()
@@ -100,6 +127,9 @@ export function OriginalWebglLayer({
     return () => {
       cancelled = true
       disposePipeline()
+      if (disposeCurrentPipeline.current === disposePipeline) {
+        disposeCurrentPipeline.current = () => {}
+      }
     }
   }, [createPipeline])
 
@@ -109,15 +139,19 @@ export function OriginalWebglLayer({
     if (!layer || !canvas || typeof ResizeObserver === 'undefined') return
 
     const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect
-        const dpr = Math.min(window.devicePixelRatio || 1, 2)
-        canvas.width = Math.max(1, Math.round(width * dpr))
-        canvas.height = Math.max(1, Math.round(height * dpr))
-        pipelineRef.current?.resize(canvas.width, canvas.height)
-        if (isInitialized && imageRef.current) {
-          pipelineRef.current?.render({ waitForGpu: false })
+      try {
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect
+          const dpr = Math.min(window.devicePixelRatio || 1, 2)
+          canvas.width = Math.max(1, Math.round(width * dpr))
+          canvas.height = Math.max(1, Math.round(height * dpr))
+          pipelineRef.current?.resize(canvas.width, canvas.height)
+          if (isInitialized && imageRef.current) {
+            pipelineRef.current?.render({ waitForGpu: false })
+          }
         }
+      } catch (error) {
+        reportPipelineError(error)
       }
     })
 
@@ -126,7 +160,7 @@ export function OriginalWebglLayer({
     return () => {
       resizeObserver.disconnect()
     }
-  }, [imageRef, isInitialized])
+  }, [imageRef, isInitialized, reportPipelineError])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -150,10 +184,14 @@ export function OriginalWebglLayer({
     })
     if (!uploadInput) return
 
-    pipeline.uploadImage(uploadInput)
-    pipeline.setParams(ORIGINAL_LAYER_PARAMS)
-    pipeline.render({ waitForGpu: true })
-  }, [imageRef, imageVersion, isInitialized])
+    try {
+      pipeline.uploadImage(uploadInput)
+      pipeline.setParams(ORIGINAL_LAYER_PARAMS)
+      pipeline.render({ waitForGpu: true })
+    } catch (error) {
+      reportPipelineError(error)
+    }
+  }, [imageRef, imageVersion, isInitialized, reportPipelineError])
 
   return (
     <div

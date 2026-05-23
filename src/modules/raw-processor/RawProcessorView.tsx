@@ -109,6 +109,9 @@ function RawProcessorViewInner({
     previewViewport,
     embeddedPreviewUrl,
     displaySource,
+    originalReferenceSnapshot,
+    originalReferenceFallbackReason,
+    dualWebglAllowed,
     histogram,
     loadFile,
     loadLUT,
@@ -127,6 +130,8 @@ function RawProcessorViewInner({
     shareExportResult,
     copyExportResult,
     restorePreviewAfterExport,
+    requestOriginalReferenceFallback,
+    setOriginalPreviewPipeline,
     reset,
     resetTone,
     dismissError,
@@ -329,6 +334,9 @@ function RawProcessorViewInner({
           lutDataVersion={lutDataVersion}
           embeddedPreviewUrl={embeddedPreviewUrl}
           displaySource={displaySource}
+          originalReferenceSnapshot={originalReferenceSnapshot}
+          originalReferenceFallbackReason={originalReferenceFallbackReason}
+          dualWebglAllowed={dualWebglAllowed}
           previewSuspended={previewSuspended}
           previewViewport={previewViewport}
           split={compareSplit}
@@ -353,6 +361,8 @@ function RawProcessorViewInner({
           onRawDrop={handleFileDrop}
           onStatsUpdate={handleStatsUpdate}
           onPipelineChange={handlePipelineChange}
+          onOriginalPreviewPipelineChange={setOriginalPreviewPipeline}
+          onRequestOriginalReferenceFallback={requestOriginalReferenceFallback}
           onRestorePreview={restorePreviewAfterExport}
           previewFrameRef={setPreviewFrameEl}
         />
