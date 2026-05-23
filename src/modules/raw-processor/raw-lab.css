@@ -206,6 +206,9 @@
   touch-action: none;
   transform: translateX(var(--raw-compare-split-x, 50%)) translateX(-50%);
   transition: none;
+}
+
+[data-raw-compare-dragging] .raw-lab-compare-handle {
   will-change: transform;
 }
 
@@ -566,4 +569,3 @@
   font-weight: 720;
   padding: 5px 9px;
 }
-

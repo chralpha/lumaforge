@@ -1,3 +1,5 @@
+import '../raw-lab.css'
+
 import { fireEvent, render, screen } from '@testing-library/react'
 import { createElement } from 'react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
@@ -105,6 +107,23 @@ describe('compareSplitHandle', () => {
 
     requestAnimationFrame.mockRestore()
     cancelAnimationFrame.mockRestore()
+  })
+
+  it('scopes transform will-change to active compare dragging', () => {
+    const onChange = vi.fn()
+
+    render(
+      <div data-testid="track">
+        <CompareSplitHandle value={0.5} onChange={onChange} />
+      </div>,
+    )
+
+    const slider = screen.getByRole('slider')
+    expect(getComputedStyle(slider).willChange).not.toContain('transform')
+
+    fireEvent.pointerDown(slider, { clientX: 50, pointerId: 1 })
+
+    expect(getComputedStyle(slider).willChange).toContain('transform')
   })
 
   it('maps pointer movement through the rendered image bounds when letterboxed', () => {

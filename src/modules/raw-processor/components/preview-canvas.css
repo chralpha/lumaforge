@@ -81,20 +81,16 @@
   -webkit-touch-callout: none;
 }
 
-.raw-preview-frame-panning .raw-preview-original-layer,
-.raw-preview-frame-panning .raw-preview-original-webgl-shell,
-.raw-preview-frame-panning .raw-preview-processed-layer {
+[data-raw-compare-dragging] .raw-preview-original-layer,
+[data-raw-compare-dragging] .raw-preview-original-webgl-shell,
+[data-raw-compare-dragging] .raw-preview-processed-layer {
   will-change: clip-path;
 }
 
-.raw-preview-frame-interactive .raw-preview-canvas,
-.raw-preview-frame-interactive .raw-preview-embedded,
-.raw-preview-frame-interactive .raw-preview-original-image,
-.raw-preview-frame-interactive .raw-preview-original-webgl-canvas,
-.raw-preview-frame-panning .raw-preview-canvas,
-.raw-preview-frame-panning .raw-preview-embedded,
-.raw-preview-frame-panning .raw-preview-original-image,
-.raw-preview-frame-panning .raw-preview-original-webgl-canvas {
+.raw-preview-frame-transforming .raw-preview-canvas,
+.raw-preview-frame-transforming .raw-preview-embedded,
+.raw-preview-frame-transforming .raw-preview-original-image,
+.raw-preview-frame-transforming .raw-preview-original-webgl-canvas {
   will-change: transform;
 }
 

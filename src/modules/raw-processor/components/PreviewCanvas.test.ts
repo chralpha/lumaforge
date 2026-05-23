@@ -758,6 +758,96 @@ describe('preview canvas upload descriptor', () => {
     expect(getComputedStyle(originalImage!).transform).toContain('translate3d')
   })
 
+  it('scopes transform will-change to active preview panning', async () => {
+    const { container, frame } = renderInteractivePreview({
+      previewViewport: {
+        zoom: 2,
+        panX: 0,
+        panY: 0,
+        fitMode: 'custom',
+      },
+    })
+
+    await waitFor(() => {
+      expect(pipelineMock.instances).toHaveLength(1)
+    })
+
+    const canvas = container.querySelector<HTMLElement>('.raw-preview-canvas')
+    expect(canvas).not.toBeNull()
+    expect(getComputedStyle(canvas!).willChange).not.toContain('transform')
+
+    fireEvent.pointerDown(frame!, {
+      pointerId: 1,
+      button: 0,
+      clientX: 200,
+      clientY: 150,
+    })
+
+    expect(getComputedStyle(canvas!).willChange).toContain('transform')
+  })
+
+  it('does not rerender WebGL during split or viewport changes when layered compare is active', async () => {
+    const snapshot: OriginalReferenceSnapshot = {
+      key: 'original-reference|session:test',
+      objectUrl: 'blob:original-reference',
+      width: 400,
+      height: 300,
+      source: 'quick',
+      mimeType: 'image/jpeg',
+      estimatedBytes: 1024,
+    }
+    const props = {
+      imageRef: { current: decodedImage },
+      imageVersion: 1,
+      params: {
+        ...defaultParams,
+        viewMode: 'compare' as const,
+        compareSplit: 0.5,
+      },
+      lutDataRef: { current: null },
+      lutDataVersion: 0,
+      dualWebglAllowed: false,
+      originalReferenceSnapshot: snapshot,
+      previewViewport: DEFAULT_PREVIEW_VIEWPORT,
+    }
+
+    const { rerender } = render(createElement(PreviewCanvas, props))
+
+    await waitFor(() => {
+      expect(pipelineMock.instances[0]?.render).toHaveBeenCalled()
+    })
+
+    const processedPipeline = pipelineMock.instances[0]!
+    processedPipeline.render.mockClear()
+
+    rerender(
+      createElement(PreviewCanvas, {
+        ...props,
+        params: {
+          ...props.params,
+          compareSplit: 0.8,
+        },
+      }),
+    )
+    rerender(
+      createElement(PreviewCanvas, {
+        ...props,
+        params: {
+          ...props.params,
+          compareSplit: 0.8,
+        },
+        previewViewport: {
+          zoom: 2,
+          panX: 80,
+          panY: 0,
+          fitMode: 'custom',
+        },
+      }),
+    )
+
+    expect(processedPipeline.render).not.toHaveBeenCalled()
+  })
+
   it('pans a zoomed preview with pointer drag', async () => {
     const { frame, onPreviewViewportChange } = renderInteractivePreview({
       previewViewport: { zoom: 2, panX: 0, panY: 0, fitMode: 'custom' },

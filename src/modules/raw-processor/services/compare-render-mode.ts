@@ -25,10 +25,13 @@ export type SelectCompareRenderModeInput = {
 }
 
 export function supportsLayeredCompareCss(): boolean {
+  if (typeof CSS === 'undefined' || typeof CSS.supports !== 'function') {
+    return true
+  }
+
   return (
-    typeof CSS !== 'undefined' &&
-    typeof CSS.supports === 'function' &&
-    CSS.supports('clip-path', 'inset(0 50% 0 0)')
+    CSS.supports('clip-path', 'inset(0 50% 0 0)') ||
+    CSS.supports('-webkit-clip-path', 'inset(0 50% 0 0)')
   )
 }
 

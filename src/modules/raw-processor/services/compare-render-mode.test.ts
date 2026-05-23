@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { selectCompareRenderMode } from './compare-render-mode'
+import {
+  selectCompareRenderMode,
+  supportsLayeredCompareCss,
+} from './compare-render-mode'
 
 describe('selectCompareRenderMode', () => {
   it('prefers dual WebGL when capability allows two live preview pipelines', () => {
@@ -50,5 +53,25 @@ describe('selectCompareRenderMode', () => {
         jpegSnapshotReady: true,
       }),
     ).toEqual({ kind: 'processed-only', reason: 'css-clip-unavailable' })
+  })
+})
+
+describe('supportsLayeredCompareCss', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('accepts prefixed WebKit clip-path support', () => {
+    vi.stubGlobal('CSS', {
+      supports: vi.fn((property: string) => property === '-webkit-clip-path'),
+    })
+
+    expect(supportsLayeredCompareCss()).toBe(true)
+  })
+
+  it('does not disable layered compare in non-DOM environments', () => {
+    vi.stubGlobal('CSS', undefined)
+
+    expect(supportsLayeredCompareCss()).toBe(true)
   })
 })

@@ -118,8 +118,10 @@ export function PreviewCanvas({
   } | null>(null)
   const pendingViewportRef = useRef<PreviewViewport | null>(null)
   const pendingViewportRafRef = useRef<number | null>(null)
+  const wheelInteractionTimeoutRef = useRef<number | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
   const [isPointerPanning, setIsPointerPanning] = useState(false)
+  const [isWheelInteracting, setIsWheelInteracting] = useState(false)
   const [originalWebglReady, setOriginalWebglReady] = useState(false)
   const [originalWebglFailed, setOriginalWebglFailed] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -463,6 +465,14 @@ export function PreviewCanvas({
 
       event.preventDefault()
       event.stopPropagation()
+      setIsWheelInteracting(true)
+      if (wheelInteractionTimeoutRef.current !== null) {
+        window.clearTimeout(wheelInteractionTimeoutRef.current)
+      }
+      wheelInteractionTimeoutRef.current = window.setTimeout(() => {
+        wheelInteractionTimeoutRef.current = null
+        setIsWheelInteracting(false)
+      }, 180)
 
       const current = previewViewportRef.current
       const nextZoom = getWheelPreviewZoomTarget(current.zoom, {
@@ -480,6 +490,15 @@ export function PreviewCanvas({
     },
     [canInteractWithPreview, scheduleViewportCommit, getRelativeOrigin],
   )
+
+  useEffect(() => {
+    return () => {
+      if (wheelInteractionTimeoutRef.current !== null) {
+        window.clearTimeout(wheelInteractionTimeoutRef.current)
+        wheelInteractionTimeoutRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const container = containerRef.current
@@ -710,6 +729,8 @@ export function PreviewCanvas({
           (isPointerPanning
             ? 'raw-preview-frame-panning'
             : 'raw-preview-frame-interactive'),
+        (isPointerPanning || isWheelInteracting) &&
+          'raw-preview-frame-transforming',
         className,
       )}
       onPointerDown={handlePointerDown}
