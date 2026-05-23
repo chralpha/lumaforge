@@ -1001,6 +1001,66 @@ describe('rawToolSurface', () => {
     }
   })
 
+  it('renders a visible scrim behind the online LUT browser', async () => {
+    const user = userEvent.setup()
+    render(
+      <RawToolSurface
+        {...baseProps}
+        onlineLutSources={onlineLutSourcesFixture()}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Open Catalog from profiles.example.com',
+      }),
+    )
+
+    const overlay = document.querySelector('[data-raw-lut-browser-overlay]')
+    expect(overlay).toBeInTheDocument()
+    expect(overlay).not.toHaveClass('pointer-events-none')
+    expect(overlay).not.toHaveClass('bg-transparent')
+    expect(overlay?.className).toMatch(/bg-lf-paper\/\d+/)
+    expect(overlay?.className).toMatch(/backdrop-blur/)
+  })
+
+  it('does not fire an underlying non-passthrough button when the scrim is clicked', async () => {
+    const user = userEvent.setup()
+    const underlyingClick = vi.fn()
+    const underlying = document.createElement('button')
+    underlying.textContent = 'Underlying control'
+    underlying.addEventListener('click', underlyingClick)
+    document.body.append(underlying)
+
+    try {
+      render(
+        <RawToolSurface
+          {...baseProps}
+          onlineLutSources={onlineLutSourcesFixture()}
+        />,
+      )
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Open Catalog from profiles.example.com',
+        }),
+      )
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+      await clickOverlayAt(120, 240, [underlying])
+
+      expect(
+        screen.queryByRole('dialog', {
+          name: 'Catalog from profiles.example.com LUTs',
+        }),
+      ).not.toBeInTheDocument()
+      expect(underlyingClick).not.toHaveBeenCalled()
+    } finally {
+      underlying.remove()
+    }
+  })
+
   it('closes the online LUT browser when the modal outside layer is clicked', async () => {
     const user = userEvent.setup()
     render(

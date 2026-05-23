@@ -80,6 +80,29 @@ export function LutBrowserDialog({
     const handlePointerDown = (event: globalThis.PointerEvent) => {
       if (event.button !== 0) return
       if (isInsideElement(event.target, contentRef.current)) return
+
+      const isScrimTarget =
+        event.target instanceof Element &&
+        event.target.hasAttribute('data-raw-lut-browser-overlay')
+
+      if (isScrimTarget) {
+        const beneath =
+          typeof document.elementsFromPoint === 'function'
+            ? document.elementsFromPoint(event.clientX, event.clientY)
+            : []
+        for (const element of beneath) {
+          if (element === event.target) continue
+          if (isPassthroughElement(element)) {
+            if (element instanceof HTMLElement) element.click()
+            event.preventDefault()
+            return
+          }
+        }
+        event.preventDefault()
+        onOpenChange(false)
+        return
+      }
+
       if (isPassthroughElement(event.target)) return
 
       onOpenChange(false)
@@ -101,7 +124,7 @@ export function LutBrowserDialog({
       >
         <div
           data-raw-lut-browser-overlay=""
-          className="pointer-events-none fixed inset-0 z-[59] bg-transparent"
+          className="fixed inset-0 z-[59] bg-lf-paper/35 backdrop-blur-sm transition-opacity duration-150"
         />
         <DialogPrimitive.Content
           ref={contentRef}
