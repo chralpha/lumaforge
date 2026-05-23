@@ -111,4 +111,9 @@ describe('original reference snapshot policy', () => {
     expect(revokeObjectURL).toHaveBeenCalledTimes(1)
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:original-a')
   })
+
+  it('ignores missing snapshots before resolving the default URL revoker', () => {
+    expect(() => releaseOriginalReferenceSnapshot(null)).not.toThrow()
+    expect(() => releaseOriginalReferenceSnapshot(undefined)).not.toThrow()
+  })
 })

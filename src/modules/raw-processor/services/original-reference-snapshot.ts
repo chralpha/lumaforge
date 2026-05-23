@@ -71,12 +71,17 @@ export function getOriginalReferenceSnapshotMaxPixels({
 export function releaseOriginalReferenceSnapshot(
   snapshot: OriginalReferenceSnapshot | null | undefined,
   {
-    revokeObjectURL = URL.revokeObjectURL.bind(URL),
+    revokeObjectURL,
   }: {
     revokeObjectURL?: (url: string) => void
   } = {},
 ): void {
   if (!snapshot || releasedSnapshotUrls.has(snapshot.objectUrl)) return
   releasedSnapshotUrls.add(snapshot.objectUrl)
-  revokeObjectURL(snapshot.objectUrl)
+  const revoke =
+    revokeObjectURL ??
+    (typeof URL.revokeObjectURL === 'function'
+      ? URL.revokeObjectURL.bind(URL)
+      : undefined)
+  revoke?.(snapshot.objectUrl)
 }
