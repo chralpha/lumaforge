@@ -1,6 +1,7 @@
 import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { MobileLabChrome } from './MobileLabChrome'
@@ -36,7 +37,15 @@ const base = {
   moreSheet: { pipelineSteps: [], lutRows: [], fileRows: [] },
 }
 
+function mountPreviewFrame() {
+  const el = document.createElement('div')
+  el.setAttribute('data-raw-preview-frame', '')
+  document.body.appendChild(el)
+  return el
+}
+
 describe('mobileLabChrome', () => {
+  let previewFrameEl: HTMLDivElement
   beforeEach(() => {
     vi.stubGlobal(
       'ResizeObserver',
@@ -46,9 +55,11 @@ describe('mobileLabChrome', () => {
         disconnect: vi.fn(),
       })),
     )
+    previewFrameEl = mountPreviewFrame()
   })
   afterEach(() => {
     vi.unstubAllGlobals()
+    previewFrameEl.remove()
   })
 
   it('empty state uses the darkroom onboarding surface and can pre-stage a LUT', async () => {
@@ -79,7 +90,6 @@ describe('mobileLabChrome', () => {
     expect(
       screen.queryByRole('tablist', { name: /tone parameters/i }),
     ).toBeNull()
-    expect(screen.queryByTestId('mobile-peek-surface')).not.toBeInTheDocument()
   })
 
   it('tears down focus/sheets when the RAW is cleared (hasImage→false)', async () => {
@@ -93,7 +103,6 @@ describe('mobileLabChrome', () => {
     expect(
       screen.queryByRole('button', { name: /done/i }),
     ).not.toBeInTheDocument()
-    expect(screen.queryByTestId('mobile-peek-surface')).not.toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: /drop a raw to start/i }),
     ).toBeInTheDocument()
@@ -137,7 +146,6 @@ describe('mobileLabChrome', () => {
     expect(container.querySelector('[data-mobile-lab-chrome]')).toHaveClass(
       'pointer-events-none',
     )
-    expect(screen.queryByTestId('mobile-peek-surface')).not.toBeInTheDocument()
     expect(screen.getByRole('banner')).toBeInTheDocument()
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
     expect(within(dock).getByRole('tab', { name: /look/i })).toBeDisabled()
@@ -166,7 +174,6 @@ describe('mobileLabChrome', () => {
     expect(container.querySelector('[data-mobile-lab-chrome]')).toHaveClass(
       'pointer-events-none',
     )
-    expect(screen.queryByTestId('mobile-peek-surface')).not.toBeInTheDocument()
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
     expect(
       screen.queryByRole('tablist', { name: /lab modes/i }),
@@ -191,7 +198,6 @@ describe('mobileLabChrome', () => {
     expect(
       screen.getByRole('button', { name: /download jpeg/i }),
     ).toBeInTheDocument()
-    expect(screen.queryByTestId('mobile-peek-surface')).not.toBeInTheDocument()
     expect(screen.queryByRole('banner')).not.toBeInTheDocument()
     expect(
       screen.queryByRole('tablist', { name: /lab modes/i }),
@@ -390,11 +396,12 @@ describe('mobileLabChrome', () => {
   })
 
   it('short tap toggles immersive (chrome hidden) and back', () => {
-    render(<MobileLabChrome {...base} />)
-    const s = screen.getByTestId('mobile-peek-surface')
+    render(<MobileLabChrome {...base} previewFrameEl={previewFrameEl} />)
     expect(screen.getByRole('heading', { name: 'DSC09142.ARW' })).toBeVisible()
-    fireEvent.pointerDown(s)
-    fireEvent.pointerUp(s)
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    })
     expect(
       screen.queryByRole('heading', { name: 'DSC09142.ARW' }),
     ).not.toBeInTheDocument()
@@ -408,30 +415,61 @@ describe('mobileLabChrome', () => {
   it('peeks the unprocessed RAW via viewMode while held', () => {
     vi.useFakeTimers()
     const onViewModeChange = vi.fn()
-    render(<MobileLabChrome {...base} onViewModeChange={onViewModeChange} />)
-    const surface = screen.getByTestId('mobile-peek-surface')
-    surface.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    render(
+      <MobileLabChrome
+        {...base}
+        previewFrameEl={previewFrameEl}
+        onViewModeChange={onViewModeChange}
+      />,
+    )
+    previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
     vi.advanceTimersByTime(260)
     expect(onViewModeChange).toHaveBeenLastCalledWith('original')
-    surface.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
     expect(onViewModeChange).toHaveBeenLastCalledWith('processed')
+    vi.useRealTimers()
+  })
+
+  it('cancels long-press peek when a second finger lands so pinch can take over', () => {
+    vi.useFakeTimers()
+    const onViewModeChange = vi.fn()
+    render(
+      <MobileLabChrome
+        {...base}
+        previewFrameEl={previewFrameEl}
+        onViewModeChange={onViewModeChange}
+      />,
+    )
+    const first = new Event('pointerdown', { bubbles: true })
+    Object.defineProperty(first, 'pointerId', { value: 1 })
+    previewFrameEl.dispatchEvent(first)
+    const second = new Event('pointerdown', { bubbles: true })
+    Object.defineProperty(second, 'pointerId', { value: 2 })
+    previewFrameEl.dispatchEvent(second)
+    vi.advanceTimersByTime(500)
+    expect(onViewModeChange).not.toHaveBeenCalled()
     vi.useRealTimers()
   })
 
   it('uses long-press peek as the default Compare interaction', () => {
     vi.useFakeTimers()
     const onViewModeChange = vi.fn()
-    render(<MobileLabChrome {...base} onViewModeChange={onViewModeChange} />)
+    render(
+      <MobileLabChrome
+        {...base}
+        previewFrameEl={previewFrameEl}
+        onViewModeChange={onViewModeChange}
+      />,
+    )
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
     fireEvent.click(within(dock).getByRole('tab', { name: /compare/i }))
     expect(screen.getByText(/touch and hold the photo/i)).toBeInTheDocument()
     expect(screen.queryByText('compare')).not.toBeInTheDocument()
 
-    const surface = screen.getByTestId('mobile-peek-surface')
-    surface.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
     vi.advanceTimersByTime(400)
     expect(onViewModeChange).toHaveBeenLastCalledWith('original')
-    surface.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
     expect(onViewModeChange).toHaveBeenLastCalledWith('processed')
     vi.useRealTimers()
   })
@@ -439,7 +477,13 @@ describe('mobileLabChrome', () => {
   it('enables split compare only through the explicit Compare panel action', () => {
     vi.useFakeTimers()
     const onViewModeChange = vi.fn()
-    render(<MobileLabChrome {...base} onViewModeChange={onViewModeChange} />)
+    render(
+      <MobileLabChrome
+        {...base}
+        previewFrameEl={previewFrameEl}
+        onViewModeChange={onViewModeChange}
+      />,
+    )
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
     fireEvent.click(within(dock).getByRole('tab', { name: /compare/i }))
     expect(
@@ -451,10 +495,9 @@ describe('mobileLabChrome', () => {
     expect(screen.getByText(/pins raw and final jpeg/i)).toBeInTheDocument()
 
     onViewModeChange.mockClear()
-    const surface = screen.getByTestId('mobile-peek-surface')
-    surface.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
     vi.advanceTimersByTime(400)
-    surface.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
     expect(onViewModeChange).not.toHaveBeenCalledWith('original')
 
     fireEvent.click(
