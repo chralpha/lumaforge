@@ -52,6 +52,50 @@ describe('originalWebglLayer', () => {
     )
   })
 
+  it('reports ready after rendering a replacement image version', async () => {
+    const onReady = vi.fn()
+    const renderPipeline = vi.fn()
+    const createPipeline = () =>
+      ({
+        initialize: vi.fn().mockResolvedValue(undefined),
+        uploadImage: vi.fn(),
+        setParams: vi.fn(),
+        render: renderPipeline,
+        resize: vi.fn(),
+        dispose: vi.fn(),
+      }) as never
+
+    const { rerender } = render(
+      <OriginalWebglLayer
+        imageRef={{ current: decodedImage }}
+        imageVersion={1}
+        createPipeline={createPipeline}
+        onReady={onReady}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(renderPipeline).toHaveBeenCalled()
+      expect(onReady).toHaveBeenCalled()
+    })
+    onReady.mockClear()
+    renderPipeline.mockClear()
+
+    rerender(
+      <OriginalWebglLayer
+        imageRef={{ current: decodedImage }}
+        imageVersion={2}
+        createPipeline={createPipeline}
+        onReady={onReady}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(renderPipeline).toHaveBeenCalled()
+      expect(onReady).toHaveBeenCalled()
+    })
+  })
+
   it('releases the WebGL context on unmount', async () => {
     const dispose = vi.fn()
     const renderPipeline = vi.fn()

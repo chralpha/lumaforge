@@ -111,7 +111,6 @@ export function OriginalWebglLayer({
         pipelineHandleRef.current = handle
         setIsInitialized(true)
         onPipelineChangeRef.current?.(handle)
-        onReadyRef.current?.()
       } catch (error) {
         disposePipeline()
         if (!cancelled) {
@@ -188,6 +187,7 @@ export function OriginalWebglLayer({
       pipeline.uploadImage(uploadInput)
       pipeline.setParams(ORIGINAL_LAYER_PARAMS)
       pipeline.render({ waitForGpu: true })
+      onReadyRef.current?.()
     } catch (error) {
       reportPipelineError(error)
     }
