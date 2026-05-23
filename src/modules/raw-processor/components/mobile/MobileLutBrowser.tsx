@@ -7,6 +7,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import {
   AlertTriangle,
   Check,
+  Loader2,
   Plus,
   RefreshCw,
   Share2,
@@ -134,6 +135,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
   const { prefersReduced } = useToolMotion()
   const dragControls = useDragControls()
   const onlineSourceInputId = useId()
+  const [loadingEntryId, setLoadingEntryId] = useState<string | null>(null)
   const [contractEditorOpen, setContractEditorOpen] = useState(false)
   const [contractStep, setContractStep] = useState<ContractStep>('input')
   const [contractQuery, setContractQuery] = useState('')
@@ -923,32 +925,68 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                                   </ul>
                                 )}
                                 <div className="grid gap-1.5">
-                                  {entries.map((entry) => (
-                                    <button
-                                      key={entry.id}
-                                      type="button"
-                                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 py-2 text-left transition-colors hover:border-lf-amber/40 disabled:cursor-not-allowed disabled:opacity-50"
-                                      disabled={props.disabled}
-                                      aria-label={t(
-                                        'raw.mobile.lut.loadEntry',
-                                        {
-                                          label: entry.title,
-                                        },
-                                      )}
-                                      onClick={() =>
-                                        void props.onlineLutSources?.loadEntry(
+                                  {entries.map((entry) => {
+                                    const isEntryLoading =
+                                      loadingEntryId === entry.id
+                                    const handleLoadEntry = async () => {
+                                      if (
+                                        loadingEntryId ||
+                                        !props.onlineLutSources
+                                      ) {
+                                        return
+                                      }
+                                      setLoadingEntryId(entry.id)
+                                      await new Promise<void>((resolve) =>
+                                        requestAnimationFrame(() => resolve()),
+                                      )
+                                      try {
+                                        await props.onlineLutSources.loadEntry(
                                           entry.id,
                                         )
+                                      } catch {
+                                        // per-resource issue chip surfaces the failure
+                                      } finally {
+                                        setLoadingEntryId(null)
                                       }
-                                    >
-                                      <span className="min-w-0 truncate text-lf-control font-medium text-lf-hero-ink">
-                                        {entry.title}
-                                      </span>
-                                      <span className="text-xs font-semibold text-lf-amber">
-                                        {t('raw.mobile.lut.load')}
-                                      </span>
-                                    </button>
-                                  ))}
+                                    }
+                                    return (
+                                      <button
+                                        key={entry.id}
+                                        type="button"
+                                        className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 py-2 text-left transition-colors hover:border-lf-amber/40 disabled:cursor-not-allowed disabled:opacity-50"
+                                        disabled={
+                                          props.disabled || isEntryLoading
+                                        }
+                                        aria-busy={isEntryLoading}
+                                        aria-label={t(
+                                          'raw.mobile.lut.loadEntry',
+                                          {
+                                            label: entry.title,
+                                          },
+                                        )}
+                                        data-raw-mobile-lut-entry-loading={
+                                          isEntryLoading ? 'true' : undefined
+                                        }
+                                        onClick={() => {
+                                          void handleLoadEntry()
+                                        }}
+                                      >
+                                        <span className="min-w-0 truncate text-lf-control font-medium text-lf-hero-ink">
+                                          {entry.title}
+                                        </span>
+                                        {isEntryLoading ? (
+                                          <Loader2
+                                            aria-hidden="true"
+                                            className="size-4 animate-spin text-lf-amber motion-reduce:animate-none"
+                                          />
+                                        ) : (
+                                          <span className="text-xs font-semibold text-lf-amber">
+                                            {t('raw.mobile.lut.load')}
+                                          </span>
+                                        )}
+                                      </button>
+                                    )
+                                  })}
                                 </div>
                               </div>
                             )

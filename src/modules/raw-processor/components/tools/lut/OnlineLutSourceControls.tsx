@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   Download,
   FolderOpen,
+  Loader2,
   Plus,
   RefreshCw,
   Share2,
@@ -41,6 +42,7 @@ export function OnlineLutSourceControls({
   const browserId = useId()
   const { state } = onlineLutSources
   const [openResourceId, setOpenResourceId] = useState<string | null>(null)
+  const [loadingEntryId, setLoadingEntryId] = useState<string | null>(null)
   const [browserLayout, setBrowserLayout] =
     useState<OnlineLutBrowserLayout | null>(null)
   const openButtonRefs = useRef(new Map<string, HTMLButtonElement>())
@@ -209,12 +211,21 @@ export function OnlineLutSourceControls({
                 }
 
                 const renderEntry = (entry: (typeof openEntries)[number]) => {
-                  const handleLoadEntry = () => {
-                    void onlineLutSources.loadEntry(entry.id).then(
-                      () =>
-                        closeBrowser(openResource.id, { restoreFocus: true }),
-                      () => {},
+                  const isLoading = loadingEntryId === entry.id
+                  const handleLoadEntry = async () => {
+                    if (loadingEntryId) return
+                    setLoadingEntryId(entry.id)
+                    await new Promise<void>((resolve) =>
+                      requestAnimationFrame(() => resolve()),
                     )
+                    try {
+                      await onlineLutSources.loadEntry(entry.id)
+                      closeBrowser(openResource.id, { restoreFocus: true })
+                    } catch {
+                      // per-resource issue chip surfaces the failure
+                    } finally {
+                      setLoadingEntryId(null)
+                    }
                   }
 
                   return (
@@ -222,6 +233,9 @@ export function OnlineLutSourceControls({
                       key={entry.id}
                       className="grid min-w-0 grid-cols-[minmax(0,1fr)_32px] items-center gap-2 rounded-lf-control border border-lf-hairline bg-lf-paper px-2 py-1.5"
                       data-raw-lut="source-entry"
+                      data-raw-lut-entry-loading={
+                        isLoading ? 'true' : undefined
+                      }
                     >
                       <span className="min-w-0 truncate text-lf-control font-medium text-lf-ink">
                         {entry.title}
@@ -230,9 +244,17 @@ export function OnlineLutSourceControls({
                         label={t('raw.lutSource.load', {
                           label: entry.title,
                         })}
-                        onClick={handleLoadEntry}
+                        busy={isLoading}
+                        disabled={isLoading}
+                        onClick={() => {
+                          void handleLoadEntry()
+                        }}
                       >
-                        <Download aria-hidden="true" />
+                        {isLoading ? (
+                          <Loader2 aria-hidden="true" />
+                        ) : (
+                          <Download aria-hidden="true" />
+                        )}
                       </LutIconButton>
                     </div>
                   )

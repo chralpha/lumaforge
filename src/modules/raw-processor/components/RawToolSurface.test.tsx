@@ -1001,6 +1001,73 @@ describe('rawToolSurface', () => {
     }
   })
 
+  it('acks an online LUT entry load click before the load resolves', async () => {
+    const user = userEvent.setup()
+    const rafQueue: FrameRequestCallback[] = []
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        rafQueue.push(callback)
+        return rafQueue.length
+      }),
+    )
+    const loadHandle: { resolve: (() => void) | null } = { resolve: null }
+    const loadEntry = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          loadHandle.resolve = resolve
+        }),
+    )
+
+    try {
+      render(
+        <RawToolSurface
+          {...baseProps}
+          onlineLutSources={onlineLutSourcesFixture({ loadEntry })}
+        />,
+      )
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Open Catalog from profiles.example.com',
+        }),
+      )
+
+      const loadButton = screen.getByRole('button', {
+        name: /load kodak 2383 rec.709/i,
+      })
+      expect(loadButton).not.toHaveAttribute('aria-busy', 'true')
+
+      await user.click(loadButton)
+
+      await screen.findByRole('button', {
+        name: /load kodak 2383 rec.709/i,
+        busy: true,
+      })
+      expect(loadEntry).not.toHaveBeenCalled()
+
+      await act(async () => {
+        const queued = rafQueue.splice(0)
+        for (const callback of queued) callback(performance.now())
+        await Promise.resolve()
+      })
+      expect(loadEntry).toHaveBeenCalledWith('kodak-2383-rec709')
+
+      await act(async () => {
+        loadHandle.resolve?.()
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+
+      expect(
+        screen.queryByRole('dialog', {
+          name: 'Catalog from profiles.example.com LUTs',
+        }),
+      ).not.toBeInTheDocument()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('renders a visible scrim behind the online LUT browser', async () => {
     const user = userEvent.setup()
     render(

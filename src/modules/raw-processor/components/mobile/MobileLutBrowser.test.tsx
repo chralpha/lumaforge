@@ -112,7 +112,7 @@ describe('mobileLutBrowser', () => {
   })
 
   it('loads an online LUT entry row', async () => {
-    const loadEntry = vi.fn()
+    const loadEntry = vi.fn().mockResolvedValue(undefined)
     render(
       <MobileLutBrowser
         {...baseProps}
@@ -123,8 +123,62 @@ describe('mobileLutBrowser', () => {
     await userEvent.click(
       screen.getByRole('button', { name: /load kodak 2383 rec.709/i }),
     )
+    await new Promise((resolve) => requestAnimationFrame(resolve))
 
     expect(loadEntry).toHaveBeenCalledWith('kodak-2383-rec709')
+  })
+
+  it('acks the mobile LUT entry load click before the load resolves', async () => {
+    const rafQueue: FrameRequestCallback[] = []
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        rafQueue.push(callback)
+        return rafQueue.length
+      }),
+    )
+    const loadHandle: { resolve: (() => void) | null } = { resolve: null }
+    const loadEntry = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          loadHandle.resolve = resolve
+        }),
+    )
+
+    try {
+      render(
+        <MobileLutBrowser
+          {...baseProps}
+          onlineLutSources={onlineLutSourcesFixture(loadEntry)}
+        />,
+      )
+
+      const loadButton = screen.getByRole('button', {
+        name: /load kodak 2383 rec.709/i,
+      })
+      expect(loadButton).not.toHaveAttribute('aria-busy', 'true')
+
+      await userEvent.click(loadButton)
+
+      expect(
+        await screen.findByRole('button', {
+          name: /load kodak 2383 rec.709/i,
+          busy: true,
+        }),
+      ).toBeInTheDocument()
+      expect(loadEntry).not.toHaveBeenCalled()
+
+      const queued = rafQueue.splice(0)
+      for (const callback of queued) callback(performance.now())
+      await Promise.resolve()
+
+      expect(loadEntry).toHaveBeenCalledWith('kodak-2383-rec709')
+
+      loadHandle.resolve?.()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('lets the user add an online LUT source URL from the mobile sheet', async () => {
