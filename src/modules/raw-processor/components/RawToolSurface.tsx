@@ -75,6 +75,12 @@ export function RawToolSurface(props: {
   supportLevel: 'official' | 'experimental'
   metadata: ComponentProps<typeof FileFactsTool>['metadata']
   stats: ComponentProps<typeof FileFactsTool>['stats']
+  /**
+   * The interactive preview frame element. Mobile chrome attaches gesture
+   * listeners (long-press peek, tap toggles immersive) directly to this
+   * element so multi-touch pinch/pan keeps working on the same target.
+   */
+  previewFrameEl?: HTMLDivElement | null
 }) {
   const { t } = useI18n()
   const isMobileViewport = useViewport(selectIsNarrowViewport)
@@ -317,6 +323,7 @@ export function RawToolSurface(props: {
           moreSheet={moreSheet}
           previewSuspended={previewSuspended}
           preferExportMode={previewSuspended && props.exportResult != null}
+          previewFrameEl={props.previewFrameEl ?? null}
         />
       </div>
     )

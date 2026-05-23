@@ -6,7 +6,7 @@
 import './raw-lab.css'
 import './raw-lab.surface.css'
 
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useInRouterContext, useLocation } from 'react-router'
 
 import { clsxm } from '~/lib/cn'
@@ -243,6 +243,14 @@ function RawProcessorViewInner({
     setCompareSplit(0.5)
   }, [setCompareSplit, setViewMode])
 
+  // The interactive preview frame is owned by `PreviewCanvas`, but mobile
+  // chrome needs to attach gesture listeners (long-press peek / tap) to the
+  // same DOM element so they coexist with pinch / pan instead of a sibling
+  // overlay swallowing every touch.
+  const [previewFrameEl, setPreviewFrameEl] = useState<HTMLDivElement | null>(
+    null,
+  )
+
   const handleCompareSplitPreviewChange = useCallback(
     (split: number) => {
       setParams({ compareSplit: clampCompareSplit(split) })
@@ -346,6 +354,7 @@ function RawProcessorViewInner({
           onStatsUpdate={handleStatsUpdate}
           onPipelineChange={handlePipelineChange}
           onRestorePreview={restorePreviewAfterExport}
+          previewFrameRef={setPreviewFrameEl}
         />
 
         <RawToolSurface
@@ -398,6 +407,7 @@ function RawProcessorViewInner({
           metadata={toolMetadata}
           stats={toolStats}
           histogram={histogram}
+          previewFrameEl={previewFrameEl}
         />
       </div>
 

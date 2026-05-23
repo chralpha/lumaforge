@@ -30,10 +30,10 @@ import { MobileLutBrowser } from './MobileLutBrowser'
 import type { MobileMode } from './MobileModeDock'
 import { MobileModeDock } from './MobileModeDock'
 import { MobileMoreSheet } from './MobileMoreSheet'
-import { MobilePeekSurface } from './MobilePeekSurface'
 import { MobileTopbar } from './MobileTopbar'
 import { ToneFocusEditor } from './ToneFocusEditor'
 import { ToneStripPanel } from './ToneStripPanel'
+import { useMobilePreviewGestures } from './useMobilePreviewGestures'
 
 type ViewMode = 'processed' | 'original' | 'compare'
 type Row = { label: string; value: string }
@@ -62,6 +62,7 @@ export function MobileLabChrome(props: {
   moreSheet: { pipelineSteps: Step[]; lutRows: Row[]; fileRows: Row[] }
   previewSuspended?: boolean
   preferExportMode?: boolean
+  previewFrameEl?: HTMLDivElement | null
 }) {
   const { t } = useI18n()
   const [mode, setMode] = useState<MobileMode>('look')
@@ -193,6 +194,18 @@ export function MobileLabChrome(props: {
     setCompareSplitOpen(open)
     onViewModeChange(open ? 'compare' : 'processed')
   }
+
+  // Mobile peek (long-press) + tap-to-immersive bind directly to the same
+  // preview frame element that owns pinch / pan. Sharing the gesture target
+  // is what keeps multi-touch alive — a sibling overlay would swallow every
+  // touch before `PreviewCanvas` ever saw the second finger.
+  const previewGesturesEnabled = props.hasImage && !handoffActive && !focusKey
+  useMobilePreviewGestures(props.previewFrameEl ?? null, {
+    enabled: previewGesturesEnabled,
+    allowPeek: !compareSplitOpen,
+    onPeekChange,
+    onTap: () => setImmersive((v) => !v),
+  })
   const resolvedLutProfile = getResolvedProfile(
     props.lutBrowser.lutProfileSelection,
     props.lutBrowser.lutProfileResolution,
@@ -379,17 +392,9 @@ export function MobileLabChrome(props: {
       data-focus={focusKey ? 'true' : 'false'}
       data-peek={peeking || undefined}
     >
-      {/* Peek and the Compare split are alternate RAW-vs-finished affordances.
-          Mobile Compare defaults to hold-to-peek; the split handle is only
-          enabled after the explicit split action. */}
-      {props.hasImage && !handoffActive && (
-        <MobilePeekSurface
-          enabled={!focusKey}
-          allowPeek={!compareSplitOpen}
-          onPeekChange={onPeekChange}
-          onTap={() => setImmersive((v) => !v)}
-        />
-      )}
+      {/* Peek (long-press) and the Compare split are alternate RAW-vs-finished
+          affordances. Both are wired via `useMobilePreviewGestures` above so
+          they share the same DOM target as pinch / pan and never block it. */}
 
       {!props.hasImage && (
         <m.div

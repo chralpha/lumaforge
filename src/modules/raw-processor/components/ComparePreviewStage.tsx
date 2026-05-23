@@ -36,6 +36,7 @@ export interface ComparePreviewStageProps {
   onStatsUpdate?: (stats: PipelineStats) => void
   onPipelineChange?: (pipeline: RawProcessingPipeline | null) => void
   onRestorePreview?: () => void | Promise<void>
+  previewFrameRef?: (element: HTMLDivElement | null) => void
   className?: string
 }
 
@@ -169,6 +170,7 @@ export function ComparePreviewStage({
   onStatsUpdate,
   onPipelineChange,
   onRestorePreview,
+  previewFrameRef,
   className,
 }: ComparePreviewStageProps) {
   const { t } = useI18n()
@@ -229,6 +231,7 @@ export function ComparePreviewStage({
                 onPreviewViewportChange={onPreviewViewportChange}
                 onStatsUpdate={onStatsUpdate}
                 onPipelineChange={onPipelineChange}
+                frameRef={previewFrameRef}
               />
             ) : (
               <EmptySampleCompare split={split} />

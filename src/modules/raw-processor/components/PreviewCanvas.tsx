@@ -59,6 +59,13 @@ export interface PreviewCanvasProps {
   onPreviewViewportChange?: (viewport: PreviewViewport) => void
   onStatsUpdate?: (stats: PipelineStats) => void
   onPipelineChange?: (pipeline: RawProcessingPipeline | null) => void
+  /**
+   * Callback ref that receives the interactive preview frame element.
+   * Used by overlay UI (e.g. mobile chrome) to attach gesture listeners
+   * to the same element that owns pinch/pan, instead of a sibling overlay
+   * that would block multi-touch.
+   */
+  frameRef?: (element: HTMLDivElement | null) => void
   className?: string
 }
 
@@ -76,6 +83,7 @@ export function PreviewCanvas({
   onPreviewViewportChange,
   onStatsUpdate,
   onPipelineChange,
+  frameRef,
   className,
 }: PreviewCanvasProps) {
   const { t } = useI18n()
@@ -111,6 +119,14 @@ export function PreviewCanvas({
   const normalizedPreviewViewport = normalizePreviewViewport(previewViewport)
 
   suspendedRef.current = suspended
+
+  const setFrameElement = useCallback(
+    (element: HTMLDivElement | null) => {
+      containerRef.current = element
+      frameRef?.(element)
+    },
+    [frameRef],
+  )
 
   useEffect(() => {
     previewViewportRef.current = normalizedPreviewViewport
@@ -660,7 +676,7 @@ export function PreviewCanvas({
 
   return (
     <div
-      ref={containerRef}
+      ref={setFrameElement}
       data-raw-preview-frame
       className={clsxm(
         'relative w-full h-full flex items-center justify-center bg-black/20',
