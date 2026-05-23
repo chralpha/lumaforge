@@ -1,5 +1,6 @@
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import type { ComponentProps } from 'react'
 import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -550,6 +551,61 @@ describe('preview canvas upload descriptor', () => {
     expect(getPipelineParamCalls()).not.toContainEqual(
       expect.objectContaining({ viewMode: 'compare' }),
     )
+  })
+
+  it('keeps dual-webgl compare ready after the preview image version changes', async () => {
+    const imageRef = { current: decodedImage }
+    const props: ComponentProps<typeof PreviewCanvas> = {
+      imageRef,
+      imageVersion: 1,
+      params: {
+        ...defaultParams,
+        viewMode: 'compare',
+      },
+      lutDataRef: { current: null },
+      lutDataVersion: 0,
+      dualWebglAllowed: true,
+    }
+    const { container, rerender } = render(createElement(PreviewCanvas, props))
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-compare-mode="dual-webgl"]'),
+      ).toBeTruthy()
+    })
+
+    imageRef.current = {
+      ...decodedImage,
+      width: 420,
+      height: 320,
+      data: new Float32Array(420 * 320 * 4),
+    }
+    rerender(
+      createElement(PreviewCanvas, {
+        ...props,
+        imageVersion: 2,
+      }),
+    )
+
+    await waitFor(() => {
+      const originalPipeline = pipelineMock.instances.find((instance) => {
+        return instance.uploadImage.mock.calls.some(([input]) => {
+          return input?.width === 420 && input?.height === 320
+        })
+      })
+
+      expect(originalPipeline?.render).toHaveBeenCalled()
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(
+      container.querySelector('[data-compare-mode="dual-webgl"]'),
+    ).toBeTruthy()
+    expect(
+      container.querySelector('.raw-preview-original-webgl-shell'),
+    ).toHaveClass('raw-preview-layer-clipped')
   })
 
   it('requests jpeg fallback when the original WebGL layer fails', async () => {

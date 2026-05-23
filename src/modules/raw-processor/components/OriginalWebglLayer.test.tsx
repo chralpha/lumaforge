@@ -182,6 +182,7 @@ describe('originalWebglLayer', () => {
         expect.objectContaining({
           message: 'WebGL2 is not supported on this device',
         }),
+        '1',
       )
     })
   })
@@ -213,6 +214,7 @@ describe('originalWebglLayer', () => {
     await waitFor(() => {
       expect(onError).toHaveBeenCalledWith(
         expect.objectContaining({ message: 'Original upload failed' }),
+        '1',
       )
     })
     expect(dispose).toHaveBeenCalledWith({ releaseContext: true })

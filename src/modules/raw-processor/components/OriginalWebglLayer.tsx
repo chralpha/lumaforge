@@ -34,6 +34,7 @@ function createDefaultOriginalPipeline(canvas: HTMLCanvasElement) {
 export function OriginalWebglLayer({
   imageRef,
   imageVersion,
+  generationKey = String(imageVersion),
   createPipeline = createDefaultOriginalPipeline,
   onReady,
   onError,
@@ -41,34 +42,40 @@ export function OriginalWebglLayer({
 }: {
   imageRef: React.RefObject<DecodedImage | null>
   imageVersion: number
+  generationKey?: string
   createPipeline?: (canvas: HTMLCanvasElement) => OriginalPipeline
-  onReady?: () => void
-  onError?: (error: unknown) => void
+  onReady?: (generationKey: string) => void
+  onError?: (error: unknown, generationKey: string) => void
   onPipelineChange?: (pipeline: OriginalWebglPipelineHandle | null) => void
 }) {
   const layerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pipelineRef = useRef<OriginalPipeline | null>(null)
   const pipelineHandleRef = useRef<OriginalWebglPipelineHandle | null>(null)
+  const generationKeyRef = useRef(generationKey)
   const onReadyRef = useRef(onReady)
   const onErrorRef = useRef(onError)
   const onPipelineChangeRef = useRef(onPipelineChange)
   const [isInitialized, setIsInitialized] = useState(false)
 
   useEffect(() => {
+    generationKeyRef.current = generationKey
     onReadyRef.current = onReady
     onErrorRef.current = onError
     onPipelineChangeRef.current = onPipelineChange
-  }, [onReady, onError, onPipelineChange])
+  }, [generationKey, onReady, onError, onPipelineChange])
 
   const disposeCurrentPipeline = useRef<
     (options?: Parameters<OriginalPipeline['dispose']>[0]) => void
   >(() => {})
 
-  const reportPipelineError = useCallback((error: unknown) => {
-    disposeCurrentPipeline.current({ releaseContext: true })
-    onErrorRef.current?.(error)
-  }, [])
+  const reportPipelineError = useCallback(
+    (error: unknown) => {
+      disposeCurrentPipeline.current({ releaseContext: true })
+      onErrorRef.current?.(error, generationKey)
+    },
+    [generationKey],
+  )
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -116,7 +123,7 @@ export function OriginalWebglLayer({
         if (!cancelled) {
           pipelineRef.current = null
           setIsInitialized(false)
-          onErrorRef.current?.(error)
+          onErrorRef.current?.(error, generationKeyRef.current)
         }
       }
     }
@@ -187,11 +194,17 @@ export function OriginalWebglLayer({
       pipeline.uploadImage(uploadInput)
       pipeline.setParams(ORIGINAL_LAYER_PARAMS)
       pipeline.render({ waitForGpu: true })
-      onReadyRef.current?.()
+      onReadyRef.current?.(generationKey)
     } catch (error) {
       reportPipelineError(error)
     }
-  }, [imageRef, imageVersion, isInitialized, reportPipelineError])
+  }, [
+    generationKey,
+    imageRef,
+    imageVersion,
+    isInitialized,
+    reportPipelineError,
+  ])
 
   return (
     <div

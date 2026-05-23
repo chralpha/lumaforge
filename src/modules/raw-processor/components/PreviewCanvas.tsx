@@ -122,8 +122,10 @@ export function PreviewCanvas({
   const [isInitialized, setIsInitialized] = useState(false)
   const [isPointerPanning, setIsPointerPanning] = useState(false)
   const [isWheelInteracting, setIsWheelInteracting] = useState(false)
-  const [originalWebglReady, setOriginalWebglReady] = useState(false)
-  const [originalWebglFailed, setOriginalWebglFailed] = useState(false)
+  const [originalWebglStatus, setOriginalWebglStatus] = useState<{
+    generationKey: string
+    state: 'idle' | 'ready' | 'failed'
+  }>({ generationKey: '', state: 'idle' })
   const [error, setError] = useState<string | null>(null)
   const showEmbeddedPreview =
     displaySource === 'embedded' && Boolean(embeddedPreviewUrl)
@@ -138,6 +140,19 @@ export function PreviewCanvas({
     Boolean(onPreviewViewportChange)
   const normalizedPreviewViewport = normalizePreviewViewport(previewViewport)
   const supportsCssClip = supportsLayeredCompareCss()
+  const originalWebglGenerationKey = [
+    imageVersion,
+    displaySource,
+    dualWebglAllowed ? 'dual' : 'fallback',
+    params.viewMode,
+    suspended ? 'suspended' : 'active',
+  ].join(':')
+  const originalWebglReady =
+    originalWebglStatus.generationKey === originalWebglGenerationKey &&
+    originalWebglStatus.state === 'ready'
+  const originalWebglFailed =
+    originalWebglStatus.generationKey === originalWebglGenerationKey &&
+    originalWebglStatus.state === 'failed'
   const compareRenderMode: CompareRenderMode = selectCompareRenderMode({
     requestedViewMode: showEmbeddedPreview ? 'processed' : params.viewMode,
     supportsCssClip,
@@ -206,17 +221,6 @@ export function PreviewCanvas({
   useEffect(() => {
     onCompareRenderModeChange?.(compareRenderMode.kind)
   }, [compareRenderMode.kind, onCompareRenderModeChange])
-
-  useEffect(() => {
-    setOriginalWebglReady(false)
-    setOriginalWebglFailed(false)
-  }, [
-    imageVersion,
-    displaySource,
-    dualWebglAllowed,
-    params.viewMode,
-    suspended,
-  ])
 
   const getViewportGeometry = useCallback(() => {
     const container = containerRef.current
@@ -768,15 +772,22 @@ export function PreviewCanvas({
               <OriginalWebglLayer
                 imageRef={imageRef}
                 imageVersion={imageVersion}
+                generationKey={originalWebglGenerationKey}
                 onPipelineChange={onOriginalPreviewPipelineChange}
-                onReady={() => {
-                  setOriginalWebglReady(true)
-                  setOriginalWebglFailed(false)
+                onReady={(readyGenerationKey) => {
+                  setOriginalWebglStatus({
+                    generationKey: readyGenerationKey,
+                    state: 'ready',
+                  })
                 }}
-                onError={() => {
-                  setOriginalWebglReady(false)
-                  setOriginalWebglFailed(true)
-                  onRequestOriginalReferenceFallback?.()
+                onError={(_, failedGenerationKey) => {
+                  setOriginalWebglStatus({
+                    generationKey: failedGenerationKey,
+                    state: 'failed',
+                  })
+                  if (failedGenerationKey === originalWebglGenerationKey) {
+                    onRequestOriginalReferenceFallback?.()
+                  }
                 }}
               />
             </div>
