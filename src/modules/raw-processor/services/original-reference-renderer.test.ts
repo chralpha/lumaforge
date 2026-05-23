@@ -70,11 +70,12 @@ describe('renderOriginalReferenceSnapshot', () => {
     )
     expect(render).toHaveBeenCalledWith({ waitForGpu: true })
     expect(dispose).toHaveBeenCalledWith({ releaseContext: true })
+    expect(snapshot.width * snapshot.height).toBeLessThanOrEqual(1_000_000)
     expect(snapshot).toMatchObject({
       key: 'snapshot-key',
       objectUrl: 'blob:original-rendered',
-      width: 1265,
-      height: 791,
+      width: 1264,
+      height: 790,
       source: 'quick',
       mimeType: 'image/jpeg',
       estimatedBytes: 4,

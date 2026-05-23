@@ -40,8 +40,8 @@ function fitWithinPixelCap(width: number, height: number, maxPixels: number) {
   const scale = Math.min(1, Math.sqrt(Math.max(1, maxPixels) / sourcePixels))
 
   return {
-    width: Math.max(1, Math.round(width * scale)),
-    height: Math.max(1, Math.round(height * scale)),
+    width: Math.max(1, Math.floor(width * scale)),
+    height: Math.max(1, Math.floor(height * scale)),
   }
 }
 
