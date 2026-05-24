@@ -1,5 +1,3 @@
-import process from 'node:process'
-
 import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
@@ -7,10 +5,10 @@ export default defineConfig({
   timeout: 120_000,
   expect: { timeout: 15_000 },
   webServer: {
-    command: 'pnpm dev --host 127.0.0.1 --port 4178',
+    command: 'pnpm build && pnpm serve --host 127.0.0.1 --port 4178',
     url: 'http://127.0.0.1:4178/raw',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    reuseExistingServer: false,
+    timeout: 180_000,
   },
   projects: [
     {

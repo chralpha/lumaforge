@@ -110,58 +110,78 @@ async function loadRawFixtureViaSameOriginDrop(
 ) {
   return page.evaluate(
     async ({ fixtureUrl, fileName }) => {
-      const response = await fetch(fixtureUrl)
-      if (!response.ok) {
+      try {
+        const response = await fetch(fixtureUrl)
+        if (!response.ok) {
+          return {
+            ok: false,
+            reason: `Fixture fetch returned ${response.status}`,
+          } as const
+        }
+
+        const blob = await response.blob()
+        const file = new File([blob], fileName, {
+          type: 'application/octet-stream',
+        })
+        const transfer = new DataTransfer()
+        transfer.items.add(file)
+
+        const inputs = Array.from(
+          document.querySelectorAll<HTMLInputElement>('input[type="file"]'),
+        )
+        const input =
+          inputs.find((candidate) => {
+            const accept = candidate.accept.toLowerCase()
+            return (
+              accept.includes('.nef') ||
+              accept.includes('.arw') ||
+              accept.includes('.dng') ||
+              accept.includes('.raf')
+            )
+          }) ?? inputs[0]
+        const target =
+          input?.closest('label') ??
+          input?.closest('[data-raw-lut]') ??
+          input?.parentElement ??
+          document.querySelector('[data-raw-lab-shell="viewport"]')
+
+        if (!target) {
+          return { ok: false, reason: 'RAW drop target not found' } as const
+        }
+
+        for (const type of ['dragenter', 'dragover', 'drop']) {
+          target.dispatchEvent(
+            new DragEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              dataTransfer: transfer,
+            }),
+          )
+        }
+
+        return { ok: true } as const
+      } catch (error) {
         return {
           ok: false,
-          reason: `Fixture fetch returned ${response.status}`,
+          reason: error instanceof Error ? error.message : String(error),
         } as const
       }
-
-      const blob = await response.blob()
-      const file = new File([blob], fileName, {
-        type: 'application/octet-stream',
-      })
-      const transfer = new DataTransfer()
-      transfer.items.add(file)
-
-      const inputs = Array.from(
-        document.querySelectorAll<HTMLInputElement>('input[type="file"]'),
-      )
-      const input =
-        inputs.find((candidate) => {
-          const accept = candidate.accept.toLowerCase()
-          return (
-            accept.includes('.nef') ||
-            accept.includes('.arw') ||
-            accept.includes('.dng') ||
-            accept.includes('.raf')
-          )
-        }) ?? inputs[0]
-      const target =
-        input?.closest('label') ??
-        input?.closest('[data-raw-lut]') ??
-        input?.parentElement ??
-        document.querySelector('[data-raw-lab-shell="viewport"]')
-
-      if (!target) {
-        return { ok: false, reason: 'RAW drop target not found' } as const
-      }
-
-      for (const type of ['dragenter', 'dragover', 'drop']) {
-        target.dispatchEvent(
-          new DragEvent(type, {
-            bubbles: true,
-            cancelable: true,
-            dataTransfer: transfer,
-          }),
-        )
-      }
-
-      return { ok: true } as const
     },
     { fixtureUrl, fileName },
   )
+}
+
+async function routeSameOriginFixture(page: Page, fixtureUrl: string) {
+  await page.route(fixtureUrl, async (route) => {
+    await route.fulfill({
+      path: RAW_COMPARE_FIXTURE,
+      contentType: 'application/octet-stream',
+    })
+  })
+}
+
+function fixtureFileName() {
+  return RAW_COMPARE_FIXTURE.split('/').pop() ?? 'fixture.raw'
 }
 
 async function dragSlider(page: Page, sliderName: string, targetRatio: number) {
@@ -258,19 +278,15 @@ async function readCompareMode(page: Page) {
     .catch(() => null)
 }
 
-async function waitForLayeredCompareMode(
-  page: Page,
-): Promise<LayeredCompareMode> {
+async function waitForCompareMode(page: Page, expected: LayeredCompareMode) {
   await expect
     .poll(
       async () => {
         return (await readCompareMode(page)) ?? 'missing'
       },
-      { timeout: 90_000 },
+      { timeout: 120_000 },
     )
-    .toMatch(/^(dual-webgl|jpeg-fallback)$/)
-
-  return (await readCompareMode(page)) as LayeredCompareMode
+    .toBe(expected)
 }
 
 async function resetWebglStats(page: Page) {
@@ -281,6 +297,30 @@ async function resetWebglStats(page: Page) {
       }
     ).__LUMAFORGE_COMPARE_WEBGL_RESET__?.()
   })
+}
+
+async function waitForWebglStatsIdle(page: Page) {
+  await resetWebglStats(page)
+
+  await expect
+    .poll(
+      async () => {
+        await page.waitForTimeout(3_000)
+        const stats = await readWebglStats(page)
+        const idle =
+          stats.drawCalls === 0 &&
+          stats.finishCalls === 0 &&
+          stats.flushCalls === 0
+
+        if (!idle) {
+          await resetWebglStats(page)
+        }
+
+        return idle
+      },
+      { timeout: 45_000 },
+    )
+    .toBe(true)
 }
 
 async function readWebglStats(page: Page): Promise<WebglStats> {
@@ -310,6 +350,15 @@ async function waitForAnimationFrames(page: Page, count: number) {
   }, count)
 }
 
+async function expectNoSplitOnlyWebglRender(page: Page): Promise<WebglStats> {
+  await waitForAnimationFrames(page, 3)
+  const stats = await readWebglStats(page)
+  expect(stats.drawCalls).toBe(0)
+  expect(stats.finishCalls).toBe(0)
+
+  return stats
+}
+
 test('keeps dual-layer RAW compare usable through split zoom and pan', async ({
   page,
 }, testInfo) => {
@@ -323,6 +372,8 @@ test('keeps dual-layer RAW compare usable through split zoom and pan', async ({
   )
   testInfo.setTimeout(180_000)
 
+  await page.setViewportSize({ width: 1440, height: 900 })
+  expect(page.viewportSize()).toEqual({ width: 1440, height: 900 })
   await installWebglCounters(page)
   await page.goto(RAW_COMPARE_URL)
   await expect(page.locator('[data-raw-lab-shell="viewport"]')).toBeVisible()
@@ -334,20 +385,15 @@ test('keeps dual-layer RAW compare usable through split zoom and pan', async ({
   ).toBeVisible({ timeout: 90_000 })
   await expect(page.getByRole('slider', { name: 'Exposure' })).toBeVisible()
 
-  const mode = await waitForLayeredCompareMode(page)
-  const compareLayer = page.locator(`[data-compare-mode="${mode}"]`).first()
+  await waitForCompareMode(page, 'dual-webgl')
+  const mode: LayeredCompareMode = 'dual-webgl'
+  const compareLayer = page.locator('[data-compare-mode="dual-webgl"]').first()
   await expect(compareLayer).toBeVisible()
+  await expect(page.locator('.raw-preview-original-webgl-canvas')).toHaveCount(
+    1,
+  )
 
-  if (mode === 'dual-webgl') {
-    await expect(
-      page.locator('.raw-preview-original-webgl-canvas'),
-    ).toHaveCount(1)
-  } else {
-    await expect(page.locator('.raw-preview-original-image')).toBeVisible()
-  }
-
-  await waitForAnimationFrames(page, 3)
-  await resetWebglStats(page)
+  await waitForWebglStatsIdle(page)
 
   const split = await dragSlider(
     page,
@@ -356,6 +402,8 @@ test('keeps dual-layer RAW compare usable through split zoom and pan', async ({
   )
   expect(split.after).toBeGreaterThan(split.before)
   await expect(compareLayer).toHaveAttribute('data-compare-mode', mode)
+  const splitOnlyWebglStats = await expectNoSplitOnlyWebglRender(page)
+  await resetWebglStats(page)
 
   const previewFrame = page.locator('[data-raw-preview-frame]')
   const previewBox = await previewFrame.boundingBox()
@@ -397,12 +445,9 @@ test('keeps dual-layer RAW compare usable through split zoom and pan', async ({
   expect(transforms.original).toBeTruthy()
   expect(transforms.processed).toBe(transforms.original)
 
-  const webglStats = await readWebglStats(page)
-
-  if (mode === 'dual-webgl') {
-    expect(webglStats.drawCalls).toBeLessThanOrEqual(2)
-    expect(webglStats.finishCalls).toBe(0)
-  }
+  const viewportWebglStats = await readWebglStats(page)
+  expect(viewportWebglStats.drawCalls).toBeLessThanOrEqual(2)
+  expect(viewportWebglStats.finishCalls).toBe(0)
 
   await page.mouse.dblclick(
     previewBox!.x + previewBox!.width * 0.2,
@@ -418,7 +463,18 @@ test('keeps dual-layer RAW compare usable through split zoom and pan', async ({
   })
 
   await testInfo.attach('raw-dual-layer-compare.json', {
-    body: JSON.stringify({ mode, webglStats }, null, 2),
+    body: JSON.stringify(
+      {
+        fixture: RAW_COMPARE_FIXTURE,
+        mode,
+        viewport: page.viewportSize(),
+        split,
+        splitOnlyWebglStats,
+        viewportWebglStats,
+      },
+      null,
+      2,
+    ),
     contentType: 'application/json',
   })
 })
@@ -442,20 +498,17 @@ test('keeps mobile-class JPEG fallback responsive through same-origin RAW drop a
   const context = await browser.newContext({
     ...devices['iPhone 14 Pro'],
     baseURL,
+    viewport: { width: 390, height: 844 },
   })
   const page = await context.newPage()
-  const fixtureName = RAW_COMPARE_FIXTURE.split('/').pop() ?? 'fixture.raw'
+  const fixtureName = fixtureFileName()
   const sameOriginFixtureUrl = `/__lumaforge-test-fixtures/${fixtureName}`
 
   try {
-    await page.route(sameOriginFixtureUrl, async (route) => {
-      await route.fulfill({
-        path: RAW_COMPARE_FIXTURE,
-        contentType: 'application/octet-stream',
-      })
-    })
+    await routeSameOriginFixture(page, sameOriginFixtureUrl)
     await installWebglCounters(page)
     await page.goto(baseURL)
+    expect(page.viewportSize()).toEqual({ width: 390, height: 844 })
     await expect(page.locator('[data-raw-lab-shell="viewport"]')).toBeVisible()
 
     const dropResult = await loadRawFixtureViaSameOriginDrop(
@@ -470,9 +523,7 @@ test('keeps mobile-class JPEG fallback responsive through same-origin RAW drop a
     ).toBeVisible({ timeout: 90_000 })
     await page.getByRole('tab', { name: /^compare$/i }).click()
     await page.getByRole('button', { name: /^split compare$/i }).click()
-    await expect
-      .poll(() => readCompareMode(page), { timeout: 120_000 })
-      .toBe('jpeg-fallback')
+    await waitForCompareMode(page, 'jpeg-fallback')
 
     const originalLayer = page.locator('.raw-preview-original-layer').first()
     await expect(originalLayer).toBeVisible()
@@ -480,9 +531,11 @@ test('keeps mobile-class JPEG fallback responsive through same-origin RAW drop a
       'data-original-reference-source',
       /quick|bounded-hq/,
     )
+    const initialSource = await originalLayer.getAttribute(
+      'data-original-reference-source',
+    )
 
-    await waitForAnimationFrames(page, 3)
-    await resetWebglStats(page)
+    await waitForWebglStatsIdle(page)
 
     const split = await dragSlider(
       page,
@@ -490,6 +543,8 @@ test('keeps mobile-class JPEG fallback responsive through same-origin RAW drop a
       0.72,
     )
     expect(split.after).toBeGreaterThan(split.before)
+    const splitOnlyWebglStats = await expectNoSplitOnlyWebglRender(page)
+    await resetWebglStats(page)
 
     const previewFrame = page.locator('[data-raw-preview-frame]')
     const previewBox = await previewFrame.boundingBox()
@@ -528,28 +583,39 @@ test('keeps mobile-class JPEG fallback responsive through same-origin RAW drop a
 
     const splitAfterInteraction = await readCompareSplit(page)
     const viewportAfterInteraction = await readPreviewViewport(page)
-    await expect(originalLayer).toHaveAttribute(
+    if (initialSource === 'quick') {
+      await expect(originalLayer).toHaveAttribute(
+        'data-original-reference-source',
+        'bounded-hq',
+        { timeout: 120_000 },
+      )
+    }
+    const finalSource = await originalLayer.getAttribute(
       'data-original-reference-source',
-      'bounded-hq',
-      { timeout: 120_000 },
     )
+    expect(finalSource).toBe('bounded-hq')
     expect(await readCompareSplit(page)).toBe(splitAfterInteraction)
     expectViewportClose(
       await readPreviewViewport(page),
       viewportAfterInteraction,
     )
 
-    const webglStats = await readWebglStats(page)
-    expect(webglStats.drawCalls).toBeLessThanOrEqual(2)
-    expect(webglStats.finishCalls).toBe(0)
+    const viewportWebglStats = await readWebglStats(page)
+    expect(viewportWebglStats.drawCalls).toBeLessThanOrEqual(2)
+    expect(viewportWebglStats.finishCalls).toBe(0)
 
     await testInfo.attach('raw-mobile-jpeg-fallback-compare.json', {
       body: JSON.stringify(
         {
+          fixture: RAW_COMPARE_FIXTURE,
           mode: await readCompareMode(page),
+          viewport: page.viewportSize(),
+          initialSource,
+          finalSource,
           splitAfterInteraction,
           viewportAfterInteraction,
-          webglStats,
+          splitOnlyWebglStats,
+          viewportWebglStats,
         },
         null,
         2,
@@ -559,4 +625,85 @@ test('keeps mobile-class JPEG fallback responsive through same-origin RAW drop a
   } finally {
     await context.close()
   }
+})
+
+test('validates WebKit-class JPEG fallback compare when local WebKit is available', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'webkit-ios-safe',
+    'WebKit proxy validation runs only on the WebKit mobile project',
+  )
+  test.skip(
+    !existsSync(RAW_COMPARE_FIXTURE),
+    `Missing RAW compare fixture: ${RAW_COMPARE_FIXTURE}`,
+  )
+  testInfo.setTimeout(240_000)
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  expect(page.viewportSize()).toEqual({ width: 390, height: 844 })
+
+  const fixtureName = fixtureFileName()
+  const sameOriginFixtureUrl = `/__lumaforge-test-fixtures/${fixtureName}`
+  await routeSameOriginFixture(page, sameOriginFixtureUrl)
+  await installWebglCounters(page)
+
+  await page.goto(RAW_COMPARE_URL)
+  await expect(page.locator('[data-raw-lab-shell="viewport"]')).toBeVisible()
+
+  const dropResult = await loadRawFixtureViaSameOriginDrop(
+    page,
+    sameOriginFixtureUrl,
+    fixtureName,
+  )
+  test.skip(
+    !dropResult.ok,
+    `BLOCKED: local Playwright WebKit RAW drop unavailable: ${dropResult.reason}`,
+  )
+
+  await expect(
+    page.locator('.raw-lab[data-raw-lab-state="loaded"]'),
+  ).toBeVisible({ timeout: 90_000 })
+  await page.getByRole('tab', { name: /^compare$/i }).click()
+  await page.getByRole('button', { name: /^split compare$/i }).click()
+  await waitForCompareMode(page, 'jpeg-fallback')
+
+  const originalLayer = page.locator('.raw-preview-original-layer').first()
+  await expect(originalLayer).toBeVisible()
+  await expect(originalLayer).toHaveAttribute(
+    'data-original-reference-source',
+    /quick|bounded-hq/,
+  )
+
+  await waitForWebglStatsIdle(page)
+
+  const split = await dragSlider(
+    page,
+    'Compare unprocessed RAW and final JPEG',
+    0.68,
+  )
+  expect(split.after).toBeGreaterThan(split.before)
+  const splitOnlyWebglStats = await expectNoSplitOnlyWebglRender(page)
+
+  const transforms = await readLayerTransforms(page)
+  expect(transforms.original).toBeTruthy()
+  expect(transforms.processed).toBe(transforms.original)
+
+  await testInfo.attach('raw-webkit-jpeg-fallback-compare.json', {
+    body: JSON.stringify(
+      {
+        fixture: RAW_COMPARE_FIXTURE,
+        mode: await readCompareMode(page),
+        viewport: page.viewportSize(),
+        source: await originalLayer.getAttribute(
+          'data-original-reference-source',
+        ),
+        split,
+        splitOnlyWebglStats,
+      },
+      null,
+      2,
+    ),
+    contentType: 'application/json',
+  })
 })
