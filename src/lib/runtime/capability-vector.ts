@@ -49,7 +49,8 @@ export function classifyUserAgent(
 
   const desktopMac = /\bMacintosh\b/i.test(ua)
   const safari = /\bSafari\b/i.test(ua)
-  const chromiumFamily = /\b(?:Chrome|Chromium|CriOS|Edg|OPR|FxiOS)\b/i.test(ua)
+  const chromiumFamily =
+    /\b(?:Chrome|Chromium|HeadlessChrome|CriOS|Edg|OPR|FxiOS)\b/i.test(ua)
   if (desktopMac && webKit && safari && !chromiumFamily && !touch) {
     return 'webkit-desktop-safari'
   }

@@ -42,6 +42,12 @@ describe('detectCapabilityVector', () => {
       'chromium',
     ],
     [
+      'headless-chromium',
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36',
+      0,
+      'chromium',
+    ],
+    [
       'webkit-mobile',
       'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
       5,
