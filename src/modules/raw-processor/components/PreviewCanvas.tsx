@@ -806,7 +806,7 @@ export function PreviewCanvas({
             data-compare-mode={compareRenderMode.kind}
             data-compare-fallback-reason={
               compareRenderMode.kind === 'processed-only'
-                ? (originalReferenceFallbackReason ?? undefined)
+                ? (originalReferenceFallbackReason ?? compareRenderMode.reason)
                 : undefined
             }
           >

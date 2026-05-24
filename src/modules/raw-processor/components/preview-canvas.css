@@ -56,10 +56,12 @@
 
 .raw-preview-layer-clipped.raw-preview-original-webgl-shell,
 .raw-preview-original-layer {
+  -webkit-clip-path: inset(0 calc(100% - var(--raw-compare-split, 50%)) 0 0);
   clip-path: inset(0 calc(100% - var(--raw-compare-split, 50%)) 0 0);
 }
 
 .raw-preview-layer-clipped.raw-preview-processed-layer {
+  -webkit-clip-path: inset(0 0 0 var(--raw-compare-split, 50%));
   clip-path: inset(0 0 0 var(--raw-compare-split, 50%));
 }
 

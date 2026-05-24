@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ComponentProps } from 'react'
@@ -77,6 +80,14 @@ const defaultParams: ProcessingParams = {
   styleKind: 'none',
   builtinPreset: null,
 }
+
+const previewCanvasCss = readFileSync(
+  resolve(
+    process.cwd(),
+    'src/modules/raw-processor/components/preview-canvas.css',
+  ),
+  'utf8',
+)
 
 const decodedImage: DecodedImage = {
   width: 400,
@@ -686,6 +697,64 @@ describe('preview canvas upload descriptor', () => {
     })
     expect(getPipelineParamCalls()).not.toContainEqual(
       expect.objectContaining({ viewMode: 'compare' }),
+    )
+  })
+
+  it('exposes structured processed-only compare fallback reasons', async () => {
+    const { container, rerender } = render(
+      createElement(PreviewCanvas, {
+        imageRef: { current: decodedImage },
+        imageVersion: 1,
+        params: {
+          ...defaultParams,
+          viewMode: 'compare',
+        },
+        lutDataRef: { current: null },
+        lutDataVersion: 0,
+        dualWebglAllowed: false,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-compare-mode="processed-only"]'),
+      ).toHaveAttribute(
+        'data-compare-fallback-reason',
+        'jpeg-fallback-unavailable',
+      )
+    })
+
+    vi.stubGlobal('CSS', {
+      supports: vi.fn(() => false),
+    })
+
+    rerender(
+      createElement(PreviewCanvas, {
+        imageRef: { current: decodedImage },
+        imageVersion: 2,
+        params: {
+          ...defaultParams,
+          viewMode: 'compare',
+        },
+        lutDataRef: { current: null },
+        lutDataVersion: 0,
+        dualWebglAllowed: true,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-compare-mode="processed-only"]'),
+      ).toHaveAttribute('data-compare-fallback-reason', 'css-clip-unavailable')
+    })
+  })
+
+  it('declares prefixed clip-path rules for prefixed WebKit layered compare', () => {
+    expect(previewCanvasCss).toContain(
+      '-webkit-clip-path: inset(0 calc(100% - var(--raw-compare-split, 50%)) 0 0);',
+    )
+    expect(previewCanvasCss).toContain(
+      '-webkit-clip-path: inset(0 0 0 var(--raw-compare-split, 50%));',
     )
   })
 
