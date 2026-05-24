@@ -1,4 +1,3 @@
-import { Buffer } from 'node:buffer'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import process from 'node:process'
@@ -14,6 +13,7 @@ import { checker } from 'vite-plugin-checker'
 import { routeBuilderPlugin } from 'vite-plugin-route-builder'
 
 import PKG from './package.json'
+import { fetchImageDataUrl, toDataUrl } from './scripts/build/image-data-url'
 import {
   assertNativeRuntimeAssets,
   copyNativeRuntimeAssets,
@@ -63,10 +63,6 @@ const CROSS_ORIGIN_ISOLATION_HEADERS = {
   'Cross-Origin-Embedder-Policy': 'require-corp',
 }
 
-function toDataUrl(mimeType: string, data: Uint8Array) {
-  return `data:${mimeType};base64,${Buffer.from(data).toString('base64')}`
-}
-
 function resolveSeoRuntimeOptions(env = process.env) {
   return {
     siteUrl: normalizeSiteUrl(
@@ -98,17 +94,6 @@ function nativeRuntimeAssetsPlugin(env: NodeJS.ProcessEnv): Plugin {
 }
 
 function staticSeoArtifactsPlugin(): Plugin {
-  async function fetchImageDataUrl(url: string) {
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error(
-        `Unable to fetch OG image resource ${url}: ${response.status} ${response.statusText}`,
-      )
-    }
-    const mimeType = response.headers.get('content-type') ?? 'image/jpeg'
-    return toDataUrl(mimeType, new Uint8Array(await response.arrayBuffer()))
-  }
-
   return {
     name: 'lumaforge-static-seo-artifacts',
     async writeBundle(options) {
@@ -120,7 +105,12 @@ function staticSeoArtifactsPlugin(): Plugin {
       const seoOptions = resolveSeoRuntimeOptions()
       const ogImage = await renderLumaForgeOgImage({
         fontData: readFileSync(LUMAFORGE_OG_IMAGE_FONT_SOURCE),
-        heroImageSrc: await fetchImageDataUrl(LUMAFORGE_OG_HERO_IMAGE_URL),
+        heroImageSrc: await fetchImageDataUrl(LUMAFORGE_OG_HERO_IMAGE_URL, {
+          fallbackPath: LUMAFORGE_OG_IMAGE_LOGO_SOURCE,
+          onFallback: (message) => {
+            console.warn(`[lumaforge-static-seo-artifacts] ${message}`)
+          },
+        }),
         logoSrc: toDataUrl(
           'image/png',
           readFileSync(LUMAFORGE_OG_IMAGE_LOGO_SOURCE),
