@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 
 import type { DecodedImage } from '~/lib/raw/decoder'
 
@@ -419,6 +419,111 @@ describe('useOriginalReferenceSnapshot', () => {
       ),
     )
     expect(result.current.snapshot).toBeNull()
+  })
+
+  it('clears pending render notifications by key so stale renders cannot clear newer work', async () => {
+    let resolveQuick!: (value: OriginalReferenceSnapshot) => void
+    let resolveHq!: (value: OriginalReferenceSnapshot) => void
+    const pendingChanges: Array<{
+      key: string | null
+      clearKey: string | null
+      dispose?: () => Promise<void>
+    }> = []
+    const renderSnapshot = vi
+      .fn()
+      .mockReturnValueOnce(
+        new Promise<OriginalReferenceSnapshot>((resolve) => {
+          resolveQuick = resolve
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise<OriginalReferenceSnapshot>((resolve) => {
+          resolveHq = resolve
+        }),
+      )
+
+    const { rerender } = renderHook(
+      ({ image, displaySource, imageVersion }) =>
+        useOriginalReferenceSnapshot({
+          sessionId: 'session-a',
+          image,
+          imageVersion,
+          displaySource,
+          capability: { webKitClass: 'chromium', pthread: true },
+          renderSnapshot,
+          onPendingRenderChange: (pending, clearKey) => {
+            pendingChanges.push({
+              key: pending?.key ?? null,
+              clearKey: clearKey ?? null,
+              dispose: pending?.dispose,
+            })
+          },
+        }),
+      {
+        initialProps: {
+          image: createImage('quick'),
+          displaySource: 'quick' as DisplaySource,
+          imageVersion: 1,
+        },
+      },
+    )
+
+    await waitFor(() => expect(pendingChanges[0]?.key).toContain('quick'))
+    const quickKey = pendingChanges[0]?.key
+    expect(quickKey).toBeTruthy()
+
+    rerender({
+      image: createImage('bounded-hq', 2400),
+      displaySource: 'bounded-hq' as DisplaySource,
+      imageVersion: 2,
+    })
+
+    await waitFor(() =>
+      expect(
+        pendingChanges.some((change) => change.key?.includes('bounded-hq')),
+      ).toBe(true),
+    )
+    const boundedKey = pendingChanges.find((change) =>
+      change.key?.includes('bounded-hq'),
+    )?.key
+    expect(boundedKey).toBeTruthy()
+
+    await act(async () => {
+      resolveQuick({
+        key: quickKey ?? 'quick-key',
+        objectUrl: 'blob:quick',
+        width: 100,
+        height: 50,
+        source: 'quick',
+        mimeType: 'image/jpeg',
+        estimatedBytes: 10,
+      })
+    })
+
+    await waitFor(() =>
+      expect(
+        pendingChanges.some(
+          (change) => change.key === null && change.clearKey?.includes('quick'),
+        ),
+      ).toBe(true),
+    )
+    expect(
+      pendingChanges.some(
+        (change) => change.key === null && change.clearKey === boundedKey,
+      ),
+    ).toBe(false)
+
+    await act(async () => {
+      resolveHq({
+        key: boundedKey ?? 'hq-key',
+        objectUrl: 'blob:hq',
+        width: 200,
+        height: 100,
+        source: 'bounded-hq',
+        mimeType: 'image/jpeg',
+        estimatedBytes: 20,
+      })
+    })
   })
 
   it('reports fallback when generation fails', async () => {

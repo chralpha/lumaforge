@@ -61,6 +61,14 @@ describe('renderOriginalReferenceSnapshot', () => {
     })
 
     expect(uploadImage).toHaveBeenCalledOnce()
+    expect(uploadImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        width: 1264,
+        height: 790,
+        data: expect.any(Uint16Array),
+      }),
+    )
+    expect(uploadImage.mock.calls[0]?.[0].data).toHaveLength(1264 * 790 * 3)
     expect(setParams).toHaveBeenCalledWith(
       expect.objectContaining({
         viewMode: 'original',
@@ -110,6 +118,51 @@ describe('renderOriginalReferenceSnapshot', () => {
     ).rejects.toThrow('ORIGINAL_REFERENCE_SNAPSHOT_ENCODE_FAILED')
 
     expect(dispose).toHaveBeenCalledWith({ releaseContext: true })
+    expect(createObjectURL).not.toHaveBeenCalled()
+  })
+
+  it('releases the temporary pipeline promptly when snapshot rendering is aborted', async () => {
+    const dispose = vi.fn()
+    const uploadImage = vi.fn()
+    const setParams = vi.fn()
+    const render = vi.fn()
+    let finishEncode!: (blob: Blob | null) => void
+    const abortController = new AbortController()
+
+    const renderPromise = renderOriginalReferenceSnapshot({
+      image: createImage(),
+      key: 'snapshot-key',
+      maxPixels: 1_000_000,
+      signal: abortController.signal,
+      createPipeline: () =>
+        ({
+          initialize: vi.fn().mockResolvedValue(undefined),
+          uploadImage,
+          setParams,
+          render,
+          dispose,
+        }) as never,
+      createCanvas: () =>
+        ({
+          width: 0,
+          height: 0,
+          toBlob: (callback: BlobCallback) => {
+            finishEncode = callback
+          },
+        }) as HTMLCanvasElement,
+      createObjectURL,
+      revokeObjectURL,
+    })
+
+    await vi.waitFor(() => expect(render).toHaveBeenCalled())
+    abortController.abort()
+
+    expect(dispose).toHaveBeenCalledWith({ releaseContext: true })
+    finishEncode(new Blob(['jpeg'], { type: 'image/jpeg' }))
+
+    await expect(renderPromise).rejects.toThrow(
+      'ORIGINAL_REFERENCE_SNAPSHOT_ABORTED',
+    )
     expect(createObjectURL).not.toHaveBeenCalled()
   })
 })

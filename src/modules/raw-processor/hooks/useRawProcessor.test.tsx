@@ -3055,7 +3055,7 @@ describe('useRawProcessor embedded preview state', () => {
     expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledTimes(1)
   })
 
-  it('waits for pending original reference snapshot work before starting full-resolution export', async () => {
+  it('cancels pending original reference snapshot work before starting full-resolution export', async () => {
     vi.stubGlobal('CSS', {
       supports: vi.fn(() => true),
     })
@@ -3116,7 +3116,7 @@ describe('useRawProcessor embedded preview state', () => {
       await Promise.resolve()
     })
 
-    expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
+    expect(exportSystemMock.runFullResolutionExportJob).toHaveBeenCalledTimes(1)
 
     await act(async () => {
       pendingSnapshot.resolve(snapshot)

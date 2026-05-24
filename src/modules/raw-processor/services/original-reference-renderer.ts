@@ -15,6 +15,7 @@ export type RenderOriginalReferenceSnapshotInput = {
   image: DecodedImage
   key: string
   maxPixels: number
+  signal?: AbortSignal
   createCanvas?: () => HTMLCanvasElement
   createPipeline?: (canvas: HTMLCanvasElement) => PipelineLike
   createObjectURL?: (blob: Blob) => string
@@ -61,16 +62,100 @@ function canvasToJpegBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   })
 }
 
-function createSnapshotUploadInput(image: DecodedImage): RawUploadInput {
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new Error('ORIGINAL_REFERENCE_SNAPSHOT_ABORTED')
+  }
+}
+
+function resampleUint16(
+  data: Uint16Array,
+  sourceWidth: number,
+  sourceHeight: number,
+  targetWidth: number,
+  targetHeight: number,
+  channels: number,
+) {
+  if (sourceWidth === targetWidth && sourceHeight === targetHeight) {
+    return data
+  }
+
+  const output = new Uint16Array(targetWidth * targetHeight * channels)
+  for (let y = 0; y < targetHeight; y += 1) {
+    const sourceY = Math.min(
+      sourceHeight - 1,
+      Math.floor(((y + 0.5) * sourceHeight) / targetHeight),
+    )
+    for (let x = 0; x < targetWidth; x += 1) {
+      const sourceX = Math.min(
+        sourceWidth - 1,
+        Math.floor(((x + 0.5) * sourceWidth) / targetWidth),
+      )
+      const sourceOffset = (sourceY * sourceWidth + sourceX) * channels
+      const outputOffset = (y * targetWidth + x) * channels
+      for (let channel = 0; channel < channels; channel += 1) {
+        output[outputOffset + channel] = data[sourceOffset + channel] ?? 0
+      }
+    }
+  }
+
+  return output
+}
+
+function resampleFloat32(
+  data: Float32Array,
+  sourceWidth: number,
+  sourceHeight: number,
+  targetWidth: number,
+  targetHeight: number,
+  channels: number,
+) {
+  if (sourceWidth === targetWidth && sourceHeight === targetHeight) {
+    return data
+  }
+
+  const output = new Float32Array(targetWidth * targetHeight * channels)
+  for (let y = 0; y < targetHeight; y += 1) {
+    const sourceY = Math.min(
+      sourceHeight - 1,
+      Math.floor(((y + 0.5) * sourceHeight) / targetHeight),
+    )
+    for (let x = 0; x < targetWidth; x += 1) {
+      const sourceX = Math.min(
+        sourceWidth - 1,
+        Math.floor(((x + 0.5) * sourceWidth) / targetWidth),
+      )
+      const sourceOffset = (sourceY * sourceWidth + sourceX) * channels
+      const outputOffset = (y * targetWidth + x) * channels
+      for (let channel = 0; channel < channels; channel += 1) {
+        output[outputOffset + channel] = data[sourceOffset + channel] ?? 0
+      }
+    }
+  }
+
+  return output
+}
+
+function createSnapshotUploadInput(
+  image: DecodedImage,
+  target: { width: number; height: number },
+): RawUploadInput {
   if (
     image.layout === 'rgb-u16' &&
     image.colorSpace === 'linear-prophoto-rgb' &&
     image.data instanceof Uint16Array
   ) {
     return {
-      data: image.data,
-      width: image.width,
-      height: image.height,
+      data: resampleUint16(
+        image.data,
+        image.width,
+        image.height,
+        target.width,
+        target.height,
+        3,
+      ),
+      width: target.width,
+      height: target.height,
       layout: 'rgb-u16',
       colorSpace: 'linear-prophoto-rgb',
       renderExposureEv: image.renderExposure.ev,
@@ -84,9 +169,16 @@ function createSnapshotUploadInput(image: DecodedImage): RawUploadInput {
     image.data instanceof Float32Array
   ) {
     return {
-      data: image.data,
-      width: image.width,
-      height: image.height,
+      data: resampleFloat32(
+        image.data,
+        image.width,
+        image.height,
+        target.width,
+        target.height,
+        4,
+      ),
+      width: target.width,
+      height: target.height,
       layout: 'rgba-float32',
       colorSpace: 'display-srgb-preview',
     }
@@ -99,6 +191,7 @@ export async function renderOriginalReferenceSnapshot({
   image,
   key,
   maxPixels,
+  signal,
   createCanvas = () => document.createElement('canvas'),
   createPipeline = (canvas) => new RawProcessingPipeline(canvas),
   createObjectURL = URL.createObjectURL.bind(URL),
@@ -109,13 +202,27 @@ export async function renderOriginalReferenceSnapshot({
   canvas.height = target.height
 
   const pipeline = createPipeline(canvas)
+  let disposed = false
+  const disposePipeline = () => {
+    if (disposed) return
+    disposed = true
+    pipeline.dispose({ releaseContext: true })
+  }
+  const handleAbort = () => {
+    disposePipeline()
+  }
+
+  signal?.addEventListener('abort', handleAbort, { once: true })
   try {
+    throwIfAborted(signal)
     await pipeline.initialize()
-    pipeline.uploadImage(createSnapshotUploadInput(image))
+    throwIfAborted(signal)
+    pipeline.uploadImage(createSnapshotUploadInput(image, target))
     pipeline.setParams(ORIGINAL_REFERENCE_PARAMS)
     pipeline.render({ waitForGpu: true })
 
     const blob = await canvasToJpegBlob(canvas)
+    throwIfAborted(signal)
     return {
       key,
       objectUrl: createObjectURL(blob),
@@ -126,6 +233,7 @@ export async function renderOriginalReferenceSnapshot({
       estimatedBytes: blob.size,
     }
   } finally {
-    pipeline.dispose({ releaseContext: true })
+    signal?.removeEventListener('abort', handleAbort)
+    disposePipeline()
   }
 }

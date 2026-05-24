@@ -31,6 +31,7 @@ export type UseOriginalReferenceSnapshotInput = {
   releaseSnapshot?: typeof releaseOriginalReferenceSnapshot
   onPendingRenderChange?: (
     pending: PendingOriginalReferenceSnapshotRender | null,
+    key?: string,
   ) => void
 }
 
@@ -113,6 +114,7 @@ export function useOriginalReferenceSnapshot({
     if (snapshotRef.current?.key === key) return
 
     let cancelled = false
+    const abortController = new AbortController()
     setFallbackReason(null)
 
     const maxPixels = getOriginalReferenceSnapshotMaxPixels({
@@ -121,7 +123,12 @@ export function useOriginalReferenceSnapshot({
       pthread: capability.pthread,
     })
 
-    const renderPromise = renderSnapshot({ image, key, maxPixels })
+    void renderSnapshot({
+      image,
+      key,
+      maxPixels,
+      signal: abortController.signal,
+    })
       .then((nextSnapshot) => {
         if (cancelled) {
           releaseSnapshot(nextSnapshot)
@@ -140,20 +147,21 @@ export function useOriginalReferenceSnapshot({
         setFallbackReason(getOriginalReferenceSnapshotFallbackReason(error))
       })
       .finally(() => {
-        onPendingRenderChange?.(null)
+        onPendingRenderChange?.(null, key)
       })
 
     onPendingRenderChange?.({
       key,
       dispose: async () => {
         cancelled = true
-        await renderPromise
+        abortController.abort()
       },
     })
 
     return () => {
       cancelled = true
-      onPendingRenderChange?.(null)
+      abortController.abort()
+      onPendingRenderChange?.(null, key)
     }
   }, [
     capability.pthread,

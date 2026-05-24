@@ -445,14 +445,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
   )
 
   const setPendingOriginalReferenceSnapshotRender = useCallback(
-    (pending: PendingOriginalReferenceSnapshotRender | null) => {
+    (
+      pending: PendingOriginalReferenceSnapshotRender | null,
+      clearKey?: string,
+    ) => {
       const previous = originalReferenceSnapshotPendingResourceRef.current
       const previousKey = originalReferenceSnapshotPendingResourceKeyRef.current
 
-      if (previous && previousKey !== pending?.key) {
+      const disposePrevious = (resource: TrackedLargeResource) => {
         originalReferenceSnapshotPendingResourceRef.current = null
         originalReferenceSnapshotPendingResourceKeyRef.current = null
-        void previous.dispose().catch((error) => {
+        void resource.dispose().catch((error) => {
           console.warn(
             'Failed to clean up pending original reference snapshot:',
             error,
@@ -460,8 +463,23 @@ export function useRawProcessor(): UseRawProcessorReturn {
         })
       }
 
-      if (!pending || previousKey === pending.key) {
+      if (!pending) {
+        if (!previous) {
+          return
+        }
+        if (clearKey && previousKey !== clearKey) {
+          return
+        }
+        disposePrevious(previous)
         return
+      }
+
+      if (previous && previousKey === pending.key) {
+        return
+      }
+
+      if (previous) {
+        disposePrevious(previous)
       }
 
       const registry = resourceRegistryRef.current
