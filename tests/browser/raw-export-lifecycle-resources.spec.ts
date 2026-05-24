@@ -313,6 +313,17 @@ test('monitors a full desktop RAW export lifecycle with resource diagnostics', a
     await expect(downloadButton).toBeVisible()
     samples.push(await sampleResourceUsage(page, 'jpeg-ready'))
 
+    const restorePreviewButton = page.getByRole('button', {
+      name: /^restore preview$/i,
+    })
+    await expect(restorePreviewButton).toBeVisible()
+    await restorePreviewButton.click()
+    await expect(page.locator('.raw-preview-canvas')).toBeVisible({
+      timeout: 90_000,
+    })
+    await expect(downloadButton).toBeVisible()
+    samples.push(await sampleResourceUsage(page, 'after-preview-restore'))
+
     const downloadPromise = page.waitForEvent('download')
     await downloadButton.click()
     const download = await downloadPromise
@@ -412,6 +423,7 @@ test('monitors a full desktop RAW export lifecycle with resource diagnostics', a
       'before-export',
       'after-evacuation',
       'jpeg-ready',
+      'after-preview-restore',
       'download-materialized',
       'after-reset',
     ])
