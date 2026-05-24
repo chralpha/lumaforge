@@ -241,47 +241,6 @@ describe('compareSplitHandle', () => {
     cancelAnimationFrame.mockRestore()
   })
 
-  it('publishes the image track vertical bounds so the handle visual matches the photo area', () => {
-    const onChange = vi.fn()
-
-    const { rerender } = render(
-      <div data-testid="track">
-        <div data-raw-compare-track="image" data-testid="image-track" />
-        <CompareSplitHandle value={0.5} onChange={onChange} />
-      </div>,
-    )
-
-    const track = screen.getByTestId('track')
-    const imageTrack = screen.getByTestId('image-track')
-    const slider = screen.getByRole('slider')
-    Object.defineProperty(track, 'getBoundingClientRect', {
-      value: () => ({ left: 0, top: 0, width: 390, height: 844 }),
-    })
-    Object.defineProperty(imageTrack, 'getBoundingClientRect', {
-      value: () => ({ left: 0, top: 275, width: 390, height: 293 }),
-    })
-
-    rerender(
-      <div data-testid="track">
-        <div data-raw-compare-track="image" data-testid="image-track" />
-        <CompareSplitHandle value={0.5} onChange={onChange} />
-      </div>,
-    )
-
-    expect(slider.style.getPropertyValue('--raw-compare-track-top')).toBe(
-      '275px',
-    )
-    expect(slider.style.getPropertyValue('--raw-compare-track-height')).toBe(
-      '293px',
-    )
-    expect(track.style.getPropertyValue('--raw-compare-track-top')).toBe(
-      '275px',
-    )
-    expect(track.style.getPropertyValue('--raw-compare-track-height')).toBe(
-      '293px',
-    )
-  })
-
   it('keeps pointer dragging usable when pointer capture is unavailable', () => {
     const onChange = vi.fn()
     const originalSetPointerCapture = HTMLElement.prototype.setPointerCapture

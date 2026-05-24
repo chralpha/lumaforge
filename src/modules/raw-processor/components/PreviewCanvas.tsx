@@ -747,18 +747,18 @@ export function PreviewCanvas({
         ref={trackRef}
         data-raw-compare-track="image"
         className="raw-preview-track"
-        style={
-          {
-            '--raw-preview-zoom': normalizedPreviewViewport.zoom,
-            '--raw-preview-pan-x': `${normalizedPreviewViewport.panX}px`,
-            '--raw-preview-pan-y': `${normalizedPreviewViewport.panY}px`,
-          } as React.CSSProperties
-        }
       >
         <div
           ref={surfaceRef}
           data-raw-preview-surface
           className="raw-preview-surface"
+          style={
+            {
+              '--raw-preview-zoom': normalizedPreviewViewport.zoom,
+              '--raw-preview-pan-x': `${normalizedPreviewViewport.panX}px`,
+              '--raw-preview-pan-y': `${normalizedPreviewViewport.panY}px`,
+            } as React.CSSProperties
+          }
         >
           {shouldMountOriginalWebglLayer && (
             <div

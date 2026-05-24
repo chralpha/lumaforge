@@ -797,7 +797,7 @@ describe('preview canvas upload descriptor', () => {
     raf.mockRestore()
   })
 
-  it('drives zoom and pan from the preview track so the scaled photo extends into surrounding frame space', async () => {
+  it('keeps the compare split track separate from the transformed preview surface', async () => {
     const { surface, track } = renderInteractivePreview({
       previewViewport: {
         zoom: 2,
@@ -814,13 +814,11 @@ describe('preview canvas upload descriptor', () => {
     expect(track).not.toBeNull()
     expect(surface).not.toBeNull()
     expect(track).not.toBe(surface)
-    expect(track?.style.getPropertyValue('--raw-preview-zoom')).toBe('2')
-    expect(track?.style.getPropertyValue('--raw-preview-pan-x')).toBe('80px')
-    expect(track?.style.getPropertyValue('--raw-preview-pan-y')).toBe('-40px')
-    expect(surface?.style.getPropertyValue('--raw-preview-zoom')).toBe('')
+    expect(track?.style.getPropertyValue('--raw-preview-zoom')).toBe('')
+    expect(surface?.style.getPropertyValue('--raw-preview-zoom')).toBe('2')
   })
 
-  it('keeps layered compare clipping in layer space while zoom transforms the whole track', async () => {
+  it('keeps layered compare clipping in track space while zoom transforms layer content', async () => {
     const snapshot: OriginalReferenceSnapshot = {
       key: 'original-reference|session:test',
       objectUrl: 'blob:original-reference',
@@ -871,20 +869,18 @@ describe('preview canvas upload descriptor', () => {
       '.raw-preview-original-image',
     )
 
-    const track = container.querySelector<HTMLElement>('.raw-preview-track')
-
-    expect(track).not.toBeNull()
     expect(surface).not.toBeNull()
     expect(processedLayer).not.toBeNull()
     expect(processedCanvas).not.toBeNull()
     expect(originalImage).not.toBeNull()
-    expect(getComputedStyle(track!).transform).toContain('translate3d')
     expect(getComputedStyle(surface!).transform).toBe('')
     expect(getComputedStyle(processedLayer!).clipPath).toContain(
       'var(--raw-compare-split',
     )
-    expect(getComputedStyle(processedCanvas!).transform).toBe('')
-    expect(getComputedStyle(originalImage!).transform).toBe('')
+    expect(getComputedStyle(processedCanvas!).transform).toContain(
+      'translate3d',
+    )
+    expect(getComputedStyle(originalImage!).transform).toContain('translate3d')
   })
 
   it('scopes transform will-change to active preview panning', async () => {
@@ -901,9 +897,9 @@ describe('preview canvas upload descriptor', () => {
       expect(pipelineMock.instances).toHaveLength(1)
     })
 
-    const track = container.querySelector<HTMLElement>('.raw-preview-track')
-    expect(track).not.toBeNull()
-    expect(getComputedStyle(track!).willChange).not.toContain('transform')
+    const canvas = container.querySelector<HTMLElement>('.raw-preview-canvas')
+    expect(canvas).not.toBeNull()
+    expect(getComputedStyle(canvas!).willChange).not.toContain('transform')
 
     fireEvent.pointerDown(frame!, {
       pointerId: 1,
@@ -912,7 +908,7 @@ describe('preview canvas upload descriptor', () => {
       clientY: 150,
     })
 
-    expect(getComputedStyle(track!).willChange).toContain('transform')
+    expect(getComputedStyle(canvas!).willChange).toContain('transform')
   })
 
   it('does not rerender WebGL during split or viewport changes when layered compare is active', async () => {

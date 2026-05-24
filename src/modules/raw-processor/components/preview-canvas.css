@@ -10,7 +10,6 @@
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
-  overflow: hidden;
 }
 
 .raw-preview-frame-interactive {
@@ -21,28 +20,17 @@
   cursor: grabbing;
 }
 
-/* The track holds the photo at its aspect-fit footprint. Zoom and pan
-   transform the track itself so the scaled photo can extend into the
-   surrounding empty frame space; the frame's `overflow: hidden` clips
-   the scaled track at the available viewport bounds. */
 .raw-preview-track {
   position: relative;
   flex: 0 0 auto;
   overflow: visible;
-  transform: translate3d(
-      var(--raw-preview-pan-x, 0),
-      var(--raw-preview-pan-y, 0),
-      0
-    )
-    scale(var(--raw-preview-zoom, 1));
-  transform-origin: center center;
 }
 
 .raw-preview-surface {
   position: relative;
   width: 100%;
   height: 100%;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .raw-preview-original-webgl-shell,
@@ -82,6 +70,13 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+  transform: translate3d(
+      var(--raw-preview-pan-x, 0),
+      var(--raw-preview-pan-y, 0),
+      0
+    )
+    scale(var(--raw-preview-zoom, 1));
+  transform-origin: center center;
   -webkit-user-drag: none;
   user-select: none;
   -webkit-user-select: none;
@@ -94,7 +89,10 @@
   will-change: clip-path;
 }
 
-.raw-preview-frame-transforming .raw-preview-track {
+.raw-preview-frame-transforming .raw-preview-canvas,
+.raw-preview-frame-transforming .raw-preview-embedded,
+.raw-preview-frame-transforming .raw-preview-original-image,
+.raw-preview-frame-transforming .raw-preview-original-webgl-canvas {
   will-change: transform;
 }
 
@@ -104,6 +102,13 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+  transform: translate3d(
+      var(--raw-preview-pan-x, 0),
+      var(--raw-preview-pan-y, 0),
+      0
+    )
+    scale(var(--raw-preview-zoom, 1));
+  transform-origin: center center;
   pointer-events: none;
   -webkit-user-drag: none;
   user-select: none;
@@ -117,6 +122,13 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+  transform: translate3d(
+      var(--raw-preview-pan-x, 0),
+      var(--raw-preview-pan-y, 0),
+      0
+    )
+    scale(var(--raw-preview-zoom, 1));
+  transform-origin: center center;
   pointer-events: none;
   -webkit-user-drag: none;
   user-select: none;

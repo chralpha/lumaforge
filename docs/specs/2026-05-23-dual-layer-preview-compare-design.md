@@ -221,22 +221,18 @@ The loaded preview surface becomes layered:
 
 ```text
 PreviewCanvas
--> frame: owns pointer, wheel, double-click, touch-action; overflow:hidden
-   -> track: aspect-fit box, CSS transformed by zoom/pan
-      -> surface: layout-only stacking parent
+-> frame: owns pointer, wheel, double-click, touch-action
+   -> track: aspect-fit box
+      -> surface: CSS transformed by zoom/pan
          -> OriginalWebglLayer <canvas> OR OriginalReferenceLayer <img>
          -> processed <canvas>
-   -> split handle: viewport-space control, anchored to track bounds
+   -> split handle: viewport-space control
 ```
 
-The track itself owns the zoom/pan transform so the scaled photo can extend
-into the surrounding empty frame space (the frame's `overflow: hidden` clips
-the scaled track at the viewport edge). Mounting the transform on the track
-rather than on individual layers keeps both image layers and the compare clip
-in perfect alignment without per-layer compensation:
+Both image layers share the same CSS transform:
 
 ```css
-.raw-preview-track {
+.raw-preview-surface {
   transform: translate3d(var(--raw-preview-pan-x), var(--raw-preview-pan-y), 0)
     scale(var(--raw-preview-zoom));
 }
@@ -254,11 +250,9 @@ The compare split is a CSS variable owned by the frame or track:
 }
 ```
 
-The split handle lives in viewport space (a sibling of the preview frame) so
-it stays easy to drag at high zoom. Its vertical extent is bound to the live
-image-track rect via `--raw-compare-track-top` and `--raw-compare-track-height`
-so the visible compare line spans exactly the photo area — not the empty
-letterbox gutters above or below.
+The split handle stays in viewport space, not inside the transformed surface.
+This keeps the handle easy to drag at high zoom. The layers receive the same
+transform, so no shader-space split compensation is needed.
 
 `will-change: transform` and `will-change: clip-path` should be applied only
 while pointer, wheel, or touch interaction is active. Keeping both enabled
