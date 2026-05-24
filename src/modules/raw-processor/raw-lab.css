@@ -194,7 +194,9 @@
 
 .raw-lab-compare-handle {
   position: absolute;
-  inset: 0 auto 0 0;
+  top: var(--raw-compare-track-top, 0);
+  left: 0;
+  height: var(--raw-compare-track-height, 100%);
   z-index: 6;
   width: 44px;
   min-width: 44px;

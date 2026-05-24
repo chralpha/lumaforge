@@ -27,10 +27,13 @@ function getCompareTrackGeometry(target: HTMLElement) {
   const frameRect = frame.getBoundingClientRect()
   const imageTrack = frame.querySelector<HTMLElement>(IMAGE_TRACK_SELECTOR)
   const imageRect = imageTrack?.getBoundingClientRect()
+  const trackRect = imageRect && isUsableRect(imageRect) ? imageRect : frameRect
 
   return {
     frameRect,
-    trackRect: imageRect && isUsableRect(imageRect) ? imageRect : frameRect,
+    trackRect,
+    trackTop: trackRect.top - frameRect.top,
+    trackHeight: trackRect.height,
   }
 }
 
@@ -46,12 +49,15 @@ export function getCompareSplitInteractionGeometry(
   target: HTMLElement,
   clientX: number,
 ) {
-  const { frameRect, trackRect } = getCompareTrackGeometry(target)
+  const { frameRect, trackRect, trackTop, trackHeight } =
+    getCompareTrackGeometry(target)
   const split = getCompareSplitFromClientX(trackRect, clientX)
 
   return {
     split,
     handleX: getHandlePositionX(frameRect, trackRect, split),
+    trackTop,
+    trackHeight,
   }
 }
 
@@ -59,23 +65,28 @@ export function getCompareSplitPositionGeometry(
   target: HTMLElement,
   value: number,
 ) {
-  const { frameRect, trackRect } = getCompareTrackGeometry(target)
+  const { frameRect, trackRect, trackTop, trackHeight } =
+    getCompareTrackGeometry(target)
   const split = clampCompareSplit(value)
 
   return {
     split,
     handleX: getHandlePositionX(frameRect, trackRect, split),
+    trackTop,
+    trackHeight,
   }
 }
 
 function applyHandlePosition(target: HTMLElement, value: number) {
-  const { split, handleX } = getCompareSplitPositionGeometry(target, value)
-  applyCompareSplitVariables(target, split, handleX)
+  const { split, handleX, trackTop, trackHeight } =
+    getCompareSplitPositionGeometry(target, value)
+  applyCompareSplitVariables(target, split, handleX, trackTop, trackHeight)
 }
 
 function applyPointerPosition(target: HTMLElement, clientX: number) {
-  const { split, handleX } = getCompareSplitInteractionGeometry(target, clientX)
-  applyCompareSplitVariables(target, split, handleX)
+  const { split, handleX, trackTop, trackHeight } =
+    getCompareSplitInteractionGeometry(target, clientX)
+  applyCompareSplitVariables(target, split, handleX, trackTop, trackHeight)
   return split
 }
 
@@ -83,16 +94,24 @@ function applyCompareSplitVariables(
   target: HTMLElement,
   split: number,
   handleX: number,
+  trackTop: number,
+  trackHeight: number,
 ) {
   const splitPercent = `${split * 100}%`
   const handlePosition = `${handleX}px`
+  const trackTopValue = `${trackTop}px`
+  const trackHeightValue = `${trackHeight}px`
 
   target.style.setProperty('--raw-compare-split', splitPercent)
   target.style.setProperty('--raw-compare-split-x', handlePosition)
+  target.style.setProperty('--raw-compare-track-top', trackTopValue)
+  target.style.setProperty('--raw-compare-track-height', trackHeightValue)
 
   const frame = target.parentElement
   frame?.style.setProperty('--raw-compare-split', splitPercent)
   frame?.style.setProperty('--raw-compare-split-x', handlePosition)
+  frame?.style.setProperty('--raw-compare-track-top', trackTopValue)
+  frame?.style.setProperty('--raw-compare-track-height', trackHeightValue)
 }
 
 function trySetPointerCapture(target: HTMLElement, pointerId: number) {
