@@ -85,8 +85,6 @@ export function RawToolSurface(props: {
   const { t } = useI18n()
   const isMobileViewport = useViewport(selectIsNarrowViewport)
   const previewSuspended = props.previewSuspended === true
-  const mobilePassThrough =
-    props.hasImage && (props.isProcessing || previewSuspended)
   const editorDisabled =
     !props.hasImage || props.isExporting === true || previewSuspended
   const lutDropDisabled = props.isExporting === true || previewSuspended
@@ -294,12 +292,7 @@ export function RawToolSurface(props: {
     // full-bleed dark guided stage dropzone.
     return (
       <div
-        className={[
-          'fixed inset-0 z-30',
-          mobilePassThrough ? 'pointer-events-none' : null,
-        ]
-          .filter(Boolean)
-          .join(' ')}
+        className="pointer-events-none fixed inset-0 z-30"
         data-raw-mobile-lab
       >
         <MobileLabChrome

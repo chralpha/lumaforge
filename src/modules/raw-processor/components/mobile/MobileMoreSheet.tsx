@@ -47,7 +47,7 @@ export function MobileMoreSheet(props: {
           aria-modal="false"
           aria-label={t('raw.mobile.more.title')}
           data-mobile-substrate="ink-sheet"
-          className="absolute inset-x-0 bottom-0 z-[46] grid max-h-[78%] grid-rows-[auto_minmax(0,1fr)] rounded-t-2xl border-t border-white/20 bg-[linear-gradient(180deg,oklch(0.21_0.024_78),oklch(0.13_0.02_76))] pb-safe-offset-3 text-white shadow-[0_-22px_50px_oklch(0.04_0.012_76/0.55)]"
+          className="pointer-events-auto absolute inset-x-0 bottom-0 z-[46] grid max-h-[78%] grid-rows-[auto_minmax(0,1fr)] rounded-t-2xl border-t border-white/20 bg-[linear-gradient(180deg,oklch(0.21_0.024_78),oklch(0.13_0.02_76))] pb-safe-offset-3 text-white shadow-[0_-22px_50px_oklch(0.04_0.012_76/0.55)]"
           initial={prefersReduced ? { opacity: 0 } : { y: '100%' }}
           animate={prefersReduced ? { opacity: 1 } : { y: '0%' }}
           exit={prefersReduced ? { opacity: 0 } : { y: '100%' }}

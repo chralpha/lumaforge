@@ -1482,9 +1482,12 @@ describe('rawToolSurface', () => {
           <RawToolSurface {...baseProps} hasImage={false} />
         </Provider>,
       )
-      expect(
-        container.querySelector('[data-raw-mobile-lab]'),
-      ).toBeInTheDocument()
+      expect(container.querySelector('[data-raw-mobile-lab]')).toHaveClass(
+        'pointer-events-none',
+      )
+      expect(container.querySelector('[data-mobile-empty-state]')).toHaveClass(
+        'pointer-events-auto',
+      )
       expect(
         screen.getByRole('heading', { name: /drop a raw to start/i }),
       ).toBeInTheDocument()
@@ -1518,9 +1521,12 @@ describe('rawToolSurface', () => {
           <RawToolSurface {...baseProps} hasImage />
         </Provider>,
       )
+      expect(container.querySelector('[data-raw-mobile-lab]')).toHaveClass(
+        'pointer-events-none',
+      )
       expect(
-        container.querySelector('[data-raw-mobile-lab]'),
-      ).toBeInTheDocument()
+        screen.getByRole('tablist', { name: /lab modes/i }).parentElement,
+      ).toHaveClass('pointer-events-auto')
     } finally {
       jotaiStore.set(viewportAtom, prev)
     }

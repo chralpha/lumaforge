@@ -6,7 +6,11 @@ export function OriginalReferenceLayer({
   snapshot: OriginalReferenceSnapshot
 }) {
   return (
-    <div className="raw-preview-original-layer" aria-hidden="true">
+    <div
+      className="raw-preview-original-layer"
+      aria-hidden="true"
+      data-original-reference-source={snapshot.source}
+    >
       <img
         src={snapshot.objectUrl}
         width={snapshot.width}

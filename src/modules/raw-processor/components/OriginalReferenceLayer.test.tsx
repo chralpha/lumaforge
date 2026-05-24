@@ -19,6 +19,10 @@ describe('originalReferenceLayer', () => {
     )
 
     const image = screen.getByRole('img', { hidden: true })
+    expect(image.parentElement).toHaveAttribute(
+      'data-original-reference-source',
+      'quick',
+    )
     expect(image).toHaveAttribute('src', 'blob:original-a')
     expect(image).toHaveAttribute('aria-hidden', 'true')
     expect(image).toHaveClass('raw-preview-original-image')

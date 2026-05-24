@@ -52,7 +52,7 @@ export function MobileModeDock(props: {
   const { t } = useI18n()
   const disabled = props.disabled ?? false
   return (
-    <div className="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/95 via-black/70 to-transparent pb-safe-offset-3 text-white">
+    <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/95 via-black/70 to-transparent pb-safe-offset-3 text-white">
       {props.expanded && !disabled && (
         <div className="relative max-h-[24vh] overflow-y-auto px-3.5 pb-2.5 pt-3.5">
           {props.panel}

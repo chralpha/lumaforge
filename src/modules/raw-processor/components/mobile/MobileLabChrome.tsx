@@ -382,12 +382,7 @@ export function MobileLabChrome(props: {
 
   return (
     <div
-      className={[
-        'absolute inset-0 z-20',
-        handoffActive ? 'pointer-events-none' : null,
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      className="pointer-events-none absolute inset-0 z-20"
       data-mobile-lab-chrome
       data-focus={focusKey ? 'true' : 'false'}
       data-peek={peeking || undefined}
@@ -400,7 +395,7 @@ export function MobileLabChrome(props: {
         <m.div
           data-mobile-empty-state
           data-mobile-empty-variant="handoff"
-          className="raw-mobile-empty"
+          className="raw-mobile-empty pointer-events-auto"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
@@ -465,7 +460,7 @@ export function MobileLabChrome(props: {
           type="button"
           aria-label={t('raw.mobile.immersive.show')}
           onClick={() => setImmersive(false)}
-          className="absolute bottom-safe-offset-4 left-1/2 z-[12] -translate-x-1/2 rounded-full border border-white/25 bg-black/55 px-3 py-1.5 text-[0.7rem] font-semibold text-white/80 backdrop-blur-background transition-colors hover:text-white"
+          className="pointer-events-auto absolute bottom-safe-offset-4 left-1/2 z-[12] -translate-x-1/2 rounded-full border border-white/25 bg-black/55 px-3 py-1.5 text-[0.7rem] font-semibold text-white/80 backdrop-blur-background transition-colors hover:text-white"
         >
           {t('raw.mobile.immersive.show')}
         </button>
