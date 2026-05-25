@@ -60,15 +60,15 @@ async function dragSlider(page: Page, sliderName: string, targetRatio: number) {
 
 async function readPreviewViewport(page: Page) {
   return page.evaluate(() => {
-    const surface = document.querySelector<HTMLElement>(
-      '[data-raw-preview-surface]',
+    const track = document.querySelector<HTMLElement>(
+      '[data-raw-compare-track="image"]',
     )
 
-    if (!surface) {
+    if (!track) {
       return { zoom: 1, panX: 0, panY: 0 }
     }
 
-    const style = getComputedStyle(surface)
+    const style = getComputedStyle(track)
 
     return {
       zoom: Number.parseFloat(style.getPropertyValue('--raw-preview-zoom')),
@@ -250,6 +250,36 @@ test('keeps desktop tone, compare, zoom, and pan interactions live after RAW loa
   await expect
     .poll(async () => (await readPreviewViewport(page)).zoom)
     .toBeGreaterThan(1)
+
+  const scaledBounds = await page.evaluate(() => {
+    const frame = document.querySelector<HTMLElement>(
+      '[data-raw-preview-frame]',
+    )
+    const track = document.querySelector<HTMLElement>(
+      '[data-raw-compare-track="image"]',
+    )
+
+    const frameRect = frame?.getBoundingClientRect()
+    const trackRect = track?.getBoundingClientRect()
+
+    return {
+      frame: frameRect?.toJSON(),
+      track: trackRect?.toJSON(),
+      trackLayoutWidth: track?.offsetWidth ?? 0,
+      trackLayoutHeight: track?.offsetHeight ?? 0,
+      frameOverflow: frame ? getComputedStyle(frame).overflow : '',
+    }
+  })
+
+  expect(scaledBounds.frame).toBeTruthy()
+  expect(scaledBounds.track).toBeTruthy()
+  expect(scaledBounds.frameOverflow).toBe('hidden')
+  expect(scaledBounds.track!.width).toBeGreaterThan(
+    scaledBounds.trackLayoutWidth,
+  )
+  expect(scaledBounds.track!.height).toBeGreaterThan(
+    scaledBounds.trackLayoutHeight,
+  )
 
   const panBefore = await readPreviewViewport(page)
 

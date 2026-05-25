@@ -229,15 +229,15 @@ async function readCompareSplit(page: Page) {
 
 async function readPreviewViewport(page: Page): Promise<PreviewViewport> {
   return page.evaluate(() => {
-    const surface = document.querySelector<HTMLElement>(
-      '[data-raw-preview-surface]',
+    const track = document.querySelector<HTMLElement>(
+      '[data-raw-compare-track="image"]',
     )
 
-    if (!surface) {
+    if (!track) {
       return { zoom: 1, panX: 0, panY: 0 }
     }
 
-    const style = getComputedStyle(surface)
+    const style = getComputedStyle(track)
 
     return {
       zoom: Number.parseFloat(style.getPropertyValue('--raw-preview-zoom')),
@@ -249,12 +249,16 @@ async function readPreviewViewport(page: Page): Promise<PreviewViewport> {
 
 async function readLayerTransforms(page: Page) {
   return page.evaluate(() => {
+    const track = document.querySelector<HTMLElement>(
+      '[data-raw-compare-track="image"]',
+    )
     const processed = document.querySelector<HTMLElement>('.raw-preview-canvas')
     const original = document.querySelector<HTMLElement>(
       '.raw-preview-original-image, .raw-preview-original-webgl-canvas',
     )
 
     return {
+      track: track ? getComputedStyle(track).transform : null,
       original: original ? getComputedStyle(original).transform : null,
       processed: processed ? getComputedStyle(processed).transform : null,
     }
@@ -442,7 +446,8 @@ test('keeps dual-layer RAW compare usable through split zoom and pan', async ({
     .toBeGreaterThan(0)
   await expect(compareLayer).toHaveAttribute('data-compare-mode', mode)
   const transforms = await readLayerTransforms(page)
-  expect(transforms.original).toBeTruthy()
+  expect(transforms.track).toBeTruthy()
+  expect(transforms.track).not.toBe('none')
   expect(transforms.processed).toBe(transforms.original)
 
   const viewportWebglStats = await readWebglStats(page)
@@ -559,6 +564,34 @@ test('keeps mobile-class JPEG fallback responsive through same-origin RAW drop a
       .poll(async () => (await readPreviewViewport(page)).zoom)
       .toBeGreaterThan(1)
 
+    const scaledBounds = await page.evaluate(() => {
+      const frame = document.querySelector<HTMLElement>(
+        '[data-raw-preview-frame]',
+      )
+      const track = document.querySelector<HTMLElement>(
+        '[data-raw-compare-track="image"]',
+      )
+      const frameRect = frame?.getBoundingClientRect()
+      const trackRect = track?.getBoundingClientRect()
+
+      return {
+        frame: frameRect?.toJSON(),
+        track: trackRect?.toJSON(),
+        trackLayoutWidth: track?.offsetWidth ?? 0,
+        trackLayoutHeight: track?.offsetHeight ?? 0,
+        frameOverflow: frame ? getComputedStyle(frame).overflow : '',
+      }
+    })
+    expect(scaledBounds.frame).toBeTruthy()
+    expect(scaledBounds.track).toBeTruthy()
+    expect(scaledBounds.frameOverflow).toBe('hidden')
+    expect(scaledBounds.track!.width).toBeGreaterThan(
+      scaledBounds.trackLayoutWidth,
+    )
+    expect(scaledBounds.track!.height).toBeGreaterThan(
+      scaledBounds.trackLayoutHeight,
+    )
+
     const panBefore = await readPreviewViewport(page)
     await page.mouse.down()
     await page.mouse.move(
@@ -578,7 +611,8 @@ test('keeps mobile-class JPEG fallback responsive through same-origin RAW drop a
       .toBeGreaterThan(0)
 
     const transforms = await readLayerTransforms(page)
-    expect(transforms.original).toBeTruthy()
+    expect(transforms.track).toBeTruthy()
+    expect(transforms.track).not.toBe('none')
     expect(transforms.processed).toBe(transforms.original)
 
     const splitAfterInteraction = await readCompareSplit(page)
@@ -686,7 +720,7 @@ test('validates WebKit-class JPEG fallback compare when local WebKit is availabl
   const splitOnlyWebglStats = await expectNoSplitOnlyWebglRender(page)
 
   const transforms = await readLayerTransforms(page)
-  expect(transforms.original).toBeTruthy()
+  expect(transforms.track).toBeTruthy()
   expect(transforms.processed).toBe(transforms.original)
 
   await testInfo.attach('raw-webkit-jpeg-fallback-compare.json', {

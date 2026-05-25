@@ -10,6 +10,7 @@
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
 }
 
 .raw-preview-frame-interactive {
@@ -24,6 +25,13 @@
   position: relative;
   flex: 0 0 auto;
   overflow: visible;
+  transform: translate3d(
+      var(--raw-preview-pan-x, 0),
+      var(--raw-preview-pan-y, 0),
+      0
+    )
+    scale(var(--raw-preview-zoom, 1));
+  transform-origin: center center;
 }
 
 .raw-preview-surface {
@@ -70,13 +78,6 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  transform: translate3d(
-      var(--raw-preview-pan-x, 0),
-      var(--raw-preview-pan-y, 0),
-      0
-    )
-    scale(var(--raw-preview-zoom, 1));
-  transform-origin: center center;
   -webkit-user-drag: none;
   user-select: none;
   -webkit-user-select: none;
@@ -89,10 +90,7 @@
   will-change: clip-path;
 }
 
-.raw-preview-frame-transforming .raw-preview-canvas,
-.raw-preview-frame-transforming .raw-preview-embedded,
-.raw-preview-frame-transforming .raw-preview-original-image,
-.raw-preview-frame-transforming .raw-preview-original-webgl-canvas {
+.raw-preview-frame-transforming .raw-preview-track {
   will-change: transform;
 }
 
@@ -102,13 +100,6 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  transform: translate3d(
-      var(--raw-preview-pan-x, 0),
-      var(--raw-preview-pan-y, 0),
-      0
-    )
-    scale(var(--raw-preview-zoom, 1));
-  transform-origin: center center;
   pointer-events: none;
   -webkit-user-drag: none;
   user-select: none;
@@ -122,13 +113,6 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  transform: translate3d(
-      var(--raw-preview-pan-x, 0),
-      var(--raw-preview-pan-y, 0),
-      0
-    )
-    scale(var(--raw-preview-zoom, 1));
-  transform-origin: center center;
   pointer-events: none;
   -webkit-user-drag: none;
   user-select: none;
