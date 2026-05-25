@@ -124,7 +124,7 @@ export function LutBrowserDialog({
       >
         <div
           data-raw-lut-browser-overlay=""
-          className="fixed inset-0 z-[59] bg-lf-paper/35 backdrop-blur-sm transition-opacity duration-150"
+          className="fixed inset-0 z-[59] bg-lf-paper/30 backdrop-blur-[2px] transition-opacity duration-150"
         />
         <DialogPrimitive.Content
           ref={contentRef}
@@ -132,7 +132,7 @@ export function LutBrowserDialog({
           forceMount
           aria-label={dialogLabel}
           className={clsxm(
-            'fixed left-[var(--raw-lut-source-browser-left,12px)] top-[var(--raw-lut-source-browser-top,12px)] z-[60] grid w-[min(var(--raw-lut-source-browser-width,360px),calc(100svw-24px))] max-h-[min(var(--raw-lut-source-browser-max-height,calc(100svh-24px)),calc(100svh-24px))] min-h-[min(184px,calc(100svh-24px))] gap-2 overflow-hidden rounded-lf-control border border-lf-hairline bg-lf-paper/95 p-2.5 shadow-lf-popover backdrop-blur-background',
+            'fixed left-[var(--raw-lut-source-browser-left,12px)] top-[var(--raw-lut-source-browser-top,12px)] z-[60] grid w-[min(var(--raw-lut-source-browser-width,360px),calc(100svw-24px))] max-h-[min(var(--raw-lut-source-browser-max-height,calc(100svh-24px)),calc(100svh-24px))] min-h-[min(184px,calc(100svh-24px))] gap-2 overflow-hidden rounded-lg border border-border-secondary bg-lf-paper-high p-2.5 shadow-lf-lift',
             'max-[720px]:inset-x-2.5 max-[720px]:bottom-[calc(62px+max(8px,env(safe-area-inset-bottom))+min(56svh,430px)+8px)] max-[720px]:left-auto max-[720px]:top-auto max-[720px]:h-auto max-[720px]:w-auto max-[720px]:max-h-[min(50svh,420px,calc(100svh-(62px+max(8px,env(safe-area-inset-bottom))+min(56svh,430px)+8px)-10px))] max-[720px]:min-h-[min(220px,calc(100svh-(62px+max(8px,env(safe-area-inset-bottom))+min(56svh,430px)+8px)-10px))]',
             className,
           )}
@@ -172,7 +172,7 @@ export function LutBrowserDialog({
                 {title}
               </span>
               <DialogDescription asChild>
-                <p className="mt-0.5 min-w-0 truncate text-lf-label text-lf-ink-soft">
+                <p className="mt-0.5 min-w-0 truncate text-[0.72rem] tracking-tight text-lf-ink/55">
                   {description}
                 </p>
               </DialogDescription>
@@ -181,7 +181,7 @@ export function LutBrowserDialog({
               type="button"
               aria-label={closeLabel}
               title={closeLabel}
-              className="inline-flex size-8 shrink-0 items-center justify-center rounded-lf-control border border-lf-hairline bg-lf-paper text-lf-ink-soft transition hover:-translate-y-px hover:border-lf-green/50 hover:bg-lf-paper-low hover:text-lf-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-[15px] [&_svg]:stroke-2"
+              className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-transparent text-lf-ink/55 transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] hover:text-lf-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-[15px] [&_svg]:stroke-[1.75]"
             >
               <X aria-hidden="true" />
             </DialogPrimitive.Close>

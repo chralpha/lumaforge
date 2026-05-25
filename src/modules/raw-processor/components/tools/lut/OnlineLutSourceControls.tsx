@@ -21,6 +21,7 @@ import { toast } from 'sonner'
 
 import { Chip } from '~/components/ui/chip'
 import { Input } from '~/components/ui/input'
+import { useScrollEdgeFade } from '~/hooks/common'
 import { useI18n } from '~/lib/i18n'
 
 import type { UseOnlineLutSourcesResult } from '../../../hooks/useOnlineLutSources'
@@ -45,6 +46,10 @@ export function OnlineLutSourceControls({
   const [loadingEntryId, setLoadingEntryId] = useState<string | null>(null)
   const [browserLayout, setBrowserLayout] =
     useState<OnlineLutBrowserLayout | null>(null)
+  const [browserListEl, setBrowserListEl] = useState<HTMLDivElement | null>(
+    null,
+  )
+  useScrollEdgeFade(browserListEl, { enabled: openResourceId != null })
   const openButtonRefs = useRef(new Map<string, HTMLButtonElement>())
   const resourcesById = useMemo(
     () => new Map(state.resources.map((resource) => [resource.id, resource])),
@@ -188,6 +193,7 @@ export function OnlineLutSourceControls({
           }}
         >
           <div
+            ref={setBrowserListEl}
             className="grid min-h-0 content-start gap-1.5 overflow-y-auto overscroll-contain pr-0.5"
             data-raw-lut="source-browser-list"
             data-lut-source-scroll="internal"

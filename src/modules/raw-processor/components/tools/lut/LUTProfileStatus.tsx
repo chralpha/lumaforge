@@ -48,41 +48,41 @@ export function LUTProfileStatus({
     <div className="space-y-2 pt-1">
       {isUnsupportedOutput ? (
         <p
-          className="m-0 rounded-lf-control border border-lf-amber/45 bg-lf-amber-soft/15 px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink-soft"
+          className="m-0 inline-flex w-full items-start gap-2 rounded-md bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink/80"
           data-raw-lut="contract-status"
         >
           {t('raw.lutContract.unsupportedOutput')}
         </p>
       ) : isPending ? (
         <p
-          className="m-0 rounded-lf-control border border-lf-amber/45 bg-lf-amber-soft/15 px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink-soft"
+          className="m-0 inline-flex w-full items-start gap-2 rounded-md bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink/80"
           data-raw-lut="contract-status"
         >
           {t('raw.lutContract.unknown')}
         </p>
       ) : resolvedProfile ? (
-        <div className="grid min-w-0 gap-2 text-lf-body leading-relaxed text-lf-ink">
-          <p className="m-0 grid min-w-0 grid-cols-[4.9rem_minmax(0,1fr)] gap-2">
-            <span className="font-semibold text-lf-ink-soft">
+        <div className="grid min-w-0 gap-1.5 text-[0.78rem] leading-snug">
+          <p className="m-0 grid min-w-0 grid-cols-[4.2rem_minmax(0,1fr)] items-baseline gap-2">
+            <span className="text-[0.72rem] tracking-tight text-lf-ink/55">
               {t('raw.lutContract.inputTerm')}
             </span>
-            <span className="min-w-0 break-words font-medium text-lf-ink">
+            <span className="min-w-0 break-words font-medium text-lf-ink/85">
               {resolvedProfile.label}
             </span>
           </p>
           {outputLabel && (
-            <p className="m-0 grid min-w-0 grid-cols-[4.9rem_minmax(0,1fr)] gap-2">
-              <span className="font-semibold text-lf-ink-soft">
+            <p className="m-0 grid min-w-0 grid-cols-[4.2rem_minmax(0,1fr)] items-baseline gap-2">
+              <span className="text-[0.72rem] tracking-tight text-lf-ink/55">
                 {t('raw.lutContract.outputTerm')}
               </span>
-              <span className="min-w-0 break-words font-medium text-lf-ink">
+              <span className="min-w-0 break-words font-medium text-lf-ink/85">
                 {outputLabel}
               </span>
             </p>
           )}
           {needsOutputContract && (
             <p
-              className="m-0 rounded-lf-control border border-lf-amber/45 bg-lf-amber-soft/15 px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink-soft"
+              className="m-0 inline-flex w-full items-start gap-2 rounded-md bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink/80"
               data-raw-lut="contract-status"
             >
               {t('raw.lutContract.needsOutput')}
@@ -94,9 +94,9 @@ export function LUTProfileStatus({
       <Button
         ref={triggerRef}
         type="button"
-        variant="secondary"
+        variant="light"
         size="sm"
-        className="gap-1.5 [&_svg]:size-3.5"
+        className="self-start [&_svg]:size-3.5"
         data-raw-lut="contract-change-button"
         aria-controls={browserId}
         aria-expanded={browserOpen}

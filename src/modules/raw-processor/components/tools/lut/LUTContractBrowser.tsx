@@ -1,5 +1,6 @@
 import type { LUTColorProfile } from '@lumaforge/luma-color-runtime'
 import { searchLUTColorProfiles } from '@lumaforge/luma-color-runtime'
+import { m } from 'motion/react'
 import type { RefObject } from 'react'
 import {
   useCallback,
@@ -11,6 +12,8 @@ import {
 } from 'react'
 
 import { Input } from '~/components/ui/input'
+import { useScrollEdgeFade } from '~/hooks/common'
+import { clsxm } from '~/lib/cn'
 import { useI18n } from '~/lib/i18n'
 
 import { composeLUTContractProfile, groupProfiles } from '../lut-contract'
@@ -52,6 +55,8 @@ export function LUTContractBrowser({
   const searchInputId = useId()
   const [browserLayout, setBrowserLayout] =
     useState<OnlineLutBrowserLayout | null>(null)
+  const [listEl, setListEl] = useState<HTMLDivElement | null>(null)
+  useScrollEdgeFade(listEl, { enabled: open })
   const [query, setQuery] = useState('')
   const [step, setStep] = useState<LUTContractBrowserStep>('input')
   const [draftInputProfile, setDraftInputProfile] =
@@ -210,28 +215,48 @@ export function LUTContractBrowser({
       }}
     >
       <div
-        className="grid grid-cols-2 gap-1.5"
+        className="relative grid grid-cols-2 rounded-md bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.05)] p-0.5"
         role="tablist"
         aria-label={t('raw.lutContract.panels')}
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={step === 'input'}
-          className="min-h-8 rounded-lf-control border border-lf-hairline bg-lf-paper px-2 text-lf-body font-semibold text-lf-ink-soft transition hover:border-lf-green/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lf-green aria-selected:border-lf-green/50 aria-selected:bg-lf-green/10 aria-selected:text-lf-green"
-          onClick={() => setStep('input')}
-        >
-          {t('raw.lutContract.inputTab')}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={step === 'output'}
-          className="min-h-8 rounded-lf-control border border-lf-hairline bg-lf-paper px-2 text-lf-body font-semibold text-lf-ink-soft transition hover:border-lf-green/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lf-green aria-selected:border-lf-green/50 aria-selected:bg-lf-green/10 aria-selected:text-lf-green"
-          onClick={() => setStep('output')}
-        >
-          {t('raw.lutContract.outputTab')}
-        </button>
+        {(['input', 'output'] as const).map((tabId) => {
+          const isActive = step === tabId
+          const label =
+            tabId === 'input'
+              ? t('raw.lutContract.inputTab')
+              : t('raw.lutContract.outputTab')
+          return (
+            <button
+              key={tabId}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              className={clsxm(
+                'relative z-10 min-h-7 rounded-[5px] px-2 text-lf-body font-semibold transition-colors duration-150',
+                'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
+                isActive
+                  ? 'text-lf-ink'
+                  : 'text-lf-ink/55 hover:text-lf-ink/80',
+              )}
+              onClick={() => setStep(tabId)}
+            >
+              {isActive && (
+                <m.span
+                  layoutId="lut-contract-tab-indicator"
+                  aria-hidden="true"
+                  className="absolute inset-0 -z-10 rounded-[5px] bg-lf-paper-high shadow-lf-soft"
+                  transition={{
+                    type: 'spring',
+                    stiffness: 460,
+                    damping: 38,
+                    mass: 0.6,
+                  }}
+                />
+              )}
+              <span className="relative">{label}</span>
+            </button>
+          )
+        })}
       </div>
 
       <label htmlFor={searchInputId} className="sr-only">
@@ -243,10 +268,11 @@ export function LUTContractBrowser({
         value={query}
         placeholder={t('raw.lutContract.searchPlaceholder')}
         onChange={(event) => setQuery(event.currentTarget.value)}
-        inputClassName="h-8 border-lf-hairline bg-lf-paper text-lf-control text-lf-ink shadow-none placeholder:text-lf-ink-soft/65 focus:border-lf-green focus:ring-lf-green/20"
+        inputClassName="h-8 border-transparent bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.04)] text-lf-control text-lf-ink shadow-none placeholder:text-lf-ink/40 focus:border-transparent focus:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] focus:ring-2 focus:ring-lf-green/25"
       />
 
       <div
+        ref={setListEl}
         className="grid min-h-0 content-start gap-1.5 overflow-y-auto overscroll-contain pr-0.5"
         data-raw-lut="contract-browser-list"
         data-lut-contract-step={step}
@@ -255,7 +281,7 @@ export function LUTContractBrowser({
           <>
             {visibleSuggestions.length > 0 && (
               <div className="space-y-1">
-                <p className="m-0 text-lf-label font-semibold uppercase text-lf-ink-soft">
+                <p className="m-0 px-1 text-[0.72rem] font-semibold tracking-tight text-lf-ink/55">
                   {t('raw.lutContract.suggestedInput')}
                 </p>
                 <div className="grid gap-1 sm:grid-cols-2">
@@ -278,7 +304,7 @@ export function LUTContractBrowser({
 
             {groupedInputProfiles.map((group) => (
               <div key={`input-${group.label}`} className="space-y-1">
-                <p className="m-0 text-lf-label font-semibold uppercase text-lf-ink-soft">
+                <p className="m-0 px-1 text-[0.72rem] font-semibold tracking-tight text-lf-ink/55">
                   {t('raw.lutContract.groupInput', { group: group.label })}
                 </p>
                 <div className="grid gap-1 sm:grid-cols-2">
@@ -308,7 +334,7 @@ export function LUTContractBrowser({
           <>
             {suggestedOutputOptions.length > 0 && (
               <div className="space-y-1">
-                <p className="m-0 text-lf-label font-semibold uppercase text-lf-ink-soft">
+                <p className="m-0 px-1 text-[0.72rem] font-semibold tracking-tight text-lf-ink/55">
                   {t('raw.lutContract.suggestedOutput')}
                 </p>
                 <div className="grid gap-1 sm:grid-cols-2">
@@ -327,7 +353,7 @@ export function LUTContractBrowser({
 
             {groupedOutputOptions.map((group) => (
               <div key={`output-${group.label}`} className="space-y-1">
-                <p className="m-0 text-lf-label font-semibold uppercase text-lf-ink-soft">
+                <p className="m-0 px-1 text-[0.72rem] font-semibold tracking-tight text-lf-ink/55">
                   {t('raw.lutContract.groupOutput', { group: group.label })}
                 </p>
                 <div className="grid gap-1 sm:grid-cols-2">
