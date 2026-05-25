@@ -902,7 +902,7 @@ describe('rawToolSurface', () => {
     expect(within(resource).getByText('Issue')).toBeInTheDocument()
   })
 
-  it('mobile + no image keeps the branded topbar and toolbar visible', () => {
+  it('mobile + no image keeps onboarding upload between branded topbar and toolbar', () => {
     const prev = jotaiStore.get(viewportAtom)
     jotaiStore.set(viewportAtom, { ...prev, w: 390, sm: false })
     try {
@@ -919,7 +919,13 @@ describe('rawToolSurface', () => {
       ).toBeInTheDocument()
       expect(
         container.querySelector('[data-mobile-empty-state]'),
+      ).toBeInTheDocument()
+      expect(
+        container.querySelector('[data-mobile-empty-prestage]'),
       ).not.toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /browse raw files/i }),
+      ).toBeInTheDocument()
       expect(
         container.querySelector('[data-mobile-topbar]'),
       ).toBeInTheDocument()

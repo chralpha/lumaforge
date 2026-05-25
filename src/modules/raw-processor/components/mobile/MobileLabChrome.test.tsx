@@ -62,11 +62,18 @@ describe('mobileLabChrome', () => {
     previewFrameEl.remove()
   })
 
-  it('empty state keeps the branded topbar and toolbar instead of onboarding', () => {
-    const { container } = render(<MobileLabChrome {...base} hasImage={false} />)
+  it('empty state keeps onboarding upload affordance between topbar and toolbar', async () => {
+    const onReplaceFile = vi.fn()
+    const { container } = render(
+      <MobileLabChrome
+        {...base}
+        hasImage={false}
+        onReplaceFile={onReplaceFile}
+      />,
+    )
     expect(
       container.querySelector('[data-mobile-empty-hero]'),
-    ).not.toBeInTheDocument()
+    ).toBeInTheDocument()
     expect(
       container.querySelector('[data-mobile-empty-prestage]'),
     ).not.toBeInTheDocument()
@@ -77,6 +84,10 @@ describe('mobileLabChrome', () => {
     expect(
       screen.getByRole('tablist', { name: /lab modes/i }),
     ).toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole('button', { name: /browse raw files/i }),
+    )
+    expect(onReplaceFile).toHaveBeenCalledTimes(1)
     expect(
       screen.queryByRole('tablist', { name: /tone parameters/i }),
     ).toBeNull()
@@ -93,6 +104,9 @@ describe('mobileLabChrome', () => {
     expect(
       screen.queryByRole('button', { name: /done/i }),
     ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /browse raw files/i }),
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: /lumaforge raw lab/i }),
     ).toBeInTheDocument()

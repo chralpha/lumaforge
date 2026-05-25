@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   Check,
   ChevronRight,
+  FolderOpen,
   ImageUp,
   Info,
   LockKeyhole,
@@ -11,7 +12,7 @@ import {
   SlidersHorizontal,
   Wand2,
 } from 'lucide-react'
-import { AnimatePresence } from 'motion/react'
+import { AnimatePresence, m } from 'motion/react'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -389,6 +390,47 @@ export function MobileLabChrome(props: {
       {/* Peek (long-press) and the Compare split are alternate RAW-vs-finished
           affordances. Both are wired via `useMobilePreviewGestures` above so
           they share the same DOM target as pinch / pan and never block it. */}
+
+      {!props.hasImage && (
+        <m.div
+          data-mobile-empty-state
+          data-mobile-empty-variant="toolbar"
+          className="raw-mobile-empty pointer-events-auto"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div className="raw-mobile-empty-hero" data-mobile-empty-hero>
+            <span className="raw-mobile-empty-mark" aria-hidden="true">
+              <ImageUp className="size-[30px]" strokeWidth={1.6} />
+            </span>
+            <div className="grid gap-2">
+              <h1>{t('raw.mobile.empty.title')}</h1>
+              <p className="raw-mobile-empty-copy">
+                {t('raw.mobile.empty.copy')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={props.onReplaceFile}
+              className="raw-mobile-empty-cta"
+            >
+              <FolderOpen aria-hidden="true" className="size-4" />
+              {t('raw.mobile.empty.browse')}
+            </button>
+            <div
+              className="raw-mobile-empty-formats"
+              aria-label="Supported RAW formats"
+            >
+              {t('raw.mobile.empty.formats')
+                .split(' ')
+                .map((format) => (
+                  <span key={format}>{format}</span>
+                ))}
+            </div>
+          </div>
+        </m.div>
+      )}
 
       {immersive && !focusKey && props.hasImage && !handoffActive && (
         <button
