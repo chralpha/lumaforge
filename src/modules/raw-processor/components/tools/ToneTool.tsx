@@ -136,12 +136,15 @@ function ToneField({
   const labelId = useId()
 
   return (
-    <div className="grid gap-2">
-      <div className="flex items-center justify-between text-callout">
-        <label id={labelId} className="font-medium text-text">
+    <div className="grid gap-1.5">
+      <div className="flex items-center justify-between text-[0.8rem]">
+        <label id={labelId} className="font-medium text-lf-ink/80">
           {label}
         </label>
-        <output aria-hidden="true" className="tabular-nums text-text-secondary">
+        <output
+          aria-hidden="true"
+          className="tabular-nums font-medium text-lf-ink/55"
+        >
           {formatValue(field.key, value[field.key])}
         </output>
       </div>
@@ -200,11 +203,13 @@ export function ToneTool({
 
   return (
     <div className="grid gap-3">
-      <div className="grid gap-3">{BASIC_FIELDS.map(renderField)}</div>
-      <div className="grid gap-3">{FINE_FIELDS.map(renderField)}</div>
-      <p className="text-callout text-text-secondary">{t('raw.tone.note')}</p>
+      <div className="grid gap-3.5">{BASIC_FIELDS.map(renderField)}</div>
+      <div className="grid gap-3.5">{FINE_FIELDS.map(renderField)}</div>
+      <p className="text-[0.78rem] leading-relaxed text-lf-ink/55">
+        {t('raw.tone.note')}
+      </p>
       {!isNeutral && (
-        <p className="text-callout text-text-secondary">
+        <p className="text-[0.78rem] leading-relaxed text-lf-ink/55">
           {t('raw.tone.preserved')}
         </p>
       )}
@@ -213,6 +218,7 @@ export function ToneTool({
         size="sm"
         disabled={disabled}
         onClick={handleReset}
+        className="self-start [&_svg]:size-3.5"
       >
         <RotateCcw aria-hidden="true" />
         {t('raw.tone.reset')}

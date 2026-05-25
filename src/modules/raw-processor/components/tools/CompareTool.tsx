@@ -14,7 +14,7 @@ export function CompareTool({
 
   return (
     <div className="grid gap-3">
-      <p className="text-callout text-text-secondary">
+      <p className="text-[0.78rem] leading-relaxed text-lf-ink/55">
         {t('raw.compare.note')}
       </p>
       <Button
@@ -23,6 +23,7 @@ export function CompareTool({
         size="sm"
         disabled={disabled}
         onClick={onCompareReset}
+        className="self-start [&_svg]:size-3.5"
       >
         <RotateCcw aria-hidden="true" />
         {t('raw.compare.reset')}

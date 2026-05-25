@@ -39,7 +39,7 @@ export function ToolCardStack({
       onValueChange={(next) => handleValueChange(next as ToolCardId[])}
       role="group"
       aria-label={ariaLabel}
-      className={clsxm('flex flex-col gap-1', className)}
+      className={clsxm('flex flex-col gap-0.5', className)}
     >
       {children}
     </Accordion>
@@ -64,27 +64,32 @@ export function ToolCard({
       value={id}
       data-tool-card={id}
       className={clsxm(
-        'border-0 border-b-0 data-[state=open]:border-t data-[state=open]:border-border first:data-[state=open]:border-t-0',
+        'rounded-md border-0 transition-colors duration-200',
+        'data-[state=open]:bg-[oklch(from_var(--color-lf-paper-warm)_l_c_h_/_0.55)]',
         className,
       )}
     >
       <AccordionTrigger
         data-tool-card-trigger={id}
-        className="py-3 text-headline font-medium text-text hover:text-[var(--color-accent-strong)]"
+        className={clsxm(
+          'group/tool-trigger px-2.5 py-2.5 text-lf-body font-semibold text-lf-ink',
+          'hover:text-lf-ink',
+          'data-[state=closed]:text-lf-ink/80',
+        )}
       >
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate">{title}</span>
           {meta != null && (
             <span
               aria-hidden="true"
-              className="text-footnote text-text-secondary truncate"
+              className="truncate text-[0.7rem] tracking-tight font-medium text-lf-ink/50"
             >
               {meta}
             </span>
           )}
         </span>
       </AccordionTrigger>
-      <AccordionContent className="pt-0 pb-3 text-body">
+      <AccordionContent className="px-2.5 pt-0 pb-3 text-lf-body">
         {children}
       </AccordionContent>
     </AccordionItem>

@@ -58,11 +58,13 @@ export function FileFactsTool({
   ]
 
   return (
-    <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
+    <dl className="grid grid-cols-[5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5">
       {facts.map((fact) => (
         <Fragment key={fact.label}>
-          <dt className="text-footnote text-text-secondary">{fact.label}</dt>
-          <dd className="mt-0.5 truncate text-callout font-medium text-text">
+          <dt className="text-[0.72rem] tracking-tight text-lf-ink/55">
+            {fact.label}
+          </dt>
+          <dd className="truncate text-[0.78rem] font-medium tabular-nums text-lf-ink">
             {fact.value || t('raw.fileFacts.notLoaded')}
           </dd>
         </Fragment>

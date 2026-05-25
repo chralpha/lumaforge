@@ -121,7 +121,7 @@ function HistogramPlot({
     <svg
       role="img"
       aria-label={ariaLabel}
-      className="raw-histogram-plot block h-[108px] w-full overflow-hidden rounded-md border border-border"
+      className="raw-histogram-plot block h-[108px] w-full overflow-hidden rounded-md"
       viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
       preserveAspectRatio="none"
     >
@@ -222,7 +222,7 @@ export function HistogramTool({
 
   return (
     <div className="grid gap-3">
-      <p className="flex flex-wrap gap-x-2 gap-y-1 text-callout text-text-secondary">
+      <p className="flex flex-wrap gap-x-2 gap-y-1 text-[0.78rem] text-lf-ink/55">
         <span>{label}</span>
         {reason && <span>{reason}</span>}
       </p>
@@ -232,7 +232,7 @@ export function HistogramTool({
             bins={ready.bins}
             ariaLabel={t('raw.histogram.aria')}
           />
-          <div className="flex flex-wrap gap-1.5 text-footnote tabular-nums text-text-secondary">
+          <div className="flex flex-wrap gap-1.5 text-[0.72rem] tabular-nums text-lf-ink/55">
             <span>
               {t('raw.histogram.shadows', {
                 count: ready.clipping.shadowAnyChannel,

@@ -54,7 +54,7 @@ export function ExportTool({
   embedded?: boolean
 }) {
   const { t } = useI18n()
-  const noteClassName = 'text-callout leading-relaxed text-text-secondary'
+  const noteClassName = 'text-[0.78rem] leading-relaxed text-lf-ink/55'
   const session = useAtomValue(currentSessionAtom)
   const currentActivePlan = activePlan ?? session?.exportState.activePlan
   const currentRecovery = recovery ?? session?.exportState.recovery
@@ -83,64 +83,73 @@ export function ExportTool({
     <div className="grid min-w-0 gap-3">
       {exportResult ? (
         <div className="grid min-w-0 gap-3">
-          <div className="grid min-w-0 gap-1 text-callout text-text-secondary">
-            <span>{t('raw.export.ready')}</span>
+          <div className="grid min-w-0 gap-0.5">
+            <span className="text-[0.72rem] tracking-tight text-lf-ink/55">
+              {t('raw.export.ready')}
+            </span>
             <strong
-              className="min-w-0 truncate text-body text-text"
+              className="min-w-0 truncate text-[0.82rem] font-semibold text-lf-ink"
               title={exportResult.filename}
             >
               {exportResult.filename}
             </strong>
           </div>
-          <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-callout">
-            <div>
-              <dt className="text-text-secondary">
-                {t('raw.export.dimensions')}
-              </dt>
-              <dd className="text-text">
-                {exportResult.width} x {exportResult.height}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-text-secondary">
-                {t('raw.export.fileSize')}
-              </dt>
-              <dd className="text-text">{formatBytes(exportResult.size)}</dd>
-            </div>
+          <dl className="grid grid-cols-[5rem_minmax(0,1fr)_5rem_minmax(0,1fr)] gap-x-2.5 gap-y-1 text-[0.74rem]">
+            <dt className="tracking-tight text-lf-ink/55">
+              {t('raw.export.dimensions')}
+            </dt>
+            <dd className="font-medium tabular-nums text-lf-ink/85">
+              {exportResult.width} x {exportResult.height}
+            </dd>
+            <dt className="tracking-tight text-lf-ink/55">
+              {t('raw.export.fileSize')}
+            </dt>
+            <dd className="font-medium tabular-nums text-lf-ink/85">
+              {formatBytes(exportResult.size)}
+            </dd>
           </dl>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <Button
               type="button"
               variant="primary"
-              size="md"
+              size="sm"
               disabled={!exportShareCapability.available}
               onClick={onShareExport}
+              className="[&_svg]:size-3.5"
             >
-              <Share2 className="size-4 shrink-0" aria-hidden="true" />
+              <Share2 aria-hidden="true" />
               {t('raw.export.share')}
             </Button>
             <Button
               type="button"
               variant="secondary"
-              size="md"
+              size="sm"
               onClick={onDownloadExport}
+              className="[&_svg]:size-3.5"
             >
-              <Download className="size-4 shrink-0" aria-hidden="true" />
+              <Download aria-hidden="true" />
               {t('raw.export.download')}
             </Button>
             {exportResult.copyCapability.mode === 'unavailable' ? (
-              <Button type="button" variant="secondary" size="md" disabled>
-                <Copy className="size-4 shrink-0" aria-hidden="true" />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled
+                className="[&_svg]:size-3.5"
+              >
+                <Copy aria-hidden="true" />
                 {copyButtonLabel}
               </Button>
             ) : (
               <Button
                 type="button"
                 variant="secondary"
-                size="md"
+                size="sm"
                 onClick={onCopyExport}
+                className="[&_svg]:size-3.5"
               >
-                <Copy className="size-4 shrink-0" aria-hidden="true" />
+                <Copy aria-hidden="true" />
                 {copyButtonLabel}
               </Button>
             )}
@@ -166,11 +175,12 @@ export function ExportTool({
               <Button
                 type="button"
                 variant="secondary"
-                size="md"
+                size="sm"
                 disabled={!onRecoverExportSource || isProcessing}
                 onClick={onRecoverExportSource}
+                className="[&_svg]:size-3.5"
               >
-                <FolderOpen className="size-4 shrink-0" aria-hidden="true" />
+                <FolderOpen aria-hidden="true" />
                 {t('raw.export.reselect')}
               </Button>
             </>
@@ -178,14 +188,18 @@ export function ExportTool({
           <Button
             type="button"
             variant="primary"
-            size="md"
+            size="sm"
             disabled={!canExport || isProcessing}
             onClick={() => onExport({ quality: 'high', fidelity: 'balanced' })}
+            className="w-full [&_svg]:size-3.5"
           >
-            <Download className="size-4 shrink-0" aria-hidden="true" />
+            <Download aria-hidden="true" />
             {isProcessing ? t('raw.export.preparing') : t('raw.export.run')}
           </Button>
-          <p className={noteClassName}>
+          <p
+            className={`${noteClassName} line-clamp-2 min-h-[2.6em]`}
+            title={canExport ? t('raw.export.sourcePath') : unavailableReason}
+          >
             {canExport ? t('raw.export.sourcePath') : unavailableReason}
           </p>
         </>
