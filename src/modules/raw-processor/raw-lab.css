@@ -378,6 +378,9 @@
     --color-fill-secondary: oklch(0.18 0.022 76);
     --color-material-opaque: var(--color-lf-dark);
     --color-material-medium: oklch(0.13 0.02 76);
+    --color-preview-mat: var(--color-stage-background);
+    --color-preview-mat-edge: var(--color-fill);
+    --color-preview-border: transparent;
 
     grid-template-rows: minmax(0, 1fr);
     background: var(--color-stage-background);
