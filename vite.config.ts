@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -14,6 +14,13 @@ import { routeBuilderPlugin } from 'vite-plugin-route-builder'
 
 import PKG from './package.json'
 import { fetchImageDataUrl, toDataUrl } from './scripts/build/image-data-url'
+import {
+  deferRawRouteAppModule,
+  deferRawRouteStylesheets,
+  injectRawRouteResourceHints,
+  resolveRawRouteHtmlOutputPaths,
+  selectRawRouteAssets,
+} from './scripts/build/raw-route-html'
 import {
   assertNativeRuntimeAssets,
   copyNativeRuntimeAssets,
@@ -124,10 +131,23 @@ function staticSeoArtifactsPlugin(): Plugin {
 
       const rawRouteDir = resolve(outputDir, 'raw')
       mkdirSync(rawRouteDir, { recursive: true })
-      writeFileSync(
-        resolve(rawRouteDir, 'index.html'),
+      const assetFiles = readdirSync(resolve(outputDir, 'assets'), {
+        withFileTypes: true,
+      })
+        .filter((entry) => entry.isFile())
+        .map((entry) => `assets/${entry.name}`)
+      const rawRouteHtml = injectRawRouteResourceHints(
         replaceSeoBlock(sourceHtml, RAW_ROUTE_SEO, seoOptions),
+        selectRawRouteAssets(assetFiles),
       )
+      const rawRouteOutputHtml = deferRawRouteAppModule(
+        deferRawRouteStylesheets(rawRouteHtml),
+      )
+      for (const rawRouteHtmlPath of resolveRawRouteHtmlOutputPaths(
+        outputDir,
+      )) {
+        writeFileSync(rawRouteHtmlPath, rawRouteOutputHtml)
+      }
 
       writeFileSync(
         resolve(outputDir, 'robots.txt'),
