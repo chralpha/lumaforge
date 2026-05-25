@@ -902,7 +902,7 @@ describe('rawToolSurface', () => {
     expect(within(resource).getByText('Issue')).toBeInTheDocument()
   })
 
-  it('mobile + no image shows the darkroom onboarding lifecycle state', () => {
+  it('mobile + no image keeps the branded topbar and toolbar visible', () => {
     const prev = jotaiStore.get(viewportAtom)
     jotaiStore.set(viewportAtom, { ...prev, w: 390, sm: false })
     try {
@@ -914,18 +914,18 @@ describe('rawToolSurface', () => {
       expect(container.querySelector('[data-raw-mobile-lab]')).toHaveClass(
         'pointer-events-none',
       )
-      expect(container.querySelector('[data-mobile-empty-state]')).toHaveClass(
-        'pointer-events-auto',
-      )
       expect(
-        screen.getByRole('heading', { name: /drop a raw to start/i }),
+        screen.getByRole('heading', { name: /lumaforge raw lab/i }),
       ).toBeInTheDocument()
       expect(
-        screen.getByRole('button', { name: /browse raw files/i }),
+        container.querySelector('[data-mobile-empty-state]'),
+      ).not.toBeInTheDocument()
+      expect(
+        container.querySelector('[data-mobile-topbar]'),
       ).toBeInTheDocument()
-      expect(screen.getByText(/pre-stage a lut/i)).toBeInTheDocument()
-      expect(container.querySelector('[data-mobile-topbar]')).toBeNull()
-      expect(screen.queryByRole('tablist', { name: /lab modes/i })).toBeNull()
+      expect(
+        screen.getByRole('tablist', { name: /lab modes/i }),
+      ).toBeInTheDocument()
       expect(
         container.querySelector('[data-testid="mobile-peek-surface"]'),
       ).toBeNull()
@@ -1019,7 +1019,7 @@ describe('rawToolSurface', () => {
     }
   })
 
-  it('mobile keeps export result actions reachable while the preview is released', () => {
+  it('mobile keeps export result actions reachable through the toolbar while the preview is released', () => {
     const prev = jotaiStore.get(viewportAtom)
     jotaiStore.set(viewportAtom, { ...prev, w: 390, sm: false })
     try {
@@ -1058,11 +1058,16 @@ describe('rawToolSurface', () => {
       )
       expect(
         container.querySelector('[data-mobile-released-export-actions]'),
-      ).toHaveClass('pointer-events-auto')
+      ).not.toBeInTheDocument()
+      expect(
+        container.querySelector('[data-mobile-topbar]'),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole('tablist', { name: /lab modes/i }),
+      ).toBeInTheDocument()
       expect(
         screen.getByRole('button', { name: /download/i }),
       ).toBeInTheDocument()
-      expect(screen.queryByRole('tablist', { name: /lab modes/i })).toBeNull()
     } finally {
       jotaiStore.set(viewportAtom, prev)
     }

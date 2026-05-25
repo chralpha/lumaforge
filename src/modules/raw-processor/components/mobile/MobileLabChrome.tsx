@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   Check,
   ChevronRight,
-  FolderOpen,
   ImageUp,
   Info,
   LockKeyhole,
@@ -12,7 +11,7 @@ import {
   SlidersHorizontal,
   Wand2,
 } from 'lucide-react'
-import { AnimatePresence, m } from 'motion/react'
+import { AnimatePresence } from 'motion/react'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -391,70 +390,6 @@ export function MobileLabChrome(props: {
           affordances. Both are wired via `useMobilePreviewGestures` above so
           they share the same DOM target as pinch / pan and never block it. */}
 
-      {!props.hasImage && (
-        <m.div
-          data-mobile-empty-state
-          data-mobile-empty-variant="handoff"
-          className="raw-mobile-empty pointer-events-auto"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <div className="raw-mobile-empty-hero" data-mobile-empty-hero>
-            <span className="raw-mobile-empty-mark" aria-hidden="true">
-              <ImageUp className="size-[30px]" strokeWidth={1.6} />
-            </span>
-            <div className="grid gap-2">
-              <h1>{t('raw.mobile.empty.title')}</h1>
-              <p className="raw-mobile-empty-copy">
-                {t('raw.mobile.empty.copy')}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={props.onReplaceFile}
-              className="raw-mobile-empty-cta"
-            >
-              <FolderOpen aria-hidden="true" className="size-4" />
-              {t('raw.mobile.empty.browse')}
-            </button>
-            <div
-              className="raw-mobile-empty-formats"
-              aria-label="Supported RAW formats"
-            >
-              {t('raw.mobile.empty.formats')
-                .split(' ')
-                .map((format) => (
-                  <span key={format}>{format}</span>
-                ))}
-            </div>
-          </div>
-
-          <div className="raw-mobile-empty-prestage" data-mobile-empty-prestage>
-            <div className="raw-mobile-empty-prestage-row">
-              <span
-                className="raw-mobile-empty-prestage-icon"
-                aria-hidden="true"
-              >
-                <Wand2 className="size-[18px]" strokeWidth={1.9} />
-              </span>
-              <div className="min-w-0">
-                <strong>{t('raw.mobile.empty.prestageTitle')}</strong>
-                <span>{t('raw.mobile.empty.prestageCopy')}</span>
-              </div>
-              <button
-                type="button"
-                onClick={openLutBrowser}
-                className="raw-mobile-empty-prestage-button"
-              >
-                {t('raw.mobile.empty.addLut')}
-                <ChevronRight aria-hidden="true" className="size-3" />
-              </button>
-            </div>
-          </div>
-        </m.div>
-      )}
-
       {immersive && !focusKey && props.hasImage && !handoffActive && (
         <button
           type="button"
@@ -480,10 +415,10 @@ export function MobileLabChrome(props: {
           <FloatingHistogramCard histogram={props.histogram} hidden={peeking} />
         )}
 
-      {!focusKey && !immersive && props.hasImage && !previewReleasedReady && (
+      {!focusKey && !immersive && (
         <>
           <MobileTopbar
-            hasImage
+            hasImage={props.hasImage}
             fileName={props.fileName}
             fileMeta={props.fileMeta}
             supportLevel={props.supportLevel}
@@ -535,11 +470,7 @@ export function MobileLabChrome(props: {
           <MobileModeDock
             mode={mode}
             expanded={dockExpanded && props.hasImage}
-            disabled={
-              !props.hasImage ||
-              props.isProcessing ||
-              props.previewSuspended === true
-            }
+            disabled={!props.hasImage || props.isProcessing}
             onModeChange={(m) => {
               if (m !== 'compare' && compareSplitOpen) {
                 setCompareSplitMode(false)
@@ -553,21 +484,6 @@ export function MobileLabChrome(props: {
             panel={panel}
           />
         </>
-      )}
-
-      {previewReleasedReady && props.preferExportMode && (
-        <m.div
-          data-mobile-released-export-actions
-          className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/95 via-black/72 to-transparent pb-safe-offset-3 text-white"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 8 }}
-          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <div className="max-h-[34vh] overflow-y-auto px-3.5 pb-3 pt-4">
-            {props.exportPanel}
-          </div>
-        </m.div>
       )}
 
       <AnimatePresence>

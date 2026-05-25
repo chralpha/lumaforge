@@ -62,31 +62,21 @@ describe('mobileLabChrome', () => {
     previewFrameEl.remove()
   })
 
-  it('empty state uses the darkroom onboarding surface and can pre-stage a LUT', async () => {
+  it('empty state keeps the branded topbar and toolbar instead of onboarding', () => {
     const { container } = render(<MobileLabChrome {...base} hasImage={false} />)
-    const empty = container.querySelector('[data-mobile-empty-state]')
-    expect(empty).toHaveAttribute('data-mobile-empty-variant', 'handoff')
     expect(
       container.querySelector('[data-mobile-empty-hero]'),
-    ).toBeInTheDocument()
+    ).not.toBeInTheDocument()
     expect(
       container.querySelector('[data-mobile-empty-prestage]'),
-    ).toBeInTheDocument()
+    ).not.toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: /drop a raw to start/i }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: /browse raw files/i }),
-    ).toBeInTheDocument()
-    expect(screen.getByText(/pre-stage a lut/i)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /add lut/i }))
-    expect(
-      screen.getByRole('dialog', { name: /lut browser/i }),
+      screen.getByRole('heading', { name: /lumaforge raw lab/i }),
     ).toBeInTheDocument()
 
     expect(
-      screen.queryByRole('tablist', { name: /lab modes/i }),
-    ).not.toBeInTheDocument()
+      screen.getByRole('tablist', { name: /lab modes/i }),
+    ).toBeInTheDocument()
     expect(
       screen.queryByRole('tablist', { name: /tone parameters/i }),
     ).toBeNull()
@@ -104,7 +94,7 @@ describe('mobileLabChrome', () => {
       screen.queryByRole('button', { name: /done/i }),
     ).not.toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: /drop a raw to start/i }),
+      screen.getByRole('heading', { name: /lumaforge raw lab/i }),
     ).toBeInTheDocument()
   })
 
@@ -168,19 +158,19 @@ describe('mobileLabChrome', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('keeps mobile controls away while the preview remains released after export', () => {
+  it('keeps the branded topbar and toolbar while the preview remains released after export', () => {
     const { container } = render(<MobileLabChrome {...base} previewSuspended />)
 
     expect(container.querySelector('[data-mobile-lab-chrome]')).toHaveClass(
       'pointer-events-none',
     )
-    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(screen.getByRole('banner')).toBeInTheDocument()
     expect(
-      screen.queryByRole('tablist', { name: /lab modes/i }),
-    ).not.toBeInTheDocument()
+      screen.getByRole('tablist', { name: /lab modes/i }),
+    ).toBeInTheDocument()
   })
 
-  it('keeps export result actions available while the preview remains released', () => {
+  it('keeps export result actions in the normal toolbar while the preview remains released', () => {
     const { container } = render(
       <MobileLabChrome
         {...base}
@@ -190,18 +180,16 @@ describe('mobileLabChrome', () => {
       />,
     )
 
-    const actions = container.querySelector(
-      '[data-mobile-released-export-actions]',
-    )
-    expect(actions).toBeInTheDocument()
-    expect(actions).toHaveClass('pointer-events-auto')
+    expect(
+      container.querySelector('[data-mobile-released-export-actions]'),
+    ).toBeNull()
     expect(
       screen.getByRole('button', { name: /download jpeg/i }),
     ).toBeInTheDocument()
-    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    expect(screen.getByRole('banner')).toBeInTheDocument()
     expect(
-      screen.queryByRole('tablist', { name: /lab modes/i }),
-    ).not.toBeInTheDocument()
+      screen.getByRole('tablist', { name: /lab modes/i }),
+    ).toBeInTheDocument()
   })
 
   it('surfaces the current mobile LUT contract directly in Look mode', async () => {
