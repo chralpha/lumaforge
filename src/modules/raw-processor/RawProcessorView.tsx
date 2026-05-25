@@ -311,13 +311,8 @@ function RawProcessorViewInner({
           fileName={sourceFileName}
           hasImage={hasImage}
           supportLevel={supportLevel}
-          canExport={canExport}
-          disabledReason={exportDisabledReason}
           onReplaceFile={handleReplaceFile}
           onResetSession={reset}
-          onOpenExport={() =>
-            handleExport({ quality: 'high', fidelity: 'balanced' })
-          }
         />
       </div>
 

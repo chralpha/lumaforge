@@ -3,9 +3,10 @@ import type {
   LUTProfileResolution,
   PreviewHistogramState,
 } from '@lumaforge/luma-color-runtime'
-import type { ComponentProps } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
+import { useState } from 'react'
 
-import { useViewport } from '~/hooks/common'
+import { useScrollEdgeFade, useViewport } from '~/hooks/common'
 import { useI18n } from '~/lib/i18n'
 
 import type { UseOnlineLutSourcesResult } from '../hooks/useOnlineLutSources'
@@ -221,7 +222,7 @@ export function RawToolSurface(props: {
     <section
       aria-label={t('raw.export.title')}
       data-raw-export-block="persistent"
-      className="border-t border-border bg-material-medium px-3.5 py-3"
+      className="grid min-h-[112px] content-center border-t border-border-secondary bg-lf-paper-warm/70 px-3.5 py-3"
     >
       {exportBlock}
     </section>
@@ -323,15 +324,37 @@ export function RawToolSurface(props: {
   }
 
   return (
-    <aside
-      className="raw-tool-surface grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden border-l border-border bg-[linear-gradient(180deg,oklch(0.942_0.024_86),oklch(0.91_0.03_84)),var(--color-fill)] p-0 max-[980px]:max-h-[min(42svh,390px)] max-[980px]:border-t max-[980px]:border-l-0"
-      data-raw-tool-surface="raw-finishing"
-      aria-label={t('raw.tools.aria')}
+    <DesktopToolAside
+      ariaLabel={t('raw.tools.aria')}
+      exportBlock={renderExportBlock()}
     >
-      <div className="min-h-0 overflow-y-auto px-3.5 py-3.5">
-        {renderCards()}
+      {renderCards()}
+    </DesktopToolAside>
+  )
+}
+
+function DesktopToolAside({
+  ariaLabel,
+  children,
+  exportBlock,
+}: {
+  ariaLabel: string
+  children: ReactNode
+  exportBlock: ReactNode
+}) {
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null)
+  useScrollEdgeFade(scrollEl)
+
+  return (
+    <aside
+      className="raw-tool-surface relative grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden border-l border-border-strong bg-lf-paper-high p-0 max-[980px]:max-h-[min(42svh,390px)] max-[980px]:border-t max-[980px]:border-l-0 max-[980px]:border-l-transparent"
+      data-raw-tool-surface="raw-finishing"
+      aria-label={ariaLabel}
+    >
+      <div ref={setScrollEl} className="min-h-0 overflow-y-auto px-3 py-3">
+        {children}
       </div>
-      <div>{renderExportBlock()}</div>
+      <div>{exportBlock}</div>
     </aside>
   )
 }

@@ -1,14 +1,17 @@
 .raw-lab {
-  /* Palette aliases — retokenized to lf-* where an exact match exists
-     (Task 10, audit Table B row 1). Values without an exact lf-* match
-     remain as oklch literals; those belong to out-of-scope surfaces
-     (Tone/Compare/Progress/Empty/Stage) and migrate in successor specs. */
+  /* Palette aliases. The 2026-05-25 desktop visual refresh shifts the
+     role of borders from "drawn boundaries" to "structural seams." Most
+     surface separation is carried by surface-tone delta + inner highlights
+     (shadow-lf-lift / shadow-lf-card) instead of hairlines. The hairline
+     tokens below are intentionally soft: 6-10% lightness delta from paper,
+     well under the ~12% the old lf-hairline/0.62 produced. */
   --color-background: var(--color-lf-paper);
   --color-text: var(--color-lf-ink);
   --color-text-secondary: var(--color-lf-ink-soft);
   --color-text-tertiary: oklch(0.5 0.035 75);
-  --color-border: oklch(from var(--color-lf-hairline) l c h / 0.62);
-  --color-border-secondary: oklch(from var(--color-lf-hairline) l c h / 0.4);
+  --color-border: oklch(from var(--color-lf-ink) l c h / 0.06);
+  --color-border-secondary: oklch(from var(--color-lf-ink) l c h / 0.04);
+  --color-border-strong: oklch(from var(--color-lf-ink) l c h / 0.10);
   --color-accent: var(--color-lf-green);
   --color-fill: var(--color-lf-paper-low);
   --color-fill-secondary: oklch(from var(--color-lf-paper-warm) l c h / 0.9);
@@ -29,8 +32,8 @@
   --color-progress: var(--color-lf-amber);
   --color-progress-track: oklch(from var(--color-lf-hero-ink) l c h / 0.18);
   --color-on-stage: var(--color-lf-hero-ink);
-  --color-scrollbar-thumb: oklch(0.54 0.055 78 / 0.64);
-  --color-scrollbar-thumb-hover: oklch(0.43 0.082 152 / 0.78);
+  --color-scrollbar-thumb: oklch(from var(--color-lf-ink) l c h / 0.18);
+  --color-scrollbar-thumb-hover: oklch(from var(--color-lf-ink) l c h / 0.32);
 
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
