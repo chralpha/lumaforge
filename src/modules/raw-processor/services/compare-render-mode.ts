@@ -4,6 +4,10 @@ export type CompareRenderMode =
   | { kind: 'off' }
   | { kind: 'dual-webgl' }
   | {
+      kind: 'embedded-fallback'
+      reason: 'original-webgl-pending'
+    }
+  | {
       kind: 'jpeg-fallback'
       reason: 'dual-webgl-unavailable' | 'original-webgl-failed'
     }
@@ -20,7 +24,9 @@ export type SelectCompareRenderModeInput = {
   supportsCssClip: boolean
   dualWebglAllowed: boolean
   originalWebglReady: boolean
+  retainedOriginalWebglFrameReady?: boolean
   originalWebglFailed?: boolean
+  embeddedPreviewReady?: boolean
   jpegSnapshotReady: boolean
 }
 
@@ -40,14 +46,21 @@ export function selectCompareRenderMode({
   supportsCssClip,
   dualWebglAllowed,
   originalWebglReady,
+  retainedOriginalWebglFrameReady = false,
   originalWebglFailed = false,
+  embeddedPreviewReady = false,
   jpegSnapshotReady,
 }: SelectCompareRenderModeInput): CompareRenderMode {
   if (requestedViewMode !== 'compare') return { kind: 'off' }
   if (!supportsCssClip) {
     return { kind: 'processed-only', reason: 'css-clip-unavailable' }
   }
-  if (dualWebglAllowed && originalWebglReady) return { kind: 'dual-webgl' }
+  if (
+    dualWebglAllowed &&
+    (originalWebglReady || retainedOriginalWebglFrameReady)
+  ) {
+    return { kind: 'dual-webgl' }
+  }
   if (jpegSnapshotReady) {
     return {
       kind: 'jpeg-fallback',
@@ -55,6 +68,9 @@ export function selectCompareRenderMode({
         ? 'original-webgl-failed'
         : 'dual-webgl-unavailable',
     }
+  }
+  if (embeddedPreviewReady) {
+    return { kind: 'embedded-fallback', reason: 'original-webgl-pending' }
   }
 
   return { kind: 'processed-only', reason: 'jpeg-fallback-unavailable' }

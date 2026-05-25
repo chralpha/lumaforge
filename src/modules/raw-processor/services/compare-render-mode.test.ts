@@ -18,6 +18,36 @@ describe('selectCompareRenderMode', () => {
     ).toEqual({ kind: 'dual-webgl' })
   })
 
+  it('keeps dual WebGL selected while a retained original frame covers bounded-HQ warmup', () => {
+    expect(
+      selectCompareRenderMode({
+        requestedViewMode: 'compare',
+        supportsCssClip: true,
+        dualWebglAllowed: true,
+        originalWebglReady: false,
+        retainedOriginalWebglFrameReady: true,
+        jpegSnapshotReady: false,
+      }),
+    ).toEqual({ kind: 'dual-webgl' })
+  })
+
+  it('uses embedded fallback while original WebGL is pending', () => {
+    expect(
+      selectCompareRenderMode({
+        requestedViewMode: 'compare',
+        supportsCssClip: true,
+        dualWebglAllowed: true,
+        originalWebglReady: false,
+        originalWebglFailed: false,
+        embeddedPreviewReady: true,
+        jpegSnapshotReady: false,
+      }),
+    ).toEqual({
+      kind: 'embedded-fallback',
+      reason: 'original-webgl-pending',
+    })
+  })
+
   it('uses JPEG fallback when dual WebGL is not allowed and a snapshot is ready', () => {
     expect(
       selectCompareRenderMode({
