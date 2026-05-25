@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import type { ComponentProps } from 'react'
+import type { ComponentProps, RefObject } from 'react'
 import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -19,6 +19,7 @@ import { PreviewCanvas } from './PreviewCanvas'
 
 const pipelineMock = vi.hoisted(() => ({
   instances: [] as Array<{
+    canvas: HTMLCanvasElement
     initialize: ReturnType<typeof vi.fn>
     dispose: ReturnType<typeof vi.fn>
     disposeMock: ReturnType<typeof vi.fn>
@@ -31,6 +32,7 @@ const pipelineMock = vi.hoisted(() => ({
     setParams: ReturnType<typeof vi.fn>
   }>,
   initialize: vi.fn(),
+  renderEvents: [] as Array<{ kind: 'original' | 'processed' }>,
 }))
 
 vi.mock('~/lib/gl/pipeline', () => ({
@@ -38,12 +40,20 @@ vi.mock('~/lib/gl/pipeline', () => ({
     .fn()
     .mockImplementation((canvas: HTMLCanvasElement) => {
       const disposeMock = vi.fn()
+      const getKind = () =>
+        canvas.className.includes('raw-preview-original-webgl-canvas')
+          ? 'original'
+          : 'processed'
       const instance = {
+        canvas,
         initialize: vi.fn(() => pipelineMock.initialize(canvas)),
         dispose: disposeMock,
         disposeMock,
         resize: vi.fn(),
-        render: vi.fn(() => ({ renderMs: 1 })),
+        render: vi.fn(() => {
+          pipelineMock.renderEvents.push({ kind: getKind() })
+          return { renderMs: 1 }
+        }),
         clearImage: vi.fn(),
         uploadImage: vi.fn(),
         clearLUT: vi.fn(),
@@ -185,6 +195,7 @@ function renderInteractivePreview({
 describe('preview canvas upload descriptor', () => {
   beforeEach(() => {
     pipelineMock.instances.length = 0
+    pipelineMock.renderEvents.length = 0
     pipelineMock.initialize.mockReset()
     pipelineMock.initialize.mockResolvedValue(undefined)
     window.PointerEvent = MouseEvent as typeof PointerEvent
@@ -562,6 +573,101 @@ describe('preview canvas upload descriptor', () => {
     expect(getPipelineParamCalls()).not.toContainEqual(
       expect.objectContaining({ viewMode: 'compare' }),
     )
+  })
+
+  it('keeps the embedded preview clipped on the left while original WebGL warms', async () => {
+    const originalInitialize = deferred<void>()
+    pipelineMock.initialize.mockImplementation((canvas: HTMLCanvasElement) => {
+      if (canvas.className.includes('raw-preview-original-webgl-canvas')) {
+        return originalInitialize.promise
+      }
+
+      return Promise.resolve()
+    })
+
+    const { container } = render(
+      createElement(PreviewCanvas, {
+        imageRef: { current: { ...decodedImage, source: 'quick' } },
+        imageVersion: 1,
+        params: {
+          ...defaultParams,
+          viewMode: 'compare',
+        },
+        lutDataRef: { current: null },
+        lutDataVersion: 0,
+        embeddedPreviewUrl: 'blob:embedded-preview',
+        displaySource: 'quick',
+        dualWebglAllowed: true,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-compare-mode="embedded-fallback"]'),
+      ).toBeTruthy()
+    })
+
+    expect(
+      container.querySelector('.raw-preview-original-layer img'),
+    ).toHaveAttribute('src', 'blob:embedded-preview')
+    expect(container.querySelector('.raw-preview-processed-layer')).toHaveClass(
+      'raw-preview-layer-clipped',
+    )
+
+    await act(async () => {
+      originalInitialize.resolve()
+      await originalInitialize.promise
+      await Promise.resolve()
+    })
+  })
+
+  it('renders the retained original layer before the processed canvas during bounded-HQ upgrades', async () => {
+    const imageRef: RefObject<DecodedImage | null> = {
+      current: { ...decodedImage, source: 'quick' as const },
+    }
+    const props: ComponentProps<typeof PreviewCanvas> = {
+      imageRef,
+      imageVersion: 1,
+      params: {
+        ...defaultParams,
+        viewMode: 'compare',
+      },
+      lutDataRef: { current: null },
+      lutDataVersion: 0,
+      displaySource: 'quick',
+      dualWebglAllowed: true,
+    }
+    const { container, rerender } = render(createElement(PreviewCanvas, props))
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-compare-mode="dual-webgl"]'),
+      ).toBeTruthy()
+    })
+    pipelineMock.renderEvents.length = 0
+
+    imageRef.current = {
+      ...decodedImage,
+      source: 'bounded-hq',
+      width: 420,
+      height: 320,
+      data: new Float32Array(420 * 320 * 4),
+    }
+    rerender(
+      createElement(PreviewCanvas, {
+        ...props,
+        imageVersion: 2,
+        displaySource: 'bounded-hq',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(pipelineMock.renderEvents.length).toBeGreaterThanOrEqual(2)
+    })
+
+    expect(
+      pipelineMock.renderEvents.slice(0, 2).map((event) => event.kind),
+    ).toEqual(['original', 'processed'])
   })
 
   it('keeps dual-webgl compare ready after the preview image version changes', async () => {

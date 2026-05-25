@@ -79,6 +79,26 @@ export interface PreviewCanvasProps {
   className?: string
 }
 
+function EmbeddedOriginalLayer({ src }: { src: string }) {
+  return (
+    <div
+      className="raw-preview-original-layer"
+      aria-hidden="true"
+      data-original-reference-source="embedded"
+    >
+      <img
+        src={src}
+        alt=""
+        role="img"
+        aria-hidden="true"
+        draggable={false}
+        className="raw-preview-original-image"
+        decoding="async"
+      />
+    </div>
+  )
+}
+
 export function PreviewCanvas({
   imageRef,
   imageVersion,
@@ -124,8 +144,9 @@ export function PreviewCanvas({
   const [isWheelInteracting, setIsWheelInteracting] = useState(false)
   const [originalWebglStatus, setOriginalWebglStatus] = useState<{
     generationKey: string
+    displaySource: DisplaySource
     state: 'idle' | 'ready' | 'failed'
-  }>({ generationKey: '', state: 'idle' })
+  }>({ generationKey: '', displaySource: 'none', state: 'idle' })
   const [error, setError] = useState<string | null>(null)
   const showEmbeddedPreview =
     displaySource === 'embedded' && Boolean(embeddedPreviewUrl)
@@ -153,16 +174,39 @@ export function PreviewCanvas({
   const originalWebglFailed =
     originalWebglStatus.generationKey === originalWebglGenerationKey &&
     originalWebglStatus.state === 'failed'
+  const originalWebglLayerEligible =
+    !showEmbeddedPreview &&
+    !suspended &&
+    hasImageData &&
+    params.viewMode === 'compare' &&
+    supportsCssClip &&
+    dualWebglAllowed
+  const retainedOriginalWebglFrameReady =
+    originalWebglLayerEligible &&
+    !originalWebglReady &&
+    !originalWebglFailed &&
+    originalWebglStatus.state === 'ready' &&
+    originalWebglStatus.displaySource === 'quick' &&
+    displaySource === 'bounded-hq' &&
+    image?.source === 'bounded-hq'
+  const embeddedPreviewFallbackReady =
+    Boolean(embeddedPreviewUrl) &&
+    originalWebglLayerEligible &&
+    !originalWebglReady &&
+    !retainedOriginalWebglFrameReady
   const compareRenderMode: CompareRenderMode = selectCompareRenderMode({
     requestedViewMode: showEmbeddedPreview ? 'processed' : params.viewMode,
     supportsCssClip,
     dualWebglAllowed,
     originalWebglReady,
+    retainedOriginalWebglFrameReady,
     originalWebglFailed,
+    embeddedPreviewReady: embeddedPreviewFallbackReady,
     jpegSnapshotReady: Boolean(originalReferenceSnapshot),
   })
   const isLayeredCompareActive =
     compareRenderMode.kind === 'dual-webgl' ||
+    compareRenderMode.kind === 'embedded-fallback' ||
     compareRenderMode.kind === 'jpeg-fallback'
   const pipelineCompareSplit =
     params.viewMode === 'compare' ? 0.5 : params.compareSplit
@@ -196,13 +240,8 @@ export function PreviewCanvas({
     ],
   )
   const shouldMountOriginalWebglLayer =
-    !showEmbeddedPreview &&
-    !suspended &&
-    hasImageData &&
-    params.viewMode === 'compare' &&
-    supportsCssClip &&
-    dualWebglAllowed &&
-    !originalWebglFailed
+    originalWebglLayerEligible && !originalWebglFailed
+  const shouldDelayProcessedCompareRender = retainedOriginalWebglFrameReady
 
   suspendedRef.current = suspended
 
@@ -432,7 +471,11 @@ export function PreviewCanvas({
         const pipeline = pipelineRef.current
         if (pipeline) {
           pipeline.resize(canvas.width, canvas.height)
-          if (isInitialized && imageRef.current) {
+          if (
+            isInitialized &&
+            imageRef.current &&
+            !shouldDelayProcessedCompareRender
+          ) {
             const stats = pipeline.render()
             onStatsUpdate?.(stats)
           }
@@ -452,6 +495,7 @@ export function PreviewCanvas({
     imageHeight,
     isInitialized,
     onStatsUpdate,
+    shouldDelayProcessedCompareRender,
   ])
 
   const resetActivePreviewPointers = useCallback(() => {
@@ -459,6 +503,26 @@ export function PreviewCanvas({
     pinchStartRef.current = null
     setIsPointerPanning(false)
   }, [])
+
+  const renderProcessedPreview = useCallback(() => {
+    const pipeline = pipelineRef.current
+    if (!pipeline || !isInitialized) return false
+    const image = imageRef.current
+    const uploadInput = createRawUploadInput({
+      data: image?.data ?? null,
+      layout: image?.layout ?? null,
+      colorSpace: image?.colorSpace ?? null,
+      width: image?.width ?? 0,
+      height: image?.height ?? 0,
+      renderExposureEv: image?.renderExposure.ev ?? 0,
+    })
+    if (!uploadInput) return false
+
+    pipeline.setParams(processedCanvasParams)
+    const stats = pipeline.render()
+    onStatsUpdate?.(stats)
+    return true
+  }, [imageRef, isInitialized, onStatsUpdate, processedCanvasParams])
 
   const handleWheel = useCallback(
     (event: WheelEvent) => {
@@ -673,54 +737,20 @@ export function PreviewCanvas({
   // Compare mode now stays in CSS/DOM space, so the processed canvas never
   // enters the legacy single-canvas shader split path.
   useEffect(() => {
-    const pipeline = pipelineRef.current
-    if (!pipeline || !isInitialized) return
-    const image = imageRef.current
-    const uploadInput = createRawUploadInput({
-      data: image?.data ?? null,
-      layout: image?.layout ?? null,
-      colorSpace: image?.colorSpace ?? null,
-      width: image?.width ?? 0,
-      height: image?.height ?? 0,
-      renderExposureEv: image?.renderExposure.ev ?? 0,
-    })
-    if (!uploadInput) return
-
-    pipeline.setParams(processedCanvasParams)
-    const stats = pipeline.render()
-    onStatsUpdate?.(stats)
-  }, [
-    processedCanvasParams,
-    imageRef,
-    imageVersion,
-    isInitialized,
-    onStatsUpdate,
-  ])
+    if (shouldDelayProcessedCompareRender) return
+    renderProcessedPreview()
+  }, [imageVersion, renderProcessedPreview, shouldDelayProcessedCompareRender])
 
   // Re-render when LUT changes
   useEffect(() => {
-    const pipeline = pipelineRef.current
-    if (!pipeline || !isInitialized) return
-    const image = imageRef.current
-    const uploadInput = createRawUploadInput({
-      data: image?.data ?? null,
-      layout: image?.layout ?? null,
-      colorSpace: image?.colorSpace ?? null,
-      width: image?.width ?? 0,
-      height: image?.height ?? 0,
-      renderExposureEv: image?.renderExposure.ev ?? 0,
-    })
-    if (!uploadInput) return
-
-    const stats = pipeline.render()
-    onStatsUpdate?.(stats)
+    if (shouldDelayProcessedCompareRender) return
+    renderProcessedPreview()
   }, [
-    imageRef,
     imageVersion,
     lutDataRef,
     lutDataVersion,
-    isInitialized,
-    onStatsUpdate,
+    renderProcessedPreview,
+    shouldDelayProcessedCompareRender,
   ])
 
   return (
@@ -775,14 +805,22 @@ export function PreviewCanvas({
                 generationKey={originalWebglGenerationKey}
                 onPipelineChange={onOriginalPreviewPipelineChange}
                 onReady={(readyGenerationKey) => {
+                  if (
+                    readyGenerationKey === originalWebglGenerationKey &&
+                    shouldDelayProcessedCompareRender
+                  ) {
+                    renderProcessedPreview()
+                  }
                   setOriginalWebglStatus({
                     generationKey: readyGenerationKey,
+                    displaySource,
                     state: 'ready',
                   })
                 }}
                 onError={(_, failedGenerationKey) => {
                   setOriginalWebglStatus({
                     generationKey: failedGenerationKey,
+                    displaySource,
                     state: 'failed',
                   })
                   if (failedGenerationKey === originalWebglGenerationKey) {
@@ -796,6 +834,11 @@ export function PreviewCanvas({
           {compareRenderMode.kind === 'jpeg-fallback' &&
             originalReferenceSnapshot && (
               <OriginalReferenceLayer snapshot={originalReferenceSnapshot} />
+            )}
+
+          {compareRenderMode.kind === 'embedded-fallback' &&
+            embeddedPreviewUrl && (
+              <EmbeddedOriginalLayer src={embeddedPreviewUrl} />
             )}
 
           <div
