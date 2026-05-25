@@ -91,6 +91,9 @@ export function RawToolSurface(props: {
   const lutDropDisabled = props.isExporting === true || previewSuspended
   const mobileEditorDisabled =
     !props.hasImage || props.isProcessing || previewSuspended
+  const hasAppliedLut = Boolean(props.currentLutName)
+  const strengthDisabled = editorDisabled || !hasAppliedLut
+  const mobileStrengthDisabled = mobileEditorDisabled || !hasAppliedLut
 
   const histogramMeta =
     props.histogram.state === 'ready'
@@ -101,7 +104,7 @@ export function RawToolSurface(props: {
     <StrengthControl
       value={props.activeIntensity}
       onChange={props.onIntensitySelect}
-      disabled={editorDisabled}
+      disabled={strengthDisabled}
     />
   )
 
@@ -111,7 +114,7 @@ export function RawToolSurface(props: {
     <MobileStrengthPanel
       value={props.activeIntensity}
       onChange={props.onIntensitySelect}
-      disabled={mobileEditorDisabled}
+      disabled={mobileStrengthDisabled}
     />
   )
 

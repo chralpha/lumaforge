@@ -377,7 +377,12 @@ describe('rawToolSurface', () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
     render(
-      <RawToolSurface {...baseProps} hasImage onIntensitySelect={onChange} />,
+      <RawToolSurface
+        {...baseProps}
+        hasImage
+        currentLutName="Sony Look.cube"
+        onIntensitySelect={onChange}
+      />,
     )
 
     expect(screen.getByRole('tab', { name: 'Off' })).toBeInTheDocument()
@@ -400,7 +405,12 @@ describe('rawToolSurface', () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
     render(
-      <RawToolSurface {...baseProps} hasImage onIntensitySelect={onChange} />,
+      <RawToolSurface
+        {...baseProps}
+        hasImage
+        currentLutName="Sony Look.cube"
+        onIntensitySelect={onChange}
+      />,
     )
 
     const strength = screen.getByRole('tablist', { name: 'Strength' })
@@ -416,7 +426,13 @@ describe('rawToolSurface', () => {
   })
 
   it('updates selected strength from props without remounting the tablist', () => {
-    const { rerender } = render(<RawToolSurface {...baseProps} hasImage />)
+    const { rerender } = render(
+      <RawToolSurface
+        {...baseProps}
+        hasImage
+        currentLutName="Sony Look.cube"
+      />,
+    )
 
     const strength = screen.getByRole('tablist', { name: 'Strength' })
     expect(
@@ -424,7 +440,12 @@ describe('rawToolSurface', () => {
     ).toHaveAttribute('aria-selected', 'true')
 
     rerender(
-      <RawToolSurface {...baseProps} hasImage activeIntensity="strong" />,
+      <RawToolSurface
+        {...baseProps}
+        hasImage
+        currentLutName="Sony Look.cube"
+        activeIntensity="strong"
+      />,
     )
 
     const updatedStrength = screen.getByRole('tablist', { name: 'Strength' })
@@ -438,7 +459,12 @@ describe('rawToolSurface', () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
     const { rerender } = render(
-      <RawToolSurface {...baseProps} hasImage onIntensitySelect={onChange} />,
+      <RawToolSurface
+        {...baseProps}
+        hasImage
+        currentLutName="Sony Look.cube"
+        onIntensitySelect={onChange}
+      />,
     )
 
     const strength = screen.getByRole('tablist', { name: 'Strength' })
@@ -451,6 +477,7 @@ describe('rawToolSurface', () => {
       <RawToolSurface
         {...baseProps}
         hasImage
+        currentLutName="Sony Look.cube"
         activeIntensity="standard"
         onIntensitySelect={onChange}
       />,
@@ -462,6 +489,29 @@ describe('rawToolSurface', () => {
     expect(
       within(strength).getByRole('tab', { name: 'Strong' }),
     ).toHaveAttribute('aria-selected', 'false')
+  })
+
+  it('keeps strength disabled for catalog-only online LUT sources', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(
+      <RawToolSurface
+        {...baseProps}
+        hasImage
+        onlineLutSources={onlineLutSourcesFixture()}
+        onIntensitySelect={onChange}
+      />,
+    )
+
+    const strength = screen.getByRole('tablist', { name: 'Strength' })
+    const strong = within(strength).getByRole('tab', { name: 'Strong' })
+
+    expect(strong).toBeDisabled()
+    expect(strong).toHaveAttribute('aria-disabled', 'true')
+
+    await user.click(strong)
+
+    expect(onChange).not.toHaveBeenCalled()
   })
 
   it('disables strength tabs before upload', async () => {
@@ -864,6 +914,40 @@ describe('rawToolSurface', () => {
       expect(
         screen.getByRole('tablist', { name: /lab modes/i }).parentElement,
       ).toHaveClass('pointer-events-auto')
+    } finally {
+      jotaiStore.set(viewportAtom, prev)
+    }
+  })
+
+  it('mobile keeps strength disabled for catalog-only online LUT sources', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    const prev = jotaiStore.get(viewportAtom)
+    jotaiStore.set(viewportAtom, { ...prev, w: 390, sm: false })
+    try {
+      render(
+        <Provider store={jotaiStore}>
+          <RawToolSurface
+            {...baseProps}
+            hasImage
+            onlineLutSources={onlineLutSourcesFixture()}
+            onIntensitySelect={onChange}
+          />
+        </Provider>,
+      )
+
+      const dock = screen.getByRole('tablist', { name: /lab modes/i })
+      await user.click(within(dock).getByRole('tab', { name: /strength/i }))
+
+      const strength = screen.getByRole('radiogroup', { name: 'Strength' })
+      const strong = within(strength).getByRole('radio', { name: 'Strong' })
+
+      expect(strong).toBeDisabled()
+      expect(strength).toHaveAttribute('aria-disabled', 'true')
+
+      await user.click(strong)
+
+      expect(onChange).not.toHaveBeenCalled()
     } finally {
       jotaiStore.set(viewportAtom, prev)
     }
