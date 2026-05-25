@@ -1154,7 +1154,7 @@ describe('rawToolSurface', () => {
       ).toBeInTheDocument()
     })
 
-    it('hides compare controls when compare rendering is processed-only', async () => {
+    it('keeps compare controls mounted while compare rendering is temporarily processed-only', async () => {
       await act(async () => {
         render(
           <ComparePreviewStage
@@ -1185,15 +1185,15 @@ describe('rawToolSurface', () => {
       })
 
       expect(
-        screen.queryByRole('slider', {
+        screen.getByRole('slider', {
           name: 'Compare unprocessed RAW and final JPEG',
         }),
-      ).not.toBeInTheDocument()
-      expect(screen.queryByText('Unprocessed RAW')).not.toBeInTheDocument()
-      expect(screen.queryByText('Final JPEG')).not.toBeInTheDocument()
+      ).toBeInTheDocument()
+      expect(screen.getByText('Unprocessed RAW')).toBeInTheDocument()
+      expect(screen.getByText('Final JPEG')).toBeInTheDocument()
     })
 
-    it('hides compare controls when CSS clipping disables snapshot compare', async () => {
+    it('keeps compare controls mounted when CSS clipping disables snapshot compare', async () => {
       vi.stubGlobal('CSS', {
         supports: vi.fn(() => false),
       })
@@ -1243,12 +1243,12 @@ describe('rawToolSurface', () => {
         container.querySelector('[data-compare-mode="processed-only"]'),
       ).toBeInTheDocument()
       expect(
-        screen.queryByRole('slider', {
+        screen.getByRole('slider', {
           name: 'Compare unprocessed RAW and final JPEG',
         }),
-      ).not.toBeInTheDocument()
-      expect(screen.queryByText('Unprocessed RAW')).not.toBeInTheDocument()
-      expect(screen.queryByText('Final JPEG')).not.toBeInTheDocument()
+      ).toBeInTheDocument()
+      expect(screen.getByText('Unprocessed RAW')).toBeInTheDocument()
+      expect(screen.getByText('Final JPEG')).toBeInTheDocument()
     })
 
     it('threads dual-webgl compare DOM into the loaded preview surface', async () => {

@@ -1,5 +1,4 @@
 import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
-import { useState } from 'react'
 
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
@@ -7,7 +6,6 @@ import { useI18n } from '~/lib/i18n'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
 import type { DisplaySource } from '../model/session'
-import type { CompareRenderMode } from '../services/compare-render-mode'
 import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
 import type { PreviewViewport } from '../services/preview-viewport'
 import { CompareSplitHandle } from './CompareSplitHandle'
@@ -190,19 +188,13 @@ export function ComparePreviewStage({
   className,
 }: ComparePreviewStageProps) {
   const { t } = useI18n()
-  const [activeCompareRenderMode, setActiveCompareRenderMode] =
-    useState<CompareRenderMode['kind']>('off')
   const blockStageInteraction = phase === 'exporting'
   const isPreviewEvacuated = previewSuspended && hasImage
   const isEvacuatedProcessingHandoff = isPreviewEvacuated && isProcessing
   const isExportProcessingHandoff =
     isEvacuatedProcessingHandoff && phase === 'exporting'
   const isExportReadyHandoff = isPreviewEvacuated && !isProcessing
-  const activeLayeredCompare =
-    activeCompareRenderMode === 'dual-webgl' ||
-    activeCompareRenderMode === 'jpeg-fallback'
-  const showSplit =
-    splitEnabled && (!hasImage || activeLayeredCompare) && !isPreviewEvacuated
+  const showSplit = splitEnabled && !isPreviewEvacuated
   const showBlockingProgress =
     isProcessing &&
     (!hasImage || blockStageInteraction || isEvacuatedProcessingHandoff)
@@ -261,7 +253,6 @@ export function ComparePreviewStage({
                 onOriginalPreviewPipelineChange={
                   onOriginalPreviewPipelineChange
                 }
-                onCompareRenderModeChange={setActiveCompareRenderMode}
                 onRequestOriginalReferenceFallback={
                   onRequestOriginalReferenceFallback
                 }

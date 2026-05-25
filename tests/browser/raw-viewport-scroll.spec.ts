@@ -41,11 +41,29 @@ async function dragSlider(page: Page, sliderName: string, targetRatio: number) {
 
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
   await page.mouse.down()
-  await page.mouse.move(
-    box!.x + box!.width * targetRatio,
-    box!.y + box!.height / 2,
-    { steps: 10 },
-  )
+  if (sliderName === 'Compare unprocessed RAW and final JPEG') {
+    const trackBox = await page
+      .locator('[data-raw-compare-track="image"]')
+      .boundingBox()
+      .catch(() => null)
+    const frameBox = await page
+      .locator('[data-raw-preview-frame]')
+      .boundingBox()
+      .catch(() => null)
+    const targetBox = trackBox ?? frameBox ?? box!
+
+    await page.mouse.move(
+      targetBox.x + targetBox.width * targetRatio,
+      box!.y + box!.height / 2,
+      { steps: 10 },
+    )
+  } else {
+    await page.mouse.move(
+      box!.x + box!.width * targetRatio,
+      box!.y + box!.height / 2,
+      { steps: 10 },
+    )
+  }
   await page.mouse.up()
 
   await expect
