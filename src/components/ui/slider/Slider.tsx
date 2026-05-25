@@ -35,10 +35,8 @@ export const Slider = ({
     <SliderPrimitive.Track
       data-slot="slider-track"
       className={clsxm(
-        'relative h-1.5 w-full grow overflow-hidden rounded-full',
-        variant === 'primary'
-          ? 'bg-accent/20 group-data-[disabled]:bg-fill-secondary'
-          : 'bg-fill-secondary',
+        'relative h-[5px] w-full grow overflow-hidden rounded-full bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.10)]',
+        'group-data-[disabled]:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)]',
       )}
     >
       <SliderPrimitive.Range
@@ -46,8 +44,8 @@ export const Slider = ({
         className={clsxm(
           'absolute h-full',
           variant === 'primary'
-            ? 'bg-accent/80 group-data-[disabled]:bg-text-secondary/35'
-            : 'bg-fill',
+            ? 'bg-lf-green-deep/55 group-data-[disabled]:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.15)]'
+            : 'bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.25)]',
         )}
       />
     </SliderPrimitive.Track>
@@ -55,10 +53,10 @@ export const Slider = ({
       aria-label={thumbAriaLabel}
       aria-labelledby={thumbAriaLabelledBy}
       className={clsxm(
-        'block size-4 rounded-full border shadow transition-colors focus-visible:outline-none focus-visible:ring-1 disabled:pointer-events-none disabled:opacity-50 data-[disabled]:border-border data-[disabled]:bg-material-opaque data-[disabled]:shadow-none',
-        variant === 'primary'
-          ? 'border-accent/50 focus-visible:ring-accent bg-accent'
-          : 'border-border focus-visible:ring-border bg-material-opaque',
+        'block size-[15px] rounded-full bg-lf-paper transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lf-green/30 disabled:pointer-events-none disabled:opacity-50',
+        'shadow-[0_1px_2px_oklch(0.18_0.018_76/0.22),0_0_0_1px_oklch(from_var(--color-lf-ink)_l_c_h_/_0.18)]',
+        'hover:shadow-[0_1px_3px_oklch(0.18_0.018_76/0.28),0_0_0_1px_oklch(from_var(--color-lf-ink)_l_c_h_/_0.28)]',
+        'data-[disabled]:bg-lf-paper-low data-[disabled]:shadow-[0_0_0_1px_oklch(from_var(--color-lf-ink)_l_c_h_/_0.10)]',
       )}
     />
   </SliderPrimitive.Root>

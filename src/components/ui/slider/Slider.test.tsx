@@ -34,11 +34,11 @@ describe('slider', () => {
     const root = thumb.closest('[data-slot="slider-root"]')
     expect(root).toHaveClass('data-[disabled]:opacity-70')
     expect(root?.querySelector('[data-slot="slider-track"]')).toHaveClass(
-      'group-data-[disabled]:bg-fill-secondary',
+      'group-data-[disabled]:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)]',
     )
     expect(root?.querySelector('[data-slot="slider-range"]')).toHaveClass(
-      'group-data-[disabled]:bg-text-secondary/35',
+      'group-data-[disabled]:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.15)]',
     )
-    expect(thumb).toHaveClass('data-[disabled]:bg-material-opaque')
+    expect(thumb).toHaveClass('data-[disabled]:bg-lf-paper-low')
   })
 })

@@ -1,5 +1,3 @@
-// Tremor Button [v0.2.0]
-
 import { Slot } from '@radix-ui/react-slot'
 import * as React from 'react'
 import type { VariantProps } from 'tailwind-variants'
@@ -9,90 +7,42 @@ import { cx, focusRing } from '~/lib/cn'
 
 const buttonVariants = tv({
   base: [
-    // base - adjust border radius and spacing
-    'relative inline-flex items-center justify-center whitespace-nowrap rounded-lg border text-center font-medium shadow-sm transition-all duration-200 ease-out',
-    // disabled
-    'disabled:pointer-events-none disabled:shadow-none disabled:text-disabled-text',
-    // focus
+    'relative inline-flex items-center justify-center gap-1.5 whitespace-nowrap',
+    'rounded-lf-control border border-transparent text-center font-medium',
+    'transition-colors duration-150 ease-out',
+    'disabled:pointer-events-none disabled:opacity-55',
+    'active:scale-[0.985]',
     focusRing,
   ],
   variants: {
     variant: {
       primary: [
-        // border
-        '!border-transparent',
-        // text color
-        'text-background',
-        'bg-accent',
-        // hover state
-        'hover:bg-accent/90',
-        // active state
-        'active:scale-[0.98]',
-        'disabled:bg-disabled-control',
+        'bg-lf-green text-lf-ink',
+        'shadow-[0_1px_2px_oklch(0.10_0.020_78/0.18),inset_0_1px_0_oklch(0.99_0.012_86/0.30)]',
+        'hover:bg-lf-green-hover',
       ],
       secondary: [
-        // border
-        'border-border',
-        // text color
-        'text-text',
-        // background color
-        'bg-background',
-        // hover color
-        'hover:bg-fill-secondary hover:border-border shadow-none hover:shadow-sm',
-        // active state
-        'active:bg-fill-tertiary active:scale-[0.98]',
-        // disabled
-        'disabled:bg-fill disabled:text-disabled-text disabled:border-border',
-        'disabled:bg-disabled-control',
+        'bg-lf-paper-high text-lf-ink/85 border-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.08)]',
+        'hover:bg-lf-paper-low hover:text-lf-ink',
+        'shadow-lf-soft',
       ],
       light: [
-        // base
-        'shadow-none',
-        // border
-        'border-transparent',
-        // text color
-        'text-text',
-        // background color
-        'bg-fill',
-        // hover color
-        'hover:bg-fill-tertiary hover:shadow-sm',
-        // active state
-        'active:bg-fill-quaternary active:scale-[0.98]',
-        // disabled
-        'disabled:bg-fill disabled:text-disabled-text',
+        'bg-transparent text-lf-ink/80',
+        'hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.05)] hover:text-lf-ink',
       ],
       ghost: [
-        // base
-        'shadow-none',
-        // border
-        'border-transparent',
-        // text color
-        'text-text-secondary',
-        // hover color
-        'bg-transparent hover:bg-fill/80 hover:text-text',
-        // active state
-        'active:bg-fill active:scale-[0.98]',
-        // disabled
-        'disabled:text-disabled-text',
+        'bg-transparent text-lf-ink-soft',
+        'hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.04)] hover:text-lf-ink',
       ],
       destructive: [
-        // text color
-        'text-background',
-        // border
-        'border-transparent',
-        // background color
-        'bg-red',
-        // hover color
-        'hover:bg-red/90 hover:shadow-md',
-        // active state
-        'active:bg-red/80 active:scale-[0.98]',
-        // disabled
-        'disabled:bg-red/50 disabled:text-background/70',
+        'bg-lf-rose text-lf-paper',
+        'shadow-[0_1px_2px_oklch(0.10_0.020_78/0.18),inset_0_1px_0_oklch(0.99_0.012_86/0.25)]',
+        'hover:bg-[oklch(from_var(--color-lf-rose)_calc(l+0.04)_c_h)]',
       ],
     },
     size: {
-      sm: ['px-3 py-1.5 text-xs rounded-md'],
-      md: ['px-4 py-2 text-sm rounded-lg'],
+      sm: ['h-8 px-3 text-[0.78rem]'],
+      md: ['h-9 px-3.5 text-lf-body'],
     },
   },
   defaultVariants: {
@@ -102,7 +52,8 @@ const buttonVariants = tv({
 })
 
 interface ButtonProps
-  extends React.ComponentPropsWithoutRef<'button'>,
+  extends
+    React.ComponentPropsWithoutRef<'button'>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
   isLoading?: boolean
@@ -128,7 +79,7 @@ const Button = ({
       ref={forwardedRef}
       className={cx(buttonVariants({ variant, size }), className)}
       disabled={disabled || isLoading}
-      tremor-id="tremor-raw"
+      data-lf-button
       {...props}
     >
       {isLoading ? (
