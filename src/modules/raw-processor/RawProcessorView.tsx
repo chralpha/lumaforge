@@ -6,7 +6,7 @@
 import './raw-lab.css'
 import './raw-lab.surface.css'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useInRouterContext, useLocation } from 'react-router'
 
 import { clsxm } from '~/lib/cn'
@@ -22,6 +22,7 @@ import {
   UnsupportedState,
   WorkspaceHeader,
 } from './components'
+import type { RawRuntimeReadinessState } from './components/raw-runtime-readiness'
 import { useRawProcessor } from './hooks'
 import { useCapabilityGate } from './hooks/useCapabilityGate'
 import { useHiddenFilePicker } from './hooks/useHiddenFilePicker'
@@ -144,6 +145,36 @@ function RawProcessorViewInner({
     pathname: rawRouteLocation.pathname,
     loadOnlineLUT,
   })
+  const [runtimeReadinessState, setRuntimeReadinessState] =
+    useState<RawRuntimeReadinessState>(() =>
+      rawRuntimeAdapter.getPrewarmState(),
+    )
+  const runtimeReadinessMountedRef = useRef(false)
+
+  useEffect(() => {
+    runtimeReadinessMountedRef.current = true
+    return () => {
+      runtimeReadinessMountedRef.current = false
+    }
+  }, [])
+
+  const syncRuntimeReadinessState = useCallback(() => {
+    if (!runtimeReadinessMountedRef.current) return
+    setRuntimeReadinessState(rawRuntimeAdapter.getPrewarmState())
+  }, [])
+
+  const triggerRawRuntimePrewarm = useCallback(() => {
+    if (typeof window === 'undefined') return
+
+    if (import.meta.env.MODE === 'test') {
+      syncRuntimeReadinessState()
+      return
+    }
+
+    const prewarm = rawRuntimeAdapter.prewarm()
+    syncRuntimeReadinessState()
+    void prewarm.then(syncRuntimeReadinessState, syncRuntimeReadinessState)
+  }, [syncRuntimeReadinessState])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -151,7 +182,7 @@ function RawProcessorViewInner({
     let cancelled = false
     const trigger = () => {
       if (cancelled) return
-      void rawRuntimeAdapter.prewarm()
+      triggerRawRuntimePrewarm()
     }
     const win = window as Window & {
       requestIdleCallback?: (
@@ -172,7 +203,7 @@ function RawProcessorViewInner({
       cancelled = true
       window.clearTimeout(handle)
     }
-  }, [])
+  }, [triggerRawRuntimePrewarm])
 
   // Handle file drop
   const handleFileDrop = useCallback(
@@ -339,6 +370,8 @@ function RawProcessorViewInner({
           onSplitPreviewChange={handleCompareSplitPreviewChange}
           onPreviewViewportChange={setPreviewViewport}
           isProcessing={isProcessing}
+          runtimeReadinessState={runtimeReadinessState}
+          onPrepareRuntime={triggerRawRuntimePrewarm}
           phase={
             status === 'warming'
               ? 'warming'
@@ -398,6 +431,8 @@ function RawProcessorViewInner({
           disabledReason={exportDisabledReason}
           isProcessing={isProcessing}
           isExporting={status === 'exporting'}
+          runtimeReadinessState={runtimeReadinessState}
+          onPrepareRuntime={triggerRawRuntimePrewarm}
           previewSuspended={previewSuspended}
           exportResult={exportResult}
           exportShareCapability={exportShareCapability}

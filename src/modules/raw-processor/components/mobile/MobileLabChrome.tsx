@@ -18,6 +18,8 @@ import { useEffect, useRef, useState } from 'react'
 
 import { useI18n } from '~/lib/i18n'
 
+import type { RawRuntimeReadinessState } from '../raw-runtime-readiness'
+import { getRawRuntimeReadinessCopy } from '../raw-runtime-readiness'
 import {
   getProfileOutputLabel,
   getResolvedProfile,
@@ -55,6 +57,8 @@ export function MobileLabChrome(props: {
   onReplaceFile: () => void
   onResetSession: () => void
   isProcessing: boolean
+  runtimeReadinessState?: RawRuntimeReadinessState
+  onPrepareRuntime?: () => void
   strengthControl: ReactNode
   lutBrowser: Omit<MobileLutBrowserProps, 'open' | 'onClose'>
   onCompareReset: () => void
@@ -210,6 +214,10 @@ export function MobileLabChrome(props: {
     props.lutBrowser.lutProfileSelection,
     props.lutBrowser.lutProfileResolution,
   )
+  const runtimeReadiness =
+    !props.hasImage && props.runtimeReadinessState
+      ? getRawRuntimeReadinessCopy(t, props.runtimeReadinessState)
+      : null
   const lutOutputLabel = getProfileOutputLabel(resolvedLutProfile)
   const lutNeedsOutput = lutOutputLabel === OUTPUT_REQUIRED_LABEL
   const displayLutOutputLabel =
@@ -412,12 +420,32 @@ export function MobileLabChrome(props: {
             </div>
             <button
               type="button"
-              onClick={props.onReplaceFile}
+              onClick={() => {
+                props.onPrepareRuntime?.()
+                props.onReplaceFile()
+              }}
+              onPointerEnter={props.onPrepareRuntime}
+              onFocus={props.onPrepareRuntime}
               className="raw-mobile-empty-cta"
             >
               <FolderOpen aria-hidden="true" className="size-4" />
               {t('raw.mobile.empty.browse')}
             </button>
+            {runtimeReadiness && (
+              <div
+                aria-live="polite"
+                data-raw-runtime-readiness
+                data-state={props.runtimeReadinessState}
+                className="raw-mobile-empty-readiness"
+              >
+                <span
+                  className="raw-mobile-empty-readiness-dot"
+                  aria-hidden="true"
+                />
+                <strong>{runtimeReadiness.label}</strong>
+                <span>{runtimeReadiness.detail}</span>
+              </div>
+            )}
             <div
               className="raw-mobile-empty-formats"
               aria-label="Supported RAW formats"

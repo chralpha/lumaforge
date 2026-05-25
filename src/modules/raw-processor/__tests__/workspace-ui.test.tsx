@@ -14,6 +14,10 @@ import type { OriginalReferenceSnapshot } from '../services/original-reference-s
 
 const mockUseRawProcessor = vi.hoisted(() => vi.fn())
 const mockUseCapabilityGate = vi.hoisted(() => vi.fn())
+const mockRawRuntimeAdapter = vi.hoisted(() => ({
+  getPrewarmState: vi.fn(),
+  prewarm: vi.fn(),
+}))
 
 vi.mock('../hooks', () => ({
   useRawProcessor: mockUseRawProcessor,
@@ -21,6 +25,10 @@ vi.mock('../hooks', () => ({
 
 vi.mock('../hooks/useCapabilityGate', () => ({
   useCapabilityGate: mockUseCapabilityGate,
+}))
+
+vi.mock('~/lib/raw/runtime-adapter', () => ({
+  rawRuntimeAdapter: mockRawRuntimeAdapter,
 }))
 
 function rawToolSurfaceProps(
@@ -295,6 +303,10 @@ beforeEach(() => {
     supportStatus: 'supported',
     reason: null,
   })
+  mockRawRuntimeAdapter.getPrewarmState.mockReset().mockReturnValue('idle')
+  mockRawRuntimeAdapter.prewarm
+    .mockReset()
+    .mockResolvedValue({ status: 'ready' })
 
   vi.stubGlobal('CSS', {
     supports: vi.fn(() => true),
@@ -317,6 +329,26 @@ afterEach(() => {
 })
 
 describe('rawProcessorView', () => {
+  it('syncs RAW engine warmup state into the empty first screen', async () => {
+    mockUseRawProcessor.mockReturnValue(rawProcessorViewState())
+    mockRawRuntimeAdapter.getPrewarmState.mockReturnValue('pending')
+
+    await act(async () => {
+      render(<RawProcessorView />)
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('Waking RAW engine')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'You can choose a file now; processing starts after the engine is ready.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /drop one raw here/i }),
+    ).toBeEnabled()
+  })
+
   it('passes hook histogram state into RAW tools with Histogram', async () => {
     const user = userEvent.setup()
     mockUseRawProcessor.mockReturnValue(rawProcessorViewState())
@@ -1121,6 +1153,37 @@ describe('rawToolSurface', () => {
         screen.getByRole('slider', {
           name: 'Compare unprocessed RAW and final JPEG',
         }),
+      ).toBeInTheDocument()
+    })
+
+    it('shows RAW engine readiness without blocking the empty upload action', () => {
+      render(
+        <ComparePreviewStage
+          {...compareStageProps({ runtimeReadinessState: 'pending' })}
+        />,
+      )
+
+      expect(screen.getByText('Waking RAW engine')).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          'You can choose a file now; processing starts after the engine is ready.',
+        ),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /drop one raw here/i }),
+      ).toBeEnabled()
+    })
+
+    it('updates the empty upload copy once the RAW engine is ready', () => {
+      render(
+        <ComparePreviewStage
+          {...compareStageProps({ runtimeReadinessState: 'ready' })}
+        />,
+      )
+
+      expect(screen.getByText('RAW engine ready')).toBeInTheDocument()
+      expect(
+        screen.getByText('Choose a RAW and processing can start immediately.'),
       ).toBeInTheDocument()
     })
 

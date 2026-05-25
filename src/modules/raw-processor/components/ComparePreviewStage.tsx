@@ -13,6 +13,8 @@ import { Dropzone, RAW_FILE_ACCEPT } from './Dropzone'
 import type { OriginalWebglPipelineHandle } from './OriginalWebglLayer'
 import { PreviewCanvas } from './PreviewCanvas'
 import { ProgressOverlay } from './ProgressOverlay'
+import type { RawRuntimeReadinessState } from './raw-runtime-readiness'
+import { getRawRuntimeReadinessCopy } from './raw-runtime-readiness'
 
 export interface ComparePreviewStageProps {
   hasImage: boolean
@@ -33,8 +35,10 @@ export interface ComparePreviewStageProps {
   isProcessing: boolean
   progress: number
   phase: 'warming' | 'loading' | 'decoding' | 'processing' | 'exporting'
+  runtimeReadinessState?: RawRuntimeReadinessState
   recoveryHint?: string
   onRawDrop: (files: File[]) => void
+  onPrepareRuntime?: () => void
   onSplitChange: (split: number) => void
   onSplitPreviewChange?: (split: number) => void
   onPreviewViewportChange?: (viewport: PreviewViewport) => void
@@ -68,20 +72,30 @@ function EmptySampleCompare({ split }: { split: number }) {
 
 function UploadDock({
   onOpenFilePicker,
+  onPrepareRuntime,
   disabled,
+  runtimeReadinessState,
 }: {
   onOpenFilePicker: () => void
+  onPrepareRuntime?: () => void
   disabled: boolean
+  runtimeReadinessState?: RawRuntimeReadinessState
 }) {
   const { t } = useI18n()
+  const runtimeReadiness = runtimeReadinessState
+    ? getRawRuntimeReadinessCopy(t, runtimeReadinessState)
+    : null
 
   return (
     <button
       type="button"
       data-raw-upload-dock
-      className="absolute bottom-[clamp(52px,7vw,78px)] left-1/2 z-[7] flex min-w-[min(320px,calc(100%-36px))] -translate-x-1/2 items-center gap-3 rounded-md border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-3 py-2.5 text-[var(--color-on-stage)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 max-[640px]:bottom-[18px] max-[640px]:min-w-[min(300px,calc(100%-28px))]"
+      className="absolute bottom-[clamp(52px,7vw,78px)] left-1/2 z-[7] flex min-w-[min(320px,calc(100%-36px))] max-w-[min(420px,calc(100%-36px))] -translate-x-1/2 items-start gap-3 rounded-md border border-[var(--color-stage-hairline)] bg-[var(--color-stage-panel)] px-3 py-2.5 text-left text-[var(--color-on-stage)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 max-[640px]:bottom-[18px] max-[640px]:min-w-[min(300px,calc(100%-28px))]"
+      onPointerEnter={onPrepareRuntime}
+      onFocus={onPrepareRuntime}
       onClick={(event) => {
         event.stopPropagation()
+        onPrepareRuntime?.()
         onOpenFilePicker()
       }}
       disabled={disabled}
@@ -92,13 +106,37 @@ function UploadDock({
       >
         ↑
       </span>
-      <span className="block">
+      <span className="grid min-w-0 gap-1">
         <strong className="block text-sm leading-tight">
           {t('raw.stage.uploadTitle')}
         </strong>
         <span className="mt-0.5 block text-xs leading-snug text-[var(--color-on-stage-soft)]">
           {t('raw.stage.uploadCopy')}
         </span>
+        {runtimeReadiness && (
+          <span
+            aria-live="polite"
+            data-raw-runtime-readiness
+            data-state={runtimeReadinessState}
+            className="mt-1 grid gap-0.5 rounded-[5px] border border-[var(--color-stage-hairline)] bg-[oklch(0.11_0.018_76/0.48)] px-2 py-1.5 text-left"
+          >
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-[0.69rem] font-semibold leading-snug text-[var(--color-on-stage)]">
+              <span
+                className={clsxm(
+                  'size-1.5 shrink-0 rounded-full',
+                  runtimeReadinessState === 'ready'
+                    ? 'bg-accent'
+                    : 'bg-[var(--color-progress)]',
+                )}
+                aria-hidden="true"
+              />
+              <span className="min-w-0">{runtimeReadiness.label}</span>
+            </span>
+            <span className="block text-[0.68rem] leading-snug text-[var(--color-on-stage-soft)]">
+              {runtimeReadiness.detail}
+            </span>
+          </span>
+        )}
       </span>
     </button>
   )
@@ -174,8 +212,10 @@ export function ComparePreviewStage({
   isProcessing,
   progress,
   phase,
+  runtimeReadinessState,
   recoveryHint,
   onRawDrop,
+  onPrepareRuntime,
   onSplitChange,
   onSplitPreviewChange,
   onPreviewViewportChange,
@@ -283,7 +323,9 @@ export function ComparePreviewStage({
             {!hasImage && (
               <UploadDock
                 onOpenFilePicker={openFilePicker}
+                onPrepareRuntime={onPrepareRuntime}
                 disabled={disabled}
+                runtimeReadinessState={runtimeReadinessState}
               />
             )}
 

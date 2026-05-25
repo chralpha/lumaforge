@@ -21,6 +21,7 @@ import type {
 import { MobileExportPanel } from './mobile/MobileExportPanel'
 import { MobileLabChrome } from './mobile/MobileLabChrome'
 import { MobileStrengthPanel } from './mobile/MobileStrengthPanel'
+import type { RawRuntimeReadinessState } from './raw-runtime-readiness'
 import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
 import { FileFactsTool } from './tools/FileFactsTool'
@@ -56,6 +57,8 @@ export function RawToolSurface(props: {
   disabledReason?: string
   isProcessing: boolean
   isExporting?: boolean
+  runtimeReadinessState?: RawRuntimeReadinessState
+  onPrepareRuntime?: () => void
   previewSuspended?: boolean
   exportResult: ExportResult | null
   exportShareCapability: ExportShareCapability
@@ -313,6 +316,8 @@ export function RawToolSurface(props: {
           onReplaceFile={props.onReplaceFile}
           onResetSession={props.onResetSession}
           isProcessing={props.isProcessing}
+          runtimeReadinessState={props.runtimeReadinessState}
+          onPrepareRuntime={props.onPrepareRuntime}
           strengthControl={mobileStrengthControl}
           lutBrowser={mobileLutBrowser}
           onCompareReset={props.onCompareReset}

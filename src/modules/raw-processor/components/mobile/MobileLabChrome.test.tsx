@@ -93,6 +93,26 @@ describe('mobileLabChrome', () => {
     ).toBeNull()
   })
 
+  it('shows RAW engine readiness on the mobile empty state without disabling browse', () => {
+    render(
+      <MobileLabChrome
+        {...base}
+        hasImage={false}
+        runtimeReadinessState="pending"
+      />,
+    )
+
+    expect(screen.getByText('Waking RAW engine')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'You can choose a file now; processing starts after the engine is ready.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /browse raw files/i }),
+    ).toBeEnabled()
+  })
+
   it('tears down focus/sheets when the RAW is cleared (hasImage→false)', async () => {
     const { rerender } = render(<MobileLabChrome {...base} />)
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
