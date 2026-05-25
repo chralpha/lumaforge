@@ -58,6 +58,17 @@ async function dragSlider(page: Page, sliderName: string, targetRatio: number) {
   }
 }
 
+async function readCompareHandleCenterX(page: Page) {
+  const slider = page.getByRole('slider', {
+    name: 'Compare unprocessed RAW and final JPEG',
+  })
+  const box = await slider.boundingBox()
+
+  expect(box).toBeTruthy()
+
+  return box!.x + box!.width / 2
+}
+
 async function readPreviewViewport(page: Page) {
   return page.evaluate(() => {
     const track = document.querySelector<HTMLElement>(
@@ -235,6 +246,7 @@ test('keeps desktop tone, compare, zoom, and pan interactions live after RAW loa
     1,
   )
   expect(compare.after).toBeGreaterThan(compare.before)
+  const compareHandleCenterBeforeZoom = await readCompareHandleCenterX(page)
 
   const previewFrame = page.locator('[data-raw-preview-frame]')
   const previewBox = await previewFrame.boundingBox()
@@ -250,6 +262,10 @@ test('keeps desktop tone, compare, zoom, and pan interactions live after RAW loa
   await expect
     .poll(async () => (await readPreviewViewport(page)).zoom)
     .toBeGreaterThan(1)
+  expect(await readCompareHandleCenterX(page)).toBeCloseTo(
+    compareHandleCenterBeforeZoom,
+    0,
+  )
 
   const scaledBounds = await page.evaluate(() => {
     const frame = document.querySelector<HTMLElement>(
@@ -258,27 +274,30 @@ test('keeps desktop tone, compare, zoom, and pan interactions live after RAW loa
     const track = document.querySelector<HTMLElement>(
       '[data-raw-compare-track="image"]',
     )
+    const surface = document.querySelector<HTMLElement>(
+      '[data-raw-preview-surface]',
+    )
 
     const frameRect = frame?.getBoundingClientRect()
-    const trackRect = track?.getBoundingClientRect()
+    const surfaceRect = surface?.getBoundingClientRect()
 
     return {
       frame: frameRect?.toJSON(),
-      track: trackRect?.toJSON(),
-      trackLayoutWidth: track?.offsetWidth ?? 0,
-      trackLayoutHeight: track?.offsetHeight ?? 0,
+      surface: surfaceRect?.toJSON(),
+      surfaceLayoutWidth: surface?.offsetWidth ?? track?.offsetWidth ?? 0,
+      surfaceLayoutHeight: surface?.offsetHeight ?? track?.offsetHeight ?? 0,
       frameOverflow: frame ? getComputedStyle(frame).overflow : '',
     }
   })
 
   expect(scaledBounds.frame).toBeTruthy()
-  expect(scaledBounds.track).toBeTruthy()
+  expect(scaledBounds.surface).toBeTruthy()
   expect(scaledBounds.frameOverflow).toBe('hidden')
-  expect(scaledBounds.track!.width).toBeGreaterThan(
-    scaledBounds.trackLayoutWidth,
+  expect(scaledBounds.surface!.width).toBeGreaterThan(
+    scaledBounds.surfaceLayoutWidth,
   )
-  expect(scaledBounds.track!.height).toBeGreaterThan(
-    scaledBounds.trackLayoutHeight,
+  expect(scaledBounds.surface!.height).toBeGreaterThan(
+    scaledBounds.surfaceLayoutHeight,
   )
 
   const panBefore = await readPreviewViewport(page)
@@ -301,4 +320,8 @@ test('keeps desktop tone, compare, zoom, and pan interactions live after RAW loa
       )
     })
     .toBeGreaterThan(0)
+  expect(await readCompareHandleCenterX(page)).toBeCloseTo(
+    compareHandleCenterBeforeZoom,
+    0,
+  )
 })

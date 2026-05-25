@@ -25,13 +25,6 @@
   position: relative;
   flex: 0 0 auto;
   overflow: visible;
-  transform: translate3d(
-      var(--raw-preview-pan-x, 0),
-      var(--raw-preview-pan-y, 0),
-      0
-    )
-    scale(var(--raw-preview-zoom, 1));
-  transform-origin: center center;
 }
 
 .raw-preview-surface {
@@ -39,6 +32,13 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
+  transform: translate3d(
+      var(--raw-preview-pan-x, 0),
+      var(--raw-preview-pan-y, 0),
+      0
+    )
+    scale(var(--raw-preview-zoom, 1));
+  transform-origin: center center;
 }
 
 .raw-preview-original-webgl-shell,
@@ -90,7 +90,7 @@
   will-change: clip-path;
 }
 
-.raw-preview-frame-transforming .raw-preview-track {
+.raw-preview-frame-transforming .raw-preview-surface {
   will-change: transform;
 }
 

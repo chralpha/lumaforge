@@ -797,7 +797,7 @@ describe('preview canvas upload descriptor', () => {
     raf.mockRestore()
   })
 
-  it('drives zoom and pan from the preview track so the scaled photo can fill surrounding frame space', async () => {
+  it('keeps preview track as the split anchor while the surface fills surrounding frame space', async () => {
     const { frame, surface, track } = renderInteractivePreview({
       previewViewport: {
         zoom: 2,
@@ -818,10 +818,12 @@ describe('preview canvas upload descriptor', () => {
     expect(track?.style.getPropertyValue('--raw-preview-pan-x')).toBe('80px')
     expect(track?.style.getPropertyValue('--raw-preview-pan-y')).toBe('-40px')
     expect(surface?.style.getPropertyValue('--raw-preview-zoom')).toBe('')
+    expect(getComputedStyle(track!).transform).toBe('')
+    expect(getComputedStyle(surface!).transform).toContain('translate3d')
     expect(getComputedStyle(frame!).overflow).toBe('hidden')
   })
 
-  it('keeps layered compare clipping in layer space while zoom transforms the whole track', async () => {
+  it('keeps layered compare clipping in layer space while zoom transforms the surface', async () => {
     const snapshot: OriginalReferenceSnapshot = {
       key: 'original-reference|session:test',
       objectUrl: 'blob:original-reference',
@@ -878,8 +880,8 @@ describe('preview canvas upload descriptor', () => {
     expect(processedLayer).not.toBeNull()
     expect(processedCanvas).not.toBeNull()
     expect(originalImage).not.toBeNull()
-    expect(getComputedStyle(track!).transform).toContain('translate3d')
-    expect(getComputedStyle(surface!).transform).toBe('')
+    expect(getComputedStyle(track!).transform).toBe('')
+    expect(getComputedStyle(surface!).transform).toContain('translate3d')
     expect(getComputedStyle(processedLayer!).clipPath).toContain(
       'var(--raw-compare-split',
     )
@@ -901,9 +903,11 @@ describe('preview canvas upload descriptor', () => {
       expect(pipelineMock.instances).toHaveLength(1)
     })
 
-    const track = container.querySelector<HTMLElement>('.raw-preview-track')
-    expect(track).not.toBeNull()
-    expect(getComputedStyle(track!).willChange).not.toContain('transform')
+    const surface = container.querySelector<HTMLElement>(
+      '[data-raw-preview-surface]',
+    )
+    expect(surface).not.toBeNull()
+    expect(getComputedStyle(surface!).willChange).not.toContain('transform')
 
     fireEvent.pointerDown(frame!, {
       pointerId: 1,
@@ -912,7 +916,7 @@ describe('preview canvas upload descriptor', () => {
       clientY: 150,
     })
 
-    expect(getComputedStyle(track!).willChange).toContain('transform')
+    expect(getComputedStyle(surface!).willChange).toContain('transform')
   })
 
   it('does not rerender WebGL during split or viewport changes when layered compare is active', async () => {

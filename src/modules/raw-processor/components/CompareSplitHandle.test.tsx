@@ -8,6 +8,7 @@ import {
   clampCompareSplit,
   CompareSplitHandle,
   getCompareSplitFromClientX,
+  getCompareSplitPositionGeometry,
 } from './CompareSplitHandle'
 
 beforeAll(() => {
@@ -153,6 +154,90 @@ describe('compareSplitHandle', () => {
     fireEvent.pointerUp(slider, { clientX: 650, pointerId: 1 })
 
     expect(onChange).toHaveBeenLastCalledWith(0.8)
+  })
+
+  it('keeps handle position in frame coordinates when the image track is zoomed and panned', () => {
+    const onChange = vi.fn()
+
+    render(
+      <div data-testid="frame">
+        <canvas
+          data-raw-compare-track="image"
+          data-testid="image-track"
+          style={
+            {
+              '--raw-preview-zoom': '2',
+              '--raw-preview-pan-x': '100px',
+              transform: 'translate3d(100px, 0, 0) scale(2)',
+            } as React.CSSProperties
+          }
+        />
+        <CompareSplitHandle value={0.5} onChange={onChange} />
+      </div>,
+    )
+
+    const frame = screen.getByTestId('frame')
+    const imageTrack = screen.getByTestId('image-track')
+    const slider = screen.getByRole('slider')
+
+    Object.defineProperty(frame, 'getBoundingClientRect', {
+      value: () => ({ left: 0, width: 1000 }),
+    })
+    Object.defineProperty(imageTrack, 'getBoundingClientRect', {
+      value: () => ({ left: 100, width: 1000 }),
+    })
+    Object.defineProperty(imageTrack, 'offsetWidth', {
+      value: 500,
+    })
+
+    expect(getCompareSplitPositionGeometry(slider, 0.5)).toMatchObject({
+      split: 0.5,
+      handleX: 500,
+      clipSplit: 0.4,
+    })
+  })
+
+  it('keeps pointer split independent from preview zoom and compensates the clip split', () => {
+    const onChange = vi.fn()
+
+    render(
+      <div data-testid="frame">
+        <canvas
+          data-raw-compare-track="image"
+          data-testid="image-track"
+          style={
+            {
+              '--raw-preview-zoom': '2',
+              '--raw-preview-pan-x': '100px',
+              transform: 'translate3d(100px, 0, 0) scale(2)',
+            } as React.CSSProperties
+          }
+        />
+        <CompareSplitHandle value={0.5} onChange={onChange} />
+      </div>,
+    )
+
+    const frame = screen.getByTestId('frame')
+    const imageTrack = screen.getByTestId('image-track')
+    const slider = screen.getByRole('slider')
+    Object.defineProperty(frame, 'getBoundingClientRect', {
+      value: () => ({ left: 0, width: 1000 }),
+    })
+    Object.defineProperty(imageTrack, 'getBoundingClientRect', {
+      value: () => ({ left: 100, width: 1000 }),
+    })
+    Object.defineProperty(imageTrack, 'offsetWidth', {
+      value: 500,
+    })
+    Object.defineProperty(slider, 'getBoundingClientRect', {
+      value: () => ({ left: 500, width: 44 }),
+    })
+
+    fireEvent.pointerDown(slider, { clientX: 500, pointerId: 1 })
+    fireEvent.pointerUp(slider, { clientX: 500, pointerId: 1 })
+
+    expect(onChange).toHaveBeenLastCalledWith(0.5)
+    expect(slider.style.getPropertyValue('--raw-compare-split')).toBe('40%')
   })
 
   it('keeps the transient preview position when the parent rerenders during drag', () => {

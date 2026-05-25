@@ -9,6 +9,7 @@ import {
   COMPARE_SPLIT_MIN as MIN_SPLIT,
   getCompareSplitFromClientX,
 } from '../services/compare-split'
+import { getCanvasCompareSplit } from '../services/preview-viewport'
 
 export {
   clampCompareSplit,
@@ -22,15 +23,73 @@ function isUsableRect(rect: Pick<DOMRect, 'width'>) {
   return Number.isFinite(rect.width) && rect.width > 0
 }
 
+function parseCssNumber(value: string, fallback: number) {
+  const parsed = Number.parseFloat(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function readPreviewTransform(element: HTMLElement | null) {
+  if (!element) {
+    return { zoom: 1, panX: 0 }
+  }
+
+  const style = getComputedStyle(element)
+  const zoom = parseCssNumber(style.getPropertyValue('--raw-preview-zoom'), 1)
+  const panX = parseCssNumber(style.getPropertyValue('--raw-preview-pan-x'), 0)
+
+  return {
+    zoom: Number.isFinite(zoom) && zoom > 0 ? zoom : 1,
+    panX,
+  }
+}
+
+function hasRenderedTransform(element: HTMLElement) {
+  const transform = getComputedStyle(element).transform
+  return Boolean(transform && transform !== 'none')
+}
+
+function getUntransformedTrackRect(
+  imageTrack: HTMLElement,
+  imageRect: DOMRect,
+  zoom: number,
+  panX: number,
+) {
+  const layoutWidth =
+    imageTrack.offsetWidth > 0
+      ? imageTrack.offsetWidth
+      : zoom > 0
+        ? imageRect.width / zoom
+        : imageRect.width
+
+  if (!hasRenderedTransform(imageTrack)) {
+    return {
+      left: imageRect.left,
+      width: layoutWidth,
+    }
+  }
+
+  return {
+    left: imageRect.left - panX - (layoutWidth * (1 - zoom)) / 2,
+    width: layoutWidth,
+  }
+}
+
 function getCompareTrackGeometry(target: HTMLElement) {
   const frame = target.parentElement ?? target
   const frameRect = frame.getBoundingClientRect()
   const imageTrack = frame.querySelector<HTMLElement>(IMAGE_TRACK_SELECTOR)
   const imageRect = imageTrack?.getBoundingClientRect()
+  const { zoom, panX } = readPreviewTransform(imageTrack ?? null)
+  const trackRect =
+    imageTrack && imageRect && isUsableRect(imageRect)
+      ? getUntransformedTrackRect(imageTrack, imageRect, zoom, panX)
+      : frameRect
 
   return {
     frameRect,
-    trackRect: imageRect && isUsableRect(imageRect) ? imageRect : frameRect,
+    trackRect,
+    zoom,
+    panX,
   }
 }
 
@@ -46,11 +105,13 @@ export function getCompareSplitInteractionGeometry(
   target: HTMLElement,
   clientX: number,
 ) {
-  const { frameRect, trackRect } = getCompareTrackGeometry(target)
+  const { frameRect, trackRect, zoom, panX } = getCompareTrackGeometry(target)
   const split = getCompareSplitFromClientX(trackRect, clientX)
+  const clipSplit = getCanvasCompareSplit(split, zoom, panX, trackRect.width)
 
   return {
     split,
+    clipSplit,
     handleX: getHandlePositionX(frameRect, trackRect, split),
   }
 }
@@ -59,39 +120,48 @@ export function getCompareSplitPositionGeometry(
   target: HTMLElement,
   value: number,
 ) {
-  const { frameRect, trackRect } = getCompareTrackGeometry(target)
+  const { frameRect, trackRect, zoom, panX } = getCompareTrackGeometry(target)
   const split = clampCompareSplit(value)
+  const clipSplit = getCanvasCompareSplit(split, zoom, panX, trackRect.width)
 
   return {
     split,
+    clipSplit,
     handleX: getHandlePositionX(frameRect, trackRect, split),
   }
 }
 
 function applyHandlePosition(target: HTMLElement, value: number) {
-  const { split, handleX } = getCompareSplitPositionGeometry(target, value)
-  applyCompareSplitVariables(target, split, handleX)
+  const { split, clipSplit, handleX } = getCompareSplitPositionGeometry(
+    target,
+    value,
+  )
+  applyCompareSplitVariables(target, split, clipSplit, handleX)
 }
 
 function applyPointerPosition(target: HTMLElement, clientX: number) {
-  const { split, handleX } = getCompareSplitInteractionGeometry(target, clientX)
-  applyCompareSplitVariables(target, split, handleX)
+  const { split, clipSplit, handleX } = getCompareSplitInteractionGeometry(
+    target,
+    clientX,
+  )
+  applyCompareSplitVariables(target, split, clipSplit, handleX)
   return split
 }
 
 function applyCompareSplitVariables(
   target: HTMLElement,
   split: number,
+  clipSplit: number,
   handleX: number,
 ) {
-  const splitPercent = `${split * 100}%`
+  const clipSplitPercent = `${clipSplit * 100}%`
   const handlePosition = `${handleX}px`
 
-  target.style.setProperty('--raw-compare-split', splitPercent)
+  target.style.setProperty('--raw-compare-split', clipSplitPercent)
   target.style.setProperty('--raw-compare-split-x', handlePosition)
 
   const frame = target.parentElement
-  frame?.style.setProperty('--raw-compare-split', splitPercent)
+  frame?.style.setProperty('--raw-compare-split', clipSplitPercent)
   frame?.style.setProperty('--raw-compare-split-x', handlePosition)
 }
 

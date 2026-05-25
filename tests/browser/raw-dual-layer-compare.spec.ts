@@ -227,6 +227,17 @@ async function readCompareSplit(page: Page) {
   return Number(await slider.getAttribute('aria-valuenow'))
 }
 
+async function readCompareHandleCenterX(page: Page) {
+  const slider = page.getByRole('slider', {
+    name: 'Compare unprocessed RAW and final JPEG',
+  })
+  const box = await slider.boundingBox()
+
+  expect(box).toBeTruthy()
+
+  return box!.x + box!.width / 2
+}
+
 async function readPreviewViewport(page: Page): Promise<PreviewViewport> {
   return page.evaluate(() => {
     const track = document.querySelector<HTMLElement>(
@@ -249,8 +260,8 @@ async function readPreviewViewport(page: Page): Promise<PreviewViewport> {
 
 async function readLayerTransforms(page: Page) {
   return page.evaluate(() => {
-    const track = document.querySelector<HTMLElement>(
-      '[data-raw-compare-track="image"]',
+    const surface = document.querySelector<HTMLElement>(
+      '[data-raw-preview-surface]',
     )
     const processed = document.querySelector<HTMLElement>('.raw-preview-canvas')
     const original = document.querySelector<HTMLElement>(
@@ -258,7 +269,7 @@ async function readLayerTransforms(page: Page) {
     )
 
     return {
-      track: track ? getComputedStyle(track).transform : null,
+      surface: surface ? getComputedStyle(surface).transform : null,
       original: original ? getComputedStyle(original).transform : null,
       processed: processed ? getComputedStyle(processed).transform : null,
     }
@@ -405,6 +416,7 @@ test('keeps dual-layer RAW compare usable through split zoom and pan', async ({
     0.82,
   )
   expect(split.after).toBeGreaterThan(split.before)
+  const compareHandleCenterBeforeZoom = await readCompareHandleCenterX(page)
   await expect(compareLayer).toHaveAttribute('data-compare-mode', mode)
   const splitOnlyWebglStats = await expectNoSplitOnlyWebglRender(page)
   await resetWebglStats(page)
@@ -423,6 +435,10 @@ test('keeps dual-layer RAW compare usable through split zoom and pan', async ({
   await expect
     .poll(async () => (await readPreviewViewport(page)).zoom)
     .toBeGreaterThan(1)
+  expect(await readCompareHandleCenterX(page)).toBeCloseTo(
+    compareHandleCenterBeforeZoom,
+    0,
+  )
 
   const panBefore = await readPreviewViewport(page)
 
@@ -444,10 +460,14 @@ test('keeps dual-layer RAW compare usable through split zoom and pan', async ({
       )
     })
     .toBeGreaterThan(0)
+  expect(await readCompareHandleCenterX(page)).toBeCloseTo(
+    compareHandleCenterBeforeZoom,
+    0,
+  )
   await expect(compareLayer).toHaveAttribute('data-compare-mode', mode)
   const transforms = await readLayerTransforms(page)
-  expect(transforms.track).toBeTruthy()
-  expect(transforms.track).not.toBe('none')
+  expect(transforms.surface).toBeTruthy()
+  expect(transforms.surface).not.toBe('none')
   expect(transforms.processed).toBe(transforms.original)
 
   const viewportWebglStats = await readWebglStats(page)
@@ -548,6 +568,7 @@ test('keeps mobile-class JPEG fallback responsive through same-origin RAW drop a
       0.72,
     )
     expect(split.after).toBeGreaterThan(split.before)
+    const compareHandleCenterBeforeZoom = await readCompareHandleCenterX(page)
     const splitOnlyWebglStats = await expectNoSplitOnlyWebglRender(page)
     await resetWebglStats(page)
 
@@ -563,6 +584,10 @@ test('keeps mobile-class JPEG fallback responsive through same-origin RAW drop a
     await expect
       .poll(async () => (await readPreviewViewport(page)).zoom)
       .toBeGreaterThan(1)
+    expect(await readCompareHandleCenterX(page)).toBeCloseTo(
+      compareHandleCenterBeforeZoom,
+      0,
+    )
 
     const scaledBounds = await page.evaluate(() => {
       const frame = document.querySelector<HTMLElement>(
@@ -571,25 +596,28 @@ test('keeps mobile-class JPEG fallback responsive through same-origin RAW drop a
       const track = document.querySelector<HTMLElement>(
         '[data-raw-compare-track="image"]',
       )
+      const surface = document.querySelector<HTMLElement>(
+        '[data-raw-preview-surface]',
+      )
       const frameRect = frame?.getBoundingClientRect()
-      const trackRect = track?.getBoundingClientRect()
+      const surfaceRect = surface?.getBoundingClientRect()
 
       return {
         frame: frameRect?.toJSON(),
-        track: trackRect?.toJSON(),
-        trackLayoutWidth: track?.offsetWidth ?? 0,
-        trackLayoutHeight: track?.offsetHeight ?? 0,
+        surface: surfaceRect?.toJSON(),
+        surfaceLayoutWidth: surface?.offsetWidth ?? track?.offsetWidth ?? 0,
+        surfaceLayoutHeight: surface?.offsetHeight ?? track?.offsetHeight ?? 0,
         frameOverflow: frame ? getComputedStyle(frame).overflow : '',
       }
     })
     expect(scaledBounds.frame).toBeTruthy()
-    expect(scaledBounds.track).toBeTruthy()
+    expect(scaledBounds.surface).toBeTruthy()
     expect(scaledBounds.frameOverflow).toBe('hidden')
-    expect(scaledBounds.track!.width).toBeGreaterThan(
-      scaledBounds.trackLayoutWidth,
+    expect(scaledBounds.surface!.width).toBeGreaterThan(
+      scaledBounds.surfaceLayoutWidth,
     )
-    expect(scaledBounds.track!.height).toBeGreaterThan(
-      scaledBounds.trackLayoutHeight,
+    expect(scaledBounds.surface!.height).toBeGreaterThan(
+      scaledBounds.surfaceLayoutHeight,
     )
 
     const panBefore = await readPreviewViewport(page)
@@ -609,10 +637,14 @@ test('keeps mobile-class JPEG fallback responsive through same-origin RAW drop a
         )
       })
       .toBeGreaterThan(0)
+    expect(await readCompareHandleCenterX(page)).toBeCloseTo(
+      compareHandleCenterBeforeZoom,
+      0,
+    )
 
     const transforms = await readLayerTransforms(page)
-    expect(transforms.track).toBeTruthy()
-    expect(transforms.track).not.toBe('none')
+    expect(transforms.surface).toBeTruthy()
+    expect(transforms.surface).not.toBe('none')
     expect(transforms.processed).toBe(transforms.original)
 
     const splitAfterInteraction = await readCompareSplit(page)
@@ -720,7 +752,7 @@ test('validates WebKit-class JPEG fallback compare when local WebKit is availabl
   const splitOnlyWebglStats = await expectNoSplitOnlyWebglRender(page)
 
   const transforms = await readLayerTransforms(page)
-  expect(transforms.track).toBeTruthy()
+  expect(transforms.surface).toBeTruthy()
   expect(transforms.processed).toBe(transforms.original)
 
   await testInfo.attach('raw-webkit-jpeg-fallback-compare.json', {
