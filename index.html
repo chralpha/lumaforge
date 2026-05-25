@@ -24,11 +24,67 @@
       html.luma-route-raw body {
         margin: 0;
       }
+
+      #root > [data-lf-raw-boot],
+      html:not(.luma-route-raw) #root > [data-lf-raw-boot] {
+        display: none;
+      }
+
+      html.luma-route-raw #root > [data-lf-raw-boot] {
+        box-sizing: border-box;
+        display: grid;
+        min-height: 100svh;
+        place-items: center;
+        padding: 2rem;
+        background: oklch(0.16 0.02 76);
+        color: oklch(0.97 0.014 86);
+        text-align: center;
+      }
+
+      [data-lf-raw-boot-panel] {
+        display: grid;
+        max-width: 32rem;
+        gap: 0.75rem;
+        justify-items: center;
+      }
+
+      [data-lf-raw-boot-kicker] {
+        margin: 0;
+        color: oklch(0.78 0.08 78);
+        font:
+          600 0.72rem/1.2 system-ui,
+          sans-serif;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      [data-lf-raw-boot-title] {
+        margin: 0;
+        color: oklch(0.97 0.014 86);
+        font:
+          650 2rem/1.05 system-ui,
+          sans-serif;
+        letter-spacing: 0;
+      }
+
+      [data-lf-raw-boot-copy] {
+        margin: 0;
+        max-width: 24rem;
+        color: oklch(0.84 0.02 86 / 0.76);
+        font:
+          400 0.95rem/1.6 system-ui,
+          sans-serif;
+      }
+
+      @media (min-width: 48rem) {
+        [data-lf-raw-boot-title] {
+          font-size: 2.6rem;
+        }
+      }
     </style>
     <script>
       function setRouteSubstrate() {
-        const rawPath =
-          window.location.pathname.replace(/\/+$/, '') === '/raw'
+        const rawPath = window.location.pathname.replace(/\/+$/, '') === '/raw'
         const root = document.documentElement
         root.dataset.lumaRoute = rawPath ? 'raw' : 'app'
         root.classList.toggle('luma-route-raw', rawPath)
@@ -142,7 +198,19 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <section data-lf-raw-boot aria-labelledby="lf-raw-boot-title">
+        <div data-lf-raw-boot-panel>
+          <p data-lf-raw-boot-kicker>Browser-local RAW Lab</p>
+          <h1 id="lf-raw-boot-title" data-lf-raw-boot-title>
+            Open a single RAW file
+          </h1>
+          <p data-lf-raw-boot-copy>
+            Preview, compare, finish, and export a JPEG locally.
+          </p>
+        </div>
+      </section>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
