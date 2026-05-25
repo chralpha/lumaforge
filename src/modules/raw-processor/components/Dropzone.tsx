@@ -174,7 +174,10 @@ export function Dropzone({
   )
 
   const frameClassName = clsxm(
-    'relative transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+    'relative transition-colors',
+    variant === 'stage'
+      ? 'focus-within:outline-none focus-within:ring-0 focus-visible:outline-none focus-visible:ring-0'
+      : 'focus-within:outline-none focus-within:ring-2 focus-within:ring-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
     clickToOpen ? 'cursor-pointer' : 'cursor-default',
     variant === 'stage'
       ? 'rounded-md border border-[var(--color-stage-hairline)] h-full w-full overflow-hidden bg-[var(--color-stage-background)] bg-[image:linear-gradient(160deg,var(--color-stage-grad-1),var(--color-stage-grad-2))]'

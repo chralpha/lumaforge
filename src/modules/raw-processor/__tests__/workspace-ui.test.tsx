@@ -998,6 +998,23 @@ describe('rawToolSurface', () => {
     expect(onRawDrop).toHaveBeenCalledWith([file])
   })
 
+  it('keeps preview stage focus visually neutral', () => {
+    const { container } = render(
+      <ComparePreviewStage
+        {...compareStageProps({
+          hasImage: true,
+          phase: 'processing',
+        })}
+      />,
+    )
+
+    const stageFrame = container.querySelector('.raw-lab-stage-frame')
+    expect(stageFrame).toHaveClass('focus-within:ring-0')
+    expect(stageFrame).toHaveClass('focus-visible:ring-0')
+    expect(stageFrame).not.toHaveClass('focus-within:ring-accent')
+    expect(stageFrame).not.toHaveClass('focus-visible:ring-accent')
+  })
+
   it('keeps empty preview stage upload button separate from the compare slider', async () => {
     const user = userEvent.setup()
 
