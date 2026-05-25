@@ -119,7 +119,6 @@ export function LUTProfileStatus({
         suggestions={suggestions}
         currentProfile={resolvedProfile}
         onSelect={onSelect}
-        triggerRef={triggerRef}
         browserId={browserId}
       />
     </div>

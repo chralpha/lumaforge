@@ -8,15 +8,7 @@ import {
   Share2,
   Trash2,
 } from 'lucide-react'
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { Chip } from '~/components/ui/chip'
@@ -25,8 +17,6 @@ import { useScrollEdgeFade } from '~/hooks/common'
 import { useI18n } from '~/lib/i18n'
 
 import type { UseOnlineLutSourcesResult } from '../../../hooks/useOnlineLutSources'
-import type { OnlineLutBrowserLayout } from './lut-browser-layout'
-import { getViewportBoundedBrowserLayout } from './lut-browser-layout'
 import { LutBrowserDialog } from './LutBrowserDialog'
 import { LutIconButton } from './LutIconButton'
 
@@ -44,8 +34,6 @@ export function OnlineLutSourceControls({
   const { state } = onlineLutSources
   const [openResourceId, setOpenResourceId] = useState<string | null>(null)
   const [loadingEntryId, setLoadingEntryId] = useState<string | null>(null)
-  const [browserLayout, setBrowserLayout] =
-    useState<OnlineLutBrowserLayout | null>(null)
   const [browserListEl, setBrowserListEl] = useState<HTMLDivElement | null>(
     null,
   )
@@ -97,7 +85,6 @@ export function OnlineLutSourceControls({
   const closeBrowser = useCallback(
     (resourceId = openResourceId, options: { restoreFocus?: boolean } = {}) => {
       setOpenResourceId(null)
-      setBrowserLayout(null)
 
       if (options.restoreFocus && resourceId) {
         queueMicrotask(() => openButtonRefs.current.get(resourceId)?.focus())
@@ -106,21 +93,8 @@ export function OnlineLutSourceControls({
     [openResourceId],
   )
   const openBrowserForResource = useCallback((resourceId: string) => {
-    const trigger = openButtonRefs.current.get(resourceId)
-    if (!trigger) return
-
-    setBrowserLayout(getViewportBoundedBrowserLayout(trigger))
     setOpenResourceId(resourceId)
   }, [])
-  const updateBrowserLayout = useCallback(() => {
-    if (!openResourceId) return
-
-    setBrowserLayout(
-      getViewportBoundedBrowserLayout(
-        openButtonRefs.current.get(openResourceId),
-      ),
-    )
-  }, [openResourceId])
 
   useEffect(() => {
     if (!openResourceId) return
@@ -130,34 +104,6 @@ export function OnlineLutSourceControls({
     }
   }, [closeBrowser, openResourceId, resourcesById])
 
-  useLayoutEffect(() => {
-    updateBrowserLayout()
-  }, [updateBrowserLayout, openEntries.length, openIssues.length])
-
-  useEffect(() => {
-    if (!openResourceId) return
-
-    const handleViewportChange = () => {
-      updateBrowserLayout()
-    }
-    const trigger = openButtonRefs.current.get(openResourceId)
-    const scrollTargets = [trigger?.closest('.raw-tool-surface')].filter(
-      (target): target is Element => target instanceof Element,
-    )
-
-    window.addEventListener('resize', handleViewportChange)
-    for (const target of scrollTargets) {
-      target.addEventListener('scroll', handleViewportChange)
-    }
-
-    return () => {
-      window.removeEventListener('resize', handleViewportChange)
-      for (const target of scrollTargets) {
-        target.removeEventListener('scroll', handleViewportChange)
-      }
-    }
-  }, [openResourceId, updateBrowserLayout])
-
   const formatEntryCount = (count: number) =>
     count === 1
       ? t('raw.lutSource.countOne')
@@ -166,26 +112,17 @@ export function OnlineLutSourceControls({
         : t('raw.lutSource.countZero')
   const openBrowser =
     openResource &&
-    browserLayout &&
     (() => {
       return (
         <LutBrowserDialog
           open={Boolean(openResource)}
-          layout={browserLayout}
           id={browserId}
           kind="source"
           className="grid-rows-[auto_minmax(0,1fr)]"
-          headingClassName=""
           dialogLabel={`${openResource.label} LUTs`}
           title={openResource.label}
           description={formatEntryCount(openEntries.length)}
           closeLabel={t('raw.lutSource.close')}
-          restoreFocus={() =>
-            openButtonRefs.current.get(openResource.id)?.focus()
-          }
-          triggerElement={openButtonRefs.current.get(openResource.id)}
-          passthroughElements={() => openButtonRefs.current.values()}
-          fillHeight={false}
           onOpenChange={(nextOpen) => {
             if (!nextOpen) {
               closeBrowser(openResource.id, { restoreFocus: true })
@@ -194,7 +131,7 @@ export function OnlineLutSourceControls({
         >
           <div
             ref={setBrowserListEl}
-            className="grid min-h-0 content-start gap-1.5 overflow-y-auto overscroll-contain pr-0.5"
+            className="grid min-h-0 content-start gap-2 overflow-y-auto overscroll-contain pr-0.5"
             data-raw-lut="source-browser-list"
             data-lut-source-scroll="internal"
           >
@@ -237,13 +174,13 @@ export function OnlineLutSourceControls({
                   return (
                     <div
                       key={entry.id}
-                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_32px] items-center gap-2 rounded-lf-control border border-lf-hairline bg-lf-paper px-2 py-1.5"
+                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_28px] items-center gap-2 rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)]"
                       data-raw-lut="source-entry"
                       data-raw-lut-entry-loading={
                         isLoading ? 'true' : undefined
                       }
                     >
-                      <span className="min-w-0 truncate text-lf-control font-medium text-lf-ink">
+                      <span className="min-w-0 truncate text-[0.74rem] leading-[1.35] text-lf-ink/75">
                         {entry.title}
                       </span>
                       <LutIconButton
@@ -269,21 +206,21 @@ export function OnlineLutSourceControls({
                 return (
                   <>
                     {Array.from(familyGroups, ([family, entries]) => (
-                      <div key={family} className="grid gap-1.5">
-                        <div className="text-lf-label font-semibold uppercase text-lf-ink-soft">
+                      <div key={family} className="grid gap-1">
+                        <div className="px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
                           {family}
                         </div>
-                        <div className="grid gap-1.5 sm:grid-cols-2">
+                        <div className="grid gap-0.5 sm:grid-cols-2">
                           {entries.map(renderEntry)}
                         </div>
                       </div>
                     ))}
                     {ungrouped.length > 0 && (
-                      <div className="grid gap-1.5">
-                        <div className="text-lf-label font-semibold uppercase text-lf-ink-soft">
+                      <div className="grid gap-1">
+                        <div className="px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
                           {t('raw.lutSource.others')}
                         </div>
-                        <div className="grid gap-1.5 sm:grid-cols-2">
+                        <div className="grid gap-0.5 sm:grid-cols-2">
                           {ungrouped.map(renderEntry)}
                         </div>
                       </div>
@@ -292,7 +229,7 @@ export function OnlineLutSourceControls({
                 )
               })()
             ) : (
-              <p className="text-lf-body leading-relaxed text-lf-ink-soft">
+              <p className="text-[0.78rem] leading-relaxed text-lf-ink/55">
                 {openIssues.length > 0
                   ? t('raw.lutSource.noneCompatible')
                   : t('raw.lutSource.noneYet')}
@@ -326,7 +263,7 @@ export function OnlineLutSourceControls({
               void onlineLutSources.addSourceFromInput()
             }
           }}
-          inputClassName="h-8 rounded-lf-control border-lf-hairline bg-lf-paper text-lf-control text-lf-ink shadow-none placeholder:text-lf-ink-soft/65 focus:border-lf-green focus:ring-lf-green/20"
+          inputClassName="h-8 rounded-md border-transparent bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.04)] text-[0.78rem] text-lf-ink shadow-none placeholder:text-lf-ink/40 focus:border-transparent focus:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] focus:ring-2 focus:ring-lf-green/25"
         />
         <LutIconButton
           label={t('raw.lutSource.add')}
@@ -350,13 +287,13 @@ export function OnlineLutSourceControls({
       </div>
 
       {state.resources.length === 0 && (
-        <p className="m-0 text-lf-label leading-relaxed text-lf-ink-soft">
+        <p className="m-0 text-[0.72rem] leading-relaxed text-lf-ink/55">
           {t('raw.lutSource.emptyHint')}
         </p>
       )}
 
       {state.resources.length > 0 && (
-        <div className="grid min-w-0 gap-2">
+        <div className="grid min-w-0 gap-1.5">
           {state.resources.map((resource) => {
             const isResourceLoading =
               state.isLoading && state.activeResourceId === resource.id
@@ -368,7 +305,7 @@ export function OnlineLutSourceControls({
             return (
               <div
                 key={resource.id}
-                className="grid min-w-0 border-t border-lf-hairline py-2"
+                className="grid min-w-0 gap-1"
                 data-raw-lut="source-resource"
               >
                 <div
@@ -376,19 +313,19 @@ export function OnlineLutSourceControls({
                   data-raw-lut="source-resource-row"
                 >
                   <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                    <span className="min-w-0 truncate text-lf-control font-semibold text-lf-green">
+                    <span className="min-w-0 truncate text-[0.78rem] font-medium text-lf-ink/85">
                       {resource.label}
                     </span>
-                    <span className="shrink-0 rounded-lf-pill border border-lf-hairline bg-lf-paper px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-ink-soft">
+                    <span className="shrink-0 rounded-full bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] px-1.5 py-0.5 text-[0.66rem] font-medium leading-none text-lf-ink/55 tabular-nums">
                       {formatEntryCount(entries.length)}
                     </span>
                     {isResourceLoading && (
-                      <span className="shrink-0 rounded-lf-pill border border-lf-green/30 bg-lf-green/10 px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-green">
+                      <span className="shrink-0 rounded-full bg-[oklch(from_var(--color-lf-green)_l_c_h_/_0.12)] px-1.5 py-0.5 text-[0.66rem] font-medium leading-none text-lf-green-deep">
                         {t('raw.lutSource.loading')}
                       </span>
                     )}
                     {hasIssue && (
-                      <span className="shrink-0 rounded-lf-pill border border-lf-amber/35 bg-lf-amber/12 px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-amber-soft">
+                      <span className="shrink-0 rounded-full bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.14)] px-1.5 py-0.5 text-[0.66rem] font-medium leading-none text-lf-ink/80">
                         {t('raw.lutSource.issue')}
                       </span>
                     )}
