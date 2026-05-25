@@ -190,6 +190,20 @@ describe('rawToolSurface', () => {
       container.querySelector('[data-raw-tool-surface="raw-finishing"]'),
     ).toBeInTheDocument()
   })
+
+  it('keeps the catalog URL input focus ring clear of the LUT card header', () => {
+    const { container } = render(
+      <RawToolSurface
+        {...baseProps}
+        onlineLutSources={onlineLutSourcesFixture()}
+      />,
+    )
+
+    expect(
+      container.querySelector('[data-raw-lut="source-controls"]'),
+    ).toHaveClass('pt-1')
+  })
+
   it('reveals the histogram plot when its card is expanded', async () => {
     const user = userEvent.setup()
     const luma = new Uint32Array(256)
