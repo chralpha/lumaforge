@@ -9,7 +9,7 @@ import type { DisplaySource } from '../model/session'
 import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
 import type { PreviewViewport } from '../services/preview-viewport'
 import { CompareSplitHandle } from './CompareSplitHandle'
-import { Dropzone, RAW_FILE_EXTENSIONS } from './Dropzone'
+import { Dropzone, RAW_FILE_ACCEPT } from './Dropzone'
 import type { OriginalWebglPipelineHandle } from './OriginalWebglLayer'
 import { PreviewCanvas } from './PreviewCanvas'
 import { ProgressOverlay } from './ProgressOverlay'
@@ -219,7 +219,7 @@ export function ComparePreviewStage({
           hasImage ? t('raw.stage.replaceAria') : t('raw.stage.loadAria')
         }
         onFileDrop={onRawDrop}
-        accept={RAW_FILE_EXTENSIONS}
+        accept={RAW_FILE_ACCEPT}
         disabled={isProcessing}
         clickToOpen={false}
         className="raw-lab-stage-frame"

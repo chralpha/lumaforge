@@ -5,7 +5,7 @@ import { useHiddenFilePicker } from './useHiddenFilePicker'
 
 function Harness({ onFile }: { onFile: (f: File) => void }) {
   const picker = useHiddenFilePicker({
-    accept: '.cr2,.cr3,.arw',
+    accept: 'image/*,.cr2,.cr3,.arw',
     onFile,
   })
   return (
@@ -23,7 +23,7 @@ describe('useHiddenFilePicker', () => {
     const { getByTestId } = render(<Harness onFile={() => {}} />)
     const input = getByTestId('hidden-input') as HTMLInputElement
     expect(input.type).toBe('file')
-    expect(input.accept).toBe('.cr2,.cr3,.arw')
+    expect(input.accept).toBe('image/*,.cr2,.cr3,.arw')
     expect(input.getAttribute('aria-hidden')).toBe('true')
     expect(input.tabIndex).toBe(-1)
     expect(input.className).toBe('sr-only')

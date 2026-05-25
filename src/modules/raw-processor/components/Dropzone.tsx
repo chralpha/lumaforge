@@ -27,6 +27,8 @@ export const RAW_FILE_EXTENSIONS = [
   '.raw',
 ]
 
+export const RAW_FILE_ACCEPT = ['image/*', ...RAW_FILE_EXTENSIONS]
+
 export interface DropzoneProps {
   onFileDrop: (files: File[]) => void
   accept?: string[]
@@ -278,7 +280,7 @@ export function FileDropzone({
   return (
     <Dropzone
       onFileDrop={onFileDrop}
-      accept={RAW_FILE_EXTENSIONS}
+      accept={RAW_FILE_ACCEPT}
       disabled={disabled}
       className="min-h-[300px] flex flex-col items-center justify-center p-8"
     >

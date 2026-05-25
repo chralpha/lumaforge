@@ -17,6 +17,7 @@ import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 import {
   ComparePreviewStage,
   ErrorOverlay,
+  RAW_FILE_ACCEPT,
   RawToolSurface,
   UnsupportedState,
   WorkspaceHeader,
@@ -205,16 +206,14 @@ function RawProcessorViewInner({
   )
 
   const replacePicker = useHiddenFilePicker({
-    accept:
-      '.cr2,.cr3,.nef,.arw,.raf,.rw2,.orf,.dng,.pef,.srw,.3fr,.fff,.iiq,.raw',
+    accept: RAW_FILE_ACCEPT.join(','),
     onFile: (file) => {
       void loadFile(file)
     },
   })
 
   const recoveryPicker = useHiddenFilePicker({
-    accept:
-      '.cr2,.cr3,.nef,.arw,.raf,.rw2,.orf,.dng,.pef,.srw,.3fr,.fff,.iiq,.raw',
+    accept: RAW_FILE_ACCEPT.join(','),
     onFile: (file) => {
       void recoverInterruptedExport(file)
     },

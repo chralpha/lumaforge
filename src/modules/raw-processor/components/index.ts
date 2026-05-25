@@ -1,7 +1,12 @@
 export * from './ComparePreviewStage'
 export * from './CompareSplitHandle'
 export { ControlsPanel } from './ControlsPanel'
-export { Dropzone, FileDropzone, LutDropzone } from './Dropzone'
+export {
+  Dropzone,
+  FileDropzone,
+  LutDropzone,
+  RAW_FILE_ACCEPT,
+} from './Dropzone'
 export { ExportCanvas } from './ExportCanvas'
 export { IntensityChips } from './IntensityChips'
 export { MetadataPanel } from './MetadataPanel'

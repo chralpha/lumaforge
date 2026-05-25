@@ -1083,6 +1083,11 @@ describe('rawToolSurface', () => {
       stageFrame?.querySelector<HTMLInputElement>('input[type="file"]')
     expect(fileInput).toBeTruthy()
     expect(fileInput).toHaveAttribute('aria-hidden', 'true')
+    expect(fileInput).toHaveAttribute(
+      'accept',
+      expect.stringContaining('image/*'),
+    )
+    expect(fileInput).toHaveAttribute('accept', expect.stringContaining('.dng'))
     const inputClick = vi
       .spyOn(fileInput!, 'click')
       .mockImplementation(() => {})
