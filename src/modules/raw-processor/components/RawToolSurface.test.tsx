@@ -204,6 +204,34 @@ describe('rawToolSurface', () => {
     ).toHaveClass('pt-1')
   })
 
+  it('matches the empty LUT copy scale to the catalog source hint', () => {
+    const fixture = onlineLutSourcesFixture()
+    fixture.state = {
+      ...fixture.state,
+      resources: [],
+      entries: [],
+      issues: [],
+      activeResourceId: null,
+    }
+
+    render(<RawToolSurface {...baseProps} onlineLutSources={fixture} />)
+
+    const catalogHint = screen.getByText(
+      'Paste a catalog.json or lumaforge-profiles.json URL to load shared LUTs.',
+    )
+    const lutHint = screen.getByText(
+      'Add a .cube LUT now, it stays staged until a RAW file is loaded.',
+    )
+
+    expect(lutHint).toHaveClass(
+      'm-0',
+      'text-[0.72rem]',
+      'leading-relaxed',
+      'text-lf-ink/55',
+    )
+    expect(lutHint.className).toBe(catalogHint.className)
+  })
+
   it('reveals the histogram plot when its card is expanded', async () => {
     const user = userEvent.setup()
     const luma = new Uint32Array(256)
