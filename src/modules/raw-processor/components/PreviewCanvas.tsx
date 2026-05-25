@@ -758,7 +758,7 @@ export function PreviewCanvas({
       ref={setFrameElement}
       data-raw-preview-frame
       className={clsxm(
-        'relative w-full h-full flex items-center justify-center bg-black/20',
+        'relative w-full h-full flex items-center justify-center bg-[var(--color-preview-mat)]',
         canInteractWithPreview &&
           (isPointerPanning
             ? 'raw-preview-frame-panning'

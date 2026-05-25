@@ -24,6 +24,9 @@
   --color-stage-grad-2: oklch(0.16 0.02 76);
   --color-stage-scrim: oklch(0.16 0.018 76 / 0.82);
   --color-stage-panel: oklch(0.16 0.018 76 / 0.78);
+  --color-preview-mat: oklch(0.9 0.024 86);
+  --color-preview-mat-edge: oklch(0.82 0.026 82);
+  --color-preview-border: oklch(from var(--color-lf-ink) l c h / 0.1);
   --color-progress-wash: oklch(0.12 0.018 76 / 0.38);
   --color-progress-wash-edge: oklch(0.1 0.018 76 / 0.5);
   --color-progress-panel: oklch(0.15 0.018 76 / 0.64);

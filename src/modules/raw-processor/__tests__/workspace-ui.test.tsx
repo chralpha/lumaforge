@@ -1015,6 +1015,21 @@ describe('rawToolSurface', () => {
     expect(stageFrame).not.toHaveClass('focus-visible:ring-accent')
   })
 
+  it('uses a neutral preview mat instead of a black preview background', () => {
+    const { container } = render(
+      <ComparePreviewStage
+        {...compareStageProps({
+          hasImage: true,
+          phase: 'processing',
+        })}
+      />,
+    )
+
+    const previewFrame = container.querySelector('[data-raw-preview-frame]')
+    expect(previewFrame).toHaveClass('bg-[var(--color-preview-mat)]')
+    expect(previewFrame).not.toHaveClass('bg-black/20')
+  })
+
   it('keeps empty preview stage upload button separate from the compare slider', async () => {
     const user = userEvent.setup()
 
