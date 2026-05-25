@@ -229,7 +229,7 @@ describe('rawProcessorView', () => {
     render(<RawProcessorView />)
 
     expect(screen.getByRole('banner')).toBeInTheDocument()
-    expect(screen.getByText('RAW Lab')).toBeInTheDocument()
+    expect(screen.getByText('LumaForge RAW Lab')).toBeInTheDocument()
     expect(screen.getByText('Drop one RAW here')).toBeInTheDocument()
     expect(screen.getByText('Unprocessed RAW')).toBeInTheDocument()
     expect(screen.getByText('Final JPEG')).toBeInTheDocument()

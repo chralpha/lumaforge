@@ -341,7 +341,7 @@ describe('rawProcessorView', () => {
       await Promise.resolve()
     })
 
-    expect(screen.getByText('RAW Lab')).toBeInTheDocument()
+    expect(screen.getByText('LumaForge RAW Lab')).toBeInTheDocument()
     expect(
       screen.getByText('拖入一张 RAW，在本机预览、对比、定稿并导出。'),
     ).toBeInTheDocument()

@@ -56,7 +56,7 @@
   "landing.final.title": "Open the RAW lab. Finish the photo.",
   "landing.final.copy": "The workflow is browser-local, export-aware, and deliberately hard to misconfigure.",
   "landing.final.cta": "Try LumaForge",
-  "raw.header.title": "RAW Lab",
+  "raw.header.title": "LumaForge RAW Lab",
   "raw.header.subtitleLoaded": "Browser-local RAW finishing workspace",
   "raw.header.subtitleEmpty": "Drop one RAW to preview, compare, finish, and export locally.",
   "raw.header.unavailablePrefix": "Full-res JPEG unavailable: {{reason}}",
