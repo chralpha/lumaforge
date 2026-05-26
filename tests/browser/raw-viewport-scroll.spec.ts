@@ -119,9 +119,15 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
       '[data-raw-lab-shell="viewport"]',
     )
     const toolStack = document.querySelector<HTMLElement>('.raw-tool-stack')
-    const mobileRail = document.querySelector<HTMLElement>(
-      '.raw-mobile-tool-rail',
-    )
+    const mobileRail =
+      document.querySelector<HTMLElement>('[data-mobile-dock]') ??
+      document.querySelector<HTMLElement>(
+        '[data-mobile-lab-chrome] [role="tablist"]',
+      ) ??
+      document.querySelector<HTMLElement>('.raw-mobile-tool-rail')
+    const mobileRailTablist = mobileRail?.matches('[role="tablist"]')
+      ? mobileRail
+      : mobileRail?.querySelector<HTMLElement>('[role="tablist"]')
     const mobileSheet = document.querySelector<HTMLElement>(
       '.raw-mobile-tool-sheet',
     )
@@ -143,6 +149,9 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
       mobileRailVisible: mobileRail
         ? getComputedStyle(mobileRail).display !== 'none'
         : false,
+      mobileRailBottomGap: mobileRailTablist
+        ? window.innerHeight - mobileRailTablist.getBoundingClientRect().bottom
+        : null,
       mobileSheetClosed: mobileSheet
         ? mobileSheet.hidden || getComputedStyle(mobileSheet).display === 'none'
         : true,
@@ -156,6 +165,8 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
 
   if (metrics.isMobile) {
     expect(metrics.mobileRailVisible).toBe(true)
+    expect(metrics.mobileRailBottomGap).not.toBeNull()
+    expect(metrics.mobileRailBottomGap).toBeLessThanOrEqual(10)
     expect(metrics.mobileSheetClosed).toBe(true)
   } else if (metrics.toolStackOverflowY === 'auto') {
     expect(metrics.toolStackScrollOverflow).toBeGreaterThan(0)

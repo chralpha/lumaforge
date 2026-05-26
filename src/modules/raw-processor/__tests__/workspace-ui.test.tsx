@@ -20,7 +20,6 @@ const mockRawRuntimeAdapter = vi.hoisted(() => ({
 }))
 
 vi.mock('../hooks', () => ({
-  useIosSafariToolbarNudge: () => {},
   useRawProcessor: mockUseRawProcessor,
 }))
 

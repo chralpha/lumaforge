@@ -30,6 +30,30 @@ describe('mobileModeDock', () => {
     expect(onOpenMore).not.toHaveBeenCalled()
   })
 
+  it('keeps the bottom dock close to the visible mobile viewport edge', () => {
+    render(
+      <MobileModeDock
+        mode="export"
+        expanded
+        onModeChange={vi.fn()}
+        onCollapse={vi.fn()}
+        onOpenMore={vi.fn()}
+        canExport
+        panel={<div>export-panel</div>}
+      />,
+    )
+
+    const tablist = screen.getByRole('tablist', { name: /lab modes/i })
+    const dock = tablist.parentElement
+
+    expect(dock).toHaveClass(
+      'pb-[max(8px,calc(env(safe-area-inset-bottom)-24px))]',
+    )
+    expect(dock).not.toHaveClass('pb-safe-offset-3')
+    expect(tablist).toHaveClass('pb-2')
+    expect(tablist).not.toHaveClass('pb-3')
+  })
+
   it('hides the panel when collapsed and toggles on tab tap', async () => {
     const onModeChange = vi.fn()
     const onCollapse = vi.fn()

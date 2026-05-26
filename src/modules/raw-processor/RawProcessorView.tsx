@@ -27,7 +27,7 @@ import {
   WorkspaceHeader,
 } from './components'
 import type { RawRuntimeReadinessState } from './components/raw-runtime-readiness'
-import { useIosSafariToolbarNudge, useRawProcessor } from './hooks'
+import { useRawProcessor } from './hooks'
 import { useCapabilityGate } from './hooks/useCapabilityGate'
 import { useHiddenFilePicker } from './hooks/useHiddenFilePicker'
 import { useOnlineLutSources } from './hooks/useOnlineLutSources'
@@ -85,8 +85,6 @@ function RawProcessorViewInner({
   rawRouteLocation,
 }: RawProcessorViewInnerProps) {
   const { t } = useI18n()
-  useIosSafariToolbarNudge()
-
   const {
     params,
     loadedImage,
