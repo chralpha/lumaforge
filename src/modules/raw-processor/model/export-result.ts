@@ -2,6 +2,7 @@ import type { ExportOutputResult } from '~/lib/export/output-sink'
 
 export type ExportCopyCapability =
   | { mode: 'full-resolution'; label: 'Copy full-resolution image' }
+  | { mode: 'hq-preview'; label: 'Copy HQ preview image' }
   | {
       mode: 'preview-size'
       label: 'Copy preview-size image'
@@ -9,11 +10,14 @@ export type ExportCopyCapability =
     }
   | { mode: 'unavailable'; reason: string }
 
+export type ExportResultKind = 'full-resolution' | 'hq-preview'
+
 export type ExportShareCapability =
   | { available: true }
   | { available: false; reason: string }
 
 export type ExportResult = {
+  kind?: ExportResultKind
   output: ExportOutputResult
   filename: string
   width: number
@@ -25,6 +29,7 @@ export type ExportResult = {
 
 export function createExportResult({
   output,
+  kind = 'full-resolution',
   filename = output.filename,
   width,
   height,
@@ -32,6 +37,7 @@ export function createExportResult({
   copyCapability,
 }: {
   output: ExportOutputResult
+  kind?: ExportResultKind
   filename?: string
   width: number
   height: number
@@ -41,6 +47,7 @@ export function createExportResult({
   const createdAt = now()
 
   return {
+    kind,
     output,
     filename,
     width,

@@ -23,8 +23,11 @@ function formatBytes(bytes: number) {
 export function ExportTool({
   canExport,
   disabledReason,
+  canPreviewExport = false,
+  previewExportDisabledReason,
   isProcessing,
   onExport,
+  onPreviewExport,
   exportResult,
   exportShareCapability,
   onShareExport,
@@ -37,11 +40,14 @@ export function ExportTool({
 }: {
   canExport: boolean
   disabledReason?: string
+  canPreviewExport?: boolean
+  previewExportDisabledReason?: string
   isProcessing: boolean
   onExport: (options: {
     quality: 'standard' | 'high'
     fidelity: 'safe' | 'balanced' | 'max'
   }) => void
+  onPreviewExport?: () => void | Promise<void>
   exportResult: ExportResult | null
   exportShareCapability: ExportShareCapability
   onShareExport: () => void | Promise<void>
@@ -64,13 +70,18 @@ export function ExportTool({
     currentActivePlan?.runtimeMemoryProfile === 'low-memory'
   const unavailableReason =
     localizeRawReason(disabledReason, t) || t('raw.exportSourceLoading')
+  const previewUnavailableReason =
+    localizeRawReason(previewExportDisabledReason, t) ||
+    t('raw.export.previewSourceLoading')
   const shareUnavailableReason =
     exportShareCapability.available === false
       ? localizeRawReason(exportShareCapability.reason, t)
       : undefined
   const copyCapability = exportResult?.copyCapability
   const copyUnavailableReason =
-    copyCapability && copyCapability.mode !== 'full-resolution'
+    copyCapability &&
+    copyCapability.mode !== 'full-resolution' &&
+    copyCapability.mode !== 'hq-preview'
       ? localizeRawReason(copyCapability.reason, t)
       : undefined
   const copyButtonLabel = copyCapability
@@ -78,6 +89,11 @@ export function ExportTool({
       ? t('raw.export.copy')
       : localizeCopyLabel(copyCapability.label, t)
     : t('raw.export.copy')
+  const resultKind = exportResult?.kind ?? 'full-resolution'
+  const readyLabel =
+    resultKind === 'hq-preview'
+      ? t('raw.export.previewReady')
+      : t('raw.export.ready')
 
   const innerContent = (
     <div className="grid min-w-0 gap-3">
@@ -85,7 +101,7 @@ export function ExportTool({
         <div className="grid min-w-0 gap-3">
           <div className="grid min-w-0 gap-0.5">
             <span className="text-[0.72rem] tracking-tight text-lf-ink/55">
-              {t('raw.export.ready')}
+              {readyLabel}
             </span>
             <strong
               className="min-w-0 truncate text-[0.82rem] font-semibold text-lf-ink"
@@ -157,8 +173,11 @@ export function ExportTool({
           {!exportShareCapability.available && (
             <p className={noteClassName}>{shareUnavailableReason}</p>
           )}
-          {exportResult.copyCapability.mode !== 'full-resolution' && (
+          {copyUnavailableReason && (
             <p className={noteClassName}>{copyUnavailableReason}</p>
+          )}
+          {resultKind === 'hq-preview' && (
+            <p className={noteClassName}>{t('raw.export.previewResultNote')}</p>
           )}
         </div>
       ) : (
@@ -201,6 +220,29 @@ export function ExportTool({
             title={canExport ? t('raw.export.sourcePath') : unavailableReason}
           >
             {canExport ? t('raw.export.sourcePath') : unavailableReason}
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={!canPreviewExport || isProcessing || !onPreviewExport}
+            onClick={() => onPreviewExport?.()}
+            className="w-full [&_svg]:size-3.5"
+          >
+            <Download aria-hidden="true" />
+            {t('raw.export.runPreview')}
+          </Button>
+          <p
+            className={`${noteClassName} line-clamp-2 min-h-[2.6em]`}
+            title={
+              canPreviewExport
+                ? t('raw.export.previewSourcePath')
+                : previewUnavailableReason
+            }
+          >
+            {canPreviewExport
+              ? t('raw.export.previewSourcePath')
+              : previewUnavailableReason}
           </p>
         </>
       )}

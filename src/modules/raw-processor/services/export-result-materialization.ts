@@ -3,7 +3,10 @@ import { preserveJpegMetadata } from '~/lib/export/jpeg-metadata'
 import type { ExportOutputResult } from '~/lib/export/output-sink'
 import { createBlobOutputResult } from '~/lib/export/output-sink'
 
-import type { ExportCopyCapability } from '../model/export-result'
+import type {
+  ExportCopyCapability,
+  ExportResultKind,
+} from '../model/export-result'
 import { createExportResult } from '../model/export-result'
 
 export type CompletedExportJobResult = {
@@ -38,6 +41,7 @@ function withLazyJpegMetadata(input: {
 
 export function createCompletedExportResult({
   jobResult,
+  kind,
   metadata,
   width,
   height,
@@ -45,6 +49,7 @@ export function createCompletedExportResult({
   now,
 }: {
   jobResult: CompletedExportJobResult
+  kind?: ExportResultKind
   metadata: unknown
   width: number
   height: number
@@ -71,6 +76,7 @@ export function createCompletedExportResult({
       width,
       height,
     }),
+    kind,
     filename: jobResult.filename,
     width,
     height,

@@ -8,6 +8,12 @@ import { createBlobOutputResult } from '~/lib/export/output-sink'
 import type { ExportResult } from '../../model/export-result'
 import { ExportTool } from './ExportTool'
 
+type ExportToolProps = Parameters<typeof ExportTool>[0] & {
+  canPreviewExport?: boolean
+  previewExportDisabledReason?: string
+  onPreviewExport?: () => void | Promise<void>
+}
+
 function createResult(overrides: Partial<ExportResult> = {}): ExportResult {
   const blob = new Blob(['jpeg'], { type: 'image/jpeg' })
 
@@ -91,6 +97,87 @@ describe('exportTool', () => {
       screen.getByRole('button', { name: /export full-resolution jpeg/i }),
     ).toBeEnabled()
     expect(screen.queryByRole('region', { name: 'Export' })).toBeNull()
+  })
+
+  it('keeps full-resolution primary and exposes HQ preview export as a secondary fallback', async () => {
+    const user = userEvent.setup()
+    const onExport = vi.fn()
+    const onPreviewExport = vi.fn()
+
+    const props: ExportToolProps = {
+      canExport: false,
+      disabledReason:
+        'This browser cannot safely complete this large local full-resolution export without durable file storage.',
+      canPreviewExport: true,
+      isProcessing: false,
+      onExport,
+      onPreviewExport,
+      exportResult: null,
+      exportShareCapability: { available: false, reason: 'Export first.' },
+      onShareExport: vi.fn(),
+      onDownloadExport: vi.fn(),
+      onCopyExport: vi.fn(),
+    }
+
+    render(<ExportTool {...props} />)
+
+    expect(
+      screen.getByRole('button', {
+        name: /export full-resolution jpeg/i,
+      }),
+    ).toBeDisabled()
+    expect(
+      screen.getByText(/large local full-resolution export/i),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/smaller 8-12mp preview-rendered jpeg/i),
+    ).toBeInTheDocument()
+
+    await user.click(
+      screen.getByRole('button', {
+        name: /export hq preview jpeg/i,
+      }),
+    )
+
+    expect(onPreviewExport).toHaveBeenCalledTimes(1)
+    expect(onExport).not.toHaveBeenCalled()
+  })
+
+  it('labels a completed HQ preview JPEG result without implying full-resolution output', () => {
+    render(
+      <ExportTool
+        canExport
+        isProcessing={false}
+        onExport={vi.fn()}
+        exportResult={createResult({
+          kind: 'hq-preview',
+          filename: 'frame_neutral_hq-preview.jpg',
+          width: 4000,
+          height: 3000,
+          copyCapability: {
+            mode: 'hq-preview',
+            label: 'Copy HQ preview image',
+          },
+        })}
+        exportShareCapability={{ available: true }}
+        onShareExport={vi.fn()}
+        onDownloadExport={vi.fn()}
+        onCopyExport={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('HQ preview JPEG ready')).toBeInTheDocument()
+    expect(screen.getByText('frame_neutral_hq-preview.jpg')).toBeInTheDocument()
+    expect(screen.getByText('4000 x 3000')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Use full-resolution export for archival output/i),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Copy HQ preview image' }),
+    ).toBeEnabled()
+    expect(
+      screen.queryByRole('button', { name: 'Copy full-resolution image' }),
+    ).toBeNull()
   })
 
   it('renders ready result actions without reusing the export button as download', async () => {

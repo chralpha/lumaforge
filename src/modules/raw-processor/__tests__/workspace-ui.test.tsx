@@ -147,6 +147,9 @@ function rawProcessorViewState(
     hasImage: false,
     canExport: false,
     exportDisabledReason: 'Full-resolution export source is still loading.',
+    canPreviewExport: false,
+    previewExportDisabledReason:
+      'HQ preview export is available after the bounded HQ preview finishes.',
     exportResult: null,
     exportShareCapability: {
       available: false,
@@ -181,6 +184,7 @@ function rawProcessorViewState(
     setToneParams: vi.fn(),
     resetTone: vi.fn(),
     exportImage: vi.fn(),
+    exportPreviewImage: vi.fn(),
     recoverInterruptedExport: vi.fn(),
     downloadExportResult: vi.fn(),
     shareExportResult: vi.fn(),

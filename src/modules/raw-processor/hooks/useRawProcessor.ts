@@ -80,14 +80,23 @@ import {
   copyCanvasToClipboard,
   copyExportResultToClipboard,
   downloadExportResult as downloadStoredExportResult,
+  resolveExportCopyCapability,
   resolveExportShareButtonCapability,
   shareExportResult as shareStoredExportResult,
 } from '../services/export-result-actions'
+import { createCompletedExportResult } from '../services/export-result-materialization'
 import {
   changesRenderGraphParams,
+  clearExportResultForActiveExport,
   clearExportResultState,
   hasSameRawRenderExposure,
 } from '../services/export-state'
+import {
+  buildPreviewExportFilename,
+  HQ_PREVIEW_EXPORT_QUALITY,
+  resolveHqPreviewExportSize,
+  runPreviewExportJob,
+} from '../services/export-system'
 import type { LutLoadContext } from '../services/lut/orchestrate-lut-load'
 import {
   orchestrateLutLoadFromFile,
@@ -155,6 +164,23 @@ function allowDualWebglCompare(
   return capability.webKitClass === 'chromium' && capability.pthread
 }
 
+function resolveHqPreviewExportCopyCapability() {
+  const capability = resolveExportCopyCapability()
+  if (capability.mode === 'full-resolution') {
+    return {
+      mode: 'hq-preview' as const,
+      label: 'Copy HQ preview image' as const,
+    }
+  }
+
+  if (capability.mode === 'unavailable') return capability
+
+  return {
+    mode: 'unavailable' as const,
+    reason: 'This browser cannot copy HQ preview JPEG files.',
+  }
+}
+
 export interface UseRawProcessorReturn {
   // State
   params: ProcessingParams
@@ -172,6 +198,8 @@ export interface UseRawProcessorReturn {
   hasImage: boolean
   canExport: boolean
   exportDisabledReason?: string
+  canPreviewExport: boolean
+  previewExportDisabledReason?: string
   exportResult: ExportResult | null
   exportShareCapability: ExportShareCapability
   exportRecovery: ExportRecoveryState
@@ -229,6 +257,7 @@ export interface UseRawProcessorReturn {
     recoveredExportId?: string
     recoveredManifest?: ExportCheckpointManifest
   }) => Promise<void>
+  exportPreviewImage: () => Promise<void>
   recoverInterruptedExport: (file: File) => Promise<void>
   downloadExportResult: () => Promise<void>
   shareExportResult: () => Promise<void>
@@ -1423,6 +1452,16 @@ export function useRawProcessor(): UseRawProcessorReturn {
         return
       }
 
+      if (result.copyCapability.mode === 'hq-preview') {
+        await copyExportResultToClipboard(
+          result,
+          globalThis,
+          createMaterializationDiagnostics('copy'),
+        )
+        scheduleToast(() => toast.success('HQ preview image copied'))
+        return
+      }
+
       if (result.copyCapability.mode === 'preview-size') {
         const previewCopyCanvas = previewCopyCanvasRef.current
         if (previewCopyCanvas) {
@@ -1530,6 +1569,173 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const previewSuspended =
     exportPlanSuspendsPreview &&
     (status === 'exporting' || previewEvacuatedForReadyExport)
+  const hqPreviewImage = decodedImageRef.current
+  const canPreviewExport =
+    status === 'ready' &&
+    !previewSuspended &&
+    displaySource === 'bounded-hq' &&
+    hqPreviewImage?.source === 'bounded-hq' &&
+    Boolean(stats?.inputSize)
+  const previewExportDisabledReason = !hasImage
+    ? 'Load a RAW file before exporting an HQ preview JPEG.'
+    : previewSuspended
+      ? 'Restore the preview before exporting an HQ preview JPEG.'
+      : displaySource !== 'bounded-hq' ||
+          hqPreviewImage?.source !== 'bounded-hq'
+        ? 'HQ preview export is available after the bounded HQ preview finishes.'
+        : !stats?.inputSize
+          ? 'HQ preview export is not ready.'
+          : undefined
+  const exportPreviewImage = useCallback(async () => {
+    const activeSession = sessionRef.current
+    const sourceFile = loadedImage.file
+    const image = decodedImageRef.current
+    const pipeline = pipelineRef.current
+
+    if (
+      !activeSession ||
+      !sourceFile ||
+      !image ||
+      image.source !== 'bounded-hq' ||
+      !pipeline ||
+      previewSuspended
+    ) {
+      scheduleToast(() =>
+        toast.error('HQ preview export is not ready', {
+          description:
+            previewExportDisabledReason ??
+            'HQ preview export is available after the bounded HQ preview finishes.',
+        }),
+      )
+      return
+    }
+
+    const exportSessionId = activeSession.id
+    const exportGraphVersion = exportGraphVersionRef.current
+    abortExportWork()
+    const exportAbortController = new AbortController()
+    exportAbortControllerRef.current = exportAbortController
+    previewCopyCanvasRef.current = null
+    queueExportResultResourceDisposal()
+    setStatus('exporting')
+    setProgress(0)
+    setSession((prev) =>
+      prev && prev.id === exportSessionId
+        ? (() => {
+            const cleared = clearExportResultForActiveExport(prev)
+            return {
+              ...cleared,
+              exportState: {
+                ...cleared.exportState,
+                status: 'exporting',
+              },
+            }
+          })()
+        : prev,
+    )
+
+    const isCurrentExport = () =>
+      isMountedRef.current &&
+      !exportAbortController.signal.aborted &&
+      exportGraphVersionRef.current === exportGraphVersion &&
+      sessionRef.current?.id === exportSessionId
+
+    try {
+      const outputSize = resolveHqPreviewExportSize({
+        width: image.width,
+        height: image.height,
+      })
+      const filename = buildPreviewExportFilename(
+        activeSession.sourceFile.name,
+        activeSession.activeStyle?.name ?? 'neutral',
+      )
+      const result = await runPreviewExportJob({
+        filename,
+        quality: HQ_PREVIEW_EXPORT_QUALITY,
+        renderToCanvas: async () => {
+          if (exportAbortController.signal.aborted) {
+            throw new Error('HQ_PREVIEW_EXPORT_ABORTED')
+          }
+
+          return await pipeline.renderToHiddenCanvas(outputSize)
+        },
+      })
+
+      if (!isCurrentExport()) return
+
+      const exportResult = createCompletedExportResult({
+        jobResult: result,
+        kind: 'hq-preview',
+        metadata: loadedImage.metadata,
+        width: outputSize.width,
+        height: outputSize.height,
+        copyCapability: resolveHqPreviewExportCopyCapability(),
+      })
+      registerExportResultResource(exportResult)
+
+      setSession((prev) =>
+        prev && prev.id === exportSessionId
+          ? {
+              ...prev,
+              exportState: {
+                ...prev.exportState,
+                status: 'ready',
+                result: exportResult,
+                retryRecommended: false,
+                lastSuccessfulSize: outputSize,
+              },
+            }
+          : prev,
+      )
+      setProgress(100)
+      setStatus('ready')
+      scheduleToast(() => toast.success('HQ preview JPEG ready'))
+    } catch (err) {
+      if (
+        exportAbortController.signal.aborted ||
+        !isMountedRef.current ||
+        sessionRef.current?.id !== exportSessionId
+      ) {
+        return
+      }
+
+      const description =
+        err instanceof Error ? err.message : 'HQ preview export failed.'
+      setSession((prev) =>
+        prev && prev.id === exportSessionId
+          ? {
+              ...prev,
+              exportState: {
+                ...prev.exportState,
+                status: 'idle',
+                result: undefined,
+              },
+            }
+          : prev,
+      )
+      setStatus('ready')
+      setProgress(0)
+      scheduleToast(() =>
+        toast.error('HQ preview export failed', { description }),
+      )
+    } finally {
+      if (exportAbortControllerRef.current === exportAbortController) {
+        exportAbortControllerRef.current = null
+      }
+    }
+  }, [
+    abortExportWork,
+    loadedImage.file,
+    loadedImage.metadata,
+    previewExportDisabledReason,
+    previewSuspended,
+    queueExportResultResourceDisposal,
+    registerExportResultResource,
+    scheduleToast,
+    setProgress,
+    setSession,
+    setStatus,
+  ])
   const originalReferenceCapability = getOriginalReferenceSnapshotCapability()
   const dualWebglAllowed = allowDualWebglCompare(originalReferenceCapability)
   const supportsCssCompare = supportsLayeredCompareCss()
@@ -1640,6 +1846,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
     hasImage,
     canExport,
     exportDisabledReason,
+    canPreviewExport,
+    previewExportDisabledReason,
     exportResult,
     exportShareCapability,
     exportRecovery,
@@ -1674,6 +1882,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setToneParams,
     resetTone,
     exportImage,
+    exportPreviewImage,
     recoverInterruptedExport,
     downloadExportResult,
     shareExportResult,

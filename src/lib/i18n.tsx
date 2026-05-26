@@ -124,6 +124,10 @@ export function localizeRawReason(reason: string | undefined, t: Translate) {
     return t('raw.export.copyPreviewReason')
   }
 
+  if (reason === enMessages['raw.export.copyHqPreviewReason']) {
+    return t('raw.export.copyHqPreviewReason')
+  }
+
   if (reason === enMessages['raw.export.shareUnsupported']) {
     return t('raw.export.shareUnsupported')
   }
@@ -132,12 +136,31 @@ export function localizeRawReason(reason: string | undefined, t: Translate) {
     return t('raw.export.highPerformance')
   }
 
+  if (reason === enMessages['raw.export.previewSourceLoading']) {
+    return t('raw.export.previewSourceLoading')
+  }
+
+  if (reason === enMessages['raw.export.previewLoadRequired']) {
+    return t('raw.export.previewLoadRequired')
+  }
+
+  if (reason === enMessages['raw.export.previewRestoreRequired']) {
+    return t('raw.export.previewRestoreRequired')
+  }
+
+  if (reason === enMessages['raw.export.previewUnavailable']) {
+    return t('raw.export.previewUnavailable')
+  }
+
   return reason
 }
 
 export function localizeCopyLabel(label: string, t: Translate) {
   if (label === enMessages['raw.export.copyFull'])
     return t('raw.export.copyFull')
+  if (label === enMessages['raw.export.copyHqPreview']) {
+    return t('raw.export.copyHqPreview')
+  }
   if (label === enMessages['raw.export.copyPreview']) {
     return t('raw.export.copyPreview')
   }

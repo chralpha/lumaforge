@@ -53,6 +53,9 @@ export function RawToolSurface(props: {
     quality: 'standard' | 'high'
     fidelity: 'safe' | 'balanced' | 'max'
   }) => void
+  canPreviewExport?: boolean
+  previewExportDisabledReason?: string
+  onPreviewExport?: () => void | Promise<void>
   canExport: boolean
   disabledReason?: string
   isProcessing: boolean
@@ -162,8 +165,11 @@ export function RawToolSurface(props: {
     <ExportTool
       canExport={props.canExport}
       disabledReason={props.disabledReason}
+      canPreviewExport={props.canPreviewExport}
+      previewExportDisabledReason={props.previewExportDisabledReason}
       isProcessing={props.isProcessing}
       onExport={props.onExport}
+      onPreviewExport={props.onPreviewExport}
       exportResult={props.exportResult}
       exportShareCapability={props.exportShareCapability}
       recovery={props.recovery}
@@ -179,8 +185,11 @@ export function RawToolSurface(props: {
     <MobileExportPanel
       canExport={props.canExport}
       disabledReason={props.disabledReason}
+      canPreviewExport={props.canPreviewExport}
+      previewExportDisabledReason={props.previewExportDisabledReason}
       isProcessing={props.isProcessing}
       onExport={props.onExport}
+      onPreviewExport={props.onPreviewExport}
       exportResult={props.exportResult}
       exportShareCapability={props.exportShareCapability}
       recovery={props.recovery}

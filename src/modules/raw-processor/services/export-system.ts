@@ -15,9 +15,52 @@ import type { ExportRuntimeResources } from '~/lib/runtime/export-runtime-resour
 import { snapshotExportRuntimeResources } from '~/lib/runtime/export-runtime-resources'
 import { ExportBridge } from '~/lib/workers/export-bridge'
 
+export const HQ_PREVIEW_EXPORT_MAX_PIXELS = 12_000_000
+export const HQ_PREVIEW_EXPORT_QUALITY = 0.9
+
 export function buildExportFilename(inputName: string, styleName: string) {
   const basename = inputName.replace(/\.[^.]+$/, '')
   return `${basename}_${styleName}_fullres.jpg`
+}
+
+export function buildPreviewExportFilename(
+  inputName: string,
+  styleName: string,
+) {
+  const basename = inputName.replace(/\.[^.]+$/, '')
+  return `${basename}_${styleName}_hq-preview.jpg`
+}
+
+export function resolveHqPreviewExportSize({
+  width,
+  height,
+  maxPixels = HQ_PREVIEW_EXPORT_MAX_PIXELS,
+}: {
+  width: number
+  height: number
+  maxPixels?: number
+}) {
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
+    throw new Error('HQ_PREVIEW_EXPORT_SIZE_INVALID')
+  }
+
+  const normalizedWidth = Math.round(width)
+  const normalizedHeight = Math.round(height)
+  const pixels = normalizedWidth * normalizedHeight
+  if (pixels <= maxPixels) {
+    return { width: normalizedWidth, height: normalizedHeight }
+  }
+
+  const scale = Math.sqrt(maxPixels / pixels)
+  return {
+    width: Math.max(1, Math.floor(normalizedWidth * scale)),
+    height: Math.max(1, Math.floor(normalizedHeight * scale)),
+  }
 }
 
 function isJpegStreamingOutputSinkAvailable() {

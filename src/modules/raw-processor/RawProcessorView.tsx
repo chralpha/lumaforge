@@ -99,6 +99,8 @@ function RawProcessorViewInner({
     hasImage,
     canExport,
     exportDisabledReason,
+    canPreviewExport,
+    previewExportDisabledReason,
     exportResult,
     exportShareCapability,
     exportRecovery,
@@ -131,6 +133,7 @@ function RawProcessorViewInner({
     setParams,
     clearLUT,
     exportImage,
+    exportPreviewImage,
     recoverInterruptedExport,
     downloadExportResult,
     shareExportResult,
@@ -445,8 +448,11 @@ function RawProcessorViewInner({
           onLutProfileSelect={selectLUTProfile}
           onlineLutSources={onlineLutSources}
           onExport={handleExport}
+          onPreviewExport={exportPreviewImage}
           canExport={canExport}
           disabledReason={exportDisabledReason}
+          canPreviewExport={canPreviewExport}
+          previewExportDisabledReason={previewExportDisabledReason}
           isProcessing={isProcessing}
           isExporting={status === 'exporting'}
           runtimeReadinessState={runtimeReadinessState}

@@ -7,7 +7,10 @@ import { resetCapabilityVectorForTest } from '~/lib/runtime/capability-vector'
 
 import {
   buildExportFilename,
+  buildPreviewExportFilename,
+  HQ_PREVIEW_EXPORT_MAX_PIXELS,
   recommendRetryLevel,
+  resolveHqPreviewExportSize,
   runFullResolutionExportJob,
   selectCurrentExportExecutionPlan,
 } from '../services/export-system'
@@ -29,6 +32,37 @@ describe('export-system', () => {
     expect(buildExportFilename('frame.ARW', 'custom')).toBe(
       'frame_custom_fullres.jpg',
     )
+  })
+
+  it('generates distinct HQ preview filenames', () => {
+    expect(buildPreviewExportFilename('frame.ARW', 'Neutral')).toBe(
+      'frame_Neutral_hq-preview.jpg',
+    )
+  })
+
+  it('caps HQ preview export size at 12MP while preserving aspect ratio', () => {
+    const size = resolveHqPreviewExportSize({
+      width: 6000,
+      height: 4000,
+    })
+
+    expect(size.width * size.height).toBeLessThanOrEqual(
+      HQ_PREVIEW_EXPORT_MAX_PIXELS,
+    )
+    expect(size.width * size.height).toBeGreaterThanOrEqual(11_900_000)
+    expect(size.width / size.height).toBeCloseTo(1.5, 2)
+  })
+
+  it('keeps already bounded HQ preview export size unchanged', () => {
+    expect(
+      resolveHqPreviewExportSize({
+        width: 3840,
+        height: 2160,
+      }),
+    ).toEqual({
+      width: 3840,
+      height: 2160,
+    })
   })
 
   it('recommends the next lower fidelity level on failure', () => {

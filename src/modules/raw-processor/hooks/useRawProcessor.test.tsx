@@ -52,6 +52,7 @@ const toastMock = vi.hoisted(() => ({
 
 const exportSystemMock = vi.hoisted(() => ({
   runFullResolutionExportJob: vi.fn(),
+  runPreviewExportJob: vi.fn(),
 }))
 
 const checkpointStoreMock = vi.hoisted(() => ({
@@ -91,6 +92,7 @@ vi.mock('../services/export-system', async () => {
   return {
     ...actual,
     runFullResolutionExportJob: exportSystemMock.runFullResolutionExportJob,
+    runPreviewExportJob: exportSystemMock.runPreviewExportJob,
   }
 })
 
@@ -446,6 +448,7 @@ describe('useRawProcessor embedded preview state', () => {
       .mockReset()
       .mockResolvedValue({ status: 'ready' })
     exportSystemMock.runFullResolutionExportJob.mockReset()
+    exportSystemMock.runPreviewExportJob.mockReset()
     checkpointStoreMock.createCheckpointStore.mockReset()
     checkpointStoreMock.createOpfsCheckpointBackend.mockReset()
     checkpointStoreMock.listSafeRetryCandidates.mockReset()
@@ -2209,6 +2212,201 @@ describe('useRawProcessor embedded preview state', () => {
     expect(remove).not.toHaveBeenCalled()
     expect(append).not.toHaveBeenCalled()
     expect(revokeObjectURL).not.toHaveBeenCalled()
+  })
+
+  it('exports an HQ preview JPEG from the bounded preview without using the full-resolution worker', async () => {
+    class FakeClipboardItem {
+      static supports(type: string) {
+        return type === 'image/jpeg'
+      }
+
+      constructor(public readonly items: Record<string, Blob>) {}
+    }
+
+    vi.stubGlobal('navigator', {
+      clipboard: { write: vi.fn() },
+    })
+    vi.stubGlobal('ClipboardItem', FakeClipboardItem)
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq', {
+        width: 6000,
+        height: 4000,
+        metadata: {
+          make: 'Sony',
+          model: 'A7',
+          width: 6000,
+          height: 4000,
+        },
+      }),
+    )
+    exportSystemMock.runPreviewExportJob.mockImplementation(
+      async ({
+        renderToCanvas,
+        filename,
+      }: {
+        renderToCanvas: () => Promise<HTMLCanvasElement>
+        filename: string
+      }) => {
+        await renderToCanvas()
+        return {
+          filename,
+          blob: new Blob(['preview-jpeg'], { type: 'image/jpeg' }),
+        }
+      },
+    )
+    const renderToHiddenCanvas = vi
+      .fn()
+      .mockResolvedValue(document.createElement('canvas'))
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    await waitFor(() => {
+      expect(result.current.displaySource).toBe('bounded-hq')
+    })
+
+    act(() => {
+      result.current.pipelineRef.current = {
+        renderToHiddenCanvas,
+      } as never
+      result.current.updateStats({
+        uploadTime: 1,
+        lutUploadTime: 0,
+        processTime: 2,
+        totalTime: 3,
+        inputSize: { width: 6000, height: 4000 },
+        previewSize: { width: 1200, height: 800 },
+        inputFormat: 'uint16-rgb',
+        transformPath: 'no-lut',
+        lutRole: null,
+        lutInputTransfer: null,
+        lutOutputTransfer: null,
+        lutSize: null,
+        processTargetPrecision: 'rgba16f',
+        capabilityWarnings: [],
+      })
+    })
+
+    const previewExport = result.current as typeof result.current & {
+      canPreviewExport: boolean
+      exportPreviewImage: () => Promise<void>
+    }
+    expect(previewExport.canPreviewExport).toBe(true)
+
+    await act(async () => {
+      await previewExport.exportPreviewImage()
+    })
+    await flushScheduledToasts()
+
+    expect(exportSystemMock.runFullResolutionExportJob).not.toHaveBeenCalled()
+    expect(exportSystemMock.runPreviewExportJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filename: 'frame_neutral_hq-preview.jpg',
+        quality: 0.9,
+      }),
+    )
+    expect(renderToHiddenCanvas).toHaveBeenCalledTimes(1)
+    const previewRenderRequest = renderToHiddenCanvas.mock.calls[0]![0]
+    expect(
+      previewRenderRequest.width * previewRenderRequest.height,
+    ).toBeLessThanOrEqual(12_000_000)
+    expect(
+      previewRenderRequest.width * previewRenderRequest.height,
+    ).toBeGreaterThanOrEqual(11_900_000)
+    expect(
+      previewRenderRequest.width / previewRenderRequest.height,
+    ).toBeCloseTo(1.5, 2)
+    expect(result.current.exportResult).toMatchObject({
+      kind: 'hq-preview',
+      filename: 'frame_neutral_hq-preview.jpg',
+      width: previewRenderRequest.width,
+      height: previewRenderRequest.height,
+      size: 12,
+      copyCapability: {
+        mode: 'hq-preview',
+        label: 'Copy HQ preview image',
+      },
+    })
+    expect(toastMock.success).toHaveBeenCalledWith('HQ preview JPEG ready')
+  })
+
+  it('does not offer preview-size clipboard fallback for HQ preview JPEG results', async () => {
+    class PngOnlyClipboardItem {
+      static supports(type: string) {
+        return type === 'image/png'
+      }
+
+      constructor(public readonly items: Record<string, Blob>) {}
+    }
+
+    vi.stubGlobal('navigator', {
+      clipboard: { write: vi.fn() },
+    })
+    vi.stubGlobal('ClipboardItem', PngOnlyClipboardItem)
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq', {
+        width: 4000,
+        height: 3000,
+      }),
+    )
+    exportSystemMock.runPreviewExportJob.mockImplementation(
+      async ({ filename }: { filename: string }) => ({
+        filename,
+        blob: new Blob(['preview-jpeg'], { type: 'image/jpeg' }),
+      }),
+    )
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    await waitFor(() => {
+      expect(result.current.displaySource).toBe('bounded-hq')
+    })
+
+    act(() => {
+      result.current.pipelineRef.current = {
+        renderToHiddenCanvas: vi
+          .fn()
+          .mockResolvedValue(document.createElement('canvas')),
+      } as never
+      result.current.updateStats({
+        uploadTime: 1,
+        lutUploadTime: 0,
+        processTime: 2,
+        totalTime: 3,
+        inputSize: { width: 4000, height: 3000 },
+        previewSize: { width: 1200, height: 900 },
+        inputFormat: 'uint16-rgb',
+        transformPath: 'no-lut',
+        lutRole: null,
+        lutInputTransfer: null,
+        lutOutputTransfer: null,
+        lutSize: null,
+        processTargetPrecision: 'rgba16f',
+        capabilityWarnings: [],
+      })
+    })
+
+    await act(async () => {
+      await result.current.exportPreviewImage()
+    })
+
+    expect(result.current.exportResult?.copyCapability).toEqual({
+      mode: 'unavailable',
+      reason: 'This browser cannot copy HQ preview JPEG files.',
+    })
   })
 
   it('records derived active plan and checkpoint durability while full-resolution export is running', async () => {

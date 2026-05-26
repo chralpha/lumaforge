@@ -134,6 +134,8 @@ function createLoadedProcessorState(
     hasImage: true,
     canExport: true,
     exportDisabledReason: undefined,
+    canPreviewExport: true,
+    previewExportDisabledReason: undefined,
     exportResult: null,
     exportShareCapability: {
       available: false,
@@ -168,6 +170,7 @@ function createLoadedProcessorState(
     setToneParams: vi.fn(),
     resetTone: vi.fn(),
     exportImage: vi.fn(),
+    exportPreviewImage: vi.fn(),
     recoverInterruptedExport: vi.fn(),
     downloadExportResult: vi.fn(),
     shareExportResult: vi.fn(),
