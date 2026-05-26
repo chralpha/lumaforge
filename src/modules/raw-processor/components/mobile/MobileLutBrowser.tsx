@@ -422,23 +422,47 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         exit: { opacity: 0, y: -8 },
       }
 
+  const renderUploadDropzone = () => (
+    <Dropzone
+      onFileDrop={props.onLutLoad}
+      accept={['.cube']}
+      multiple
+      disabled={props.disabled}
+      aria-label={t('raw.mobile.lut.uploadAria')}
+      className="grid min-h-20 place-items-center border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-4 text-center"
+      interactiveMotion={false}
+    >
+      <div className="grid gap-1">
+        <span className="text-lf-control font-semibold text-lf-hero-ink">
+          {t('raw.mobile.lut.uploadTitle')}
+        </span>
+        <span className="text-xs text-lf-hero-ink/64">
+          {t('raw.mobile.lut.uploadHint')}
+        </span>
+      </div>
+    </Dropzone>
+  )
+
   const renderCurrentSection = () => (
-    <section className="grid gap-2">
+    <section className="grid gap-2" data-raw-mobile-lut="current">
       <h3 className="m-0 text-lf-body font-semibold text-lf-hero-ink">
         {t('raw.mobile.lut.currentHeading')}
       </h3>
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5">
-        <span className="min-w-0 truncate text-[0.82rem] font-semibold text-lf-hero-ink">
-          {props.currentLutName ?? '-'}
-        </span>
-        <button
-          type="button"
-          className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-2.5 text-xs font-semibold text-lf-hero-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={!props.currentLutName || props.disabled}
-          onClick={props.onLutClear}
-        >
-          {t('raw.mobile.lut.clear')}
-        </button>
+      <div className="grid gap-2.5">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5">
+          <span className="min-w-0 truncate text-[0.82rem] font-semibold text-lf-hero-ink">
+            {props.currentLutName ?? '-'}
+          </span>
+          <button
+            type="button"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-2.5 text-xs font-semibold text-lf-hero-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!props.currentLutName || props.disabled}
+            onClick={props.onLutClear}
+          >
+            {t('raw.mobile.lut.clear')}
+          </button>
+        </div>
+        {renderUploadDropzone()}
       </div>
     </section>
   )
@@ -543,32 +567,6 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       </section>
     )
   }
-
-  const renderUploadSection = () => (
-    <section className="grid gap-2.5">
-      <h3 className="m-0 text-lf-body font-semibold text-lf-hero-ink">
-        {t('raw.mobile.lut.uploadHeading')}
-      </h3>
-      <Dropzone
-        onFileDrop={props.onLutLoad}
-        accept={['.cube']}
-        multiple
-        disabled={props.disabled}
-        aria-label={t('raw.mobile.lut.uploadAria')}
-        className="grid min-h-20 place-items-center border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-4 text-center"
-        interactiveMotion={false}
-      >
-        <div className="grid gap-1">
-          <span className="text-lf-control font-semibold text-lf-hero-ink">
-            {t('raw.mobile.lut.uploadTitle')}
-          </span>
-          <span className="text-xs text-lf-hero-ink/64">
-            {t('raw.mobile.lut.uploadHint')}
-          </span>
-        </div>
-      </Dropzone>
-    </section>
-  )
 
   const renderOnlineSourcesSection = () => {
     if (!props.onlineLutSources) return null
@@ -702,7 +700,6 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       {renderCurrentSection()}
       {renderStrengthSection()}
       {renderContractStatusSection()}
-      {renderUploadSection()}
       {renderOnlineSourcesSection()}
     </m.div>
   )

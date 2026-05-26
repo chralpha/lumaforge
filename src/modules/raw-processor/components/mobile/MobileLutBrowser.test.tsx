@@ -121,6 +121,22 @@ describe('mobileLutBrowser', () => {
     expect(onLutClear).toHaveBeenCalled()
   })
 
+  it('keeps local cube upload inside the Current LUT section', () => {
+    render(<MobileLutBrowser {...baseProps} currentLutName={null} />)
+
+    const currentSection = screen
+      .getByRole('heading', { name: 'Current LUT' })
+      .closest('section')
+    expect(currentSection).toHaveAttribute('data-raw-mobile-lut', 'current')
+    expect(
+      within(currentSection!).getByLabelText('Upload .cube LUT'),
+    ).toBeInTheDocument()
+    expect(within(currentSection!).getByText('Choose .cube LUT')).toBeVisible()
+    expect(
+      screen.queryByRole('heading', { name: 'Upload .cube' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('renders strength in overview and disables it when requested', () => {
     render(
       <MobileLutBrowser
