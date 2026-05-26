@@ -388,7 +388,7 @@
   }
 
   html[data-raw-ios-toolbar-nudge] body {
-    min-height: calc(100dvh + 96px);
+    min-height: calc(100dvh + 192px);
   }
 
   html[data-raw-ios-toolbar-nudge] [data-raw-lab-shell="viewport"] {

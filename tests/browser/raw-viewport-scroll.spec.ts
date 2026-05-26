@@ -112,6 +112,14 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
 }) => {
   await page.goto('/raw')
   await expect(page.locator('[data-raw-lab-shell="viewport"]')).toBeVisible()
+  const toolbarNudgeEligible = await page.evaluate(() =>
+    document.documentElement.hasAttribute('data-raw-ios-toolbar-nudge'),
+  )
+  if (toolbarNudgeEligible) {
+    await expect
+      .poll(() => page.evaluate(() => window.scrollY))
+      .toBeGreaterThanOrEqual(96)
+  }
 
   const metrics = await page.evaluate(() => {
     const documentRoot = document.documentElement
@@ -160,11 +168,18 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
   expect(metrics.rawShellTop).toBe(0)
   expect(metrics.rawShellScrollOverflow).toBe(0)
   if (metrics.toolbarNudgeState) {
-    expect(metrics.toolbarNudgeState).toBe('armed')
+    expect(metrics.toolbarNudgeState).toBe('primed')
     expect(metrics.rawShellPosition).toBe('fixed')
-    expect(metrics.documentScrollOverflow).toBeGreaterThanOrEqual(90)
+    expect(metrics.documentScrollOverflow).toBeGreaterThanOrEqual(180)
 
     await page.touchscreen.tap(24, 24)
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          document.documentElement.getAttribute('data-raw-ios-toolbar-nudge'),
+        ),
+      )
+      .toBe('nudged')
 
     const nudgedMetrics = await page.evaluate(() => {
       const rawShell = document.querySelector<HTMLElement>(
@@ -181,8 +196,17 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
     })
 
     expect(nudgedMetrics.toolbarNudgeState).toBe('nudged')
-    expect(nudgedMetrics.scrollY).toBeGreaterThanOrEqual(1)
+    expect(nudgedMetrics.scrollY).toBeGreaterThanOrEqual(96)
     expect(nudgedMetrics.rawShellTop).toBe(0)
+
+    await page.evaluate(() => {
+      window.scrollTo(0, 0)
+      window.dispatchEvent(new Event('scroll'))
+    })
+
+    await expect
+      .poll(() => page.evaluate(() => window.scrollY))
+      .toBeGreaterThanOrEqual(96)
   } else {
     expect(metrics.documentScrollOverflow).toBe(0)
   }

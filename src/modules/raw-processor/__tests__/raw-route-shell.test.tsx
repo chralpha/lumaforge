@@ -26,6 +26,9 @@ const originalNavigatorDescriptors = {
   standalone: Object.getOwnPropertyDescriptor(navigator, 'standalone'),
   userAgent: Object.getOwnPropertyDescriptor(navigator, 'userAgent'),
 }
+const originalWindowDescriptors = {
+  scrollY: Object.getOwnPropertyDescriptor(window, 'scrollY'),
+}
 
 vi.mock('../hooks/useCapabilityGate', () => ({
   useCapabilityGate: vi.fn(),
@@ -101,9 +104,32 @@ function restoreNavigatorProperty(
   Reflect.deleteProperty(navigator, property)
 }
 
+function restoreWindowProperty(
+  property: keyof typeof originalWindowDescriptors,
+) {
+  const descriptor = originalWindowDescriptors[property]
+
+  if (descriptor) {
+    Object.defineProperty(window, property, descriptor)
+    return
+  }
+
+  Reflect.deleteProperty(window, property)
+}
+
 function installIosSafariToolbarNudgeEnvironment() {
+  let scrollY = 0
   const scrollTo = vi.fn()
 
+  scrollTo.mockImplementation((_x, y) => {
+    if (typeof y === 'number') {
+      scrollY = y
+    }
+  })
+  Object.defineProperty(window, 'scrollY', {
+    configurable: true,
+    get: () => scrollY,
+  })
   Object.defineProperty(navigator, 'userAgent', {
     configurable: true,
     value:
@@ -128,7 +154,12 @@ function installIosSafariToolbarNudgeEnvironment() {
   )
   vi.stubGlobal('scrollTo', scrollTo)
 
-  return { scrollTo }
+  return {
+    scrollTo,
+    setScrollY: (value: number) => {
+      scrollY = value
+    },
+  }
 }
 
 function abortError() {
@@ -251,6 +282,7 @@ afterEach(() => {
   restoreNavigatorProperty('share')
   restoreNavigatorProperty('standalone')
   restoreNavigatorProperty('userAgent')
+  restoreWindowProperty('scrollY')
   document.documentElement.removeAttribute('data-raw-ios-toolbar-nudge')
   fetchMock.mockReset()
 })
@@ -325,8 +357,8 @@ describe('rawProcessorView', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('arms the iOS Safari toolbar nudge without wrapping the raw route shell', () => {
-    const { scrollTo } = installIosSafariToolbarNudgeEnvironment()
+  it('primes and guards the iOS Safari toolbar nudge without wrapping the raw route shell', async () => {
+    const { scrollTo, setScrollY } = installIosSafariToolbarNudgeEnvironment()
 
     const { container, unmount } = render(<RawRoute />)
     const routeRoot = container.firstElementChild
@@ -336,15 +368,32 @@ describe('rawProcessorView', () => {
       'data-raw-ios-toolbar-nudge',
       'armed',
     )
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledWith(0, 96))
+    expect(document.documentElement).toHaveAttribute(
+      'data-raw-ios-toolbar-nudge',
+      'primed',
+    )
 
     act(() => {
       window.dispatchEvent(new Event('touchstart'))
     })
 
-    expect(scrollTo).toHaveBeenCalledWith(0, 1)
-    expect(document.documentElement).toHaveAttribute(
-      'data-raw-ios-toolbar-nudge',
-      'nudged',
+    await waitFor(() =>
+      expect(document.documentElement).toHaveAttribute(
+        'data-raw-ios-toolbar-nudge',
+        'nudged',
+      ),
+    )
+
+    setScrollY(0)
+    act(() => {
+      window.dispatchEvent(new Event('scroll'))
+    })
+
+    await waitFor(() =>
+      expect(scrollTo.mock.calls.filter((call) => call[1] === 96).length).toBe(
+        3,
+      ),
     )
 
     unmount()

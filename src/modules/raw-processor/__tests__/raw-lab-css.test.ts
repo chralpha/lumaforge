@@ -87,7 +87,7 @@ describe('raw lab css tokens', () => {
       'html[data-raw-ios-toolbar-nudge] [data-raw-lab-shell="viewport"]',
     )
 
-    expect(nudgeBodyRule).toContain('min-height: calc(100dvh + 96px);')
+    expect(nudgeBodyRule).toContain('min-height: calc(100dvh + 192px);')
     expect(nudgeShellRule).toContain('position: fixed;')
     expect(nudgeShellRule).toContain('inset: 0;')
     expect(nudgeShellRule).toContain('top: 0;')
