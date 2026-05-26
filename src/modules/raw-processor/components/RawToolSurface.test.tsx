@@ -890,6 +890,54 @@ describe('rawToolSurface', () => {
     ).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it('shows each declared output contract once in the contract browser', async () => {
+    const user = userEvent.setup()
+    const sonyProfile = {
+      ...getLUTColorProfile('sony-sgamut3cine-slog3')!,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'srgb' as const,
+      outputRange: 'full' as const,
+    }
+    const panasonicProfile = {
+      ...getLUTColorProfile('panasonic-vgamut-vlog')!,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'srgb' as const,
+      outputRange: 'full' as const,
+    }
+
+    render(
+      <RawToolSurface
+        {...baseProps}
+        currentLutName="stable-catalog-look.cube"
+        lutProfileSelection={{
+          status: 'pending',
+          fingerprint: 'stable-catalog-look',
+          title: 'Stable catalog look',
+          suggestions: [sonyProfile, panasonicProfile],
+        }}
+        lutProfileResolution={{
+          kind: 'needs-user-selection',
+          suggestions: [sonyProfile, panasonicProfile],
+        }}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: 'Change LUT contract' }),
+    )
+    const browser = screen.getByRole('dialog', { name: 'LUT contract browser' })
+
+    await user.click(within(browser).getByRole('tab', { name: 'Output' }))
+
+    expect(
+      within(browser).getAllByRole('button', {
+        name: 'Use Rec.709 display as LUT output',
+      }),
+    ).toHaveLength(1)
+  })
+
   it('shows a busy refresh affordance while an online LUT source is loading', () => {
     render(
       <RawToolSurface

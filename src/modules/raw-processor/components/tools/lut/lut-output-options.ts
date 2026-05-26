@@ -27,8 +27,9 @@ export function dedupeProfiles(profiles: LUTColorProfile[]) {
 export function dedupeOutputOptions(options: LUTOutputOption[]) {
   const seen = new Set<string>()
   return options.filter((option) => {
-    if (seen.has(option.id)) return false
-    seen.add(option.id)
+    const key = [option.gamut, option.transfer, option.range].join(':')
+    if (seen.has(key)) return false
+    seen.add(key)
     return true
   })
 }
