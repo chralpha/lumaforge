@@ -34,4 +34,18 @@ describe('toneStripPanel', () => {
     )
     expect(screen.getByRole('button', { name: /reset tone/i })).toBeDisabled()
   })
+
+  it('keeps reset at the mobile touch target size', () => {
+    render(
+      <ToneStripPanel
+        tone={{ ...TONE_NEUTRAL, userExposureEv: 1.25 }}
+        focusKey={null}
+        onPickField={vi.fn()}
+        onReset={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /reset tone/i })).toHaveClass(
+      'min-h-[44px]',
+    )
+  })
 })

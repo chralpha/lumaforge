@@ -29,7 +29,7 @@ export function ToneStripPanel(props: {
           onClick={props.onReset}
           disabled={neutral}
           aria-label={t('raw.tone.reset')}
-          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft px-2.5 py-1 text-[0.66rem] font-semibold text-lf-hero-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft px-2.5 py-1 text-[0.66rem] font-semibold text-lf-hero-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-40"
         >
           <RotateCcw aria-hidden="true" className="size-3" />
           {t('raw.tone.reset')}

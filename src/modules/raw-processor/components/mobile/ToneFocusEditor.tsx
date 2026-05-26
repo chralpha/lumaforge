@@ -93,7 +93,7 @@ export function ToneFocusEditor(props: {
       >
         <m.div
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/65 to-transparent"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/92 via-black/65 to-transparent"
           animate={{ opacity: backdropOpacity }}
           transition={{ duration: 0.14 }}
         />
