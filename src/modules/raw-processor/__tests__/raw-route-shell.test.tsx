@@ -23,11 +23,6 @@ const mockedToastInfo = vi.mocked(toast.info)
 const originalNavigatorDescriptors = {
   clipboard: Object.getOwnPropertyDescriptor(navigator, 'clipboard'),
   share: Object.getOwnPropertyDescriptor(navigator, 'share'),
-  standalone: Object.getOwnPropertyDescriptor(navigator, 'standalone'),
-  userAgent: Object.getOwnPropertyDescriptor(navigator, 'userAgent'),
-}
-const originalWindowDescriptors = {
-  scrollY: Object.getOwnPropertyDescriptor(window, 'scrollY'),
 }
 
 vi.mock('../hooks/useCapabilityGate', () => ({
@@ -91,9 +86,7 @@ function encodeCube(title: string) {
   return new TextEncoder().encode(createCube(title))
 }
 
-function restoreNavigatorProperty(
-  property: keyof typeof originalNavigatorDescriptors,
-) {
+function restoreNavigatorProperty(property: 'clipboard' | 'share') {
   const descriptor = originalNavigatorDescriptors[property]
 
   if (descriptor) {
@@ -102,64 +95,6 @@ function restoreNavigatorProperty(
   }
 
   Reflect.deleteProperty(navigator, property)
-}
-
-function restoreWindowProperty(
-  property: keyof typeof originalWindowDescriptors,
-) {
-  const descriptor = originalWindowDescriptors[property]
-
-  if (descriptor) {
-    Object.defineProperty(window, property, descriptor)
-    return
-  }
-
-  Reflect.deleteProperty(window, property)
-}
-
-function installIosSafariToolbarNudgeEnvironment() {
-  let scrollY = 0
-  const scrollTo = vi.fn()
-
-  scrollTo.mockImplementation((_x, y) => {
-    if (typeof y === 'number') {
-      scrollY = y
-    }
-  })
-  Object.defineProperty(window, 'scrollY', {
-    configurable: true,
-    get: () => scrollY,
-  })
-  Object.defineProperty(navigator, 'userAgent', {
-    configurable: true,
-    value:
-      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1',
-  })
-  Object.defineProperty(navigator, 'standalone', {
-    configurable: true,
-    value: false,
-  })
-  vi.stubGlobal(
-    'matchMedia',
-    vi.fn((query: string) => ({
-      addEventListener: vi.fn(),
-      addListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-      matches: query === '(max-width: 640px)',
-      media: query,
-      onchange: null,
-      removeEventListener: vi.fn(),
-      removeListener: vi.fn(),
-    })),
-  )
-  vi.stubGlobal('scrollTo', scrollTo)
-
-  return {
-    scrollTo,
-    setScrollY: (value: number) => {
-      scrollY = value
-    },
-  }
 }
 
 function abortError() {
@@ -280,10 +215,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
   restoreNavigatorProperty('clipboard')
   restoreNavigatorProperty('share')
-  restoreNavigatorProperty('standalone')
-  restoreNavigatorProperty('userAgent')
-  restoreWindowProperty('scrollY')
-  document.documentElement.removeAttribute('data-raw-ios-toolbar-nudge')
   fetchMock.mockReset()
 })
 
@@ -355,59 +286,6 @@ describe('rawProcessorView', () => {
     expect(
       container.querySelector('[data-raw-panel="controls"]'),
     ).not.toBeInTheDocument()
-  })
-
-  it('auto-probes the iOS Safari toolbar nudge without wrapping the raw route shell', async () => {
-    const { scrollTo } = installIosSafariToolbarNudgeEnvironment()
-
-    const { container, unmount } = render(<RawRoute />)
-    const routeRoot = container.firstElementChild
-
-    expect(routeRoot).toHaveAttribute('data-raw-lab-shell', 'viewport')
-    expect(document.documentElement).toHaveAttribute(
-      'data-raw-ios-toolbar-nudge',
-      'probing',
-    )
-    await waitFor(() => expect(scrollTo).toHaveBeenCalledWith(0, 512))
-    expect(scrollTo.mock.calls.map((call) => call[1])).toEqual(
-      expect.arrayContaining([1, 128, 320, 512]),
-    )
-    expect(document.documentElement).toHaveAttribute(
-      'data-raw-ios-toolbar-nudge',
-      'primed',
-    )
-
-    act(() => {
-      window.dispatchEvent(new Event('resize'))
-    })
-
-    await waitFor(() =>
-      expect(scrollTo.mock.calls.filter((call) => call[1] === 512).length).toBe(
-        2,
-      ),
-    )
-
-    act(() => {
-      window.dispatchEvent(new Event('touchstart'))
-    })
-
-    await waitFor(() =>
-      expect(document.documentElement).toHaveAttribute(
-        'data-raw-ios-toolbar-nudge',
-        'nudged',
-      ),
-    )
-    await waitFor(() =>
-      expect(scrollTo.mock.calls.filter((call) => call[1] === 512).length).toBe(
-        3,
-      ),
-    )
-
-    unmount()
-
-    expect(document.documentElement).not.toHaveAttribute(
-      'data-raw-ios-toolbar-nudge',
-    )
   })
 
   it('keeps export disabled copy visible before a RAW is loaded', () => {

@@ -112,14 +112,6 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
 }) => {
   await page.goto('/raw')
   await expect(page.locator('[data-raw-lab-shell="viewport"]')).toBeVisible()
-  const toolbarNudgeEligible = await page.evaluate(() =>
-    document.documentElement.hasAttribute('data-raw-ios-toolbar-nudge'),
-  )
-  if (toolbarNudgeEligible) {
-    await expect
-      .poll(() => page.evaluate(() => window.scrollY))
-      .toBeGreaterThanOrEqual(512)
-  }
 
   const metrics = await page.evaluate(() => {
     const documentRoot = document.documentElement
@@ -127,10 +119,9 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
       '[data-raw-lab-shell="viewport"]',
     )
     const toolStack = document.querySelector<HTMLElement>('.raw-tool-stack')
-    const mobileRail =
-      document.querySelector<HTMLElement>(
-        '[data-mobile-lab-chrome] [role="tablist"]',
-      ) ?? document.querySelector<HTMLElement>('.raw-mobile-tool-rail')
+    const mobileRail = document.querySelector<HTMLElement>(
+      '.raw-mobile-tool-rail',
+    )
     const mobileSheet = document.querySelector<HTMLElement>(
       '.raw-mobile-tool-sheet',
     )
@@ -139,14 +130,9 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
       documentScrollOverflow:
         documentRoot.scrollHeight - documentRoot.clientHeight,
       rawShellHeight: rawShell?.getBoundingClientRect().height ?? 0,
-      rawShellTop: rawShell?.getBoundingClientRect().top ?? null,
-      rawShellPosition: rawShell ? getComputedStyle(rawShell).position : '',
       rawShellScrollOverflow: rawShell
         ? rawShell.scrollHeight - rawShell.clientHeight
         : 0,
-      toolbarNudgeState: documentRoot.getAttribute(
-        'data-raw-ios-toolbar-nudge',
-      ),
       toolStackScrollOverflow: toolStack
         ? toolStack.scrollHeight - toolStack.clientHeight
         : 0,
@@ -165,42 +151,8 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
   })
 
   expect(metrics.rawShellHeight).toBe(metrics.viewportHeight)
-  expect(metrics.rawShellTop).toBe(0)
   expect(metrics.rawShellScrollOverflow).toBe(0)
-  if (metrics.toolbarNudgeState) {
-    expect(metrics.toolbarNudgeState).toBe('primed')
-    expect(metrics.rawShellPosition).toBe('fixed')
-    expect(metrics.documentScrollOverflow).toBeGreaterThanOrEqual(900)
-
-    await page.touchscreen.tap(24, 24)
-    await expect
-      .poll(() =>
-        page.evaluate(() =>
-          document.documentElement.getAttribute('data-raw-ios-toolbar-nudge'),
-        ),
-      )
-      .toBe('nudged')
-
-    const nudgedMetrics = await page.evaluate(() => {
-      const rawShell = document.querySelector<HTMLElement>(
-        '[data-raw-lab-shell="viewport"]',
-      )
-
-      return {
-        rawShellTop: rawShell?.getBoundingClientRect().top ?? null,
-        scrollY: window.scrollY,
-        toolbarNudgeState: document.documentElement.getAttribute(
-          'data-raw-ios-toolbar-nudge',
-        ),
-      }
-    })
-
-    expect(nudgedMetrics.toolbarNudgeState).toBe('nudged')
-    expect(nudgedMetrics.scrollY).toBeGreaterThanOrEqual(512)
-    expect(nudgedMetrics.rawShellTop).toBe(0)
-  } else {
-    expect(metrics.documentScrollOverflow).toBe(0)
-  }
+  expect(metrics.documentScrollOverflow).toBe(0)
 
   if (metrics.isMobile) {
     expect(metrics.mobileRailVisible).toBe(true)

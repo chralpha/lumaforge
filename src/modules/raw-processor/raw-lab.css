@@ -387,24 +387,6 @@
     color: var(--color-on-stage);
   }
 
-  html[data-raw-ios-toolbar-nudge] {
-    overflow-y: scroll;
-    overscroll-behavior-y: none;
-  }
-
-  html[data-raw-ios-toolbar-nudge] body {
-    min-height: calc(100dvh + 960px);
-    min-height: calc(max(100dvh, 100lvh) + 960px);
-  }
-
-  html[data-raw-ios-toolbar-nudge] [data-raw-lab-shell="viewport"] {
-    position: fixed;
-    inset: 0;
-    top: 0;
-    width: 100%;
-    height: 100dvh;
-  }
-
   .raw-lab-stage {
     padding: 0;
   }
