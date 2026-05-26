@@ -1,6 +1,7 @@
 import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
@@ -16,6 +17,9 @@ const baseProps = {
   lutProfileSelection: null,
   lutProfileResolution: null,
   onLutProfileSelect: vi.fn(),
+  activeIntensity: 'standard' as const,
+  onIntensitySelect: vi.fn(),
+  strengthDisabled: false,
 }
 
 function onlineLutSourcesFixture(
@@ -111,7 +115,27 @@ describe('mobileLutBrowser', () => {
     expect(onLutClear).toHaveBeenCalled()
   })
 
-  it('loads an online LUT entry row', async () => {
+  it('renders strength in overview and disables it when requested', () => {
+    render(
+      <MobileLutBrowser
+        {...baseProps}
+        currentLutName={null}
+        strengthDisabled
+      />,
+    )
+
+    const strengthSection = screen
+      .getByRole('heading', { name: 'Strength' })
+      .closest('section')
+
+    expect(strengthSection).toHaveAttribute('data-raw-mobile-lut', 'strength')
+    expect(
+      screen.getByRole('tablist', { name: 'Strength' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Standard' })).toBeDisabled()
+  })
+
+  it('opens a source catalog, loads an online LUT entry, and returns to overview', async () => {
     const loadEntry = vi.fn().mockResolvedValue(undefined)
     render(
       <MobileLutBrowser
@@ -120,12 +144,33 @@ describe('mobileLutBrowser', () => {
       />,
     )
 
+    expect(screen.getByRole('dialog')).toHaveAttribute(
+      'data-mobile-lut-view',
+      'overview',
+    )
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /browse 1 luts/i }),
+    )
+
+    expect(screen.getByRole('dialog')).toHaveAttribute(
+      'data-mobile-lut-view',
+      'catalog',
+    )
+    expect(screen.queryByRole('button', { name: /browse 1 luts/i })).toBeNull()
+
     await userEvent.click(
       screen.getByRole('button', { name: /load kodak 2383 rec.709/i }),
     )
     await new Promise((resolve) => requestAnimationFrame(resolve))
 
     expect(loadEntry).toHaveBeenCalledWith('kodak-2383-rec709')
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toHaveAttribute(
+        'data-mobile-lut-view',
+        'overview',
+      )
+    })
   })
 
   it('acks the mobile LUT entry load click before the load resolves', async () => {
@@ -153,6 +198,10 @@ describe('mobileLutBrowser', () => {
         />,
       )
 
+      await userEvent.click(
+        screen.getByRole('button', { name: /browse 1 luts/i }),
+      )
+
       const loadButton = screen.getByRole('button', {
         name: /load kodak 2383 rec.709/i,
       })
@@ -169,13 +218,17 @@ describe('mobileLutBrowser', () => {
       expect(loadEntry).not.toHaveBeenCalled()
 
       const queued = rafQueue.splice(0)
-      for (const callback of queued) callback(performance.now())
-      await Promise.resolve()
+      await act(async () => {
+        for (const callback of queued) callback(performance.now())
+        await Promise.resolve()
+      })
 
       expect(loadEntry).toHaveBeenCalledWith('kodak-2383-rec709')
 
-      loadHandle.resolve?.()
-      await new Promise((resolve) => setTimeout(resolve, 0))
+      await act(async () => {
+        loadHandle.resolve?.()
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
     } finally {
       vi.unstubAllGlobals()
     }
@@ -304,6 +357,16 @@ describe('mobileLutBrowser', () => {
     expect(
       screen.getByRole('button', { name: /remove profiles catalog/i }),
     ).toHaveClass('size-[44px]')
+  })
+
+  it('keeps catalog entry rows at mobile touch-target size', async () => {
+    const fixture = onlineLutSourcesFixture()
+    render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /browse 1 luts/i }),
+    )
+
     expect(
       screen.getByRole('button', { name: /load kodak 2383 rec.709/i }),
     ).toHaveClass('min-h-[44px]')
@@ -364,8 +427,8 @@ describe('mobileLutBrowser', () => {
     )
 
     expect(
-      screen.getByRole('button', { name: /choose lut contract/i }),
-    ).toHaveClass('min-h-[44px]')
+      screen.getByRole('heading', { name: /edit contract/i }),
+    ).toBeInTheDocument()
     for (const tab of within(
       screen.getByRole('tablist', { name: 'LUT contract panels' }),
     ).getAllByRole('tab')) {
@@ -379,6 +442,73 @@ describe('mobileLutBrowser', () => {
         name: 'Use Panasonic V-Gamut / V-Log as LUT input',
       }),
     ).toHaveClass('min-h-[44px]')
+  })
+
+  it('opens the contract view from overview and returns with the back button', async () => {
+    render(
+      <MobileLutBrowser
+        {...baseProps}
+        currentLutName="unknown-client-look.cube"
+        lutProfileSelection={{
+          status: 'pending',
+          fingerprint: 'lut-fingerprint',
+          title: 'Unknown client look',
+          sourceName: 'unknown-client-look.cube',
+          suggestions: [getLUTColorProfile('panasonic-vgamut-vlog')!],
+        }}
+        lutProfileResolution={{
+          kind: 'needs-user-selection',
+          suggestions: [getLUTColorProfile('panasonic-vgamut-vlog')!],
+        }}
+      />,
+    )
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /choose lut contract/i }),
+    )
+
+    expect(screen.getByRole('dialog')).toHaveAttribute(
+      'data-mobile-lut-view',
+      'contract',
+    )
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /back to lut browser/i }),
+    )
+
+    expect(screen.getByRole('dialog')).toHaveAttribute(
+      'data-mobile-lut-view',
+      'overview',
+    )
+  })
+
+  it('opens directly into the contract view when requested', () => {
+    render(
+      <MobileLutBrowser
+        {...baseProps}
+        initialContractEditorOpen
+        currentLutName="unknown-client-look.cube"
+        lutProfileSelection={{
+          status: 'pending',
+          fingerprint: 'lut-fingerprint',
+          title: 'Unknown client look',
+          sourceName: 'unknown-client-look.cube',
+          suggestions: [getLUTColorProfile('panasonic-vgamut-vlog')!],
+        }}
+        lutProfileResolution={{
+          kind: 'needs-user-selection',
+          suggestions: [getLUTColorProfile('panasonic-vgamut-vlog')!],
+        }}
+      />,
+    )
+
+    expect(screen.getByRole('dialog')).toHaveAttribute(
+      'data-mobile-lut-view',
+      'contract',
+    )
+    expect(
+      screen.getByRole('heading', { name: /edit contract/i }),
+    ).toBeInTheDocument()
   })
 
   it('lets an unresolved LUT choose input and output contracts from the mobile sheet', async () => {

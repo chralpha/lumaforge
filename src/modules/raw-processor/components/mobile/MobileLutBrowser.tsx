@@ -4,19 +4,8 @@ import type {
 } from '@lumaforge/luma-color-runtime'
 import { searchLUTColorProfiles } from '@lumaforge/luma-color-runtime'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import {
-  AlertTriangle,
-  Check,
-  Loader2,
-  Plus,
-  RefreshCw,
-  Share2,
-  SlidersHorizontal,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, Plus, Share2, X } from 'lucide-react'
 import { AnimatePresence, m, useDragControls } from 'motion/react'
-import type { ReactNode } from 'react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -40,12 +29,20 @@ import {
   toOutputCarrierProfile,
   toSearchOutputOption,
 } from '../tools/lut/lut-output-options'
+import { groupEntriesByFamily } from '../tools/lut/lut-source-grouping'
+import { LUTOutputOptionButton } from '../tools/lut/LUTOutputOptionButton'
+import { LUTProfileButton } from '../tools/lut/LUTProfileButton'
 import {
   composeLUTContractProfile,
+  getContractAttentionState,
   getProfileOutputLabel,
   getResolvedProfile,
   groupProfiles,
 } from '../tools/lut-contract'
+import type { StrengthLevel } from '../tools/StrengthControl'
+import { StrengthControl } from '../tools/StrengthControl'
+import { MobileLutCatalogEntryButton } from './MobileLutCatalogEntryButton'
+import { MobileLutSourceCard } from './MobileLutSourceCard'
 
 export interface MobileLutBrowserProps {
   open: boolean
@@ -59,51 +56,21 @@ export interface MobileLutBrowserProps {
   lutProfileResolution?: LUTProfileResolution | null
   onLutProfileSelect: (profile: LUTColorProfile) => void
   onlineLutSources?: UseOnlineLutSourcesResult
+  activeIntensity?: StrengthLevel
+  onIntensitySelect?: (level: StrengthLevel) => void
+  strengthDisabled?: boolean
 }
 
 type OnlineResource = UseOnlineLutSourcesResult['state']['resources'][number]
 type OnlineEntry = UseOnlineLutSourcesResult['state']['entries'][number]
 type OnlineIssue = UseOnlineLutSourcesResult['state']['issues'][number]
 type ContractStep = 'input' | 'output'
+type MobileLutView = 'overview' | 'catalog' | 'contract'
 
 const OUTPUT_REQUIRED_LABEL = 'Output profile required'
 
 function resourceLabel(resource: OnlineResource) {
   return resource.label || resource.url
-}
-
-function MobileContractOptionButton({
-  children,
-  ariaLabel,
-  active = false,
-  highlighted = false,
-  onClick,
-}: {
-  children: ReactNode
-  ariaLabel: string
-  active?: boolean
-  highlighted?: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      aria-pressed={active}
-      onClick={onClick}
-      className={[
-        'grid min-h-[44px] min-w-0 gap-1 rounded-md border px-2.5 py-2 text-left text-lf-control transition-colors',
-        active
-          ? 'border-lf-green bg-lf-green-soft text-lf-ink'
-          : highlighted
-            ? 'border-lf-amber/55 bg-lf-amber-soft text-lf-ink'
-            : 'border-lf-hairline/40 bg-lf-paper text-lf-ink-soft hover:border-lf-amber/55 hover:bg-lf-paper-warm/60 hover:text-lf-ink',
-      ].join(' ')}
-      data-raw-mobile-lut="contract-option"
-    >
-      {children}
-    </button>
-  )
 }
 
 function ContractChip({
@@ -129,17 +96,49 @@ function ContractChip({
   )
 }
 
+function IssueChips({ issues }: { issues: OnlineIssue[] }) {
+  if (issues.length === 0) return null
+
+  return (
+    <ul className="m-0 flex list-none flex-wrap gap-1 p-0" role="status">
+      {issues.map((issue, index) => (
+        <li
+          key={[
+            issue.code,
+            issue.entryId ?? issue.sourceUrl ?? 'resource',
+            index,
+          ].join(':')}
+          className="m-0 min-w-0"
+        >
+          <Chip tone="amber" size="sm" className="max-w-full">
+            <AlertTriangle aria-hidden="true" className="size-3 shrink-0" />
+            <span className="min-w-0 truncate">{issue.message}</span>
+          </Chip>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function MobileLutBrowser(props: MobileLutBrowserProps) {
   const { t } = useI18n()
   const { prefersReduced } = useToolMotion()
   const dragControls = useDragControls()
   const onlineSourceInputId = useId()
+  const activeIntensity = props.activeIntensity ?? 'standard'
+  const strengthDisabled = props.strengthDisabled ?? true
+  const [view, setView] = useState<MobileLutView>('overview')
+  const [catalogResourceId, setCatalogResourceId] = useState<string | null>(
+    null,
+  )
   const [loadingEntryId, setLoadingEntryId] = useState<string | null>(null)
-  const [contractEditorOpen, setContractEditorOpen] = useState(false)
   const [contractStep, setContractStep] = useState<ContractStep>('input')
   const [contractQuery, setContractQuery] = useState('')
   const initialContractEditorAppliedRef = useRef(false)
-  const sheetBodyRef = useRef<HTMLDivElement | null>(null)
+  const overviewBodyRef = useRef<HTMLDivElement | null>(null)
+  const catalogBodyRef = useRef<HTMLDivElement | null>(null)
+  const contractBodyRef = useRef<HTMLDivElement | null>(null)
+
   const entriesByResourceId = useMemo(() => {
     const entries = new Map<string, OnlineEntry[]>()
 
@@ -159,6 +158,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     props.onlineLutSources?.state.entries,
     props.onlineLutSources?.state.resources,
   ])
+
   const issuesByResourceId = useMemo(() => {
     const issues = new Map<string, OnlineIssue[]>()
 
@@ -186,23 +186,23 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     props.lutProfileResolution,
   )
   const outputLabel = getProfileOutputLabel(resolvedProfile)
-  const needsOutputContract = outputLabel === OUTPUT_REQUIRED_LABEL
   const displayOutputLabel =
-    outputLabel && !needsOutputContract ? outputLabel : undefined
-  const needsUserSelection =
-    props.lutProfileResolution?.kind === 'needs-user-selection'
-  const unsupportedOutput =
-    props.lutProfileResolution?.kind === 'needs-user-selection' &&
-    props.lutProfileResolution.reason === 'unsupported-output'
-  const contractNeedsAttention =
-    needsUserSelection || needsOutputContract || unsupportedOutput
+    outputLabel && outputLabel !== OUTPUT_REQUIRED_LABEL
+      ? outputLabel
+      : undefined
+  const attention = getContractAttentionState(
+    props.lutProfileSelection,
+    props.lutProfileResolution,
+  )
   const [draftInputProfile, setDraftInputProfile] =
     useState<LUTColorProfile | null>(resolvedProfile ?? null)
 
   useEffect(() => {
     if (props.open) return
 
-    setContractEditorOpen(false)
+    setView('overview')
+    setCatalogResourceId(null)
+    setLoadingEntryId(null)
     setContractStep('input')
     setContractQuery('')
     setDraftInputProfile(resolvedProfile ?? null)
@@ -219,12 +219,15 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     }
 
     initialContractEditorAppliedRef.current = true
+    setCatalogResourceId(null)
     setDraftInputProfile(resolvedProfile ?? null)
     setContractQuery('')
-    setContractStep(needsOutputContract && resolvedProfile ? 'output' : 'input')
-    setContractEditorOpen(true)
+    setContractStep(
+      attention.needsOutputContract && resolvedProfile ? 'output' : 'input',
+    )
+    setView('contract')
   }, [
-    needsOutputContract,
+    attention.needsOutputContract,
     props.initialContractEditorOpen,
     props.open,
     resolvedProfile,
@@ -238,6 +241,19 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       document.body.style.overflow = previous
     }
   }, [props.open])
+
+  useEffect(() => {
+    if (view !== 'catalog' || !catalogResourceId) return
+    const resourceExists =
+      props.onlineLutSources?.state.resources.some(
+        (resource) => resource.id === catalogResourceId,
+      ) ?? false
+
+    if (!resourceExists) {
+      setCatalogResourceId(null)
+      setView('overview')
+    }
+  }, [catalogResourceId, props.onlineLutSources?.state.resources, view])
 
   const contractSearchResults = useMemo(
     () => searchLUTColorProfiles(contractQuery),
@@ -307,38 +323,636 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
   const hasOutputMatches =
     suggestedOutputOptions.length > 0 || groupedOutputOptions.length > 0
 
-  const openContractEditor = (step: ContractStep = 'input') => {
+  const selectedResource =
+    props.onlineLutSources?.state.resources.find(
+      (resource) => resource.id === catalogResourceId,
+    ) ?? null
+  const selectedEntries = useMemo(
+    () =>
+      selectedResource
+        ? (entriesByResourceId.get(selectedResource.id) ?? [])
+        : [],
+    [entriesByResourceId, selectedResource],
+  )
+  const selectedIssues = useMemo(
+    () =>
+      selectedResource
+        ? (issuesByResourceId.get(selectedResource.id) ?? [])
+        : [],
+    [issuesByResourceId, selectedResource],
+  )
+  const selectedResourceLoading = Boolean(
+    selectedResource &&
+    props.onlineLutSources?.state.isLoading &&
+    props.onlineLutSources.state.activeResourceId === selectedResource.id,
+  )
+  const selectedEntryGroups = useMemo(
+    () => groupEntriesByFamily(selectedEntries),
+    [selectedEntries],
+  )
+
+  const scrollOverviewToTop = () => {
+    requestAnimationFrame(() => {
+      if (overviewBodyRef.current) overviewBodyRef.current.scrollTop = 0
+    })
+  }
+
+  const returnToOverview = () => {
+    setView('overview')
+    setCatalogResourceId(null)
+    scrollOverviewToTop()
+  }
+
+  const openContractView = (step: ContractStep = 'input') => {
     setDraftInputProfile(resolvedProfile ?? null)
     setContractQuery('')
     setContractStep(step)
-    setContractEditorOpen(true)
+    setCatalogResourceId(null)
+    setView('contract')
   }
+
   const handleInputSelect = (profile: LUTColorProfile) => {
     setDraftInputProfile(profile)
     setContractQuery('')
     setContractStep('output')
+    if (contractBodyRef.current) contractBodyRef.current.scrollTop = 0
   }
+
   const handleOutputSelect = (option: LUTOutputOption) => {
     const inputProfile = draftInputProfile ?? option.sourceProfile
 
     props.onLutProfileSelect(
       composeLUTContractProfile(inputProfile, toOutputCarrierProfile(option)),
     )
-    setContractEditorOpen(false)
     setContractQuery('')
-    if (sheetBodyRef.current) {
-      sheetBodyRef.current.scrollTop = 0
-    }
+    returnToOverview()
   }
-  const contractActionLabel = needsUserSelection
+
+  const contractActionLabel = attention.needsUserSelection
     ? t('raw.mobile.lut.chooseContract')
-    : needsOutputContract
+    : attention.needsOutputContract
       ? t('raw.mobile.lut.chooseOutput')
       : t('raw.mobile.lut.changeContract')
 
   const handleOpenChange = (open: boolean) => {
     if (!open) props.onClose()
   }
+
+  const viewMotion = prefersReduced
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+      }
+    : {
+        initial: { opacity: 0, y: 12 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: -8 },
+      }
+
+  const renderCurrentSection = () => (
+    <section className="grid gap-2">
+      <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
+        {t('raw.mobile.lut.currentHeading')}
+      </h3>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md bg-lf-paper-warm/55 px-3 py-2.5">
+        <span className="min-w-0 truncate text-[0.82rem] font-semibold text-lf-ink">
+          {props.currentLutName ?? '-'}
+        </span>
+        <button
+          type="button"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-hairline/45 bg-lf-paper px-2.5 text-xs font-semibold text-lf-ink/80 transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm hover:text-lf-ink disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!props.currentLutName || props.disabled}
+          onClick={props.onLutClear}
+        >
+          {t('raw.mobile.lut.clear')}
+        </button>
+      </div>
+    </section>
+  )
+
+  const renderStrengthSection = () => (
+    <section className="grid gap-2" data-raw-mobile-lut="strength">
+      <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
+        {t('raw.strength.title')}
+      </h3>
+      <StrengthControl
+        value={activeIntensity}
+        onChange={(level) => props.onIntensitySelect?.(level)}
+        disabled={strengthDisabled}
+      />
+    </section>
+  )
+
+  const renderContractStatusSection = () => {
+    if (
+      !props.currentLutName &&
+      !props.lutProfileSelection &&
+      !props.lutProfileResolution
+    ) {
+      return null
+    }
+
+    return (
+      <section className="grid gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
+            {t('raw.mobile.lut.contractHeading')}
+          </h3>
+          <span
+            className={[
+              'rounded-lf-pill border px-2 py-0.5 text-lf-eyebrow font-semibold',
+              attention.needsAttention
+                ? 'border-lf-amber bg-lf-amber-soft text-lf-ink'
+                : 'border-lf-green-deep/30 bg-lf-green-soft text-lf-green-deep',
+            ].join(' ')}
+          >
+            {attention.needsAttention
+              ? t('raw.mobile.lut.contractNeedsReview')
+              : t('raw.mobile.lut.contractResolved')}
+          </span>
+        </div>
+
+        <div className="grid gap-2.5 rounded-md bg-lf-paper-warm/55 px-3 py-2.5">
+          {attention.needsUserSelection ? (
+            <p className="m-0 rounded-md border border-lf-amber/55 bg-lf-amber-soft/55 px-2.5 py-2 text-xs leading-relaxed text-lf-ink">
+              {attention.unsupportedOutput
+                ? t('raw.lutContract.unsupportedOutput')
+                : t('raw.lutContract.unknown')}
+            </p>
+          ) : resolvedProfile ? (
+            <div className="grid gap-2">
+              <div className="grid gap-1">
+                <span className="text-[0.66rem] font-semibold uppercase text-lf-ink/55 tracking-normal">
+                  {t('raw.lutContract.inputTerm')}
+                </span>
+                <ContractChip label={resolvedProfile.label} />
+              </div>
+              <div className="grid gap-1">
+                <span className="text-[0.66rem] font-semibold uppercase text-lf-ink/55 tracking-normal">
+                  {t('raw.lutContract.outputTerm')}
+                </span>
+                <ContractChip
+                  label={
+                    displayOutputLabel ?? t('raw.mobile.lut.outputRequired')
+                  }
+                  tone={attention.needsOutputContract ? 'warning' : 'neutral'}
+                />
+              </div>
+              {attention.needsOutputContract && (
+                <p className="m-0 rounded-md border border-lf-amber/55 bg-lf-amber-soft/55 px-2.5 py-2 text-xs leading-relaxed text-lf-ink">
+                  {t('raw.lutContract.needsOutput')}
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="m-0 text-xs leading-relaxed text-lf-ink-soft">
+              {t('raw.mobile.lut.noContract')}
+            </p>
+          )}
+
+          <button
+            type="button"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-amber/55 bg-lf-amber-soft px-3 text-lf-control font-semibold text-lf-ink transition-colors hover:border-lf-amber hover:bg-lf-amber/30 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={props.disabled}
+            onClick={() =>
+              openContractView(
+                attention.needsOutputContract && resolvedProfile
+                  ? 'output'
+                  : 'input',
+              )
+            }
+          >
+            {contractActionLabel}
+          </button>
+        </div>
+      </section>
+    )
+  }
+
+  const renderUploadSection = () => (
+    <section className="grid gap-2.5">
+      <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
+        {t('raw.mobile.lut.uploadHeading')}
+      </h3>
+      <Dropzone
+        onFileDrop={props.onLutLoad}
+        accept={['.cube']}
+        multiple
+        disabled={props.disabled}
+        aria-label={t('raw.mobile.lut.uploadAria')}
+        className="grid min-h-20 place-items-center border-lf-hairline/45 bg-lf-paper-warm/55 px-3 py-4 text-center"
+        interactiveMotion={false}
+      >
+        <div className="grid gap-1">
+          <span className="text-lf-control font-semibold text-lf-ink">
+            {t('raw.mobile.lut.uploadTitle')}
+          </span>
+          <span className="text-xs text-lf-ink-soft">
+            {t('raw.mobile.lut.uploadHint')}
+          </span>
+        </div>
+      </Dropzone>
+    </section>
+  )
+
+  const renderOnlineSourcesSection = () => {
+    if (!props.onlineLutSources) return null
+
+    return (
+      <section className="grid gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
+            {t('raw.mobile.lut.onlineHeading')}
+          </h3>
+          <button
+            type="button"
+            aria-label={t('raw.lutSource.copy')}
+            disabled={!props.onlineLutSources.share.enabled}
+            onClick={() => {
+              props.onlineLutSources?.share.copy().then(
+                () => toast.success(t('raw.lutSource.copied')),
+                () => toast.error(t('raw.lutSource.copyFailed')),
+              )
+            }}
+            className="grid size-[44px] shrink-0 place-items-center rounded-md border border-lf-hairline/45 bg-lf-paper text-lf-ink/70 transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm hover:text-lf-ink disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Share2 aria-hidden="true" className="size-5" />
+          </button>
+        </div>
+        <form
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (!props.onlineLutSources?.sourceUrlInput.trim()) {
+              return
+            }
+            void props.onlineLutSources?.addSourceFromInput()
+          }}
+        >
+          <label htmlFor={onlineSourceInputId} className="sr-only">
+            {t('raw.lutSource.url')}
+          </label>
+          <Input
+            id={onlineSourceInputId}
+            type="url"
+            inputMode="url"
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            value={props.onlineLutSources.sourceUrlInput}
+            placeholder="https://.../catalog.json"
+            onChange={(event) =>
+              props.onlineLutSources?.setSourceUrlInput(
+                event.currentTarget.value,
+              )
+            }
+            inputClassName="h-[44px] rounded-md border-lf-hairline/45 bg-lf-paper text-lf-control text-lf-ink shadow-none placeholder:text-lf-ink/40 focus:border-lf-amber focus:ring-lf-amber/20"
+          />
+          <button
+            type="submit"
+            aria-label={t('raw.lutSource.add')}
+            disabled={!props.onlineLutSources.sourceUrlInput.trim()}
+            className="grid size-[44px] shrink-0 place-items-center rounded-md border border-lf-hairline/45 bg-lf-paper text-lf-ink/70 transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm hover:text-lf-ink disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus aria-hidden="true" className="size-5" />
+          </button>
+        </form>
+        {props.onlineLutSources.state.resources.length === 0 && (
+          <p className="m-0 text-xs leading-relaxed text-lf-ink-soft">
+            {t('raw.lutSource.emptyHint')}
+          </p>
+        )}
+        <div
+          className="grid gap-2"
+          aria-busy={props.onlineLutSources.state.isLoading}
+        >
+          {props.onlineLutSources.state.isLoading && (
+            <p
+              className="m-0 rounded-md border border-lf-green-deep/30 bg-lf-green-soft/55 px-2.5 py-2 text-xs font-semibold text-lf-green-deep"
+              role="status"
+            >
+              {t('raw.mobile.lut.loading')}
+            </p>
+          )}
+          {props.onlineLutSources.state.resources.map((resource) => {
+            const entries = entriesByResourceId.get(resource.id) ?? []
+            const resourceIssues = issuesByResourceId.get(resource.id) ?? []
+            const isResourceLoading =
+              props.onlineLutSources!.state.isLoading &&
+              props.onlineLutSources!.state.activeResourceId === resource.id
+
+            return (
+              <div key={resource.id} className="grid gap-1.5">
+                <MobileLutSourceCard
+                  resource={resource}
+                  entryCount={entries.length}
+                  isLoading={isResourceLoading}
+                  issues={resourceIssues}
+                  onBrowse={() => {
+                    setCatalogResourceId(resource.id)
+                    setView('catalog')
+                  }}
+                  onRefresh={() =>
+                    void props.onlineLutSources?.refreshSource(resource.id)
+                  }
+                  onRemove={() =>
+                    props.onlineLutSources?.removeSource(resource.id)
+                  }
+                />
+                <button
+                  type="button"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-hairline/45 bg-lf-paper px-3 text-lf-control font-semibold text-lf-ink/80 transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm hover:text-lf-ink"
+                  onClick={() => {
+                    setCatalogResourceId(resource.id)
+                    setView('catalog')
+                  }}
+                >
+                  {t('raw.mobile.lut.browseEntries', {
+                    count: entries.length,
+                  })}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+    )
+  }
+
+  const renderOverview = () => (
+    <m.div
+      key="overview"
+      ref={overviewBodyRef}
+      className="grid min-h-0 content-start gap-3 overflow-y-auto px-4 pb-5 pt-1"
+      {...viewMotion}
+      transition={sheetSpring}
+    >
+      {renderCurrentSection()}
+      {renderStrengthSection()}
+      {renderContractStatusSection()}
+      {renderUploadSection()}
+      {renderOnlineSourcesSection()}
+    </m.div>
+  )
+
+  const handleCatalogEntryClick = async (entry: OnlineEntry) => {
+    if (loadingEntryId || !props.onlineLutSources) return
+
+    setLoadingEntryId(entry.id)
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    try {
+      await props.onlineLutSources.loadEntry(entry.id)
+      returnToOverview()
+    } catch {
+      // per-resource issue chip surfaces the failure
+    } finally {
+      setLoadingEntryId(null)
+    }
+  }
+
+  const renderCatalogEntry = (entry: OnlineEntry) => {
+    const isEntryLoading = loadingEntryId === entry.id
+
+    return (
+      <MobileLutCatalogEntryButton
+        key={entry.id}
+        title={entry.title}
+        loading={isEntryLoading}
+        disabled={props.disabled}
+        ariaLabel={t('raw.mobile.lut.loadEntry', { label: entry.title })}
+        onClick={() => {
+          void handleCatalogEntryClick(entry)
+        }}
+      />
+    )
+  }
+
+  const renderCatalog = () => (
+    <m.div
+      key="catalog"
+      ref={catalogBodyRef}
+      className="grid min-h-0 content-start gap-3 overflow-y-auto px-4 pb-5 pt-1"
+      {...viewMotion}
+      transition={sheetSpring}
+    >
+      {selectedResource && (
+        <div className="sticky top-0 z-10 grid gap-2 rounded-md border border-lf-hairline/35 bg-lf-paper-high/95 px-3 py-2.5 backdrop-blur">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="min-w-0 truncate text-lf-control font-semibold text-lf-ink">
+              {resourceLabel(selectedResource)}
+            </span>
+            <span className="shrink-0 rounded-lf-pill border border-lf-hairline/45 bg-lf-paper px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-ink-soft">
+              {t('raw.mobile.lut.entryCount', {
+                count: selectedEntries.length,
+              })}
+            </span>
+            {selectedResourceLoading && (
+              <span
+                className="shrink-0 rounded-lf-pill border border-lf-green-deep/30 bg-lf-green-soft/55 px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-green-deep"
+                role="status"
+              >
+                {t('raw.lutSource.loading')}
+              </span>
+            )}
+          </div>
+          <IssueChips issues={selectedIssues} />
+        </div>
+      )}
+
+      {selectedEntries.length > 0 ? (
+        <>
+          {selectedEntryGroups.families.map(({ family, items }) => (
+            <section key={family} className="grid gap-1.5">
+              <h3 className="m-0 px-1 text-[0.7rem] font-semibold uppercase text-lf-ink/55 tracking-normal">
+                {family}
+              </h3>
+              <div className="grid gap-1.5">
+                {items.map(renderCatalogEntry)}
+              </div>
+            </section>
+          ))}
+          {selectedEntryGroups.others.length > 0 && (
+            <section className="grid gap-1.5">
+              <h3 className="m-0 px-1 text-[0.7rem] font-semibold uppercase text-lf-ink/55 tracking-normal">
+                {t('raw.lutSource.others')}
+              </h3>
+              <div className="grid gap-1.5">
+                {selectedEntryGroups.others.map(renderCatalogEntry)}
+              </div>
+            </section>
+          )}
+        </>
+      ) : (
+        <p className="m-0 text-lf-control leading-relaxed text-lf-ink-soft">
+          {selectedIssues.length > 0
+            ? t('raw.lutSource.noneCompatible')
+            : t('raw.lutSource.noneYet')}
+        </p>
+      )}
+    </m.div>
+  )
+
+  const renderContract = () => (
+    <m.div
+      key="contract"
+      ref={contractBodyRef}
+      className="grid min-h-0 content-start gap-2.5 overflow-y-auto px-4 pb-5 pt-1"
+      {...viewMotion}
+      transition={sheetSpring}
+    >
+      <div
+        className="grid grid-cols-2 gap-1.5"
+        role="tablist"
+        aria-label={t('raw.lutContract.panels')}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={contractStep === 'input'}
+          className="min-h-[44px] rounded-md border border-lf-hairline/45 bg-lf-paper px-2 text-lf-control font-semibold text-lf-ink-soft transition-colors aria-selected:border-lf-amber/55 aria-selected:bg-lf-amber-soft aria-selected:text-lf-ink"
+          onClick={() => setContractStep('input')}
+        >
+          {t('raw.lutContract.inputTab')}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={contractStep === 'output'}
+          className="min-h-[44px] rounded-md border border-lf-hairline/45 bg-lf-paper px-2 text-lf-control font-semibold text-lf-ink-soft transition-colors aria-selected:border-lf-amber/55 aria-selected:bg-lf-amber-soft aria-selected:text-lf-ink"
+          onClick={() => setContractStep('output')}
+        >
+          {t('raw.lutContract.outputTab')}
+        </button>
+      </div>
+
+      <label className="sr-only" htmlFor="mobile-lut-contract-search">
+        {t('raw.lutContract.search')}
+      </label>
+      <input
+        id="mobile-lut-contract-search"
+        type="search"
+        aria-label={t('raw.lutContract.search')}
+        value={contractQuery}
+        placeholder={t('raw.lutContract.searchPlaceholder')}
+        onChange={(event) => setContractQuery(event.currentTarget.value)}
+        className="min-h-[44px] rounded-md border border-lf-hairline/45 bg-lf-paper px-3 text-lf-control text-lf-ink outline-none placeholder:text-lf-ink/40 focus:border-lf-amber"
+      />
+
+      <div
+        className="grid min-h-0 content-start gap-2 overflow-y-auto overscroll-contain pr-0.5"
+        data-raw-mobile-lut="contract-list"
+        data-lut-contract-step={contractStep}
+      >
+        {contractStep === 'input' ? (
+          <>
+            {visibleSuggestions.length > 0 && (
+              <section className="grid gap-1">
+                <h3 className="m-0 text-[0.66rem] font-semibold uppercase text-lf-ink/55 tracking-normal">
+                  {t('raw.lutContract.suggestedInput')}
+                </h3>
+                {visibleSuggestions.map((profile) => (
+                  <LUTProfileButton
+                    key={profile.id}
+                    profile={profile}
+                    activeProfileId={draftInputProfile?.id}
+                    highlighted
+                    size="touch"
+                    ariaLabel={t('raw.lutContract.useInput', {
+                      label: profile.label,
+                    })}
+                    onSelect={handleInputSelect}
+                  />
+                ))}
+              </section>
+            )}
+
+            {groupedInputProfiles.map((group) => (
+              <section key={`input-${group.label}`} className="grid gap-1">
+                <h3 className="m-0 text-[0.66rem] font-semibold uppercase text-lf-ink/55 tracking-normal">
+                  {t('raw.lutContract.groupInput', {
+                    group: group.label,
+                  })}
+                </h3>
+                {group.items.map((profile) => (
+                  <LUTProfileButton
+                    key={profile.id}
+                    profile={profile}
+                    activeProfileId={draftInputProfile?.id}
+                    size="touch"
+                    ariaLabel={t('raw.lutContract.useInput', {
+                      label: profile.label,
+                    })}
+                    onSelect={handleInputSelect}
+                  />
+                ))}
+              </section>
+            ))}
+
+            {!hasInputMatches && (
+              <p className="m-0 text-lf-control leading-relaxed text-lf-ink-soft">
+                {t('raw.lutContract.noInput')}
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            {suggestedOutputOptions.length > 0 && (
+              <section className="grid gap-1">
+                <h3 className="m-0 text-[0.66rem] font-semibold uppercase text-lf-ink/55 tracking-normal">
+                  {t('raw.lutContract.suggestedOutput')}
+                </h3>
+                {suggestedOutputOptions.map((option) => (
+                  <LUTOutputOptionButton
+                    key={option.id}
+                    option={option}
+                    activeOptionId={activeOutputOptionId}
+                    highlighted
+                    size="touch"
+                    onSelect={handleOutputSelect}
+                  />
+                ))}
+              </section>
+            )}
+
+            {groupedOutputOptions.map((group) => (
+              <section key={`output-${group.label}`} className="grid gap-1">
+                <h3 className="m-0 text-[0.66rem] font-semibold uppercase text-lf-ink/55 tracking-normal">
+                  {t('raw.lutContract.groupOutput', {
+                    group: group.label,
+                  })}
+                </h3>
+                {group.items.map((option) => (
+                  <LUTOutputOptionButton
+                    key={option.id}
+                    option={option}
+                    activeOptionId={activeOutputOptionId}
+                    size="touch"
+                    onSelect={handleOutputSelect}
+                  />
+                ))}
+              </section>
+            ))}
+
+            {!hasOutputMatches && (
+              <p className="m-0 text-lf-control leading-relaxed text-lf-ink-soft">
+                {t('raw.lutContract.noOutput')}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </m.div>
+  )
+
+  const title =
+    view === 'contract'
+      ? t('raw.mobile.lut.editContract')
+      : view === 'catalog' && selectedResource
+        ? resourceLabel(selectedResource)
+        : t('raw.mobile.lut.title')
+  const canGoBack = view !== 'overview'
 
   return (
     <Dialog modal={false} open={props.open} onOpenChange={handleOpenChange}>
@@ -356,6 +970,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
               <m.aside
                 key="lut-browser"
                 data-mobile-substrate="ink-sheet"
+                data-mobile-lut-view={view}
                 className="absolute inset-x-0 bottom-0 z-[46] grid max-h-[82%] grid-rows-[auto_minmax(0,1fr)] rounded-t-xl border-t border-lf-hairline/40 bg-lf-paper-high pb-safe-offset-3 text-lf-ink shadow-[0_-14px_36px_-6px_oklch(0.18_0.018_76/0.22)]"
                 initial={prefersReduced ? { opacity: 0 } : { y: '100%' }}
                 animate={prefersReduced ? { opacity: 1 } : { y: '0%' }}
@@ -379,10 +994,21 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                     aria-hidden="true"
                     className="mx-auto h-1 w-9 rounded-lf-pill bg-lf-ink/25"
                   />
-                  <div className="flex items-center justify-between gap-2.5">
+                  <div className="grid grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2.5">
+                    {canGoBack ? (
+                      <IconButton
+                        icon={ArrowLeft}
+                        size="md"
+                        aria-label={t('raw.mobile.lut.back')}
+                        onClick={returnToOverview}
+                        className="size-[44px] rounded-md bg-transparent text-lf-ink/55 transition-colors hover:bg-lf-ink/5 hover:text-lf-ink [&_svg]:size-5 [&_svg]:stroke-current"
+                      />
+                    ) : (
+                      <span aria-hidden="true" />
+                    )}
                     <DialogPrimitive.Title asChild>
-                      <h2 className="m-0 text-[0.95rem] font-semibold text-lf-ink">
-                        {t('raw.mobile.lut.title')}
+                      <h2 className="m-0 min-w-0 truncate text-center text-[0.95rem] font-semibold text-lf-ink">
+                        {title}
                       </h2>
                     </DialogPrimitive.Title>
                     <IconButton
@@ -395,605 +1021,13 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                   </div>
                 </div>
 
-                <div
-                  ref={sheetBodyRef}
-                  className="grid min-h-0 gap-3 overflow-y-auto px-4 pb-5 pt-1"
-                >
-                  <section className="grid gap-2">
-                    <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
-                      {t('raw.mobile.lut.currentHeading')}
-                    </h3>
-                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md bg-lf-paper-warm/55 px-3 py-2.5">
-                      <span className="min-w-0 truncate text-[0.82rem] font-semibold text-lf-ink">
-                        {props.currentLutName ?? '—'}
-                      </span>
-                      <button
-                        type="button"
-                        className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-hairline/45 bg-lf-paper px-2.5 text-xs font-semibold text-lf-ink/80 transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm hover:text-lf-ink disabled:cursor-not-allowed disabled:opacity-50"
-                        disabled={!props.currentLutName || props.disabled}
-                        onClick={props.onLutClear}
-                      >
-                        {t('raw.mobile.lut.clear')}
-                      </button>
-                    </div>
-                  </section>
-
-                  {(props.currentLutName ||
-                    props.lutProfileSelection ||
-                    props.lutProfileResolution) && (
-                    <section className="grid gap-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
-                          {t('raw.mobile.lut.contractHeading')}
-                        </h3>
-                        <span
-                          className={[
-                            'rounded-lf-pill border px-2 py-0.5 text-lf-eyebrow font-semibold',
-                            contractNeedsAttention
-                              ? 'border-lf-amber bg-lf-amber-soft text-lf-ink'
-                              : 'border-lf-green-deep/30 bg-lf-green-soft text-lf-green-deep',
-                          ].join(' ')}
-                        >
-                          {contractNeedsAttention
-                            ? t('raw.mobile.lut.contractNeedsReview')
-                            : t('raw.mobile.lut.contractResolved')}
-                        </span>
-                      </div>
-
-                      <div className="grid gap-2.5 rounded-md bg-lf-paper-warm/55 px-3 py-2.5">
-                        {needsUserSelection ? (
-                          <p className="m-0 rounded-md border border-lf-amber/55 bg-lf-amber-soft/55 px-2.5 py-2 text-xs leading-relaxed text-lf-ink">
-                            {unsupportedOutput
-                              ? t('raw.lutContract.unsupportedOutput')
-                              : t('raw.lutContract.unknown')}
-                          </p>
-                        ) : resolvedProfile ? (
-                          <div className="grid gap-2">
-                            <div className="grid gap-1">
-                              <span className="text-[0.66rem] tracking-tight font-semibold uppercase text-lf-ink/55">
-                                {t('raw.lutContract.inputTerm')}
-                              </span>
-                              <ContractChip label={resolvedProfile.label} />
-                            </div>
-                            <div className="grid gap-1">
-                              <span className="text-[0.66rem] tracking-tight font-semibold uppercase text-lf-ink/55">
-                                {t('raw.lutContract.outputTerm')}
-                              </span>
-                              <ContractChip
-                                label={
-                                  displayOutputLabel ??
-                                  t('raw.mobile.lut.outputRequired')
-                                }
-                                tone={
-                                  needsOutputContract ? 'warning' : 'neutral'
-                                }
-                              />
-                            </div>
-                            {needsOutputContract && (
-                              <p className="m-0 rounded-md border border-lf-amber/55 bg-lf-amber-soft/55 px-2.5 py-2 text-xs leading-relaxed text-lf-ink">
-                                {t('raw.lutContract.needsOutput')}
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="m-0 text-xs leading-relaxed text-lf-ink-soft">
-                            {t('raw.mobile.lut.noContract')}
-                          </p>
-                        )}
-
-                        <button
-                          type="button"
-                          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md border border-lf-amber/55 bg-lf-amber-soft px-3 text-lf-control font-semibold text-lf-ink transition-colors hover:border-lf-amber hover:bg-lf-amber/30 disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={props.disabled}
-                          onClick={() =>
-                            openContractEditor(
-                              needsOutputContract && resolvedProfile
-                                ? 'output'
-                                : 'input',
-                            )
-                          }
-                        >
-                          <SlidersHorizontal
-                            aria-hidden="true"
-                            className="size-4"
-                          />
-                          {contractActionLabel}
-                        </button>
-                      </div>
-
-                      {contractEditorOpen && (
-                        <div className="grid gap-2.5 rounded-md bg-lf-paper-warm/55 px-3 py-2.5">
-                          <div
-                            className="grid grid-cols-2 gap-1.5"
-                            role="tablist"
-                            aria-label={t('raw.lutContract.panels')}
-                          >
-                            <button
-                              type="button"
-                              role="tab"
-                              aria-selected={contractStep === 'input'}
-                              className="min-h-[44px] rounded-md border border-lf-hairline/45 bg-lf-paper px-2 text-lf-control font-semibold text-lf-ink-soft transition-colors aria-selected:border-lf-amber/55 aria-selected:bg-lf-amber-soft aria-selected:text-lf-ink"
-                              onClick={() => setContractStep('input')}
-                            >
-                              {t('raw.lutContract.inputTab')}
-                            </button>
-                            <button
-                              type="button"
-                              role="tab"
-                              aria-selected={contractStep === 'output'}
-                              className="min-h-[44px] rounded-md border border-lf-hairline/45 bg-lf-paper px-2 text-lf-control font-semibold text-lf-ink-soft transition-colors aria-selected:border-lf-amber/55 aria-selected:bg-lf-amber-soft aria-selected:text-lf-ink"
-                              onClick={() => setContractStep('output')}
-                            >
-                              {t('raw.lutContract.outputTab')}
-                            </button>
-                          </div>
-
-                          <label
-                            className="sr-only"
-                            htmlFor="mobile-lut-contract-search"
-                          >
-                            {t('raw.lutContract.search')}
-                          </label>
-                          <input
-                            id="mobile-lut-contract-search"
-                            type="search"
-                            aria-label={t('raw.lutContract.search')}
-                            value={contractQuery}
-                            placeholder={t('raw.lutContract.searchPlaceholder')}
-                            onChange={(event) =>
-                              setContractQuery(event.currentTarget.value)
-                            }
-                            className="min-h-[44px] rounded-md border border-lf-hairline/45 bg-lf-paper px-3 text-lf-control text-lf-ink outline-none placeholder:text-lf-ink/40 focus:border-lf-amber"
-                          />
-
-                          <div
-                            className="grid max-h-[34vh] min-h-0 content-start gap-1.5 overflow-y-auto overscroll-contain pr-0.5"
-                            data-raw-mobile-lut="contract-list"
-                            data-lut-contract-step={contractStep}
-                          >
-                            {contractStep === 'input' ? (
-                              <>
-                                {visibleSuggestions.length > 0 && (
-                                  <div className="grid gap-1">
-                                    <p className="m-0 text-[0.66rem] tracking-tight font-semibold uppercase text-lf-ink/55">
-                                      {t('raw.lutContract.suggestedInput')}
-                                    </p>
-                                    {visibleSuggestions.map((profile) => (
-                                      <MobileContractOptionButton
-                                        key={profile.id}
-                                        ariaLabel={t(
-                                          'raw.lutContract.useInput',
-                                          {
-                                            label: profile.label,
-                                          },
-                                        )}
-                                        active={
-                                          draftInputProfile?.id === profile.id
-                                        }
-                                        highlighted
-                                        onClick={() =>
-                                          handleInputSelect(profile)
-                                        }
-                                      >
-                                        <span className="min-w-0 truncate font-semibold">
-                                          {profile.label}
-                                        </span>
-                                        <span className="text-xs text-lf-ink-soft">
-                                          {profile.role}
-                                        </span>
-                                      </MobileContractOptionButton>
-                                    ))}
-                                  </div>
-                                )}
-
-                                {groupedInputProfiles.map((group) => (
-                                  <div
-                                    key={`input-${group.label}`}
-                                    className="grid gap-1"
-                                  >
-                                    <p className="m-0 text-[0.66rem] tracking-tight font-semibold uppercase text-lf-ink/55">
-                                      {t('raw.lutContract.groupInput', {
-                                        group: group.label,
-                                      })}
-                                    </p>
-                                    {group.items.map((profile) => (
-                                      <MobileContractOptionButton
-                                        key={profile.id}
-                                        ariaLabel={t(
-                                          'raw.lutContract.useInput',
-                                          {
-                                            label: profile.label,
-                                          },
-                                        )}
-                                        active={
-                                          draftInputProfile?.id === profile.id
-                                        }
-                                        onClick={() =>
-                                          handleInputSelect(profile)
-                                        }
-                                      >
-                                        <span className="min-w-0 truncate font-semibold">
-                                          {profile.label}
-                                        </span>
-                                        <span className="text-xs text-lf-ink-soft">
-                                          {profile.role}
-                                        </span>
-                                      </MobileContractOptionButton>
-                                    ))}
-                                  </div>
-                                ))}
-
-                                {!hasInputMatches && (
-                                  <p className="m-0 text-lf-control leading-relaxed text-lf-ink-soft">
-                                    {t('raw.lutContract.noInput')}
-                                  </p>
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                {suggestedOutputOptions.length > 0 && (
-                                  <div className="grid gap-1">
-                                    <p className="m-0 text-[0.66rem] tracking-tight font-semibold uppercase text-lf-ink/55">
-                                      {t('raw.lutContract.suggestedOutput')}
-                                    </p>
-                                    {suggestedOutputOptions.map((option) => (
-                                      <MobileContractOptionButton
-                                        key={option.id}
-                                        ariaLabel={t(
-                                          'raw.lutContract.useOutput',
-                                          {
-                                            label: option.label,
-                                          },
-                                        )}
-                                        active={
-                                          activeOutputOptionId === option.id
-                                        }
-                                        highlighted
-                                        onClick={() =>
-                                          handleOutputSelect(option)
-                                        }
-                                      >
-                                        <span className="min-w-0 truncate font-semibold">
-                                          {option.label}
-                                        </span>
-                                      </MobileContractOptionButton>
-                                    ))}
-                                  </div>
-                                )}
-
-                                {groupedOutputOptions.map((group) => (
-                                  <div
-                                    key={`output-${group.label}`}
-                                    className="grid gap-1"
-                                  >
-                                    <p className="m-0 text-[0.66rem] tracking-tight font-semibold uppercase text-lf-ink/55">
-                                      {t('raw.lutContract.groupOutput', {
-                                        group: group.label,
-                                      })}
-                                    </p>
-                                    {group.items.map((option) => (
-                                      <MobileContractOptionButton
-                                        key={option.id}
-                                        ariaLabel={t(
-                                          'raw.lutContract.useOutput',
-                                          {
-                                            label: option.label,
-                                          },
-                                        )}
-                                        active={
-                                          activeOutputOptionId === option.id
-                                        }
-                                        onClick={() =>
-                                          handleOutputSelect(option)
-                                        }
-                                      >
-                                        <span className="min-w-0 truncate font-semibold">
-                                          {option.label}
-                                        </span>
-                                      </MobileContractOptionButton>
-                                    ))}
-                                  </div>
-                                ))}
-
-                                {!hasOutputMatches && (
-                                  <p className="m-0 text-lf-control leading-relaxed text-lf-ink-soft">
-                                    {t('raw.lutContract.noOutput')}
-                                  </p>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </section>
-                  )}
-
-                  <section className="grid gap-2.5">
-                    <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
-                      {t('raw.mobile.lut.uploadHeading')}
-                    </h3>
-                    <Dropzone
-                      onFileDrop={props.onLutLoad}
-                      accept={['.cube']}
-                      multiple
-                      disabled={props.disabled}
-                      aria-label={t('raw.mobile.lut.uploadAria')}
-                      className="grid min-h-20 place-items-center border-lf-hairline/45 bg-lf-paper-warm/55 px-3 py-4 text-center"
-                      interactiveMotion={false}
-                    >
-                      <div className="grid gap-1">
-                        <span className="text-lf-control font-semibold text-lf-ink">
-                          {t('raw.mobile.lut.uploadTitle')}
-                        </span>
-                        <span className="text-xs text-lf-ink-soft">
-                          {t('raw.mobile.lut.uploadHint')}
-                        </span>
-                      </div>
-                    </Dropzone>
-                  </section>
-
-                  {props.onlineLutSources && (
-                    <section className="grid gap-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
-                          {t('raw.mobile.lut.onlineHeading')}
-                        </h3>
-                        <button
-                          type="button"
-                          aria-label={t('raw.lutSource.copy')}
-                          disabled={!props.onlineLutSources.share.enabled}
-                          onClick={() => {
-                            props.onlineLutSources?.share.copy().then(
-                              () => toast.success(t('raw.lutSource.copied')),
-                              () => toast.error(t('raw.lutSource.copyFailed')),
-                            )
-                          }}
-                          className="grid size-[44px] shrink-0 place-items-center rounded-md border border-lf-hairline/45 bg-lf-paper text-lf-ink/70 transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm hover:text-lf-ink disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <Share2 aria-hidden="true" className="size-5" />
-                        </button>
-                      </div>
-                      <form
-                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
-                        onSubmit={(event) => {
-                          event.preventDefault()
-                          if (!props.onlineLutSources?.sourceUrlInput.trim()) {
-                            return
-                          }
-                          void props.onlineLutSources?.addSourceFromInput()
-                        }}
-                      >
-                        <label
-                          htmlFor={onlineSourceInputId}
-                          className="sr-only"
-                        >
-                          {t('raw.lutSource.url')}
-                        </label>
-                        <Input
-                          id={onlineSourceInputId}
-                          type="url"
-                          inputMode="url"
-                          autoComplete="off"
-                          autoCapitalize="off"
-                          autoCorrect="off"
-                          spellCheck={false}
-                          value={props.onlineLutSources.sourceUrlInput}
-                          placeholder="https://.../catalog.json"
-                          onChange={(event) =>
-                            props.onlineLutSources?.setSourceUrlInput(
-                              event.currentTarget.value,
-                            )
-                          }
-                          inputClassName="h-[44px] rounded-md border-lf-hairline/45 bg-lf-paper text-lf-control text-lf-ink shadow-none placeholder:text-lf-ink/40 focus:border-lf-amber focus:ring-lf-amber/20"
-                        />
-                        <button
-                          type="submit"
-                          aria-label={t('raw.lutSource.add')}
-                          disabled={
-                            !props.onlineLutSources.sourceUrlInput.trim()
-                          }
-                          className="grid size-[44px] shrink-0 place-items-center rounded-md border border-lf-hairline/45 bg-lf-paper text-lf-ink/70 transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm hover:text-lf-ink disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <Plus aria-hidden="true" className="size-5" />
-                        </button>
-                      </form>
-                      {props.onlineLutSources.state.resources.length === 0 && (
-                        <p className="m-0 text-xs leading-relaxed text-lf-ink-soft">
-                          {t('raw.lutSource.emptyHint')}
-                        </p>
-                      )}
-                      <div
-                        className="grid gap-2"
-                        aria-busy={props.onlineLutSources.state.isLoading}
-                      >
-                        {props.onlineLutSources.state.isLoading && (
-                          <p
-                            className="m-0 rounded-md border border-lf-green-deep/30 bg-lf-green-soft/55 px-2.5 py-2 text-xs font-semibold text-lf-green-deep"
-                            role="status"
-                          >
-                            {t('raw.mobile.lut.loading')}
-                          </p>
-                        )}
-                        {props.onlineLutSources.state.resources.map(
-                          (resource) => {
-                            const entries =
-                              entriesByResourceId.get(resource.id) ?? []
-                            const resourceIssues =
-                              issuesByResourceId.get(resource.id) ?? []
-                            const isResourceLoading =
-                              props.onlineLutSources!.state.isLoading &&
-                              props.onlineLutSources!.state.activeResourceId ===
-                                resource.id
-
-                            return (
-                              <div
-                                key={resource.id}
-                                className="grid gap-1.5 rounded-md bg-lf-paper-warm/55 px-2.5 py-2.5"
-                              >
-                                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-                                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                                    <span className="min-w-0 truncate text-lf-control font-semibold text-lf-ink">
-                                      {resourceLabel(resource)}
-                                    </span>
-                                    <span className="shrink-0 rounded-lf-pill border border-lf-hairline/45 bg-lf-paper px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-ink-soft">
-                                      {t('raw.mobile.lut.entryCount', {
-                                        count: entries.length,
-                                      })}
-                                    </span>
-                                    {isResourceLoading && (
-                                      <span
-                                        className="shrink-0 rounded-lf-pill border border-lf-green-deep/30 bg-lf-green-soft/55 px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-green-deep"
-                                        role="status"
-                                      >
-                                        {t('raw.lutSource.loading')}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="flex shrink-0 gap-1">
-                                    <button
-                                      type="button"
-                                      aria-label={t('raw.lutSource.refresh', {
-                                        label: resourceLabel(resource),
-                                      })}
-                                      aria-busy={isResourceLoading}
-                                      disabled={isResourceLoading}
-                                      onClick={() =>
-                                        void props.onlineLutSources?.refreshSource(
-                                          resource.id,
-                                        )
-                                      }
-                                      className="grid size-[44px] place-items-center rounded-md border border-lf-hairline/45 bg-lf-paper text-lf-ink/70 transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm hover:text-lf-ink disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                      <RefreshCw
-                                        aria-hidden="true"
-                                        className={`size-5 ${isResourceLoading ? 'animate-spin' : ''}`}
-                                      />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      aria-label={t('raw.lutSource.remove', {
-                                        label: resourceLabel(resource),
-                                      })}
-                                      onClick={() =>
-                                        props.onlineLutSources?.removeSource(
-                                          resource.id,
-                                        )
-                                      }
-                                      className="grid size-[44px] place-items-center rounded-md border border-lf-hairline/45 bg-lf-paper text-lf-ink/70 transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm hover:text-lf-ink"
-                                    >
-                                      <Trash2
-                                        aria-hidden="true"
-                                        className="size-5"
-                                      />
-                                    </button>
-                                  </div>
-                                </div>
-                                {resourceIssues.length > 0 && (
-                                  <ul
-                                    className="m-0 grid list-none gap-1 p-0"
-                                    role="status"
-                                    aria-live="polite"
-                                  >
-                                    {resourceIssues.map((issue, index) => (
-                                      <li
-                                        key={[
-                                          issue.code,
-                                          issue.entryId ??
-                                            issue.sourceUrl ??
-                                            'resource',
-                                          index,
-                                        ].join(':')}
-                                        className="m-0"
-                                      >
-                                        <Chip
-                                          tone="amber"
-                                          size="sm"
-                                          className="max-w-full"
-                                        >
-                                          <AlertTriangle
-                                            aria-hidden="true"
-                                            className="size-3 shrink-0"
-                                          />
-                                          <span className="min-w-0 truncate">
-                                            {issue.message}
-                                          </span>
-                                        </Chip>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                                <div className="grid gap-1.5">
-                                  {entries.map((entry) => {
-                                    const isEntryLoading =
-                                      loadingEntryId === entry.id
-                                    const handleLoadEntry = async () => {
-                                      if (
-                                        loadingEntryId ||
-                                        !props.onlineLutSources
-                                      ) {
-                                        return
-                                      }
-                                      setLoadingEntryId(entry.id)
-                                      await new Promise<void>((resolve) =>
-                                        requestAnimationFrame(() => resolve()),
-                                      )
-                                      try {
-                                        await props.onlineLutSources.loadEntry(
-                                          entry.id,
-                                        )
-                                      } catch {
-                                        // per-resource issue chip surfaces the failure
-                                      } finally {
-                                        setLoadingEntryId(null)
-                                      }
-                                    }
-                                    return (
-                                      <button
-                                        key={entry.id}
-                                        type="button"
-                                        className="grid min-h-[44px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-lf-hairline/40 bg-lf-paper px-2.5 py-2 text-left transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm disabled:cursor-not-allowed disabled:opacity-50"
-                                        disabled={
-                                          props.disabled || isEntryLoading
-                                        }
-                                        aria-busy={isEntryLoading}
-                                        aria-label={t(
-                                          'raw.mobile.lut.loadEntry',
-                                          {
-                                            label: entry.title,
-                                          },
-                                        )}
-                                        data-raw-mobile-lut-entry-loading={
-                                          isEntryLoading ? 'true' : undefined
-                                        }
-                                        onClick={() => {
-                                          void handleLoadEntry()
-                                        }}
-                                      >
-                                        <span className="min-w-0 truncate text-lf-control font-medium text-lf-ink">
-                                          {entry.title}
-                                        </span>
-                                        {isEntryLoading ? (
-                                          <Loader2
-                                            aria-hidden="true"
-                                            className="size-4 animate-spin text-lf-green-deep motion-reduce:animate-none"
-                                          />
-                                        ) : (
-                                          <span className="text-xs font-semibold text-lf-green-deep">
-                                            {t('raw.mobile.lut.load')}
-                                          </span>
-                                        )}
-                                      </button>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            )
-                          },
-                        )}
-                      </div>
-                    </section>
-                  )}
-                </div>
+                <AnimatePresence mode="popLayout" initial={false}>
+                  {view === 'overview'
+                    ? renderOverview()
+                    : view === 'catalog'
+                      ? renderCatalog()
+                      : renderContract()}
+                </AnimatePresence>
               </m.aside>
             </DialogPrimitive.Content>
           </DialogPrimitive.Portal>
