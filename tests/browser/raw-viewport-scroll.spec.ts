@@ -22,10 +22,18 @@ function createIdentityCube(title: string) {
 }
 
 async function loadRawFixture(page: Page) {
+  const isMobileViewport = await page.evaluate(() => window.innerWidth <= 640)
+  const trigger = isMobileViewport
+    ? page.getByRole('button', { name: /browse raw files/i })
+    : page.getByRole('button', { name: /drop one raw here/i })
+
+  await expect(trigger).toBeVisible()
   const fileChooserPromise = page.waitForEvent('filechooser')
-  await page
-    .getByRole('button', { name: /drop one raw here/i })
-    .click({ position: { x: 24, y: 24 } })
+  if (isMobileViewport) {
+    await trigger.click()
+  } else {
+    await trigger.click({ position: { x: 24, y: 24 } })
+  }
   const fileChooser = await fileChooserPromise
   await fileChooser.setFiles(RAW_FIXTURE)
 }
@@ -171,6 +179,78 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
   } else if (metrics.toolStackOverflowY === 'auto') {
     expect(metrics.toolStackScrollOverflow).toBeGreaterThan(0)
   }
+})
+
+test('keeps the loaded mobile export panel clear of the toolbar', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'webkit-ios-safe',
+    'mobile export dock regression',
+  )
+  test.skip(!existsSync(RAW_FIXTURE), `Missing RAW fixture: ${RAW_FIXTURE}`)
+
+  await page.goto('/raw')
+  await expect(page.locator('[data-raw-lab-shell="viewport"]')).toBeVisible()
+
+  await loadRawFixture(page)
+
+  await expect(
+    page.locator('.raw-lab[data-raw-lab-state="loaded"]'),
+  ).toBeVisible({ timeout: 120_000 })
+
+  const exportTab = page.getByRole('tab', { name: /^export$/i })
+  await expect(exportTab).toBeVisible()
+  await exportTab.click()
+
+  await expect(
+    page.getByRole('button', {
+      name: /export full-resolution jpeg/i,
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('button', {
+      name: /hq preview jpeg/i,
+    }),
+  ).toBeVisible()
+
+  const metrics = await page.evaluate(() => {
+    const documentRoot = document.documentElement
+    const dock = document.querySelector<HTMLElement>('[data-mobile-dock]')
+    const panel = dock?.firstElementChild as HTMLElement | null
+    const panelContent = panel?.firstElementChild as HTMLElement | null
+    const tablist = dock?.querySelector<HTMLElement>('[role="tablist"]')
+
+    const panelRect = panel?.getBoundingClientRect()
+    const contentRect = panelContent?.getBoundingClientRect()
+    const tablistRect = tablist?.getBoundingClientRect()
+
+    return {
+      documentScrollOverflow:
+        documentRoot.scrollHeight - documentRoot.clientHeight,
+      dockBottomGap: dock
+        ? window.innerHeight - dock.getBoundingClientRect().bottom
+        : null,
+      panelScrollOverflow: panel
+        ? panel.scrollHeight - panel.clientHeight
+        : null,
+      contentToToolbarGap:
+        contentRect && tablistRect
+          ? tablistRect.top - contentRect.bottom
+          : null,
+      panelBottomToToolbarGap:
+        panelRect && tablistRect ? tablistRect.top - panelRect.bottom : null,
+    }
+  })
+
+  expect(metrics.documentScrollOverflow).toBe(0)
+  expect(metrics.dockBottomGap).not.toBeNull()
+  expect(metrics.dockBottomGap).toBeLessThanOrEqual(10)
+  expect(metrics.panelScrollOverflow).not.toBeNull()
+  expect(metrics.panelScrollOverflow).toBeLessThanOrEqual(1)
+  expect(metrics.contentToToolbarGap).not.toBeNull()
+  expect(metrics.contentToToolbarGap).toBeGreaterThanOrEqual(8)
+  expect(metrics.panelBottomToToolbarGap).toBe(0)
 })
 
 test('opens the RAW picker from the empty desktop preview dock', async ({

@@ -54,6 +54,43 @@ describe('mobileModeDock', () => {
     expect(tablist).not.toHaveClass('pb-3')
   })
 
+  it('gives the taller export panel more bounded room than compact tool panels', () => {
+    const { rerender } = render(
+      <MobileModeDock
+        mode="export"
+        expanded
+        onModeChange={vi.fn()}
+        onCollapse={vi.fn()}
+        onOpenMore={vi.fn()}
+        canExport
+        panel={<div data-testid="panel">export-panel</div>}
+      />,
+    )
+
+    expect(screen.getByTestId('panel').parentElement).toHaveClass(
+      'max-h-[min(52svh,360px)]',
+    )
+    expect(screen.getByTestId('panel').parentElement).toHaveClass(
+      'overflow-y-auto',
+    )
+
+    rerender(
+      <MobileModeDock
+        mode="tone"
+        expanded
+        onModeChange={vi.fn()}
+        onCollapse={vi.fn()}
+        onOpenMore={vi.fn()}
+        canExport
+        panel={<div data-testid="panel">tone-panel</div>}
+      />,
+    )
+
+    expect(screen.getByTestId('panel').parentElement).toHaveClass(
+      'max-h-[24vh]',
+    )
+  })
+
   it('hides the panel when collapsed and toggles on tab tap', async () => {
     const onModeChange = vi.fn()
     const onCollapse = vi.fn()
