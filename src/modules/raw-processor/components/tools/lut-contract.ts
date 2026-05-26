@@ -156,3 +156,31 @@ export function groupProfiles(profiles: LUTColorProfile[]) {
     items,
   }))
 }
+
+export interface ContractAttentionState {
+  needsUserSelection: boolean
+  needsOutputContract: boolean
+  unsupportedOutput: boolean
+  needsAttention: boolean
+}
+
+export function getContractAttentionState(
+  selection?: LUTProfileSelectionState | null,
+  resolution?: LUTProfileResolution | null,
+): ContractAttentionState {
+  const resolvedProfile = getResolvedProfile(selection, resolution)
+  const outputLabel = getProfileOutputLabel(resolvedProfile)
+  const needsOutputContract = outputLabel === 'Output profile required'
+  const needsUserSelection = resolution?.kind === 'needs-user-selection'
+  const unsupportedOutput =
+    resolution?.kind === 'needs-user-selection' &&
+    resolution.reason === 'unsupported-output'
+
+  return {
+    needsUserSelection,
+    needsOutputContract,
+    unsupportedOutput,
+    needsAttention:
+      needsUserSelection || needsOutputContract || unsupportedOutput,
+  }
+}
