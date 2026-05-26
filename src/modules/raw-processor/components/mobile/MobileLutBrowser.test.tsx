@@ -121,17 +121,24 @@ describe('mobileLutBrowser', () => {
     expect(onLutClear).toHaveBeenCalled()
   })
 
-  it('keeps local cube upload inside the Current LUT section', () => {
+  it('folds local cube upload into the existing Current LUT card', () => {
     render(<MobileLutBrowser {...baseProps} currentLutName={null} />)
 
     const currentSection = screen
       .getByRole('heading', { name: 'Current LUT' })
       .closest('section')
     expect(currentSection).toHaveAttribute('data-raw-mobile-lut', 'current')
+    const currentCard = within(currentSection!).getByTestId(
+      'raw-mobile-current-lut-card',
+    )
+    expect(within(currentCard).getByText('-')).toBeVisible()
     expect(
-      within(currentSection!).getByLabelText('Upload .cube LUT'),
+      within(currentCard).getByLabelText('Upload .cube LUT'),
     ).toBeInTheDocument()
-    expect(within(currentSection!).getByText('Choose .cube LUT')).toBeVisible()
+    expect(within(currentCard).getByText('Choose .cube LUT')).toBeVisible()
+    expect(
+      within(currentCard).getByLabelText('Upload .cube LUT').closest('label'),
+    ).not.toHaveClass('border-2')
     expect(
       screen.queryByRole('heading', { name: 'Upload .cube' }),
     ).not.toBeInTheDocument()

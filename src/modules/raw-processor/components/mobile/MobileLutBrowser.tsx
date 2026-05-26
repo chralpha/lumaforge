@@ -429,15 +429,23 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       multiple
       disabled={props.disabled}
       aria-label={t('raw.mobile.lut.uploadAria')}
-      className="grid min-h-20 place-items-center border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-4 text-center"
+      className="grid min-h-11 rounded-none border-0 border-t border-solid border-lf-on-photo-bord-soft bg-transparent px-0 pb-0 pt-2.5 text-left shadow-none hover:border-lf-on-photo-bord-soft hover:bg-transparent focus-within:ring-lf-amber/35 focus-visible:ring-lf-amber/35"
       interactiveMotion={false}
     >
-      <div className="grid gap-1">
-        <span className="text-lf-control font-semibold text-lf-hero-ink">
-          {t('raw.mobile.lut.uploadTitle')}
-        </span>
-        <span className="text-xs text-lf-hero-ink/64">
-          {t('raw.mobile.lut.uploadHint')}
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="grid min-w-0 gap-0.5">
+          <span className="text-lf-control font-semibold text-lf-hero-ink">
+            {t('raw.mobile.lut.uploadTitle')}
+          </span>
+          <span className="text-xs text-lf-hero-ink/64">
+            {t('raw.mobile.lut.uploadHint')}
+          </span>
+        </div>
+        <span
+          className="grid size-7 shrink-0 place-items-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong text-lf-hero-ink/70"
+          aria-hidden="true"
+        >
+          <Plus className="size-3.5" />
         </span>
       </div>
     </Dropzone>
@@ -448,8 +456,11 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       <h3 className="m-0 text-lf-body font-semibold text-lf-hero-ink">
         {t('raw.mobile.lut.currentHeading')}
       </h3>
-      <div className="grid gap-2.5">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5">
+      <div
+        className="grid gap-2.5 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5"
+        data-testid="raw-mobile-current-lut-card"
+      >
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <span className="min-w-0 truncate text-[0.82rem] font-semibold text-lf-hero-ink">
             {props.currentLutName ?? '-'}
           </span>
