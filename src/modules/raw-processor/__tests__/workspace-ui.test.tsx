@@ -364,6 +364,57 @@ describe('rawProcessorView', () => {
     ).toBeGreaterThanOrEqual(1)
   })
 
+  it('requires confirmation before resetting the RAW session', async () => {
+    const user = userEvent.setup()
+    const reset = vi.fn()
+    mockUseRawProcessor.mockReturnValue(
+      rawProcessorViewState({
+        hasImage: true,
+        sourceFileName: 'DSC09142.ARW',
+        reset,
+      }),
+    )
+
+    await act(async () => {
+      render(<RawProcessorView />)
+      await Promise.resolve()
+    })
+
+    await user.click(
+      within(screen.getByRole('banner')).getByRole('button', {
+        name: 'Reset',
+      }),
+    )
+
+    expect(reset).not.toHaveBeenCalled()
+    const dialog = screen.getByRole('alertdialog', {
+      name: 'Reset session',
+    })
+    expect(dialog).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(reset).not.toHaveBeenCalled()
+    expect(
+      screen.queryByRole('alertdialog', { name: 'Reset session' }),
+    ).not.toBeInTheDocument()
+
+    await user.click(
+      within(screen.getByRole('banner')).getByRole('button', {
+        name: 'Reset',
+      }),
+    )
+    await user.click(
+      within(
+        screen.getByRole('alertdialog', { name: 'Reset session' }),
+      ).getByRole('button', { name: 'Reset session' }),
+    )
+
+    expect(reset).toHaveBeenCalledTimes(1)
+    expect(
+      screen.queryByRole('alertdialog', { name: 'Reset session' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('renders Chinese Raw Lab shell when the persisted locale is Chinese', async () => {
     localStorage.setItem('lumaforge.locale', 'zh-CN')
     mockUseRawProcessor.mockReturnValue(rawProcessorViewState())
