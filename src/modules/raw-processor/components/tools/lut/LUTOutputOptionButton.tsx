@@ -5,19 +5,24 @@ import { useI18n } from '~/lib/i18n'
 
 import type { LUTOutputOption } from './lut-output-options'
 
+export type LUTOutputOptionButtonSize = 'comfortable' | 'touch'
+
 export function LUTOutputOptionButton({
   option,
   activeOptionId,
   onSelect,
   highlighted = false,
+  size = 'comfortable',
 }: {
   option: LUTOutputOption
   activeOptionId?: string
   onSelect: (option: LUTOutputOption) => void
   highlighted?: boolean
+  size?: LUTOutputOptionButtonSize
 }) {
   const { t } = useI18n()
   const isActive = activeOptionId === option.id
+  const isTouch = size === 'touch'
 
   return (
     <button
@@ -26,10 +31,13 @@ export function LUTOutputOptionButton({
       aria-pressed={isActive}
       onClick={() => onSelect(option)}
       className={clsxm(
-        'group/lut-row relative grid w-full min-w-0 grid-cols-[22px_minmax(0,1fr)] items-center gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors duration-150 ease-out',
+        'group/lut-row relative grid w-full min-w-0 items-center rounded-md text-left transition-colors duration-150 ease-out',
         'text-lf-ink/75',
         'hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)] hover:text-lf-ink/90',
         'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
+        isTouch
+          ? 'min-h-[44px] grid-cols-[28px_minmax(0,1fr)] gap-2.5 px-2 py-2'
+          : 'grid-cols-[22px_minmax(0,1fr)] gap-2 px-1.5 py-1.5',
         highlighted &&
           !isActive &&
           'bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] text-lf-ink/90',
@@ -37,11 +45,13 @@ export function LUTOutputOptionButton({
           'bg-[oklch(from_var(--color-lf-green)_l_c_h_/_0.12)] text-lf-green-deep',
       )}
       data-raw-lut="contract-option"
+      data-raw-lut-size={size}
     >
       <span
         aria-hidden="true"
         className={clsxm(
-          'inline-grid size-[22px] place-items-center rounded-md transition-colors duration-150',
+          'inline-grid place-items-center rounded-md transition-colors duration-150',
+          isTouch ? 'size-[28px]' : 'size-[22px]',
           isActive
             ? 'bg-[oklch(from_var(--color-lf-green)_l_c_h_/_0.18)] text-lf-green-deep'
             : highlighted
@@ -49,11 +59,17 @@ export function LUTOutputOptionButton({
               : 'bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.05)] text-lf-ink/45 group-hover/lut-row:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.08)] group-hover/lut-row:text-lf-ink/65',
         )}
       >
-        <Monitor className="size-[12px] stroke-[1.75]" />
+        <Monitor
+          className={clsxm(
+            isTouch ? 'size-[14px]' : 'size-[12px]',
+            'stroke-[1.75]',
+          )}
+        />
       </span>
       <span
         className={clsxm(
-          'block min-w-0 break-words text-[0.74rem] leading-[1.35]',
+          'block min-w-0 break-words leading-[1.35]',
+          isTouch ? 'text-[0.82rem]' : 'text-[0.74rem]',
           isActive ? 'font-semibold' : 'font-normal',
         )}
       >
