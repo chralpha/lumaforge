@@ -1,7 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   Download,
-  Gauge,
   SlidersHorizontal,
   SplitSquareHorizontal,
   Wand2,
@@ -15,7 +14,7 @@ import { useI18n } from '~/lib/i18n'
 
 import { TAP_SPRING } from '../../motion'
 
-export type MobileMode = 'look' | 'tone' | 'strength' | 'compare' | 'export'
+export type MobileMode = 'look' | 'tone' | 'compare' | 'export'
 
 const TABS: {
   id: MobileMode
@@ -25,7 +24,6 @@ const TABS: {
 }[] = [
   { id: 'look', icon: Wand2, labelKey: 'raw.mobile.mode.look' },
   { id: 'tone', icon: SlidersHorizontal, labelKey: 'raw.mobile.mode.tone' },
-  { id: 'strength', icon: Gauge, labelKey: 'raw.mobile.mode.strength' },
   {
     id: 'compare',
     icon: SplitSquareHorizontal,
@@ -64,7 +62,7 @@ export function MobileModeDock(props: {
       <nav
         aria-label={t('raw.mobile.modes.aria')}
         role="tablist"
-        className="grid grid-cols-5 gap-1 border-t border-lf-on-photo-bord-soft px-2.5 pb-2 pt-2"
+        className="grid grid-cols-4 gap-1 border-t border-lf-on-photo-bord-soft px-2.5 pb-2 pt-2"
       >
         {TABS.map((tab) => {
           const active = props.mode === tab.id

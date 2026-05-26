@@ -21,12 +21,15 @@ describe('mobileModeDock', () => {
     )
     expect(screen.getByTestId('panel')).toHaveTextContent('tone-panel')
     const tabs = screen.getAllByRole('tab')
-    expect(tabs).toHaveLength(5)
+    expect(tabs).toHaveLength(4)
     expect(screen.queryByRole('tab', { name: /more/i })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('tab', { name: /strength/i }),
+    ).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('tab', { name: /look/i }))
     expect(onModeChange).toHaveBeenCalledWith('look')
-    await userEvent.click(screen.getByRole('tab', { name: /strength/i }))
-    expect(onModeChange).toHaveBeenCalledWith('strength')
+    await userEvent.click(screen.getByRole('tab', { name: /compare/i }))
+    expect(onModeChange).toHaveBeenCalledWith('compare')
     expect(onOpenMore).not.toHaveBeenCalled()
   })
 
