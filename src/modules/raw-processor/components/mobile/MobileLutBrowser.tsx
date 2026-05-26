@@ -422,32 +422,36 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         exit: { opacity: 0, y: -8 },
       }
 
-  const renderUploadDropzone = () => (
+  const renderCurrentLutDropzone = () => (
     <Dropzone
       onFileDrop={props.onLutLoad}
       accept={['.cube']}
       multiple
       disabled={props.disabled}
-      aria-label={t('raw.mobile.lut.uploadAria')}
-      className="grid min-h-11 rounded-none border-0 border-t border-solid border-lf-on-photo-bord-soft bg-transparent px-0 pb-0 pt-2.5 text-left shadow-none hover:border-lf-on-photo-bord-soft hover:bg-transparent focus-within:ring-lf-amber/35 focus-visible:ring-lf-amber/35"
+      aria-label={
+        props.currentLutName
+          ? t('raw.lut.selectedAria', { name: props.currentLutName })
+          : t('raw.mobile.lut.uploadAria')
+      }
+      className="flex min-h-[44px] min-w-0 items-center rounded-none border-0 border-solid bg-transparent p-0 text-left shadow-none hover:bg-transparent focus-within:ring-lf-amber/35 focus-visible:ring-lf-amber/35"
       interactiveMotion={false}
     >
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <div className="grid min-w-0 gap-0.5">
-          <span className="text-lf-control font-semibold text-lf-hero-ink">
-            {t('raw.mobile.lut.uploadTitle')}
+      <span className="flex min-w-0 items-center gap-2">
+        {!props.currentLutName && (
+          <span
+            className="grid size-7 shrink-0 place-items-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong text-lf-hero-ink/70"
+            aria-hidden="true"
+          >
+            <Plus className="size-3.5" />
           </span>
-          <span className="text-xs text-lf-hero-ink/64">
-            {t('raw.mobile.lut.uploadHint')}
-          </span>
-        </div>
+        )}
         <span
-          className="grid size-7 shrink-0 place-items-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong text-lf-hero-ink/70"
-          aria-hidden="true"
+          className="min-w-0 truncate text-[0.82rem] font-semibold text-lf-hero-ink"
+          title={props.currentLutName ?? undefined}
         >
-          <Plus className="size-3.5" />
+          {props.currentLutName ?? t('raw.lut.add')}
         </span>
-      </div>
+      </span>
     </Dropzone>
   )
 
@@ -457,23 +461,24 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         {t('raw.mobile.lut.currentHeading')}
       </h3>
       <div
-        className="grid gap-2.5 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5"
+        className={
+          props.currentLutName
+            ? 'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5'
+            : 'grid grid-cols-1 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5'
+        }
         data-testid="raw-mobile-current-lut-card"
       >
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-          <span className="min-w-0 truncate text-[0.82rem] font-semibold text-lf-hero-ink">
-            {props.currentLutName ?? '-'}
-          </span>
+        {renderCurrentLutDropzone()}
+        {props.currentLutName && (
           <button
             type="button"
             className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-2.5 text-xs font-semibold text-lf-hero-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!props.currentLutName || props.disabled}
+            disabled={props.disabled}
             onClick={props.onLutClear}
           >
             {t('raw.mobile.lut.clear')}
           </button>
-        </div>
-        {renderUploadDropzone()}
+        )}
       </div>
     </section>
   )

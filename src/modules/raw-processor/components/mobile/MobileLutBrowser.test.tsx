@@ -121,7 +121,7 @@ describe('mobileLutBrowser', () => {
     expect(onLutClear).toHaveBeenCalled()
   })
 
-  it('folds local cube upload into the existing Current LUT card', () => {
+  it('uses Add .cube LUT as the empty Current LUT card state', () => {
     render(<MobileLutBrowser {...baseProps} currentLutName={null} />)
 
     const currentSection = screen
@@ -131,16 +131,50 @@ describe('mobileLutBrowser', () => {
     const currentCard = within(currentSection!).getByTestId(
       'raw-mobile-current-lut-card',
     )
-    expect(within(currentCard).getByText('-')).toBeVisible()
     expect(
       within(currentCard).getByLabelText('Upload .cube LUT'),
     ).toBeInTheDocument()
-    expect(within(currentCard).getByText('Choose .cube LUT')).toBeVisible()
+    expect(within(currentCard).getByText('Add .cube LUT')).toBeVisible()
+    expect(within(currentCard).queryByText('-')).not.toBeInTheDocument()
+    expect(
+      within(currentCard).queryByText('Choose .cube LUT'),
+    ).not.toBeInTheDocument()
+    expect(
+      within(currentCard).queryByText('Tap to browse or drop a file'),
+    ).not.toBeInTheDocument()
+    expect(
+      within(currentCard).queryByRole('button', { name: 'Clear LUT' }),
+    ).not.toBeInTheDocument()
     expect(
       within(currentCard).getByLabelText('Upload .cube LUT').closest('label'),
     ).not.toHaveClass('border-2')
     expect(
+      within(currentCard).getByLabelText('Upload .cube LUT').closest('label'),
+    ).not.toHaveClass('border-dashed')
+    expect(
+      within(currentCard).getByLabelText('Upload .cube LUT').closest('label'),
+    ).not.toHaveClass('border-t')
+    expect(
       screen.queryByRole('heading', { name: 'Upload .cube' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('uses the selected LUT name and Clear action as the loaded Current LUT card state', () => {
+    render(<MobileLutBrowser {...baseProps} />)
+
+    const currentSection = screen
+      .getByRole('heading', { name: 'Current LUT' })
+      .closest('section')
+    const currentCard = within(currentSection!).getByTestId(
+      'raw-mobile-current-lut-card',
+    )
+
+    expect(within(currentCard).getByText('Kodak 2383.cube')).toBeVisible()
+    expect(
+      within(currentCard).getByRole('button', { name: 'Clear LUT' }),
+    ).toBeEnabled()
+    expect(
+      within(currentCard).queryByText('Add .cube LUT'),
     ).not.toBeInTheDocument()
   })
 
