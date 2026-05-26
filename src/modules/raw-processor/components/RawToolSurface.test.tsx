@@ -985,13 +985,21 @@ describe('rawToolSurface', () => {
       )
 
       const dock = screen.getByRole('tablist', { name: /lab modes/i })
-      await user.click(within(dock).getByRole('tab', { name: /strength/i }))
+      expect(within(dock).getAllByRole('tab')).toHaveLength(4)
+      expect(
+        within(dock).queryByRole('tab', { name: /strength/i }),
+      ).not.toBeInTheDocument()
 
-      const strength = screen.getByRole('radiogroup', { name: 'Strength' })
-      const strong = within(strength).getByRole('radio', { name: 'Strong' })
+      await user.click(screen.getByRole('button', { name: /lut browser/i }))
+
+      const lutBrowser = screen.getByRole('dialog', { name: /lut browser/i })
+      const strength = within(lutBrowser).getByRole('tablist', {
+        name: 'Strength',
+      })
+      const strong = within(strength).getByRole('tab', { name: 'Strong' })
 
       expect(strong).toBeDisabled()
-      expect(strength).toHaveAttribute('aria-disabled', 'true')
+      expect(strong).toHaveAttribute('aria-disabled', 'true')
 
       await user.click(strong)
 

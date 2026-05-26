@@ -20,7 +20,6 @@ import type {
 } from '../model/session'
 import { MobileExportPanel } from './mobile/MobileExportPanel'
 import { MobileLabChrome } from './mobile/MobileLabChrome'
-import { MobileStrengthPanel } from './mobile/MobileStrengthPanel'
 import type { RawRuntimeReadinessState } from './raw-runtime-readiness'
 import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
@@ -114,16 +113,6 @@ export function RawToolSurface(props: {
     />
   )
 
-  // Mobile dock uses the darkroom segmented control, never the desktop
-  // paper segment. Desktop keeps `strengthControl` for the Look card.
-  const mobileStrengthControl = (
-    <MobileStrengthPanel
-      value={props.activeIntensity}
-      onChange={props.onIntensitySelect}
-      disabled={mobileStrengthDisabled}
-    />
-  )
-
   // Desktop Look card — full LutContractTool + Strength (unchanged).
   const lutBlock = (
     <>
@@ -152,6 +141,9 @@ export function RawToolSurface(props: {
     lutProfileResolution: props.lutProfileResolution,
     onLutProfileSelect: props.onLutProfileSelect,
     onlineLutSources: props.onlineLutSources,
+    activeIntensity: props.activeIntensity,
+    onIntensitySelect: props.onIntensitySelect,
+    strengthDisabled: mobileStrengthDisabled,
   }
 
   const compareBlock = (
@@ -327,7 +319,6 @@ export function RawToolSurface(props: {
           isProcessing={props.isProcessing}
           runtimeReadinessState={props.runtimeReadinessState}
           onPrepareRuntime={props.onPrepareRuntime}
-          strengthControl={mobileStrengthControl}
           lutBrowser={mobileLutBrowser}
           onCompareReset={props.onCompareReset}
           exportPanel={mobileExportBlock}
