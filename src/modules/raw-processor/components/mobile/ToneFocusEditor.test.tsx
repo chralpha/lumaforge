@@ -62,4 +62,21 @@ describe('toneFocusEditor', () => {
     await userEvent.click(screen.getByRole('button', { name: /neutral/i }))
     expect(onChange).toHaveBeenCalledWith({ userContrast: 0 })
   })
+
+  it('keeps the bottom scrim non-interactive', () => {
+    const { container } = render(
+      <ToneFocusEditor
+        tone={{ ...TONE_NEUTRAL, userContrast: 30 }}
+        focusKey="userContrast"
+        onChange={vi.fn()}
+        onPickField={vi.fn()}
+        onCancel={vi.fn()}
+        onDone={vi.fn()}
+        onDragChange={vi.fn()}
+      />,
+    )
+    expect(container.querySelector('[aria-hidden="true"]')).toHaveClass(
+      'pointer-events-none',
+    )
+  })
 })
