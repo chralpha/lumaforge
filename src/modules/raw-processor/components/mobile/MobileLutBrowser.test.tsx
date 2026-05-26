@@ -129,21 +129,19 @@ describe('mobileLutBrowser', () => {
       .closest('section')
 
     expect(strengthSection).toHaveAttribute('data-raw-mobile-lut', 'strength')
-    // Section itself is a clean wrapper — no nested tint duplicating the
-    // SegmentGroup's track. The SegmentGroup carries the design-system tint
-    // (lf-ink ink-tint track, lf-paper-high thumb) so it visually belongs
-    // to the mobile sheet instead of falling back to the default white
-    // SegmentGroup chrome.
+    // Section itself is a clean wrapper; the track carries the local sheet
+    // surface. Keep it light paper/warm rather than introducing an isolated
+    // dark/night-mode island inside the mobile sheet.
     expect(strengthSection?.className ?? '').not.toMatch(/bg-\[oklch/)
     expect(strengthSection?.className ?? '').not.toMatch(/bg-lf-paper-warm/)
 
     const tablist = screen.getByRole('tablist', { name: 'Strength' })
     expect(tablist).toBeInTheDocument()
-    // Track uses the same ink-tint chip the contract tabs use — keeps the
-    // Strength control inside the lf-* design system instead of the
-    // default bg-fill-tertiary that reads near-white on lf-paper-high.
-    expect(tablist).toHaveClass(
-      'bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.05)]',
+    // Track stays in the same light surface family as the mobile sheet.
+    expect(tablist).toHaveClass('bg-lf-paper-warm/55')
+    expect(tablist).toHaveClass('border-lf-hairline/45')
+    expect(tablist.className).not.toMatch(
+      /bg-\[oklch\(from_var\(--color-lf-ink\)/,
     )
     // The active segment renders a motion-animated thumb (layoutId-driven
     // spring) — this is the silky control the mobile contract tabs were

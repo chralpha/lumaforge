@@ -446,7 +446,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         value={activeIntensity}
         onChange={(level) => props.onIntensitySelect?.(level)}
         disabled={strengthDisabled}
-        className="h-11 rounded-md bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.05)] p-1 text-lf-ink/55"
+        className="h-11 rounded-md border border-lf-hairline/45 bg-lf-paper-warm/55 p-1 text-lf-ink/60"
         itemClassName="text-lf-control data-[state=active]:text-lf-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-lf-paper-high data-[state=active]:[&_span[data-segment-thumb]]:shadow-sm"
       />
     </section>
