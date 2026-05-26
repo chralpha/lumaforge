@@ -52,7 +52,10 @@ export function MobileModeDock(props: {
   const { t } = useI18n()
   const disabled = props.disabled ?? false
   return (
-    <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/95 via-black/70 to-transparent pb-safe-offset-3 text-white">
+    <div
+      data-mobile-dock
+      className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/92 via-black/65 to-transparent pb-safe-offset-3 text-lf-hero-ink"
+    >
       {props.expanded && !disabled && (
         <div className="relative max-h-[24vh] overflow-y-auto px-3.5 pb-2.5 pt-3.5">
           {props.panel}
@@ -61,7 +64,7 @@ export function MobileModeDock(props: {
       <nav
         aria-label={t('raw.mobile.modes.aria')}
         role="tablist"
-        className="grid grid-cols-5 gap-1 border-t border-white/15 px-2.5 pb-3 pt-2"
+        className="grid grid-cols-5 gap-1 border-t border-lf-on-photo-bord-soft px-2.5 pb-3 pt-2"
       >
         {TABS.map((tab) => {
           const active = props.mode === tab.id
@@ -88,12 +91,12 @@ export function MobileModeDock(props: {
                 props.onModeChange(tab.id)
               }}
               className={clsxm(
-                'relative grid min-h-[52px] grid-rows-[auto_auto] place-items-center gap-1 rounded-lg px-1 py-1.5 text-[0.64rem] font-semibold uppercase tracking-wide transition-colors',
+                'relative grid min-h-[52px] grid-rows-[auto_auto] place-items-center gap-1 rounded-md px-1 py-1.5 text-[0.64rem] font-semibold uppercase tracking-wide transition-colors',
                 disabled
-                  ? 'cursor-not-allowed text-white/35'
+                  ? 'cursor-not-allowed text-lf-hero-ink/35'
                   : showActive
-                    ? 'text-white'
-                    : 'text-white/70',
+                    ? 'text-lf-hero-ink'
+                    : 'text-lf-hero-ink/68 hover:text-lf-hero-ink',
               )}
             >
               <tab.icon aria-hidden="true" className="size-[18px]" />
@@ -101,8 +104,8 @@ export function MobileModeDock(props: {
               {showActive && (
                 <span
                   className={clsxm(
-                    'absolute bottom-0 left-1/2 h-0.5 w-[22px] -translate-x-1/2 rounded-full',
-                    tab.primary ? 'bg-accent' : 'bg-amber-400',
+                    'absolute bottom-0 left-1/2 h-0.5 w-[22px] -translate-x-1/2 rounded-lf-pill',
+                    tab.primary ? 'bg-lf-green' : 'bg-lf-amber',
                   )}
                 />
               )}

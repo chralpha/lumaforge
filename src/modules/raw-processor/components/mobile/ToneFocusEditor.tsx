@@ -33,6 +33,9 @@ export function ToneFocusEditor(props: {
   // While dragging the slider, non-essential chrome recedes so the photo
   // (and the live value) dominate — the design's data-dragging behavior.
   const receded = scrub ? 0.16 : 1
+  // The bottom scrim fades less aggressively so the slider track stays
+  // legible over arbitrary photos while still revealing the photo behind.
+  const backdropOpacity = scrub ? 0.45 : 1
   const slideY = prefersReduced ? 0 : 12
 
   return (
@@ -46,7 +49,7 @@ export function ToneFocusEditor(props: {
       transition={SHEET_SPRING}
     >
       <m.div
-        className="pointer-events-auto absolute inset-x-0 top-0 z-[41] grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 bg-gradient-to-b from-black/85 via-black/55 to-transparent px-3 pb-3.5 pt-safe-offset-3 text-white"
+        className="pointer-events-auto absolute inset-x-0 top-0 z-[41] grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 bg-gradient-to-b from-black/80 via-black/45 to-transparent px-3 pb-3.5 pt-safe-offset-3 text-lf-hero-ink"
         aria-label={t(f.labelKey)}
         initial={{ y: -slideY, opacity: 0 }}
         animate={{ y: 0, opacity: receded }}
@@ -58,12 +61,12 @@ export function ToneFocusEditor(props: {
           whileTap={{ scale: 0.96 }}
           transition={TAP_SPRING}
           onClick={props.onCancel}
-          className="h-[38px] rounded-full border border-white/30 bg-black/40 px-3.5 text-sm font-semibold text-white"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-lf-pill border border-lf-on-photo-bord bg-lf-on-photo-bg px-3.5 text-sm font-semibold text-lf-hero-ink"
         >
           {t('raw.mobile.focus.cancel')}
         </m.button>
         <div className="grid gap-px text-center">
-          <small className="text-[0.6rem] font-bold uppercase tracking-wider text-amber-400">
+          <small className="text-[0.6rem] font-bold uppercase tracking-wider text-lf-amber-soft">
             {t(f.labelKey)}
           </small>
           <strong className="text-sm font-semibold tabular-nums">
@@ -75,20 +78,29 @@ export function ToneFocusEditor(props: {
           whileTap={{ scale: 0.96 }}
           transition={TAP_SPRING}
           onClick={props.onDone}
-          className="h-[38px] rounded-full border border-accent bg-accent px-3.5 text-sm font-semibold text-background"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-lf-pill border border-lf-green-deep/40 bg-lf-green px-3.5 text-sm font-semibold text-lf-ink"
         >
           {t('raw.mobile.focus.done')}
         </m.button>
       </m.div>
 
       <m.div
-        className="pointer-events-auto absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-black/95 via-black/70 to-transparent pb-safe-offset-3 text-white"
+        className="pointer-events-auto absolute inset-x-0 bottom-0 z-40 pb-safe-offset-3 text-lf-hero-ink"
         initial={{ y: slideY, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: slideY, opacity: 0 }}
         transition={SHEET_SPRING}
       >
-        <div className="grid gap-2.5 px-[18px] pb-[18px] pt-3.5">
+        <m.div
+          aria-hidden="true"
+          className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/65 to-transparent"
+          animate={{ opacity: backdropOpacity }}
+          transition={{ duration: 0.14 }}
+        />
+        <div
+          data-tone-focus-panel
+          className="relative grid max-h-[min(38svh,270px)] gap-2.5 overflow-y-auto overscroll-contain px-[18px] pb-[18px] pt-3.5"
+        >
           <m.div
             key={formatToneValueShort(f.key, v)}
             initial={prefersReduced ? false : { scale: 0.94, opacity: 0.6 }}
@@ -98,7 +110,7 @@ export function ToneFocusEditor(props: {
           >
             <span>{formatToneValueShort(f.key, v)}</span>
             {f.unit && (
-              <small className="text-sm font-semibold text-white/70">
+              <small className="text-sm font-semibold text-lf-hero-ink/68">
                 {f.unit}
               </small>
             )}
@@ -119,7 +131,7 @@ export function ToneFocusEditor(props: {
             />
           </div>
           <m.div
-            className="flex items-center justify-between px-0.5 text-[0.7rem] tabular-nums text-white/60"
+            className="flex items-center justify-between px-0.5 text-[0.7rem] tabular-nums text-lf-hero-ink/55"
             animate={{ opacity: receded }}
             transition={{ duration: 0.14 }}
           >
@@ -127,7 +139,7 @@ export function ToneFocusEditor(props: {
             <button
               type="button"
               onClick={() => props.onChange({ [f.key]: 0 })}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-black/40 hover:text-amber-400"
+              className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-md px-2 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-amber-soft"
             >
               <CircleDot aria-hidden="true" className="size-3" />
               {t('raw.mobile.focus.neutral')}
@@ -152,13 +164,13 @@ export function ToneFocusEditor(props: {
                   whileTap={{ scale: 0.95 }}
                   transition={TAP_SPRING}
                   onClick={() => props.onPickField(o.key)}
-                  className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-black/40 px-3 py-1.5 text-[0.7rem] font-semibold text-white/80"
+                  className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-1.5 text-[0.7rem] font-semibold text-lf-hero-ink/82"
                 >
                   {t(o.labelKey)}
                   <em
                     className={clsxm(
                       'not-italic tabular-nums',
-                      dirty ? 'text-amber-400' : 'text-white/60',
+                      dirty ? 'text-lf-amber-soft' : 'text-lf-hero-ink/55',
                     )}
                   >
                     {formatToneValueShort(o.key, ov)}

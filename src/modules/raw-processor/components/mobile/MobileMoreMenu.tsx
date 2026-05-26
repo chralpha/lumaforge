@@ -50,17 +50,20 @@ export function MobileMoreMenu(props: {
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((value) => !value)}
-        className="size-11 rounded-md border border-white/30 bg-black/40 text-white [&_svg]:size-5 [&_svg]:stroke-white"
+        className="size-11 rounded-md border border-lf-on-photo-bord bg-lf-on-photo-bg text-lf-hero-ink [&_svg]:size-5 [&_svg]:stroke-current"
       />
       {open && (
         <div
           role="menu"
           data-mobile-substrate="ink-popover"
-          className="absolute right-0 top-[calc(100%+6px)] z-50 grid min-w-[12.25rem] gap-1 rounded-xl border border-white/25 bg-[oklch(0.21_0.024_78)] p-1.5 text-white shadow-[0_18px_42px_oklch(0.04_0.012_76/0.55)]"
+          className="absolute right-0 top-[calc(100%+6px)] z-50 grid min-w-[12.25rem] gap-0.5 rounded-md border border-lf-on-photo-bord bg-lf-dark-low p-1.5 text-lf-hero-ink shadow-[0_18px_42px_oklch(0.04_0.012_76/0.55)]"
         >
           {props.items.map((it, i) =>
             it.kind === 'separator' ? (
-              <hr key={`sep-${i}`} className="my-1 h-px border-0 bg-white/15" />
+              <hr
+                key={`sep-${i}`}
+                className="my-1 h-px border-0 bg-lf-on-photo-bord-soft"
+              />
             ) : (
               <button
                 key={it.label}
@@ -71,11 +74,11 @@ export function MobileMoreMenu(props: {
                   setOpen(false)
                   it.onSelect()
                 }}
-                className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[0.82rem] font-semibold text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[0.82rem] font-semibold text-lf-hero-ink transition-colors hover:bg-lf-on-photo-bg-strong disabled:cursor-not-allowed disabled:opacity-45"
               >
                 <it.icon
                   aria-hidden="true"
-                  className="size-[15px] text-white/70"
+                  className="size-[15px] text-lf-hero-ink/68"
                 />
                 {it.label}
               </button>

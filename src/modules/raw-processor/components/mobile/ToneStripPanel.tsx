@@ -22,14 +22,14 @@ export function ToneStripPanel(props: {
   const neutral = isToneNeutral(props.tone)
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 px-0.5 pb-1 text-[0.68rem] text-white/70">
+      <div className="flex items-center justify-between gap-3 px-0.5 pb-1.5 text-[0.68rem] text-lf-hero-ink/68">
         <span>{t('raw.mobile.toneStrip.hint')}</span>
         <button
           type="button"
           onClick={props.onReset}
           disabled={neutral}
           aria-label={t('raw.tone.reset')}
-          className="inline-flex items-center gap-1.5 rounded-full border border-white/20 px-2 py-1 text-[0.66rem] font-semibold text-white/85 transition-colors hover:border-amber-400/50 hover:text-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft px-2.5 py-1 text-[0.66rem] font-semibold text-lf-hero-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-40"
         >
           <RotateCcw aria-hidden="true" className="size-3" />
           {t('raw.tone.reset')}
@@ -54,18 +54,20 @@ export function ToneStripPanel(props: {
               transition={TAP_SPRING}
               onClick={() => props.onPickField(f.key)}
               className={clsxm(
-                'grid min-w-[76px] shrink-0 grid-rows-[auto_auto] items-center gap-1 rounded-xl border px-2.5 py-2 text-white transition-colors',
+                'grid min-h-[60px] min-w-[76px] shrink-0 grid-rows-[auto_auto] items-center gap-1 rounded-md border px-2.5 py-2 text-lf-hero-ink transition-colors',
                 active
-                  ? 'border-amber-400 bg-black/80'
+                  ? 'border-lf-amber bg-lf-on-photo-bg-strong'
                   : dirty
-                    ? 'border-amber-400/40 bg-black/40'
-                    : 'border-white/15 bg-black/40',
+                    ? 'border-lf-amber/45 bg-lf-on-photo-bg'
+                    : 'border-lf-on-photo-bord-soft bg-lf-on-photo-bg hover:border-lf-on-photo-bord',
               )}
             >
               <span
                 className={clsxm(
                   'text-[0.62rem] font-semibold uppercase tracking-wide',
-                  active || dirty ? 'text-amber-400' : 'text-white/75',
+                  active || dirty
+                    ? 'text-lf-amber-soft'
+                    : 'text-lf-hero-ink/72',
                 )}
               >
                 {f.short}

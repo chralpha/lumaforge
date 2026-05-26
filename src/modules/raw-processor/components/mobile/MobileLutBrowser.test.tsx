@@ -278,6 +278,37 @@ describe('mobileLutBrowser', () => {
     ).toBeDisabled()
   })
 
+  it('keeps current LUT and online source controls at mobile touch-target size', () => {
+    const fixture = onlineLutSourcesFixture()
+    fixture.sourceUrlInput = 'https://profiles.example.com/extra.json'
+    render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
+
+    expect(
+      screen.getByRole('button', { name: /close lut browser/i }),
+    ).toHaveClass('size-[44px]')
+    expect(screen.getByRole('button', { name: /clear lut/i })).toHaveClass(
+      'min-h-[44px]',
+    )
+    expect(
+      screen.getByRole('button', { name: /copy lut source link/i }),
+    ).toHaveClass('size-[44px]')
+    expect(screen.getByLabelText(/online lut source url/i)).toHaveClass(
+      'h-[44px]',
+    )
+    expect(screen.getByRole('button', { name: /add lut source/i })).toHaveClass(
+      'size-[44px]',
+    )
+    expect(
+      screen.getByRole('button', { name: /refresh profiles catalog/i }),
+    ).toHaveClass('size-[44px]')
+    expect(
+      screen.getByRole('button', { name: /remove profiles catalog/i }),
+    ).toHaveClass('size-[44px]')
+    expect(
+      screen.getByRole('button', { name: /load kodak 2383 rec.709/i }),
+    ).toHaveClass('min-h-[44px]')
+  })
+
   it('hints at the expected manifest URL shape when no online sources exist', () => {
     const fixture = onlineLutSourcesFixture()
     fixture.state = {
@@ -309,6 +340,45 @@ describe('mobileLutBrowser', () => {
     render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
 
     expect(screen.getByText('Could not reach catalog')).toBeInTheDocument()
+  })
+
+  it('keeps the mobile LUT contract editor touch-first', async () => {
+    const panasonic = getLUTColorProfile('panasonic-vgamut-vlog')!
+    render(
+      <MobileLutBrowser
+        {...baseProps}
+        initialContractEditorOpen
+        currentLutName="unknown-client-look.cube"
+        lutProfileSelection={{
+          status: 'pending',
+          fingerprint: 'lut-fingerprint',
+          title: 'Unknown client look',
+          sourceName: 'unknown-client-look.cube',
+          suggestions: [panasonic],
+        }}
+        lutProfileResolution={{
+          kind: 'needs-user-selection',
+          suggestions: [panasonic],
+        }}
+      />,
+    )
+
+    expect(
+      screen.getByRole('button', { name: /choose lut contract/i }),
+    ).toHaveClass('min-h-[44px]')
+    for (const tab of within(
+      screen.getByRole('tablist', { name: 'LUT contract panels' }),
+    ).getAllByRole('tab')) {
+      expect(tab).toHaveClass('min-h-[44px]')
+    }
+    expect(screen.getByLabelText('Search LUT contract')).toHaveClass(
+      'min-h-[44px]',
+    )
+    expect(
+      screen.getByRole('button', {
+        name: 'Use Panasonic V-Gamut / V-Log as LUT input',
+      }),
+    ).toHaveClass('min-h-[44px]')
   })
 
   it('lets an unresolved LUT choose input and output contracts from the mobile sheet', async () => {
