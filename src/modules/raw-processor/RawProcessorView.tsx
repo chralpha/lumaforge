@@ -495,7 +495,7 @@ function RawProcessorViewInner({
                       <div className="grid size-8 shrink-0 place-items-center rounded-lf-control border border-lf-rose/30 bg-lf-paper-warm text-lf-rose">
                         <RotateCcw aria-hidden="true" className="size-[18px]" />
                       </div>
-                      <DialogTitle className="min-w-0 text-[1rem] font-semibold leading-none text-lf-ink">
+                      <DialogTitle className="flex h-8 min-w-0 items-center text-[1rem] font-semibold leading-none text-lf-ink">
                         {t('raw.resetConfirm.title')}
                       </DialogTitle>
                     </div>
