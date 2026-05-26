@@ -1,0 +1,40 @@
+import { Loader2 } from 'lucide-react'
+
+import { useI18n } from '~/lib/i18n'
+
+export function MobileLutCatalogEntryButton(props: {
+  title: string
+  loading: boolean
+  disabled: boolean
+  ariaLabel: string
+  onClick: () => void
+}) {
+  const { t } = useI18n()
+
+  return (
+    <button
+      type="button"
+      aria-label={props.ariaLabel}
+      aria-busy={props.loading || undefined}
+      disabled={props.disabled || props.loading}
+      onClick={props.onClick}
+      className="grid min-h-[44px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-lf-hairline/40 bg-lf-paper px-2.5 py-2 text-left transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm disabled:cursor-not-allowed disabled:opacity-50"
+      data-raw-mobile-lut="catalog-entry"
+      data-raw-mobile-lut-entry-loading={props.loading ? 'true' : undefined}
+    >
+      <span className="min-w-0 truncate text-lf-control font-medium text-lf-ink">
+        {props.title}
+      </span>
+      {props.loading ? (
+        <Loader2
+          aria-hidden="true"
+          className="size-4 animate-spin text-lf-green-deep motion-reduce:animate-none"
+        />
+      ) : (
+        <span className="text-xs font-semibold text-lf-green-deep">
+          {t('raw.mobile.lut.load')}
+        </span>
+      )}
+    </button>
+  )
+}
