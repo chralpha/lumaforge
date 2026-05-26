@@ -96,6 +96,9 @@ describe('exportTool', () => {
     expect(
       screen.getByRole('button', { name: /export full-resolution jpeg/i }),
     ).toBeEnabled()
+    expect(
+      screen.queryByText(/full-resolution processed-window path/i),
+    ).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Export' })).toBeNull()
   })
 
@@ -130,8 +133,8 @@ describe('exportTool', () => {
       screen.getByText(/large local full-resolution export/i),
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/smaller 8-12mp preview-rendered jpeg/i),
-    ).toBeInTheDocument()
+      screen.queryByText(/smaller 8-12mp preview-rendered jpeg/i),
+    ).not.toBeInTheDocument()
 
     await user.click(
       screen.getByRole('button', {
@@ -170,8 +173,8 @@ describe('exportTool', () => {
     expect(screen.getByText('frame_neutral_hq-preview.jpg')).toBeInTheDocument()
     expect(screen.getByText('4000 x 3000')).toBeInTheDocument()
     expect(
-      screen.getByText(/Use full-resolution export for archival output/i),
-    ).toBeInTheDocument()
+      screen.queryByText(/Use full-resolution export for archival output/i),
+    ).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Copy HQ preview image' }),
     ).toBeEnabled()
@@ -210,6 +213,9 @@ describe('exportTool', () => {
     expect(
       screen.getByRole('button', { name: 'Copy preview-size image' }),
     ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/cannot copy full-resolution JPEG files/i),
+    ).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Share' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Download' })).toBeEnabled()
 
@@ -244,8 +250,8 @@ describe('exportTool', () => {
 
     expect(screen.getByRole('button', { name: 'Share' })).toBeDisabled()
     expect(
-      screen.getByText('This browser cannot share JPEG files.'),
-    ).toBeInTheDocument()
+      screen.queryByText('This browser cannot share JPEG files.'),
+    ).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Download' })).toBeEnabled()
   })
 

@@ -24,7 +24,6 @@ export function ExportTool({
   canExport,
   disabledReason,
   canPreviewExport = false,
-  previewExportDisabledReason,
   isProcessing,
   onExport,
   onPreviewExport,
@@ -70,20 +69,7 @@ export function ExportTool({
     currentActivePlan?.runtimeMemoryProfile === 'low-memory'
   const unavailableReason =
     localizeRawReason(disabledReason, t) || t('raw.exportSourceLoading')
-  const previewUnavailableReason =
-    localizeRawReason(previewExportDisabledReason, t) ||
-    t('raw.export.previewSourceLoading')
-  const shareUnavailableReason =
-    exportShareCapability.available === false
-      ? localizeRawReason(exportShareCapability.reason, t)
-      : undefined
   const copyCapability = exportResult?.copyCapability
-  const copyUnavailableReason =
-    copyCapability &&
-    copyCapability.mode !== 'full-resolution' &&
-    copyCapability.mode !== 'hq-preview'
-      ? localizeRawReason(copyCapability.reason, t)
-      : undefined
   const copyButtonLabel = copyCapability
     ? copyCapability.mode === 'unavailable'
       ? t('raw.export.copy')
@@ -170,15 +156,6 @@ export function ExportTool({
               </Button>
             )}
           </div>
-          {!exportShareCapability.available && (
-            <p className={noteClassName}>{shareUnavailableReason}</p>
-          )}
-          {copyUnavailableReason && (
-            <p className={noteClassName}>{copyUnavailableReason}</p>
-          )}
-          {resultKind === 'hq-preview' && (
-            <p className={noteClassName}>{t('raw.export.previewResultNote')}</p>
-          )}
         </div>
       ) : (
         <>
@@ -204,6 +181,9 @@ export function ExportTool({
               </Button>
             </>
           )}
+          {!canExport && !isProcessing && (
+            <p className={noteClassName}>{unavailableReason}</p>
+          )}
           <Button
             type="button"
             variant="primary"
@@ -215,12 +195,6 @@ export function ExportTool({
             <Download aria-hidden="true" />
             {isProcessing ? t('raw.export.preparing') : t('raw.export.run')}
           </Button>
-          <p
-            className={`${noteClassName} line-clamp-2 min-h-[2.6em]`}
-            title={canExport ? t('raw.export.sourcePath') : unavailableReason}
-          >
-            {canExport ? t('raw.export.sourcePath') : unavailableReason}
-          </p>
           <Button
             type="button"
             variant="secondary"
@@ -232,18 +206,6 @@ export function ExportTool({
             <Download aria-hidden="true" />
             {t('raw.export.runPreview')}
           </Button>
-          <p
-            className={`${noteClassName} line-clamp-2 min-h-[2.6em]`}
-            title={
-              canPreviewExport
-                ? t('raw.export.previewSourcePath')
-                : previewUnavailableReason
-            }
-          >
-            {canPreviewExport
-              ? t('raw.export.previewSourcePath')
-              : previewUnavailableReason}
-          </p>
         </>
       )}
     </div>
