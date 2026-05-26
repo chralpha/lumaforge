@@ -134,22 +134,22 @@ function normalizeStoredLUTContractSelection(
   if (!isStoredLUTContractSelection(value)) return undefined
 
   const candidate = value
-  return {
+  return buildStoredContractSelection({
     inputProfile:
       typeof candidate.inputProfile === 'string'
         ? (getCompatibleLUTColorProfile(candidate.inputProfile)?.id ??
           candidate.inputProfile)
         : undefined,
     role: candidate.role as LUTRole,
-    inputGamut: resolveColorGamutId(candidate.inputGamut)!,
-    inputTransfer: resolveTransferFunctionId(candidate.inputTransfer)!,
+    inputGamut: resolveColorGamutId(candidate.inputGamut),
+    inputTransfer: resolveTransferFunctionId(candidate.inputTransfer),
     inputRange: candidate.inputRange as SignalRange,
     outputGamut: resolveColorGamutId(candidate.outputGamut),
     outputTransfer: resolveTransferFunctionId(candidate.outputTransfer),
     outputRange: isSignalRange(candidate.outputRange)
       ? candidate.outputRange
       : undefined,
-  }
+  })
 }
 
 function readStoredLUTContractSelections(): Record<

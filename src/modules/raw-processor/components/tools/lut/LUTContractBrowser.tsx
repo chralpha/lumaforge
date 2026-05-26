@@ -81,17 +81,22 @@ export function LUTContractBrowser({
       ),
     [searchResults, suggestionIds],
   )
+  const currentOutputOption = useMemo(
+    () => (currentProfile ? toDeclaredOutputOption(currentProfile) : undefined),
+    [currentProfile],
+  )
   const suggestedOutputOptions = useMemo(
     () =>
       dedupeOutputOptions(
-        visibleSuggestions
-          .map(
+        [
+          currentOutputOption,
+          ...visibleSuggestions.map(
             (profile) =>
               toDeclaredOutputOption(profile) ?? toSearchOutputOption(profile),
-          )
-          .filter(Boolean) as LUTOutputOption[],
+          ),
+        ].filter(Boolean) as LUTOutputOption[],
       ),
-    [visibleSuggestions],
+    [currentOutputOption, visibleSuggestions],
   )
   const groupedOutputOptions = useMemo(
     () =>

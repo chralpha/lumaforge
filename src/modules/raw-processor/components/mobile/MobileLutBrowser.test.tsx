@@ -766,4 +766,44 @@ describe('mobileLutBrowser', () => {
       }),
     )
   })
+
+  it('marks the resolved mobile LUT output contract as active', async () => {
+    const sonyProfile = getLUTColorProfile('sony-sgamut3cine-slog3')!
+    const resolvedProfile = {
+      ...sonyProfile,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'srgb' as const,
+      outputRange: 'full' as const,
+    }
+
+    render(
+      <MobileLutBrowser
+        {...baseProps}
+        currentLutName="SLog3SGamut3.CineToLC_709.cube"
+        lutProfileSelection={{
+          status: 'resolved',
+          fingerprint: 'stable-catalog-lut',
+          profileId: resolvedProfile.id,
+          confidence: 'metadata',
+        }}
+        lutProfileResolution={{
+          kind: 'resolved',
+          profile: resolvedProfile,
+          confidence: 'metadata',
+        }}
+      />,
+    )
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /change lut contract/i }),
+    )
+    await userEvent.click(screen.getByRole('tab', { name: 'Output' }))
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Use Rec.709 display as LUT output',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true')
+  })
 })

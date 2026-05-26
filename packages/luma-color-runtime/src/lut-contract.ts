@@ -5,6 +5,7 @@ import {
   getColorGamut,
   getLUTColorProfile,
   getTransferFunction,
+  TIER1_LUT_COLOR_PROFILES,
 } from './registry'
 import type { LUTContractSelection, StoredLUTContractSelection } from './types'
 
@@ -128,6 +129,27 @@ function isDisplayLookContractAllowed(selection: {
   return selection.role !== 'display-look' || hasDisplayLikeInput(selection)
 }
 
+function resolveInputProfileId(input: {
+  inputProfile?: string
+  inputGamut?: ColorGamutId
+  inputTransfer?: TransferFunctionId
+}): string | undefined {
+  if (input.inputProfile) {
+    const explicitProfile = getLUTColorProfile(input.inputProfile)
+    if (explicitProfile) return explicitProfile.id
+  }
+
+  if (!input.inputGamut || !input.inputTransfer) return undefined
+
+  const matches = TIER1_LUT_COLOR_PROFILES.filter(
+    (profile) =>
+      profile.inputGamut === input.inputGamut &&
+      profile.inputTransfer === input.inputTransfer,
+  )
+
+  return matches.length === 1 ? matches[0]?.id : undefined
+}
+
 export function hasCompleteOutputContract(selection: {
   outputGamut?: ColorGamutId
   outputTransfer?: TransferFunctionId
@@ -177,7 +199,11 @@ export function buildStoredContractSelection(
   }
 
   const contract: StoredLUTContractSelection = {
-    inputProfile: profile?.id,
+    inputProfile: resolveInputProfileId({
+      inputProfile: profile?.id,
+      inputGamut,
+      inputTransfer,
+    }),
     role: selection.role,
     inputGamut,
     inputTransfer,
@@ -416,6 +442,13 @@ export function mapProfileLUTContract(
   return {
     ok: true,
     value: {
+      inputProfile:
+        inputGamut.ok && inputTransfer.ok
+          ? resolveInputProfileId({
+              inputGamut: inputGamut.value,
+              inputTransfer: inputTransfer.value,
+            })
+          : undefined,
       role: resolvedRole,
       inputGamut: inputGamut.value,
       inputTransfer: inputTransfer.value,

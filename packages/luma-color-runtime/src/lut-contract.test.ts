@@ -74,6 +74,7 @@ describe('generic LUT contract validation', () => {
         outputRange: 'full',
       }),
     ).toEqual({
+      inputProfile: 'sony-sgamut3cine-slog3',
       role: 'combined-look-output',
       inputGamut: 's-gamut3-cine',
       inputTransfer: 's-log3',
@@ -141,6 +142,7 @@ describe('trusted LUT metadata mapping', () => {
     expect(result).toEqual({
       ok: true,
       value: {
+        inputProfile: 'sony-sgamut3cine-slog3',
         role: 'combined-look-output',
         inputGamut: 's-gamut3-cine',
         inputTransfer: 's-log3',
@@ -164,6 +166,7 @@ describe('trusted LUT metadata mapping', () => {
     expect(result).toEqual({
       ok: true,
       value: {
+        inputProfile: 'sony-sgamut3cine-slog3',
         role: 'combined-look-output',
         inputGamut: 's-gamut3-cine',
         inputTransfer: 's-log3',

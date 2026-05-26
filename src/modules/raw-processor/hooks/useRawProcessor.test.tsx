@@ -1153,7 +1153,7 @@ describe('useRawProcessor embedded preview state', () => {
       kind: 'resolved',
       confidence: 'user',
       profile: {
-        id: 'srgb-rec709-srgb',
+        id: 'display-srgb',
         role: 'display-look',
         inputGamut: 'srgb-rec709',
         inputTransfer: 'srgb',
@@ -1162,11 +1162,11 @@ describe('useRawProcessor embedded preview state', () => {
     })
     expect(result.current.lutData?.profileResolution).toMatchObject({
       kind: 'resolved',
-      profile: { id: 'srgb-rec709-srgb' },
+      profile: { id: 'display-srgb' },
     })
     expect(result.current.lutProfileSelection).toMatchObject({
       status: 'resolved',
-      profileId: 'srgb-rec709-srgb',
+      profileId: 'display-srgb',
       confidence: 'user',
     })
   })

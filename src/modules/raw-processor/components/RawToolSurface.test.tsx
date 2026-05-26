@@ -1,3 +1,4 @@
+import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'jotai'
@@ -844,6 +845,49 @@ describe('rawToolSurface', () => {
     expect(
       screen.getByRole('button', { name: 'Change LUT contract' }),
     ).toHaveAttribute('data-raw-lut', 'contract-change-button')
+  })
+
+  it('marks the resolved LUT output contract as active in the contract browser', async () => {
+    const user = userEvent.setup()
+    const sonyProfile = getLUTColorProfile('sony-sgamut3cine-slog3')!
+    const resolvedProfile = {
+      ...sonyProfile,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'srgb' as const,
+      outputRange: 'full' as const,
+    }
+
+    render(
+      <RawToolSurface
+        {...baseProps}
+        currentLutName="SLog3SGamut3.CineToLC_709.cube"
+        lutProfileSelection={{
+          status: 'resolved',
+          fingerprint: 'stable-catalog-lut',
+          profileId: resolvedProfile.id,
+          confidence: 'metadata',
+        }}
+        lutProfileResolution={{
+          kind: 'resolved',
+          profile: resolvedProfile,
+          confidence: 'metadata',
+        }}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: 'Change LUT contract' }),
+    )
+    const browser = screen.getByRole('dialog', { name: 'LUT contract browser' })
+
+    await user.click(within(browser).getByRole('tab', { name: 'Output' }))
+
+    expect(
+      within(browser).getByRole('button', {
+        name: 'Use Rec.709 display as LUT output',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('shows a busy refresh affordance while an online LUT source is loading', () => {

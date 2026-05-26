@@ -284,17 +284,23 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       ),
     [contractSearchResults, suggestionIds],
   )
+  const currentOutputOption = useMemo(
+    () =>
+      resolvedProfile ? toDeclaredOutputOption(resolvedProfile) : undefined,
+    [resolvedProfile],
+  )
   const suggestedOutputOptions = useMemo(
     () =>
       dedupeOutputOptions(
-        visibleSuggestions
-          .map(
+        [
+          currentOutputOption,
+          ...visibleSuggestions.map(
             (profile) =>
               toDeclaredOutputOption(profile) ?? toSearchOutputOption(profile),
-          )
-          .filter(Boolean) as LUTOutputOption[],
+          ),
+        ].filter(Boolean) as LUTOutputOption[],
       ),
-    [visibleSuggestions],
+    [currentOutputOption, visibleSuggestions],
   )
   const groupedOutputOptions = useMemo(
     () =>

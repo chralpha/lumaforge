@@ -329,6 +329,7 @@ describe('online LUT release entry parsing', () => {
           title: 'Kodak 2383 Rec.709',
         },
         trustedContract: {
+          inputProfile: 'arri-awg3-logc3',
           role: 'combined-look-output',
           inputGamut: 'arri-wide-gamut-3',
           inputTransfer: 'logc3',
