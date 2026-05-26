@@ -165,6 +165,7 @@ export const SegmentItem: Component<{
 
       {isActive && (
         <m.span
+          data-segment-thumb
           layout
           transition={Spring.presets.smooth}
           layoutId={layoutId}

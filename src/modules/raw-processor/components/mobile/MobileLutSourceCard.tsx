@@ -22,20 +22,20 @@ export function MobileLutSourceCard(props: {
 
   return (
     <div
-      className="grid gap-1.5 rounded-md bg-lf-paper-warm/55 px-2.5 py-2.5"
+      className="grid gap-1.5 bg-transparent px-1 py-1"
       data-raw-mobile-lut="source-card"
     >
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="min-w-0 truncate text-lf-control font-semibold text-lf-ink">
+          <span className="min-w-0 truncate text-lf-control font-medium text-lf-ink/85">
             {label}
           </span>
-          <span className="shrink-0 rounded-lf-pill border border-lf-hairline/45 bg-lf-paper px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-ink-soft">
+          <span className="shrink-0 rounded-lf-pill bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-ink/55">
             {t('raw.mobile.lut.entryCount', { count: props.entryCount })}
           </span>
           {props.isLoading && (
             <span
-              className="shrink-0 rounded-lf-pill border border-lf-green-deep/30 bg-lf-green-soft/55 px-1.5 py-0.5 text-lf-eyebrow font-semibold leading-none text-lf-green-deep"
+              className="shrink-0 rounded-lf-pill bg-[oklch(from_var(--color-lf-green)_l_c_h_/_0.12)] px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-green-deep"
               role="status"
             >
               {t('raw.lutSource.loading')}
@@ -47,7 +47,7 @@ export function MobileLutSourceCard(props: {
             type="button"
             aria-label={t('raw.lutSource.open', { label })}
             onClick={props.onBrowse}
-            className="grid size-[44px] place-items-center rounded-md border border-lf-hairline/45 bg-lf-paper text-lf-ink/70 transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm hover:text-lf-ink"
+            className="grid size-[44px] place-items-center rounded-md bg-transparent text-lf-ink/55 transition-colors hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)] hover:text-lf-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
           >
             <FolderOpen aria-hidden="true" className="size-5" />
           </button>
@@ -57,7 +57,7 @@ export function MobileLutSourceCard(props: {
             aria-busy={props.isLoading}
             disabled={props.isLoading}
             onClick={props.onRefresh}
-            className="grid size-[44px] place-items-center rounded-md border border-lf-hairline/45 bg-lf-paper text-lf-ink/70 transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm hover:text-lf-ink disabled:cursor-not-allowed disabled:opacity-50"
+            className="grid size-[44px] place-items-center rounded-md bg-transparent text-lf-ink/55 transition-colors hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)] hover:text-lf-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw
               aria-hidden="true"
@@ -68,7 +68,7 @@ export function MobileLutSourceCard(props: {
             type="button"
             aria-label={t('raw.lutSource.remove', { label })}
             onClick={props.onRemove}
-            className="grid size-[44px] place-items-center rounded-md border border-lf-hairline/45 bg-lf-paper text-lf-ink/70 transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm hover:text-lf-ink"
+            className="grid size-[44px] place-items-center rounded-md bg-transparent text-lf-ink/55 transition-colors hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)] hover:text-lf-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
           >
             <Trash2 aria-hidden="true" className="size-5" />
           </button>

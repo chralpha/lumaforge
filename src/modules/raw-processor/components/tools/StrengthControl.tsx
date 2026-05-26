@@ -1,4 +1,5 @@
 import { SegmentGroup, SegmentItem } from '~/components/ui/segment'
+import { cn } from '~/lib/cn'
 import { useI18n } from '~/lib/i18n'
 
 const LEVELS = ['off', 'light', 'standard', 'strong'] as const
@@ -13,10 +14,14 @@ export function StrengthControl({
   value,
   onChange,
   disabled,
+  className,
+  itemClassName,
 }: {
   value: StrengthLevel
   onChange: (value: StrengthLevel) => void
   disabled: boolean
+  className?: string
+  itemClassName?: string
 }) {
   const { t } = useI18n()
   const labels: Record<StrengthLevel, string> = {
@@ -37,14 +42,14 @@ export function StrengthControl({
         }}
         aria-label={t('raw.strength.title')}
         disabled={disabled}
-        className="w-full"
+        className={cn('w-full', className)}
       >
         {LEVELS.map((level) => (
           <SegmentItem
             key={level}
             value={level}
             label={labels[level]}
-            className="flex-1"
+            className={cn('flex-1', itemClassName)}
           />
         ))}
       </SegmentGroup>

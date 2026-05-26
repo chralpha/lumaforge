@@ -129,9 +129,14 @@ describe('mobileLutBrowser', () => {
       .closest('section')
 
     expect(strengthSection).toHaveAttribute('data-raw-mobile-lut', 'strength')
-    expect(
-      screen.getByRole('tablist', { name: 'Strength' }),
-    ).toBeInTheDocument()
+    expect(strengthSection).toHaveClass('rounded-md')
+    expect(strengthSection).not.toHaveClass('bg-lf-paper')
+    expect(screen.getByRole('tablist', { name: 'Strength' })).toHaveClass(
+      'bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.04)]',
+    )
+    expect(screen.getByRole('tab', { name: 'Standard' })).toHaveClass(
+      'data-[state=active]:[&_span[data-segment-thumb]]:bg-lf-paper-high',
+    )
     expect(screen.getByRole('tab', { name: 'Standard' })).toBeDisabled()
   })
 
@@ -372,6 +377,33 @@ describe('mobileLutBrowser', () => {
     ).toHaveClass('min-h-[44px]')
   })
 
+  it('keeps mobile catalog browsing visually aligned with desktop source rows', async () => {
+    const fixture = onlineLutSourcesFixture()
+    render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
+
+    const sourceCard = document.querySelector(
+      '[data-raw-mobile-lut="source-card"]',
+    )
+    expect(sourceCard).toHaveClass('bg-transparent')
+    expect(sourceCard).not.toHaveClass('bg-lf-paper-warm/55')
+
+    const sourceInput = screen.getByLabelText(/online lut source url/i)
+    expect(sourceInput).toHaveClass('focus:ring-lf-green/25')
+    expect(sourceInput).not.toHaveClass('focus:border-lf-amber')
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /browse 1 luts/i }),
+    )
+
+    const entry = screen.getByRole('button', {
+      name: /load kodak 2383 rec.709/i,
+    })
+    expect(entry).toHaveClass(
+      'hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)]',
+    )
+    expect(entry).not.toHaveClass('border-lf-hairline/40')
+  })
+
   it('hints at the expected manifest URL shape when no online sources exist', () => {
     const fixture = onlineLutSourcesFixture()
     fixture.state = {
@@ -437,11 +469,32 @@ describe('mobileLutBrowser', () => {
     expect(screen.getByLabelText('Search LUT contract')).toHaveClass(
       'min-h-[44px]',
     )
+    expect(screen.getByLabelText('Search LUT contract')).toHaveClass(
+      'focus:ring-lf-green/25',
+    )
+    expect(screen.getByLabelText('Search LUT contract')).not.toHaveClass(
+      'focus:border-lf-amber',
+    )
+    expect(
+      within(
+        screen.getByRole('tablist', { name: 'LUT contract panels' }),
+      ).getByRole('tab', { name: 'Input', selected: true }),
+    ).toHaveClass('aria-selected:bg-lf-paper-high')
+    expect(
+      within(
+        screen.getByRole('tablist', { name: 'LUT contract panels' }),
+      ).getByRole('tab', { name: 'Input', selected: true }),
+    ).not.toHaveClass('aria-selected:bg-lf-amber-soft')
     expect(
       screen.getByRole('button', {
         name: 'Use Panasonic V-Gamut / V-Log as LUT input',
       }),
     ).toHaveClass('min-h-[44px]')
+    expect(
+      screen.getByRole('button', {
+        name: 'Use Panasonic V-Gamut / V-Log as LUT input',
+      }),
+    ).not.toHaveClass('bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)]')
   })
 
   it('opens the contract view from overview and returns with the back button', async () => {
@@ -462,6 +515,13 @@ describe('mobileLutBrowser', () => {
         }}
       />,
     )
+
+    expect(
+      screen.getByRole('button', { name: /choose lut contract/i }),
+    ).toHaveClass('border-lf-hairline/45')
+    expect(
+      screen.getByRole('button', { name: /choose lut contract/i }),
+    ).not.toHaveClass('border-lf-amber/55')
 
     await userEvent.click(
       screen.getByRole('button', { name: /choose lut contract/i }),
