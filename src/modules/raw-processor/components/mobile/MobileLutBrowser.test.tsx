@@ -94,6 +94,12 @@ describe('mobileLutBrowser', () => {
     const dialog = screen.getByRole('dialog')
     expect(dialog).toBeInTheDocument()
     expect(dialog).toHaveAttribute('data-mobile-substrate', 'ink-sheet')
+    expect(dialog).toHaveClass('bg-gradient-to-t')
+    expect(dialog).toHaveClass('from-black/92')
+    expect(dialog).toHaveClass('text-lf-hero-ink')
+    expect(dialog).toHaveClass('border-lf-on-photo-bord-soft')
+    expect(dialog).not.toHaveClass('bg-lf-paper-high')
+    expect(dialog).not.toHaveClass('text-lf-ink')
     expect(dialog.className).not.toMatch(
       /bg-material|bg-background|bg-fill|text-text|border-border/,
     )
@@ -129,30 +135,33 @@ describe('mobileLutBrowser', () => {
       .closest('section')
 
     expect(strengthSection).toHaveAttribute('data-raw-mobile-lut', 'strength')
-    // Section itself is a clean wrapper; the track carries the local sheet
-    // surface. Keep it light paper/warm rather than introducing an isolated
-    // dark/night-mode island inside the mobile sheet.
+    // Section itself is a clean wrapper; the track carries the local mobile
+    // substrate. Keep the LUT sheet in the dark on-photo family instead of
+    // importing the desktop paper surface.
     expect(strengthSection?.className ?? '').not.toMatch(/bg-\[oklch/)
     expect(strengthSection?.className ?? '').not.toMatch(/bg-lf-paper-warm/)
 
     const tablist = screen.getByRole('tablist', { name: 'Strength' })
     expect(tablist).toBeInTheDocument()
-    // Track stays in the same light surface family as the mobile sheet.
-    expect(tablist).toHaveClass('bg-lf-paper-warm/55')
-    expect(tablist).toHaveClass('border-lf-hairline/45')
+    // Track stays in the same dark on-photo surface family as mobile chrome.
+    expect(tablist).toHaveClass('bg-lf-on-photo-bg')
+    expect(tablist).toHaveClass('border-lf-on-photo-bord-soft')
+    expect(tablist).not.toHaveClass('bg-lf-paper-warm/55')
+    expect(tablist).not.toHaveClass('border-lf-hairline/45')
     expect(tablist.className).not.toMatch(
       /bg-\[oklch\(from_var\(--color-lf-ink\)/,
     )
     // The active segment renders a motion-animated thumb (layoutId-driven
     // spring) — this is the silky control the mobile contract tabs were
     // ported against. Confirm the thumb element is mounted AND that the
-    // active-state class targets the lf-paper-high thumb (matches the
+    // active-state class targets the mobile on-photo thumb (matches the
     // contract tab thumb exactly).
     const standardTab = screen.getByRole('tab', { name: 'Standard' })
     expect(standardTab.querySelector('[data-segment-thumb]')).not.toBeNull()
     expect(standardTab.className).toMatch(
-      /data-\[state=active\]:\[&_span\[data-segment-thumb\]\]:bg-lf-paper-high/,
+      /data-\[state=active\]:\[&_span\[data-segment-thumb\]\]:bg-lf-on-photo-bg-strong/,
     )
+    expect(standardTab.className).not.toMatch(/bg-lf-paper-high/)
     expect(standardTab).toBeDisabled()
   })
 
@@ -393,7 +402,7 @@ describe('mobileLutBrowser', () => {
     ).toHaveClass('min-h-[44px]')
   })
 
-  it('keeps mobile catalog browsing visually aligned with desktop source rows', async () => {
+  it('keeps mobile catalog browsing in the dark on-photo surface family', async () => {
     const fixture = onlineLutSourcesFixture()
     render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
 
@@ -414,7 +423,8 @@ describe('mobileLutBrowser', () => {
     const entry = screen.getByRole('button', {
       name: /load kodak 2383 rec.709/i,
     })
-    expect(entry).toHaveClass(
+    expect(entry).toHaveClass('hover:bg-lf-on-photo-bg-strong')
+    expect(entry).not.toHaveClass(
       'hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)]',
     )
     expect(entry).not.toHaveClass('border-lf-hairline/40')
@@ -495,13 +505,14 @@ describe('mobileLutBrowser', () => {
       screen.getByRole('tablist', { name: 'LUT contract panels' }),
     ).getByRole('tab', { name: 'Input', selected: true })
     // Active state is driven by a motion `layoutId` thumb (spring-animated)
-    // sitting under the label — mirrors desktop LUTContractBrowser and the
-    // strength SegmentControl, instead of a static aria-selected: class.
+    // sitting under the label — the motion cue matches Strength without
+    // importing the desktop paper thumb.
     const contractThumb = activeInputTab.querySelector(
       '[data-mobile-lut-contract-thumb]',
     )
     expect(contractThumb).not.toBeNull()
-    expect(contractThumb).toHaveClass('bg-lf-paper-high')
+    expect(contractThumb).toHaveClass('bg-lf-on-photo-bg-strong')
+    expect(contractThumb).not.toHaveClass('bg-lf-paper-high')
     expect(activeInputTab.className).not.toMatch(/aria-selected:bg-lf-amber/)
     expect(
       screen.getByRole('button', {
@@ -536,7 +547,7 @@ describe('mobileLutBrowser', () => {
 
     expect(
       screen.getByRole('button', { name: /choose lut contract/i }),
-    ).toHaveClass('border-lf-hairline/45')
+    ).toHaveClass('border-lf-on-photo-bord-soft')
     expect(
       screen.getByRole('button', { name: /choose lut contract/i }),
     ).not.toHaveClass('border-lf-amber/55')

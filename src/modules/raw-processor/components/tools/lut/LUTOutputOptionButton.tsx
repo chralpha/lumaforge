@@ -6,6 +6,7 @@ import { useI18n } from '~/lib/i18n'
 import type { LUTOutputOption } from './lut-output-options'
 
 export type LUTOutputOptionButtonSize = 'comfortable' | 'touch'
+export type LUTOutputOptionButtonSurface = 'paper' | 'on-photo'
 
 export function LUTOutputOptionButton({
   option,
@@ -13,16 +14,19 @@ export function LUTOutputOptionButton({
   onSelect,
   highlighted = false,
   size = 'comfortable',
+  surface = 'paper',
 }: {
   option: LUTOutputOption
   activeOptionId?: string
   onSelect: (option: LUTOutputOption) => void
   highlighted?: boolean
   size?: LUTOutputOptionButtonSize
+  surface?: LUTOutputOptionButtonSurface
 }) {
   const { t } = useI18n()
   const isActive = activeOptionId === option.id
   const isTouch = size === 'touch'
+  const isOnPhoto = surface === 'on-photo'
 
   return (
     <button
@@ -32,17 +36,23 @@ export function LUTOutputOptionButton({
       onClick={() => onSelect(option)}
       className={clsxm(
         'group/lut-row relative grid w-full min-w-0 items-center rounded-md text-left transition-colors duration-150 ease-out',
-        'text-lf-ink/75',
-        'hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)] hover:text-lf-ink/90',
+        isOnPhoto ? 'text-lf-hero-ink/76' : 'text-lf-ink/75',
+        isOnPhoto
+          ? 'hover:bg-lf-on-photo-bg-strong hover:text-lf-hero-ink'
+          : 'hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)] hover:text-lf-ink/90',
         'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
         isTouch
           ? 'min-h-[44px] grid-cols-[28px_minmax(0,1fr)] gap-2.5 px-2 py-2'
           : 'grid-cols-[22px_minmax(0,1fr)] gap-2 px-1.5 py-1.5',
         highlighted &&
           !isActive &&
-          'bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] text-lf-ink/90',
+          (isOnPhoto
+            ? 'bg-lf-amber/10 text-lf-amber-soft'
+            : 'bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] text-lf-ink/90'),
         isActive &&
-          'bg-[oklch(from_var(--color-lf-green)_l_c_h_/_0.12)] text-lf-green-deep',
+          (isOnPhoto
+            ? 'bg-lf-on-photo-bg-strong text-lf-green-soft'
+            : 'bg-[oklch(from_var(--color-lf-green)_l_c_h_/_0.12)] text-lf-green-deep'),
       )}
       data-raw-lut="contract-option"
       data-raw-lut-size={size}
@@ -53,10 +63,16 @@ export function LUTOutputOptionButton({
           'inline-grid place-items-center rounded-md transition-colors duration-150',
           isTouch ? 'size-[28px]' : 'size-[22px]',
           isActive
-            ? 'bg-[oklch(from_var(--color-lf-green)_l_c_h_/_0.18)] text-lf-green-deep'
+            ? isOnPhoto
+              ? 'bg-lf-green/20 text-lf-green-soft'
+              : 'bg-[oklch(from_var(--color-lf-green)_l_c_h_/_0.18)] text-lf-green-deep'
             : highlighted
-              ? 'bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.16)] text-lf-ink/70'
-              : 'bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.05)] text-lf-ink/45 group-hover/lut-row:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.08)] group-hover/lut-row:text-lf-ink/65',
+              ? isOnPhoto
+                ? 'bg-lf-amber/15 text-lf-amber-soft'
+                : 'bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.16)] text-lf-ink/70'
+              : isOnPhoto
+                ? 'bg-lf-on-photo-bg text-lf-hero-ink/45 group-hover/lut-row:bg-lf-on-photo-bg-strong group-hover/lut-row:text-lf-hero-ink/70'
+                : 'bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.05)] text-lf-ink/45 group-hover/lut-row:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.08)] group-hover/lut-row:text-lf-ink/65',
         )}
       >
         <Monitor

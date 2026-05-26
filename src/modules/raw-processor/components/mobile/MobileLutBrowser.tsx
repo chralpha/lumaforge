@@ -83,6 +83,7 @@ function ContractChip({
   return (
     <Chip
       tone={tone === 'warning' ? 'amber' : 'neutral'}
+      surface="on-photo"
       size="sm"
       className="min-w-0 max-w-full"
     >
@@ -110,7 +111,12 @@ function IssueChips({ issues }: { issues: OnlineIssue[] }) {
           ].join(':')}
           className="m-0 min-w-0"
         >
-          <Chip tone="amber" size="sm" className="max-w-full">
+          <Chip
+            tone="amber"
+            surface="on-photo"
+            size="sm"
+            className="max-w-full"
+          >
             <AlertTriangle aria-hidden="true" className="size-3 shrink-0" />
             <span className="min-w-0 truncate">{issue.message}</span>
           </Chip>
@@ -418,16 +424,16 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
 
   const renderCurrentSection = () => (
     <section className="grid gap-2">
-      <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
+      <h3 className="m-0 text-lf-body font-semibold text-lf-hero-ink">
         {t('raw.mobile.lut.currentHeading')}
       </h3>
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md bg-lf-paper-warm/55 px-3 py-2.5">
-        <span className="min-w-0 truncate text-[0.82rem] font-semibold text-lf-ink">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5">
+        <span className="min-w-0 truncate text-[0.82rem] font-semibold text-lf-hero-ink">
           {props.currentLutName ?? '-'}
         </span>
         <button
           type="button"
-          className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-hairline/45 bg-lf-paper px-2.5 text-xs font-semibold text-lf-ink/80 transition-colors hover:border-lf-amber/55 hover:bg-lf-paper-warm hover:text-lf-ink disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-2.5 text-xs font-semibold text-lf-hero-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-50"
           disabled={!props.currentLutName || props.disabled}
           onClick={props.onLutClear}
         >
@@ -439,15 +445,15 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
 
   const renderStrengthSection = () => (
     <section className="grid gap-2" data-raw-mobile-lut="strength">
-      <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
+      <h3 className="m-0 text-lf-body font-semibold text-lf-hero-ink">
         {t('raw.strength.title')}
       </h3>
       <StrengthControl
         value={activeIntensity}
         onChange={(level) => props.onIntensitySelect?.(level)}
         disabled={strengthDisabled}
-        className="h-11 rounded-md border border-lf-hairline/45 bg-lf-paper-warm/55 p-1 text-lf-ink/60"
-        itemClassName="text-lf-control data-[state=active]:text-lf-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-lf-paper-high data-[state=active]:[&_span[data-segment-thumb]]:shadow-sm"
+        className="h-11 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg p-1 text-lf-hero-ink/62"
+        itemClassName="text-lf-control text-lf-hero-ink/62 data-[state=active]:text-lf-hero-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-lf-on-photo-bg-strong data-[state=active]:[&_span[data-segment-thumb]]:shadow-sm"
       />
     </section>
   )
@@ -464,15 +470,15 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     return (
       <section className="grid gap-2">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
+          <h3 className="m-0 text-lf-body font-semibold text-lf-hero-ink">
             {t('raw.mobile.lut.contractHeading')}
           </h3>
           <span
             className={[
               'rounded-lf-pill border px-2 py-0.5 text-lf-eyebrow font-semibold',
               attention.needsAttention
-                ? 'border-lf-amber bg-lf-amber-soft text-lf-ink'
-                : 'border-lf-green-deep/30 bg-lf-green-soft text-lf-green-deep',
+                ? 'border-lf-amber/55 bg-lf-amber/12 text-lf-amber-soft'
+                : 'border-lf-green/55 bg-lf-on-photo-bg-strong text-lf-green-soft',
             ].join(' ')}
           >
             {attention.needsAttention
@@ -481,9 +487,9 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
           </span>
         </div>
 
-        <div className="grid gap-2.5 rounded-md bg-lf-paper-warm/55 px-3 py-2.5">
+        <div className="grid gap-2.5 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5">
           {attention.needsUserSelection ? (
-            <p className="m-0 rounded-md border border-lf-amber/55 bg-lf-amber-soft/55 px-2.5 py-2 text-xs leading-relaxed text-lf-ink">
+            <p className="m-0 rounded-md border border-lf-amber/45 bg-lf-amber/10 px-2.5 py-2 text-xs leading-relaxed text-lf-amber-soft">
               {attention.unsupportedOutput
                 ? t('raw.lutContract.unsupportedOutput')
                 : t('raw.lutContract.unknown')}
@@ -491,13 +497,13 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
           ) : resolvedProfile ? (
             <div className="grid gap-2">
               <div className="grid gap-1">
-                <span className="text-[0.66rem] font-semibold uppercase text-lf-ink/55 tracking-normal">
+                <span className="text-[0.66rem] font-semibold uppercase tracking-normal text-lf-hero-ink/50">
                   {t('raw.lutContract.inputTerm')}
                 </span>
                 <ContractChip label={resolvedProfile.label} />
               </div>
               <div className="grid gap-1">
-                <span className="text-[0.66rem] font-semibold uppercase text-lf-ink/55 tracking-normal">
+                <span className="text-[0.66rem] font-semibold uppercase tracking-normal text-lf-hero-ink/50">
                   {t('raw.lutContract.outputTerm')}
                 </span>
                 <ContractChip
@@ -508,20 +514,20 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                 />
               </div>
               {attention.needsOutputContract && (
-                <p className="m-0 rounded-md border border-lf-amber/55 bg-lf-amber-soft/55 px-2.5 py-2 text-xs leading-relaxed text-lf-ink">
+                <p className="m-0 rounded-md border border-lf-amber/45 bg-lf-amber/10 px-2.5 py-2 text-xs leading-relaxed text-lf-amber-soft">
                   {t('raw.lutContract.needsOutput')}
                 </p>
               )}
             </div>
           ) : (
-            <p className="m-0 text-xs leading-relaxed text-lf-ink-soft">
+            <p className="m-0 text-xs leading-relaxed text-lf-hero-ink/64">
               {t('raw.mobile.lut.noContract')}
             </p>
           )}
 
           <button
             type="button"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-hairline/45 bg-lf-paper px-3 text-lf-control font-semibold text-lf-ink/80 transition-colors hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)] hover:text-lf-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-3 text-lf-control font-semibold text-lf-hero-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
             disabled={props.disabled}
             onClick={() =>
               openContractView(
@@ -540,7 +546,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
 
   const renderUploadSection = () => (
     <section className="grid gap-2.5">
-      <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
+      <h3 className="m-0 text-lf-body font-semibold text-lf-hero-ink">
         {t('raw.mobile.lut.uploadHeading')}
       </h3>
       <Dropzone
@@ -549,14 +555,14 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         multiple
         disabled={props.disabled}
         aria-label={t('raw.mobile.lut.uploadAria')}
-        className="grid min-h-20 place-items-center border-lf-hairline/45 bg-lf-paper-warm/55 px-3 py-4 text-center"
+        className="grid min-h-20 place-items-center border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-4 text-center"
         interactiveMotion={false}
       >
         <div className="grid gap-1">
-          <span className="text-lf-control font-semibold text-lf-ink">
+          <span className="text-lf-control font-semibold text-lf-hero-ink">
             {t('raw.mobile.lut.uploadTitle')}
           </span>
-          <span className="text-xs text-lf-ink-soft">
+          <span className="text-xs text-lf-hero-ink/64">
             {t('raw.mobile.lut.uploadHint')}
           </span>
         </div>
@@ -570,7 +576,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     return (
       <section className="grid gap-2">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
+          <h3 className="m-0 text-lf-body font-semibold text-lf-hero-ink">
             {t('raw.mobile.lut.onlineHeading')}
           </h3>
           <button
@@ -583,7 +589,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                 () => toast.error(t('raw.lutSource.copyFailed')),
               )
             }}
-            className="grid size-[44px] shrink-0 place-items-center rounded-md bg-transparent text-lf-ink/55 transition-colors hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)] hover:text-lf-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
+            className="grid size-[44px] shrink-0 place-items-center rounded-md bg-transparent text-lf-hero-ink/55 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-hero-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Share2 aria-hidden="true" className="size-5" />
           </button>
@@ -616,19 +622,19 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                 event.currentTarget.value,
               )
             }
-            inputClassName="h-[44px] rounded-md border-transparent bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.04)] text-lf-control text-lf-ink shadow-none placeholder:text-lf-ink/40 focus:border-transparent focus:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] focus:ring-2 focus:ring-lf-green/25"
+            inputClassName="h-[44px] rounded-md border-transparent bg-lf-on-photo-bg text-lf-control text-lf-hero-ink shadow-none placeholder:text-lf-hero-ink/40 focus:border-transparent focus:bg-lf-on-photo-bg-strong focus:ring-2 focus:ring-lf-green/25"
           />
           <button
             type="submit"
             aria-label={t('raw.lutSource.add')}
             disabled={!props.onlineLutSources.sourceUrlInput.trim()}
-            className="grid size-[44px] shrink-0 place-items-center rounded-md bg-transparent text-lf-ink/55 transition-colors hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)] hover:text-lf-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
+            className="grid size-[44px] shrink-0 place-items-center rounded-md bg-transparent text-lf-hero-ink/55 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-hero-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus aria-hidden="true" className="size-5" />
           </button>
         </form>
         {props.onlineLutSources.state.resources.length === 0 && (
-          <p className="m-0 text-xs leading-relaxed text-lf-ink-soft">
+          <p className="m-0 text-xs leading-relaxed text-lf-hero-ink/64">
             {t('raw.lutSource.emptyHint')}
           </p>
         )}
@@ -638,7 +644,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         >
           {props.onlineLutSources.state.isLoading && (
             <p
-              className="m-0 rounded-md bg-[oklch(from_var(--color-lf-green)_l_c_h_/_0.12)] px-2.5 py-2 text-xs font-semibold text-lf-green-deep"
+              className="m-0 rounded-md border border-lf-green/35 bg-lf-green/15 px-2.5 py-2 text-xs font-semibold text-lf-green-soft"
               role="status"
             >
               {t('raw.mobile.lut.loading')}
@@ -667,7 +673,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                 />
                 <button
                   type="button"
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.04)] px-3 text-lf-control font-semibold text-lf-ink/75 transition-colors hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.065)] hover:text-lf-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 text-lf-control font-semibold text-lf-hero-ink/76 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-hero-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
                   onClick={() => {
                     setCatalogResourceId(resource.id)
                     setView('catalog')
@@ -746,14 +752,14 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
           {/* Sheet top bar already shows the resource label as title — keep
               this strip to count + transient pills + per-resource issues. */}
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="shrink-0 rounded-lf-pill bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-ink/55">
+            <span className="shrink-0 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-hero-ink/62">
               {t('raw.mobile.lut.entryCount', {
                 count: selectedEntries.length,
               })}
             </span>
             {selectedResourceLoading && (
               <span
-                className="shrink-0 rounded-lf-pill bg-[oklch(from_var(--color-lf-green)_l_c_h_/_0.12)] px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-green-deep"
+                className="shrink-0 rounded-lf-pill border border-lf-green/35 bg-lf-green/15 px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-green-soft"
                 role="status"
               >
                 {t('raw.lutSource.loading')}
@@ -768,7 +774,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         <>
           {selectedEntryGroups.families.map(({ family, items }) => (
             <section key={family} className="grid gap-1.5">
-              <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
+              <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-hero-ink/50">
                 {family}
               </h3>
               <div className="grid gap-1.5">
@@ -778,7 +784,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
           ))}
           {selectedEntryGroups.others.length > 0 && (
             <section className="grid gap-1.5">
-              <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
+              <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-hero-ink/50">
                 {t('raw.lutSource.others')}
               </h3>
               <div className="grid gap-1.5">
@@ -788,7 +794,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
           )}
         </>
       ) : (
-        <p className="m-0 text-lf-control leading-relaxed text-lf-ink-soft">
+        <p className="m-0 text-lf-control leading-relaxed text-lf-hero-ink/64">
           {selectedIssues.length > 0
             ? t('raw.lutSource.noneCompatible')
             : t('raw.lutSource.noneYet')}
@@ -806,7 +812,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       transition={sheetSpring}
     >
       <div
-        className="relative grid grid-cols-2 rounded-md bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.05)] p-1"
+        className="relative grid grid-cols-2 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg p-1"
         role="tablist"
         aria-label={t('raw.lutContract.panels')}
       >
@@ -826,8 +832,8 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                 'relative z-10 min-h-[44px] rounded-[5px] px-2 text-lf-control font-semibold transition-colors duration-150',
                 'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
                 isActive
-                  ? 'text-lf-ink'
-                  : 'text-lf-ink/55 hover:text-lf-ink/80',
+                  ? 'text-lf-hero-ink'
+                  : 'text-lf-hero-ink/55 hover:text-lf-hero-ink/80',
               ].join(' ')}
               onClick={() => setContractStep(tabId)}
             >
@@ -836,7 +842,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                   layoutId="mobile-lut-contract-tab-indicator"
                   aria-hidden="true"
                   data-mobile-lut-contract-thumb
-                  className="absolute inset-0 -z-10 rounded-[5px] bg-lf-paper-high shadow-sm"
+                  className="absolute inset-0 -z-10 rounded-[5px] bg-lf-on-photo-bg-strong shadow-sm"
                   transition={{
                     type: 'spring',
                     stiffness: 460,
@@ -861,7 +867,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         value={contractQuery}
         placeholder={t('raw.lutContract.searchPlaceholder')}
         onChange={(event) => setContractQuery(event.currentTarget.value)}
-        className="min-h-[44px] rounded-md border border-transparent bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.04)] px-3 text-lf-control text-lf-ink outline-none placeholder:text-lf-ink/40 focus:border-transparent focus:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] focus:ring-2 focus:ring-lf-green/25"
+        className="min-h-[44px] rounded-md border border-transparent bg-lf-on-photo-bg px-3 text-lf-control text-lf-hero-ink outline-none placeholder:text-lf-hero-ink/40 focus:border-transparent focus:bg-lf-on-photo-bg-strong focus:ring-2 focus:ring-lf-green/25"
       />
 
       <div
@@ -873,7 +879,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
           <>
             {visibleSuggestions.length > 0 && (
               <section className="grid gap-1">
-                <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
+                <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-hero-ink/50">
                   {t('raw.lutContract.suggestedInput')}
                 </h3>
                 {visibleSuggestions.map((profile) => (
@@ -882,6 +888,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                     profile={profile}
                     activeProfileId={draftInputProfile?.id}
                     size="touch"
+                    surface="on-photo"
                     ariaLabel={t('raw.lutContract.useInput', {
                       label: profile.label,
                     })}
@@ -893,7 +900,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
 
             {groupedInputProfiles.map((group) => (
               <section key={`input-${group.label}`} className="grid gap-1">
-                <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
+                <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-hero-ink/50">
                   {t('raw.lutContract.groupInput', {
                     group: group.label,
                   })}
@@ -904,6 +911,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                     profile={profile}
                     activeProfileId={draftInputProfile?.id}
                     size="touch"
+                    surface="on-photo"
                     ariaLabel={t('raw.lutContract.useInput', {
                       label: profile.label,
                     })}
@@ -914,7 +922,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
             ))}
 
             {!hasInputMatches && (
-              <p className="m-0 text-lf-control leading-relaxed text-lf-ink-soft">
+              <p className="m-0 text-lf-control leading-relaxed text-lf-hero-ink/64">
                 {t('raw.lutContract.noInput')}
               </p>
             )}
@@ -923,7 +931,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
           <>
             {suggestedOutputOptions.length > 0 && (
               <section className="grid gap-1">
-                <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
+                <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-hero-ink/50">
                   {t('raw.lutContract.suggestedOutput')}
                 </h3>
                 {suggestedOutputOptions.map((option) => (
@@ -932,6 +940,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                     option={option}
                     activeOptionId={activeOutputOptionId}
                     size="touch"
+                    surface="on-photo"
                     onSelect={handleOutputSelect}
                   />
                 ))}
@@ -940,7 +949,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
 
             {groupedOutputOptions.map((group) => (
               <section key={`output-${group.label}`} className="grid gap-1">
-                <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
+                <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-hero-ink/50">
                   {t('raw.lutContract.groupOutput', {
                     group: group.label,
                   })}
@@ -951,6 +960,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                     option={option}
                     activeOptionId={activeOutputOptionId}
                     size="touch"
+                    surface="on-photo"
                     onSelect={handleOutputSelect}
                   />
                 ))}
@@ -958,7 +968,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
             ))}
 
             {!hasOutputMatches && (
-              <p className="m-0 text-lf-control leading-relaxed text-lf-ink-soft">
+              <p className="m-0 text-lf-control leading-relaxed text-lf-hero-ink/64">
                 {t('raw.lutContract.noOutput')}
               </p>
             )}
@@ -993,7 +1003,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                 key="lut-browser"
                 data-mobile-substrate="ink-sheet"
                 data-mobile-lut-view={view}
-                className="absolute inset-x-0 bottom-0 z-[46] grid max-h-[82%] grid-rows-[auto_minmax(0,1fr)] rounded-t-xl border-t border-lf-hairline/40 bg-lf-paper-high pb-safe-offset-3 text-lf-ink shadow-[0_-14px_36px_-6px_oklch(0.18_0.018_76/0.22)]"
+                className="absolute inset-x-0 bottom-0 z-[46] grid max-h-[82%] grid-rows-[auto_minmax(0,1fr)] rounded-t-xl border-t border-lf-on-photo-bord-soft bg-gradient-to-t from-black/92 via-black/82 to-lf-dark-low/94 pb-safe-offset-3 text-lf-hero-ink shadow-[0_-18px_42px_oklch(0.04_0.012_76/0.62)] backdrop-blur-background"
                 initial={prefersReduced ? { opacity: 0 } : { y: '100%' }}
                 animate={prefersReduced ? { opacity: 1 } : { y: '0%' }}
                 exit={prefersReduced ? { opacity: 0 } : { y: '100%' }}
@@ -1014,7 +1024,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                 >
                   <div
                     aria-hidden="true"
-                    className="mx-auto h-1 w-9 rounded-lf-pill bg-lf-ink/25"
+                    className="mx-auto h-1 w-9 rounded-lf-pill bg-lf-hero-ink/28"
                   />
                   <div className="grid grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2.5">
                     {canGoBack ? (
@@ -1023,13 +1033,13 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                         size="md"
                         aria-label={t('raw.mobile.lut.back')}
                         onClick={returnToOverview}
-                        className="size-[44px] rounded-md bg-transparent text-lf-ink/55 transition-colors hover:bg-lf-ink/5 hover:text-lf-ink [&_svg]:size-5 [&_svg]:stroke-current"
+                        className="size-[44px] rounded-md bg-transparent text-lf-hero-ink/55 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-hero-ink [&_svg]:size-5 [&_svg]:stroke-current"
                       />
                     ) : (
                       <span aria-hidden="true" />
                     )}
                     <DialogPrimitive.Title asChild>
-                      <h2 className="m-0 min-w-0 truncate text-center text-[0.95rem] font-semibold text-lf-ink">
+                      <h2 className="m-0 min-w-0 truncate text-center text-[0.95rem] font-semibold text-lf-hero-ink">
                         {title}
                       </h2>
                     </DialogPrimitive.Title>
@@ -1038,7 +1048,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                       size="md"
                       aria-label={t('raw.mobile.lut.close')}
                       onClick={props.onClose}
-                      className="size-[44px] rounded-md bg-transparent text-lf-ink/55 transition-colors hover:bg-lf-ink/5 hover:text-lf-ink [&_svg]:size-5 [&_svg]:stroke-current"
+                      className="size-[44px] rounded-md bg-transparent text-lf-hero-ink/55 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-hero-ink [&_svg]:size-5 [&_svg]:stroke-current"
                     />
                   </div>
                 </div>
