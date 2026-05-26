@@ -444,10 +444,14 @@ describe('mobileLabChrome', () => {
         onViewModeChange={onViewModeChange}
       />,
     )
-    previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
-    vi.advanceTimersByTime(260)
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      vi.advanceTimersByTime(260)
+    })
     expect(onViewModeChange).toHaveBeenLastCalledWith('original')
-    previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    })
     expect(onViewModeChange).toHaveBeenLastCalledWith('processed')
     vi.useRealTimers()
   })
@@ -488,10 +492,14 @@ describe('mobileLabChrome', () => {
     expect(screen.getByText(/touch and hold the photo/i)).toBeInTheDocument()
     expect(screen.queryByText('compare')).not.toBeInTheDocument()
 
-    previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
-    vi.advanceTimersByTime(400)
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      vi.advanceTimersByTime(400)
+    })
     expect(onViewModeChange).toHaveBeenLastCalledWith('original')
-    previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    })
     expect(onViewModeChange).toHaveBeenLastCalledWith('processed')
     vi.useRealTimers()
   })
@@ -517,9 +525,13 @@ describe('mobileLabChrome', () => {
     expect(screen.getByText(/pins raw and final jpeg/i)).toBeInTheDocument()
 
     onViewModeChange.mockClear()
-    previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
-    vi.advanceTimersByTime(400)
-    previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      vi.advanceTimersByTime(400)
+    })
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    })
     expect(onViewModeChange).not.toHaveBeenCalledWith('original')
 
     fireEvent.click(
@@ -527,6 +539,45 @@ describe('mobileLabChrome', () => {
     )
     expect(onViewModeChange).toHaveBeenLastCalledWith('processed')
     expect(screen.getByText(/touch and hold the photo/i)).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
+  it('keeps split compare active when opened from an active long-press peek', () => {
+    vi.useFakeTimers()
+    const onViewModeChange = vi.fn()
+    const { container } = render(
+      <MobileLabChrome
+        {...base}
+        previewFrameEl={previewFrameEl}
+        onViewModeChange={onViewModeChange}
+      />,
+    )
+    const dock = screen.getByRole('tablist', { name: /lab modes/i })
+    fireEvent.click(within(dock).getByRole('tab', { name: /compare/i }))
+
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      vi.advanceTimersByTime(400)
+    })
+    expect(onViewModeChange).toHaveBeenLastCalledWith('original')
+    expect(container.querySelector('[data-mobile-lab-chrome]')).toHaveAttribute(
+      'data-peek',
+      'true',
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /split compare/i }))
+    expect(onViewModeChange).toHaveBeenLastCalledWith('compare')
+    expect(
+      container.querySelector('[data-mobile-lab-chrome]'),
+    ).not.toHaveAttribute('data-peek')
+
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    })
+    expect(onViewModeChange.mock.calls.map(([mode]) => mode)).toEqual([
+      'original',
+      'compare',
+    ])
     vi.useRealTimers()
   })
 })

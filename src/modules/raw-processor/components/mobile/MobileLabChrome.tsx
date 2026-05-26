@@ -87,6 +87,8 @@ export function MobileLabChrome(props: {
     props.hasImage && (props.isProcessing || previewReleasedReady)
   const snapshot = useRef<ToneValue | null>(null)
   const viewModeBeforePeek = useRef<ViewMode>('processed')
+  const compareSplitOpenRef = useRef(false)
+  const suppressNextPeekRestore = useRef(false)
   const preferExportModeWasActive = useRef(false)
 
   // When the RAW is cleared/replaced, tear down every transient layer so the
@@ -104,6 +106,8 @@ export function MobileLabChrome(props: {
     setMoreOpen(false)
     setScrubbing(false)
     setDockExpanded(true)
+    compareSplitOpenRef.current = false
+    suppressNextPeekRestore.current = false
     setCompareSplitOpen(false)
     setHistogramOpen(false)
     setMode('look')
@@ -118,6 +122,8 @@ export function MobileLabChrome(props: {
     setLutBrowserStartsInContract(false)
     setMoreOpen(false)
     setScrubbing(false)
+    compareSplitOpenRef.current = false
+    suppressNextPeekRestore.current = false
     setCompareSplitOpen(false)
     setHistogramOpen(false)
     setPeeking(false)
@@ -145,6 +151,8 @@ export function MobileLabChrome(props: {
     setLutBrowserStartsInContract(false)
     setMoreOpen(false)
     setScrubbing(false)
+    compareSplitOpenRef.current = false
+    suppressNextPeekRestore.current = false
     setCompareSplitOpen(false)
     setHistogramOpen(false)
     snapshot.current = null
@@ -184,17 +192,28 @@ export function MobileLabChrome(props: {
 
   const onPeekChange = (p: boolean) => {
     if (p) {
-      viewModeBeforePeek.current = compareSplitOpen ? viewMode : 'processed'
+      if (compareSplitOpenRef.current) return
+      viewModeBeforePeek.current = 'processed'
       onViewModeChange('original')
     } else {
+      setPeeking(false)
+      if (suppressNextPeekRestore.current) {
+        suppressNextPeekRestore.current = false
+        return
+      }
       onViewModeChange(
-        compareSplitOpen ? viewModeBeforePeek.current : 'processed',
+        compareSplitOpenRef.current ? viewModeBeforePeek.current : 'processed',
       )
+      return
     }
     setPeeking(p)
   }
 
   const setCompareSplitMode = (open: boolean) => {
+    compareSplitOpenRef.current = open
+    suppressNextPeekRestore.current = open
+    viewModeBeforePeek.current = open ? 'compare' : 'processed'
+    setPeeking(false)
     setCompareSplitOpen(open)
     onViewModeChange(open ? 'compare' : 'processed')
   }
