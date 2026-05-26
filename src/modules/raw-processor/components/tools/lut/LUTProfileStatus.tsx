@@ -9,7 +9,11 @@ import { Button } from '~/components/ui/button'
 import { useI18n } from '~/lib/i18n'
 
 import type { LUTProfileSelectionState } from '../../../model/session'
-import { getProfileOutputLabel, getResolvedProfile } from '../lut-contract'
+import {
+  getContractAttentionState,
+  getProfileOutputLabel,
+  getResolvedProfile,
+} from '../lut-contract'
 import { LUTContractBrowser } from './LUTContractBrowser'
 
 export function LUTProfileStatus({
@@ -24,11 +28,8 @@ export function LUTProfileStatus({
   const { t } = useI18n()
   const resolvedProfile = getResolvedProfile(selection, resolution)
   const outputLabel = getProfileOutputLabel(resolvedProfile)
-  const needsOutputContract = outputLabel === 'Output profile required'
+  const attention = getContractAttentionState(selection, resolution)
   const isPending = selection?.status === 'pending'
-  const isUnsupportedOutput =
-    resolution?.kind === 'needs-user-selection' &&
-    resolution.reason === 'unsupported-output'
   const suggestions =
     selection?.status === 'pending' ? selection.suggestions : []
   const [browserOpen, setBrowserOpen] = useState(false)
@@ -46,7 +47,7 @@ export function LUTProfileStatus({
 
   return (
     <div className="space-y-2 pt-1">
-      {isUnsupportedOutput ? (
+      {attention.unsupportedOutput ? (
         <p
           className="m-0 inline-flex w-full items-start gap-2 rounded-md bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink/80"
           data-raw-lut="contract-status"
@@ -80,7 +81,7 @@ export function LUTProfileStatus({
               </span>
             </p>
           )}
-          {needsOutputContract && (
+          {attention.needsOutputContract && (
             <p
               className="m-0 inline-flex w-full items-start gap-2 rounded-md bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink/80"
               data-raw-lut="contract-status"
