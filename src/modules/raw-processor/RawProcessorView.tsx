@@ -11,6 +11,7 @@ import { RotateCcw } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useInRouterContext, useLocation } from 'react-router'
 
+import { Button } from '~/components/ui/button'
 import { Dialog, DialogDescription, DialogTitle } from '~/components/ui/dialog'
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
@@ -483,38 +484,42 @@ function RawProcessorViewInner({
         <DialogPrimitive.Portal forceMount>
           {resetConfirmationOpen && (
             <>
-              <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.04_0.012_76/0.58)] backdrop-blur-[2px]" />
+              <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.24)] backdrop-blur-[1px]" />
               <div className="pointer-events-none fixed inset-0 z-[60] grid place-items-center p-5">
                 <DialogPrimitive.Content
                   role="alertdialog"
-                  className="pointer-events-auto w-full max-w-[20rem] overflow-hidden rounded-[16px] border border-[oklch(from_var(--color-lf-hero-ink)_l_c_h_/_0.2)] bg-[linear-gradient(180deg,var(--color-lf-dark-low),var(--color-lf-dark))] text-lf-hero-ink shadow-[0_32px_64px_oklch(0.04_0.012_76/0.65)]"
+                  className="pointer-events-auto w-full max-w-[28rem] overflow-hidden rounded-lf-panel border border-border-secondary bg-lf-paper-high text-lf-ink shadow-lf-popover"
                 >
-                  <div className="px-6 pb-5 pt-6 text-center">
-                    <div className="mx-auto mb-3 grid size-11 place-items-center rounded-full bg-[oklch(from_var(--color-lf-rose)_l_c_h_/_0.18)] text-lf-rose">
-                      <RotateCcw aria-hidden="true" className="size-[22px]" />
+                  <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 px-5 pb-5 pt-5">
+                    <div className="grid size-10 place-items-center rounded-lf-control border border-lf-rose/30 bg-lf-paper-warm text-lf-rose">
+                      <RotateCcw aria-hidden="true" className="size-5" />
                     </div>
-                    <DialogTitle className="text-[1rem] font-semibold leading-tight text-lf-hero-ink">
-                      {t('raw.resetConfirm.title')}
-                    </DialogTitle>
-                    <DialogDescription className="mt-2 text-[0.8rem] leading-6 text-lf-hero-ink/68">
-                      {t('raw.resetConfirm.description')}
-                    </DialogDescription>
+                    <div className="min-w-0">
+                      <DialogTitle className="text-lf-title font-semibold leading-tight text-lf-ink">
+                        {t('raw.resetConfirm.title')}
+                      </DialogTitle>
+                      <DialogDescription className="mt-2 text-lf-body leading-6 text-lf-ink-soft">
+                        {t('raw.resetConfirm.description')}
+                      </DialogDescription>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 border-t border-[oklch(from_var(--color-lf-hero-ink)_l_c_h_/_0.18)]">
-                    <button
+                  <div className="flex justify-end gap-2 border-t border-border-secondary bg-lf-paper-warm/60 px-5 py-3">
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       type="button"
                       onClick={() => setResetConfirmationOpen(false)}
-                      className="min-h-12 border-0 border-e border-[oklch(from_var(--color-lf-hero-ink)_l_c_h_/_0.18)] bg-transparent px-3 text-[0.86rem] font-semibold text-lf-hero-ink transition-colors hover:bg-[oklch(from_var(--color-lf-hero-ink)_l_c_h_/_0.06)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-lf-green"
                     >
                       {t('raw.resetConfirm.cancel')}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
                       type="button"
                       onClick={confirmSessionReset}
-                      className="min-h-12 border-0 bg-transparent px-3 text-[0.86rem] font-bold text-lf-rose transition-colors hover:bg-[oklch(from_var(--color-lf-hero-ink)_l_c_h_/_0.06)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-lf-rose"
                     >
                       {t('raw.resetConfirm.confirm')}
-                    </button>
+                    </Button>
                   </div>
                 </DialogPrimitive.Content>
               </div>
