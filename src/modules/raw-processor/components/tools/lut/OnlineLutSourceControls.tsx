@@ -17,6 +17,7 @@ import { useScrollEdgeFade } from '~/hooks/common'
 import { useI18n } from '~/lib/i18n'
 
 import type { UseOnlineLutSourcesResult } from '../../../hooks/useOnlineLutSources'
+import { groupEntriesByFamily } from './lut-source-grouping'
 import { LutBrowserDialog } from './LutBrowserDialog'
 import { LutIconButton } from './LutIconButton'
 
@@ -137,21 +138,7 @@ export function OnlineLutSourceControls({
           >
             {openEntries.length > 0 ? (
               (() => {
-                const familyGroups = new Map<string, typeof openEntries>()
-                const ungrouped: typeof openEntries = []
-
-                for (const entry of openEntries) {
-                  if (entry.family) {
-                    const group = familyGroups.get(entry.family)
-                    if (group) {
-                      group.push(entry)
-                    } else {
-                      familyGroups.set(entry.family, [entry])
-                    }
-                  } else {
-                    ungrouped.push(entry)
-                  }
-                }
+                const { families, others } = groupEntriesByFamily(openEntries)
 
                 const renderEntry = (entry: (typeof openEntries)[number]) => {
                   const isLoading = loadingEntryId === entry.id
@@ -205,23 +192,23 @@ export function OnlineLutSourceControls({
 
                 return (
                   <>
-                    {Array.from(familyGroups, ([family, entries]) => (
+                    {families.map(({ family, items }) => (
                       <div key={family} className="grid gap-1">
                         <div className="px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
                           {family}
                         </div>
                         <div className="grid gap-0.5 sm:grid-cols-2">
-                          {entries.map(renderEntry)}
+                          {items.map(renderEntry)}
                         </div>
                       </div>
                     ))}
-                    {ungrouped.length > 0 && (
+                    {others.length > 0 && (
                       <div className="grid gap-1">
                         <div className="px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
                           {t('raw.lutSource.others')}
                         </div>
                         <div className="grid gap-0.5 sm:grid-cols-2">
-                          {ungrouped.map(renderEntry)}
+                          {others.map(renderEntry)}
                         </div>
                       </div>
                     )}
