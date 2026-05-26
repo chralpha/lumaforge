@@ -78,6 +78,10 @@ describe('raw lab css tokens', () => {
 
   it('fixes the mobile shell while the iOS toolbar nudge creates page scroll', () => {
     const mobileMedia = extractRuleBody(rawLabCss, '@media (max-width: 640px)')
+    const nudgeRootRule = extractRuleBody(
+      mobileMedia,
+      'html[data-raw-ios-toolbar-nudge]',
+    )
     const nudgeBodyRule = extractRuleBody(
       mobileMedia,
       'html[data-raw-ios-toolbar-nudge] body',
@@ -87,7 +91,12 @@ describe('raw lab css tokens', () => {
       'html[data-raw-ios-toolbar-nudge] [data-raw-lab-shell="viewport"]',
     )
 
-    expect(nudgeBodyRule).toContain('min-height: calc(100dvh + 192px);')
+    expect(nudgeRootRule).toContain('overflow-y: scroll;')
+    expect(nudgeRootRule).toContain('overscroll-behavior-y: none;')
+    expect(nudgeBodyRule).toContain('min-height: calc(100dvh + 960px);')
+    expect(nudgeBodyRule).toContain(
+      'min-height: calc(max(100dvh, 100lvh) + 960px);',
+    )
     expect(nudgeShellRule).toContain('position: fixed;')
     expect(nudgeShellRule).toContain('inset: 0;')
     expect(nudgeShellRule).toContain('top: 0;')

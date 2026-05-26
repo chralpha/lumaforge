@@ -118,7 +118,7 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
   if (toolbarNudgeEligible) {
     await expect
       .poll(() => page.evaluate(() => window.scrollY))
-      .toBeGreaterThanOrEqual(96)
+      .toBeGreaterThanOrEqual(512)
   }
 
   const metrics = await page.evaluate(() => {
@@ -170,7 +170,7 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
   if (metrics.toolbarNudgeState) {
     expect(metrics.toolbarNudgeState).toBe('primed')
     expect(metrics.rawShellPosition).toBe('fixed')
-    expect(metrics.documentScrollOverflow).toBeGreaterThanOrEqual(180)
+    expect(metrics.documentScrollOverflow).toBeGreaterThanOrEqual(900)
 
     await page.touchscreen.tap(24, 24)
     await expect
@@ -196,17 +196,8 @@ test('keeps RAW Lab tool scrolling inside the viewport shell', async ({
     })
 
     expect(nudgedMetrics.toolbarNudgeState).toBe('nudged')
-    expect(nudgedMetrics.scrollY).toBeGreaterThanOrEqual(96)
+    expect(nudgedMetrics.scrollY).toBeGreaterThanOrEqual(512)
     expect(nudgedMetrics.rawShellTop).toBe(0)
-
-    await page.evaluate(() => {
-      window.scrollTo(0, 0)
-      window.dispatchEvent(new Event('scroll'))
-    })
-
-    await expect
-      .poll(() => page.evaluate(() => window.scrollY))
-      .toBeGreaterThanOrEqual(96)
   } else {
     expect(metrics.documentScrollOverflow).toBe(0)
   }

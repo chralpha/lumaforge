@@ -2,8 +2,9 @@ import { useEffect } from 'react'
 
 const TOOLBAR_NUDGE_ATTRIBUTE = 'data-raw-ios-toolbar-nudge'
 const MOBILE_QUERY = '(max-width: 640px)'
-const TOOLBAR_NUDGE_SCROLL_Y = 96
-const TOOLBAR_RESTORE_THRESHOLD_Y = 32
+const TOOLBAR_NUDGE_SCROLL_STEPS = [1, 128, 320, 512] as const
+const TOOLBAR_NUDGE_STEP_DELAY_MS = 64
+const TOOLBAR_NUDGE_RESIZE_RETRY_DELAY_MS = 120
 const IOS_DEVICE_PATTERN = /\b(?:iPad|iPhone|iPod)\b/
 const NON_SAFARI_IOS_BROWSER_PATTERN = /\b(?:CriOS|EdgiOS|FxiOS|OPiOS)\b/
 
@@ -32,28 +33,51 @@ export function useIosSafariToolbarNudge() {
 
     const root = document.documentElement
     let nudged = false
-    let cancelScheduledScroll: (() => void) | null = null
+    let resizeRetryTimeout: number | null = null
+    const scheduledScrollTimeouts = new Set<number>()
+    const visualViewport = window.visualViewport
 
     root.setAttribute(TOOLBAR_NUDGE_ATTRIBUTE, 'armed')
 
-    const scheduleToolbarScroll = (state: 'primed' | 'nudged') => {
-      cancelScheduledScroll?.()
-      cancelScheduledScroll = null
-
-      const scroll = () => {
-        cancelScheduledScroll = null
-        window.scrollTo(0, TOOLBAR_NUDGE_SCROLL_Y)
-        root.setAttribute(TOOLBAR_NUDGE_ATTRIBUTE, state)
+    const clearScheduledScrolls = () => {
+      for (const timeout of scheduledScrollTimeouts) {
+        window.clearTimeout(timeout)
       }
+      scheduledScrollTimeouts.clear()
+    }
 
-      if (typeof window.requestAnimationFrame === 'function') {
-        const frame = window.requestAnimationFrame(scroll)
-        cancelScheduledScroll = () => window.cancelAnimationFrame(frame)
-        return
+    const clearResizeRetry = () => {
+      if (resizeRetryTimeout === null) return
+
+      window.clearTimeout(resizeRetryTimeout)
+      resizeRetryTimeout = null
+    }
+
+    const scheduleToolbarProbe = (state: 'primed' | 'nudged') => {
+      clearScheduledScrolls()
+      root.setAttribute(TOOLBAR_NUDGE_ATTRIBUTE, 'probing')
+
+      for (const [index, scrollY] of TOOLBAR_NUDGE_SCROLL_STEPS.entries()) {
+        const timeout = window.setTimeout(() => {
+          scheduledScrollTimeouts.delete(timeout)
+          window.scrollTo(0, scrollY)
+
+          if (index === TOOLBAR_NUDGE_SCROLL_STEPS.length - 1) {
+            root.setAttribute(TOOLBAR_NUDGE_ATTRIBUTE, state)
+          }
+        }, index * TOOLBAR_NUDGE_STEP_DELAY_MS)
+
+        scheduledScrollTimeouts.add(timeout)
       }
+    }
 
-      const timeout = window.setTimeout(scroll, 0)
-      cancelScheduledScroll = () => window.clearTimeout(timeout)
+    const scheduleToolbarRetry = () => {
+      clearResizeRetry()
+
+      resizeRetryTimeout = window.setTimeout(() => {
+        resizeRetryTimeout = null
+        scheduleToolbarProbe(nudged ? 'nudged' : 'primed')
+      }, TOOLBAR_NUDGE_RESIZE_RETRY_DELAY_MS)
     }
 
     const nudge = () => {
@@ -62,13 +86,7 @@ export function useIosSafariToolbarNudge() {
       window.removeEventListener('touchstart', nudge, true)
       window.removeEventListener('pointerdown', nudge, true)
 
-      scheduleToolbarScroll('nudged')
-    }
-
-    const restoreNudgePosition = () => {
-      if (window.scrollY >= TOOLBAR_RESTORE_THRESHOLD_Y) return
-
-      scheduleToolbarScroll(nudged ? 'nudged' : 'primed')
+      scheduleToolbarProbe('nudged')
     }
 
     window.addEventListener('touchstart', nudge, {
@@ -81,20 +99,20 @@ export function useIosSafariToolbarNudge() {
       once: true,
       passive: true,
     })
-    window.addEventListener('touchmove', restoreNudgePosition, {
-      capture: true,
+    window.addEventListener('resize', scheduleToolbarRetry, { passive: true })
+    visualViewport?.addEventListener('resize', scheduleToolbarRetry, {
       passive: true,
     })
-    window.addEventListener('scroll', restoreNudgePosition, { passive: true })
 
-    scheduleToolbarScroll('primed')
+    scheduleToolbarProbe('primed')
 
     return () => {
-      cancelScheduledScroll?.()
+      clearResizeRetry()
+      clearScheduledScrolls()
       window.removeEventListener('touchstart', nudge, true)
       window.removeEventListener('pointerdown', nudge, true)
-      window.removeEventListener('touchmove', restoreNudgePosition, true)
-      window.removeEventListener('scroll', restoreNudgePosition)
+      window.removeEventListener('resize', scheduleToolbarRetry)
+      visualViewport?.removeEventListener('resize', scheduleToolbarRetry)
 
       if (root.getAttribute(TOOLBAR_NUDGE_ATTRIBUTE)) {
         root.removeAttribute(TOOLBAR_NUDGE_ATTRIBUTE)

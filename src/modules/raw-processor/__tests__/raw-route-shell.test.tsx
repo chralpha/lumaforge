@@ -357,8 +357,8 @@ describe('rawProcessorView', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('primes and guards the iOS Safari toolbar nudge without wrapping the raw route shell', async () => {
-    const { scrollTo, setScrollY } = installIosSafariToolbarNudgeEnvironment()
+  it('auto-probes the iOS Safari toolbar nudge without wrapping the raw route shell', async () => {
+    const { scrollTo } = installIosSafariToolbarNudgeEnvironment()
 
     const { container, unmount } = render(<RawRoute />)
     const routeRoot = container.firstElementChild
@@ -366,12 +366,25 @@ describe('rawProcessorView', () => {
     expect(routeRoot).toHaveAttribute('data-raw-lab-shell', 'viewport')
     expect(document.documentElement).toHaveAttribute(
       'data-raw-ios-toolbar-nudge',
-      'armed',
+      'probing',
     )
-    await waitFor(() => expect(scrollTo).toHaveBeenCalledWith(0, 96))
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledWith(0, 512))
+    expect(scrollTo.mock.calls.map((call) => call[1])).toEqual(
+      expect.arrayContaining([1, 128, 320, 512]),
+    )
     expect(document.documentElement).toHaveAttribute(
       'data-raw-ios-toolbar-nudge',
       'primed',
+    )
+
+    act(() => {
+      window.dispatchEvent(new Event('resize'))
+    })
+
+    await waitFor(() =>
+      expect(scrollTo.mock.calls.filter((call) => call[1] === 512).length).toBe(
+        2,
+      ),
     )
 
     act(() => {
@@ -384,14 +397,8 @@ describe('rawProcessorView', () => {
         'nudged',
       ),
     )
-
-    setScrollY(0)
-    act(() => {
-      window.dispatchEvent(new Event('scroll'))
-    })
-
     await waitFor(() =>
-      expect(scrollTo.mock.calls.filter((call) => call[1] === 96).length).toBe(
+      expect(scrollTo.mock.calls.filter((call) => call[1] === 512).length).toBe(
         3,
       ),
     )
