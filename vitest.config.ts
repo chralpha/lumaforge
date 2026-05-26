@@ -32,6 +32,9 @@ export default defineConfig({
       '@lumaforge/luma-raw-runtime': fileURLToPath(
         new URL('./packages/luma-raw-runtime/src/index.ts', import.meta.url),
       ),
+      '@lumaforge/luma-jpeg-runtime': fileURLToPath(
+        new URL('./packages/luma-jpeg-runtime/src/index.ts', import.meta.url),
+      ),
     },
   },
   test: {

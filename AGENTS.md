@@ -56,12 +56,37 @@ Keep changes aligned with the current codebase and product boundary, not generic
 
 ## Verification
 
-- Default verification for app changes:
+- Use progressive verification so UI iteration does not pay native/runtime build
+  costs on every batch:
+  - UI-only `/raw` or shared component edits: start with `pnpm test:ui` and a
+    focused lint command, or `pnpm lint` when you want autofix.
+  - App-surface changes under `src`, `scripts`, or non-native package adapters:
+    run `pnpm lint:check`, `pnpm test:app`, `pnpm native:prepare`, and
+    `LUMAFORGE_NATIVE_RUNTIME_MODE=prebuilt pnpm build`.
+  - Runtime contract changes under `packages/luma-*-runtime`, `src/lib/export`,
+    `src/lib/raw`, `src/lib/runtime`, or `src/lib/workers`: run
+    `pnpm test:runtime` plus the touched package `typecheck` and `build`
+    commands.
+  - Native/runtime artifact changes under package `native/` folders or
+    `packages/luma-native-artifacts`: run the relevant `build:native`,
+    `native:verify`, and native smoke commands.
+- Default closeout verification for broad app changes remains:
   - `pnpm lint`
   - `pnpm test:run`
   - `pnpm build`
-- Runtime or package changes usually also need the package-local `build`, `typecheck`, and `test` commands.
-- Native/runtime artifact changes should also run the relevant `build:native` and `native:verify` commands for the touched package.
+- `pnpm test:run` is the full Vitest sweep. Do not make it the first command
+  after every UI batch when `pnpm test:ui` or `pnpm test:app` gives the faster
+  signal needed for the current scope.
+- Runtime or package changes usually also need the package-local `build`,
+  `typecheck`, and `test` commands.
+- Native/runtime artifact changes should also run the relevant `build:native`
+  and `native:verify` commands for the touched package.
+- CI follows the same split:
+  - `app` uses `pnpm lint:check`, `pnpm test:app`, prebuilt native assets, and
+    app build checks.
+  - `runtime` runs runtime package typecheck/test/build and app adapter tests.
+  - `native` installs Emscripten and runs native build/verify/smoke only for
+    native artifact paths.
 - User-visible `/raw` behavior changes should include browser validation when the change affects interaction, rendering, export handoff, or mobile/WebKit behavior.
 
 ## When Unsure

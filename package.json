@@ -22,6 +22,7 @@
     "worktree": "bash scripts/worktree.sh",
     "format": "prettier --write \"src/**/*.ts\" ",
     "lint": "eslint --fix --ignore-pattern \"src/generated-routes.ts\" \"src/**/*.{js,jsx,ts,tsx}\" \"scripts/**/*.{js,mjs,cjs,ts}\" \"plugins/**/*.{js,mjs,cjs,ts}\" \"packages/*/{src,worker,benchmarks,fixtures/scripts,native/scripts}/**/*.{js,mjs,cjs,ts,tsx}\" \"packages/*/*.{js,mjs,cjs,ts}\" \"*.{js,mjs,cjs,ts}\"",
+    "lint:check": "eslint --ignore-pattern \"src/generated-routes.ts\" \"src/**/*.{js,jsx,ts,tsx}\" \"scripts/**/*.{js,mjs,cjs,ts}\" \"plugins/**/*.{js,mjs,cjs,ts}\" \"packages/*/{src,worker,benchmarks,fixtures/scripts,native/scripts}/**/*.{js,mjs,cjs,ts,tsx}\" \"packages/*/*.{js,mjs,cjs,ts}\" \"*.{js,mjs,cjs,ts}\"",
     "native:artifacts:pack": "pnpm --filter @lumaforge/luma-native-artifacts run pack:dry-run",
     "native:artifacts:sync": "node scripts/native-runtime/sync-artifact-package.mjs",
     "native:artifacts:verify": "node scripts/native-runtime/verify-artifact-package.mjs",
@@ -31,9 +32,12 @@
     "prepare": "simple-git-hooks",
     "serve": "vite preview",
     "test": "vitest",
+    "test:app": "vitest run --config vitest.app.config.ts",
     "test:browser": "playwright test",
     "test:browser:webkit": "playwright test --project=webkit-ios-safe",
     "test:coverage": "vitest run --coverage",
+    "test:runtime": "pnpm --filter @lumaforge/luma-color-runtime test && pnpm --filter @lumaforge/luma-raw-runtime test && pnpm --filter @lumaforge/luma-jpeg-runtime test && pnpm exec vitest run src/lib/export src/lib/raw src/lib/runtime src/lib/workers --exclude src/lib/export/full-res-export.real.test.ts",
+    "test:ui": "vitest run src/modules/raw-processor src/components/ui src/components/common",
     "test:run": "vitest run"
   },
   "dependencies": {

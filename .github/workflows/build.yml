@@ -7,7 +7,176 @@ on:
     branches: [main, master]
 
 jobs:
-  build:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.detect.outputs.app }}
+      runtime: ${{ steps.detect.outputs.runtime }}
+      native: ${{ steps.detect.outputs.native }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+
+          head_sha="$GITHUB_SHA"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            base_sha="$PR_BASE_SHA"
+          else
+            base_sha="$PUSH_BEFORE_SHA"
+          fi
+
+          if [ -z "$base_sha" ] || [ "$base_sha" = "0000000000000000000000000000000000000000" ]; then
+            base_sha="$(git rev-list --max-parents=0 "$head_sha")"
+          fi
+
+          changed_files="$(git diff --name-only "$base_sha" "$head_sha" || true)"
+          if [ -z "$changed_files" ]; then
+            changed_files="$(git diff-tree --no-commit-id --name-only -r "$head_sha" || true)"
+          fi
+
+          echo "Changed files:"
+          printf '%s\n' "$changed_files"
+
+          matches() {
+            printf '%s\n' "$changed_files" | grep -E -q "$1"
+          }
+
+          force_all='^(\.github/workflows/build\.yml|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$'
+          app_paths='^(src/|tests/browser/|scripts/(build|deploy|native-runtime)/|packages/luma-(color|jpeg|raw)-runtime/|public/|index\.html|vite\.config\.ts|vitest.*\.config\.ts|tsconfig.*|eslint.*|postcss.*|tailwind.*)'
+          runtime_paths='^(packages/luma-(color|jpeg|raw)-runtime/|src/lib/(export|raw|runtime|workers)/|scripts/native-runtime/)'
+          native_paths='^(packages/luma-(jpeg|raw)-runtime/native/|packages/luma-native-artifacts/|scripts/native-runtime/)'
+
+          app=false
+          runtime=false
+          native=false
+
+          if matches "$force_all"; then
+            app=true
+            runtime=true
+            native=true
+          else
+            if matches "$app_paths"; then app=true; fi
+            if matches "$runtime_paths"; then runtime=true; fi
+            if matches "$native_paths"; then native=true; fi
+          fi
+
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+          echo "runtime=$runtime" >> "$GITHUB_OUTPUT"
+          echo "native=$native" >> "$GITHUB_OUTPUT"
+
+  app:
+    needs: changes
+    if: ${{ needs.changes.outputs.app == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Configure pnpm store
+        run: pnpm config set store-dir ~/.pnpm-store
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check lint
+        run: pnpm lint:check
+
+      - name: Test app surface
+        run: pnpm test:app
+
+      - name: Prepare prebuilt native assets
+        run: LUMAFORGE_NATIVE_RUNTIME_MODE=prebuilt pnpm native:prepare
+
+      - name: Build app with prebuilt native assets
+        run: LUMAFORGE_NATIVE_RUNTIME_MODE=prebuilt pnpm build
+
+      - name: Verify app build artifact
+        run: pnpm run deploy:check
+
+  runtime:
+    needs: changes
+    if: ${{ needs.changes.outputs.runtime == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Configure pnpm store
+        run: pnpm config set store-dir ~/.pnpm-store
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck color runtime package
+        run: pnpm --filter @lumaforge/luma-color-runtime typecheck
+
+      - name: Typecheck RAW runtime package
+        run: pnpm --filter @lumaforge/luma-raw-runtime typecheck
+
+      - name: Typecheck JPEG runtime package
+        run: pnpm --filter @lumaforge/luma-jpeg-runtime typecheck
+
+      - name: Test runtime packages and app adapters
+        run: pnpm test:runtime
+
+      - name: Build color runtime package
+        run: pnpm --filter @lumaforge/luma-color-runtime build
+
+      - name: Build RAW runtime package
+        run: pnpm --filter @lumaforge/luma-raw-runtime build
+
+      - name: Build JPEG runtime package
+        run: pnpm --filter @lumaforge/luma-jpeg-runtime build
+
+  native:
+    needs: changes
+    if: ${{ needs.changes.outputs.native == 'true' }}
     runs-on: ubuntu-latest
 
     env:
@@ -64,13 +233,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build native RAW runtime
+      - name: Build and verify native RAW runtime
         run: |
           . "$HOME/.cache/lumaforge-emsdk/emsdk_env.sh"
           pnpm --filter @lumaforge/luma-raw-runtime build:native
           pnpm --filter @lumaforge/luma-raw-runtime native:verify
 
-      - name: Build native JPEG runtime
+      - name: Build and verify native JPEG runtime
         run: |
           . "$HOME/.cache/lumaforge-emsdk/emsdk_env.sh"
           pnpm --filter @lumaforge/luma-jpeg-runtime build:native
@@ -79,29 +248,34 @@ jobs:
       - name: Smoke test CI-built native JPEG runtime
         run: pnpm --filter @lumaforge/luma-jpeg-runtime test:native-smoke
 
-      - name: Typecheck JPEG runtime package
-        run: pnpm --filter @lumaforge/luma-jpeg-runtime typecheck
-
-      - name: Test JPEG runtime package
-        run: pnpm --filter @lumaforge/luma-jpeg-runtime test
-
-      - name: Build JPEG runtime package
-        run: pnpm --filter @lumaforge/luma-jpeg-runtime build
-
       - name: Fetch public RAW smoke fixtures
         run: pnpm --filter @lumaforge/luma-raw-runtime fixtures:fetch-public
 
-      - name: Smoke test CI-built native runtime
+      - name: Smoke test CI-built native RAW runtime
         run: pnpm --filter @lumaforge/luma-raw-runtime test:native-smoke
 
-      - name: Test runtime package
-        run: pnpm --filter @lumaforge/luma-raw-runtime test
+  build:
+    needs: [changes, app, runtime, native]
+    if: always()
+    runs-on: ubuntu-latest
 
-      - name: Build runtime package
-        run: pnpm --filter @lumaforge/luma-raw-runtime build
+    steps:
+      - name: Check split build results
+        env:
+          APP_RESULT: ${{ needs.app.result }}
+          RUNTIME_RESULT: ${{ needs.runtime.result }}
+          NATIVE_RESULT: ${{ needs.native.result }}
+        run: |
+          set -euo pipefail
 
-      - name: Build app
-        run: pnpm run build
+          for result in "$APP_RESULT" "$RUNTIME_RESULT" "$NATIVE_RESULT"; do
+            case "$result" in
+              success|skipped) ;;
+              *)
+                echo "A split build job did not pass: $result"
+                exit 1
+                ;;
+            esac
+          done
 
-      - name: Verify app build artifact
-        run: pnpm run deploy:check
+          echo "Split build gates passed."

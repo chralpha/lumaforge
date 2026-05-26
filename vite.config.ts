@@ -59,6 +59,10 @@ const LUMA_RAW_RUNTIME_SOURCE = resolve(
   ROOT,
   './packages/luma-raw-runtime/src/index.ts',
 )
+const LUMA_JPEG_RUNTIME_SOURCE = resolve(
+  ROOT,
+  './packages/luma-jpeg-runtime/src/index.ts',
+)
 const LUMAFORGE_OG_IMAGE_OUTPUT = 'og-image.png'
 const LUMAFORGE_OG_IMAGE_FONT_SOURCE = resolve(
   ROOT,
@@ -217,6 +221,7 @@ export default defineConfig(({ command }) => {
           LUMA_COLOR_RUNTIME_TESTING_SOURCE,
         '@lumaforge/luma-color-runtime': LUMA_COLOR_RUNTIME_SOURCE,
         '@lumaforge/luma-raw-runtime': LUMA_RAW_RUNTIME_SOURCE,
+        '@lumaforge/luma-jpeg-runtime': LUMA_JPEG_RUNTIME_SOURCE,
       },
       tsconfigPaths: true,
     },
