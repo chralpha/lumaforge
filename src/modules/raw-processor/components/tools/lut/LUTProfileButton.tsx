@@ -5,6 +5,8 @@ import { clsxm } from '~/lib/cn'
 
 import { getProfileContractLabel } from '../lut-contract'
 
+export type LUTProfileButtonSize = 'comfortable' | 'touch'
+
 export function LUTProfileButton({
   profile,
   activeProfileId,
@@ -12,6 +14,7 @@ export function LUTProfileButton({
   label,
   ariaLabel,
   highlighted = false,
+  size = 'comfortable',
 }: {
   profile: LUTColorProfile
   activeProfileId?: string
@@ -19,9 +22,11 @@ export function LUTProfileButton({
   label?: string
   ariaLabel?: string
   highlighted?: boolean
+  size?: LUTProfileButtonSize
 }) {
   const isActive = activeProfileId === profile.id
   const buttonLabel = label ?? getProfileContractLabel(profile)
+  const isTouch = size === 'touch'
 
   return (
     <button
@@ -30,10 +35,13 @@ export function LUTProfileButton({
       aria-pressed={isActive}
       onClick={() => onSelect(profile)}
       className={clsxm(
-        'group/lut-row relative grid w-full min-w-0 grid-cols-[22px_minmax(0,1fr)] items-center gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors duration-150 ease-out',
+        'group/lut-row relative grid w-full min-w-0 items-center rounded-md text-left transition-colors duration-150 ease-out',
         'text-lf-ink/75',
         'hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)] hover:text-lf-ink/90',
         'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
+        isTouch
+          ? 'min-h-[44px] grid-cols-[28px_minmax(0,1fr)] gap-2.5 px-2 py-2'
+          : 'grid-cols-[22px_minmax(0,1fr)] gap-2 px-1.5 py-1.5',
         highlighted &&
           !isActive &&
           'bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] text-lf-ink/90',
@@ -41,11 +49,13 @@ export function LUTProfileButton({
           'bg-[oklch(from_var(--color-lf-green)_l_c_h_/_0.12)] text-lf-green-deep',
       )}
       data-raw-lut="contract-option"
+      data-raw-lut-size={size}
     >
       <span
         aria-hidden="true"
         className={clsxm(
-          'inline-grid size-[22px] place-items-center rounded-md transition-colors duration-150',
+          'inline-grid place-items-center rounded-md transition-colors duration-150',
+          isTouch ? 'size-[28px]' : 'size-[22px]',
           isActive
             ? 'bg-[oklch(from_var(--color-lf-green)_l_c_h_/_0.18)] text-lf-green-deep'
             : highlighted
@@ -53,11 +63,17 @@ export function LUTProfileButton({
               : 'bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.05)] text-lf-ink/45 group-hover/lut-row:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.08)] group-hover/lut-row:text-lf-ink/65',
         )}
       >
-        <Aperture className="size-[12px] stroke-[1.75]" />
+        <Aperture
+          className={clsxm(
+            isTouch ? 'size-[14px]' : 'size-[12px]',
+            'stroke-[1.75]',
+          )}
+        />
       </span>
       <span
         className={clsxm(
-          'block min-w-0 break-words text-[0.74rem] leading-[1.35]',
+          'block min-w-0 break-words leading-[1.35]',
+          isTouch ? 'text-[0.82rem]' : 'text-[0.74rem]',
           isActive ? 'font-semibold' : 'font-normal',
         )}
       >
