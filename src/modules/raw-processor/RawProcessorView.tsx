@@ -488,31 +488,36 @@ function RawProcessorViewInner({
         <DialogPrimitive.Portal forceMount>
           {resetConfirmationOpen && (
             <>
-              <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.24)] backdrop-blur-[1px]" />
-              <div className="pointer-events-none fixed inset-0 z-[60] grid place-items-center p-5">
+              <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/52 backdrop-blur-[2px] sm:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.24)] sm:backdrop-blur-[1px]" />
+              <div className="pointer-events-none fixed inset-0 z-[60] grid items-end p-0 sm:place-items-center sm:p-5">
                 <DialogPrimitive.Content
                   role="alertdialog"
-                  className="pointer-events-auto w-full max-w-[28rem] overflow-hidden rounded-lf-panel border border-border-secondary bg-lf-paper-high text-lf-ink shadow-lf-popover"
+                  data-mobile-substrate="ink-sheet"
+                  className="pointer-events-auto grid max-h-[82%] w-full overflow-hidden rounded-t-xl border-t border-lf-on-photo-bord-soft bg-gradient-to-t from-black/92 via-black/82 to-lf-dark-low/94 text-lf-hero-ink shadow-[0_-18px_42px_oklch(0.04_0.012_76/0.62)] backdrop-blur-background sm:max-w-[28rem] sm:rounded-lf-panel sm:border sm:border-border-secondary sm:bg-lf-paper-high sm:bg-none sm:text-lf-ink sm:shadow-lf-popover sm:backdrop-blur-none"
                 >
                   <div className="px-5 pb-5 pt-5">
                     <div className="flex min-w-0 items-center gap-2.5">
-                      <div className="grid size-8 shrink-0 place-items-center rounded-lf-control border border-lf-rose/30 bg-lf-paper-warm text-lf-rose">
+                      <div className="grid size-8 shrink-0 place-items-center rounded-lf-control border border-lf-rose/40 bg-lf-on-photo-bg-strong text-lf-rose sm:border-lf-rose/30 sm:bg-lf-paper-warm">
                         <RotateCcw aria-hidden="true" className="size-[12px]" />
                       </div>
-                      <DialogTitle className="flex h-8 min-w-0 items-center text-[1rem] font-semibold leading-none text-lf-ink">
+                      <DialogTitle className="flex h-8 min-w-0 items-center text-[1rem] font-semibold leading-none text-lf-hero-ink sm:text-lf-ink">
                         {t('raw.resetConfirm.title')}
                       </DialogTitle>
                     </div>
-                    <DialogDescription className="mt-3 text-lf-body leading-6 text-lf-ink-soft">
+                    <DialogDescription className="mt-3 text-lf-body leading-6 text-lf-hero-ink/72 sm:text-lf-ink-soft">
                       {t('raw.resetConfirm.description')}
                     </DialogDescription>
                   </div>
-                  <div className="flex justify-end gap-2 border-t border-border-secondary bg-lf-paper-warm/60 px-5 py-3">
+                  <div
+                    className="grid grid-cols-2 gap-2 border-t border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-4 py-3 sm:flex sm:justify-end sm:border-border-secondary sm:bg-lf-paper-warm/60 sm:px-5"
+                    data-raw-reset-confirm-actions
+                  >
                     <Button
                       variant="secondary"
                       size="sm"
                       type="button"
                       onClick={() => setResetConfirmationOpen(false)}
+                      className="min-h-[44px] border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong text-lf-hero-ink/82 shadow-none hover:bg-lf-on-photo-bg-strong hover:text-lf-hero-ink sm:min-h-0 sm:border-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.08)] sm:bg-lf-paper-high sm:text-lf-ink/85 sm:shadow-lf-soft sm:hover:bg-lf-paper-low sm:hover:text-lf-ink"
                     >
                       {t('raw.resetConfirm.cancel')}
                     </Button>
@@ -521,6 +526,7 @@ function RawProcessorViewInner({
                       size="sm"
                       type="button"
                       onClick={confirmSessionReset}
+                      className="min-h-[44px] sm:min-h-0"
                     >
                       {t('raw.resetConfirm.confirm')}
                     </Button>

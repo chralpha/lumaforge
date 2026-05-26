@@ -1,8 +1,12 @@
 import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Provider } from 'jotai'
 import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, vi } from 'vitest'
+
+import { viewportAtom } from '~/atoms/viewport'
+import { jotaiStore } from '~/lib/jotai'
 
 import { ComparePreviewStage } from '../components/ComparePreviewStage'
 import { LutDropzone } from '../components/Dropzone'
@@ -417,6 +421,63 @@ describe('rawProcessorView', () => {
     expect(
       screen.queryByRole('alertdialog', { name: 'Reset session' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('keeps mobile reset confirmation in the dark on-photo design language', async () => {
+    const user = userEvent.setup()
+    const prevViewport = jotaiStore.get(viewportAtom)
+    const reset = vi.fn()
+    jotaiStore.set(viewportAtom, {
+      ...prevViewport,
+      w: 390,
+      sm: false,
+      md: false,
+      lg: false,
+      xl: false,
+      '2xl': false,
+    })
+    mockUseRawProcessor.mockReturnValue(
+      rawProcessorViewState({
+        hasImage: true,
+        sourceFileName: 'DSC09142.ARW',
+        reset,
+      }),
+    )
+
+    try {
+      await act(async () => {
+        render(
+          <Provider store={jotaiStore}>
+            <RawProcessorView />
+          </Provider>,
+        )
+        await Promise.resolve()
+      })
+
+      await user.click(screen.getByRole('button', { name: 'More actions' }))
+      await user.click(
+        await screen.findByRole('menuitem', { name: 'Reset session' }),
+      )
+
+      const dialog = screen.getByRole('alertdialog', {
+        name: 'Reset session',
+      })
+      expect(dialog).toHaveAttribute('data-mobile-substrate', 'ink-sheet')
+      expect(dialog).toHaveClass('bg-gradient-to-t')
+      expect(dialog).toHaveClass('from-black/92')
+      expect(dialog).toHaveClass('text-lf-hero-ink')
+      expect(dialog).toHaveClass('border-lf-on-photo-bord-soft')
+      expect(dialog).not.toHaveClass('bg-lf-paper-high')
+      expect(dialog).not.toHaveClass('text-lf-ink')
+      expect(
+        dialog.querySelector('[data-raw-reset-confirm-actions]'),
+      ).toHaveClass('bg-lf-on-photo-bg')
+      expect(
+        dialog.querySelector('[data-raw-reset-confirm-actions]'),
+      ).not.toHaveClass('bg-lf-paper-warm/60')
+    } finally {
+      jotaiStore.set(viewportAtom, prevViewport)
+    }
   })
 
   it('renders Chinese Raw Lab shell when the persisted locale is Chinese', async () => {
