@@ -2,6 +2,9 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+import { createBlobOutputResult } from '~/lib/export/output-sink'
+
+import type { ExportResult } from '../../model/export-result'
 import { MobileExportPanel } from './MobileExportPanel'
 
 type MobileExportPanelProps = Parameters<typeof MobileExportPanel>[0] & {
@@ -28,6 +31,29 @@ function renderPanel(overrides: Partial<MobileExportPanelProps> = {}) {
       {...overrides}
     />,
   )
+}
+
+function createResult(overrides: Partial<ExportResult> = {}): ExportResult {
+  const blob = new Blob(['jpeg'], { type: 'image/jpeg' })
+
+  return {
+    kind: 'hq-preview',
+    output: createBlobOutputResult({
+      blob,
+      filename: 'frame_neutral_hq-preview.jpg',
+    }),
+    filename: 'frame_neutral_hq-preview.jpg',
+    width: 4000,
+    height: 3000,
+    size: blob.size,
+    createdAt: 123,
+    copyCapability: {
+      mode: 'preview-size',
+      label: 'Copy preview-size image',
+      reason: 'This browser cannot copy full-resolution JPEG files.',
+    },
+    ...overrides,
+  }
 }
 
 describe('mobileExportPanel', () => {
@@ -92,5 +118,30 @@ describe('mobileExportPanel', () => {
     ).toBeDisabled()
     expect(screen.queryByText(/color contract failed/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/already running/i)).not.toBeInTheDocument()
+  })
+
+  it('keeps the ready result compact without secondary helper copy', () => {
+    renderPanel({
+      exportResult: createResult(),
+      exportShareCapability: {
+        available: false,
+        reason: 'Export a JPEG before sharing.',
+      },
+    })
+
+    expect(screen.getByText('HQ preview JPEG ready')).toBeInTheDocument()
+    expect(screen.getByText('4000 x 3000 · 4 B')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /copy preview-size image/i }),
+    ).toBeEnabled()
+    expect(
+      screen.queryByText(/use full-resolution export for archival output/i),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/export a jpeg before sharing/i),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/cannot copy full-resolution jpeg files/i),
+    ).not.toBeInTheDocument()
   })
 })

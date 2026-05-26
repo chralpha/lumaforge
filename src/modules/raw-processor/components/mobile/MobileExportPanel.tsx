@@ -77,17 +77,7 @@ export function MobileExportPanel(props: {
   const { t } = useI18n()
   const unavailableReason =
     localizeRawReason(props.disabledReason, t) || t('raw.exportSourceLoading')
-  const shareUnavailableReason =
-    props.exportShareCapability.available === false
-      ? localizeRawReason(props.exportShareCapability.reason, t)
-      : undefined
   const copyCapability = props.exportResult?.copyCapability
-  const copyUnavailableReason =
-    copyCapability &&
-    copyCapability.mode !== 'full-resolution' &&
-    copyCapability.mode !== 'hq-preview'
-      ? localizeRawReason(copyCapability.reason, t)
-      : undefined
   const copyButtonLabel = copyCapability
     ? copyCapability.mode === 'unavailable'
       ? t('raw.export.copy')
@@ -150,21 +140,6 @@ export function MobileExportPanel(props: {
           onClick={props.onCopyExport}
         />
       </div>
-      {!props.exportShareCapability.available && shareUnavailableReason && (
-        <p className="m-0 text-[0.7rem] leading-relaxed text-lf-hero-ink/68">
-          {shareUnavailableReason}
-        </p>
-      )}
-      {copyUnavailableReason && (
-        <p className="m-0 text-[0.7rem] leading-relaxed text-lf-hero-ink/68">
-          {copyUnavailableReason}
-        </p>
-      )}
-      {resultKind === 'hq-preview' && (
-        <p className="m-0 text-[0.7rem] leading-relaxed text-lf-hero-ink/68">
-          {t('raw.export.previewResultNote')}
-        </p>
-      )}
     </m.div>
   ) : (
     <m.div
