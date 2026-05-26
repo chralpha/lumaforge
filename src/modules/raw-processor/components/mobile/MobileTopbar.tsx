@@ -1,5 +1,6 @@
 import { BarChart3 } from 'lucide-react'
 
+import { LocaleToggle } from '~/components/common/LocaleToggle'
 import { IconButton } from '~/components/ui/button'
 import { clsxm } from '~/lib/cn'
 import { useI18n } from '~/lib/i18n'
@@ -51,6 +52,7 @@ export function MobileTopbar(props: {
         </p>
       </div>
       <div className="pointer-events-auto inline-flex items-center gap-1.5">
+        <LocaleToggle className="inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md border border-lf-on-photo-bord bg-lf-on-photo-bg px-2.5 text-[0.72rem] font-semibold text-lf-hero-ink transition-colors hover:bg-lf-on-photo-bg-strong [&_span]:leading-none [&_svg]:size-4 [&_svg]:stroke-current" />
         {props.hasImage && (
           <IconButton
             icon={BarChart3}
