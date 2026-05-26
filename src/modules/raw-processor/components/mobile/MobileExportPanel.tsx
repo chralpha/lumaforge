@@ -77,9 +77,6 @@ export function MobileExportPanel(props: {
   const { t } = useI18n()
   const unavailableReason =
     localizeRawReason(props.disabledReason, t) || t('raw.exportSourceLoading')
-  const previewUnavailableReason =
-    localizeRawReason(props.previewExportDisabledReason, t) ||
-    t('raw.export.previewSourceLoading')
   const shareUnavailableReason =
     props.exportShareCapability.available === false
       ? localizeRawReason(props.exportShareCapability.reason, t)
@@ -172,26 +169,21 @@ export function MobileExportPanel(props: {
   ) : (
     <m.div
       key="idle"
-      className="grid gap-3 px-0.5 py-0.5"
+      className="grid gap-2.5 px-0.5 py-0.5"
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
       transition={PANEL_TRANSITION}
     >
       {showUnavailableReason && (
-        <div className="grid grid-cols-[22px_1fr] gap-2.5 rounded-md border border-lf-rose/45 bg-lf-rose/10 p-3 text-lf-hero-ink">
+        <div className="grid grid-cols-[18px_1fr] gap-2 rounded-md border border-lf-rose/45 bg-lf-rose/10 px-2.5 py-2 text-lf-hero-ink">
           <AlertTriangle
             aria-hidden="true"
-            className="size-[18px] text-lf-rose"
+            className="mt-0.5 size-4 text-lf-rose"
           />
-          <div>
-            <strong className="block text-[0.82rem] font-semibold">
-              {t('raw.export.blocked')}
-            </strong>
-            <span className="mt-0.5 block text-[0.7rem] leading-relaxed text-lf-hero-ink/68">
-              {unavailableReason}
-            </span>
-          </div>
+          <span className="block text-[0.72rem] leading-snug text-lf-hero-ink/72">
+            {unavailableReason}
+          </span>
         </div>
       )}
       {showRecovery && (
@@ -205,65 +197,46 @@ export function MobileExportPanel(props: {
           {t('raw.export.reselect')}
         </button>
       )}
-      <m.button
-        type="button"
-        disabled={!props.canExport || props.isProcessing}
-        whileTap={
-          !props.canExport || props.isProcessing ? undefined : { scale: 0.99 }
-        }
-        transition={PANEL_TRANSITION}
-        onClick={() =>
-          props.onExport({ quality: 'high', fidelity: 'balanced' })
-        }
-        className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-md border border-lf-green-deep/40 bg-lf-green px-3 text-[0.92rem] font-semibold text-lf-ink transition-colors hover:bg-lf-green-hover disabled:cursor-not-allowed disabled:border-lf-on-photo-bord-soft disabled:bg-lf-on-photo-bg disabled:text-lf-hero-ink/35"
-      >
-        {props.isProcessing ? (
-          <BusySpinner />
-        ) : (
-          <Download aria-hidden="true" className="size-4" />
-        )}
-        {props.isProcessing ? t('raw.export.preparing') : t('raw.export.run')}
-      </m.button>
-      <m.button
-        type="button"
-        disabled={
-          !props.canPreviewExport ||
-          props.isProcessing ||
-          !props.onPreviewExport
-        }
-        whileTap={
-          !props.canPreviewExport || props.isProcessing
-            ? undefined
-            : { scale: 0.99 }
-        }
-        transition={PANEL_TRANSITION}
-        onClick={() => props.onPreviewExport?.()}
-        className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 text-[0.82rem] font-semibold text-lf-hero-ink transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:bg-lf-on-photo-bg/60 disabled:text-lf-hero-ink/35"
-      >
-        <Download aria-hidden="true" className="size-4" />
-        {t('raw.export.runPreview')}
-      </m.button>
-      <div className="flex items-baseline justify-between gap-3 px-1 text-[0.7rem] text-lf-hero-ink/68">
-        {!props.isProcessing && (
-          <span>
-            {props.canExport
-              ? t('raw.export.sourcePath')
-              : t('raw.export.noFallback')}
-          </span>
-        )}
-        {props.isProcessing
-          ? null
-          : props.canExport && (
-              <em className="not-italic text-lf-hero-ink">JPEG</em>
-            )}
+      <div className="grid grid-cols-2 gap-2">
+        <m.button
+          type="button"
+          disabled={!props.canExport || props.isProcessing}
+          whileTap={
+            !props.canExport || props.isProcessing ? undefined : { scale: 0.99 }
+          }
+          transition={PANEL_TRANSITION}
+          onClick={() =>
+            props.onExport({ quality: 'high', fidelity: 'balanced' })
+          }
+          className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-md border border-lf-green-deep/40 bg-lf-green px-2.5 text-center text-[0.8rem] font-semibold leading-tight text-lf-ink transition-colors hover:bg-lf-green-hover disabled:cursor-not-allowed disabled:border-lf-on-photo-bord-soft disabled:bg-lf-on-photo-bg disabled:text-lf-hero-ink/35"
+        >
+          {props.isProcessing ? (
+            <BusySpinner />
+          ) : (
+            <Download aria-hidden="true" className="size-4 shrink-0" />
+          )}
+          {props.isProcessing ? t('raw.export.preparing') : t('raw.export.run')}
+        </m.button>
+        <m.button
+          type="button"
+          disabled={
+            !props.canPreviewExport ||
+            props.isProcessing ||
+            !props.onPreviewExport
+          }
+          whileTap={
+            !props.canPreviewExport || props.isProcessing
+              ? undefined
+              : { scale: 0.99 }
+          }
+          transition={PANEL_TRANSITION}
+          onClick={() => props.onPreviewExport?.()}
+          className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 text-center text-[0.76rem] font-semibold leading-tight text-lf-hero-ink transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:bg-lf-on-photo-bg/60 disabled:text-lf-hero-ink/35"
+        >
+          <Download aria-hidden="true" className="size-4 shrink-0" />
+          {t('raw.export.runPreview')}
+        </m.button>
       </div>
-      {!props.isProcessing && (
-        <p className="m-0 px-1 text-[0.7rem] leading-relaxed text-lf-hero-ink/68">
-          {props.canPreviewExport
-            ? t('raw.export.previewSourcePath')
-            : previewUnavailableReason}
-        </p>
-      )}
     </m.div>
   )
 

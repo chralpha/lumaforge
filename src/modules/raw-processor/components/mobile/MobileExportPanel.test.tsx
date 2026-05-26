@@ -43,16 +43,17 @@ describe('mobileExportPanel', () => {
       onPreviewExport,
     })
 
-    await user.click(
-      screen.getByRole('button', {
-        name: /export full-resolution jpeg/i,
-      }),
-    )
-    await user.click(
-      screen.getByRole('button', {
-        name: /export hq preview jpeg/i,
-      }),
-    )
+    const fullResolutionButton = screen.getByRole('button', {
+      name: /export full-resolution jpeg/i,
+    })
+    const previewButton = screen.getByRole('button', {
+      name: /export hq preview jpeg/i,
+    })
+
+    expect(fullResolutionButton.parentElement).toHaveClass('grid-cols-2')
+
+    await user.click(fullResolutionButton)
+    await user.click(previewButton)
 
     expect(onExport).toHaveBeenCalledWith({
       quality: 'high',
@@ -60,8 +61,23 @@ describe('mobileExportPanel', () => {
     })
     expect(onPreviewExport).toHaveBeenCalledTimes(1)
     expect(
-      screen.getByText(/smaller 8-12mp preview-rendered jpeg/i),
-    ).toBeInTheDocument()
+      screen.queryByText(/smaller 8-12mp preview-rendered jpeg/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('omits secondary HQ preview helper copy while the preview export is not ready', () => {
+    renderPanel({
+      canPreviewExport: false,
+      previewExportDisabledReason:
+        'HQ preview export is available after the bounded HQ preview finishes.',
+    })
+
+    expect(
+      screen.getByRole('button', { name: /export hq preview jpeg/i }),
+    ).toBeDisabled()
+    expect(
+      screen.queryByText(/hq preview export is available after/i),
+    ).not.toBeInTheDocument()
   })
 
   it('does not show a blocked export error while export progress is already visible', () => {

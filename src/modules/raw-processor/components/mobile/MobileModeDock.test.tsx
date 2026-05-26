@@ -54,7 +54,7 @@ describe('mobileModeDock', () => {
     expect(tablist).not.toHaveClass('pb-3')
   })
 
-  it('gives the taller export panel more bounded room than compact tool panels', () => {
+  it('keeps export in the same compact panel frame as the other tools', () => {
     const { rerender } = render(
       <MobileModeDock
         mode="export"
@@ -68,7 +68,7 @@ describe('mobileModeDock', () => {
     )
 
     expect(screen.getByTestId('panel').parentElement).toHaveClass(
-      'max-h-[min(52svh,360px)]',
+      'max-h-[24vh]',
     )
     expect(screen.getByTestId('panel').parentElement).toHaveClass(
       'overflow-y-auto',
