@@ -19,7 +19,7 @@ function BusySpinner() {
   return (
     <m.span
       aria-hidden="true"
-      className="size-4 rounded-full border-2 border-background/40 border-t-background"
+      className="size-4 rounded-full border-2 border-lf-ink/30 border-t-lf-ink"
       animate={reduced ? undefined : { rotate: 360 }}
       transition={
         reduced
@@ -47,7 +47,7 @@ function MobileExportAction(props: {
       type="button"
       disabled={props.disabled}
       onClick={props.onClick}
-      className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border border-white/20 bg-black/35 px-2.5 text-[0.74rem] font-semibold text-white transition-colors hover:border-amber-400/50 disabled:cursor-not-allowed disabled:opacity-45"
+      className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 text-[0.74rem] font-semibold text-lf-hero-ink transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-45"
     >
       <props.icon aria-hidden="true" className="size-3.5" />
       {props.label}
@@ -96,14 +96,14 @@ export function MobileExportPanel(props: {
     <m.div
       key="result"
       data-mobile-substrate="glass-panel"
-      className="grid gap-3 rounded-xl border border-white/15 bg-black/45 p-3.5 text-white"
+      className="grid gap-3 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg p-3.5 text-lf-hero-ink"
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
       transition={PANEL_TRANSITION}
     >
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2.5">
-        <span className="grid size-5 place-items-center text-[oklch(0.84_0.09_145)]">
+        <span className="grid size-5 place-items-center text-lf-green-soft">
           <Download aria-hidden="true" className="size-5" />
         </span>
         <div className="grid min-w-0 gap-1">
@@ -113,7 +113,7 @@ export function MobileExportPanel(props: {
           >
             {props.exportResult.filename} ready
           </h3>
-          <p className="m-0 text-[0.7rem] text-white/70 tabular-nums">
+          <p className="m-0 text-[0.7rem] text-lf-hero-ink/68 tabular-nums">
             {props.exportResult.width} x {props.exportResult.height} ·{' '}
             {formatBytes(props.exportResult.size)}
           </p>
@@ -139,13 +139,13 @@ export function MobileExportPanel(props: {
         />
       </div>
       {!props.exportShareCapability.available && shareUnavailableReason && (
-        <p className="m-0 text-[0.7rem] leading-relaxed text-white/70">
+        <p className="m-0 text-[0.7rem] leading-relaxed text-lf-hero-ink/68">
           {shareUnavailableReason}
         </p>
       )}
       {props.exportResult.copyCapability.mode !== 'full-resolution' &&
         copyUnavailableReason && (
-          <p className="m-0 text-[0.7rem] leading-relaxed text-white/70">
+          <p className="m-0 text-[0.7rem] leading-relaxed text-lf-hero-ink/68">
             {copyUnavailableReason}
           </p>
         )}
@@ -160,16 +160,16 @@ export function MobileExportPanel(props: {
       transition={PANEL_TRANSITION}
     >
       {showUnavailableReason && (
-        <div className="grid grid-cols-[22px_1fr] gap-2.5 rounded-xl border border-rose-400/40 bg-rose-500/10 p-3 text-white">
+        <div className="grid grid-cols-[22px_1fr] gap-2.5 rounded-md border border-lf-rose/45 bg-lf-rose/10 p-3 text-lf-hero-ink">
           <AlertTriangle
             aria-hidden="true"
-            className="size-[18px] text-rose-400"
+            className="size-[18px] text-lf-rose"
           />
           <div>
             <strong className="block text-[0.82rem] font-semibold">
               {t('raw.export.blocked')}
             </strong>
-            <span className="mt-0.5 block text-[0.7rem] leading-relaxed text-white/70">
+            <span className="mt-0.5 block text-[0.7rem] leading-relaxed text-lf-hero-ink/68">
               {unavailableReason}
             </span>
           </div>
@@ -180,7 +180,7 @@ export function MobileExportPanel(props: {
           type="button"
           disabled={!props.onRecoverExportSource}
           onClick={props.onRecoverExportSource}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-white/20 bg-black/35 px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 text-sm font-semibold text-lf-hero-ink transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-45"
         >
           <FolderOpen aria-hidden="true" className="size-4" />
           {t('raw.export.reselect')}
@@ -196,7 +196,7 @@ export function MobileExportPanel(props: {
         onClick={() =>
           props.onExport({ quality: 'high', fidelity: 'balanced' })
         }
-        className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-xl border border-[oklch(0.54_0.14_153)] bg-accent px-3 text-[0.92rem] font-semibold text-background transition-colors hover:bg-[oklch(0.66_0.16_153)] disabled:cursor-not-allowed disabled:border-white/25 disabled:bg-white/15 disabled:text-white/45"
+        className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-md border border-lf-green-deep/40 bg-lf-green px-3 text-[0.92rem] font-semibold text-lf-ink transition-colors hover:bg-lf-green-hover disabled:cursor-not-allowed disabled:border-lf-on-photo-bord-soft disabled:bg-lf-on-photo-bg disabled:text-lf-hero-ink/35"
       >
         {props.isProcessing ? (
           <BusySpinner />
@@ -205,7 +205,7 @@ export function MobileExportPanel(props: {
         )}
         {props.isProcessing ? t('raw.export.preparing') : t('raw.export.run')}
       </m.button>
-      <div className="flex items-baseline justify-between gap-3 px-1 text-[0.7rem] text-white/70">
+      <div className="flex items-baseline justify-between gap-3 px-1 text-[0.7rem] text-lf-hero-ink/68">
         {!props.isProcessing && (
           <span>
             {props.canExport
@@ -215,7 +215,9 @@ export function MobileExportPanel(props: {
         )}
         {props.isProcessing
           ? null
-          : props.canExport && <em className="not-italic text-white">JPEG</em>}
+          : props.canExport && (
+              <em className="not-italic text-lf-hero-ink">JPEG</em>
+            )}
       </div>
     </m.div>
   )

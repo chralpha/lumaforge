@@ -465,14 +465,14 @@ export function MobileLabChrome(props: {
           type="button"
           aria-label={t('raw.mobile.immersive.show')}
           onClick={() => setImmersive(false)}
-          className="pointer-events-auto absolute bottom-safe-offset-4 left-1/2 z-[12] -translate-x-1/2 rounded-full border border-white/25 bg-black/55 px-3 py-1.5 text-[0.7rem] font-semibold text-white/80 backdrop-blur-background transition-colors hover:text-white"
+          className="pointer-events-auto absolute bottom-safe-offset-4 left-1/2 z-[12] inline-flex min-h-[44px] -translate-x-1/2 items-center justify-center rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-3 text-[0.7rem] font-semibold text-lf-hero-ink/82 backdrop-blur-background transition-colors hover:text-lf-hero-ink"
         >
           {t('raw.mobile.immersive.show')}
         </button>
       )}
 
       {peeking && props.hasImage && !handoffActive && (
-        <div className="pointer-events-none absolute left-1/2 top-safe-offset-14 z-[12] -translate-x-1/2 rounded-full border border-white/30 bg-black/80 px-2.5 py-1.5 text-[0.7rem] font-semibold uppercase tracking-wide text-white">
+        <div className="pointer-events-none absolute left-1/2 top-safe-offset-14 z-[12] -translate-x-1/2 rounded-lf-pill border border-lf-on-photo-bord bg-lf-on-photo-bg-strong px-2.5 py-1.5 text-[0.7rem] font-semibold uppercase tracking-wide text-lf-hero-ink">
           {t('raw.mobile.peek.hint')}
         </div>
       )}

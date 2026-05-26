@@ -24,7 +24,7 @@ export function MobileTopbar(props: {
   return (
     <header
       data-mobile-topbar
-      className="pointer-events-none absolute inset-x-0 top-0 z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 bg-gradient-to-b from-black/85 via-black/55 to-transparent px-3 pb-4 pt-safe-offset-3 text-white"
+      className="pointer-events-none absolute inset-x-0 top-0 z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 bg-gradient-to-b from-black/80 via-black/45 to-transparent px-3 pb-4 pt-safe-offset-3 text-lf-hero-ink"
     >
       <img
         src={appIcon}
@@ -35,15 +35,15 @@ export function MobileTopbar(props: {
         <h1 className="m-0 truncate text-sm font-semibold leading-tight">
           {title}
         </h1>
-        <p className="m-0 truncate text-[0.68rem] leading-tight text-white/80 tabular-nums">
+        <p className="m-0 truncate text-[0.68rem] leading-tight text-lf-hero-ink/72 tabular-nums">
           {props.hasImage && (
             <span
               aria-hidden="true"
               className={clsxm(
                 'mr-1.5 inline-block size-[7px] translate-y-px rounded-full',
                 props.supportLevel === 'official'
-                  ? 'bg-accent shadow-[0_0_0_2px_rgba(74,222,128,0.28)]'
-                  : 'bg-amber-400',
+                  ? 'bg-lf-green shadow-[0_0_0_2px_oklch(0.59_0.15_153/0.28)]'
+                  : 'bg-lf-amber',
               )}
             />
           )}
@@ -65,8 +65,8 @@ export function MobileTopbar(props: {
             className={clsxm(
               'size-11 rounded-md border transition-colors',
               props.histogramShown
-                ? 'border-amber-400/60 bg-amber-400/12 text-amber-300 [&_svg]:size-5 [&_svg]:stroke-amber-300'
-                : 'border-white/30 bg-black/40 text-white [&_svg]:size-5 [&_svg]:stroke-white',
+                ? 'border-lf-amber/55 bg-lf-amber/15 text-lf-amber-soft [&_svg]:size-5 [&_svg]:stroke-current'
+                : 'border-lf-on-photo-bord bg-lf-on-photo-bg text-lf-hero-ink [&_svg]:size-5 [&_svg]:stroke-current',
             )}
           />
         )}

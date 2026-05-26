@@ -38,9 +38,9 @@ describe('mobileMoreSheet', () => {
         fileRows={[]}
       />,
     )
-    await userEvent.click(
-      screen.getByRole('button', { name: /close pipeline sheet/i }),
-    )
+    const close = screen.getByRole('button', { name: /close pipeline sheet/i })
+    expect(close).toHaveClass('size-[44px]')
+    await userEvent.click(close)
     expect(onClose).toHaveBeenCalled()
   })
 })
