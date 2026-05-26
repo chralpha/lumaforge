@@ -59,7 +59,6 @@ export function MobileLabChrome(props: {
   isProcessing: boolean
   runtimeReadinessState?: RawRuntimeReadinessState
   onPrepareRuntime?: () => void
-  strengthControl: ReactNode
   lutBrowser: Omit<MobileLutBrowserProps, 'open' | 'onClose'>
   onCompareReset: () => void
   exportPanel: ReactNode
@@ -395,8 +394,6 @@ export function MobileLabChrome(props: {
           </div>
         )}
       </div>
-    ) : mode === 'strength' ? (
-      props.strengthControl
     ) : mode === 'compare' ? (
       <MobileComparePanel
         splitOpen={compareSplitOpen}

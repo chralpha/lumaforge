@@ -21,7 +21,6 @@ const base = {
   onReplaceFile: vi.fn(),
   onResetSession: vi.fn(),
   isProcessing: false,
-  strengthControl: <div>strength</div>,
   lutBrowser: {
     currentLutName: null,
     disabled: false,
@@ -132,19 +131,17 @@ describe('mobileLabChrome', () => {
     ).toBeInTheDocument()
   })
 
-  it('look mode opens the LUT browser and strength is its own mode', async () => {
+  it('look mode opens the LUT browser and dock has no strength tab', async () => {
     render(<MobileLabChrome {...base} />)
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
-    expect(screen.queryByText('strength')).not.toBeInTheDocument()
+    expect(within(dock).getAllByRole('tab')).toHaveLength(4)
+    expect(
+      within(dock).queryByRole('tab', { name: /strength/i }),
+    ).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /lut browser/i }))
     expect(
       screen.getByRole('dialog', { name: /lut browser/i }),
     ).toBeInTheDocument()
-    await userEvent.click(
-      screen.getByRole('button', { name: /close lut browser/i }),
-    )
-    await userEvent.click(within(dock).getByRole('tab', { name: /strength/i }))
-    expect(screen.getByText('strength')).toBeInTheDocument()
   })
 
   it('surfaces the export panel when the result handoff should own mobile focus', async () => {
@@ -174,7 +171,6 @@ describe('mobileLabChrome', () => {
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
     expect(within(dock).getByRole('tab', { name: /look/i })).toBeDisabled()
     expect(within(dock).getByRole('tab', { name: /export/i })).toBeDisabled()
-    expect(screen.queryByText('strength')).not.toBeInTheDocument()
   })
 
   it('closes transient mobile sheets when the blocking handoff starts', async () => {
@@ -275,7 +271,7 @@ describe('mobileLabChrome', () => {
     )
 
     expect(
-      screen.getByRole('dialog', { name: /lut browser/i }),
+      screen.getByRole('dialog', { name: /edit contract/i }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('tablist', { name: 'LUT contract panels' }),
@@ -360,7 +356,7 @@ describe('mobileLabChrome', () => {
     )
 
     expect(
-      screen.getByRole('dialog', { name: /lut browser/i }),
+      screen.getByRole('dialog', { name: /edit contract/i }),
     ).toBeInTheDocument()
     expect(screen.getByLabelText('Search LUT contract')).toBeInTheDocument()
   })
