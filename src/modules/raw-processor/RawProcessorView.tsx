@@ -490,18 +490,18 @@ function RawProcessorViewInner({
                   role="alertdialog"
                   className="pointer-events-auto w-full max-w-[28rem] overflow-hidden rounded-lf-panel border border-border-secondary bg-lf-paper-high text-lf-ink shadow-lf-popover"
                 >
-                  <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 px-5 pb-5 pt-5">
-                    <div className="grid size-10 place-items-center rounded-lf-control border border-lf-rose/30 bg-lf-paper-warm text-lf-rose">
-                      <RotateCcw aria-hidden="true" className="size-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <DialogTitle className="text-lf-title font-semibold leading-tight text-lf-ink">
+                  <div className="px-5 pb-5 pt-5">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <div className="grid size-8 shrink-0 place-items-center rounded-lf-control border border-lf-rose/30 bg-lf-paper-warm text-lf-rose">
+                        <RotateCcw aria-hidden="true" className="size-[18px]" />
+                      </div>
+                      <DialogTitle className="min-w-0 text-[1rem] font-semibold leading-none text-lf-ink">
                         {t('raw.resetConfirm.title')}
                       </DialogTitle>
-                      <DialogDescription className="mt-2 text-lf-body leading-6 text-lf-ink-soft">
-                        {t('raw.resetConfirm.description')}
-                      </DialogDescription>
                     </div>
+                    <DialogDescription className="mt-3 text-lf-body leading-6 text-lf-ink-soft">
+                      {t('raw.resetConfirm.description')}
+                    </DialogDescription>
                   </div>
                   <div className="flex justify-end gap-2 border-t border-border-secondary bg-lf-paper-warm/60 px-5 py-3">
                     <Button
