@@ -23,6 +23,8 @@ const mockedToastInfo = vi.mocked(toast.info)
 const originalNavigatorDescriptors = {
   clipboard: Object.getOwnPropertyDescriptor(navigator, 'clipboard'),
   share: Object.getOwnPropertyDescriptor(navigator, 'share'),
+  standalone: Object.getOwnPropertyDescriptor(navigator, 'standalone'),
+  userAgent: Object.getOwnPropertyDescriptor(navigator, 'userAgent'),
 }
 
 vi.mock('../hooks/useCapabilityGate', () => ({
@@ -86,7 +88,9 @@ function encodeCube(title: string) {
   return new TextEncoder().encode(createCube(title))
 }
 
-function restoreNavigatorProperty(property: 'clipboard' | 'share') {
+function restoreNavigatorProperty(
+  property: keyof typeof originalNavigatorDescriptors,
+) {
   const descriptor = originalNavigatorDescriptors[property]
 
   if (descriptor) {
@@ -95,6 +99,36 @@ function restoreNavigatorProperty(property: 'clipboard' | 'share') {
   }
 
   Reflect.deleteProperty(navigator, property)
+}
+
+function installIosSafariToolbarNudgeEnvironment() {
+  const scrollTo = vi.fn()
+
+  Object.defineProperty(navigator, 'userAgent', {
+    configurable: true,
+    value:
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1',
+  })
+  Object.defineProperty(navigator, 'standalone', {
+    configurable: true,
+    value: false,
+  })
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn((query: string) => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      matches: query === '(max-width: 640px)',
+      media: query,
+      onchange: null,
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn(),
+    })),
+  )
+  vi.stubGlobal('scrollTo', scrollTo)
+
+  return { scrollTo }
 }
 
 function abortError() {
@@ -215,6 +249,9 @@ afterEach(() => {
   vi.unstubAllGlobals()
   restoreNavigatorProperty('clipboard')
   restoreNavigatorProperty('share')
+  restoreNavigatorProperty('standalone')
+  restoreNavigatorProperty('userAgent')
+  document.documentElement.removeAttribute('data-raw-ios-toolbar-nudge')
   fetchMock.mockReset()
 })
 
@@ -286,6 +323,35 @@ describe('rawProcessorView', () => {
     expect(
       container.querySelector('[data-raw-panel="controls"]'),
     ).not.toBeInTheDocument()
+  })
+
+  it('arms the iOS Safari toolbar nudge without wrapping the raw route shell', () => {
+    const { scrollTo } = installIosSafariToolbarNudgeEnvironment()
+
+    const { container, unmount } = render(<RawRoute />)
+    const routeRoot = container.firstElementChild
+
+    expect(routeRoot).toHaveAttribute('data-raw-lab-shell', 'viewport')
+    expect(document.documentElement).toHaveAttribute(
+      'data-raw-ios-toolbar-nudge',
+      'armed',
+    )
+
+    act(() => {
+      window.dispatchEvent(new Event('touchstart'))
+    })
+
+    expect(scrollTo).toHaveBeenCalledWith(0, 1)
+    expect(document.documentElement).toHaveAttribute(
+      'data-raw-ios-toolbar-nudge',
+      'nudged',
+    )
+
+    unmount()
+
+    expect(document.documentElement).not.toHaveAttribute(
+      'data-raw-ios-toolbar-nudge',
+    )
   })
 
   it('keeps export disabled copy visible before a RAW is loaded', () => {

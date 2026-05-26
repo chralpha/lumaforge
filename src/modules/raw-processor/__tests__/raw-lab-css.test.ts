@@ -75,4 +75,23 @@ describe('raw lab css tokens', () => {
     expect(mobileTokens['--color-preview-mat-edge']).toBe('var(--color-fill)')
     expect(mobileTokens['--color-preview-border']).toBe('transparent')
   })
+
+  it('fixes the mobile shell while the iOS toolbar nudge creates page scroll', () => {
+    const mobileMedia = extractRuleBody(rawLabCss, '@media (max-width: 640px)')
+    const nudgeBodyRule = extractRuleBody(
+      mobileMedia,
+      'html[data-raw-ios-toolbar-nudge] body',
+    )
+    const nudgeShellRule = extractRuleBody(
+      mobileMedia,
+      'html[data-raw-ios-toolbar-nudge] [data-raw-lab-shell="viewport"]',
+    )
+
+    expect(nudgeBodyRule).toContain('min-height: calc(100dvh + 96px);')
+    expect(nudgeShellRule).toContain('position: fixed;')
+    expect(nudgeShellRule).toContain('inset: 0;')
+    expect(nudgeShellRule).toContain('top: 0;')
+    expect(nudgeShellRule).toContain('width: 100%;')
+    expect(nudgeShellRule).toContain('height: 100dvh;')
+  })
 })
