@@ -438,10 +438,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
   )
 
   const renderStrengthSection = () => (
-    <section
-      className="grid gap-2 rounded-md bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.035)] px-2.5 py-2"
-      data-raw-mobile-lut="strength"
-    >
+    <section className="grid gap-2" data-raw-mobile-lut="strength">
       <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
         {t('raw.strength.title')}
       </h3>
@@ -449,8 +446,6 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         value={activeIntensity}
         onChange={(level) => props.onIntensitySelect?.(level)}
         disabled={strengthDisabled}
-        className="h-[44px] rounded-md bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.04)] text-lf-ink/60"
-        itemClassName="text-[0.72rem] data-[state=active]:text-lf-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-lf-paper-high data-[state=active]:[&_span[data-segment-thumb]]:shadow-sm"
       />
     </section>
   )
@@ -661,10 +656,6 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                   entryCount={entries.length}
                   isLoading={isResourceLoading}
                   issues={resourceIssues}
-                  onBrowse={() => {
-                    setCatalogResourceId(resource.id)
-                    setView('catalog')
-                  }}
                   onRefresh={() =>
                     void props.onlineLutSources?.refreshSource(resource.id)
                   }
@@ -749,11 +740,10 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       transition={sheetSpring}
     >
       {selectedResource && (
-        <div className="sticky top-0 z-10 grid gap-2 rounded-md bg-lf-paper-high/95 px-2.5 py-2 backdrop-blur">
+        <div className="grid gap-2 px-1">
+          {/* Sheet top bar already shows the resource label as title — keep
+              this strip to count + transient pills + per-resource issues. */}
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="min-w-0 truncate text-lf-control font-medium text-lf-ink/85">
-              {resourceLabel(selectedResource)}
-            </span>
             <span className="shrink-0 rounded-lf-pill bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-ink/55">
               {t('raw.mobile.lut.entryCount', {
                 count: selectedEntries.length,
@@ -814,28 +804,49 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       transition={sheetSpring}
     >
       <div
-        className="grid grid-cols-2 gap-1 rounded-md bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.05)] p-1"
+        className="relative grid grid-cols-2 rounded-md bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.05)] p-1"
         role="tablist"
         aria-label={t('raw.lutContract.panels')}
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={contractStep === 'input'}
-          className="min-h-[44px] rounded-[5px] px-2 text-lf-control font-semibold text-lf-ink/55 transition-colors duration-150 hover:text-lf-ink/80 aria-selected:bg-lf-paper-high aria-selected:text-lf-ink aria-selected:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
-          onClick={() => setContractStep('input')}
-        >
-          {t('raw.lutContract.inputTab')}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={contractStep === 'output'}
-          className="min-h-[44px] rounded-[5px] px-2 text-lf-control font-semibold text-lf-ink/55 transition-colors duration-150 hover:text-lf-ink/80 aria-selected:bg-lf-paper-high aria-selected:text-lf-ink aria-selected:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
-          onClick={() => setContractStep('output')}
-        >
-          {t('raw.lutContract.outputTab')}
-        </button>
+        {(['input', 'output'] as const).map((tabId) => {
+          const isActive = contractStep === tabId
+          const labelText =
+            tabId === 'input'
+              ? t('raw.lutContract.inputTab')
+              : t('raw.lutContract.outputTab')
+          return (
+            <button
+              key={tabId}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              className={[
+                'relative z-10 min-h-[44px] rounded-[5px] px-2 text-lf-control font-semibold transition-colors duration-150',
+                'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
+                isActive
+                  ? 'text-lf-ink'
+                  : 'text-lf-ink/55 hover:text-lf-ink/80',
+              ].join(' ')}
+              onClick={() => setContractStep(tabId)}
+            >
+              {isActive && (
+                <m.span
+                  layoutId="mobile-lut-contract-tab-indicator"
+                  aria-hidden="true"
+                  data-mobile-lut-contract-thumb
+                  className="absolute inset-0 -z-10 rounded-[5px] bg-lf-paper-high shadow-sm"
+                  transition={{
+                    type: 'spring',
+                    stiffness: 460,
+                    damping: 38,
+                    mass: 0.6,
+                  }}
+                />
+              )}
+              <span className="relative">{labelText}</span>
+            </button>
+          )
+        })}
       </div>
 
       <label className="sr-only" htmlFor="mobile-lut-contract-search">

@@ -1,4 +1,4 @@
-import { AlertTriangle, FolderOpen, RefreshCw, Trash2 } from 'lucide-react'
+import { AlertTriangle, RefreshCw, Trash2 } from 'lucide-react'
 
 import { Chip } from '~/components/ui/chip'
 import { useI18n } from '~/lib/i18n'
@@ -13,7 +13,6 @@ export function MobileLutSourceCard(props: {
   entryCount: number
   isLoading: boolean
   issues: Issue[]
-  onBrowse: () => void
   onRefresh: () => void
   onRemove: () => void
 }) {
@@ -43,14 +42,6 @@ export function MobileLutSourceCard(props: {
           )}
         </div>
         <div className="flex shrink-0 gap-1">
-          <button
-            type="button"
-            aria-label={t('raw.lutSource.open', { label })}
-            onClick={props.onBrowse}
-            className="grid size-[44px] place-items-center rounded-md bg-transparent text-lf-ink/55 transition-colors hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)] hover:text-lf-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
-          >
-            <FolderOpen aria-hidden="true" className="size-5" />
-          </button>
           <button
             type="button"
             aria-label={t('raw.lutSource.refresh', { label })}

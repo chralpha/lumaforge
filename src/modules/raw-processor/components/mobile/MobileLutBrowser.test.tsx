@@ -129,15 +129,19 @@ describe('mobileLutBrowser', () => {
       .closest('section')
 
     expect(strengthSection).toHaveAttribute('data-raw-mobile-lut', 'strength')
-    expect(strengthSection).toHaveClass('rounded-md')
-    expect(strengthSection).not.toHaveClass('bg-lf-paper')
-    expect(screen.getByRole('tablist', { name: 'Strength' })).toHaveClass(
-      'bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.04)]',
-    )
-    expect(screen.getByRole('tab', { name: 'Standard' })).toHaveClass(
-      'data-[state=active]:[&_span[data-segment-thumb]]:bg-lf-paper-high',
-    )
-    expect(screen.getByRole('tab', { name: 'Standard' })).toBeDisabled()
+    // Section is a clean wrapper with no nested tint — the SegmentGroup
+    // carries its own desktop-parity chrome and animated thumb.
+    expect(strengthSection?.className ?? '').not.toMatch(/bg-\[oklch/)
+    expect(strengthSection?.className ?? '').not.toMatch(/bg-lf-paper-warm/)
+
+    const tablist = screen.getByRole('tablist', { name: 'Strength' })
+    expect(tablist).toBeInTheDocument()
+    // The active segment renders a motion-animated thumb (layoutId-driven
+    // spring) — this is the silky control the mobile contract tabs were
+    // ported against. Confirm the thumb element is mounted.
+    const standardTab = screen.getByRole('tab', { name: 'Standard' })
+    expect(standardTab.querySelector('[data-segment-thumb]')).not.toBeNull()
+    expect(standardTab).toBeDisabled()
   })
 
   it('opens a source catalog, loads an online LUT entry, and returns to overview', async () => {
@@ -475,16 +479,18 @@ describe('mobileLutBrowser', () => {
     expect(screen.getByLabelText('Search LUT contract')).not.toHaveClass(
       'focus:border-lf-amber',
     )
-    expect(
-      within(
-        screen.getByRole('tablist', { name: 'LUT contract panels' }),
-      ).getByRole('tab', { name: 'Input', selected: true }),
-    ).toHaveClass('aria-selected:bg-lf-paper-high')
-    expect(
-      within(
-        screen.getByRole('tablist', { name: 'LUT contract panels' }),
-      ).getByRole('tab', { name: 'Input', selected: true }),
-    ).not.toHaveClass('aria-selected:bg-lf-amber-soft')
+    const activeInputTab = within(
+      screen.getByRole('tablist', { name: 'LUT contract panels' }),
+    ).getByRole('tab', { name: 'Input', selected: true })
+    // Active state is driven by a motion `layoutId` thumb (spring-animated)
+    // sitting under the label — mirrors desktop LUTContractBrowser and the
+    // strength SegmentControl, instead of a static aria-selected: class.
+    const contractThumb = activeInputTab.querySelector(
+      '[data-mobile-lut-contract-thumb]',
+    )
+    expect(contractThumb).not.toBeNull()
+    expect(contractThumb).toHaveClass('bg-lf-paper-high')
+    expect(activeInputTab.className).not.toMatch(/aria-selected:bg-lf-amber/)
     expect(
       screen.getByRole('button', {
         name: 'Use Panasonic V-Gamut / V-Log as LUT input',
