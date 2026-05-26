@@ -129,18 +129,32 @@ describe('mobileLutBrowser', () => {
       .closest('section')
 
     expect(strengthSection).toHaveAttribute('data-raw-mobile-lut', 'strength')
-    // Section is a clean wrapper with no nested tint — the SegmentGroup
-    // carries its own desktop-parity chrome and animated thumb.
+    // Section itself is a clean wrapper — no nested tint duplicating the
+    // SegmentGroup's track. The SegmentGroup carries the design-system tint
+    // (lf-ink ink-tint track, lf-paper-high thumb) so it visually belongs
+    // to the mobile sheet instead of falling back to the default white
+    // SegmentGroup chrome.
     expect(strengthSection?.className ?? '').not.toMatch(/bg-\[oklch/)
     expect(strengthSection?.className ?? '').not.toMatch(/bg-lf-paper-warm/)
 
     const tablist = screen.getByRole('tablist', { name: 'Strength' })
     expect(tablist).toBeInTheDocument()
+    // Track uses the same ink-tint chip the contract tabs use — keeps the
+    // Strength control inside the lf-* design system instead of the
+    // default bg-fill-tertiary that reads near-white on lf-paper-high.
+    expect(tablist).toHaveClass(
+      'bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.05)]',
+    )
     // The active segment renders a motion-animated thumb (layoutId-driven
     // spring) — this is the silky control the mobile contract tabs were
-    // ported against. Confirm the thumb element is mounted.
+    // ported against. Confirm the thumb element is mounted AND that the
+    // active-state class targets the lf-paper-high thumb (matches the
+    // contract tab thumb exactly).
     const standardTab = screen.getByRole('tab', { name: 'Standard' })
     expect(standardTab.querySelector('[data-segment-thumb]')).not.toBeNull()
+    expect(standardTab.className).toMatch(
+      /data-\[state=active\]:\[&_span\[data-segment-thumb\]\]:bg-lf-paper-high/,
+    )
     expect(standardTab).toBeDisabled()
   })
 
