@@ -33,6 +33,12 @@ const pipelineMock = vi.hoisted(() => ({
   }>,
   initialize: vi.fn(),
   renderEvents: [] as Array<{ kind: 'original' | 'processed' }>,
+  pipelineEvents: [] as Array<{
+    kind: 'original' | 'processed'
+    op: 'upload' | 'render'
+    width?: number
+    height?: number
+  }>,
 }))
 
 vi.mock('~/lib/gl/pipeline', () => ({
@@ -40,6 +46,7 @@ vi.mock('~/lib/gl/pipeline', () => ({
     .fn()
     .mockImplementation((canvas: HTMLCanvasElement) => {
       const disposeMock = vi.fn()
+      let lastUploadedSize: { width: number; height: number } | null = null
       const getKind = () =>
         canvas.className.includes('raw-preview-original-webgl-canvas')
           ? 'original'
@@ -51,11 +58,30 @@ vi.mock('~/lib/gl/pipeline', () => ({
         disposeMock,
         resize: vi.fn(),
         render: vi.fn(() => {
-          pipelineMock.renderEvents.push({ kind: getKind() })
+          const kind = getKind()
+          pipelineMock.renderEvents.push({ kind })
+          pipelineMock.pipelineEvents.push({
+            kind,
+            op: 'render',
+            width: lastUploadedSize?.width,
+            height: lastUploadedSize?.height,
+          })
           return { renderMs: 1 }
         }),
         clearImage: vi.fn(),
-        uploadImage: vi.fn(),
+        uploadImage: vi.fn((input) => {
+          const kind = getKind()
+          lastUploadedSize = {
+            width: input.width,
+            height: input.height,
+          }
+          pipelineMock.pipelineEvents.push({
+            kind,
+            op: 'upload',
+            width: input.width,
+            height: input.height,
+          })
+        }),
         clearLUT: vi.fn(),
         uploadLUT: vi.fn(),
         setParams: vi.fn(),
@@ -196,6 +222,7 @@ describe('preview canvas upload descriptor', () => {
   beforeEach(() => {
     pipelineMock.instances.length = 0
     pipelineMock.renderEvents.length = 0
+    pipelineMock.pipelineEvents.length = 0
     pipelineMock.initialize.mockReset()
     pipelineMock.initialize.mockResolvedValue(undefined)
     window.PointerEvent = MouseEvent as typeof PointerEvent
@@ -621,7 +648,7 @@ describe('preview canvas upload descriptor', () => {
     })
   })
 
-  it('renders the retained original layer before the processed canvas during bounded-HQ upgrades', async () => {
+  it('promotes bounded-HQ dual-webgl compare after the processed layer uploads the same generation', async () => {
     const imageRef: RefObject<DecodedImage | null> = {
       current: { ...decodedImage, source: 'quick' as const },
     }
@@ -645,6 +672,7 @@ describe('preview canvas upload descriptor', () => {
       ).toBeTruthy()
     })
     pipelineMock.renderEvents.length = 0
+    pipelineMock.pipelineEvents.length = 0
 
     imageRef.current = {
       ...decodedImage,
@@ -668,6 +696,25 @@ describe('preview canvas upload descriptor', () => {
     expect(
       pipelineMock.renderEvents.slice(0, 2).map((event) => event.kind),
     ).toEqual(['original', 'processed'])
+    const processedUploadIndex = pipelineMock.pipelineEvents.findIndex(
+      (event) =>
+        event.kind === 'processed' &&
+        event.op === 'upload' &&
+        event.width === 420 &&
+        event.height === 320,
+    )
+    const processedRenderIndex = pipelineMock.pipelineEvents.findIndex(
+      (event) =>
+        event.kind === 'processed' &&
+        event.op === 'render' &&
+        event.width === 420 &&
+        event.height === 320,
+    )
+    expect(processedUploadIndex).toBeGreaterThanOrEqual(0)
+    expect(processedRenderIndex).toBeGreaterThan(processedUploadIndex)
+    expect(
+      container.querySelector('[data-compare-mode="dual-webgl"]'),
+    ).toBeTruthy()
   })
 
   it('keeps dual-webgl compare ready after the preview image version changes', async () => {

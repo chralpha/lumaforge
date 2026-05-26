@@ -130,6 +130,7 @@ export function PreviewCanvas({
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
   const suspendedRef = useRef(suspended)
   const previewViewportRef = useRef(previewViewport)
+  const processedUploadGenerationKeyRef = useRef('')
   const activePointersRef = useRef(new Map<number, TrackedPointer>())
   const pinchStartRef = useRef<{
     distance: number
@@ -154,6 +155,14 @@ export function PreviewCanvas({
   const imageWidth = image?.width ?? 0
   const imageHeight = image?.height ?? 0
   const hasImageData = Boolean(image?.data)
+  const processedImageGenerationKey = [
+    imageVersion,
+    displaySource,
+    image?.source ?? 'preview',
+    imageWidth,
+    imageHeight,
+    hasImageData ? 'data' : 'empty',
+  ].join(':')
   const canInteractWithPreview =
     !suspended &&
     !interactionDisabled &&
@@ -199,7 +208,6 @@ export function PreviewCanvas({
     supportsCssClip,
     dualWebglAllowed,
     originalWebglReady,
-    retainedOriginalWebglFrameReady,
     originalWebglFailed,
     embeddedPreviewReady: embeddedPreviewFallbackReady,
     jpegSnapshotReady: Boolean(originalReferenceSnapshot),
@@ -353,6 +361,7 @@ export function PreviewCanvas({
   useEffect(() => {
     if (suspended) {
       pipelineRef.current = null
+      processedUploadGenerationKeyRef.current = ''
       onPipelineChange?.(null)
       setIsInitialized(false)
       return
@@ -378,6 +387,7 @@ export function PreviewCanvas({
       disposed = true
       if (pipelineRef.current === disposedPipeline) {
         pipelineRef.current = null
+        processedUploadGenerationKeyRef.current = ''
         onPipelineChange?.(null)
       }
       setIsInitialized(false)
@@ -398,6 +408,7 @@ export function PreviewCanvas({
         }
 
         pipelineRef.current = pipeline
+        processedUploadGenerationKeyRef.current = ''
         onPipelineChange?.(pipeline)
         setIsInitialized(true)
         setError(null)
@@ -504,9 +515,15 @@ export function PreviewCanvas({
     setIsPointerPanning(false)
   }, [])
 
-  const renderProcessedPreview = useCallback(() => {
+  const syncProcessedImageUpload = useCallback(() => {
     const pipeline = pipelineRef.current
     if (!pipeline || !isInitialized) return false
+    if (
+      processedUploadGenerationKeyRef.current === processedImageGenerationKey
+    ) {
+      return true
+    }
+
     const image = imageRef.current
     const uploadInput = createRawUploadInput({
       data: image?.data ?? null,
@@ -516,13 +533,34 @@ export function PreviewCanvas({
       height: image?.height ?? 0,
       renderExposureEv: image?.renderExposure.ev ?? 0,
     })
-    if (!uploadInput) return false
+    const uploaded = syncRawUploadInput({
+      pipeline,
+      imageData: image?.data ?? null,
+      uploadInput,
+      setError,
+    })
+    processedUploadGenerationKeyRef.current = uploaded
+      ? processedImageGenerationKey
+      : ''
+
+    return uploaded
+  }, [imageRef, isInitialized, processedImageGenerationKey])
+
+  const renderProcessedPreview = useCallback(() => {
+    const pipeline = pipelineRef.current
+    if (!pipeline || !isInitialized) return false
+    if (!syncProcessedImageUpload()) return false
 
     pipeline.setParams(processedCanvasParams)
     const stats = pipeline.render()
     onStatsUpdate?.(stats)
     return true
-  }, [imageRef, isInitialized, onStatsUpdate, processedCanvasParams])
+  }, [
+    isInitialized,
+    onStatsUpdate,
+    processedCanvasParams,
+    syncProcessedImageUpload,
+  ])
 
   const handleWheel = useCallback(
     (event: WheelEvent) => {
@@ -700,25 +738,8 @@ export function PreviewCanvas({
 
   // Upload image data when it changes
   useEffect(() => {
-    const pipeline = pipelineRef.current
-    if (!pipeline || !isInitialized) return
-    const image = imageRef.current
-    const uploadInput = createRawUploadInput({
-      data: image?.data ?? null,
-      layout: image?.layout ?? null,
-      colorSpace: image?.colorSpace ?? null,
-      width: image?.width ?? 0,
-      height: image?.height ?? 0,
-      renderExposureEv: image?.renderExposure.ev ?? 0,
-    })
-
-    syncRawUploadInput({
-      pipeline,
-      imageData: image?.data ?? null,
-      uploadInput,
-      setError,
-    })
-  }, [imageRef, imageVersion, isInitialized])
+    syncProcessedImageUpload()
+  }, [syncProcessedImageUpload])
 
   // Upload LUT when it changes
   useEffect(() => {
