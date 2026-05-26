@@ -6,9 +6,11 @@ import type { UseRawProcessorReturn } from '../hooks/useRawProcessor'
 import { RawProcessorView } from '../RawProcessorView'
 
 const mockUseRawProcessor = vi.hoisted(() => vi.fn())
+const mockUseIosSafariToolbarNudge = vi.hoisted(() => vi.fn())
 const mockUseCapabilityGate = vi.hoisted(() => vi.fn())
 
 vi.mock('../hooks', () => ({
+  useIosSafariToolbarNudge: mockUseIosSafariToolbarNudge,
   useRawProcessor: mockUseRawProcessor,
 }))
 
