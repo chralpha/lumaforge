@@ -229,7 +229,7 @@ export function RawToolSurface(props: {
     <section
       aria-label={t('raw.export.title')}
       data-raw-export-block="persistent"
-      className="grid min-h-[112px] content-center border-t border-border-secondary bg-lf-paper-warm/70 px-3.5 py-3"
+      className="grid min-h-[104px] content-center border-t border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5 shadow-[inset_0_1px_0_oklch(0.96_0.012_86/0.07)]"
     >
       {exportBlock}
     </section>
@@ -355,11 +355,14 @@ function DesktopToolAside({
 
   return (
     <aside
-      className="raw-tool-surface relative grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden border-l border-border-strong bg-lf-paper-high p-0 max-[980px]:max-h-[min(42svh,390px)] max-[980px]:border-t max-[980px]:border-l-0 max-[980px]:border-l-transparent"
+      className="raw-tool-surface relative grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden border-l border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong p-0 text-lf-hero-ink shadow-[0_18px_54px_oklch(0.04_0.012_76/0.32)] backdrop-blur-background max-[980px]:max-h-[min(42svh,390px)] max-[980px]:border-t max-[980px]:border-l-0 max-[980px]:border-l-transparent"
       data-raw-tool-surface="raw-finishing"
+      data-raw-desktop-chrome="on-photo-tools"
+      data-raw-desktop-density="linear-compact"
+      data-raw-desktop-input="mouse-keyboard"
       aria-label={ariaLabel}
     >
-      <div ref={setScrollEl} className="min-h-0 overflow-y-auto px-3 py-3">
+      <div ref={setScrollEl} className="min-h-0 overflow-y-auto px-2.5 py-2.5">
         {children}
       </div>
       <div>{exportBlock}</div>

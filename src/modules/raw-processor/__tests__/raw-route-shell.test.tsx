@@ -228,7 +228,14 @@ describe('rawProcessorView', () => {
 
     render(<RawProcessorView />)
 
-    expect(screen.getByRole('banner')).toBeInTheDocument()
+    expect(screen.getByRole('banner')).toHaveAttribute(
+      'data-raw-desktop-chrome',
+      'on-photo-topbar',
+    )
+    expect(screen.getByRole('banner')).toHaveAttribute(
+      'data-raw-desktop-density',
+      'compact-command',
+    )
     expect(screen.getByText('LumaForge RAW Lab')).toBeInTheDocument()
     expect(screen.getByText('Drop one RAW here')).toBeInTheDocument()
     expect(screen.getByText('Unprocessed RAW')).toBeInTheDocument()
@@ -259,8 +266,20 @@ describe('rawProcessorView', () => {
     expect(viewportShell).not.toBeNull()
     expect(viewportShell).toHaveClass('raw-lab')
     expect(viewportShell).toHaveAttribute('data-raw-lab-state', 'empty')
+    expect(viewportShell).toHaveAttribute(
+      'data-raw-desktop-design',
+      'photo-first',
+    )
+    expect(viewportShell).toHaveAttribute(
+      'data-raw-desktop-polish',
+      'x-linear-command-workspace',
+    )
     expect(stageToolsLayout).not.toBeNull()
     expect(stageToolsLayout).toHaveClass('raw-lab-shell')
+    expect(stageToolsLayout).toHaveAttribute(
+      'data-raw-desktop-layout',
+      'photo-stage-command-rail',
+    )
   })
 
   it('lets the raw route hand viewport ownership directly to the shell', () => {

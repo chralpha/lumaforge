@@ -152,9 +152,23 @@ describe('rawToolSurface', () => {
 
   it('renders the finishing surface with a card stack and a persistent export block', () => {
     const { container } = render(<RawToolSurface {...baseProps} />)
-    expect(
-      container.querySelector('[data-raw-tool-surface="raw-finishing"]'),
-    ).toBeInTheDocument()
+    const desktopSurface = container.querySelector(
+      '[data-raw-tool-surface="raw-finishing"]',
+    )
+    expect(desktopSurface).toBeInTheDocument()
+    expect(desktopSurface).toHaveAttribute(
+      'data-raw-desktop-chrome',
+      'on-photo-tools',
+    )
+    expect(desktopSurface).toHaveAttribute(
+      'data-raw-desktop-density',
+      'linear-compact',
+    )
+    expect(desktopSurface).toHaveAttribute(
+      'data-raw-desktop-input',
+      'mouse-keyboard',
+    )
+    expect(desktopSurface).toHaveClass('bg-lf-on-photo-bg-strong')
     // card stack present
     expect(
       screen.getByRole('group', { name: 'RAW finishing controls' }),

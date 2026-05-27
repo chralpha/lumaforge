@@ -356,6 +356,8 @@ function RawProcessorViewInner({
       className={clsxm('raw-lab', className)}
       data-raw-lab-shell="viewport"
       data-raw-lab-state={hasImage ? 'loaded' : 'empty'}
+      data-raw-desktop-design="photo-first"
+      data-raw-desktop-polish="x-linear-command-workspace"
     >
       <div className="max-[640px]:hidden">
         <WorkspaceHeader
@@ -368,8 +370,9 @@ function RawProcessorViewInner({
       </div>
 
       <div
-        className="raw-lab-shell grid min-h-0 min-w-0 overflow-hidden [grid-template-columns:minmax(0,1fr)_minmax(340px,400px)] max-[980px]:[grid-template-columns:minmax(0,1fr)] max-[980px]:[grid-template-rows:minmax(0,1fr)_auto] max-[640px]:[grid-template-columns:minmax(0,1fr)] max-[640px]:[grid-template-rows:minmax(0,1fr)]"
+        className="raw-lab-shell grid min-h-0 min-w-0 overflow-hidden [grid-template-columns:minmax(0,1fr)_minmax(332px,376px)] max-[980px]:[grid-template-columns:minmax(0,1fr)] max-[980px]:[grid-template-rows:minmax(0,1fr)_auto] max-[640px]:[grid-template-columns:minmax(0,1fr)] max-[640px]:[grid-template-rows:minmax(0,1fr)]"
         data-raw-lab-layout="stage-tools"
+        data-raw-desktop-layout="photo-stage-command-rail"
       >
         <ComparePreviewStage
           hasImage={hasImage}
@@ -526,7 +529,7 @@ function RawProcessorViewInner({
                       size="sm"
                       type="button"
                       onClick={confirmSessionReset}
-                      className="min-h-[44px] sm:min-h-0"
+                      className="min-h-[44px] text-lf-hero-ink sm:min-h-0"
                     >
                       {t('raw.resetConfirm.confirm')}
                     </Button>

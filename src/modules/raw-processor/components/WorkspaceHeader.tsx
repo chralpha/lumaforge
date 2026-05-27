@@ -34,16 +34,20 @@ export function WorkspaceHeader({
   const isExporting = session?.exportState.status === 'exporting'
 
   return (
-    <header className="flex min-w-0 items-center justify-between gap-4 border-b border-border-secondary bg-lf-paper-high pb-3 pt-safe-offset-3 px-safe-offset-3 sm:px-safe-offset-4 [@media(max-height:480px)]:pt-[calc(6px+env(safe-area-inset-top))] [@media(max-height:480px)]:pb-1.5">
+    <header
+      data-raw-desktop-chrome="on-photo-topbar"
+      data-raw-desktop-density="compact-command"
+      className="flex min-h-[54px] min-w-0 items-center justify-between gap-3 border-b border-lf-on-photo-bord-soft bg-gradient-to-b from-black/88 via-black/62 to-lf-dark/80 pb-2.5 pt-safe-offset-2 px-safe-offset-3 text-lf-hero-ink shadow-[0_12px_34px_oklch(0.04_0.012_76/0.26)] backdrop-blur-background sm:px-safe-offset-3 [@media(max-height:480px)]:pb-1.5 [@media(max-height:480px)]:pt-[calc(6px+env(safe-area-inset-top))]"
+    >
       <div className="min-w-0">
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
           <img
-            className="size-7 shrink-0 rounded-[5px] object-cover"
+            className="size-6 shrink-0 rounded-[5px] object-cover"
             src={appIcon}
             alt=""
             aria-hidden="true"
           />
-          <h1 className="truncate text-[0.95rem] font-semibold text-lf-ink">
+          <h1 className="truncate text-[0.88rem] font-semibold text-lf-hero-ink">
             {hasImage ? fileName : t('raw.header.title')}
           </h1>
           {hasImage && (
@@ -52,8 +56,8 @@ export function WorkspaceHeader({
             </span>
           )}
         </div>
-        <div className="ps-10">
-          <p className="mt-1 truncate text-[0.72rem] tracking-tight text-lf-ink/55 [@media(max-height:480px)]:hidden">
+        <div className="ps-[34px]">
+          <p className="mt-0.5 truncate text-[0.68rem] font-medium text-lf-hero-ink/52 [@media(max-height:480px)]:hidden">
             {hasImage
               ? t('raw.header.subtitleLoaded')
               : t('raw.header.subtitleEmpty')}
@@ -62,15 +66,16 @@ export function WorkspaceHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <LocaleToggle className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-transparent px-2.5 text-[0.78rem] font-medium text-lf-ink/75 transition-colors hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.05)] hover:text-lf-ink max-[640px]:hidden" />
+        <LocaleToggle className="inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2 text-[0.72rem] font-medium text-lf-hero-ink/72 shadow-none transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-hero-ink max-[640px]:hidden" />
         <Button
           variant="secondary"
           size="sm"
           type="button"
           onClick={onReplaceFile}
           disabled={isExporting}
-          className="max-[640px]:hidden"
+          className="h-7 gap-1.5 rounded-md border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2 text-[0.72rem] font-medium text-lf-hero-ink/82 shadow-none hover:bg-lf-on-photo-bg-strong hover:text-lf-hero-ink max-[640px]:hidden [&_svg]:size-[13px] [&_svg]:stroke-[1.9]"
         >
+          <FolderOpen aria-hidden="true" />
           {hasImage ? t('raw.header.replace') : t('raw.header.chooseRaw')}
         </Button>
         <Button
@@ -79,8 +84,9 @@ export function WorkspaceHeader({
           type="button"
           onClick={onResetSession}
           disabled={!hasImage || isExporting}
-          className="max-[640px]:hidden"
+          className="h-7 gap-1.5 rounded-md border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2 text-[0.72rem] font-medium text-lf-hero-ink/82 shadow-none hover:bg-lf-on-photo-bg-strong hover:text-lf-hero-ink max-[640px]:hidden [&_svg]:size-[13px] [&_svg]:stroke-[1.9]"
         >
+          <RotateCcw aria-hidden="true" />
           {t('raw.header.reset')}
         </Button>
         <DropdownMenu>
