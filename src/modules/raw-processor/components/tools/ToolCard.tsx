@@ -64,18 +64,21 @@ export function ToolCard({
       value={id}
       data-tool-card={id}
       className={clsxm(
-        'rounded-md border border-transparent transition-colors duration-150',
-        'hover:bg-lf-on-photo-bg',
-        'data-[state=open]:border-lf-on-photo-bord-soft data-[state=open]:bg-lf-on-photo-bg',
+        'rounded-md border border-transparent transition-[background,border-color] duration-150 ease-out',
+        'hover:bg-[oklch(from_var(--color-lf-hero-ink)_l_c_h_/_0.04)]',
+        'data-[state=open]:border-lf-on-photo-bord-soft',
         className,
       )}
     >
       <AccordionTrigger
         data-tool-card-trigger={id}
         className={clsxm(
-          'group/tool-trigger px-2.5 py-2 text-[0.78rem] font-medium leading-none text-lf-hero-ink/88',
+          'group/tool-trigger -m-px rounded-md px-2.5 py-2 text-[0.78rem] font-medium leading-none text-lf-hero-ink/88 transition-colors duration-150 ease-out',
           'hover:text-lf-hero-ink',
-          'data-[state=closed]:text-lf-hero-ink/66',
+          'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80',
+          'data-[state=open]:text-lf-hero-ink',
+          'data-[state=closed]:text-lf-hero-ink/64',
+          '[&_[data-slot=accordion-trigger-chevron]_i]:!size-[13px] [&_[data-slot=accordion-trigger-chevron]_i]:!text-lf-hero-ink/40 group-hover/tool-trigger:[&_[data-slot=accordion-trigger-chevron]_i]:!text-lf-hero-ink/64 data-[state=open]:[&_[data-slot=accordion-trigger-chevron]_i]:!text-lf-hero-ink/72',
         )}
       >
         <span className="flex min-w-0 items-center gap-2">
@@ -83,7 +86,7 @@ export function ToolCard({
           {meta != null && (
             <span
               aria-hidden="true"
-              className="truncate text-[0.68rem] font-medium text-lf-hero-ink/42"
+              className="truncate text-[0.68rem] font-medium tabular-nums text-lf-hero-ink/44"
             >
               {meta}
             </span>
