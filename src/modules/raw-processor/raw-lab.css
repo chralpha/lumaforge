@@ -90,6 +90,18 @@
     --color-lf-on-photo-bord: oklch(0.9 0.006 255 / 0.34);
     --color-lf-on-photo-bord-soft: oklch(0.9 0.006 255 / 0.18);
 
+    /* Stage scrim, panel, and hairline retoken into the cool dark palette
+       so the compare handle's circle / vertical seam don't keep the warm
+       amber hue inherited from the empty-state mobile darkroom. */
+    --color-stage-background: oklch(0.064 0.006 255);
+    --color-stage-grad-1: oklch(0.09 0.006 255);
+    --color-stage-grad-2: oklch(0.12 0.006 255);
+    --color-stage-scrim: oklch(0.105 0.006 255 / 0.84);
+    --color-stage-panel: oklch(0.13 0.006 255 / 0.78);
+    --color-stage-hairline: oklch(0.96 0.006 255 / 0.22);
+    --color-preview-mat: oklch(0.075 0.006 255);
+    --color-preview-mat-edge: oklch(0.13 0.007 255);
+
     background:
       linear-gradient(
         90deg,
@@ -210,15 +222,46 @@
   }
 
   .raw-lab[data-raw-desktop-design='photo-first'] .raw-lab-stage {
-    padding: clamp(12px, 1.35vw, 18px);
+    padding: clamp(14px, 1.45vw, 20px);
   }
 
   .raw-lab[data-raw-desktop-design='photo-first'] .raw-lab-stage-frame {
-    border-color: var(--color-lf-on-photo-bord-soft);
-    border-radius: 8px;
+    border-color: oklch(0.96 0.006 255 / 0.08);
+    border-radius: 10px;
     box-shadow:
-      0 18px 56px oklch(0.04 0.006 255 / 0.42),
-      inset 0 1px 0 oklch(0.9 0.006 255 / 0.1);
+      0 22px 64px oklch(0.04 0.006 255 / 0.5),
+      0 1px 0 oklch(0.96 0.006 255 / 0.04),
+      inset 0 1px 0 oklch(0.96 0.006 255 / 0.08);
+  }
+
+  /* The compare handle sits over the (now cool-dark) stage. The shared
+     handle CSS lower down pulls in --color-stage-panel / --color-on-stage
+     / --color-stage-hairline, which now resolve to the cool palette.
+     Give the dragged/active state a green accent ring so the photo-first
+     handle reads as the same lf-green system the rest of the desktop
+     uses for focus and ready cues. */
+  .raw-lab[data-raw-desktop-design='photo-first'] .raw-lab-compare-handle span {
+    background: oklch(0.13 0.006 255 / 0.72);
+    border-color: oklch(0.96 0.006 255 / 0.72);
+    -webkit-backdrop-filter: blur(8px) saturate(120%);
+    backdrop-filter: blur(8px) saturate(120%);
+    box-shadow:
+      0 6px 14px oklch(0.04 0.006 255 / 0.4),
+      inset 0 1px 0 oklch(0.96 0.006 255 / 0.18);
+  }
+
+  .raw-lab[data-raw-desktop-design='photo-first']
+    .raw-lab-compare-handle:hover
+    span,
+  .raw-lab[data-raw-desktop-design='photo-first']
+    [data-raw-compare-dragging]
+    .raw-lab-compare-handle
+    span {
+    border-color: oklch(from var(--color-lf-green) l c h);
+    box-shadow:
+      0 8px 18px oklch(0.04 0.006 255 / 0.5),
+      0 0 0 4px oklch(from var(--color-lf-green) l c h / 0.18),
+      inset 0 1px 0 oklch(0.96 0.006 255 / 0.22);
   }
 
   .raw-lab[data-raw-desktop-design='photo-first'] .raw-lab-shell {
