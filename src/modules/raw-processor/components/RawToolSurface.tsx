@@ -229,7 +229,8 @@ export function RawToolSurface(props: {
     <section
       aria-label={t('raw.export.title')}
       data-raw-export-block="persistent"
-      className="grid min-h-[104px] content-center border-t border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5 shadow-[inset_0_1px_0_oklch(0.96_0.012_86/0.07)]"
+      data-raw-export-ready={props.canExport ? 'true' : 'false'}
+      className="grid min-h-[104px] content-center bg-lf-on-photo-bg px-3 py-3"
     >
       {exportBlock}
     </section>
