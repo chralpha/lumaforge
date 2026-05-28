@@ -200,24 +200,27 @@ describe('mobileLutBrowser', () => {
 
     const tablist = screen.getByRole('tablist', { name: 'Strength' })
     expect(tablist).toBeInTheDocument()
-    // Track stays in the same dark on-photo surface family as mobile chrome.
-    expect(tablist).toHaveClass('bg-lf-on-photo-bg')
-    expect(tablist).toHaveClass('border-lf-on-photo-bord-soft')
+    // Borderless track per §6 Inset Hairline Rule — the track defines its
+    // edge by a 5% cool-white fill against the chrome surface, not a drawn
+    // hairline. This keeps the segmented control from reading heavier on
+    // the flatter mobile sheet than on the structured desktop tool card.
+    expect(tablist.className).toMatch(/bg-\[oklch\(0\.96_0\.006_255\/0\.05\)\]/)
+    expect(tablist).not.toHaveClass('border-lf-on-photo-bord-soft')
+    expect(tablist).not.toHaveClass('bg-lf-on-photo-bg')
     expect(tablist).not.toHaveClass('bg-lf-paper-warm/55')
     expect(tablist).not.toHaveClass('border-lf-hairline/45')
     expect(tablist.className).not.toMatch(
       /bg-\[oklch\(from_var\(--color-lf-ink\)/,
     )
     // The active segment renders a motion-animated thumb (layoutId-driven
-    // spring) and earns a Linear-style brighter wash + top highlight (the
-    // shared segmented-chrome contract — see segmented-chrome.ts).
+    // spring) and earns the cool-white wash + top highlight that matches
+    // the rest of the chrome's seam idiom (oklch(0.96 0.006 255 / *)).
     const standardTab = screen.getByRole('tab', { name: 'Standard' })
     expect(standardTab.querySelector('[data-segment-thumb]')).not.toBeNull()
-    // Active-thumb wash: 10% hero-ink (brighter than the dim on-photo track)
-    // rather than the prior bg-lf-on-photo-bg-strong (which collided with
-    // the track lightness on dark chrome and read as "invisible active").
+    // Active-thumb wash: 10% cool-white, brighter than the 5% track wash so
+    // the segment lifts visibly without depending on a drawn outline.
     expect(standardTab.className).toMatch(
-      /data-\[state=active\]:\[&_span\[data-segment-thumb\]\]:bg-\[oklch\(from_var\(--color-lf-hero-ink\)/,
+      /data-\[state=active\]:\[&_span\[data-segment-thumb\]\]:bg-\[oklch\(0\.96_0\.006_255\/0\.10\)\]/,
     )
     // Weight contrast carries the readability when the bg delta is subtle.
     expect(standardTab.className).toMatch(/data-\[state=active\]:font-semibold/)
@@ -225,6 +228,7 @@ describe('mobileLutBrowser', () => {
       /data-\[state=active\]:text-lf-hero-ink/,
     )
     expect(standardTab.className).not.toMatch(/bg-lf-paper-high/)
+    expect(standardTab.className).not.toMatch(/bg-lf-on-photo-bg-strong/)
     expect(standardTab).toBeDisabled()
   })
 
@@ -575,11 +579,11 @@ describe('mobileLutBrowser', () => {
     )
     expect(contractThumb).not.toBeNull()
     // Shares the segmented-chrome contract with StrengthControl + the
-    // desktop LUT contract tabs — Linear-style 10% hero-ink wash, not the
-    // prior bg-lf-on-photo-bg-strong depressed plate that collided with
-    // the track lightness on dark chrome.
+    // desktop LUT contract tabs — 10% cool-white wash matching the rest
+    // of the chrome's seam idiom, not the prior depressed plate or warm
+    // hero-ink wash.
     expect(contractThumb?.className ?? '').toMatch(
-      /bg-\[oklch\(from_var\(--color-lf-hero-ink\)/,
+      /bg-\[oklch\(0\.96_0\.006_255\/0\.10\)\]/,
     )
     expect(contractThumb).not.toHaveClass('bg-lf-paper-high')
     expect(contractThumb).not.toHaveClass('bg-lf-on-photo-bg-strong')

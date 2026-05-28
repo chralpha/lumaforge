@@ -19,10 +19,16 @@
  * seam idiom used by the topbar, tool rail, and tool cards.
  */
 
-// Track: dim on-photo wash with a soft hairline. Pair with a h-* and p-*
-// at the consumer per density.
-export const SEGMENTED_TRACK =
-  'rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg p-1'
+// Track: a 5% cool-white wash on the chrome surface defines the track's
+// edge without a drawn border. The earlier border + dim bg-on-photo-bg
+// fill was doing all the boundary work; on the mobile LUT sheet (flat
+// substrate) the 1px hairline read as the dominant edge of the control,
+// while on the desktop tool card (gradient + inset shadow) the same
+// hairline became the third structural line in the same field and
+// competed with the chrome's existing seams. Per §6 Inset Hairline
+// Rule: chrome seams are inset washes, not drawn borders. Pair with a
+// h-* and p-* per consumer density.
+export const SEGMENTED_TRACK = 'rounded-md bg-[oklch(0.96_0.006_255/0.05)] p-1'
 
 // Inactive item: text reads at /72 (AA on the dark chrome) and brightens
 // to /92 on pointer hover so the segment under the cursor previews a lift
@@ -36,19 +42,22 @@ export const SEGMENTED_ITEM_TEXT =
 export const SEGMENTED_ITEM_TEXT_ACTIVE =
   'data-[state=active]:font-semibold data-[state=active]:text-lf-hero-ink'
 
-// Active thumb: 10% hero-ink wash + 1px inset top highlight. This is the
-// only visual lift; no inset outline, no drop shadow, no glass border —
-// those competed with the chrome's quiet seam idiom and made the segment
-// read as crystalline rather than as one of the chrome's surfaces.
+// Active thumb: 10% cool-white wash + 1px inset top highlight. The wash
+// hue intentionally matches the rest of the chrome's seam idiom
+// (oklch(0.96 0.006 255 / *)) instead of pulling from --color-lf-hero-ink
+// (which is warm) — the chrome's topbar, tool rail, tool cards, and
+// export footer all use this cool near-white at varying opacities, so
+// the thumb reads as one of the chrome's lifts and not as a foreign
+// warm element.
 //
 // Apply to the SegmentItem className; it targets the `data-segment-thumb`
 // span the primitive renders for the layoutId animation. Hand-rolled
 // segmented controls (mobile + desktop LUT contract tabs) inline the same
 // classes on their motion thumb span.
 export const SEGMENTED_THUMB_BG =
-  'bg-[oklch(from_var(--color-lf-hero-ink)_l_c_h_/_0.10)] shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.14)]'
+  'bg-[oklch(0.96_0.006_255/0.10)] shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.14)]'
 
-export const SEGMENTED_THUMB_ACTIVE_VIA_PARENT = `data-[state=active]:[&_span[data-segment-thumb]]:bg-[oklch(from_var(--color-lf-hero-ink)_l_c_h_/_0.10)] data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.14)]`
+export const SEGMENTED_THUMB_ACTIVE_VIA_PARENT = `data-[state=active]:[&_span[data-segment-thumb]]:bg-[oklch(0.96_0.006_255/0.10)] data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.14)]`
 
 export const SEGMENTED_FOCUS_RING =
   'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80'
