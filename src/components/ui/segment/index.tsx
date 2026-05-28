@@ -55,7 +55,16 @@ export const SegmentGroup = (props: ComponentType<SegmentGroupProps>) => {
         {...divProps}
         role="tablist"
         className={cn(
-          'bg-fill-tertiary text-text-secondary inline-flex h-9 items-center justify-center rounded-lg p-1 outline-none',
+          // Structural only — no color, no size. Consumers own those so the
+          // same primitive renders on paper, on dark on-photo chrome, and
+          // on themed dark mode without color leaks. The earlier defaults
+          // bg-fill-tertiary + text-text-secondary resolved to a warm light
+          // gray on the mobile substrate (where neither token is overridden
+          // by the desktop @media block) and tailwind-merge does not dedupe
+          // custom @theme tokens against arbitrary-value bg-* classes, so
+          // the primitive default won and the consumer's dark wash was
+          // overpainted with a bright panel.
+          'inline-flex items-center justify-center rounded-lg p-1 outline-none',
           className,
         )}
         tabIndex={tabIndex}
