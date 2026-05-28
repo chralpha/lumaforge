@@ -209,22 +209,21 @@ describe('mobileLutBrowser', () => {
       /bg-\[oklch\(from_var\(--color-lf-ink\)/,
     )
     // The active segment renders a motion-animated thumb (layoutId-driven
-    // spring) — this is the silky control the mobile contract tabs were
-    // ported against. Confirm the thumb element is mounted AND that the
-    // active-state class targets the mobile on-photo thumb (matches the
-    // contract tab thumb exactly).
+    // spring) and earns a Linear-style brighter wash + top highlight (the
+    // shared segmented-chrome contract — see segmented-chrome.ts).
     const standardTab = screen.getByRole('tab', { name: 'Standard' })
     expect(standardTab.querySelector('[data-segment-thumb]')).not.toBeNull()
+    // Active-thumb wash: 10% hero-ink (brighter than the dim on-photo track)
+    // rather than the prior bg-lf-on-photo-bg-strong (which collided with
+    // the track lightness on dark chrome and read as "invisible active").
     expect(standardTab.className).toMatch(
-      /data-\[state=active\]:\[&_span\[data-segment-thumb\]\]:bg-lf-on-photo-bg-strong/,
+      /data-\[state=active\]:\[&_span\[data-segment-thumb\]\]:bg-\[oklch\(from_var\(--color-lf-hero-ink\)/,
     )
-    // Readability contract: the depressed-active thumb collides with the
-    // track's effective lightness on dark chrome, so the active state has
-    // to carry its own inset hairline + top highlight to read as a lifted
-    // plate. Encode that as a contract so a future refactor cannot drop
-    // the outline and re-introduce the "invisible active" regression.
-    expect(standardTab.className).toMatch(/inset_0_0_0_1px_oklch/)
+    // Weight contrast carries the readability when the bg delta is subtle.
     expect(standardTab.className).toMatch(/data-\[state=active\]:font-semibold/)
+    expect(standardTab.className).toMatch(
+      /data-\[state=active\]:text-lf-hero-ink/,
+    )
     expect(standardTab.className).not.toMatch(/bg-lf-paper-high/)
     expect(standardTab).toBeDisabled()
   })
@@ -575,8 +574,15 @@ describe('mobileLutBrowser', () => {
       '[data-mobile-lut-contract-thumb]',
     )
     expect(contractThumb).not.toBeNull()
-    expect(contractThumb).toHaveClass('bg-lf-on-photo-bg-strong')
+    // Shares the segmented-chrome contract with StrengthControl + the
+    // desktop LUT contract tabs — Linear-style 10% hero-ink wash, not the
+    // prior bg-lf-on-photo-bg-strong depressed plate that collided with
+    // the track lightness on dark chrome.
+    expect(contractThumb?.className ?? '').toMatch(
+      /bg-\[oklch\(from_var\(--color-lf-hero-ink\)/,
+    )
     expect(contractThumb).not.toHaveClass('bg-lf-paper-high')
+    expect(contractThumb).not.toHaveClass('bg-lf-on-photo-bg-strong')
     expect(activeInputTab.className).not.toMatch(/aria-selected:bg-lf-amber/)
     expect(
       screen.getByRole('button', {

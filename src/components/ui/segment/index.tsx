@@ -142,8 +142,17 @@ export const SegmentItem: Component<{
       type="button"
       role="tab"
       className={cn(
-        'ring-offset-background data-[state=active]:text-text relative inline-flex items-center justify-center whitespace-nowrap px-3 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
-        'focus-visible:ring-accent/30 h-full rounded-md',
+        // The primitive intentionally does NOT set an active text color or
+        // an active thumb fill — consumers own those so the same primitive
+        // can render on paper, on dark on-photo chrome, and on themed dark
+        // mode without color collisions. The earlier default of
+        // `data-[state=active]:text-text` collided with the on-photo chrome
+        // where --color-text resolves to dark ink, which rendered active
+        // labels unreadable on mobile.
+        'relative inline-flex items-center justify-center whitespace-nowrap px-3 text-sm font-medium transition-colors duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-accent/30 ring-offset-background',
+        'disabled:pointer-events-none disabled:opacity-50',
+        'h-full rounded-md',
         className,
       )}
       tabIndex={isActive && !isDisabled ? 0 : -1}
@@ -169,7 +178,7 @@ export const SegmentItem: Component<{
           layout
           transition={Spring.presets.smooth}
           layoutId={layoutId}
-          className="bg-background absolute inset-0 z-0 rounded-md shadow"
+          className="absolute inset-0 z-0 rounded-md"
         />
       )}
     </button>

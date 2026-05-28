@@ -2,6 +2,14 @@ import { SegmentGroup, SegmentItem } from '~/components/ui/segment'
 import { cn } from '~/lib/cn'
 import { useI18n } from '~/lib/i18n'
 
+import {
+  SEGMENTED_FOCUS_RING,
+  SEGMENTED_ITEM_TEXT,
+  SEGMENTED_ITEM_TEXT_ACTIVE,
+  SEGMENTED_THUMB_ACTIVE_VIA_PARENT,
+  SEGMENTED_TRACK,
+} from './segmented-chrome'
+
 const LEVELS = ['off', 'light', 'standard', 'strong'] as const
 
 export type StrengthLevel = (typeof LEVELS)[number]
@@ -11,18 +19,14 @@ function isStrengthLevel(value: string): value is StrengthLevel {
   return (LEVELS as readonly string[]).includes(value)
 }
 
-const TRACK_BASE =
-  'w-full rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg p-1'
+const TRACK_BASE = cn('w-full', SEGMENTED_TRACK)
 
 const ITEM_BASE = cn(
-  'flex-1 font-medium text-lf-hero-ink/72 transition-colors duration-150',
-  'hover:text-lf-hero-ink/92',
-  'data-[state=active]:font-semibold data-[state=active]:text-lf-hero-ink',
-  // Lifted-plate thumb: keep the lf-on-photo-bg-strong fill (so the depressed
-  // iOS metaphor still reads), but stack an inset hairline + top highlight so
-  // it doesn't collide with the track's effective lightness on dark chrome.
-  'data-[state=active]:[&_span[data-segment-thumb]]:bg-lf-on-photo-bg-strong',
-  'data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_0_0_1px_oklch(0.96_0.006_255/0.14),inset_0_1px_0_oklch(0.96_0.006_255/0.22),0_1px_2px_oklch(0.04_0.006_255/0.45)]',
+  'flex-1',
+  SEGMENTED_ITEM_TEXT,
+  SEGMENTED_ITEM_TEXT_ACTIVE,
+  SEGMENTED_THUMB_ACTIVE_VIA_PARENT,
+  SEGMENTED_FOCUS_RING,
 )
 
 const SIZE_TRACK = {

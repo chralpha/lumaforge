@@ -39,6 +39,13 @@ import {
   getResolvedProfile,
   groupProfiles,
 } from '../tools/lut-contract'
+import {
+  SEGMENTED_FOCUS_RING,
+  SEGMENTED_ITEM_TEXT,
+  SEGMENTED_ITEM_TEXT_ACTIVE,
+  SEGMENTED_THUMB_BG,
+  SEGMENTED_TRACK,
+} from '../tools/segmented-chrome'
 import type { StrengthLevel } from '../tools/StrengthControl'
 import { StrengthControl } from '../tools/StrengthControl'
 import { MobileLutCatalogEntryButton } from './MobileLutCatalogEntryButton'
@@ -821,7 +828,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       transition={sheetSpring}
     >
       <div
-        className="relative grid grid-cols-2 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg p-1"
+        className={`relative grid grid-cols-2 ${SEGMENTED_TRACK}`}
         role="tablist"
         aria-label={t('raw.lutContract.panels')}
       >
@@ -837,12 +844,12 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
               type="button"
               role="tab"
               aria-selected={isActive}
+              data-state={isActive ? 'active' : 'inactive'}
               className={[
-                'relative z-10 min-h-[44px] rounded-[5px] px-2 text-lf-control font-semibold transition-colors duration-150',
-                'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
-                isActive
-                  ? 'text-lf-hero-ink'
-                  : 'text-lf-hero-ink/55 hover:text-lf-hero-ink/80',
+                'relative z-10 min-h-[44px] rounded-[5px] px-2 text-lf-control transition-colors duration-150',
+                SEGMENTED_ITEM_TEXT,
+                SEGMENTED_ITEM_TEXT_ACTIVE,
+                SEGMENTED_FOCUS_RING,
               ].join(' ')}
               onClick={() => setContractStep(tabId)}
             >
@@ -851,7 +858,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                   layoutId="mobile-lut-contract-tab-indicator"
                   aria-hidden="true"
                   data-mobile-lut-contract-thumb
-                  className="absolute inset-0 -z-10 rounded-[5px] bg-lf-on-photo-bg-strong shadow-sm"
+                  className={`absolute inset-0 -z-10 rounded-[5px] ${SEGMENTED_THUMB_BG}`}
                   transition={{
                     type: 'spring',
                     stiffness: 460,

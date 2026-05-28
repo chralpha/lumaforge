@@ -9,6 +9,13 @@ import { clsxm } from '~/lib/cn'
 import { useI18n } from '~/lib/i18n'
 
 import { composeLUTContractProfile, groupProfiles } from '../lut-contract'
+import {
+  SEGMENTED_FOCUS_RING,
+  SEGMENTED_ITEM_TEXT,
+  SEGMENTED_ITEM_TEXT_ACTIVE,
+  SEGMENTED_THUMB_BG,
+  SEGMENTED_TRACK,
+} from '../segmented-chrome'
 import type { LUTOutputOption } from './lut-output-options'
 import {
   dedupeOutputOptions,
@@ -163,7 +170,7 @@ export function LUTContractBrowser({
       }}
     >
       <div
-        className="relative grid grid-cols-2 rounded-md bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.05)] p-0.5"
+        className={`relative grid grid-cols-2 ${SEGMENTED_TRACK}`}
         role="tablist"
         aria-label={t('raw.lutContract.panels')}
       >
@@ -179,12 +186,12 @@ export function LUTContractBrowser({
               type="button"
               role="tab"
               aria-selected={isActive}
+              data-state={isActive ? 'active' : 'inactive'}
               className={clsxm(
-                'relative z-10 min-h-7 rounded-[5px] px-2 text-[0.74rem] transition-colors duration-150',
-                'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
-                isActive
-                  ? 'font-semibold text-lf-ink/90'
-                  : 'font-normal text-lf-ink/50 hover:text-lf-ink/75',
+                'relative z-10 min-h-7 rounded-[5px] px-2 text-[0.74rem]',
+                SEGMENTED_ITEM_TEXT,
+                SEGMENTED_ITEM_TEXT_ACTIVE,
+                SEGMENTED_FOCUS_RING,
               )}
               onClick={() => setStep(tabId)}
             >
@@ -192,7 +199,8 @@ export function LUTContractBrowser({
                 <m.span
                   layoutId="lut-contract-tab-indicator"
                   aria-hidden="true"
-                  className="absolute inset-0 -z-10 rounded-[5px] bg-lf-paper-high shadow-lf-soft"
+                  data-lut-contract-thumb
+                  className={`absolute inset-0 -z-10 rounded-[5px] ${SEGMENTED_THUMB_BG}`}
                   transition={{
                     type: 'spring',
                     stiffness: 460,
