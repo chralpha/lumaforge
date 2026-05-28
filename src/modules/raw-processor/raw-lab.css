@@ -757,6 +757,8 @@
 .raw-mobile-empty-readiness {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
+  width: min(320px, 100%);
+  min-height: 64px;
   max-width: min(320px, 100%);
   align-items: center;
   gap: 3px 8px;

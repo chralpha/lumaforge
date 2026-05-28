@@ -75,4 +75,14 @@ describe('raw lab css tokens', () => {
     expect(mobileTokens['--color-preview-mat-edge']).toBe('var(--color-fill)')
     expect(mobileTokens['--color-preview-border']).toBe('transparent')
   })
+
+  it('reserves stable mobile runtime-readiness space to avoid empty-state CLS', () => {
+    const readinessRule = extractRuleBody(
+      rawLabCss,
+      '.raw-mobile-empty-readiness',
+    )
+
+    expect(readinessRule).toContain('width: min(320px, 100%);')
+    expect(readinessRule).toContain('min-height: 64px;')
+  })
 })
