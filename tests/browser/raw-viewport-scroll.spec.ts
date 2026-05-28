@@ -25,7 +25,7 @@ async function loadRawFixture(page: Page) {
   const isMobileViewport = await page.evaluate(() => window.innerWidth <= 640)
   const trigger = isMobileViewport
     ? page.getByRole('button', { name: /browse raw files/i })
-    : page.getByRole('button', { name: /drop one raw here/i })
+    : page.getByRole('button', { name: /finish a raw with a lut/i })
 
   await expect(trigger).toBeVisible()
   const fileChooserPromise = page.waitForEvent('filechooser')
@@ -264,7 +264,9 @@ test('opens the RAW picker from the empty desktop preview dock', async ({
   await page.goto('/raw')
   await expect(page.locator('[data-raw-lab-shell="viewport"]')).toBeVisible()
 
-  const uploadDock = page.getByRole('button', { name: /Drop one RAW here/ })
+  const uploadDock = page.getByRole('button', {
+    name: /Finish a RAW with a LUT/,
+  })
   await expect(uploadDock).toBeVisible()
   await expect(
     page.getByRole('slider', {

@@ -237,7 +237,7 @@ describe('rawProcessorView', () => {
       'compact-command',
     )
     expect(screen.getByText('LumaForge RAW Lab')).toBeInTheDocument()
-    expect(screen.getByText('Drop one RAW here')).toBeInTheDocument()
+    expect(screen.getByText('Finish a RAW with a LUT')).toBeInTheDocument()
     expect(screen.getByText('Unprocessed RAW')).toBeInTheDocument()
     expect(screen.getByText('Final JPEG')).toBeInTheDocument()
     expect(

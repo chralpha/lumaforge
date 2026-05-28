@@ -13,7 +13,7 @@ const sonyRawPath =
 async function loadRawFixture(page: Page, fixture: string) {
   const fileChooserPromise = page.waitForEvent('filechooser')
   await page
-    .getByRole('button', { name: /drop one raw here/i })
+    .getByRole('button', { name: /finish a raw with a lut/i })
     .click({ position: { x: 24, y: 24 } })
   const fileChooser = await fileChooserPromise
   await fileChooser.setFiles(fixture)

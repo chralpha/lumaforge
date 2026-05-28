@@ -169,7 +169,7 @@
   "raw.stage.leftLabel": "未处理 RAW",
   "raw.stage.rightLabel": "最终 JPEG",
   "raw.stage.sliderAria": "对比未处理 RAW 与最终 JPEG",
-  "raw.stage.uploadTitle": "拖入一张 RAW",
+  "raw.stage.uploadTitle": "用 LUT 完成一张 RAW",
   "raw.stage.uploadCopy": "文件不上传，也不需要账号或本地助手",
   "raw.preview.embeddedAlt": "嵌入式 RAW 预览",
   "raw.preview.unavailable": "预览不可用",

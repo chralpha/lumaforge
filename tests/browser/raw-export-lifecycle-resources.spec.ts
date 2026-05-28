@@ -186,7 +186,7 @@ async function sampleResourceUsage(
 async function loadRawFixture(page: Page, fixture: string) {
   const fileChooserPromise = page.waitForEvent('filechooser')
   await page
-    .getByRole('button', { name: /drop one raw here/i })
+    .getByRole('button', { name: /finish a raw with a lut/i })
     .click({ position: { x: 24, y: 24 } })
   const fileChooser = await fileChooserPromise
   await fileChooser.setFiles(fixture)
@@ -339,7 +339,7 @@ test('monitors a full desktop RAW export lifecycle with resource diagnostics', a
 
     await page.getByRole('button', { name: /^reset$/i }).click()
     await expect(
-      page.getByRole('button', { name: /drop one raw here/i }),
+      page.getByRole('button', { name: /finish a raw with a lut/i }),
     ).toBeVisible({ timeout: 30_000 })
     await expect
       .poll(async () => {

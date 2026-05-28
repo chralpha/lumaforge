@@ -353,7 +353,7 @@ describe('rawProcessorView', () => {
       ),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: /drop one raw here/i }),
+      screen.getByRole('button', { name: /finish a raw with a lut/i }),
     ).toBeEnabled()
   })
 
@@ -1232,7 +1232,7 @@ describe('rawToolSurface', () => {
 
     const stageFrame = container.querySelector('.raw-lab-stage-frame')
     const uploadButton = screen.getByRole('button', {
-      name: /drop one raw here/i,
+      name: /finish a raw with a lut/i,
     })
     const compareSlider = screen.getByRole('slider', {
       name: 'Compare unprocessed RAW and final JPEG',
@@ -1273,7 +1273,7 @@ describe('rawToolSurface', () => {
 
       const stage = screen.getByLabelText('RAW preview comparison')
       const uploadButton = screen.getByRole('button', {
-        name: /drop one raw here/i,
+        name: /finish a raw with a lut/i,
       })
       const sample = container.querySelector<HTMLElement>('.raw-lab-sample')
 
@@ -1306,7 +1306,7 @@ describe('rawToolSurface', () => {
         ),
       ).toBeInTheDocument()
       expect(
-        screen.getByRole('button', { name: /drop one raw here/i }),
+        screen.getByRole('button', { name: /finish a raw with a lut/i }),
       ).toBeEnabled()
     })
 
@@ -1378,9 +1378,11 @@ describe('rawToolSurface', () => {
       })
 
       expect(
-        screen.queryByRole('button', { name: /drop one raw here/i }),
+        screen.queryByRole('button', { name: /finish a raw with a lut/i }),
       ).not.toBeInTheDocument()
-      expect(screen.queryByText('Drop one RAW here')).not.toBeInTheDocument()
+      expect(
+        screen.queryByText('Finish a RAW with a LUT'),
+      ).not.toBeInTheDocument()
       expect(screen.getByText('Unprocessed RAW')).toBeInTheDocument()
       expect(screen.getByText('Final JPEG')).toBeInTheDocument()
       expect(

@@ -169,7 +169,7 @@
   "raw.stage.leftLabel": "Unprocessed RAW",
   "raw.stage.rightLabel": "Final JPEG",
   "raw.stage.sliderAria": "Compare unprocessed RAW and final JPEG",
-  "raw.stage.uploadTitle": "Drop one RAW here",
+  "raw.stage.uploadTitle": "Finish a RAW with a LUT",
   "raw.stage.uploadCopy": "No upload, no helper, no account",
   "raw.preview.embeddedAlt": "Embedded RAW preview",
   "raw.preview.unavailable": "Preview unavailable",

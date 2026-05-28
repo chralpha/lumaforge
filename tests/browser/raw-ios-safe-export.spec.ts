@@ -83,7 +83,7 @@ async function loadRawFixture(page: Page, fixture: string) {
     name: /browse raw files/i,
   })
   const emptyStageButton = page.getByRole('button', {
-    name: /drop one raw here/i,
+    name: /finish a raw with a lut/i,
   })
 
   if (isMobileViewport) {
