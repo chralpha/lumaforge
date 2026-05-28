@@ -53,10 +53,11 @@ export function MobileTopbar(props: {
       </div>
       <div className="pointer-events-auto inline-flex items-center gap-1.5">
         <LocaleToggle className="inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md border border-lf-on-photo-bord bg-lf-on-photo-bg px-2.5 text-[0.72rem] font-semibold text-lf-hero-ink transition-colors hover:bg-lf-on-photo-bg-strong [&_span]:leading-none [&_svg]:size-4 [&_svg]:stroke-current" />
-        {props.hasImage && (
+        {props.hasImage ? (
           <IconButton
             icon={BarChart3}
             size="md"
+            data-mobile-histogram-slot
             aria-label={
               props.histogramShown
                 ? t('raw.mobile.histogram.hide')
@@ -70,6 +71,12 @@ export function MobileTopbar(props: {
                 ? 'border-lf-amber/55 bg-lf-amber/15 text-lf-amber-soft [&_svg]:size-5 [&_svg]:stroke-current'
                 : 'border-lf-on-photo-bord bg-lf-on-photo-bg text-lf-hero-ink [&_svg]:size-5 [&_svg]:stroke-current',
             )}
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            data-mobile-histogram-slot
+            className="size-11 shrink-0"
           />
         )}
         <MobileMoreMenu

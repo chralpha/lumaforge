@@ -55,7 +55,10 @@ export function MobileModeDock(props: {
       className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/92 via-black/65 to-transparent pb-[max(8px,calc(env(safe-area-inset-bottom)-24px))] text-lf-hero-ink"
     >
       {props.expanded && !disabled && (
-        <div className="relative max-h-[24vh] overflow-y-auto px-3.5 pb-2.5 pt-3.5">
+        <div
+          data-mobile-dock-panel
+          className="absolute inset-x-0 bottom-full max-h-[24vh] overflow-y-auto bg-gradient-to-t from-black/82 via-black/58 to-transparent px-3.5 pb-2.5 pt-3.5"
+        >
           {props.panel}
         </div>
       )}

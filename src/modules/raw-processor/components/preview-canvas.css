@@ -27,6 +27,10 @@
   overflow: visible;
 }
 
+[data-raw-compare-track='image'][data-preview-track-ready='false'] {
+  visibility: hidden;
+}
+
 .raw-preview-surface {
   position: relative;
   width: 100%;

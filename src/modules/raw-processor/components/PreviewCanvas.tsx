@@ -6,7 +6,14 @@ import './preview-canvas.css'
 
 import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { m } from 'motion/react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats } from '~/lib/gl/pipeline'
@@ -142,6 +149,7 @@ export function PreviewCanvas({
   const [isInitialized, setIsInitialized] = useState(false)
   const [isPointerPanning, setIsPointerPanning] = useState(false)
   const [isWheelInteracting, setIsWheelInteracting] = useState(false)
+  const [trackReady, setTrackReady] = useState(false)
   const [originalWebglStatus, setOriginalWebglStatus] = useState<{
     generationKey: string
     displaySource: DisplaySource
@@ -154,6 +162,11 @@ export function PreviewCanvas({
   const imageWidth = image?.width ?? 0
   const imageHeight = image?.height ?? 0
   const hasImageData = Boolean(image?.data)
+
+  useLayoutEffect(() => {
+    setTrackReady(false)
+  }, [imageVersion, imageWidth, imageHeight])
+
   const processedImageGenerationKey = [
     imageVersion,
     displaySource,
@@ -440,7 +453,10 @@ export function PreviewCanvas({
     const surface = surfaceRef.current
 
     if (!container || !track || !canvas || !surface) return
-    if (typeof ResizeObserver === 'undefined') return
+    if (typeof ResizeObserver === 'undefined') {
+      setTrackReady(true)
+      return
+    }
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -477,6 +493,8 @@ export function PreviewCanvas({
           canvas.width = Math.round(width * dpr)
           canvas.height = Math.round(height * dpr)
         }
+
+        setTrackReady(true)
 
         const pipeline = pipelineRef.current
         if (pipeline) {
@@ -796,6 +814,7 @@ export function PreviewCanvas({
       <div
         ref={trackRef}
         data-raw-compare-track="image"
+        data-preview-track-ready={trackReady ? 'true' : 'false'}
         className="raw-preview-track"
         style={
           {

@@ -94,6 +94,29 @@ describe('mobileModeDock', () => {
     )
   })
 
+  it('overlays the expanded panel above the dock without growing the dock box', () => {
+    render(
+      <MobileModeDock
+        mode="look"
+        expanded
+        onModeChange={vi.fn()}
+        onCollapse={vi.fn()}
+        onOpenMore={vi.fn()}
+        canExport
+        panel={<div data-testid="panel">look-panel</div>}
+      />,
+    )
+
+    const panelFrame = screen.getByTestId('panel').parentElement
+    const tablist = screen.getByRole('tablist', { name: /lab modes/i })
+    const dock = tablist.parentElement
+
+    expect(dock).toHaveClass('absolute')
+    expect(panelFrame).toHaveAttribute('data-mobile-dock-panel', 'true')
+    expect(panelFrame).toHaveClass('absolute')
+    expect(panelFrame).toHaveClass('bottom-full')
+  })
+
   it('hides the panel when collapsed and toggles on tab tap', async () => {
     const onModeChange = vi.fn()
     const onCollapse = vi.fn()

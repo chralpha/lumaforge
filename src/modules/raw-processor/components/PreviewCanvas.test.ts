@@ -1042,6 +1042,27 @@ describe('preview canvas upload descriptor', () => {
     expect(getComputedStyle(originalImage!).transform).toBe('')
   })
 
+  it('keeps the preview track hidden until aspect-fit sizing is ready', () => {
+    const { container } = render(
+      createElement(PreviewCanvas, {
+        imageRef: { current: decodedImage },
+        imageVersion: 1,
+        params: defaultParams,
+        lutDataRef: { current: null },
+        lutDataVersion: 0,
+      }),
+    )
+
+    const track = container.querySelector<HTMLElement>(
+      '[data-raw-compare-track="image"]',
+    )
+
+    expect(track).toHaveAttribute('data-preview-track-ready', 'false')
+    expect(previewCanvasCss).toContain(
+      "[data-raw-compare-track='image'][data-preview-track-ready='false']",
+    )
+  })
+
   it('scopes transform will-change to active preview panning', async () => {
     const { container, frame } = renderInteractivePreview({
       previewViewport: {

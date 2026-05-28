@@ -113,4 +113,23 @@ describe('mobileTopbar', () => {
       ),
     ).toBeInTheDocument()
   })
+
+  it('reserves the histogram action slot before a RAW is loaded', () => {
+    const { container } = renderMobileTopbar({
+      hasImage: false,
+      fileName: '',
+      fileMeta: '',
+      supportLevel: 'experimental',
+      histogramShown: false,
+      onToggleHistogram: vi.fn(),
+      moreMenuItems: [],
+    })
+
+    expect(container.querySelector('[data-mobile-histogram-slot]')).toHaveClass(
+      'size-11',
+    )
+    expect(
+      screen.queryByRole('button', { name: /show histogram/i }),
+    ).not.toBeInTheDocument()
+  })
 })
