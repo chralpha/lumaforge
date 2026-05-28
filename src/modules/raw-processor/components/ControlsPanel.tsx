@@ -318,9 +318,7 @@ export function ControlsPanel({
     >
       <div className="raw-lab-controls-grid space-y-6">
         <section className="space-y-3">
-          <label className="text-lf-control font-medium text-lf-ink">
-            Intensity
-          </label>
+          <p className="text-lf-control font-medium text-lf-ink">Intensity</p>
           <IntensityChips
             value={activeIntensity}
             onChange={onIntensitySelect}
@@ -330,7 +328,7 @@ export function ControlsPanel({
         <Divider />
 
         <section className="space-y-2">
-          <label className="text-sm font-medium text-text">Compare</label>
+          <p className="text-sm font-medium text-text">Compare</p>
           <p className="text-xs leading-relaxed text-text-secondary">
             Drag the split on the image.
           </p>
@@ -347,9 +345,7 @@ export function ControlsPanel({
         <Divider />
 
         <section className="space-y-2">
-          <label className="text-lf-control font-medium text-lf-ink">
-            Custom LUT
-          </label>
+          <p className="text-lf-control font-medium text-lf-ink">Custom LUT</p>
           <LutDropzone
             onFileDrop={onLutLoad}
             currentLut={currentLutName}
@@ -372,9 +368,7 @@ export function ControlsPanel({
         <Divider />
 
         <section className="space-y-3">
-          <label className="text-sm font-medium text-text">
-            Full-resolution JPEG
-          </label>
+          <p className="text-sm font-medium text-text">Full-resolution JPEG</p>
           <Button
             variant="primary"
             size="sm"

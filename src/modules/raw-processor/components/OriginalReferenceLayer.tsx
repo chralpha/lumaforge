@@ -16,7 +16,6 @@ export function OriginalReferenceLayer({
         width={snapshot.width}
         height={snapshot.height}
         alt=""
-        role="img"
         aria-hidden="true"
         draggable={false}
         className="raw-preview-original-image"

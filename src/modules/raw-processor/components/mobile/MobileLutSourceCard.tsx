@@ -33,12 +33,9 @@ export function MobileLutSourceCard(props: {
             {t('raw.mobile.lut.entryCount', { count: props.entryCount })}
           </span>
           {props.isLoading && (
-            <span
-              className="shrink-0 rounded-lf-pill border border-lf-green/35 bg-lf-green/15 px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-green-soft"
-              role="status"
-            >
+            <output className="shrink-0 rounded-lf-pill border border-lf-green/35 bg-lf-green/15 px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-green-soft">
               {t('raw.lutSource.loading')}
-            </span>
+            </output>
           )}
         </div>
         <div className="flex shrink-0 gap-1">

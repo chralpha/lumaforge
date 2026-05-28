@@ -59,7 +59,7 @@ export function MobileModeDock(props: {
           {props.panel}
         </div>
       )}
-      <nav
+      <div
         aria-label={t('raw.mobile.modes.aria')}
         role="tablist"
         className="grid grid-cols-4 gap-1 border-t border-lf-on-photo-bord-soft px-2.5 pb-2 pt-2"
@@ -110,7 +110,7 @@ export function MobileModeDock(props: {
             </m.button>
           )
         })}
-      </nav>
+      </div>
     </div>
   )
 }

@@ -34,10 +34,7 @@ export function WorkspaceHeader({
   const isExporting = session?.exportState.status === 'exporting'
 
   return (
-    <header
-      className="flex min-w-0 items-center justify-between gap-4 border-b border-border-secondary bg-lf-paper-high pb-3 pt-safe-offset-3 px-safe-offset-3 sm:px-safe-offset-4 [@media(max-height:480px)]:pt-[calc(6px+env(safe-area-inset-top))] [@media(max-height:480px)]:pb-1.5"
-      role="banner"
-    >
+    <header className="flex min-w-0 items-center justify-between gap-4 border-b border-border-secondary bg-lf-paper-high pb-3 pt-safe-offset-3 px-safe-offset-3 sm:px-safe-offset-4 [@media(max-height:480px)]:pt-[calc(6px+env(safe-area-inset-top))] [@media(max-height:480px)]:pb-1.5">
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-3">
           <img

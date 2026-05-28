@@ -70,7 +70,10 @@ const Input = ({
   const isSearch = type === 'search'
 
   return (
-    <div className={clsxm('relative w-full', className)} tremor-id="tremor-raw">
+    <div
+      className={clsxm('relative w-full', className)}
+      data-tremor-id="tremor-raw"
+    >
       <input
         ref={forwardedRef}
         type={isPassword ? typeState : type}

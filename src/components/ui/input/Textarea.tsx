@@ -4,8 +4,7 @@ import * as React from 'react'
 
 import { cx, focusInput, hasErrorInput } from '~/lib/cn'
 
-interface TextareaProps
-  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   hasError?: boolean
 }
 
@@ -39,7 +38,7 @@ const Textarea = ({
         // "dark:aria-invalid:ring-red-400/20 aria-invalid:ring-2 aria-invalid:ring-red-200 aria-invalid:border-red-500 invalid:ring-2 invalid:ring-red-200 invalid:border-red-500"
         className,
       )}
-      tremor-id="tremor-raw"
+      data-tremor-id="tremor-raw"
       {...props}
     />
   )

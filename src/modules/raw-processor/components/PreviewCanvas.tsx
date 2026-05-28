@@ -89,7 +89,6 @@ function EmbeddedOriginalLayer({ src }: { src: string }) {
       <img
         src={src}
         alt=""
-        role="img"
         aria-hidden="true"
         draggable={false}
         className="raw-preview-original-image"

@@ -106,6 +106,7 @@ export const MultiSelect: FC<MultiSelectProps> = ({
               {tag}
               <button
                 type="button"
+                aria-label={`Remove ${tag}`}
                 onClick={() => handleRemoveTag(tag)}
                 className="text-accent/70 hover:text-accent ml-1 inline-flex size-3 items-center justify-center rounded-full hover:bg-accent/20"
               >
