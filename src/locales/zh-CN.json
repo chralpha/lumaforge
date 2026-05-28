@@ -104,7 +104,7 @@
   "raw.mobile.immersive.hint": "点按照片可显示或隐藏控件",
   "raw.mobile.histogram.show": "显示直方图",
   "raw.mobile.histogram.hide": "隐藏直方图",
-  "raw.mobile.empty.title": "拖入 RAW 开始",
+  "raw.mobile.empty.title": "用 LUT 完成一张 RAW",
   "raw.mobile.empty.copy": "实验室在手机本地解码，应用你的 LUT 与影调，并导出扁平 JPEG。",
   "raw.mobile.empty.browse": "浏览 RAW 文件",
   "raw.mobile.empty.formats": ".arw .cr3 .nef .dng .raf .orf",

@@ -104,7 +104,7 @@
   "raw.mobile.immersive.hint": "Tap the photo to show or hide controls",
   "raw.mobile.histogram.show": "Show histogram",
   "raw.mobile.histogram.hide": "Hide histogram",
-  "raw.mobile.empty.title": "Drop a RAW to start",
+  "raw.mobile.empty.title": "Finish a RAW with a LUT",
   "raw.mobile.empty.copy": "The lab decodes locally on your phone, applies your LUT and tone, and exports a flat JPEG.",
   "raw.mobile.empty.browse": "Browse RAW files",
   "raw.mobile.empty.formats": ".arw .cr3 .nef .dng .raf .orf",
