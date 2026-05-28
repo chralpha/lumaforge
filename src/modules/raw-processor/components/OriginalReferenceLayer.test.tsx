@@ -20,6 +20,10 @@ describe('originalReferenceLayer', () => {
 
     const image = document.querySelector('.raw-preview-original-image')
 
+    if (!(image instanceof HTMLImageElement)) {
+      throw new TypeError('Expected original reference image to render')
+    }
+
     expect(image).toBeInstanceOf(HTMLImageElement)
     expect(image.parentElement).toHaveAttribute(
       'data-original-reference-source',
