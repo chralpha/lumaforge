@@ -83,6 +83,14 @@ vec3 linearToSrgb(vec3 color) {
   return clamp01(mix(higher, lower, lowerMix));
 }
 
+float encodeSrgbTransfer(float linearValue) {
+  float value = max(linearValue, 0.0);
+  if (value <= 0.0031308) {
+    return 12.92 * value;
+  }
+  return 1.055 * pow(value, 1.0 / 2.4) - 0.055;
+}
+
 float encodeBT709(float linearValue) {
   float value = max(linearValue, 0.0);
   if (value <= 0.018) {
@@ -375,7 +383,7 @@ float decodeDjiDLog(float encodedValue) {
 
 float encodeTransferChannel(float linearValue, int transfer) {
   if (transfer == TRANSFER_LINEAR) return linearValue;
-  if (transfer == TRANSFER_SRGB) return linearToSrgb(vec3(linearValue)).r;
+  if (transfer == TRANSFER_SRGB) return encodeSrgbTransfer(linearValue);
   if (transfer == TRANSFER_BT709) return encodeBT709(linearValue);
   if (transfer == TRANSFER_GAMMA24) return pow(max(linearValue, 0.0), 1.0 / 2.4);
   if (transfer == TRANSFER_S_LOG2) return encodeSLog2(linearValue);
@@ -426,11 +434,11 @@ float decodeTransferChannel(float encodedValue, int transfer) {
 }
 
 vec3 encodeTransfer(vec3 linearColor, int transfer) {
-  return clamp01(vec3(
+  return vec3(
     encodeTransferChannel(linearColor.r, transfer),
     encodeTransferChannel(linearColor.g, transfer),
     encodeTransferChannel(linearColor.b, transfer)
-  ));
+  );
 }
 
 vec3 decodeTransfer(vec3 encodedColor, int transfer) {
@@ -476,8 +484,33 @@ bool isOutputLut() {
   return u_lutRole == LUT_ROLE_COMBINED_LOOK_OUTPUT || u_lutRole == LUT_ROLE_TECHNICAL_OUTPUT;
 }
 
+float normalizeLutInputChannel(float value, float domainMin, float domainMax) {
+  float span = domainMax - domainMin;
+  if (span <= 0.0) {
+    return 0.0;
+  }
+  return max((value - domainMin) / span, 0.0);
+}
+
+vec3 compressLutInputToDomain(vec3 color) {
+  vec3 normalizedColor = vec3(
+    normalizeLutInputChannel(color.r, u_lutDomainMin.r, u_lutDomainMax.r),
+    normalizeLutInputChannel(color.g, u_lutDomainMin.g, u_lutDomainMax.g),
+    normalizeLutInputChannel(color.b, u_lutDomainMin.b, u_lutDomainMax.b)
+  );
+  float peak = max(max(normalizedColor.r, normalizedColor.g), normalizedColor.b);
+  float scale = peak > 1.0 ? 1.0 / peak : 1.0;
+  vec3 compressedColor = normalizedColor * scale;
+  return u_lutDomainMin + compressedColor * (u_lutDomainMax - u_lutDomainMin);
+}
+
 vec3 applyLut(vec3 color) {
-  vec3 normalizedColor = (color - u_lutDomainMin) / (u_lutDomainMax - u_lutDomainMin);
+  vec3 domainColor = compressLutInputToDomain(color);
+  vec3 normalizedColor = vec3(
+    normalizeLutInputChannel(domainColor.r, u_lutDomainMin.r, u_lutDomainMax.r),
+    normalizeLutInputChannel(domainColor.g, u_lutDomainMin.g, u_lutDomainMax.g),
+    normalizeLutInputChannel(domainColor.b, u_lutDomainMin.b, u_lutDomainMax.b)
+  );
   normalizedColor = clamp(normalizedColor, 0.0, 1.0);
   return texture(u_lutTexture, normalizedColor).rgb;
 }

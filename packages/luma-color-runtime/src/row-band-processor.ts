@@ -1,4 +1,5 @@
 import type { SupportedExportColorGraphDescriptor } from './color-graph'
+import { compressLutInputToDomain } from './lut-domain'
 import { mix, sampleLutTrilinear } from './lut3d'
 import { getProPhotoToTargetMatrix } from './matrix'
 import { getTransferFunction } from './registry'
@@ -348,19 +349,16 @@ function compileGraphApplier(
   const role = outputStep.role
   const intensity = outputStep.intensity
   const domainMin = lutStep.domainMin
+  const domainMax = lutStep.domainMax
   const inverseDomainSpanR =
-    lutStep.domainMax[0] === domainMin[0]
-      ? 0
-      : 1 / (lutStep.domainMax[0] - domainMin[0])
+    domainMax[0] === domainMin[0] ? 0 : 1 / (domainMax[0] - domainMin[0])
   const inverseDomainSpanG =
-    lutStep.domainMax[1] === domainMin[1]
-      ? 0
-      : 1 / (lutStep.domainMax[1] - domainMin[1])
+    domainMax[1] === domainMin[1] ? 0 : 1 / (domainMax[1] - domainMin[1])
   const inverseDomainSpanB =
-    lutStep.domainMax[2] === domainMin[2]
-      ? 0
-      : 1 / (lutStep.domainMax[2] - domainMin[2])
+    domainMax[2] === domainMin[2] ? 0 : 1 / (domainMax[2] - domainMin[2])
   const toneScratch: MutableRgb = [0, 0, 0]
+  const lutInputEncoded: MutableRgb = [0, 0, 0]
+  const lutInputDomain: MutableRgb = [0, 0, 0]
   const lutSample: [number, number, number] = [0, 0, 0]
 
   return (linear, bytes) => {
@@ -431,25 +429,31 @@ function compileGraphApplier(
         )
       }
 
-      const lutInputEncodedR = applySignalRangeForLutInput(
-        clamp01(encodeTransfer.encode(lutInputLinearR)),
+      lutInputEncoded[0] = applySignalRangeForLutInput(
+        encodeTransfer.encode(lutInputLinearR),
         inputIsLegalRange,
       )
-      const lutInputEncodedG = applySignalRangeForLutInput(
-        clamp01(encodeTransfer.encode(lutInputLinearG)),
+      lutInputEncoded[1] = applySignalRangeForLutInput(
+        encodeTransfer.encode(lutInputLinearG),
         inputIsLegalRange,
       )
-      const lutInputEncodedB = applySignalRangeForLutInput(
-        clamp01(encodeTransfer.encode(lutInputLinearB)),
+      lutInputEncoded[2] = applySignalRangeForLutInput(
+        encodeTransfer.encode(lutInputLinearB),
         inputIsLegalRange,
+      )
+      compressLutInputToDomain(
+        lutInputEncoded,
+        domainMin,
+        domainMax,
+        lutInputDomain,
       )
 
       sampleLutTrilinear(
         lutStep.data,
         lutStep.size,
-        normalizeLutSample(lutInputEncodedR, domainMin[0], inverseDomainSpanR),
-        normalizeLutSample(lutInputEncodedG, domainMin[1], inverseDomainSpanG),
-        normalizeLutSample(lutInputEncodedB, domainMin[2], inverseDomainSpanB),
+        normalizeLutSample(lutInputDomain[0], domainMin[0], inverseDomainSpanR),
+        normalizeLutSample(lutInputDomain[1], domainMin[1], inverseDomainSpanG),
+        normalizeLutSample(lutInputDomain[2], domainMin[2], inverseDomainSpanB),
         lutSample,
       )
 

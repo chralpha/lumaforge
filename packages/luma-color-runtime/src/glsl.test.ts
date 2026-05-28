@@ -29,6 +29,18 @@ describe('gLSL color contract surface', () => {
     }
   })
 
+  it('keeps sRGB transfer encoding separate from display output clamping', () => {
+    expect(LUMA_COLOR_TRANSFER_GLSL).toContain(
+      'float encodeSrgbTransfer(float linearValue)',
+    )
+    expect(LUMA_COLOR_TRANSFER_GLSL).toContain(
+      'if (transfer == TRANSFER_SRGB) return encodeSrgbTransfer(linearValue)',
+    )
+    expect(LUMA_COLOR_TRANSFER_GLSL).not.toContain(
+      'if (transfer == TRANSFER_SRGB) return linearToSrgb(vec3(linearValue)).r',
+    )
+  })
+
   it('declares every role uniform value inside the GLSL LUT snippet', () => {
     for (const [role, value] of Object.entries(LUT_ROLE_UNIFORMS)) {
       expect(LUMA_COLOR_LUT_GLSL).toContain(
@@ -60,6 +72,7 @@ describe('gLSL color contract surface', () => {
       'linearProPhotoToLinearSrgb',
       'encodeTransfer',
       'decodeTransfer',
+      'compressLutInputToDomain',
       'applySignalRangeForLutInput',
       'removeSignalRangeFromLutOutput',
     ]) {
@@ -75,5 +88,21 @@ describe('gLSL color contract surface', () => {
     expect(LUMA_COLOR_TONE_GLSL).toContain('float blacks')
     expect(LUMA_COLOR_TONE_GLSL).toContain('smoothstep')
     expect(LUMA_COLOR_TONE_GLSL).toContain('log2')
+  })
+
+  it('compresses above-domain LUT input before texture sampling', () => {
+    expect(LUMA_COLOR_LUT_GLSL).toContain(
+      'vec3 compressLutInputToDomain(vec3 color)',
+    )
+    expect(LUMA_COLOR_LUT_GLSL).toContain(
+      'float peak = max(max(normalizedColor.r, normalizedColor.g), normalizedColor.b)',
+    )
+    expect(LUMA_COLOR_LUT_GLSL).toContain(
+      'float scale = peak > 1.0 ? 1.0 / peak : 1.0',
+    )
+    expect(LUMA_COLOR_LUT_GLSL).toContain(
+      'normalizeLutInputChannel(domainColor.r, u_lutDomainMin.r, u_lutDomainMax.r)',
+    )
+    expect(LUMA_COLOR_LUT_GLSL).toContain('compressLutInputToDomain(color)')
   })
 })
