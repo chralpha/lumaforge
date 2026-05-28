@@ -65,7 +65,7 @@ export function ToolCard({
       data-tool-card={id}
       className={clsxm(
         'rounded-md border border-transparent transition-[background,border-color] duration-150 ease-out',
-        'hover:bg-[oklch(from_var(--color-lf-hero-ink)_l_c_h_/_0.04)]',
+        'hover:bg-[oklch(0.96_0.006_255/0.05)]',
         'data-[state=open]:border-lf-on-photo-bord-soft',
         className,
       )}
