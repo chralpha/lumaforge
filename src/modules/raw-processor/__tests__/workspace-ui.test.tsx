@@ -475,6 +475,26 @@ describe('rawProcessorView', () => {
       expect(
         dialog.querySelector('[data-raw-reset-confirm-actions]'),
       ).not.toHaveClass('bg-lf-paper-warm/60')
+
+      // Desktop sm: overrides must also stay in the workspace chrome
+      // language. The dialog renders in a Portal so it escapes the
+      // .raw-lab @media token rebinds — sm:bg-lf-paper-high resolved to
+      // the global warm-paper token and turned the desktop dialog back
+      // into the paper era. Encode the no-paper-leak contract: the sm:
+      // class set must NOT include any paper variant, and MUST include
+      // the on-photo bord-soft hairline.
+      expect(dialog).not.toHaveClass('sm:bg-lf-paper-high')
+      expect(dialog).not.toHaveClass('sm:text-lf-ink')
+      expect(dialog).not.toHaveClass('sm:border-border-secondary')
+      expect(dialog).not.toHaveClass('sm:shadow-lf-popover')
+      expect(dialog).toHaveClass('sm:border-lf-on-photo-bord-soft')
+      expect(dialog).toHaveClass('sm:text-lf-hero-ink')
+      const desktopActionsRow = dialog.querySelector(
+        '[data-raw-reset-confirm-actions]',
+      )
+      expect(desktopActionsRow).not.toHaveClass('sm:bg-lf-paper-warm/60')
+      expect(desktopActionsRow).not.toHaveClass('sm:border-border-secondary')
+      expect(desktopActionsRow).toHaveClass('sm:border-lf-on-photo-bord-soft')
     } finally {
       jotaiStore.set(viewportAtom, prevViewport)
     }
