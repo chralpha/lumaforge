@@ -69,7 +69,7 @@ export function WorkspaceHeader({
         className="flex shrink-0 items-center gap-1"
         data-raw-desktop-actions="command-cluster"
       >
-        <LocaleToggle className="inline-flex h-7 items-center justify-center gap-1.5 rounded-md border-0 bg-transparent px-2 text-[0.72rem] font-medium text-lf-hero-ink/68 shadow-none transition-colors hover:bg-lf-on-photo-bg hover:text-lf-hero-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80 max-[640px]:hidden" />
+        <LocaleToggle className="inline-flex h-7 items-center justify-center gap-1.5 rounded-md border-0 bg-transparent px-2 text-[0.72rem] font-medium text-lf-hero-ink/68 shadow-none transition-colors hover:bg-[oklch(0.96_0.006_255/0.06)] hover:text-lf-hero-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80 max-[640px]:hidden" />
         <span
           aria-hidden="true"
           className="mx-1 h-4 w-px bg-lf-on-photo-bord-soft max-[640px]:hidden"
@@ -81,7 +81,7 @@ export function WorkspaceHeader({
           onClick={onReplaceFile}
           disabled={isExporting}
           data-raw-header-action="replace"
-          className="h-7 gap-1.5 rounded-md border-0 bg-transparent px-2 text-[0.72rem] font-medium text-lf-hero-ink/78 shadow-none transition-colors hover:bg-lf-on-photo-bg hover:text-lf-hero-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80 max-[640px]:hidden [&_svg]:size-[13px] [&_svg]:stroke-[1.85]"
+          className="h-7 gap-1.5 rounded-md border-0 bg-transparent px-2 text-[0.72rem] font-medium text-lf-hero-ink/78 shadow-none transition-colors hover:bg-[oklch(0.96_0.006_255/0.06)] hover:text-lf-hero-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80 max-[640px]:hidden [&_svg]:size-[13px] [&_svg]:stroke-[1.85]"
         >
           <FolderOpen aria-hidden="true" />
           {hasImage ? t('raw.header.replace') : t('raw.header.chooseRaw')}
