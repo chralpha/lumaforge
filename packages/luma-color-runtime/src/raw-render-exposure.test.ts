@@ -5,6 +5,15 @@ import {
   resolveRawRenderExposure,
 } from './raw-render-exposure'
 
+function neutralRgb(values: number[]) {
+  return new Uint16Array(
+    values.flatMap((value) => {
+      const code = Math.round(value * 65535)
+      return [code, code, code]
+    }),
+  )
+}
+
 describe('raw render exposure', () => {
   it('uses finite DNG baseline exposure as an EV multiplier', () => {
     expect(
@@ -43,6 +52,44 @@ describe('raw render exposure', () => {
     expect(exposure.source).toBe('image-statistics')
     expect(exposure.ev).toBeCloseTo(0.999977986052736, 12)
     expect(exposure.multiplier).toBeCloseTo(1.999969482421875, 12)
+  })
+
+  it('limits statistical lift when sparse high-key highlights need headroom', () => {
+    const luminance = [
+      ...Array.from({ length: 90 }).fill(0.02),
+      ...Array.from({ length: 5 }).fill(0.15181709606469823),
+      ...Array.from({ length: 4 }).fill(0.26330750196536207),
+      0.7245288776989395,
+    ]
+
+    const exposure = estimateRawRenderExposureFromRgbU16({
+      data: neutralRgb(luminance),
+      width: luminance.length,
+      height: 1,
+    })
+
+    expect(exposure.source).toBe('image-statistics')
+    expect(exposure.ev).toBeCloseTo(1.3036791481460117, 12)
+    expect(exposure.multiplier).toBeCloseTo(2.468576147426982, 12)
+  })
+
+  it('does not turn highlight protection into negative EV for dark frames', () => {
+    const luminance = [
+      ...Array.from({ length: 95 }).fill(0.1),
+      ...Array.from({ length: 5 }).fill(0.9),
+    ]
+
+    const exposure = estimateRawRenderExposureFromRgbU16({
+      data: neutralRgb(luminance),
+      width: luminance.length,
+      height: 1,
+    })
+
+    expect(exposure).toEqual({
+      ev: 0,
+      multiplier: 1,
+      source: 'image-statistics',
+    })
   })
 
   it('clamps statistics fallback exposure to the automatic safety range', () => {

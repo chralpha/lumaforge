@@ -1,6 +1,7 @@
 const UINT16_MAX = 65535
 const AUTO_EV_LIMIT = 3
 const TARGET_P95_LUMINANCE = 0.75
+const TARGET_P99_LUMINANCE = 0.65
 const MIN_USABLE_LUMINANCE = 1 / UINT16_MAX
 
 export type RawRenderExposureSource =
@@ -97,7 +98,12 @@ export function estimateRawRenderExposureFromRgbU16(
   const p95 = percentile(luminance, 0.95)
   if (p95 <= MIN_USABLE_LUMINANCE) return exposure(0, 'identity')
 
-  return exposure(Math.log2(TARGET_P95_LUMINANCE / p95), 'image-statistics')
+  const p95Ev = Math.log2(TARGET_P95_LUMINANCE / p95)
+  const p99 = percentile(luminance, 0.99)
+  const p99Ev =
+    p99 > p95 ? Math.max(0, Math.log2(TARGET_P99_LUMINANCE / p99)) : p95Ev
+
+  return exposure(Math.min(p95Ev, p99Ev), 'image-statistics')
 }
 
 export function resolveRawRenderExposure(input: {
