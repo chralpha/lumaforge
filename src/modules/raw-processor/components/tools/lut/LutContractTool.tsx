@@ -51,7 +51,7 @@ export function LutContractTool({
           onSelect={onLutProfileSelect}
         />
       ) : (
-        <p className="m-0 text-[0.72rem] leading-relaxed text-lf-ink/55">
+        <p className="m-0 text-[0.72rem] leading-relaxed text-lf-ink/72">
           {t('raw.lutContract.empty')}
         </p>
       )}

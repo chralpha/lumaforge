@@ -143,7 +143,7 @@ function ToneField({
         </label>
         <output
           aria-hidden="true"
-          className="tabular-nums font-medium text-lf-ink/55"
+          className="tabular-nums font-medium text-lf-ink/80"
         >
           {formatValue(field.key, value[field.key])}
         </output>
@@ -205,11 +205,11 @@ export function ToneTool({
     <div className="grid gap-3">
       <div className="grid gap-3.5">{BASIC_FIELDS.map(renderField)}</div>
       <div className="grid gap-3.5">{FINE_FIELDS.map(renderField)}</div>
-      <p className="text-[0.78rem] leading-relaxed text-lf-ink/55">
+      <p className="text-[0.78rem] leading-relaxed text-lf-ink/72">
         {t('raw.tone.note')}
       </p>
       {!isNeutral && (
-        <p className="text-[0.78rem] leading-relaxed text-lf-ink/55">
+        <p className="text-[0.78rem] leading-relaxed text-lf-ink/72">
           {t('raw.tone.preserved')}
         </p>
       )}

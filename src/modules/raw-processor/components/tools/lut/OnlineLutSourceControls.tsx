@@ -216,7 +216,7 @@ export function OnlineLutSourceControls({
                 )
               })()
             ) : (
-              <p className="text-[0.78rem] leading-relaxed text-lf-ink/55">
+              <p className="text-[0.78rem] leading-relaxed text-lf-ink/72">
                 {openIssues.length > 0
                   ? t('raw.lutSource.noneCompatible')
                   : t('raw.lutSource.noneYet')}
@@ -274,7 +274,7 @@ export function OnlineLutSourceControls({
       </div>
 
       {state.resources.length === 0 && (
-        <p className="m-0 text-[0.72rem] leading-relaxed text-lf-ink/55">
+        <p className="m-0 text-[0.72rem] leading-relaxed text-lf-ink/72">
           {t('raw.lutSource.emptyHint')}
         </p>
       )}
@@ -303,7 +303,7 @@ export function OnlineLutSourceControls({
                     <span className="min-w-0 truncate text-[0.78rem] font-medium text-lf-ink/85">
                       {resource.label}
                     </span>
-                    <span className="shrink-0 rounded-full bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] px-1.5 py-0.5 text-[0.66rem] font-medium leading-none text-lf-ink/55 tabular-nums">
+                    <span className="shrink-0 rounded-full bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] px-1.5 py-0.5 text-[0.66rem] font-medium leading-none text-lf-ink/72 tabular-nums">
                       {formatEntryCount(entries.length)}
                     </span>
                     {isResourceLoading && (

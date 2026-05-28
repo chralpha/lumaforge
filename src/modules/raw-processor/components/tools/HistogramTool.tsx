@@ -222,7 +222,7 @@ export function HistogramTool({
 
   return (
     <div className="grid gap-3">
-      <p className="flex flex-wrap gap-x-2 gap-y-1 text-[0.78rem] text-lf-ink/55">
+      <p className="flex flex-wrap gap-x-2 gap-y-1 text-[0.78rem] text-lf-ink/72">
         <span>{label}</span>
         {reason && <span>{reason}</span>}
       </p>
@@ -232,7 +232,7 @@ export function HistogramTool({
             bins={ready.bins}
             ariaLabel={t('raw.histogram.aria')}
           />
-          <div className="flex flex-wrap gap-1.5 text-[0.72rem] tabular-nums text-lf-ink/55">
+          <div className="flex flex-wrap gap-1.5 text-[0.72rem] tabular-nums text-lf-ink/76">
             <span>
               {t('raw.histogram.shadows', {
                 count: ready.clipping.shadowAnyChannel,

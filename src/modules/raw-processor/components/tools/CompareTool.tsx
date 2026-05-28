@@ -14,7 +14,7 @@ export function CompareTool({
 
   return (
     <div className="grid gap-3">
-      <p className="text-[0.78rem] leading-relaxed text-lf-ink/55">
+      <p className="text-[0.78rem] leading-relaxed text-lf-ink/72">
         {t('raw.compare.note')}
       </p>
       <Button

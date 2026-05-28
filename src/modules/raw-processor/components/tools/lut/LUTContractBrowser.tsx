@@ -273,7 +273,7 @@ export function LUTContractBrowser({
             ))}
 
             {!hasInputMatches && (
-              <p className="m-0 text-[0.78rem] leading-relaxed text-lf-ink/55">
+              <p className="m-0 text-[0.78rem] leading-relaxed text-lf-ink/72">
                 {t('raw.lutContract.noInput')}
               </p>
             )}
@@ -318,7 +318,7 @@ export function LUTContractBrowser({
             ))}
 
             {!hasOutputMatches && (
-              <p className="m-0 text-[0.78rem] leading-relaxed text-lf-ink/55">
+              <p className="m-0 text-[0.78rem] leading-relaxed text-lf-ink/72">
                 {t('raw.lutContract.noOutput')}
               </p>
             )}

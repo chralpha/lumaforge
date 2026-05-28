@@ -59,7 +59,7 @@ export function ExportTool({
   embedded?: boolean
 }) {
   const { t } = useI18n()
-  const noteClassName = 'text-[0.78rem] leading-relaxed text-lf-ink/55'
+  const noteClassName = 'text-[0.78rem] leading-relaxed text-lf-ink/72'
   const session = useAtomValue(currentSessionAtom)
   const currentActivePlan = activePlan ?? session?.exportState.activePlan
   const currentRecovery = recovery ?? session?.exportState.recovery
@@ -86,7 +86,7 @@ export function ExportTool({
       {exportResult ? (
         <div className="grid min-w-0 gap-3">
           <div className="grid min-w-0 gap-0.5">
-            <span className="text-[0.72rem] tracking-tight text-lf-ink/55">
+            <span className="text-[0.72rem] tracking-tight text-lf-ink/70">
               {readyLabel}
             </span>
             <strong
@@ -97,13 +97,13 @@ export function ExportTool({
             </strong>
           </div>
           <dl className="grid grid-cols-[5rem_minmax(0,1fr)_5rem_minmax(0,1fr)] gap-x-2.5 gap-y-1 text-[0.74rem]">
-            <dt className="tracking-tight text-lf-ink/55">
+            <dt className="tracking-tight text-lf-ink/62">
               {t('raw.export.dimensions')}
             </dt>
             <dd className="font-medium tabular-nums text-lf-ink/85">
               {exportResult.width} x {exportResult.height}
             </dd>
-            <dt className="tracking-tight text-lf-ink/55">
+            <dt className="tracking-tight text-lf-ink/62">
               {t('raw.export.fileSize')}
             </dt>
             <dd className="font-medium tabular-nums text-lf-ink/85">

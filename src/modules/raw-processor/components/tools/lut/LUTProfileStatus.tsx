@@ -64,7 +64,7 @@ export function LUTProfileStatus({
       ) : resolvedProfile ? (
         <div className="grid min-w-0 gap-1.5 text-[0.78rem] leading-snug">
           <p className="m-0 grid min-w-0 grid-cols-[4.2rem_minmax(0,1fr)] items-baseline gap-2">
-            <span className="text-[0.72rem] tracking-tight text-lf-ink/55">
+            <span className="text-[0.72rem] tracking-tight text-lf-ink/62">
               {t('raw.lutContract.inputTerm')}
             </span>
             <span className="min-w-0 break-words font-medium text-lf-ink/85">
@@ -73,7 +73,7 @@ export function LUTProfileStatus({
           </p>
           {outputLabel && (
             <p className="m-0 grid min-w-0 grid-cols-[4.2rem_minmax(0,1fr)] items-baseline gap-2">
-              <span className="text-[0.72rem] tracking-tight text-lf-ink/55">
+              <span className="text-[0.72rem] tracking-tight text-lf-ink/62">
                 {t('raw.lutContract.outputTerm')}
               </span>
               <span className="min-w-0 break-words font-medium text-lf-ink/85">
