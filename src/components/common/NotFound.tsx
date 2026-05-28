@@ -7,14 +7,14 @@ import { Button } from '../ui/button'
 import { useRouteSeo } from './SeoMetadata'
 
 export const NotFound = () => {
-  const location = useLocation()
+  const routeLocation = useLocation()
   const navigate = useNavigate()
   const routeSeo = useMemo(
     () => ({
       ...NOT_FOUND_ROUTE_SEO,
-      canonicalPath: location.pathname,
+      canonicalPath: routeLocation.pathname,
     }),
-    [location.pathname],
+    [routeLocation.pathname],
   )
 
   useRouteSeo(routeSeo)
@@ -74,7 +74,7 @@ export const NotFound = () => {
                   Requested URL
                 </p>
                 <code className="text-sm font-mono text-text bg-material-thin px-2 py-1 rounded break-all">
-                  {location.pathname}
+                  {routeLocation.pathname}
                 </code>
               </div>
             </div>

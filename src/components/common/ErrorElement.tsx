@@ -1,28 +1,17 @@
 import { repository } from '@pkg'
 import { useEffect, useMemo, useRef } from 'react'
-import { isRouteErrorResponse, useLocation, useRouteError } from 'react-router'
+import {
+  isRouteErrorResponse,
+  useInRouterContext,
+  useLocation,
+  useRouteError,
+} from 'react-router'
 
 import { attachOpenInEditor } from '~/lib/dev'
 import { ERROR_ROUTE_SEO } from '~/lib/seo'
 
 import { Button } from '../ui/button'
 import { useRouteSeo } from './SeoMetadata'
-
-function useSafeRouteError() {
-  try {
-    return useRouteError()
-  } catch {
-    return null
-  }
-}
-
-function useSafeLocation() {
-  try {
-    return useLocation()
-  } catch {
-    return { pathname: '/' }
-  }
-}
 
 export function ErrorElement({
   error: errorProp,
@@ -31,9 +20,69 @@ export function ErrorElement({
   error?: unknown
   onReset?: () => void
 } = {}) {
-  const routeError = useSafeRouteError()
-  const error = errorProp ?? routeError
-  const location = useSafeLocation()
+  if (errorProp !== undefined) {
+    return <ExplicitErrorElement error={errorProp} onReset={onReset} />
+  }
+
+  return <RouteErrorElement onReset={onReset} />
+}
+
+function ExplicitErrorElement({
+  error,
+  onReset,
+}: {
+  error: unknown
+  onReset?: () => void
+}) {
+  const inRouter = useInRouterContext()
+
+  if (!inRouter) {
+    return <ErrorElementContent error={error} pathname="/" onReset={onReset} />
+  }
+
+  return <RoutedExplicitErrorElement error={error} onReset={onReset} />
+}
+
+function RoutedExplicitErrorElement({
+  error,
+  onReset,
+}: {
+  error: unknown
+  onReset?: () => void
+}) {
+  const routeLocation = useLocation()
+
+  return (
+    <ErrorElementContent
+      error={error}
+      pathname={routeLocation.pathname}
+      onReset={onReset}
+    />
+  )
+}
+
+function RouteErrorElement({ onReset }: { onReset?: () => void }) {
+  const routeError = useRouteError()
+  const routeLocation = useLocation()
+
+  return (
+    <ErrorElementContent
+      error={routeError}
+      pathname={routeLocation.pathname}
+      onReset={onReset}
+    />
+  )
+}
+
+function ErrorElementContent({
+  error,
+  pathname,
+  onReset,
+}: {
+  error: unknown
+  pathname: string
+  onReset?: () => void
+}) {
   const message = isRouteErrorResponse(error)
     ? `${error.status} ${error.statusText}`
     : error instanceof Error
@@ -43,11 +92,11 @@ export function ErrorElement({
   const routeSeo = useMemo(
     () => ({
       ...ERROR_ROUTE_SEO,
-      canonicalPath: location.pathname,
+      canonicalPath: pathname,
       title: `Unexpected Error | LumaForge`,
-      description: `LumaForge hit an unexpected application error on ${location.pathname || '/'}: ${message}`,
+      description: `LumaForge hit an unexpected application error on ${pathname || '/'}: ${message}`,
     }),
-    [location.pathname, message],
+    [message, pathname],
   )
 
   useRouteSeo(routeSeo)

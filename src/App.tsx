@@ -27,12 +27,12 @@ export function syncRouteSubstrate(pathname: string) {
 }
 
 export const App: FC = () => {
-  const location = useLocation()
-  const showFooter = shouldShowAppFooter(location.pathname)
+  const routeLocation = useLocation()
+  const showFooter = shouldShowAppFooter(routeLocation.pathname)
 
   useLayoutEffect(() => {
-    syncRouteSubstrate(location.pathname)
-  }, [location.pathname])
+    syncRouteSubstrate(routeLocation.pathname)
+  }, [routeLocation.pathname])
 
   return (
     <RootProviders>

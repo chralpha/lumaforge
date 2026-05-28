@@ -61,14 +61,14 @@ export function useRouteSeo(routeSeo: RouteSeoMetadata) {
 
 export function SeoMetadata() {
   const matches = useMatches()
-  const location = useLocation()
+  const routeLocation = useLocation()
   const { t, locale } = useI18n()
 
   useEffect(() => {
     const routeSeo = getActiveRouteSeo(matches)
     if (!routeSeo) return
     applyRuntimeSeo(localizeRouteSeo(routeSeo, t))
-  }, [locale, location.pathname, matches, t])
+  }, [locale, routeLocation.pathname, matches, t])
 
   return null
 }
