@@ -266,14 +266,6 @@ describe('rawProcessorView', () => {
     expect(viewportShell).not.toBeNull()
     expect(viewportShell).toHaveClass('raw-lab')
     expect(viewportShell).toHaveAttribute('data-raw-lab-state', 'empty')
-    expect(viewportShell).toHaveAttribute(
-      'data-raw-desktop-design',
-      'photo-first',
-    )
-    expect(viewportShell).toHaveAttribute(
-      'data-raw-desktop-polish',
-      'x-linear-command-workspace',
-    )
     expect(stageToolsLayout).not.toBeNull()
     expect(stageToolsLayout).toHaveClass('raw-lab-shell')
     expect(stageToolsLayout).toHaveAttribute(

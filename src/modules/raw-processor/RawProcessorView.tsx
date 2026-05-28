@@ -356,8 +356,6 @@ function RawProcessorViewInner({
       className={clsxm('raw-lab', className)}
       data-raw-lab-shell="viewport"
       data-raw-lab-state={hasImage ? 'loaded' : 'empty'}
-      data-raw-desktop-design="photo-first"
-      data-raw-desktop-polish="x-linear-command-workspace"
     >
       <div className="max-[640px]:hidden">
         <WorkspaceHeader
