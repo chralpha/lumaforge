@@ -40,6 +40,7 @@ out vec4 fragColor;
 
 uniform sampler3D u_lutTexture;
 uniform bool u_useLut;
+uniform float u_lutSize;
 uniform vec3 u_lutDomainMin;
 uniform vec3 u_lutDomainMax;
 uniform float u_intensity;
@@ -150,9 +151,9 @@ void main() {
     u_userBlacks
   );
   vec3 technicalBaseDisplayLinear =
-    linearProPhotoToLinearSrgb(max(technicalBaseSceneLinearProPhoto, vec3(0.0)));
+    max(linearProPhotoToLinearSrgb(technicalBaseSceneLinearProPhoto), vec3(0.0));
   vec3 editedBaseDisplayLinear =
-    linearProPhotoToLinearSrgb(max(editedBaseSceneLinearProPhoto, vec3(0.0)));
+    max(linearProPhotoToLinearSrgb(editedBaseSceneLinearProPhoto), vec3(0.0));
   vec3 technicalBaseDisplayColor = linearToSrgb(technicalBaseDisplayLinear);
   vec3 editedBaseDisplayColor = linearToSrgb(editedBaseDisplayLinear);
   vec3 styledColor = editedBaseDisplayColor;

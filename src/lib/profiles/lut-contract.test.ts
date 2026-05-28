@@ -14,6 +14,7 @@ describe('online LUT trusted contract mapping', () => {
       ok: true,
       value: {
         role: 'combined-look-output',
+        inputProfile: 'arri-awg3-logc3',
         inputGamut: 'arri-wide-gamut-3',
         inputTransfer: 'logc3',
         inputRange: 'full',
@@ -49,6 +50,7 @@ describe('online LUT trusted contract mapping', () => {
       ok: true,
       value: {
         role: 'display-look',
+        inputProfile: 'display-srgb',
         inputGamut: 'srgb-rec709',
         inputTransfer: 'srgb',
         inputRange: 'full',
@@ -103,6 +105,7 @@ describe('online LUT trusted contract mapping', () => {
       ok: true,
       value: {
         role: 'combined-look-output',
+        inputProfile: 'arri-awg3-logc3',
         inputGamut: 'arri-wide-gamut-3',
         inputTransfer: 'logc3',
         inputRange: 'full',

@@ -481,6 +481,7 @@ export class RawProcessingPipeline {
       u_inputTexture: gl.getUniformLocation(program, 'u_inputTexture'),
       u_lutTexture: gl.getUniformLocation(program, 'u_lutTexture'),
       u_useLut: gl.getUniformLocation(program, 'u_useLut'),
+      u_lutSize: gl.getUniformLocation(program, 'u_lutSize'),
       u_lutDomainMin: gl.getUniformLocation(program, 'u_lutDomainMin'),
       u_lutDomainMax: gl.getUniformLocation(program, 'u_lutDomainMax'),
       u_intensity: gl.getUniformLocation(program, 'u_intensity'),
@@ -855,10 +856,12 @@ export class RawProcessingPipeline {
     gl.uniform1i(processUniforms.u_lutTexture, 1)
     if (useRenderableLut && lutData) {
       gl.uniform1i(processUniforms.u_useLut, 1)
+      gl.uniform1f(processUniforms.u_lutSize, Math.max(1, lutData.size))
       gl.uniform3fv(processUniforms.u_lutDomainMin, lutData.domainMin)
       gl.uniform3fv(processUniforms.u_lutDomainMax, lutData.domainMax)
     } else {
       gl.uniform1i(processUniforms.u_useLut, 0)
+      gl.uniform1f(processUniforms.u_lutSize, 1)
       gl.uniform3fv(processUniforms.u_lutDomainMin, [0, 0, 0])
       gl.uniform3fv(processUniforms.u_lutDomainMax, [1, 1, 1])
     }

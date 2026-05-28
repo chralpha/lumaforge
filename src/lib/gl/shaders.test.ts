@@ -19,6 +19,7 @@ const PROCESS_SHADER_VARIANTS = [
 
 const REQUIRED_PACKAGE_LUT_ABI_NAMES = [
   'u_lutTexture',
+  'u_lutSize',
   'u_lutDomainMin',
   'u_lutDomainMax',
   'u_inputToLutGamut',
@@ -194,10 +195,29 @@ describe('process shader style path', () => {
   })
 
   it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant clamps display conversion after the ProPhoto to sRGB matrix',
+    (_name, shader) => {
+      expect(shader).toContain(
+        'max(linearProPhotoToLinearSrgb(technicalBaseSceneLinearProPhoto), vec3(0.0))',
+      )
+      expect(shader).toContain(
+        'max(linearProPhotoToLinearSrgb(editedBaseSceneLinearProPhoto), vec3(0.0))',
+      )
+      expect(shader).not.toContain(
+        'linearProPhotoToLinearSrgb(max(technicalBaseSceneLinearProPhoto, vec3(0.0)))',
+      )
+      expect(shader).not.toContain(
+        'linearProPhotoToLinearSrgb(max(editedBaseSceneLinearProPhoto, vec3(0.0)))',
+      )
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
     '%s variant declares scene-referred LUT profile uniforms',
     (_name, shader) => {
       expect(shader).toContain('uniform mat3 u_inputToLutGamut')
       expect(shader).toContain('uniform mat3 u_lutOutputToDisplayGamut')
+      expect(shader).toContain('uniform float u_lutSize')
       expect(shader).toContain('uniform int u_lutInputTransfer')
       expect(shader).toContain('uniform int u_lutOutputTransfer')
       expect(shader).toContain('uniform int u_lutRole')
@@ -316,11 +336,23 @@ describe('process shader style path', () => {
       expect(
         sceneBranch!.indexOf('u_inputToLutGamut * sceneLinearProPhoto'),
       ).toBeLessThan(sceneBranch!.indexOf('encodeTransfer'))
+      expect(sceneBranch).toContain(
+        'vec3 lutInputLinear = u_inputToLutGamut * sceneLinearProPhoto',
+      )
+      expect(sceneBranch).not.toContain(
+        'max(u_inputToLutGamut * sceneLinearProPhoto, vec3(0.0))',
+      )
       expect(sceneBranch!.indexOf('encodeTransfer')).toBeLessThan(
         sceneBranch!.indexOf('applyLut'),
       )
       expect(sceneBranch).toContain(
+        'vec3 lutOutputLinear = decodeTransfer(lutOutputEncoded, u_lutOutputTransfer)',
+      )
+      expect(sceneBranch).toContain(
         'u_lutOutputToDisplayGamut * lutOutputLinear',
+      )
+      expect(sceneBranch).not.toContain(
+        'max(decodeTransfer(lutOutputEncoded, u_lutOutputTransfer), vec3(0.0))',
       )
       expect(sceneBranch).not.toContain('linearToSrgb')
 
@@ -328,6 +360,12 @@ describe('process shader style path', () => {
         /vec3 applyDisplayLut\(vec3 sceneLinearProPhoto\) \{[\s\S]*?\n\}/,
       )?.[0]
       expect(displayBranch).toContain('linearProPhotoToLinearSrgb')
+      expect(displayBranch).toContain(
+        'vec3 displayLinear = max(linearProPhotoToLinearSrgb(sceneLinearProPhoto), vec3(0.0))',
+      )
+      expect(displayBranch).not.toContain(
+        'linearProPhotoToLinearSrgb(max(sceneLinearProPhoto, vec3(0.0)))',
+      )
       expect(displayBranch).toContain(
         'encodeTransfer(displayLinear, u_lutInputTransfer)',
       )

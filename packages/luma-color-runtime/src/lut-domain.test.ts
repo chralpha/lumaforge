@@ -32,4 +32,20 @@ describe('compressLutInputToDomain', () => {
     expect(compressed[1]).toBeCloseTo(0.5625)
     expect(compressed[2]).toBeCloseTo(0.375)
   })
+
+  it('preserves in-domain negative values for signed linear LUT domains', () => {
+    expect(
+      compressLutInputToDomain([-0.5, -0.25, 0.25], [-1, -1, -1], [1, 1, 1]),
+    ).toEqual([-0.5, -0.25, 0.25])
+  })
+
+  it('maps non-finite and zero-width domain channels to the lower boundary', () => {
+    const compressed = compressLutInputToDomain(
+      [Number.NaN, Infinity, 0.5],
+      [0.1, 0.2, 0.3],
+      [1, 0.2, 0.3],
+    )
+
+    expect(compressed).toEqual([0.1, 0.2, 0.3])
+  })
 })

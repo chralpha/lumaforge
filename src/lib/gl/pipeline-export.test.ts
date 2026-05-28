@@ -246,6 +246,7 @@ describe('rawProcessingPipeline export rendering', () => {
       'u_lutInputTransfer',
       LUT_TRANSFER_UNIFORMS['s-log3'],
     )
+    expect(contextMock.gl.uniform1f).toHaveBeenCalledWith('u_lutSize', 2)
     expect(contextMock.gl.uniform1i).toHaveBeenCalledWith(
       'u_lutRole',
       LUT_ROLE_UNIFORMS['scene-creative'],

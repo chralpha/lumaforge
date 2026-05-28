@@ -84,11 +84,17 @@ vec3 linearToSrgb(vec3 color) {
 }
 
 float encodeSrgbTransfer(float linearValue) {
-  float value = max(linearValue, 0.0);
-  if (value <= 0.0031308) {
-    return 12.92 * value;
+  if (linearValue <= 0.0031308) {
+    return 12.92 * linearValue;
   }
-  return 1.055 * pow(value, 1.0 / 2.4) - 0.055;
+  return 1.055 * pow(max(linearValue, 0.0), 1.0 / 2.4) - 0.055;
+}
+
+float decodeSrgbTransfer(float encodedValue) {
+  if (encodedValue <= 0.04045) {
+    return encodedValue / 12.92;
+  }
+  return pow(max((encodedValue + 0.055) / 1.055, 0.0), 2.4);
 }
 
 float encodeBT709(float linearValue) {
@@ -409,7 +415,7 @@ float encodeTransferChannel(float linearValue, int transfer) {
 
 float decodeTransferChannel(float encodedValue, int transfer) {
   if (transfer == TRANSFER_LINEAR) return encodedValue;
-  if (transfer == TRANSFER_SRGB) return srgbToLinear(vec3(encodedValue)).r;
+  if (transfer == TRANSFER_SRGB) return decodeSrgbTransfer(encodedValue);
   if (transfer == TRANSFER_BT709) return decodeBT709(encodedValue);
   if (transfer == TRANSFER_GAMMA24) return pow(max(encodedValue, 0.0), 2.4);
   if (transfer == TRANSFER_S_LOG2) return decodeSLog2(encodedValue);
@@ -486,10 +492,15 @@ bool isOutputLut() {
 
 float normalizeLutInputChannel(float value, float domainMin, float domainMax) {
   float span = domainMax - domainMin;
-  if (span <= 0.0) {
+  if (isnan(value) || isinf(value) || isnan(span) || isinf(span) || span <= 0.0) {
     return 0.0;
   }
   return max((value - domainMin) / span, 0.0);
+}
+
+vec3 lutTextureCoordinate(vec3 normalizedColor) {
+  float size = max(u_lutSize, 1.0);
+  return (normalizedColor * (size - 1.0) + vec3(0.5)) / size;
 }
 
 vec3 compressLutInputToDomain(vec3 color) {
@@ -512,7 +523,7 @@ vec3 applyLut(vec3 color) {
     normalizeLutInputChannel(domainColor.b, u_lutDomainMin.b, u_lutDomainMax.b)
   );
   normalizedColor = clamp(normalizedColor, 0.0, 1.0);
-  return texture(u_lutTexture, normalizedColor).rgb;
+  return texture(u_lutTexture, lutTextureCoordinate(normalizedColor)).rgb;
 }
 
 vec3 applyDisplayLut(vec3 sceneLinearProPhoto) {
@@ -520,20 +531,20 @@ vec3 applyDisplayLut(vec3 sceneLinearProPhoto) {
   vec3 lutInputEncoded = encodeTransfer(displayLinear, u_lutInputTransfer);
   vec3 lutInput = applySignalRangeForLutInput(lutInputEncoded, u_lutInputRange);
   vec3 lutOutputEncoded = removeSignalRangeFromLutOutput(applyLut(lutInput), u_lutOutputRange);
-  vec3 displayLinearOutput = max(decodeTransfer(lutOutputEncoded, u_lutOutputTransfer), vec3(0.0));
+  vec3 displayLinearOutput = decodeTransfer(lutOutputEncoded, u_lutOutputTransfer);
   return linearToSrgb(displayLinearOutput);
 }
 
 vec3 applySceneLutToDisplayLinear(vec3 sceneLinearProPhoto) {
-  vec3 lutInputLinear = max(u_inputToLutGamut * sceneLinearProPhoto, vec3(0.0));
+  vec3 lutInputLinear = u_inputToLutGamut * sceneLinearProPhoto;
   vec3 lutInputEncoded = applySignalRangeForLutInput(encodeTransfer(lutInputLinear, u_lutInputTransfer), u_lutInputRange);
   vec3 lutOutputEncoded = removeSignalRangeFromLutOutput(applyLut(lutInputEncoded), u_lutOutputRange);
-  vec3 lutOutputLinear = max(decodeTransfer(lutOutputEncoded, u_lutOutputTransfer), vec3(0.0));
+  vec3 lutOutputLinear = decodeTransfer(lutOutputEncoded, u_lutOutputTransfer);
   return max(u_lutOutputToDisplayGamut * lutOutputLinear, vec3(0.0));
 }
 
 vec3 applyCombinedOutputLut(vec3 sceneLinearProPhoto) {
-  vec3 lutInputLinear = max(u_inputToLutGamut * sceneLinearProPhoto, vec3(0.0));
+  vec3 lutInputLinear = u_inputToLutGamut * sceneLinearProPhoto;
   vec3 lutInputEncoded = applySignalRangeForLutInput(encodeTransfer(lutInputLinear, u_lutInputTransfer), u_lutInputRange);
   vec3 lutOutputEncoded = removeSignalRangeFromLutOutput(applyLut(lutInputEncoded), u_lutOutputRange);
   vec3 displayLinear = max(u_lutOutputToDisplayGamut * decodeTransfer(lutOutputEncoded, u_lutOutputTransfer), vec3(0.0));

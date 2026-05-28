@@ -314,6 +314,34 @@ describe('rawProcessingPipeline render uniforms', () => {
     )
   })
 
+  it('sends LUT size so shader sampling matches CPU lattice coordinates', async () => {
+    contextMock.reset()
+    const pipeline = new RawProcessingPipeline(document.createElement('canvas'))
+    await pipeline.initialize()
+
+    pipeline.uploadImage({
+      data: new Uint16Array([1024, 1024, 1024]),
+      width: 1,
+      height: 1,
+      layout: 'rgb-u16',
+      colorSpace: 'linear-prophoto-rgb',
+      renderExposureEv: 0,
+      renderExposureMultiplier: 1,
+    })
+    pipeline.uploadLUT(createLUTData('display-srgb'))
+    pipeline.setParams({
+      styleKind: 'custom',
+      intensity: 1,
+    })
+    pipeline.render()
+
+    expect(contextMock.gl.getUniformLocation).toHaveBeenCalledWith(
+      expect.anything(),
+      'u_lutSize',
+    )
+    expect(contextMock.gl.uniform1f).toHaveBeenCalledWith('u_lutSize', 2)
+  })
+
   it('flushes transient interactive preview renders without blocking for GPU completion', async () => {
     contextMock.reset()
     const pipeline = new RawProcessingPipeline(document.createElement('canvas'))

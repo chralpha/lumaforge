@@ -222,6 +222,11 @@ describe('display and ACES transfer functions', () => {
     expect(gamma24Decode(gamma24Encode(0.18))).toBeCloseTo(0.18, 8)
   })
 
+  it('keeps sRGB transfer signed in the linear toe for LUT-domain math', () => {
+    expect(srgbEncode(-0.002)).toBeCloseTo(-0.02584, 8)
+    expect(srgbDecode(-0.02584)).toBeCloseTo(-0.002, 8)
+  })
+
   it('matches Apple Log reference points', () => {
     expect(appleLogEncode(0.18)).toBeCloseTo(0.48827245852686763, 8)
     expect(appleLogDecode(0.48827245852686763)).toBeCloseTo(0.18, 8)

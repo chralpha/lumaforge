@@ -412,21 +412,18 @@ function compileGraphApplier(
       let lutInputLinearB = baseDisplayLinearB
 
       if (role !== 'display-look' && inputMatrix) {
-        lutInputLinearR = clampMin0(
+        lutInputLinearR =
           inputMatrix[0] * sceneR +
-            inputMatrix[1] * sceneG +
-            inputMatrix[2] * sceneB,
-        )
-        lutInputLinearG = clampMin0(
+          inputMatrix[1] * sceneG +
+          inputMatrix[2] * sceneB
+        lutInputLinearG =
           inputMatrix[3] * sceneR +
-            inputMatrix[4] * sceneG +
-            inputMatrix[5] * sceneB,
-        )
-        lutInputLinearB = clampMin0(
+          inputMatrix[4] * sceneG +
+          inputMatrix[5] * sceneB
+        lutInputLinearB =
           inputMatrix[6] * sceneR +
-            inputMatrix[7] * sceneG +
-            inputMatrix[8] * sceneB,
-        )
+          inputMatrix[7] * sceneG +
+          inputMatrix[8] * sceneB
       }
 
       lutInputEncoded[0] = applySignalRangeForLutInput(
@@ -457,20 +454,14 @@ function compileGraphApplier(
         lutSample,
       )
 
-      const lutOutputLinearR = clampMin0(
-        decodeTransfer.decode(
-          removeSignalRangeFromLutOutput(lutSample[0], outputIsLegalRange),
-        ),
+      const lutOutputLinearR = decodeTransfer.decode(
+        removeSignalRangeFromLutOutput(lutSample[0], outputIsLegalRange),
       )
-      const lutOutputLinearG = clampMin0(
-        decodeTransfer.decode(
-          removeSignalRangeFromLutOutput(lutSample[1], outputIsLegalRange),
-        ),
+      const lutOutputLinearG = decodeTransfer.decode(
+        removeSignalRangeFromLutOutput(lutSample[1], outputIsLegalRange),
       )
-      const lutOutputLinearB = clampMin0(
-        decodeTransfer.decode(
-          removeSignalRangeFromLutOutput(lutSample[2], outputIsLegalRange),
-        ),
+      const lutOutputLinearB = decodeTransfer.decode(
+        removeSignalRangeFromLutOutput(lutSample[2], outputIsLegalRange),
       )
 
       const styledDisplayLinearR = clampMin0(

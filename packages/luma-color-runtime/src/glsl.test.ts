@@ -34,10 +34,22 @@ describe('gLSL color contract surface', () => {
       'float encodeSrgbTransfer(float linearValue)',
     )
     expect(LUMA_COLOR_TRANSFER_GLSL).toContain(
+      'float decodeSrgbTransfer(float encodedValue)',
+    )
+    expect(LUMA_COLOR_TRANSFER_GLSL).toContain(
       'if (transfer == TRANSFER_SRGB) return encodeSrgbTransfer(linearValue)',
+    )
+    expect(LUMA_COLOR_TRANSFER_GLSL).toContain(
+      'if (transfer == TRANSFER_SRGB) return decodeSrgbTransfer(encodedValue)',
     )
     expect(LUMA_COLOR_TRANSFER_GLSL).not.toContain(
       'if (transfer == TRANSFER_SRGB) return linearToSrgb(vec3(linearValue)).r',
+    )
+    expect(LUMA_COLOR_TRANSFER_GLSL).not.toContain(
+      'if (transfer == TRANSFER_SRGB) return srgbToLinear(vec3(encodedValue)).r',
+    )
+    expect(LUMA_COLOR_TRANSFER_GLSL).not.toContain(
+      'float value = max(linearValue, 0.0);\n  if (value <= 0.0031308)',
     )
   })
 
@@ -60,6 +72,7 @@ describe('gLSL color contract surface', () => {
   it('documents the app shader ABI referenced by the package LUT GLSL', () => {
     for (const abiName of [
       'u_lutTexture',
+      'u_lutSize',
       'u_lutDomainMin',
       'u_lutDomainMax',
       'u_inputToLutGamut',
@@ -95,6 +108,9 @@ describe('gLSL color contract surface', () => {
       'vec3 compressLutInputToDomain(vec3 color)',
     )
     expect(LUMA_COLOR_LUT_GLSL).toContain(
+      'isnan(value) || isinf(value) || isnan(span) || isinf(span)',
+    )
+    expect(LUMA_COLOR_LUT_GLSL).toContain(
       'float peak = max(max(normalizedColor.r, normalizedColor.g), normalizedColor.b)',
     )
     expect(LUMA_COLOR_LUT_GLSL).toContain(
@@ -102,6 +118,15 @@ describe('gLSL color contract surface', () => {
     )
     expect(LUMA_COLOR_LUT_GLSL).toContain(
       'normalizeLutInputChannel(domainColor.r, u_lutDomainMin.r, u_lutDomainMax.r)',
+    )
+    expect(LUMA_COLOR_LUT_GLSL).toContain(
+      'vec3 lutTextureCoordinate(vec3 normalizedColor)',
+    )
+    expect(LUMA_COLOR_LUT_GLSL).toContain(
+      '(normalizedColor * (size - 1.0) + vec3(0.5)) / size',
+    )
+    expect(LUMA_COLOR_LUT_GLSL).toContain(
+      'texture(u_lutTexture, lutTextureCoordinate(normalizedColor)).rgb',
     )
     expect(LUMA_COLOR_LUT_GLSL).toContain('compressLutInputToDomain(color)')
   })
