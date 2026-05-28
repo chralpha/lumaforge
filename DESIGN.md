@@ -84,6 +84,23 @@ surface-panel:
 backgroundColor: 'oklch(0.18 0.02 76)'
 textColor: '{colors.lf-hero-ink}'
 rounded: '{rounded.panel}'
+workspace-chrome:
+description: 'Photo-first dark on-photo chrome used inside /raw. Brand and landing keep the warm paper system above.'
+on-photo-paper: 'oklch(0.118 0.006 255)'
+on-photo-paper-high: 'oklch(0.16 0.007 255 / 0.9)'
+on-photo-paper-low: 'oklch(0.085 0.006 255 / 0.74)'
+on-photo-bg: 'oklch(0.125 0.006 255 / 0.56)'
+on-photo-bg-strong: 'oklch(0.105 0.006 255 / 0.84)'
+on-photo-bord: 'oklch(0.9 0.006 255 / 0.34)'
+on-photo-bord-soft: 'oklch(0.9 0.006 255 / 0.18)'
+on-photo-text: '{colors.lf-hero-ink}'
+on-photo-text-soft: 'oklch(0.86 0.012 255 / 0.7)'
+on-photo-text-meta: 'oklch(0.74 0.01 255 / 0.56)'
+stage-base: 'oklch(0.064 0.006 255)'
+stage-panel: 'oklch(0.13 0.006 255 / 0.78)'
+stage-hairline: 'oklch(0.96 0.006 255 / 0.2)'
+accent-ready: '{colors.lf-green}'
+accent-destructive: '{colors.lf-rose}'
 ------------------------------------------------------------------------
 
 # Design System: LumaForge
@@ -100,8 +117,12 @@ Avoid purple gradients, hero metrics, repeated icon-card grids, glassy panels, a
 The brand is not a dark grading suite either.
 It should feel approachable for a casual RAW shooter while still signaling that careful color work is happening underneath.
 
-Product surfaces should inherit the same calibrated language as the landing page, but with more operational density.
-The RAW workspace can be quieter than the marketing page; it should still use warm-tinted neutrals, green action affordances, amber contract labels, strict hairlines, and plain-language guardrails.
+Product surfaces inherit the same brand atoms — green action affordances, amber contract labels, strict hairlines, and plain-language guardrails — but the substrate splits into two registers:
+
+- **Brand / Landing / Marketing.** Warm paper system described in §§2–5. Day-readable, document-feeling, calm.
+- **Workspace Chrome (`/raw`).** Photo-first dark on-photo chrome described in §6. Photographic-judgement environment, slate-and-glass, the photo owns the surface.
+
+Both registers share `lf-green`, `lf-amber`, `lf-rose`, `lf-sky`, `lf-hero-ink`, Geist Sans, the same rounded scale, and the same component grammar (Compare Panel, Contract Rail). They diverge in substrate (paper vs. slate), in topbar/tool-rail materiality (opaque card vs. translucent glass), and in seam idiom (1px warm hairlines vs. inset shadow with subtle highlights).
 
 **Key Characteristics:**
 
@@ -259,7 +280,101 @@ Every rail item must correspond to a real transform or safety gate.
 For camera-log LUTs, the contract rail should make the scene-referred path visible: RAW technical development, scene-linear handoff, LUT input gamut, LUT input transfer, declared LUT output, and final photo output.
 Do not describe the default path as display sRGB followed by a LUT.
 
-## 6. Do's and Don'ts
+## 6. Workspace Chrome (RAW)
+
+The `/raw` workspace runs in a **photo-first dark on-photo chrome**.
+The photograph is the substrate; the topbar, tool rail, and export footer float over it as translucent control surfaces.
+This is the canonical environment for evaluating RAW color, and it is also the language mobile `/raw` has used from day one — desktop now matches.
+
+This register applies **only inside `/raw`**.
+Marketing, landing, not-found, and any non-workspace surface continues to use the warm paper system from §§2–5.
+
+### Why the split
+
+Lab green, calibration amber, and warm hairlines remain the brand truth, but a warm paper substrate is the wrong evaluation environment for RAW color:
+paper biases perceived saturation downward and competes with the photograph for eye attention.
+Every pro RAW editor ships dark by default for this exact reason.
+The workspace chrome adopts that convention while keeping the brand's accent system intact.
+
+### Palette
+
+The chrome retokenizes the substrate, not the accents:
+
+- **On-Photo Paper** (`oklch(0.118 0.006 255)`): Substrate of topbar, tool rail, and panels. Slate with imperceptible cool tint.
+- **On-Photo Paper High / Low / Warm**: `oklch(0.16 0.007 255 / 0.9)`, `oklch(0.085 0.006 255 / 0.74)`, `oklch(0.18 0.008 255 / 0.78)`. Tonal bands inside the chrome.
+- **On-Photo BG / BG Strong**: `oklch(0.125 0.006 255 / 0.56)`, `oklch(0.105 0.006 255 / 0.84)`. Hover / pressed / open washes.
+- **On-Photo Bord / Bord Soft**: `oklch(0.9 0.006 255 / 0.34)`, `oklch(0.9 0.006 255 / 0.18)`. Hairlines and structural seams; prefer the soft variant.
+- **Hero Ink** (`{colors.lf-hero-ink}`): Primary text on all chrome surfaces.
+- **Stage Base** (`oklch(0.064 0.006 255)`): Behind the preview frame; deepest slate.
+- **Stage Panel / Hairline**: `oklch(0.13 0.006 255 / 0.78)`, `oklch(0.96 0.006 255 / 0.2)`. Compare handle and stage overlays.
+- **Lab Green / Sensor Rose**: Unchanged. Used for ready state, focus rings, and destructive hover.
+
+### Topbar
+
+- 52px min-height, translucent slate plate, `backdrop-filter: blur(14px) saturate(120%)`.
+- Brand block on the left (24px icon with 1px inset ring, title at 0.875rem semibold tracking-tight, subtitle at 0.685rem at 52% opacity).
+- Action cluster on the right is **ghost-style**: rest is `bg-transparent`, hover is `bg-on-photo-bg`, focus is 2px `lf-green/80` outline with -1px offset.
+- A 1px hairline divides the locale toggle from the file actions.
+- Destructive action (reset) gains a rose hover and rose focus ring; it never asserts itself at rest.
+- Press feedback is a `translateY(0.5px)` micro-shift, not a scale.
+
+### Tool Rail
+
+- Right column, dark on-photo plate with `backdrop-filter: blur(14px) saturate(120%)`.
+- No drawn border; the seam to the stage is an inset hairline `inset 1px 0 0 oklch(0.96 0.006 255 / 0.06)`.
+- Scrollbar uses the dark thumb token, scrollbar-gutter: stable to prevent jitter on first scroll.
+- Tool cards are Radix Accordion items:
+  - Rest: transparent border, no fill.
+  - Hover: `4% lf-hero-ink` wash — a lift, not a recolor.
+  - Open: gradient fill, top highlight `inset 0 1px 0 oklch(0.96 0.006 255 / 0.08)` + lower inset shadow for depth.
+  - Trigger: 32px min-height, label color ladder `66 → 88 → 100%`, chevron `40 → 64 → 72%`.
+  - Focus-visible: inset 2px `lf-green/80` outline (does not collide with the open hairline).
+- Meta strings on triggers use `tabular-nums` so counts (e.g. histogram clipping) do not reflow as values cross thresholds.
+
+### Stage and Compare Handle
+
+- Stage padding is `clamp(14px, 1.45vw, 20px)`. Frame border is `oklch(0.96 0.006 255 / 0.08)` at 10px radius with a soft `0 22px 64px` photo-panel shadow + 1px inset top highlight.
+- Compare handle circle is a glass panel (`backdrop-filter: blur(8px) saturate(120%)`) with `0.72` hero-ink border at rest.
+- Hover and drag earn an `lf-green` accent ring (4px `lf-green/18` halo), matching the same accent system the topbar focus and export-ready stripe use.
+
+### Export Footer (persistent action zone)
+
+- The bottom of the tool rail is reserved for the export action and its result block.
+- A 1px **lf-green ready-stripe** sits on top of the footer, opacity 0 → 1 as `canExport` flips true. This is the chrome's commit cue — Linear / X use the same idiom for "this is the action that ships".
+- Footer plate is the deepest tone in the rail; an inset baseline shadow stratifies it below the tool card stack.
+
+### Progress Overlay
+
+- The export progress overlay runs in the same cool slate palette as the rest of the chrome (the shared mobile darkroom is warm amber; the desktop variant overrides it).
+- Flat-handoff variant — used for full-stage export — paints a radial slate gradient with a darkroom film-strip overlay at 4% opacity.
+
+### Topbar and Tool Rail Are Glass
+
+Both the topbar and the tool rail are translucent: `backdrop-filter: blur(14px) saturate(120%)`.
+This is intentional. It lets the photograph's color tint the chrome, so a warm-toned image warms the rail and a cool-toned image cools it.
+The chrome reads as one continuous material with the photograph, not as a separate UI slab.
+
+### Named Rules
+
+**The Photo Owns the Stage Rule.** The photograph is the substrate; chrome is the layer over it. Topbar and tool rail must not compete with the photo for visual hierarchy.
+
+**The Chrome Is Glass Rule.** Every chrome surface that floats over the photo uses `backdrop-filter`. The chrome does not invent its own opaque color; it tints with the photo.
+
+**The Slate, Not Black Rule.** Substrate is `oklch(0.064–0.12, c≈0.006)`. Never pure black. The faint cool tint distinguishes it from a generic dark UI and keeps it photographic.
+
+**The One Accent Rule.** Lab Green is the only accent for ready / focus / committed states. Sensor Rose is reserved for destructive intent. No other accent enters the chrome.
+
+**The Inset Hairline Rule.** Seams between chrome surfaces are inset shadows (1px top highlight + 1px bottom shadow), not drawn borders. Borders are reserved for the stage frame and tool card open state.
+
+**The Tabular Number Rule.** Any numeric meta in chrome (clipping counts, render time, file size, dimensions) uses `tabular-nums` so values do not reflow as they cross 10 / 100 / 1000.
+
+### Cross-platform parity
+
+Mobile `/raw` has used this language since the first mobile design.
+This section documents desktop catching up — both viewports now share one set of tokens (`lf-on-photo-*`, `lf-hero-ink`, the stage palette), one set of idioms (glass chrome, photo-owned stage, ghost actions, lf-green accent), and one mental model.
+Avoid letting them diverge again.
+
+## 7. Do's and Don'ts
 
 ### Do:
 
@@ -274,8 +389,9 @@ Do not describe the default path as display sRGB followed by a LUT.
 
 - **Don't** mimic DaVinci Resolve with dense dark panels, nodes, scopes, and unlimited grading controls.
 - **Don't** add a hero metric block, repeated same-size icon cards, or centered template stacks.
-- **Don't** use purple gradients, gradient text, decorative orbs, bokeh blobs, or default glassmorphism.
-- **Don't** use colored side stripes on cards, list items, callouts, or alerts.
-- **Don't** use pure black, pure white, or category-reflex dark blue tool styling.
+- **Don't** use purple gradients, gradient text, decorative orbs, bokeh blobs, or marketing-decoration glassmorphism. The workspace chrome's glass (§6) is a photographic-substrate tinter, not a decorative pattern — keep it scoped to `/raw`.
+- **Don't** use colored side stripes on cards, list items, callouts, or alerts. The export footer's top-edge `lf-green` ready-stripe (§6) is a state cue tied to a runtime fact, not a card ornament — do not generalize that pattern outside the workspace chrome's commit zone.
+- **Don't** use pure black, pure white, or category-reflex dark blue tool styling. The workspace chrome's slate is `oklch(0.064–0.12, c≈0.006)`, a near-neutral with a faint cool cast — not navy, not black.
 - **Don't** silently render mismatched gamma, log, gamut, or LUT output choices.
 - **Don't** leave template attribution, placeholder demo widgets, or component-gallery copy on user-facing pages.
+- **Don't** drift the brand and the workspace chrome apart. Both must keep `lf-green` as the only ready/focus accent, `lf-rose` as the only destructive accent, Geist Sans as the only sans family, and the same rounded scale.
