@@ -108,7 +108,7 @@ function UploadDock({
       </span>
       <span className="grid min-w-0 gap-1">
         <strong className="block text-sm leading-tight">
-          {t('raw.stage.uploadTitle')}
+          {t('raw.onboarding.slogan')}
         </strong>
         <span className="mt-0.5 block text-xs leading-snug text-[var(--color-on-stage-soft)]">
           {t('raw.stage.uploadCopy')}
