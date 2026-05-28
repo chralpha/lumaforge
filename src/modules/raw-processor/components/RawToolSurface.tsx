@@ -113,7 +113,10 @@ export function RawToolSurface(props: {
     />
   )
 
-  // Desktop Look card — full LutContractTool + Strength (unchanged).
+  // Desktop Look card — full LutContractTool + a labelled Strength row.
+  // Mobile renders the same StrengthControl under its own heading inside
+  // MobileLutBrowser; both ends share the component's default styling so
+  // the segmented control reads identically on dark photo-first chrome.
   const lutBlock = (
     <>
       <LutContractTool
@@ -126,7 +129,12 @@ export function RawToolSurface(props: {
         onLutProfileSelect={props.onLutProfileSelect}
         onlineLutSources={props.onlineLutSources}
       />
-      <div className="mt-3">{strengthControl}</div>
+      <div className="mt-3 grid gap-1.5" data-raw-desktop-strength="row">
+        <span className="text-[0.7rem] font-semibold uppercase tracking-[0.04em] text-lf-hero-ink/56">
+          {t('raw.strength.title')}
+        </span>
+        {strengthControl}
+      </div>
     </>
   )
 

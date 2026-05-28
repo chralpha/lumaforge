@@ -218,6 +218,13 @@ describe('mobileLutBrowser', () => {
     expect(standardTab.className).toMatch(
       /data-\[state=active\]:\[&_span\[data-segment-thumb\]\]:bg-lf-on-photo-bg-strong/,
     )
+    // Readability contract: the depressed-active thumb collides with the
+    // track's effective lightness on dark chrome, so the active state has
+    // to carry its own inset hairline + top highlight to read as a lifted
+    // plate. Encode that as a contract so a future refactor cannot drop
+    // the outline and re-introduce the "invisible active" regression.
+    expect(standardTab.className).toMatch(/inset_0_0_0_1px_oklch/)
+    expect(standardTab.className).toMatch(/data-\[state=active\]:font-semibold/)
     expect(standardTab.className).not.toMatch(/bg-lf-paper-high/)
     expect(standardTab).toBeDisabled()
   })
