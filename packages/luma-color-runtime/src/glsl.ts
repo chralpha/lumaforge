@@ -121,11 +121,10 @@ float decodeSLog2(float encodedValue) {
 }
 
 float encodeSLog3(float linearValue) {
-  float value = max(linearValue, 0.0);
-  if (value >= 0.01125) {
-    return (420.0 + (log((value + 0.01) / 0.19) / log(10.0)) * 261.5) / 1023.0;
+  if (linearValue >= 0.01125) {
+    return (420.0 + (log((max(linearValue, 0.0) + 0.01) / 0.19) / log(10.0)) * 261.5) / 1023.0;
   }
-  return ((value * (171.2102946929 - 95.0)) / 0.01125 + 95.0) / 1023.0;
+  return ((linearValue * (171.2102946929 - 95.0)) / 0.01125 + 95.0) / 1023.0;
 }
 
 float decodeSLog3(float encodedValue) {
@@ -229,11 +228,10 @@ float decodeFLog2(float encodedValue) {
 }
 
 float vLogEncodeChannel(float linearValue) {
-  float value = max(linearValue, 0.0);
-  if (value < 0.01) {
-    return 5.6 * value + 0.125;
+  if (linearValue < 0.01) {
+    return 5.6 * linearValue + 0.125;
   }
-  return 0.241514 * (log(value + 0.00873) / log(10.0)) + 0.598206;
+  return 0.241514 * (log(max(linearValue, 0.0) + 0.00873) / log(10.0)) + 0.598206;
 }
 
 float vLogDecodeChannel(float encodedValue) {

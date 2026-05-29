@@ -68,6 +68,21 @@ describe('gLSL color contract surface', () => {
     )
   })
 
+  it('keeps log encoders with linear toes signed to match the CPU curves', () => {
+    expect(LUMA_COLOR_TRANSFER_GLSL).toContain(
+      'return ((linearValue * (171.2102946929 - 95.0)) / 0.01125 + 95.0) / 1023.0;',
+    )
+    expect(LUMA_COLOR_TRANSFER_GLSL).toContain(
+      'return 5.6 * linearValue + 0.125;',
+    )
+    expect(LUMA_COLOR_TRANSFER_GLSL).not.toContain(
+      'float encodeSLog3(float linearValue) {\n  float value = max(linearValue, 0.0);',
+    )
+    expect(LUMA_COLOR_TRANSFER_GLSL).not.toContain(
+      'float vLogEncodeChannel(float linearValue) {\n  float value = max(linearValue, 0.0);',
+    )
+  })
+
   it('declares every role uniform value inside the GLSL LUT snippet', () => {
     for (const [role, value] of Object.entries(LUT_ROLE_UNIFORMS)) {
       expect(LUMA_COLOR_LUT_GLSL).toContain(
