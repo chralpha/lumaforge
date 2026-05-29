@@ -1,3 +1,4 @@
+import { getProPhotoToTargetMatrix } from '@lumaforge/luma-color-runtime'
 import {
   LUMA_COLOR_LUT_GLSL,
   LUMA_COLOR_RANGE_GLSL,
@@ -192,6 +193,34 @@ describe('process shader style path', () => {
     expect(inputReader).toContain('return linearProPhoto')
     expect(inputReader).not.toContain('linearProPhotoToDisplaySrgb')
     expect(inputReader).not.toContain('linearProPhotoToLinearSrgb')
+  })
+
+  it('keeps the hardcoded u16 ProPhoto->sRGB matrix in sync with the computed CPU matrix', () => {
+    // The u16 preview bakes this matrix into GLSL while the authoritative
+    // export computes it at runtime from matrix.ts. If the color-space
+    // definitions ever drift, the frozen constant would silently diverge from
+    // export, so pin it to the computed matrix instead of only to itself.
+    const conversion = PROCESS_FRAGMENT_SHADER_U16.match(
+      /vec3 linearProPhotoToLinearSrgb\(vec3 color\) \{[\s\S]*?\n\}/,
+    )?.[0]
+    expect(conversion).toBeDefined()
+
+    const rows = Array.from(
+      conversion!.matchAll(/dot\(color, vec3\(([^)]+)\)\)/g),
+      (match) => match[1].split(',').map((value) => Number.parseFloat(value)),
+    )
+    // Guard against a vacuous parse: exactly a 3x3 matrix must be extracted.
+    expect(rows).toHaveLength(3)
+    for (const row of rows) {
+      expect(row).toHaveLength(3)
+    }
+
+    const computed = getProPhotoToTargetMatrix('srgb-rec709')
+    for (let r = 0; r < 3; r += 1) {
+      for (let c = 0; c < 3; c += 1) {
+        expect(rows[r][c]).toBeCloseTo(computed[r * 3 + c], 5)
+      }
+    }
   })
 
   it.each(PROCESS_SHADER_VARIANTS)(
