@@ -157,13 +157,6 @@ export function groupProfiles(profiles: LUTColorProfile[]) {
   }))
 }
 
-export interface ContractAttentionState {
-  needsUserSelection: boolean
-  needsOutputContract: boolean
-  unsupportedOutput: boolean
-  needsAttention: boolean
-}
-
 export type LUTContractView =
   | { status: 'confirmed'; profile: LUTColorProfile; outputLabel?: string }
   | { status: 'incomplete-output'; profile: LUTColorProfile }
@@ -224,24 +217,4 @@ export function deriveLUTContractView(
   }
 
   return { status: 'unknown' }
-}
-
-export function getContractAttentionState(
-  selection?: LUTContractSelectionState | null,
-  resolution?: LUTContractResolution | null,
-): ContractAttentionState {
-  const resolvedProfile = getResolvedProfile(selection, resolution)
-  const outputLabel = getProfileOutputLabel(resolvedProfile)
-  const needsOutputContract = outputLabel === 'Output profile required'
-  const needsUserSelection =
-    resolution != null && resolution.kind !== 'confirmed'
-  const unsupportedOutput = resolution?.kind === 'unsupported-output'
-
-  return {
-    needsUserSelection,
-    needsOutputContract,
-    unsupportedOutput,
-    needsAttention:
-      needsUserSelection || needsOutputContract || unsupportedOutput,
-  }
 }

@@ -35,7 +35,6 @@ import { LUTProfileButton } from '../tools/lut/LUTProfileButton'
 import {
   composeLUTContractProfile,
   deriveLUTContractView,
-  getContractAttentionState,
   getProfileOutputLabel,
   getResolvedProfile,
   groupProfiles,
@@ -205,7 +204,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     outputLabel && outputLabel !== OUTPUT_REQUIRED_LABEL
       ? outputLabel
       : undefined
-  const attention = getContractAttentionState(
+  const contractView = deriveLUTContractView(
     props.lutProfileSelection,
     props.lutProfileResolution,
   )
@@ -238,11 +237,11 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     setDraftInputProfile(resolvedProfile ?? null)
     setContractQuery('')
     setContractStep(
-      attention.needsOutputContract && resolvedProfile ? 'output' : 'input',
+      contractView.status === 'incomplete-output' ? 'output' : 'input',
     )
     setView('contract')
   }, [
-    attention.needsOutputContract,
+    contractView.status,
     props.initialContractEditorOpen,
     props.open,
     resolvedProfile,
@@ -414,11 +413,14 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     returnToOverview()
   }
 
-  const contractActionLabel = attention.needsUserSelection
-    ? t('raw.mobile.lut.chooseContract')
-    : attention.needsOutputContract
-      ? t('raw.mobile.lut.chooseOutput')
-      : t('raw.mobile.lut.changeContract')
+  const contractActionLabel =
+    contractView.status === 'recommended' ||
+    contractView.status === 'unknown' ||
+    contractView.status === 'unsupported-output'
+      ? t('raw.mobile.lut.chooseContract')
+      : contractView.status === 'incomplete-output'
+        ? t('raw.mobile.lut.chooseOutput')
+        : t('raw.mobile.lut.changeContract')
 
   const handleOpenChange = (open: boolean) => {
     if (!open) props.onClose()
@@ -520,13 +522,8 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       return null
     }
 
-    const view = deriveLUTContractView(
-      props.lutProfileSelection,
-      props.lutProfileResolution,
-    )
-
     const renderStatusContent = () => {
-      if (view.status === 'unknown') {
+      if (contractView.status === 'unknown') {
         return (
           <p className="m-0 rounded-md border border-lf-amber/45 bg-lf-amber/10 px-2.5 py-2 text-xs leading-relaxed text-lf-amber-soft">
             {t('raw.lutContract.unknown')}
@@ -534,7 +531,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         )
       }
 
-      if (view.status === 'unsupported-output') {
+      if (contractView.status === 'unsupported-output') {
         return (
           <p className="m-0 rounded-md border border-lf-amber/45 bg-lf-amber/10 px-2.5 py-2 text-xs leading-relaxed text-lf-amber-soft">
             {t('raw.lutContract.unsupportedOutput')}
@@ -542,8 +539,8 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         )
       }
 
-      if (view.status === 'recommended') {
-        const { recommendation, completesContract } = view
+      if (contractView.status === 'recommended') {
+        const { recommendation, completesContract } = contractView
         const outputLabel = completesContract
           ? getProfileOutputLabel(recommendation)
           : t('raw.lutContract.chooseOutput')
@@ -598,13 +595,16 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       }
 
       // confirmed or incomplete-output
-      if (view.status === 'confirmed' || view.status === 'incomplete-output') {
-        const profile = view.profile
+      if (
+        contractView.status === 'confirmed' ||
+        contractView.status === 'incomplete-output'
+      ) {
+        const profile = contractView.profile
         const outLabel =
-          view.status === 'confirmed'
-            ? (view.outputLabel ?? displayOutputLabel)
+          contractView.status === 'confirmed'
+            ? (contractView.outputLabel ?? displayOutputLabel)
             : displayOutputLabel
-        const needsOutput = view.status === 'incomplete-output'
+        const needsOutput = contractView.status === 'incomplete-output'
 
         return (
           <div className="grid gap-2">
@@ -649,12 +649,12 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
           <span
             className={[
               'rounded-lf-pill border px-2 py-0.5 text-lf-eyebrow font-semibold',
-              attention.needsAttention
+              contractView.status !== 'confirmed'
                 ? 'border-lf-amber/55 bg-lf-amber/12 text-lf-amber-soft'
                 : 'border-lf-green/55 bg-lf-on-photo-bg-strong text-lf-green-soft',
             ].join(' ')}
           >
-            {attention.needsAttention
+            {contractView.status !== 'confirmed'
               ? t('raw.mobile.lut.contractNeedsReview')
               : t('raw.mobile.lut.contractResolved')}
           </span>
@@ -669,7 +669,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
             disabled={props.disabled}
             onClick={() =>
               openContractView(
-                attention.needsOutputContract && resolvedProfile
+                contractView.status === 'incomplete-output'
                   ? 'output'
                   : 'input',
               )
