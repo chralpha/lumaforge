@@ -39,6 +39,11 @@ function formatBytes(bytes: number) {
 function MobileExportAction(props: {
   icon: typeof Share2
   label: string
+  // Full descriptive name for assistive tech / hover when the visible face is
+  // trimmed to fit the three-up row (e.g. "Copy" face, "Copy preview-size
+  // image" accessible name). Visible label stays a substring so WCAG 2.5.3
+  // (label in name) holds.
+  srLabel?: string
   onClick?: () => void | Promise<void>
   disabled?: boolean
 }) {
@@ -47,10 +52,12 @@ function MobileExportAction(props: {
       type="button"
       disabled={props.disabled}
       onClick={props.onClick}
-      className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 text-[0.74rem] font-semibold text-lf-hero-ink transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-45"
+      aria-label={props.srLabel}
+      title={props.srLabel ?? props.label}
+      className="inline-flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2 text-[0.74rem] font-semibold text-lf-hero-ink transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-45"
     >
-      <props.icon aria-hidden="true" className="size-3.5" />
-      {props.label}
+      <props.icon aria-hidden="true" className="size-3.5 shrink-0" />
+      <span className="truncate">{props.label}</span>
     </button>
   )
 }
@@ -135,7 +142,8 @@ export function MobileExportPanel(props: {
         />
         <MobileExportAction
           icon={Copy}
-          label={copyButtonLabel}
+          label={t('raw.export.copy')}
+          srLabel={copyButtonLabel}
           disabled={props.exportResult.copyCapability.mode === 'unavailable'}
           onClick={props.onCopyExport}
         />
@@ -172,7 +180,7 @@ export function MobileExportPanel(props: {
           {t('raw.export.reselect')}
         </button>
       )}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid gap-2">
         <m.button
           type="button"
           disabled={!props.canExport || props.isProcessing}
@@ -183,7 +191,7 @@ export function MobileExportPanel(props: {
           onClick={() =>
             props.onExport({ quality: 'high', fidelity: 'balanced' })
           }
-          className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-md border border-lf-green-deep/40 bg-lf-green px-2.5 text-center text-[0.8rem] font-semibold leading-tight text-lf-ink transition-colors hover:bg-lf-green-hover disabled:cursor-not-allowed disabled:border-lf-on-photo-bord-soft disabled:bg-lf-on-photo-bg disabled:text-lf-hero-ink/35"
+          className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-md border border-lf-green-deep/40 bg-lf-green px-3 text-sm font-semibold text-lf-ink transition-colors hover:bg-lf-green-hover disabled:cursor-not-allowed disabled:border-lf-on-photo-bord-soft disabled:bg-lf-on-photo-bg disabled:text-lf-hero-ink/35"
         >
           {props.isProcessing ? (
             <BusySpinner />
@@ -206,7 +214,7 @@ export function MobileExportPanel(props: {
           }
           transition={PANEL_TRANSITION}
           onClick={() => props.onPreviewExport?.()}
-          className="inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 text-center text-[0.76rem] font-semibold leading-tight text-lf-hero-ink transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:bg-lf-on-photo-bg/60 disabled:text-lf-hero-ink/35"
+          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 text-[0.8rem] font-semibold text-lf-hero-ink transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:bg-lf-on-photo-bg/60 disabled:text-lf-hero-ink/35"
         >
           <Download aria-hidden="true" className="size-4 shrink-0" />
           {t('raw.export.runPreview')}

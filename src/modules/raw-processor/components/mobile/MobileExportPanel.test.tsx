@@ -76,7 +76,14 @@ describe('mobileExportPanel', () => {
       name: /export hq preview jpeg/i,
     })
 
-    expect(fullResolutionButton.parentElement).toHaveClass('grid-cols-2')
+    // Stacked full-width on the narrow mobile sheet so the shared descriptive
+    // labels render on one line instead of wrapping inside half-width columns.
+    const exportRow = fullResolutionButton.parentElement
+    expect(exportRow).toHaveClass('grid')
+    expect(exportRow).not.toHaveClass('grid-cols-2')
+    expect(exportRow?.firstElementChild).toBe(fullResolutionButton)
+    expect(fullResolutionButton).toHaveClass('bg-lf-green')
+    expect(previewButton).not.toHaveClass('bg-lf-green')
 
     await user.click(fullResolutionButton)
     await user.click(previewButton)
