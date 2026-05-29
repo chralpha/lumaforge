@@ -1,5 +1,11 @@
 import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -431,6 +437,52 @@ describe('mobileLabChrome', () => {
     expect(
       screen.getByRole('heading', { name: 'DSC09142.ARW' }),
     ).toBeInTheDocument()
+  })
+
+  it('tap on the exposed preview closes an open sheet instead of toggling immersive', async () => {
+    render(<MobileLabChrome {...base} previewFrameEl={previewFrameEl} />)
+    await userEvent.click(screen.getByRole('button', { name: /lut browser/i }))
+    expect(
+      screen.getByRole('dialog', { name: /lut browser/i }),
+    ).toBeInTheDocument()
+
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    })
+
+    // The sheet closes; immersive does NOT engage (topbar still present).
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: /lut browser/i }),
+      ).not.toBeInTheDocument(),
+    )
+    expect(
+      screen.getByRole('heading', { name: 'DSC09142.ARW' }),
+    ).toBeInTheDocument()
+  })
+
+  it('suppresses long-press peek while a sheet is open', () => {
+    const onViewModeChange = vi.fn()
+    render(
+      <MobileLabChrome
+        {...base}
+        previewFrameEl={previewFrameEl}
+        onViewModeChange={onViewModeChange}
+      />,
+    )
+    // Open the LUT browser synchronously, then drive the hold on fake timers.
+    fireEvent.click(screen.getByRole('button', { name: /lut browser/i }))
+    vi.useFakeTimers()
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      vi.advanceTimersByTime(400)
+    })
+    expect(onViewModeChange).not.toHaveBeenCalledWith('original')
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    })
+    vi.useRealTimers()
   })
 
   it('peeks the unprocessed RAW via viewMode while held', () => {

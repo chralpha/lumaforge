@@ -225,11 +225,22 @@ export function MobileLabChrome(props: {
   // is what keeps multi-touch alive — a sibling overlay would swallow every
   // touch before `PreviewCanvas` ever saw the second finger.
   const previewGesturesEnabled = props.hasImage && !handoffActive && !focusKey
+  const closeSheets = () => {
+    setLutBrowserOpen(false)
+    setLutBrowserStartsInContract(false)
+    setMoreOpen(false)
+  }
   useMobilePreviewGestures(props.previewFrameEl ?? null, {
     enabled: previewGesturesEnabled,
-    allowPeek: !compareSplitOpen,
+    allowPeek: !compareSplitOpen && !lutBrowserOpen && !moreOpen,
     onPeekChange,
-    onTap: () => setImmersive((v) => !v),
+    onTap: () => {
+      if (lutBrowserOpen || moreOpen) {
+        closeSheets()
+        return
+      }
+      setImmersive((v) => !v)
+    },
   })
   const resolvedLutProfile = getResolvedProfile(
     props.lutBrowser.lutProfileSelection,
