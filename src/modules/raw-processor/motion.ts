@@ -17,6 +17,12 @@ export const TAP_SPRING = Spring.snappy(0.25)
 // product-register 200-260ms band instead of reading as a heavy sheet.
 export const DOCK_SPRING = Spring.smooth(0.24)
 
+// Lead time the dock-panel collapse gets before the chrome recedes into
+// immersive (and the reverse on exit). A partial lead inside the DOCK_SPRING
+// (~240ms) band so it reads as one "collapse, then recede" sequence rather than
+// two separate animations. Bypassed under reduced motion (instant flip).
+export const IMMERSIVE_STAGGER_MS = 140
+
 export function useToolMotion() {
   const prefersReduced = useReducedMotion() ?? false
 

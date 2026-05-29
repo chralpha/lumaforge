@@ -423,20 +423,59 @@ describe('mobileLabChrome', () => {
   })
 
   it('short tap toggles immersive (chrome hidden) and back', () => {
+    vi.useFakeTimers()
     render(<MobileLabChrome {...base} previewFrameEl={previewFrameEl} />)
     expect(screen.getByRole('heading', { name: 'DSC09142.ARW' })).toBeVisible()
     act(() => {
       previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
       previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
     })
+    // Panel collapses first; immersive engages after the stagger.
+    act(() => {
+      vi.advanceTimersByTime(160)
+    })
     expect(
       screen.queryByRole('heading', { name: 'DSC09142.ARW' }),
     ).not.toBeInTheDocument()
-    // restore affordance brings the chrome back
+    // restore affordance brings the chrome back immediately
     fireEvent.click(screen.getByRole('button', { name: /show controls/i }))
     expect(
       screen.getByRole('heading', { name: 'DSC09142.ARW' }),
     ).toBeInTheDocument()
+    // flush the pending panel re-expand before restoring real timers
+    act(() => {
+      vi.advanceTimersByTime(160)
+    })
+    vi.useRealTimers()
+  })
+
+  it('collapses the dock panel before receding into immersive', () => {
+    vi.useFakeTimers()
+    render(<MobileLabChrome {...base} previewFrameEl={previewFrameEl} />)
+    // Dock panel is expanded by default (Look mode) — its LUT button is present.
+    expect(
+      screen.getByRole('button', { name: /lut browser/i }),
+    ).toBeInTheDocument()
+
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    })
+
+    // Phase 1: panel collapsed, but chrome (topbar) is still present.
+    expect(screen.queryByRole('button', { name: /lut browser/i })).toBeNull()
+    expect(
+      screen.getByRole('heading', { name: 'DSC09142.ARW' }),
+    ).toBeInTheDocument()
+
+    // Phase 2: after the stagger, chrome recedes into immersive.
+    act(() => {
+      vi.advanceTimersByTime(160)
+    })
+    expect(
+      screen.queryByRole('heading', { name: 'DSC09142.ARW' }),
+    ).not.toBeInTheDocument()
+    vi.useRealTimers()
   })
 
   it('tap on the exposed preview closes an open sheet instead of toggling immersive', async () => {

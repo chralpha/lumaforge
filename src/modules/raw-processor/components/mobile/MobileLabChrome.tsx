@@ -19,7 +19,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '~/lib/i18n'
 import { surfaceFade } from '~/lib/spring'
 
-import { DOCK_SPRING } from '../../motion'
+import { DOCK_SPRING, IMMERSIVE_STAGGER_MS } from '../../motion'
 import type { RawRuntimeReadinessState } from '../raw-runtime-readiness'
 import { getRawRuntimeReadinessCopy } from '../raw-runtime-readiness'
 import {
@@ -92,6 +92,10 @@ export function MobileLabChrome(props: {
   const compareSplitOpenRef = useRef(false)
   const suppressNextPeekRestore = useRef(false)
   const preferExportModeWasActive = useRef(false)
+  const immersiveStaggerTimer = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  )
+  const expandedBeforeImmersive = useRef(false)
 
   // When the RAW is cleared/replaced, tear down every transient layer so the
   // empty-state scaffold can never be left behind focus / immersive / a
@@ -101,6 +105,10 @@ export function MobileLabChrome(props: {
   const onViewModeChange = props.onViewModeChange
   useEffect(() => {
     if (hasImage) return
+    if (immersiveStaggerTimer.current !== null) {
+      clearTimeout(immersiveStaggerTimer.current)
+      immersiveStaggerTimer.current = null
+    }
     setFocusKey(null)
     setImmersive(false)
     setLutBrowserOpen(false)
@@ -118,6 +126,10 @@ export function MobileLabChrome(props: {
 
   useEffect(() => {
     if (!handoffActive) return
+    if (immersiveStaggerTimer.current !== null) {
+      clearTimeout(immersiveStaggerTimer.current)
+      immersiveStaggerTimer.current = null
+    }
     setFocusKey(null)
     setImmersive(false)
     setLutBrowserOpen(false)
@@ -144,6 +156,10 @@ export function MobileLabChrome(props: {
     preferExportModeWasActive.current = preferExportMode
 
     if (!shouldActivate) return
+    if (immersiveStaggerTimer.current !== null) {
+      clearTimeout(immersiveStaggerTimer.current)
+      immersiveStaggerTimer.current = null
+    }
 
     setMode('export')
     setDockExpanded(true)
@@ -159,6 +175,15 @@ export function MobileLabChrome(props: {
     setHistogramOpen(false)
     snapshot.current = null
   }, [hasImage, props.preferExportMode])
+
+  useEffect(
+    () => () => {
+      if (immersiveStaggerTimer.current !== null) {
+        clearTimeout(immersiveStaggerTimer.current)
+      }
+    },
+    [],
+  )
 
   const startFocus = (k: keyof ToneValue) => {
     snapshot.current = props.tone
@@ -230,6 +255,44 @@ export function MobileLabChrome(props: {
     setLutBrowserStartsInContract(false) // re-open always starts on the browse tab
     setMoreOpen(false)
   }
+  const clearImmersiveStagger = () => {
+    if (immersiveStaggerTimer.current !== null) {
+      clearTimeout(immersiveStaggerTimer.current)
+      immersiveStaggerTimer.current = null
+    }
+  }
+  // Entering immersive while the dock panel is expanded tidies the panel away
+  // first, then recedes the chrome a beat later — one "collapse, then recede"
+  // sequence instead of a wall vanishing at once. Exit reverses it. Reduced
+  // motion collapses both halves to an instant flip.
+  const enterImmersive = () => {
+    clearImmersiveStagger()
+    expandedBeforeImmersive.current = dockExpanded
+    if (dockExpanded && !prefersReduced) {
+      setDockExpanded(false)
+      immersiveStaggerTimer.current = setTimeout(() => {
+        immersiveStaggerTimer.current = null
+        setImmersive(true)
+      }, IMMERSIVE_STAGGER_MS)
+      return
+    }
+    setImmersive(true)
+  }
+  const exitImmersive = () => {
+    clearImmersiveStagger()
+    setImmersive(false)
+    if (expandedBeforeImmersive.current) {
+      if (prefersReduced) {
+        setDockExpanded(true)
+      } else {
+        immersiveStaggerTimer.current = setTimeout(() => {
+          immersiveStaggerTimer.current = null
+          setDockExpanded(true)
+        }, IMMERSIVE_STAGGER_MS)
+      }
+    }
+    expandedBeforeImmersive.current = false
+  }
   useMobilePreviewGestures(props.previewFrameEl ?? null, {
     enabled: previewGesturesEnabled,
     allowPeek: !compareSplitOpen && !lutBrowserOpen && !moreOpen,
@@ -239,7 +302,8 @@ export function MobileLabChrome(props: {
         closeSheets()
         return
       }
-      setImmersive((v) => !v)
+      if (immersive) exitImmersive()
+      else enterImmersive()
     },
   })
   const resolvedLutProfile = getResolvedProfile(
@@ -518,7 +582,7 @@ export function MobileLabChrome(props: {
             key="immersive-show"
             type="button"
             aria-label={t('raw.mobile.immersive.show')}
-            onClick={() => setImmersive(false)}
+            onClick={exitImmersive}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
