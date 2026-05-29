@@ -743,20 +743,18 @@ describe('useRawProcessor embedded preview state', () => {
 
     await waitFor(() => {
       expect(result.current.lut?.profileResolution).toEqual({
-        kind: 'needs-user-selection',
-        recommendations: [],
+        kind: 'unknown',
       })
     })
-    const pendingSelection = {
-      status: 'pending',
+    const unknownSelection = {
+      status: 'unknown',
       fingerprint: result.current.lut?.fingerprint,
       title: 'Client Secret Sauce',
       sourceName: 'unknown-look.cube',
-      recommendations: [],
     }
-    expect(result.current.lutProfileSelection).toEqual(pendingSelection)
+    expect(result.current.lutProfileSelection).toEqual(unknownSelection)
     expect(jotaiStore.get(currentSessionAtom)?.lutProfileSelection).toEqual(
-      pendingSelection,
+      unknownSelection,
     )
 
     const selectedContract = {
@@ -846,7 +844,7 @@ describe('useRawProcessor embedded preview state', () => {
 
     expect(result.current.currentLutName).toBe('Client Secret Sauce')
     expect(result.current.lutProfileSelection).toMatchObject({
-      status: 'pending',
+      status: 'unknown',
       fingerprint: detachedFingerprint,
       title: 'Client Secret Sauce',
     })
@@ -867,7 +865,7 @@ describe('useRawProcessor embedded preview state', () => {
         name: 'Client Secret Sauce',
       },
       lutProfileSelection: {
-        status: 'pending',
+        status: 'unknown',
         fingerprint: detachedFingerprint,
         title: 'Client Secret Sauce',
       },
@@ -890,7 +888,7 @@ describe('useRawProcessor embedded preview state', () => {
         name: 'Client Secret Sauce',
       },
       lutProfileSelection: {
-        status: 'pending',
+        status: 'unknown',
         fingerprint: detachedFingerprint,
         title: 'Client Secret Sauce',
       },
@@ -909,7 +907,7 @@ describe('useRawProcessor embedded preview state', () => {
     })
 
     await waitFor(() => {
-      expect(result.current.lutProfileSelection?.status).toBe('pending')
+      expect(result.current.lutProfileSelection?.status).toBe('unknown')
     })
 
     const fingerprint = result.current.lut!.fingerprint
@@ -921,10 +919,9 @@ describe('useRawProcessor embedded preview state', () => {
     })
 
     expect(result.current.lut?.profileResolution).toEqual({
-      kind: 'needs-user-selection',
-      recommendations: [],
+      kind: 'unknown',
     })
-    expect(result.current.lutProfileSelection?.status).toBe('pending')
+    expect(result.current.lutProfileSelection?.status).toBe('unknown')
     expect(getStoredLUTContractSelection(fingerprint)).toBeUndefined()
 
     await act(async () => {
@@ -948,7 +945,7 @@ describe('useRawProcessor embedded preview state', () => {
     })
 
     await waitFor(() => {
-      expect(result.current.lutProfileSelection?.status).toBe('pending')
+      expect(result.current.lutProfileSelection?.status).toBe('unknown')
     })
 
     const selectedContract = {
@@ -1001,7 +998,7 @@ describe('useRawProcessor embedded preview state', () => {
     })
 
     await waitFor(() => {
-      expect(result.current.lutProfileSelection?.status).toBe('pending')
+      expect(result.current.lutProfileSelection?.status).toBe('unknown')
     })
 
     const selectedContract = {
@@ -1110,12 +1107,11 @@ describe('useRawProcessor embedded preview state', () => {
       title: 'Direct Online LUT',
       sourceName: 'Direct Online LUT',
       profileResolution: {
-        kind: 'needs-user-selection',
-        recommendations: [],
+        kind: 'unknown',
       },
     })
     expect(result.current.lutProfileSelection).toMatchObject({
-      status: 'pending',
+      status: 'unknown',
       title: 'Direct Online LUT',
       sourceName: 'Direct Online LUT',
     })

@@ -98,10 +98,9 @@ function readyExportState(): ImageSession['exportState'] {
 describe('look session state transitions', () => {
   it('applies a custom look and LUT profile selection while clearing a ready export when requested', () => {
     const selection = {
-      status: 'pending' as const,
+      status: 'unknown' as const,
       fingerprint: 'lut-fingerprint',
       title: 'Client LUT',
-      recommendations: [],
     }
     const session = createSession({ exportState: readyExportState() })
     const style = createStyle()
@@ -127,10 +126,9 @@ describe('look session state transitions', () => {
     const session = createSession({
       activeStyle: createStyle(),
       lutProfileSelection: {
-        status: 'pending',
+        status: 'unknown',
         fingerprint: 'previous',
         title: 'Previous LUT',
-        recommendations: [],
       },
       exportState: readyExportState(),
     })
@@ -196,10 +194,9 @@ describe('look session state transitions', () => {
     const session = createSession({
       activeStyle: createStyle(),
       lutProfileSelection: {
-        status: 'pending',
+        status: 'unknown',
         fingerprint: 'lut-fingerprint',
         title: 'Client LUT',
-        recommendations: [],
       },
       exportState: readyExportState(),
     })

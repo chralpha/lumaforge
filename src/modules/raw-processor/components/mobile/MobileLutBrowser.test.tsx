@@ -538,14 +538,14 @@ describe('mobileLutBrowser', () => {
         initialContractEditorOpen
         currentLutName="unknown-client-look.cube"
         lutProfileSelection={{
-          status: 'pending',
+          status: 'recommended',
           fingerprint: 'lut-fingerprint',
           title: 'Unknown client look',
           sourceName: 'unknown-client-look.cube',
           recommendations: [panasonic],
         }}
         lutProfileResolution={{
-          kind: 'needs-user-selection',
+          kind: 'recommended',
           recommendations: [panasonic],
         }}
       />,
@@ -606,14 +606,14 @@ describe('mobileLutBrowser', () => {
         {...baseProps}
         currentLutName="unknown-client-look.cube"
         lutProfileSelection={{
-          status: 'pending',
+          status: 'recommended',
           fingerprint: 'lut-fingerprint',
           title: 'Unknown client look',
           sourceName: 'unknown-client-look.cube',
           recommendations: [getLUTColorProfile('panasonic-vgamut-vlog')!],
         }}
         lutProfileResolution={{
-          kind: 'needs-user-selection',
+          kind: 'recommended',
           recommendations: [getLUTColorProfile('panasonic-vgamut-vlog')!],
         }}
       />,
@@ -652,14 +652,14 @@ describe('mobileLutBrowser', () => {
         initialContractEditorOpen
         currentLutName="unknown-client-look.cube"
         lutProfileSelection={{
-          status: 'pending',
+          status: 'recommended',
           fingerprint: 'lut-fingerprint',
           title: 'Unknown client look',
           sourceName: 'unknown-client-look.cube',
           recommendations: [getLUTColorProfile('panasonic-vgamut-vlog')!],
         }}
         lutProfileResolution={{
-          kind: 'needs-user-selection',
+          kind: 'recommended',
           recommendations: [getLUTColorProfile('panasonic-vgamut-vlog')!],
         }}
       />,
@@ -681,14 +681,14 @@ describe('mobileLutBrowser', () => {
         {...baseProps}
         currentLutName="unknown-client-look.cube"
         lutProfileSelection={{
-          status: 'pending',
+          status: 'recommended',
           fingerprint: 'lut-fingerprint',
           title: 'Unknown client look',
           sourceName: 'unknown-client-look.cube',
           recommendations: [getLUTColorProfile('panasonic-vgamut-vlog')!],
         }}
         lutProfileResolution={{
-          kind: 'needs-user-selection',
+          kind: 'recommended',
           recommendations: [getLUTColorProfile('panasonic-vgamut-vlog')!],
         }}
         onLutProfileSelect={onLutProfileSelect}
@@ -752,14 +752,14 @@ describe('mobileLutBrowser', () => {
         initialContractEditorOpen
         currentLutName="unknown-client-look.cube"
         lutProfileSelection={{
-          status: 'pending',
+          status: 'recommended',
           fingerprint: 'lut-fingerprint',
           title: 'Unknown client look',
           sourceName: 'unknown-client-look.cube',
           recommendations: [panasonic],
         }}
         lutProfileResolution={{
-          kind: 'needs-user-selection',
+          kind: 'recommended',
           recommendations: [panasonic],
         }}
         onLutProfileSelect={onLutProfileSelect}
@@ -827,14 +827,14 @@ describe('mobileLutBrowser', () => {
         initialContractEditorOpen
         currentLutName="unknown-client-look.cube"
         lutProfileSelection={{
-          status: 'pending',
+          status: 'recommended',
           fingerprint: 'lut-fingerprint',
           title: 'Unknown client look',
           sourceName: 'unknown-client-look.cube',
           recommendations: [panasonic],
         }}
         lutProfileResolution={{
-          kind: 'needs-user-selection',
+          kind: 'recommended',
           recommendations: [panasonic],
         }}
       />,

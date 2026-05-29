@@ -360,8 +360,7 @@ describe('resolveExportColorGraph', () => {
         domainMax: [1, 1, 1],
         inputProfile: 'display-srgb',
         profileResolution: {
-          kind: 'needs-user-selection',
-          recommendations: [],
+          kind: 'unknown',
         },
       },
     })

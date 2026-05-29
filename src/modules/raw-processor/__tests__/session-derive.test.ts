@@ -210,9 +210,8 @@ describe('session derivation', () => {
           format: 'cube',
           dimension: 33,
           profileResolution: {
-            kind: 'needs-user-selection',
+            kind: 'unsupported-output',
             recommendations: [],
-            reason: 'unsupported-output',
           },
         },
       },

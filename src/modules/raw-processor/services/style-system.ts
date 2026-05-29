@@ -61,21 +61,38 @@ function describeLUTContract(profileResolution: LUTContractResolution): string {
 export function buildLUTContractSelectionState(
   lut: ParsedLUT,
 ): LUTContractSelectionState {
-  if (lut.profileResolution.kind === 'needs-user-selection') {
+  const resolution = lut.profileResolution
+  if (resolution.kind === 'confirmed') {
     return {
-      status: 'pending',
+      status: 'confirmed',
+      fingerprint: lut.fingerprint,
+      profileId: resolution.profile.id,
+      confidence: resolution.confidence,
+    }
+  }
+  if (resolution.kind === 'recommended') {
+    return {
+      status: 'recommended',
       fingerprint: lut.fingerprint,
       title: lut.title,
       sourceName: lut.sourceName,
-      recommendations: lut.profileResolution.recommendations,
+      recommendations: resolution.recommendations,
     }
   }
-
+  if (resolution.kind === 'unsupported-output') {
+    return {
+      status: 'unsupported-output',
+      fingerprint: lut.fingerprint,
+      title: lut.title,
+      sourceName: lut.sourceName,
+      recommendations: resolution.recommendations,
+    }
+  }
   return {
-    status: 'confirmed',
+    status: 'unknown',
     fingerprint: lut.fingerprint,
-    profileId: lut.profileResolution.profile.id,
-    confidence: lut.profileResolution.confidence,
+    title: lut.title,
+    sourceName: lut.sourceName,
   }
 }
 

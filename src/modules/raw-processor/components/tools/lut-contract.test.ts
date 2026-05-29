@@ -7,8 +7,7 @@ import { getContractAttentionState } from './lut-contract'
 describe('getContractAttentionState', () => {
   it('flags needs-user-selection when resolution is unresolved', () => {
     const state = getContractAttentionState(null, {
-      kind: 'needs-user-selection',
-      recommendations: [],
+      kind: 'unknown',
     })
 
     expect(state).toEqual({
@@ -21,8 +20,7 @@ describe('getContractAttentionState', () => {
 
   it('flags unsupported-output when that is the reason', () => {
     const state = getContractAttentionState(null, {
-      kind: 'needs-user-selection',
-      reason: 'unsupported-output',
+      kind: 'unsupported-output',
       recommendations: [],
     })
 

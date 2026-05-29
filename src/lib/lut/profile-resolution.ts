@@ -530,24 +530,21 @@ export function resolveLUTProfile(input: {
   }
 
   const inputProfileInput = buildInputProfileInput(input)
-  const suggestions = uniqueProfiles(
+  const recommendations = uniqueProfiles(
     inferLUTColorProfileHints(inputProfileInput).map((profile) =>
       annotateProfileOutput(profile, signature),
     ),
   )
 
   if (hasUnsupportedOutputAnnotation(signature)) {
-    return {
-      kind: 'needs-user-selection',
-      reason: 'unsupported-output',
-      recommendations: suggestions,
-    }
+    return { kind: 'unsupported-output', recommendations }
   }
 
-  return {
-    kind: 'needs-user-selection',
-    recommendations: suggestions,
+  if (recommendations.length > 0) {
+    return { kind: 'recommended', recommendations }
   }
+
+  return { kind: 'unknown' }
 }
 
 export function toCompatInputProfile(

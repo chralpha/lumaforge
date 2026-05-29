@@ -36,7 +36,7 @@ function deriveUnsupportedExportPipelineReason(
     return resolveUnsupportedLUTOutputReason(profileResolution.profile)
   }
 
-  if (profileResolution.reason === 'unsupported-output') {
+  if (profileResolution.kind === 'unsupported-output') {
     return 'This LUT output transfer is not supported by full-resolution JPEG export.'
   }
 

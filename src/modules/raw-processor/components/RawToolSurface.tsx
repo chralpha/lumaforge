@@ -262,7 +262,7 @@ export function RawToolSurface(props: {
   const lutResolved =
     props.lutProfileResolution?.kind === 'confirmed'
       ? props.lutProfileResolution.profile.role
-      : props.lutProfileResolution?.kind === 'needs-user-selection'
+      : props.lutProfileResolution
         ? t('raw.histogram.notLoaded')
         : '—'
   const moreSheet = {

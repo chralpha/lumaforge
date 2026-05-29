@@ -209,12 +209,14 @@ function LUTProfileStatus({
   const resolvedProfile = getResolvedProfile(selection, resolution)
   const outputLabel = getProfileOutputLabel(resolvedProfile)
   const needsOutputContract = outputLabel === 'Output profile required'
-  const isPending = selection?.status === 'pending'
-  const isUnsupportedOutput =
-    resolution?.kind === 'needs-user-selection' &&
-    resolution.reason === 'unsupported-output'
+  const isPending = selection != null && selection.status !== 'confirmed'
+  const isUnsupportedOutput = resolution?.kind === 'unsupported-output'
   const suggestions =
-    selection?.status === 'pending' ? selection.recommendations : []
+    selection &&
+    (selection.status === 'recommended' ||
+      selection.status === 'unsupported-output')
+      ? selection.recommendations
+      : []
   const activeProfileId =
     selection?.status === 'confirmed'
       ? selection.profileId

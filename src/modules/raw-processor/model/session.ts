@@ -51,13 +51,6 @@ export type ActiveExportPlanState = {
 
 export type LUTContractSelectionState =
   | {
-      status: 'pending'
-      fingerprint: string
-      title: string
-      sourceName?: string
-      recommendations: LUTColorProfile[]
-    }
-  | {
       status: 'confirmed'
       fingerprint: string
       profileId: string
@@ -65,6 +58,26 @@ export type LUTContractSelectionState =
         LUTContractResolution,
         { kind: 'confirmed' }
       >['confidence']
+    }
+  | {
+      status: 'recommended'
+      fingerprint: string
+      title: string
+      sourceName?: string
+      recommendations: LUTColorProfile[]
+    }
+  | {
+      status: 'unknown'
+      fingerprint: string
+      title: string
+      sourceName?: string
+    }
+  | {
+      status: 'unsupported-output'
+      fingerprint: string
+      title: string
+      sourceName?: string
+      recommendations: LUTColorProfile[]
     }
 
 export type PreviewAsset = {

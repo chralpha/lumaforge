@@ -106,7 +106,7 @@ describe('lUT profile selection persistence', () => {
         fingerprint: 'legacy',
       }),
     ).toMatchObject({
-      kind: 'needs-user-selection',
+      kind: 'recommended',
     })
   })
 
@@ -209,12 +209,10 @@ describe('lUT explicit profile labels', () => {
       comments: ['LUMIXPHOTOSTYLE VLOG'],
     })
 
-    expect(resolution).toMatchObject({
-      kind: 'needs-user-selection',
-    })
     expect(resolution).not.toMatchObject({
       kind: 'confirmed',
     })
+    expect(resolution.kind).not.toBe('confirmed')
   })
 
   it('resolves structured metadata as a full input and output contract', () => {
@@ -260,9 +258,7 @@ describe('lUT explicit profile labels', () => {
       ],
     })
 
-    expect(resolution).toMatchObject({
-      kind: 'needs-user-selection',
-    })
+    expect(resolution.kind).not.toBe('confirmed')
     expect(resolution).not.toMatchObject({
       kind: 'confirmed',
     })
@@ -278,9 +274,7 @@ describe('lUT explicit profile labels', () => {
       ],
     })
 
-    expect(resolution).toMatchObject({
-      kind: 'needs-user-selection',
-    })
+    expect(resolution.kind).not.toBe('confirmed')
     expect(resolution).not.toMatchObject({
       kind: 'confirmed',
     })
@@ -299,9 +293,7 @@ describe('lUT explicit profile labels', () => {
       ],
     })
 
-    expect(resolution).toMatchObject({
-      kind: 'needs-user-selection',
-    })
+    expect(resolution.kind).not.toBe('confirmed')
     expect(resolution).not.toMatchObject({
       kind: 'confirmed',
     })
@@ -314,7 +306,7 @@ describe('lUT explicit profile labels', () => {
         comments: ['Input profile: V-Log'],
       }),
     ).toMatchObject({
-      kind: 'needs-user-selection',
+      kind: 'recommended',
       recommendations: expect.arrayContaining([
         expect.objectContaining({ id: 'panasonic-vgamut-vlog' }),
       ]),
@@ -331,10 +323,7 @@ describe('lUT explicit profile labels', () => {
       kind: 'confirmed',
       profile: { id: 'panasonic-vgamut-vlog' },
     })
-    expect(resolution).toMatchObject({
-      kind: 'needs-user-selection',
-      recommendations: [],
-    })
+    expect(resolution.kind).toBe('unknown')
   })
 
   it('does not resolve target profile labels as input profiles', () => {
@@ -343,10 +332,7 @@ describe('lUT explicit profile labels', () => {
       comments: ['Target profile = VLog'],
     })
 
-    expect(resolution).toMatchObject({
-      kind: 'needs-user-selection',
-      recommendations: [],
-    })
+    expect(resolution.kind).toBe('unknown')
   })
 
   it('does not resolve destination profile labels as input profiles', () => {
@@ -355,10 +341,7 @@ describe('lUT explicit profile labels', () => {
       comments: ['Destination profile: V-Log'],
     })
 
-    expect(resolution).toMatchObject({
-      kind: 'needs-user-selection',
-      recommendations: [],
-    })
+    expect(resolution.kind).toBe('unknown')
   })
 
   it('does not resolve bare profile labels as input profiles', () => {
@@ -367,10 +350,7 @@ describe('lUT explicit profile labels', () => {
       comments: ['Profile: V-Log'],
     })
 
-    expect(resolution).toMatchObject({
-      kind: 'needs-user-selection',
-      recommendations: [],
-    })
+    expect(resolution.kind).toBe('unknown')
   })
 
   it('ignores mixed-case output-side to markers for input inference', () => {
@@ -380,10 +360,7 @@ describe('lUT explicit profile labels', () => {
       comments: [],
     })
 
-    expect(resolution).toMatchObject({
-      kind: 'needs-user-selection',
-      recommendations: [],
-    })
+    expect(resolution.kind).toBe('unknown')
   })
 
   it('ignores mixed-case output-side for markers for input inference', () => {
@@ -393,10 +370,7 @@ describe('lUT explicit profile labels', () => {
       comments: [],
     })
 
-    expect(resolution).toMatchObject({
-      kind: 'needs-user-selection',
-      recommendations: [],
-    })
+    expect(resolution.kind).toBe('unknown')
   })
 
   it('does not resolve unsupported Cineon output annotations as renderable profiles', () => {
@@ -406,8 +380,8 @@ describe('lUT explicit profile labels', () => {
       comments: [],
     })
 
-    expect(resolution.kind).toBe('needs-user-selection')
-    if (resolution.kind !== 'needs-user-selection') {
+    expect(resolution.kind).toBe('unsupported-output')
+    if (resolution.kind !== 'unsupported-output') {
       throw new Error('Expected Cineon LUT to require profile selection')
     }
     expect(resolution.recommendations).toEqual(
@@ -437,8 +411,7 @@ describe('lUT explicit profile labels', () => {
       })
 
       expect(resolution).toMatchObject({
-        kind: 'needs-user-selection',
-        reason: 'unsupported-output',
+        kind: 'unsupported-output',
       })
     }
   })

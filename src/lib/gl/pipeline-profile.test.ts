@@ -88,11 +88,9 @@ describe('lUT pipeline profile uniforms', () => {
 
   it('marks unresolved profile choices as not renderable', () => {
     const resolution = {
-      kind: 'needs-user-selection',
-      recommendations: [],
+      kind: 'unknown',
     } as const satisfies {
-      kind: 'needs-user-selection'
-      recommendations: LUTColorProfile[]
+      kind: 'unknown'
     }
     const uniforms = resolveLUTPipelineProfileUniforms(resolution)
 
@@ -194,8 +192,7 @@ describe('lUT pipeline profile uniforms', () => {
   it('marks unsupported output resolutions as not renderable', () => {
     expect(
       isLUTProfileRenderable({
-        kind: 'needs-user-selection',
-        reason: 'unsupported-output',
+        kind: 'unsupported-output',
         recommendations: [],
       }),
     ).toBe(false)

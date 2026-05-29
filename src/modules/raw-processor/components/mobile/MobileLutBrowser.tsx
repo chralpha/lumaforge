@@ -187,13 +187,14 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     return issues
   }, [props.onlineLutSources?.state.issues])
 
-  const profileSuggestions = useMemo(
-    () =>
-      props.lutProfileResolution?.kind === 'needs-user-selection'
-        ? props.lutProfileResolution.recommendations
-        : [],
-    [props.lutProfileResolution],
-  )
+  const profileSuggestions = useMemo(() => {
+    const resolution = props.lutProfileResolution
+    return resolution &&
+      (resolution.kind === 'recommended' ||
+        resolution.kind === 'unsupported-output')
+      ? resolution.recommendations
+      : []
+  }, [props.lutProfileResolution])
   const resolvedProfile = getResolvedProfile(
     props.lutProfileSelection,
     props.lutProfileResolution,

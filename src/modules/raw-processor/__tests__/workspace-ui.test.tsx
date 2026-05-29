@@ -666,13 +666,13 @@ describe('rawToolSurface', () => {
         {...rawToolSurfaceProps({
           currentLutName: 'Sony Look.cube',
           lutProfileSelection: {
-            status: 'pending',
+            status: 'recommended',
             fingerprint: 'abc123',
             title: 'Sony Look',
             recommendations: [profile],
           },
           lutProfileResolution: {
-            kind: 'needs-user-selection',
+            kind: 'recommended',
             recommendations: [profile],
           },
           onLutProfileSelect,
@@ -947,15 +947,13 @@ describe('rawToolSurface', () => {
         {...rawToolSurfaceProps({
           currentLutName: 'Unknown Look.cube',
           lutProfileSelection: {
-            status: 'pending',
+            status: 'unknown',
             fingerprint: 'def456',
             title: 'Unknown Look',
             sourceName: 'Unknown Look.cube',
-            recommendations: [],
           },
           lutProfileResolution: {
-            kind: 'needs-user-selection',
-            recommendations: [],
+            kind: 'unknown',
           },
           onLutProfileSelect,
         })}
@@ -1040,13 +1038,13 @@ describe('rawToolSurface', () => {
         {...rawToolSurfaceProps({
           currentLutName: 'Unknown Look.cube',
           lutProfileSelection: {
-            status: 'pending',
+            status: 'recommended',
             fingerprint: 'ghi789',
             title: 'Unknown Look',
             recommendations: [suggestion],
           },
           lutProfileResolution: {
-            kind: 'needs-user-selection',
+            kind: 'recommended',
             recommendations: [suggestion],
           },
           onLutProfileSelect,
@@ -1081,15 +1079,14 @@ describe('rawToolSurface', () => {
         {...rawToolSurfaceProps({
           currentLutName: 'Cineon Output.cube',
           lutProfileSelection: {
-            status: 'pending',
+            status: 'unsupported-output',
             fingerprint: 'jkl012',
             title: 'Cineon Output',
             recommendations: [suggestion],
           },
           lutProfileResolution: {
-            kind: 'needs-user-selection',
+            kind: 'unsupported-output',
             recommendations: [suggestion],
-            reason: 'unsupported-output',
           },
         })}
       />,

@@ -29,9 +29,13 @@ export function LUTProfileStatus({
   const resolvedProfile = getResolvedProfile(selection, resolution)
   const outputLabel = getProfileOutputLabel(resolvedProfile)
   const attention = getContractAttentionState(selection, resolution)
-  const isPending = selection?.status === 'pending'
-  const suggestions =
-    selection?.status === 'pending' ? selection.recommendations : []
+  const isPending = selection != null && selection.status !== 'confirmed'
+  const recommendations =
+    selection &&
+    (selection.status === 'recommended' ||
+      selection.status === 'unsupported-output')
+      ? selection.recommendations
+      : []
   const [browserOpen, setBrowserOpen] = useState(false)
   const browserId = useId()
   const triggerRef = useRef<HTMLButtonElement | null>(null)
@@ -117,7 +121,7 @@ export function LUTProfileStatus({
       <LUTContractBrowser
         open={browserOpen}
         onClose={handleClose}
-        suggestions={suggestions}
+        suggestions={recommendations}
         currentProfile={resolvedProfile}
         onSelect={onSelect}
         browserId={browserId}

@@ -86,8 +86,7 @@ describe('cube-parser input profiles', () => {
     })
 
     expect(lut.profileResolution).toEqual({
-      kind: 'needs-user-selection',
-      recommendations: [],
+      kind: 'unknown',
     })
     expect(lut.inputProfile).toBe('display-srgb')
   })
@@ -98,9 +97,7 @@ describe('cube-parser input profiles', () => {
       { sourceName: 'technical-vlog-to-rec709.cube' },
     )
 
-    expect(lut.profileResolution).toMatchObject({
-      kind: 'needs-user-selection',
-    })
+    expect(lut.profileResolution.kind).not.toBe('confirmed')
     expect(lut.profileResolution).not.toMatchObject({
       kind: 'confirmed',
     })
@@ -147,9 +144,7 @@ describe('cube-parser input profiles', () => {
       { sourceName: 'Panasonic_VLog.cube' },
     )
 
-    expect(lut.profileResolution).toMatchObject({
-      kind: 'needs-user-selection',
-    })
+    expect(lut.profileResolution.kind).not.toBe('confirmed')
     expect(lut.profileResolution).not.toMatchObject({
       kind: 'confirmed',
     })
@@ -182,7 +177,7 @@ describe('cube-parser input profiles', () => {
     )
 
     expect(lut.profileResolution).toMatchObject({
-      kind: 'needs-user-selection',
+      kind: 'recommended',
       recommendations: expect.arrayContaining([
         expect.objectContaining({ id: 'panasonic-vgamut-vlog' }),
       ]),
@@ -191,7 +186,7 @@ describe('cube-parser input profiles', () => {
     expect(toLUTData(lut)).toMatchObject({
       inputProfile: 'display-srgb',
       profileResolution: {
-        kind: 'needs-user-selection',
+        kind: 'recommended',
       },
     })
   })
@@ -202,7 +197,7 @@ describe('cube-parser input profiles', () => {
     })
 
     expect(lut.profileResolution).toMatchObject({
-      kind: 'needs-user-selection',
+      kind: 'recommended',
       recommendations: expect.arrayContaining([
         expect.objectContaining({
           id: 'sony-sgamut3cine-slog3',
@@ -222,7 +217,7 @@ describe('cube-parser input profiles', () => {
     })
 
     expect(lut.profileResolution).toMatchObject({
-      kind: 'needs-user-selection',
+      kind: 'recommended',
       recommendations: expect.arrayContaining([
         expect.objectContaining({
           id: 'sony-sgamut3cine-slog3',
@@ -259,7 +254,7 @@ describe('cube-parser input profiles', () => {
 
     for (const lut of [bt709, bt1886]) {
       expect(lut.profileResolution).toMatchObject({
-        kind: 'needs-user-selection',
+        kind: 'recommended',
         recommendations: expect.arrayContaining([
           expect.objectContaining({
             id: 'sony-sgamut3cine-slog3',
@@ -279,7 +274,7 @@ describe('cube-parser input profiles', () => {
     })
 
     expect(linear.profileResolution).toMatchObject({
-      kind: 'needs-user-selection',
+      kind: 'recommended',
       recommendations: expect.arrayContaining([
         expect.objectContaining({
           id: 'sony-sgamut3cine-slog3',
@@ -296,11 +291,10 @@ describe('cube-parser input profiles', () => {
       sourceName: 'SLog3_SGamut3Cine_to_Cineon.cube',
     })
 
-    expect(cineon.profileResolution.kind).toBe('needs-user-selection')
-    if (cineon.profileResolution.kind !== 'needs-user-selection') {
+    expect(cineon.profileResolution.kind).toBe('unsupported-output')
+    if (cineon.profileResolution.kind !== 'unsupported-output') {
       throw new Error('Expected Cineon LUT to require profile selection')
     }
-    expect(cineon.profileResolution.reason).toBe('unsupported-output')
     expect(cineon.profileResolution.recommendations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'sony-sgamut3cine-slog3' }),

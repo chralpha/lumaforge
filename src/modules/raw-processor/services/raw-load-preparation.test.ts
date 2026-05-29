@@ -101,11 +101,10 @@ describe('raw load preparation', () => {
       currentIntensityLevel: 'standard',
     })
     expect(prepared.retainedSessionState.lutProfileSelection).toEqual({
-      status: 'pending',
+      status: 'unknown',
       fingerprint: lut.fingerprint,
       title: 'Client LUT',
       sourceName: 'client.cube',
-      recommendations: [],
     })
     expect(prepared.processingParamsPatch).toMatchObject({
       intensity: 0.7,

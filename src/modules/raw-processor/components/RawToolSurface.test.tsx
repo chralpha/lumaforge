@@ -839,14 +839,12 @@ describe('rawToolSurface', () => {
         {...baseProps}
         currentLutName="Unknown Look.cube"
         lutProfileSelection={{
-          status: 'pending',
+          status: 'unknown',
           fingerprint: 'lut-contract-materials',
           title: 'Unknown Look',
-          recommendations: [],
         }}
         lutProfileResolution={{
-          kind: 'needs-user-selection',
-          recommendations: [],
+          kind: 'unknown',
         }}
       />,
     )
@@ -926,13 +924,13 @@ describe('rawToolSurface', () => {
         {...baseProps}
         currentLutName="stable-catalog-look.cube"
         lutProfileSelection={{
-          status: 'pending',
+          status: 'recommended',
           fingerprint: 'stable-catalog-look',
           title: 'Stable catalog look',
           recommendations: [sonyProfile, panasonicProfile],
         }}
         lutProfileResolution={{
-          kind: 'needs-user-selection',
+          kind: 'recommended',
           recommendations: [sonyProfile, panasonicProfile],
         }}
       />,

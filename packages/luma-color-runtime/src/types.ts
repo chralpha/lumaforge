@@ -31,11 +31,9 @@ export type LUTContractResolution =
       profile: LUTColorProfile
       confidence: 'metadata' | 'user' | 'persisted-user'
     }
-  | {
-      kind: 'needs-user-selection'
-      recommendations: LUTColorProfile[]
-      reason?: 'unsupported-output'
-    }
+  | { kind: 'recommended'; recommendations: LUTColorProfile[] }
+  | { kind: 'unknown' }
+  | { kind: 'unsupported-output'; recommendations: LUTColorProfile[] }
 
 export interface LumaColorLUTData {
   size: number

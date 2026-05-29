@@ -90,10 +90,9 @@ describe('createImageSession', () => {
       },
     }
     const lutProfileSelection: LUTContractSelectionState = {
-      status: 'pending',
+      status: 'unknown',
       fingerprint: 'lut-fingerprint',
       title: 'Client LUT',
-      recommendations: [],
     }
 
     const session = createImageSession(new File(['raw'], 'frame.RAF'), {

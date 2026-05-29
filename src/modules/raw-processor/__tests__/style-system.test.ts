@@ -42,12 +42,8 @@ describe('style-system', () => {
     expect(style.warning).toBe(
       'Choose the LUT input and output contract before preview or export.',
     )
-    expect(style.lutAsset).toMatchObject({
-      inputProfile: 'display-srgb',
-      profileResolution: {
-        kind: 'needs-user-selection',
-      },
-    })
+    expect(style.lutAsset?.inputProfile).toBe('display-srgb')
+    expect(style.lutAsset?.profileResolution?.kind).not.toBe('confirmed')
   })
 
   it('labels V-Log custom LUT styles with their resolved contract', () => {
@@ -78,17 +74,16 @@ describe('style-system', () => {
     })
   })
 
-  it('builds a pending LUT profile selection state for unresolved LUTs', () => {
+  it('builds an unknown LUT profile selection state for unresolved LUTs', () => {
     const lut = parseCubeLUT(makeCube('Client Secret Sauce'), {
       sourceName: 'unknown-look.cube',
     })
 
     expect(buildLUTContractSelectionState(lut)).toEqual({
-      status: 'pending',
+      status: 'unknown',
       fingerprint: lut.fingerprint,
       title: 'Client Secret Sauce',
       sourceName: 'unknown-look.cube',
-      recommendations: [],
     })
   })
 })

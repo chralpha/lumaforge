@@ -330,7 +330,8 @@ export function MobileLabChrome(props: {
   const displayLutOutputLabel =
     lutOutputLabel && !lutNeedsOutput ? lutOutputLabel : undefined
   const lutNeedsUserSelection =
-    props.lutBrowser.lutProfileResolution?.kind === 'needs-user-selection'
+    props.lutBrowser.lutProfileResolution != null &&
+    props.lutBrowser.lutProfileResolution.kind !== 'confirmed'
   const lutContractWarningLabel = lutNeedsUserSelection
     ? t('raw.mobile.lut.chooseContract')
     : lutNeedsOutput

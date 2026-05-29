@@ -341,15 +341,13 @@ describe('mobileLabChrome', () => {
           ...base.lutBrowser,
           currentLutName: 'unknown-look.cube',
           lutProfileSelection: {
-            status: 'pending',
+            status: 'unknown',
             fingerprint: 'lut-fingerprint',
             title: 'Unknown look',
             sourceName: 'unknown-look.cube',
-            recommendations: [],
           },
           lutProfileResolution: {
-            kind: 'needs-user-selection',
-            recommendations: [],
+            kind: 'unknown',
           },
         }}
       />,

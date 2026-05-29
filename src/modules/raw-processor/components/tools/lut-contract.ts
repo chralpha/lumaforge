@@ -171,10 +171,9 @@ export function getContractAttentionState(
   const resolvedProfile = getResolvedProfile(selection, resolution)
   const outputLabel = getProfileOutputLabel(resolvedProfile)
   const needsOutputContract = outputLabel === 'Output profile required'
-  const needsUserSelection = resolution?.kind === 'needs-user-selection'
-  const unsupportedOutput =
-    resolution?.kind === 'needs-user-selection' &&
-    resolution.reason === 'unsupported-output'
+  const needsUserSelection =
+    resolution != null && resolution.kind !== 'confirmed'
+  const unsupportedOutput = resolution?.kind === 'unsupported-output'
 
   return {
     needsUserSelection,
