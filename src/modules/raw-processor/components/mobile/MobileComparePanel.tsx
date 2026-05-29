@@ -1,7 +1,8 @@
 import { Eye, RotateCcw, SplitSquareHorizontal } from 'lucide-react'
-import { m } from 'motion/react'
+import { m, useReducedMotion } from 'motion/react'
 
 import { useI18n } from '~/lib/i18n'
+import { surfaceFade } from '~/lib/spring'
 
 import { TAP_SPRING } from '../../motion'
 
@@ -15,10 +16,16 @@ export function MobileComparePanel({
   onSplitOpenChange: (open: boolean) => void
 }) {
   const { t } = useI18n()
+  const prefersReduced = useReducedMotion() ?? false
+  const enterY = prefersReduced ? 0 : 6
 
   if (splitOpen) {
     return (
-      <section
+      <m.section
+        key="split"
+        initial={{ opacity: 0, y: enterY }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={surfaceFade}
         aria-label={t('raw.compare.title')}
         className="grid gap-3 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg p-3.5 text-lf-hero-ink"
         data-mobile-compare-panel="split"
@@ -58,12 +65,16 @@ export function MobileComparePanel({
             {t('raw.compare.reset')}
           </m.button>
         </div>
-      </section>
+      </m.section>
     )
   }
 
   return (
-    <section
+    <m.section
+      key="peek"
+      initial={{ opacity: 0, y: enterY }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={surfaceFade}
       aria-label={t('raw.compare.title')}
       className="grid gap-3 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg p-3.5 text-lf-hero-ink"
       data-mobile-compare-panel="peek"
@@ -91,6 +102,6 @@ export function MobileComparePanel({
         <SplitSquareHorizontal aria-hidden="true" className="size-4" />
         {t('raw.mobile.compare.split')}
       </m.button>
-    </section>
+    </m.section>
   )
 }
