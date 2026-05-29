@@ -95,7 +95,10 @@ const TRANSFER_SOURCE_URLS: Record<TransferFunctionId, string> = {
  * S-Log2 encoding (Sony)
  */
 export function sLog2Encode(linear: number): number {
-  const reflectedLinear = 0.9 * linear
+  // S-Log2 is log-based with a hard real domain limit, so sub-black linear has
+  // no signed extension; clamp to the curve black to stay finite and match the
+  // GLSL encoder for consistent LUT-domain sampling.
+  const reflectedLinear = 0.9 * Math.max(linear, 0)
   return 0.432699 * Math.log10(reflectedLinear + 0.037584) + 0.616596 + 0.03
 }
 
@@ -226,7 +229,9 @@ export function nLogEncode(linear: number): number {
   const cut = 0.328
 
   if (linear < cut) {
-    return Math.pow(linear, 1 / 3) * a + b
+    // Real cube root extends the toe through zero (matching the cubic decode)
+    // instead of going NaN for sub-black linear values.
+    return Math.cbrt(linear) * a + b
   }
   return Math.log(linear) * c + d
 }

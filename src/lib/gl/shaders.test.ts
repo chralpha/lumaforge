@@ -267,7 +267,7 @@ describe('process shader style path', () => {
   )
 
   it.each(PROCESS_SHADER_VARIANTS)(
-    '%s variant dispatches L-Log and clamps N-Log decode to avoid NaN',
+    '%s variant dispatches L-Log and keeps N-Log decode sign-preserving without NaN',
     (_name, shader) => {
       expect(shader).toContain('const int TRANSFER_L_LOG = 18')
       expect(shader).toContain('float encodeLLog(float linearValue)')
@@ -282,7 +282,10 @@ describe('process shader style path', () => {
       const nLogDecode = shader.match(
         /float decodeNLog\(float encodedValue\) \{[\s\S]*?\n\}/,
       )?.[0]
-      expect(nLogDecode).toContain(
+      // The cubic decode stays finite for every real input and preserves the
+      // sub-black sign instead of clamping the toe to zero.
+      expect(nLogDecode).toContain('return toe * toe * toe;')
+      expect(nLogDecode).not.toContain(
         'pow(max((encodedValue - 0.0075) / (650.0 / 1023.0), 0.0), 3.0)',
       )
     },

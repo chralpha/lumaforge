@@ -184,17 +184,17 @@ float decodeCanonLog3(float encodedValue) {
 }
 
 float encodeNLog(float linearValue) {
-  float value = max(linearValue, 0.0);
-  if (value < 0.328) {
-    return pow(value, 1.0 / 3.0) * (650.0 / 1023.0) + 0.0075;
+  if (linearValue < 0.328) {
+    return sign(linearValue) * pow(abs(linearValue), 1.0 / 3.0) * (650.0 / 1023.0) + 0.0075;
   }
-  return log(value) * (150.0 / 1023.0) + (619.0 / 1023.0);
+  return log(linearValue) * (150.0 / 1023.0) + (619.0 / 1023.0);
 }
 
 float decodeNLog(float encodedValue) {
   float cut = pow(0.328, 1.0 / 3.0) * (650.0 / 1023.0) + 0.0075;
   if (encodedValue < cut) {
-    return pow(max((encodedValue - 0.0075) / (650.0 / 1023.0), 0.0), 3.0);
+    float toe = (encodedValue - 0.0075) / (650.0 / 1023.0);
+    return toe * toe * toe;
   }
   return exp((encodedValue - (619.0 / 1023.0)) / (150.0 / 1023.0));
 }

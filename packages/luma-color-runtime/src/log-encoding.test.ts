@@ -25,6 +25,9 @@ import {
   log3G10Encode,
   logC4Decode,
   logC4Encode,
+  nLogDecode,
+  nLogEncode,
+  sLog2Encode,
   srgbDecode,
   srgbEncode,
   TRANSFER_FUNCTIONS,
@@ -225,6 +228,20 @@ describe('display and ACES transfer functions', () => {
   it('keeps sRGB transfer signed in the linear toe for LUT-domain math', () => {
     expect(srgbEncode(-0.002)).toBeCloseTo(-0.02584, 8)
     expect(srgbDecode(-0.02584)).toBeCloseTo(-0.002, 8)
+  })
+
+  it('keeps N-Log encode finite and signed through its cube-root toe', () => {
+    const a = 650 / 1023
+    const b = 0.0075
+    expect(Number.isFinite(nLogEncode(-0.001))).toBe(true)
+    expect(nLogEncode(-0.001)).toBeCloseTo(Math.cbrt(-0.001) * a + b, 8)
+    expect(nLogEncode(-0.001)).toBeLessThan(nLogEncode(0))
+    expect(nLogDecode(nLogEncode(-0.001))).toBeCloseTo(-0.001, 8)
+  })
+
+  it('clamps S-Log2 sub-black input to the curve black for safe LUT sampling', () => {
+    expect(Number.isFinite(sLog2Encode(-1))).toBe(true)
+    expect(sLog2Encode(-1)).toBeCloseTo(sLog2Encode(0), 8)
   })
 
   it('matches Apple Log reference points', () => {

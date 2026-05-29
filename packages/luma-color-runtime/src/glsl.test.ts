@@ -83,6 +83,19 @@ describe('gLSL color contract surface', () => {
     )
   })
 
+  it('keeps the N-Log cube-root toe sign-preserving on both encode and decode', () => {
+    expect(LUMA_COLOR_TRANSFER_GLSL).toContain(
+      'return sign(linearValue) * pow(abs(linearValue), 1.0 / 3.0) * (650.0 / 1023.0) + 0.0075;',
+    )
+    expect(LUMA_COLOR_TRANSFER_GLSL).toContain('return toe * toe * toe;')
+    expect(LUMA_COLOR_TRANSFER_GLSL).not.toContain(
+      'float encodeNLog(float linearValue) {\n  float value = max(linearValue, 0.0);',
+    )
+    expect(LUMA_COLOR_TRANSFER_GLSL).not.toContain(
+      'return pow(max((encodedValue - 0.0075) / (650.0 / 1023.0), 0.0), 3.0);',
+    )
+  })
+
   it('declares every role uniform value inside the GLSL LUT snippet', () => {
     for (const [role, value] of Object.entries(LUT_ROLE_UNIFORMS)) {
       expect(LUMA_COLOR_LUT_GLSL).toContain(
