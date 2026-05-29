@@ -227,7 +227,7 @@ export function MobileLabChrome(props: {
   const previewGesturesEnabled = props.hasImage && !handoffActive && !focusKey
   const closeSheets = () => {
     setLutBrowserOpen(false)
-    setLutBrowserStartsInContract(false)
+    setLutBrowserStartsInContract(false) // re-open always starts on the browse tab
     setMoreOpen(false)
   }
   useMobilePreviewGestures(props.previewFrameEl ?? null, {

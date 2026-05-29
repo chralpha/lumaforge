@@ -472,6 +472,9 @@ describe('mobileLabChrome', () => {
       />,
     )
     // Open the LUT browser synchronously, then drive the hold on fake timers.
+    // fireEvent (sync) is intentional: lutBrowserOpen must be set before we
+    // switch to fake timers below. userEvent.click is async and can't be
+    // awaited before vi.useFakeTimers() in the same test.
     fireEvent.click(screen.getByRole('button', { name: /lut browser/i }))
     vi.useFakeTimers()
     act(() => {
