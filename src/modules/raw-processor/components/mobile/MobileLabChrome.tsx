@@ -109,6 +109,7 @@ export function MobileLabChrome(props: {
       clearTimeout(immersiveStaggerTimer.current)
       immersiveStaggerTimer.current = null
     }
+    expandedBeforeImmersive.current = false
     setFocusKey(null)
     setImmersive(false)
     setLutBrowserOpen(false)
@@ -130,6 +131,7 @@ export function MobileLabChrome(props: {
       clearTimeout(immersiveStaggerTimer.current)
       immersiveStaggerTimer.current = null
     }
+    expandedBeforeImmersive.current = false
     setFocusKey(null)
     setImmersive(false)
     setLutBrowserOpen(false)
@@ -160,6 +162,7 @@ export function MobileLabChrome(props: {
       clearTimeout(immersiveStaggerTimer.current)
       immersiveStaggerTimer.current = null
     }
+    expandedBeforeImmersive.current = false
 
     setMode('export')
     setDockExpanded(true)

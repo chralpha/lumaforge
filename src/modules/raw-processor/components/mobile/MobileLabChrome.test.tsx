@@ -63,6 +63,7 @@ describe('mobileLabChrome', () => {
     previewFrameEl = mountPreviewFrame()
   })
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     previewFrameEl.remove()
   })
