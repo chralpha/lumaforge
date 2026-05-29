@@ -202,6 +202,13 @@ export function RawToolSurface(props: {
 
   const renderCards = () => (
     <ToolCardStack ariaLabel={t('raw.tools.aria')}>
+      <ToolCard
+        id="histogram"
+        title={t('raw.histogram.title')}
+        meta={histogramMeta}
+      >
+        <HistogramTool histogram={props.histogram} />
+      </ToolCard>
       <ToolCard id="look" title={t('raw.lutContract.title')}>
         {lutBlock}
       </ToolCard>
@@ -212,13 +219,6 @@ export function RawToolSurface(props: {
           onChange={props.onToneChange}
           onReset={props.onToneReset}
         />
-      </ToolCard>
-      <ToolCard
-        id="histogram"
-        title={t('raw.histogram.title')}
-        meta={histogramMeta}
-      >
-        <HistogramTool histogram={props.histogram} />
       </ToolCard>
       <ToolCard id="compare" title={t('raw.compare.title')}>
         {compareBlock}
