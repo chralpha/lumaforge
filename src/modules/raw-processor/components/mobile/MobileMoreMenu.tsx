@@ -1,9 +1,11 @@
 import type { LucideIcon } from 'lucide-react'
 import { MoreHorizontal } from 'lucide-react'
+import { AnimatePresence, m, useReducedMotion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 
 import { IconButton } from '~/components/ui/button'
 import { clsxm } from '~/lib/cn'
+import { surfaceFade } from '~/lib/spring'
 
 export type MobileMoreMenuItem =
   | {
@@ -21,6 +23,7 @@ export function MobileMoreMenu(props: {
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+  const prefersReduced = useReducedMotion() ?? false
 
   useEffect(() => {
     if (!open) return
@@ -58,40 +61,56 @@ export function MobileMoreMenu(props: {
             : 'bg-transparent hover:bg-[oklch(0.96_0.006_255/0.06)]',
         )}
       />
-      {open && (
-        <div
-          role="menu"
-          data-mobile-substrate="ink-popover"
-          className="absolute right-0 top-[calc(100%+6px)] z-50 grid min-w-[12.25rem] gap-0.5 rounded-md border border-lf-on-photo-bord-soft bg-[oklch(0.11_0.006_255/0.94)] p-1.5 text-lf-hero-ink shadow-[0_18px_42px_oklch(0.02_0.006_255/0.6)] backdrop-blur-background"
-        >
-          {props.items.map((it, i) =>
-            it.kind === 'separator' ? (
-              <hr
-                key={`sep-${i}`}
-                className="my-1 h-px border-0 bg-lf-on-photo-bord-soft"
-              />
-            ) : (
-              <button
-                key={it.label}
-                disabled={it.disabled}
-                role="menuitem"
-                type="button"
-                onClick={() => {
-                  setOpen(false)
-                  it.onSelect()
-                }}
-                className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[0.82rem] font-semibold text-lf-hero-ink transition-colors hover:bg-lf-on-photo-bg-strong disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                <it.icon
-                  aria-hidden="true"
-                  className="size-[15px] text-lf-hero-ink/68"
+      <AnimatePresence>
+        {open && (
+          <m.div
+            role="menu"
+            data-mobile-substrate="ink-popover"
+            // Pops from the trigger corner with the same restraint as the
+            // desktop tool popovers, instead of hard-cutting onto the photo.
+            initial={{
+              opacity: 0,
+              scale: prefersReduced ? 1 : 0.96,
+              y: prefersReduced ? 0 : -4,
+            }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{
+              opacity: 0,
+              scale: prefersReduced ? 1 : 0.96,
+              y: prefersReduced ? 0 : -4,
+            }}
+            transition={surfaceFade}
+            className="absolute right-0 top-[calc(100%+6px)] z-50 grid min-w-[12.25rem] origin-top-right gap-0.5 rounded-md border border-lf-on-photo-bord-soft bg-[oklch(0.11_0.006_255/0.94)] p-1.5 text-lf-hero-ink shadow-[0_18px_42px_oklch(0.02_0.006_255/0.6)] backdrop-blur-background"
+          >
+            {props.items.map((it, i) =>
+              it.kind === 'separator' ? (
+                <hr
+                  key={`sep-${i}`}
+                  className="my-1 h-px border-0 bg-lf-on-photo-bord-soft"
                 />
-                {it.label}
-              </button>
-            ),
-          )}
-        </div>
-      )}
+              ) : (
+                <button
+                  key={it.label}
+                  disabled={it.disabled}
+                  role="menuitem"
+                  type="button"
+                  onClick={() => {
+                    setOpen(false)
+                    it.onSelect()
+                  }}
+                  className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[0.82rem] font-semibold text-lf-hero-ink transition-colors hover:bg-lf-on-photo-bg-strong disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  <it.icon
+                    aria-hidden="true"
+                    className="size-[15px] text-lf-hero-ink/68"
+                  />
+                  {it.label}
+                </button>
+              ),
+            )}
+          </m.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
