@@ -11,6 +11,12 @@ export const SHEET_SPRING = Spring.smooth(0.32)
 export const BACKDROP_SPRING = Spring.smooth(0.3)
 export const TAP_SPRING = Spring.snappy(0.25)
 
+// Mode-dock panel reveal/collapse, the active-tab indicator slide, and the
+// immersive chrome recede. Lighter than SHEET_SPRING (reserved for full
+// bottom sheets) so frequent dock + chrome transitions settle inside the
+// product-register 200-260ms band instead of reading as a heavy sheet.
+export const DOCK_SPRING = Spring.smooth(0.24)
+
 export function useToolMotion() {
   const prefersReduced = useReducedMotion() ?? false
 
