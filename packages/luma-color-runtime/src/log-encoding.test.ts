@@ -118,6 +118,34 @@ describe('transfer function registry', () => {
     }
   })
 
+  it('keeps every transfer decode finite across the legal-range extended span', () => {
+    // Legal-range LUT output is remapped back through
+    // (value - 64/1023) * 1023/(940-64) before decode, which pushes
+    // sub-legal-black below 0 and super-white above 1. Every decoder must stay
+    // finite there so a legal-range LUT can never inject NaN/Inf into export.
+    const legalScale = 1023 / (940 - 64)
+    const legalOffset = 64 / 1023
+    const removeLegalRange = (value: number) =>
+      (value - legalOffset) * legalScale
+    const probes = [
+      removeLegalRange(0),
+      removeLegalRange(0.18),
+      removeLegalRange(0.5),
+      removeLegalRange(1),
+      -0.1,
+      1.25,
+    ]
+
+    for (const transfer of Object.values(TRANSFER_FUNCTIONS)) {
+      for (const probe of probes) {
+        expect(
+          Number.isFinite(transfer.decode(probe)),
+          `${transfer.id} decode(${probe})`,
+        ).toBe(true)
+      }
+    }
+  })
+
   it('matches every registered transfer reference point through encode and decode', () => {
     for (const transfer of Object.values(TRANSFER_FUNCTIONS)) {
       for (const reference of transfer.referencePoints) {
