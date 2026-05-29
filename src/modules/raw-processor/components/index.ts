@@ -1,6 +1,5 @@
 export * from './ComparePreviewStage'
 export * from './CompareSplitHandle'
-export { ControlsPanel } from './ControlsPanel'
 export {
   Dropzone,
   FileDropzone,
