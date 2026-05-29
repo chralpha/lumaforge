@@ -10,6 +10,13 @@ import { MobileMoreMenu } from './MobileMoreMenu'
 
 const appIcon = '/favicon.png'
 
+// Ghost action style per DESIGN.md §6 Topbar: transparent at rest, lift-medium
+// cool-white wash on hover. No per-button border or fill — three bordered
+// boxes read as competing chips over the photo; the slate scrim below carries
+// legibility instead.
+const ghostAction =
+  'inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md bg-transparent text-lf-hero-ink transition-colors hover:bg-[oklch(0.96_0.006_255/0.06)] [&_svg]:size-5 [&_svg]:stroke-current'
+
 export function MobileTopbar(props: {
   hasImage: boolean
   fileName: string
@@ -25,12 +32,12 @@ export function MobileTopbar(props: {
   return (
     <header
       data-mobile-topbar
-      className="pointer-events-none absolute inset-x-0 top-0 z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 bg-gradient-to-b from-black/80 via-black/45 to-transparent px-3 pb-4 pt-safe-offset-3 text-lf-hero-ink"
+      className="pointer-events-none absolute inset-x-0 top-0 z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 bg-gradient-to-b from-[oklch(0.05_0.006_255/0.82)] via-[oklch(0.05_0.006_255/0.4)] to-transparent px-3 pb-5 pt-safe-offset-3 text-lf-hero-ink"
     >
       <img
         src={appIcon}
         alt=""
-        className="pointer-events-auto size-[26px] shrink-0 rounded-[5px] object-cover shadow-md"
+        className="pointer-events-auto size-6 shrink-0 rounded-[5px] object-cover ring-1 ring-inset ring-[oklch(0.96_0.006_255/0.2)]"
       />
       <div className="pointer-events-auto min-w-0">
         <h1 className="m-0 truncate text-sm font-semibold leading-tight">
@@ -51,8 +58,14 @@ export function MobileTopbar(props: {
           {meta}
         </p>
       </div>
-      <div className="pointer-events-auto inline-flex items-center gap-1.5">
-        <LocaleToggle className="inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md border border-lf-on-photo-bord bg-lf-on-photo-bg px-2.5 text-[0.72rem] font-semibold text-lf-hero-ink transition-colors hover:bg-lf-on-photo-bg-strong [&_span]:leading-none [&_svg]:size-4 [&_svg]:stroke-current" />
+      <div className="pointer-events-auto inline-flex items-center gap-1">
+        <LocaleToggle
+          className={clsxm(ghostAction, 'px-2.5 text-[0.72rem] font-semibold')}
+        />
+        <span
+          aria-hidden="true"
+          className="mx-0.5 h-5 w-px shrink-0 bg-[oklch(0.96_0.006_255/0.14)]"
+        />
         {props.hasImage ? (
           <IconButton
             icon={BarChart3}
@@ -66,10 +79,10 @@ export function MobileTopbar(props: {
             aria-pressed={props.histogramShown}
             onClick={props.onToggleHistogram}
             className={clsxm(
-              'size-11 rounded-md border transition-colors',
+              'size-11 rounded-md transition-colors [&_svg]:size-5 [&_svg]:stroke-current',
               props.histogramShown
-                ? 'border-lf-amber/55 bg-lf-amber/15 text-lf-amber-soft [&_svg]:size-5 [&_svg]:stroke-current'
-                : 'border-lf-on-photo-bord bg-lf-on-photo-bg text-lf-hero-ink [&_svg]:size-5 [&_svg]:stroke-current',
+                ? 'bg-lf-amber/15 text-lf-amber-soft'
+                : 'bg-transparent text-lf-hero-ink hover:bg-[oklch(0.96_0.006_255/0.06)]',
             )}
           />
         ) : (
