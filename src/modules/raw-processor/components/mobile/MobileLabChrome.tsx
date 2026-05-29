@@ -12,12 +12,14 @@ import {
   SlidersHorizontal,
   Wand2,
 } from 'lucide-react'
-import { AnimatePresence, m } from 'motion/react'
+import { AnimatePresence, m, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 
 import { useI18n } from '~/lib/i18n'
+import { surfaceFade } from '~/lib/spring'
 
+import { DOCK_SPRING } from '../../motion'
 import type { RawRuntimeReadinessState } from '../raw-runtime-readiness'
 import { getRawRuntimeReadinessCopy } from '../raw-runtime-readiness'
 import {
@@ -68,6 +70,7 @@ export function MobileLabChrome(props: {
   previewFrameEl?: HTMLDivElement | null
 }) {
   const { t } = useI18n()
+  const prefersReduced = useReducedMotion() ?? false
   const [mode, setMode] = useState<MobileMode>('look')
   const [focusKey, setFocusKey] = useState<keyof ToneValue | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -256,7 +259,7 @@ export function MobileLabChrome(props: {
     setLutBrowserOpen(true)
   }
 
-  const panel =
+  const panelContent =
     mode === 'tone' ? (
       <ToneStripPanel
         tone={props.tone}
@@ -404,6 +407,20 @@ export function MobileLabChrome(props: {
       props.exportPanel
     )
 
+  // Remount on mode change so the incoming panel fades/slides in rather than
+  // swapping instantly. Keyed (not AnimatePresence) keeps the swap robust and
+  // the panel a direct child of the dock frame.
+  const panel = (
+    <m.div
+      key={mode}
+      initial={{ opacity: 0, y: prefersReduced ? 0 : 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={surfaceFade}
+    >
+      {panelContent}
+    </m.div>
+  )
+
   return (
     <div
       className="pointer-events-none absolute inset-0 z-20"
@@ -415,166 +432,205 @@ export function MobileLabChrome(props: {
           affordances. Both are wired via `useMobilePreviewGestures` above so
           they share the same DOM target as pinch / pan and never block it. */}
 
-      {!props.hasImage && (
-        <m.div
-          data-mobile-empty-state
-          data-mobile-empty-variant="toolbar"
-          className="raw-mobile-empty pointer-events-auto"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <div className="raw-mobile-empty-hero" data-mobile-empty-hero>
-            <span className="raw-mobile-empty-mark" aria-hidden="true">
-              <ImageUp className="size-[30px]" strokeWidth={1.6} />
-            </span>
-            <div className="grid gap-2">
-              <h1>{t('raw.onboarding.slogan')}</h1>
-              <p className="raw-mobile-empty-copy">
-                {t('raw.mobile.empty.copy')}
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={
-                props.runtimeReadinessState !== 'ready' &&
-                props.runtimeReadinessState !== undefined
-              }
-              onClick={() => {
-                props.onPrepareRuntime?.()
-                props.onReplaceFile()
-              }}
-              onPointerEnter={props.onPrepareRuntime}
-              onFocus={props.onPrepareRuntime}
-              className="raw-mobile-empty-cta"
-            >
-              <FolderOpen aria-hidden="true" className="size-4" />
-              {t('raw.mobile.empty.browse')}
-            </button>
-            {runtimeReadiness && (
-              <div
-                aria-live="polite"
-                data-raw-runtime-readiness
-                data-state={props.runtimeReadinessState}
-                className="raw-mobile-empty-readiness"
-              >
-                <span
-                  className="raw-mobile-empty-readiness-dot"
-                  aria-hidden="true"
-                />
-                <strong>{runtimeReadiness.label}</strong>
-                <span>{runtimeReadiness.detail}</span>
+      <AnimatePresence>
+        {!props.hasImage && (
+          <m.div
+            key="mobile-empty"
+            data-mobile-empty-state
+            data-mobile-empty-variant="toolbar"
+            className="raw-mobile-empty pointer-events-auto"
+            initial={{ opacity: 0, y: prefersReduced ? 0 : 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: prefersReduced ? 0 : 12 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="raw-mobile-empty-hero" data-mobile-empty-hero>
+              <span className="raw-mobile-empty-mark" aria-hidden="true">
+                <ImageUp className="size-[30px]" strokeWidth={1.6} />
+              </span>
+              <div className="grid gap-2">
+                <h1>{t('raw.onboarding.slogan')}</h1>
+                <p className="raw-mobile-empty-copy">
+                  {t('raw.mobile.empty.copy')}
+                </p>
               </div>
-            )}
-            <div
-              className="raw-mobile-empty-formats"
-              aria-label="Supported RAW formats"
-            >
-              {t('raw.mobile.empty.formats')
-                .split(' ')
-                .map((format) => (
-                  <span key={format}>{format}</span>
-                ))}
+              <button
+                type="button"
+                disabled={
+                  props.runtimeReadinessState !== 'ready' &&
+                  props.runtimeReadinessState !== undefined
+                }
+                onClick={() => {
+                  props.onPrepareRuntime?.()
+                  props.onReplaceFile()
+                }}
+                onPointerEnter={props.onPrepareRuntime}
+                onFocus={props.onPrepareRuntime}
+                className="raw-mobile-empty-cta"
+              >
+                <FolderOpen aria-hidden="true" className="size-4" />
+                {t('raw.mobile.empty.browse')}
+              </button>
+              {runtimeReadiness && (
+                <div
+                  aria-live="polite"
+                  data-raw-runtime-readiness
+                  data-state={props.runtimeReadinessState}
+                  className="raw-mobile-empty-readiness"
+                >
+                  <span
+                    className="raw-mobile-empty-readiness-dot"
+                    aria-hidden="true"
+                  />
+                  <strong>{runtimeReadiness.label}</strong>
+                  <span>{runtimeReadiness.detail}</span>
+                </div>
+              )}
+              <div
+                className="raw-mobile-empty-formats"
+                aria-label="Supported RAW formats"
+              >
+                {t('raw.mobile.empty.formats')
+                  .split(' ')
+                  .map((format) => (
+                    <span key={format}>{format}</span>
+                  ))}
+              </div>
             </div>
-          </div>
-        </m.div>
-      )}
-
-      {immersive && !focusKey && props.hasImage && !handoffActive && (
-        <button
-          type="button"
-          aria-label={t('raw.mobile.immersive.show')}
-          onClick={() => setImmersive(false)}
-          className="pointer-events-auto absolute bottom-safe-offset-4 left-1/2 z-[12] inline-flex min-h-[44px] -translate-x-1/2 items-center justify-center rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-3 text-[0.7rem] font-semibold text-lf-hero-ink/82 backdrop-blur-background transition-colors hover:text-lf-hero-ink"
-        >
-          {t('raw.mobile.immersive.show')}
-        </button>
-      )}
-
-      {peeking && props.hasImage && !handoffActive && (
-        <div className="pointer-events-none absolute left-1/2 top-safe-offset-14 z-[12] -translate-x-1/2 rounded-lf-pill border border-lf-on-photo-bord bg-lf-on-photo-bg-strong px-2.5 py-1.5 text-[0.7rem] font-semibold uppercase tracking-wide text-lf-hero-ink">
-          {t('raw.mobile.peek.hint')}
-        </div>
-      )}
-
-      {histogramOpen &&
-        !focusKey &&
-        !immersive &&
-        props.hasImage &&
-        !handoffActive && (
-          <FloatingHistogramCard histogram={props.histogram} hidden={peeking} />
+          </m.div>
         )}
+      </AnimatePresence>
 
-      {!focusKey && !immersive && (
-        <>
-          <MobileTopbar
-            hasImage={props.hasImage}
-            fileName={props.fileName}
-            fileMeta={props.fileMeta}
-            supportLevel={props.supportLevel}
-            histogramShown={histogramOpen}
-            onToggleHistogram={() => setHistogramOpen((v) => !v)}
-            moreMenuItems={[
-              {
-                kind: 'item',
-                icon: ImageUp,
-                label: t('raw.mobile.more.replace'),
-                onSelect: props.onReplaceFile,
-              },
-              {
-                kind: 'item',
-                icon: Wand2,
-                label: t('raw.mobile.more.addLut'),
-                onSelect: openLutBrowser,
-              },
-              {
-                kind: 'item',
-                icon: Info,
-                label: t('raw.mobile.more.fileDetails'),
-                onSelect: () => setMoreOpen(true),
-              },
-              { kind: 'separator' },
-              {
-                kind: 'item',
-                icon: RotateCcw,
-                label: t('raw.mobile.more.reset'),
-                onSelect: props.onResetSession,
-              },
-              { kind: 'separator' },
-              {
-                kind: 'item',
-                icon: LockKeyhole,
-                label: t('raw.mobile.more.browserLocal'),
-                onSelect: () => {},
-                disabled: true,
-              },
-              {
-                kind: 'item',
-                icon: ShieldCheck,
-                label: t('raw.mobile.more.officialSupport'),
-                onSelect: () => {},
-                disabled: true,
-              },
-            ]}
-          />
-          <MobileModeDock
-            mode={mode}
-            expanded={dockExpanded && props.hasImage}
-            disabled={!props.hasImage || props.isProcessing}
-            onModeChange={(m) => {
-              if (m !== 'compare' && compareSplitOpen) {
-                setCompareSplitMode(false)
-              }
-              setMode(m)
-              setDockExpanded(true)
-            }}
-            onCollapse={() => setDockExpanded(false)}
-            onOpenMore={() => setMoreOpen(true)}
-            canExport
-            panel={panel}
-          />
-        </>
-      )}
+      <AnimatePresence>
+        {immersive && !focusKey && props.hasImage && !handoffActive && (
+          <m.button
+            key="immersive-show"
+            type="button"
+            aria-label={t('raw.mobile.immersive.show')}
+            onClick={() => setImmersive(false)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={surfaceFade}
+            className="pointer-events-auto absolute bottom-safe-offset-4 left-1/2 z-[12] inline-flex min-h-[44px] -translate-x-1/2 items-center justify-center rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-3 text-[0.7rem] font-semibold text-lf-hero-ink/82 backdrop-blur-background transition-colors hover:text-lf-hero-ink"
+          >
+            {t('raw.mobile.immersive.show')}
+          </m.button>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {peeking && props.hasImage && !handoffActive && (
+          <m.div
+            key="peek-hint"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={surfaceFade}
+            className="pointer-events-none absolute left-1/2 top-safe-offset-14 z-[12] -translate-x-1/2 rounded-lf-pill border border-lf-on-photo-bord bg-lf-on-photo-bg-strong px-2.5 py-1.5 text-[0.7rem] font-semibold uppercase tracking-wide text-lf-hero-ink"
+          >
+            {t('raw.mobile.peek.hint')}
+          </m.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {histogramOpen &&
+          !focusKey &&
+          !immersive &&
+          props.hasImage &&
+          !handoffActive && (
+            <FloatingHistogramCard
+              key="histogram"
+              histogram={props.histogram}
+              hidden={peeking}
+            />
+          )}
+      </AnimatePresence>
+
+      {/* Topbar + dock recede together as one surface when immersive or tone
+          focus takes over, instead of hard-unmounting behind the overlay.
+          `initial={false}`: present on first load (no page-load choreography),
+          fades only on the immersive/focus toggle. */}
+      <AnimatePresence initial={false}>
+        {!focusKey && !immersive && (
+          <m.div
+            key="mobile-chrome"
+            className="pointer-events-none absolute inset-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={DOCK_SPRING}
+          >
+            <MobileTopbar
+              hasImage={props.hasImage}
+              fileName={props.fileName}
+              fileMeta={props.fileMeta}
+              supportLevel={props.supportLevel}
+              histogramShown={histogramOpen}
+              onToggleHistogram={() => setHistogramOpen((v) => !v)}
+              moreMenuItems={[
+                {
+                  kind: 'item',
+                  icon: ImageUp,
+                  label: t('raw.mobile.more.replace'),
+                  onSelect: props.onReplaceFile,
+                },
+                {
+                  kind: 'item',
+                  icon: Wand2,
+                  label: t('raw.mobile.more.addLut'),
+                  onSelect: openLutBrowser,
+                },
+                {
+                  kind: 'item',
+                  icon: Info,
+                  label: t('raw.mobile.more.fileDetails'),
+                  onSelect: () => setMoreOpen(true),
+                },
+                { kind: 'separator' },
+                {
+                  kind: 'item',
+                  icon: RotateCcw,
+                  label: t('raw.mobile.more.reset'),
+                  onSelect: props.onResetSession,
+                },
+                { kind: 'separator' },
+                {
+                  kind: 'item',
+                  icon: LockKeyhole,
+                  label: t('raw.mobile.more.browserLocal'),
+                  onSelect: () => {},
+                  disabled: true,
+                },
+                {
+                  kind: 'item',
+                  icon: ShieldCheck,
+                  label: t('raw.mobile.more.officialSupport'),
+                  onSelect: () => {},
+                  disabled: true,
+                },
+              ]}
+            />
+            <MobileModeDock
+              mode={mode}
+              expanded={dockExpanded && props.hasImage}
+              disabled={!props.hasImage || props.isProcessing}
+              onModeChange={(m) => {
+                if (m !== 'compare' && compareSplitOpen) {
+                  setCompareSplitMode(false)
+                }
+                setMode(m)
+                setDockExpanded(true)
+              }}
+              onCollapse={() => setDockExpanded(false)}
+              onOpenMore={() => setMoreOpen(true)}
+              canExport
+              panel={panel}
+            />
+          </m.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {focusKey && props.hasImage && !handoffActive && (
