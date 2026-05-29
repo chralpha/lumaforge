@@ -260,4 +260,9 @@ describe('display and ACES transfer functions', () => {
     expect(bt709Encode(0.18)).not.toBeCloseTo(srgbEncode(0.18), 4)
     expect(bt709Encode(0.18)).not.toBeCloseTo(gamma24Encode(0.18), 4)
   })
+
+  it('keeps BT.709 transfer signed in the linear toe for LUT-domain math', () => {
+    expect(bt709Encode(-0.002)).toBeCloseTo(4.5 * -0.002, 8)
+    expect(bt709Decode(4.5 * -0.002)).toBeCloseTo(-0.002, 8)
+  })
 })

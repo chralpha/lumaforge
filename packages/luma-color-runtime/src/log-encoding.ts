@@ -545,17 +545,17 @@ export function srgbDecode(encoded: number): number {
 }
 
 export function bt709Encode(linear: number): number {
-  const clamped = Math.max(linear, 0)
-  return clamped <= 0.018
-    ? 4.5 * clamped
-    : 1.099 * Math.pow(clamped, 0.45) - 0.099
+  if (linear <= 0.018) {
+    return 4.5 * linear
+  }
+  return 1.099 * Math.pow(linear, 0.45) - 0.099
 }
 
 export function bt709Decode(encoded: number): number {
-  const clamped = Math.max(encoded, 0)
-  return clamped <= 0.081
-    ? clamped / 4.5
-    : Math.pow((clamped + 0.099) / 1.099, 1 / 0.45)
+  if (encoded <= 0.081) {
+    return encoded / 4.5
+  }
+  return Math.pow(Math.max((encoded + 0.099) / 1.099, 0), 1 / 0.45)
 }
 
 export function gamma24Encode(linear: number): number {

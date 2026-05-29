@@ -98,19 +98,17 @@ float decodeSrgbTransfer(float encodedValue) {
 }
 
 float encodeBT709(float linearValue) {
-  float value = max(linearValue, 0.0);
-  if (value <= 0.018) {
-    return 4.5 * value;
+  if (linearValue <= 0.018) {
+    return 4.5 * linearValue;
   }
-  return 1.099 * pow(value, 0.45) - 0.099;
+  return 1.099 * pow(max(linearValue, 0.0), 0.45) - 0.099;
 }
 
 float decodeBT709(float encodedValue) {
-  float value = max(encodedValue, 0.0);
-  if (value <= 0.081) {
-    return value / 4.5;
+  if (encodedValue <= 0.081) {
+    return encodedValue / 4.5;
   }
-  return pow((value + 0.099) / 1.099, 1.0 / 0.45);
+  return pow(max((encodedValue + 0.099) / 1.099, 0.0), 1.0 / 0.45);
 }
 
 float encodeSLog2(float linearValue) {

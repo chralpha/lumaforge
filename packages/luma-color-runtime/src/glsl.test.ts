@@ -53,6 +53,21 @@ describe('gLSL color contract surface', () => {
     )
   })
 
+  it('keeps the BT.709 transfer toe signed for LUT-domain math', () => {
+    expect(LUMA_COLOR_TRANSFER_GLSL).toContain(
+      'if (linearValue <= 0.018) {\n    return 4.5 * linearValue;',
+    )
+    expect(LUMA_COLOR_TRANSFER_GLSL).toContain(
+      'if (encodedValue <= 0.081) {\n    return encodedValue / 4.5;',
+    )
+    expect(LUMA_COLOR_TRANSFER_GLSL).not.toContain(
+      'float value = max(linearValue, 0.0);\n  if (value <= 0.018)',
+    )
+    expect(LUMA_COLOR_TRANSFER_GLSL).not.toContain(
+      'float value = max(encodedValue, 0.0);\n  if (value <= 0.081)',
+    )
+  })
+
   it('declares every role uniform value inside the GLSL LUT snippet', () => {
     for (const [role, value] of Object.entries(LUT_ROLE_UNIFORMS)) {
       expect(LUMA_COLOR_LUT_GLSL).toContain(
