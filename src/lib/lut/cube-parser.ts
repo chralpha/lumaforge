@@ -4,9 +4,9 @@
  */
 
 import type {
+  LUTContractResolution,
   LUTData,
   LUTInputProfile,
-  LUTProfileResolution,
 } from '@lumaforge/luma-color-runtime'
 
 import { resolveLUTProfile, toCompatInputProfile } from './profile-resolution'
@@ -31,7 +31,7 @@ export interface ParsedLUT {
   domainMax: [number, number, number]
   data: Float32Array
   fingerprint: string
-  profileResolution: LUTProfileResolution
+  profileResolution: LUTContractResolution
   inputProfile: LUTInputProfile
 }
 

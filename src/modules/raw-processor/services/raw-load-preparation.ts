@@ -7,7 +7,7 @@ import type { RetainedSessionState } from '../model/session-factory'
 import { clampCompareSplit } from './compare-split'
 import { preserveCustomLookIntensity } from './look-session-state'
 import {
-  buildLUTProfileSelectionState,
+  buildLUTContractSelectionState,
   mapIntensityLevel,
   toCustomStyle,
 } from './style-system'
@@ -28,7 +28,7 @@ export function prepareRawLoadState(input: {
   const retainedSessionState = {
     activeStyle: preservedCustomStyle,
     lutProfileSelection: input.lut
-      ? buildLUTProfileSelectionState(input.lut)
+      ? buildLUTContractSelectionState(input.lut)
       : undefined,
   }
 

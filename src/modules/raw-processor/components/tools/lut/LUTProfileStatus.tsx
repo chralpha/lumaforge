@@ -1,6 +1,6 @@
 import type {
   LUTColorProfile,
-  LUTProfileResolution,
+  LUTContractResolution,
 } from '@lumaforge/luma-color-runtime'
 import { SlidersHorizontal } from 'lucide-react'
 import { useCallback, useId, useRef, useState } from 'react'
@@ -8,7 +8,7 @@ import { useCallback, useId, useRef, useState } from 'react'
 import { Button } from '~/components/ui/button'
 import { useI18n } from '~/lib/i18n'
 
-import type { LUTProfileSelectionState } from '../../../model/session'
+import type { LUTContractSelectionState } from '../../../model/session'
 import {
   getContractAttentionState,
   getProfileOutputLabel,
@@ -21,8 +21,8 @@ export function LUTProfileStatus({
   resolution,
   onSelect,
 }: {
-  selection?: LUTProfileSelectionState | null
-  resolution?: LUTProfileResolution | null
+  selection?: LUTContractSelectionState | null
+  resolution?: LUTContractResolution | null
   onSelect: (profile: LUTColorProfile) => void
 }) {
   const { t } = useI18n()

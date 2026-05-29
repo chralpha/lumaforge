@@ -4,7 +4,7 @@
 
 import type {
   LUTColorProfile,
-  LUTProfileResolution,
+  LUTContractResolution,
 } from '@lumaforge/luma-color-runtime'
 import { searchLUTColorProfiles } from '@lumaforge/luma-color-runtime'
 import { useAtomValue } from 'jotai'
@@ -17,7 +17,7 @@ import { Input } from '~/components/ui/input'
 import { clsxm } from '~/lib/cn'
 import { Spring } from '~/lib/spring'
 
-import type { LUTProfileSelectionState } from '../model/session'
+import type { LUTContractSelectionState } from '../model/session'
 import { exportDisabledReasonAtom } from '../state/session.atoms'
 import { LutDropzone } from './Dropzone'
 import { IntensityChips } from './IntensityChips'
@@ -48,8 +48,8 @@ export interface ControlsPanelProps {
   isProcessing: boolean
   hasImage: boolean
   currentLutName?: string | null
-  lutProfileSelection?: LUTProfileSelectionState | null
-  lutProfileResolution?: LUTProfileResolution | null
+  lutProfileSelection?: LUTContractSelectionState | null
+  lutProfileResolution?: LUTContractResolution | null
   className?: string
 }
 
@@ -202,8 +202,8 @@ function LUTProfileStatus({
   resolution,
   onSelect,
 }: {
-  selection?: LUTProfileSelectionState | null
-  resolution?: LUTProfileResolution | null
+  selection?: LUTContractSelectionState | null
+  resolution?: LUTContractResolution | null
   onSelect: (profile: LUTColorProfile) => void
 }) {
   const resolvedProfile = getResolvedProfile(selection, resolution)

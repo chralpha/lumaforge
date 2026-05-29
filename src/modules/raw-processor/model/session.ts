@@ -1,7 +1,7 @@
 import type {
   LUTColorProfile,
+  LUTContractResolution,
   LUTInputProfile,
-  LUTProfileResolution,
 } from '@lumaforge/luma-color-runtime'
 
 import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
@@ -49,7 +49,7 @@ export type ActiveExportPlanState = {
   checkpointMode: ExportCheckpointMode
 }
 
-export type LUTProfileSelectionState =
+export type LUTContractSelectionState =
   | {
       status: 'pending'
       fingerprint: string
@@ -62,7 +62,7 @@ export type LUTProfileSelectionState =
       fingerprint: string
       profileId: string
       confidence: Extract<
-        LUTProfileResolution,
+        LUTContractResolution,
         { kind: 'resolved' }
       >['confidence']
     }
@@ -99,7 +99,7 @@ export type StyleAsset = {
     sourceName?: string
     fingerprint?: string
     inputProfile?: LUTInputProfile
-    profileResolution?: LUTProfileResolution
+    profileResolution?: LUTContractResolution
   }
   inputPrepProfile?: {
     profileId: string
@@ -123,7 +123,7 @@ export type ImageSession = {
   }
   previewBundle: PreviewBundle
   activeStyle: StyleAsset | null
-  lutProfileSelection?: LUTProfileSelectionState
+  lutProfileSelection?: LUTContractSelectionState
   viewState: {
     mode: 'processed' | 'original' | 'compare'
     compareSplit: number

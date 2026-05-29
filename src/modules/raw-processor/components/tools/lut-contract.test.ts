@@ -1,7 +1,7 @@
 import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
 import { describe, expect, it } from 'vitest'
 
-import type { LUTProfileSelectionState } from '../../model/session'
+import type { LUTContractSelectionState } from '../../model/session'
 import { getContractAttentionState } from './lut-contract'
 
 describe('getContractAttentionState', () => {
@@ -38,7 +38,7 @@ describe('getContractAttentionState', () => {
     if (!profile)
       throw new Error('test fixture missing: sony-sgamut3cine-slog3')
 
-    const selection: LUTProfileSelectionState = {
+    const selection: LUTContractSelectionState = {
       status: 'resolved',
       profileId: profile.id,
       fingerprint: 'x',
@@ -61,7 +61,7 @@ describe('getContractAttentionState', () => {
     const profile = getLUTColorProfile('rec709-gamma24')
     if (!profile) throw new Error('test fixture missing: rec709-gamma24')
 
-    const selection: LUTProfileSelectionState = {
+    const selection: LUTContractSelectionState = {
       status: 'resolved',
       profileId: profile.id,
       fingerprint: 'x',

@@ -1,6 +1,6 @@
 import type {
   LUTColorProfile,
-  LUTProfileResolution,
+  LUTContractResolution,
   PreviewHistogramState,
 } from '@lumaforge/luma-color-runtime'
 import type { ComponentProps, ReactNode } from 'react'
@@ -16,7 +16,7 @@ import type {
 } from '../model/export-result'
 import type {
   ExportRecoveryState,
-  LUTProfileSelectionState,
+  LUTContractSelectionState,
 } from '../model/session'
 import { MobileExportPanel } from './mobile/MobileExportPanel'
 import { MobileLabChrome } from './mobile/MobileLabChrome'
@@ -75,8 +75,8 @@ export function RawToolSurface(props: {
   onReplaceFile: () => void
   onResetSession: () => void
   currentLutName?: string | null
-  lutProfileSelection?: LUTProfileSelectionState | null
-  lutProfileResolution?: LUTProfileResolution | null
+  lutProfileSelection?: LUTContractSelectionState | null
+  lutProfileResolution?: LUTContractResolution | null
   onlineLutSources?: UseOnlineLutSourcesResult
   supportLevel: 'official' | 'experimental'
   metadata: ComponentProps<typeof FileFactsTool>['metadata']

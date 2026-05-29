@@ -1,6 +1,6 @@
 import type {
   LUTColorProfile,
-  LUTProfileResolution,
+  LUTContractResolution,
 } from '@lumaforge/luma-color-runtime'
 import { searchLUTColorProfiles } from '@lumaforge/luma-color-runtime'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
@@ -17,7 +17,7 @@ import { useI18n } from '~/lib/i18n'
 import { sheetSpring } from '~/lib/spring'
 
 import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
-import type { LUTProfileSelectionState } from '../../model/session'
+import type { LUTContractSelectionState } from '../../model/session'
 import { useToolMotion } from '../../motion'
 import { Dropzone } from '../Dropzone'
 import type { LUTOutputOption } from '../tools/lut/lut-output-options'
@@ -59,8 +59,8 @@ export interface MobileLutBrowserProps {
   disabled: boolean
   onLutLoad: (files: File[]) => void
   onLutClear: () => void
-  lutProfileSelection?: LUTProfileSelectionState | null
-  lutProfileResolution?: LUTProfileResolution | null
+  lutProfileSelection?: LUTContractSelectionState | null
+  lutProfileResolution?: LUTContractResolution | null
   onLutProfileSelect: (profile: LUTColorProfile) => void
   onlineLutSources?: UseOnlineLutSourcesResult
   activeIntensity?: StrengthLevel

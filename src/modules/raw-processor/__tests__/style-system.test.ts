@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { parseCubeLUT } from '~/lib/lut/cube-parser'
 
 import {
-  buildLUTProfileSelectionState,
+  buildLUTContractSelectionState,
   mapIntensityLevel,
   toCustomStyle,
 } from '../services/style-system'
@@ -83,7 +83,7 @@ describe('style-system', () => {
       sourceName: 'unknown-look.cube',
     })
 
-    expect(buildLUTProfileSelectionState(lut)).toEqual({
+    expect(buildLUTContractSelectionState(lut)).toEqual({
       status: 'pending',
       fingerprint: lut.fingerprint,
       title: 'Client Secret Sauce',

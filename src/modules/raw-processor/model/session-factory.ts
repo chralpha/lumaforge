@@ -1,12 +1,12 @@
 import type {
   ImageSession,
-  LUTProfileSelectionState,
+  LUTContractSelectionState,
   StyleAsset,
 } from './session'
 
 export type RetainedSessionState = {
   activeStyle?: StyleAsset | null
-  lutProfileSelection?: LUTProfileSelectionState
+  lutProfileSelection?: LUTContractSelectionState
 }
 
 export function createImageSession(

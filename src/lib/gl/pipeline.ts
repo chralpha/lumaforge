@@ -6,8 +6,8 @@
 import type {
   BuiltinStylePreset,
   LUTColorProfile,
+  LUTContractResolution,
   LUTData,
-  LUTProfileResolution,
   LUTRole,
   ProcessingParams,
   TransferFunctionId,
@@ -60,9 +60,9 @@ import {
 
 export type {
   BuiltinStylePreset,
+  LUTContractResolution,
   LUTData,
   LUTInputProfile,
-  LUTProfileResolution,
   ProcessingParams,
 } from '@lumaforge/luma-color-runtime'
 export {
@@ -264,7 +264,7 @@ const DISPLAY_PROFILE_UNIFORMS: LUTPipelineProfileUniforms = {
 }
 
 export function isLUTProfileRenderable(
-  profileResolution?: LUTProfileResolution | null,
+  profileResolution?: LUTContractResolution | null,
 ): boolean {
   if (!profileResolution || profileResolution.kind !== 'resolved') {
     return false
@@ -294,7 +294,7 @@ function resolveLUTOutputTransfer(
 }
 
 export function resolveLUTPipelineProfileUniforms(
-  profileResolution?: LUTProfileResolution | null,
+  profileResolution?: LUTContractResolution | null,
 ): LUTPipelineProfileUniforms {
   if (
     !isLUTProfileRenderable(profileResolution) ||

@@ -1,7 +1,7 @@
 import type {
   ImageSession,
   IntensityLevel,
-  LUTProfileSelectionState,
+  LUTContractSelectionState,
   StyleAsset,
 } from '../model/session'
 import { clearExportResultState } from './export-state'
@@ -24,7 +24,7 @@ export function applyActiveLookToSession(
   session: ImageSession,
   input: {
     style: StyleAsset | null
-    lutProfileSelection?: LUTProfileSelectionState
+    lutProfileSelection?: LUTContractSelectionState
     clearExportResult: boolean
   },
 ): ImageSession {

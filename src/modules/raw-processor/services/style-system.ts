@@ -1,6 +1,6 @@
 import type {
   LUTColorProfile,
-  LUTProfileResolution,
+  LUTContractResolution,
 } from '@lumaforge/luma-color-runtime'
 import {
   getColorGamut,
@@ -9,7 +9,7 @@ import {
 
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 
-import type { LUTProfileSelectionState } from '../model/session'
+import type { LUTContractSelectionState } from '../model/session'
 
 const DISPLAY_LIKE_INPUT_TRANSFERS = new Set(['srgb', 'bt709', 'gamma24'])
 
@@ -48,7 +48,7 @@ function describeLUTOutput(profile: LUTColorProfile): string {
   return `${gamut} / ${transfer}`
 }
 
-function describeLUTContract(profileResolution: LUTProfileResolution): string {
+function describeLUTContract(profileResolution: LUTContractResolution): string {
   if (profileResolution.kind === 'resolved') {
     return `${profileResolution.profile.label} -> ${describeLUTOutput(
       profileResolution.profile,
@@ -58,9 +58,9 @@ function describeLUTContract(profileResolution: LUTProfileResolution): string {
   return 'an unresolved LUT contract'
 }
 
-export function buildLUTProfileSelectionState(
+export function buildLUTContractSelectionState(
   lut: ParsedLUT,
-): LUTProfileSelectionState {
+): LUTContractSelectionState {
   if (lut.profileResolution.kind === 'needs-user-selection') {
     return {
       status: 'pending',

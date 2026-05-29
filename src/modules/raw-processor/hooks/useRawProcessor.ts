@@ -60,7 +60,7 @@ import type {
 import type {
   DisplaySource,
   ExportRecoveryState,
-  LUTProfileSelectionState,
+  LUTContractSelectionState,
   StyleAsset,
 } from '../model/session'
 import { supportsLayeredCompareCss } from '../services/compare-render-mode'
@@ -121,7 +121,7 @@ import {
 import type { RawLoadContext } from '../services/raw/orchestrate-raw-load'
 import { orchestrateRawLoad } from '../services/raw/orchestrate-raw-load'
 import {
-  buildLUTProfileSelectionState,
+  buildLUTContractSelectionState,
   toCustomStyle,
 } from '../services/style-system'
 import { getProgressRecoveryHint } from '../services/workflow-status'
@@ -204,7 +204,7 @@ export interface UseRawProcessorReturn {
   exportShareCapability: ExportShareCapability
   exportRecovery: ExportRecoveryState
   activeStyle: StyleAsset | null
-  lutProfileSelection: LUTProfileSelectionState | null
+  lutProfileSelection: LUTContractSelectionState | null
   activeIntensity: 'off' | 'light' | 'standard' | 'strong'
   viewMode: ProcessingParams['viewMode']
   compareSplit: number
@@ -381,7 +381,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const activeStyle = session?.activeStyle || detachedStyle
   const lutProfileSelection =
     session?.lutProfileSelection ||
-    (lut ? buildLUTProfileSelectionState(lut) : null)
+    (lut ? buildLUTContractSelectionState(lut) : null)
   const activeIntensity = activeStyle?.currentIntensityLevel || 'standard'
   const viewMode = params.viewMode
   const compareSplit = params.compareSplit

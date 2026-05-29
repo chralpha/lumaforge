@@ -33,7 +33,7 @@ import {
   resolveOnlineLUTSourceName,
 } from '../lut-workflow'
 import {
-  buildLUTProfileSelectionState,
+  buildLUTContractSelectionState,
   mapIntensityLevel,
   toCustomStyle,
 } from '../style-system'
@@ -121,7 +121,7 @@ function applyLoadedLUT(parsed: ParsedLUT, ctx: LutLoadContext): void {
     prev
       ? applyActiveLookToSession(prev, {
           style,
-          lutProfileSelection: buildLUTProfileSelectionState(parsed),
+          lutProfileSelection: buildLUTContractSelectionState(parsed),
           clearExportResult: true,
         })
       : prev,
@@ -279,7 +279,7 @@ export function orchestrateProfileSelection(
     prev
       ? applyActiveLookToSession(prev, {
           style,
-          lutProfileSelection: buildLUTProfileSelectionState(updatedLut),
+          lutProfileSelection: buildLUTContractSelectionState(updatedLut),
           clearExportResult: true,
         })
       : prev,

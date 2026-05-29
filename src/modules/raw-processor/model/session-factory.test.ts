@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { LUTProfileSelectionState, StyleAsset } from './session'
+import type { LUTContractSelectionState, StyleAsset } from './session'
 import { createImageSession } from './session-factory'
 
 describe('createImageSession', () => {
@@ -89,7 +89,7 @@ describe('createImageSession', () => {
         fingerprint: 'lut-fingerprint',
       },
     }
-    const lutProfileSelection: LUTProfileSelectionState = {
+    const lutProfileSelection: LUTContractSelectionState = {
       status: 'pending',
       fingerprint: 'lut-fingerprint',
       title: 'Client LUT',

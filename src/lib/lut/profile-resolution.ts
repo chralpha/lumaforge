@@ -1,8 +1,8 @@
 import type {
   LUTColorProfile,
+  LUTContractResolution,
   LUTContractSelection,
   LUTInputProfile,
-  LUTProfileResolution,
   LUTRole,
   SignalRange,
   StoredLUTContractSelection,
@@ -279,7 +279,7 @@ export function applyLUTContractSelection(
   const profile = storeLUTContractSelection(lut.fingerprint, selection)
   if (!profile) return undefined
 
-  const profileResolution: LUTProfileResolution = {
+  const profileResolution: LUTContractResolution = {
     kind: 'resolved',
     confidence: 'user',
     profile,
@@ -506,7 +506,7 @@ export function resolveLUTProfile(input: {
   sourceName?: string
   comments: string[]
   fingerprint?: string
-}): LUTProfileResolution {
+}): LUTContractResolution {
   const signature = buildProfileSignature(input)
 
   const metadataProfile = resolveStructuredMetadataContract(input.comments)
@@ -551,7 +551,7 @@ export function resolveLUTProfile(input: {
 }
 
 export function toCompatInputProfile(
-  profileResolution: LUTProfileResolution,
+  profileResolution: LUTContractResolution,
 ): LUTInputProfile {
   if (profileResolution.kind !== 'resolved') return 'display-srgb'
 

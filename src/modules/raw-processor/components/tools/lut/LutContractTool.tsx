@@ -1,12 +1,12 @@
 import type {
   LUTColorProfile,
-  LUTProfileResolution,
+  LUTContractResolution,
 } from '@lumaforge/luma-color-runtime'
 
 import { useI18n } from '~/lib/i18n'
 
 import type { UseOnlineLutSourcesResult } from '../../../hooks/useOnlineLutSources'
-import type { LUTProfileSelectionState } from '../../../model/session'
+import type { LUTContractSelectionState } from '../../../model/session'
 import { LutDropzone } from '../../Dropzone'
 import { LUTProfileStatus } from './LUTProfileStatus'
 import { OnlineLutSourceControls } from './OnlineLutSourceControls'
@@ -25,8 +25,8 @@ export function LutContractTool({
   disabled: boolean
   onLutLoad: (files: File[]) => void
   onLutClear: () => void
-  lutProfileSelection?: LUTProfileSelectionState | null
-  lutProfileResolution?: LUTProfileResolution | null
+  lutProfileSelection?: LUTContractSelectionState | null
+  lutProfileResolution?: LUTContractResolution | null
   onLutProfileSelect: (profile: LUTColorProfile) => void
   onlineLutSources?: UseOnlineLutSourcesResult
 }) {

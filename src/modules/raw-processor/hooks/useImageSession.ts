@@ -1,7 +1,7 @@
 import { useAtom } from 'jotai'
 import { useCallback } from 'react'
 
-import type { LUTProfileSelectionState, StyleAsset } from '../model/session'
+import type { LUTContractSelectionState, StyleAsset } from '../model/session'
 import { createImageSession } from '../model/session-factory'
 import { currentSessionAtom } from '../state/session.atoms'
 
@@ -13,7 +13,7 @@ export function useImageSession() {
       file: File,
       retained?: {
         activeStyle?: StyleAsset | null
-        lutProfileSelection?: LUTProfileSelectionState
+        lutProfileSelection?: LUTContractSelectionState
       },
     ) => {
       const nextSession = createImageSession(file, retained)

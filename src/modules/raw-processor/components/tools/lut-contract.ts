@@ -1,6 +1,6 @@
 import type {
   LUTColorProfile,
-  LUTProfileResolution,
+  LUTContractResolution,
 } from '@lumaforge/luma-color-runtime'
 import {
   getColorGamut,
@@ -8,13 +8,13 @@ import {
   getTransferFunction,
 } from '@lumaforge/luma-color-runtime'
 
-import type { LUTProfileSelectionState } from '../../model/session'
+import type { LUTContractSelectionState } from '../../model/session'
 
 const DISPLAY_LIKE_INPUT_TRANSFERS = new Set(['srgb', 'bt709', 'gamma24'])
 
 export function getResolvedProfile(
-  selection?: LUTProfileSelectionState | null,
-  resolution?: LUTProfileResolution | null,
+  selection?: LUTContractSelectionState | null,
+  resolution?: LUTContractResolution | null,
 ) {
   if (resolution?.kind === 'resolved') return resolution.profile
   if (selection?.status === 'resolved') {
@@ -165,8 +165,8 @@ export interface ContractAttentionState {
 }
 
 export function getContractAttentionState(
-  selection?: LUTProfileSelectionState | null,
-  resolution?: LUTProfileResolution | null,
+  selection?: LUTContractSelectionState | null,
+  resolution?: LUTContractResolution | null,
 ): ContractAttentionState {
   const resolvedProfile = getResolvedProfile(selection, resolution)
   const outputLabel = getProfileOutputLabel(resolvedProfile)
