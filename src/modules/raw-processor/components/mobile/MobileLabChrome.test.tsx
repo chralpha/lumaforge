@@ -95,7 +95,7 @@ describe('mobileLabChrome', () => {
     ).toBeNull()
   })
 
-  it('shows RAW engine readiness on the mobile empty state without disabling browse', () => {
+  it('shows RAW engine readiness on the mobile empty state and disables browse until ready', () => {
     render(
       <MobileLabChrome
         {...base}
@@ -112,7 +112,7 @@ describe('mobileLabChrome', () => {
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: /browse raw files/i }),
-    ).toBeEnabled()
+    ).toBeDisabled()
   })
 
   it('tears down focus/sheets when the RAW is cleared (hasImage→false)', async () => {

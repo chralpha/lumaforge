@@ -436,6 +436,10 @@ export function MobileLabChrome(props: {
             </div>
             <button
               type="button"
+              disabled={
+                props.runtimeReadinessState !== 'ready' &&
+                props.runtimeReadinessState !== undefined
+              }
               onClick={() => {
                 props.onPrepareRuntime?.()
                 props.onReplaceFile()
