@@ -164,6 +164,68 @@ export interface ContractAttentionState {
   needsAttention: boolean
 }
 
+export type LUTContractView =
+  | { status: 'confirmed'; profile: LUTColorProfile; outputLabel?: string }
+  | { status: 'incomplete-output'; profile: LUTColorProfile }
+  | {
+      status: 'recommended'
+      recommendation: LUTColorProfile
+      recommendations: LUTColorProfile[]
+      completesContract: boolean
+    }
+  | { status: 'unknown' }
+  | { status: 'unsupported-output'; recommendations: LUTColorProfile[] }
+
+export function needsContractSelection(
+  resolution?: LUTContractResolution | null,
+): boolean {
+  return resolution != null && resolution.kind !== 'confirmed'
+}
+
+export function deriveLUTContractView(
+  selection?: LUTContractSelectionState | null,
+  resolution?: LUTContractResolution | null,
+): LUTContractView {
+  const resolved = getResolvedProfile(selection, resolution)
+  if (resolved) {
+    const outputLabel = getProfileOutputLabel(resolved)
+    if (outputLabel === 'Output profile required') {
+      return { status: 'incomplete-output', profile: resolved }
+    }
+    return { status: 'confirmed', profile: resolved, outputLabel }
+  }
+
+  const recommendations =
+    resolution &&
+    (resolution.kind === 'recommended' ||
+      resolution.kind === 'unsupported-output')
+      ? resolution.recommendations
+      : selection &&
+          (selection.status === 'recommended' ||
+            selection.status === 'unsupported-output')
+        ? selection.recommendations
+        : []
+
+  if (
+    resolution?.kind === 'unsupported-output' ||
+    selection?.status === 'unsupported-output'
+  ) {
+    return { status: 'unsupported-output', recommendations }
+  }
+
+  if (recommendations.length > 0) {
+    const recommendation = recommendations[0]
+    return {
+      status: 'recommended',
+      recommendation,
+      recommendations,
+      completesContract: Boolean(toSelectableContract(recommendation)),
+    }
+  }
+
+  return { status: 'unknown' }
+}
+
 export function getContractAttentionState(
   selection?: LUTContractSelectionState | null,
   resolution?: LUTContractResolution | null,
