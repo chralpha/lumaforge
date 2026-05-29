@@ -1,6 +1,8 @@
 import type { PreviewHistogramState } from '@lumaforge/luma-color-runtime'
+import { m, useReducedMotion } from 'motion/react'
 
 import { clsxm } from '~/lib/cn'
+import { surfaceFade } from '~/lib/spring'
 
 import { HistogramTool } from '../tools/HistogramTool'
 
@@ -16,16 +18,23 @@ export function FloatingHistogramCard(props: {
   histogram: PreviewHistogramState
   hidden: boolean
 }) {
+  const prefersReduced = useReducedMotion() ?? false
+  const lift = prefersReduced ? 0 : -6
   return (
-    <div
+    <m.div
       aria-hidden={props.hidden || undefined}
+      // Motion owns opacity for both the enter/exit (AnimatePresence at the call
+      // site) and the peek-hide, so the card never hard-cuts onto the photo.
+      initial={{ opacity: 0, y: lift, scale: prefersReduced ? 1 : 0.98 }}
+      animate={{ opacity: props.hidden ? 0 : 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: lift, scale: prefersReduced ? 1 : 0.98 }}
+      transition={surfaceFade}
       className={clsxm(
         // Cool-slate glass panel (DESIGN.md §6): the photo tints it through the
         // backdrop blur, an inset top highlight reads as a chrome surface, and
         // a soft ambient drop replaces the old heavy shadow-lg.
-        'pointer-events-none absolute right-3 top-safe-offset-20 z-[15] w-[180px] rounded-lf-panel border border-lf-on-photo-bord-soft bg-[oklch(0.105_0.006_255/0.86)] p-2.5 text-lf-hero-ink backdrop-blur-background transition-opacity duration-200',
+        'pointer-events-none absolute right-3 top-safe-offset-20 z-[15] w-[180px] rounded-lf-panel border border-lf-on-photo-bord-soft bg-[oklch(0.105_0.006_255/0.86)] p-2.5 text-lf-hero-ink backdrop-blur-background',
         'shadow-[0_10px_30px_oklch(0.02_0.006_255/0.5),inset_0_1px_0_oklch(0.96_0.006_255/0.08)]',
-        props.hidden ? 'opacity-0' : 'opacity-100',
       )}
     >
       <div className="mb-2 flex items-center gap-2.5 text-[0.6rem] font-semibold tabular-nums text-lf-hero-ink/55">
@@ -40,6 +49,6 @@ export function FloatingHistogramCard(props: {
         ))}
       </div>
       <HistogramTool histogram={props.histogram} />
-    </div>
+    </m.div>
   )
 }
