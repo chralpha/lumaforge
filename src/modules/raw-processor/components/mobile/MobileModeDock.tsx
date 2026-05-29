@@ -5,14 +5,14 @@ import {
   SplitSquareHorizontal,
   Wand2,
 } from 'lucide-react'
-import { m } from 'motion/react'
+import { AnimatePresence, m, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'
 
 import { clsxm } from '~/lib/cn'
 import type { Translate } from '~/lib/i18n'
 import { useI18n } from '~/lib/i18n'
 
-import { TAP_SPRING } from '../../motion'
+import { DOCK_SPRING, TAP_SPRING } from '../../motion'
 
 export type MobileMode = 'look' | 'tone' | 'compare' | 'export'
 
@@ -49,19 +49,27 @@ export function MobileModeDock(props: {
 }) {
   const { t } = useI18n()
   const disabled = props.disabled ?? false
+  const prefersReduced = useReducedMotion() ?? false
   return (
     <div
       data-mobile-dock
       className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/92 via-black/65 to-transparent pb-[max(8px,calc(env(safe-area-inset-bottom)-24px))] text-lf-hero-ink"
     >
-      {props.expanded && !disabled && (
-        <div
-          data-mobile-dock-panel
-          className="absolute inset-x-0 bottom-full max-h-[24vh] overflow-y-auto bg-gradient-to-t from-black/82 via-black/58 to-transparent px-3.5 pb-2.5 pt-3.5"
-        >
-          {props.panel}
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {props.expanded && !disabled && (
+          <m.div
+            key="dock-panel"
+            data-mobile-dock-panel
+            className="absolute inset-x-0 bottom-full max-h-[24vh] overflow-y-auto bg-gradient-to-t from-black/82 via-black/58 to-transparent px-3.5 pb-2.5 pt-3.5"
+            initial={{ opacity: 0, y: prefersReduced ? 0 : 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: prefersReduced ? 0 : 8 }}
+            transition={DOCK_SPRING}
+          >
+            {props.panel}
+          </m.div>
+        )}
+      </AnimatePresence>
       <div
         aria-label={t('raw.mobile.modes.aria')}
         role="tablist"
@@ -103,9 +111,16 @@ export function MobileModeDock(props: {
               <tab.icon aria-hidden="true" className="size-[18px]" />
               {t(tab.labelKey)}
               {showActive && (
-                <span
+                <m.span
+                  // Shared-layout indicator: motion glides the same element from
+                  // tab to tab instead of hard-cutting. `-ml` centers without a
+                  // transform so the layout animation owns `transform` cleanly.
+                  layoutId={
+                    prefersReduced ? undefined : 'mobile-dock-indicator'
+                  }
+                  transition={DOCK_SPRING}
                   className={clsxm(
-                    'absolute bottom-0 left-1/2 h-0.5 w-[22px] -translate-x-1/2 rounded-lf-pill',
+                    'absolute bottom-0 left-1/2 -ml-[11px] h-0.5 w-[22px] rounded-lf-pill',
                     tab.primary ? 'bg-lf-green' : 'bg-lf-amber',
                   )}
                 />
