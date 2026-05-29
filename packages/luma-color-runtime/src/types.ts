@@ -27,7 +27,7 @@ export type LUTInputProfile = 'display-srgb' | 'v-log'
 
 export type LUTContractResolution =
   | {
-      kind: 'resolved'
+      kind: 'confirmed'
       profile: LUTColorProfile
       confidence: 'metadata' | 'user' | 'persisted-user'
     }

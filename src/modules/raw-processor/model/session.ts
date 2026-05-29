@@ -58,12 +58,12 @@ export type LUTContractSelectionState =
       recommendations: LUTColorProfile[]
     }
   | {
-      status: 'resolved'
+      status: 'confirmed'
       fingerprint: string
       profileId: string
       confidence: Extract<
         LUTContractResolution,
-        { kind: 'resolved' }
+        { kind: 'confirmed' }
       >['confidence']
     }
 

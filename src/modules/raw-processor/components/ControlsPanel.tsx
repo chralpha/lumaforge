@@ -216,7 +216,9 @@ function LUTProfileStatus({
   const suggestions =
     selection?.status === 'pending' ? selection.recommendations : []
   const activeProfileId =
-    selection?.status === 'resolved' ? selection.profileId : resolvedProfile?.id
+    selection?.status === 'confirmed'
+      ? selection.profileId
+      : resolvedProfile?.id
   const [selectorOpen, setSelectorOpen] = useState(
     !isUnsupportedOutput && isPending,
   )

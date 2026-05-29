@@ -248,7 +248,7 @@ describe('session derivation', () => {
           format: 'cube',
           dimension: 33,
           profileResolution: {
-            kind: 'resolved',
+            kind: 'confirmed',
             confidence: 'metadata',
             profile: {
               ...profile!,
@@ -292,7 +292,7 @@ describe('session derivation', () => {
           format: 'cube',
           dimension: 33,
           profileResolution: {
-            kind: 'resolved',
+            kind: 'confirmed',
             confidence: 'metadata',
             profile: {
               ...profile!,

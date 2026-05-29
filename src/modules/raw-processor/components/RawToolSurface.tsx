@@ -260,7 +260,7 @@ export function RawToolSurface(props: {
     ? `${Math.round(props.stats.processTime)} ms`
     : '—'
   const lutResolved =
-    props.lutProfileResolution?.kind === 'resolved'
+    props.lutProfileResolution?.kind === 'confirmed'
       ? props.lutProfileResolution.profile.role
       : props.lutProfileResolution?.kind === 'needs-user-selection'
         ? t('raw.histogram.notLoaded')

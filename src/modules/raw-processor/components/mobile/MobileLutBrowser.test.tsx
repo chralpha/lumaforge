@@ -799,13 +799,13 @@ describe('mobileLutBrowser', () => {
         initialContractEditorOpen
         currentLutName="unknown-client-look.cube"
         lutProfileSelection={{
-          status: 'resolved',
+          status: 'confirmed',
           fingerprint: 'lut-fingerprint',
           profileId: selectedProfile.id,
           confidence: 'user',
         }}
         lutProfileResolution={{
-          kind: 'resolved',
+          kind: 'confirmed',
           profile: selectedProfile,
           confidence: 'user',
         }}
@@ -879,13 +879,13 @@ describe('mobileLutBrowser', () => {
         {...baseProps}
         currentLutName="wrong-detected-look.cube"
         lutProfileSelection={{
-          status: 'resolved',
+          status: 'confirmed',
           fingerprint: 'lut-fingerprint',
           profileId: detectedProfile.id,
           confidence: 'metadata',
         }}
         lutProfileResolution={{
-          kind: 'resolved',
+          kind: 'confirmed',
           profile: detectedProfile,
           confidence: 'metadata',
         }}
@@ -945,13 +945,13 @@ describe('mobileLutBrowser', () => {
         {...baseProps}
         currentLutName="SLog3SGamut3.CineToLC_709.cube"
         lutProfileSelection={{
-          status: 'resolved',
+          status: 'confirmed',
           fingerprint: 'stable-catalog-lut',
           profileId: resolvedProfile.id,
           confidence: 'metadata',
         }}
         lutProfileResolution={{
-          kind: 'resolved',
+          kind: 'confirmed',
           profile: resolvedProfile,
           confidence: 'metadata',
         }}

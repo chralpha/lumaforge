@@ -170,7 +170,7 @@ function createLUTData(profileId = 'sony-sgamut3cine-slog3'): LUTData {
     domainMax: [1, 1, 1],
     inputProfile: 'display-srgb',
     profileResolution: {
-      kind: 'resolved',
+      kind: 'confirmed',
       profile: {
         ...profile,
         outputGamut: profile.inputGamut,

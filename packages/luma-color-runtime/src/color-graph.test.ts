@@ -126,7 +126,7 @@ describe('resolveExportColorGraph', () => {
         domainMax: [1, 1, 1],
         inputProfile: 'v-log',
         profileResolution: {
-          kind: 'resolved',
+          kind: 'confirmed',
           confidence: 'user',
           profile: {
             ...profile,
@@ -226,7 +226,7 @@ describe('resolveExportColorGraph', () => {
         domainMax: [1, 1, 1],
         inputProfile: 'v-log',
         profileResolution: {
-          kind: 'resolved',
+          kind: 'confirmed',
           confidence: 'user',
           profile: {
             ...profile!,
@@ -285,7 +285,7 @@ describe('resolveExportColorGraph', () => {
         domainMax: [1, 1, 1],
         inputProfile: 'v-log',
         profileResolution: {
-          kind: 'resolved',
+          kind: 'confirmed',
           confidence: 'metadata',
           profile: {
             ...base!,
@@ -328,7 +328,7 @@ describe('resolveExportColorGraph', () => {
         domainMax: [1, 1, 1],
         inputProfile: 'display-srgb',
         profileResolution: {
-          kind: 'resolved',
+          kind: 'confirmed',
           confidence: 'user',
           profile: profile!,
         },
@@ -392,7 +392,7 @@ describe('resolveExportColorGraph', () => {
         domainMax: [1, 1, 1],
         inputProfile: 'v-log',
         profileResolution: {
-          kind: 'resolved',
+          kind: 'confirmed',
           confidence: 'user',
           profile: profile!,
         },
@@ -421,7 +421,7 @@ describe('resolveExportColorGraph', () => {
         domainMax: [1, 1, 1],
         inputProfile: 'v-log',
         profileResolution: {
-          kind: 'resolved',
+          kind: 'confirmed',
           confidence: 'metadata',
           profile: {
             ...profile!,
@@ -459,7 +459,7 @@ describe('resolveExportColorGraph', () => {
         domainMax: [1, 1, 1],
         inputProfile: 'v-log',
         profileResolution: {
-          kind: 'resolved',
+          kind: 'confirmed',
           confidence: 'metadata',
           profile: {
             ...profile!,
@@ -497,7 +497,7 @@ describe('resolveExportColorGraph', () => {
         domainMax: [1, 1, 1],
         inputProfile: 'display-srgb',
         profileResolution: {
-          kind: 'resolved',
+          kind: 'confirmed',
           confidence: 'metadata',
           profile: {
             ...profile!,

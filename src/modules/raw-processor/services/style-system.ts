@@ -49,7 +49,7 @@ function describeLUTOutput(profile: LUTColorProfile): string {
 }
 
 function describeLUTContract(profileResolution: LUTContractResolution): string {
-  if (profileResolution.kind === 'resolved') {
+  if (profileResolution.kind === 'confirmed') {
     return `${profileResolution.profile.label} -> ${describeLUTOutput(
       profileResolution.profile,
     )}`
@@ -72,7 +72,7 @@ export function buildLUTContractSelectionState(
   }
 
   return {
-    status: 'resolved',
+    status: 'confirmed',
     fingerprint: lut.fingerprint,
     profileId: lut.profileResolution.profile.id,
     confidence: lut.profileResolution.confidence,
@@ -81,7 +81,7 @@ export function buildLUTContractSelectionState(
 
 export function toCustomStyle(lut: ParsedLUT) {
   const warning =
-    lut.profileResolution.kind === 'resolved'
+    lut.profileResolution.kind === 'confirmed'
       ? `This LUT uses ${describeLUTContract(lut.profileResolution)}.`
       : 'Choose the LUT input and output contract before preview or export.'
 

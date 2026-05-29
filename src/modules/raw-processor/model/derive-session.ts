@@ -32,7 +32,7 @@ function deriveUnsupportedExportPipelineReason(
     return undefined
   }
 
-  if (profileResolution.kind === 'resolved') {
+  if (profileResolution.kind === 'confirmed') {
     return resolveUnsupportedLUTOutputReason(profileResolution.profile)
   }
 

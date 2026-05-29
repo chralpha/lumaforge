@@ -266,7 +266,7 @@ const DISPLAY_PROFILE_UNIFORMS: LUTPipelineProfileUniforms = {
 export function isLUTProfileRenderable(
   profileResolution?: LUTContractResolution | null,
 ): boolean {
-  if (!profileResolution || profileResolution.kind !== 'resolved') {
+  if (!profileResolution || profileResolution.kind !== 'confirmed') {
     return false
   }
 
@@ -298,7 +298,7 @@ export function resolveLUTPipelineProfileUniforms(
 ): LUTPipelineProfileUniforms {
   if (
     !isLUTProfileRenderable(profileResolution) ||
-    profileResolution?.kind !== 'resolved'
+    profileResolution?.kind !== 'confirmed'
   ) {
     return DISPLAY_PROFILE_UNIFORMS
   }
@@ -790,7 +790,7 @@ export class RawProcessingPipeline {
     }
 
     const profileResolution = this.lutData.profileResolution
-    if (profileResolution.kind !== 'resolved') {
+    if (profileResolution.kind !== 'confirmed') {
       return 'display-lut'
     }
 

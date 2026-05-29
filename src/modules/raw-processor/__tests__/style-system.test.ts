@@ -72,7 +72,7 @@ describe('style-system', () => {
     )
     expect(style.lutAsset).toMatchObject({
       profileResolution: {
-        kind: 'resolved',
+        kind: 'confirmed',
         profile: { id: 'panasonic-vgamut-vlog' },
       },
     })

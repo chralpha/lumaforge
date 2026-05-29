@@ -773,7 +773,7 @@ describe('useRawProcessor embedded preview state', () => {
 
     await waitFor(() => {
       expect(result.current.lut?.profileResolution).toMatchObject({
-        kind: 'resolved',
+        kind: 'confirmed',
         confidence: 'user',
         profile: {
           id: 'sony-sgamut3cine-slog3',
@@ -786,7 +786,7 @@ describe('useRawProcessor embedded preview state', () => {
     })
     await waitFor(() => {
       expect(result.current.lutData?.profileResolution).toMatchObject({
-        kind: 'resolved',
+        kind: 'confirmed',
         profile: { id: 'sony-sgamut3cine-slog3' },
       })
     })
@@ -809,7 +809,7 @@ describe('useRawProcessor embedded preview state', () => {
       outputTransfer: 'bt709',
     })
     expect(result.current.lutProfileSelection).toMatchObject({
-      status: 'resolved',
+      status: 'confirmed',
       fingerprint: result.current.lut?.fingerprint,
       profileId: 'sony-sgamut3cine-slog3',
       confidence: 'user',
@@ -819,13 +819,13 @@ describe('useRawProcessor embedded preview state', () => {
         kind: 'custom',
         lutAsset: {
           profileResolution: {
-            kind: 'resolved',
+            kind: 'confirmed',
             profile: { id: 'sony-sgamut3cine-slog3' },
           },
         },
       },
       lutProfileSelection: {
-        status: 'resolved',
+        status: 'confirmed',
         fingerprint: result.current.lut?.fingerprint,
         profileId: 'sony-sgamut3cine-slog3',
         confidence: 'user',
@@ -965,7 +965,7 @@ describe('useRawProcessor embedded preview state', () => {
 
     await waitFor(() => {
       expect(result.current.lut?.profileResolution).toMatchObject({
-        kind: 'resolved',
+        kind: 'confirmed',
         confidence: 'user',
         profile: {
           id: 'panasonic-vgamut-vlog',
@@ -1019,7 +1019,7 @@ describe('useRawProcessor embedded preview state', () => {
 
     await waitFor(() => {
       expect(result.current.lut?.profileResolution).toMatchObject({
-        kind: 'resolved',
+        kind: 'confirmed',
         profile: {
           id: 'panasonic-vgamut-vlog',
           role: 'combined-look-output',
@@ -1150,7 +1150,7 @@ describe('useRawProcessor embedded preview state', () => {
     )
     expect(fetchCachedBytesWithLimit).not.toHaveBeenCalled()
     expect(result.current.lut?.profileResolution).toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
       confidence: 'user',
       profile: {
         id: 'display-srgb',
@@ -1161,11 +1161,11 @@ describe('useRawProcessor embedded preview state', () => {
       },
     })
     expect(result.current.lutData?.profileResolution).toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
       profile: { id: 'display-srgb' },
     })
     expect(result.current.lutProfileSelection).toMatchObject({
-      status: 'resolved',
+      status: 'confirmed',
       profileId: 'display-srgb',
       confidence: 'user',
     })

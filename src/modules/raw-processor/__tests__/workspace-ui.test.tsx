@@ -726,13 +726,13 @@ describe('rawToolSurface', () => {
         {...rawToolSurfaceProps({
           currentLutName: 'Sony Look.cube',
           lutProfileSelection: {
-            status: 'resolved',
+            status: 'confirmed',
             fingerprint: 'toggle-contract',
             profileId: profile.id,
             confidence: 'metadata',
           },
           lutProfileResolution: {
-            kind: 'resolved',
+            kind: 'confirmed',
             profile,
             confidence: 'metadata',
           },
@@ -769,13 +769,13 @@ describe('rawToolSurface', () => {
         {...rawToolSurfaceProps({
           currentLutName: 'Sony Look.cube',
           lutProfileSelection: {
-            status: 'resolved',
+            status: 'confirmed',
             fingerprint: 'toggle-contract',
             profileId: profile.id,
             confidence: 'metadata',
           },
           lutProfileResolution: {
-            kind: 'resolved',
+            kind: 'confirmed',
             profile,
             confidence: 'metadata',
           },
@@ -823,13 +823,13 @@ describe('rawToolSurface', () => {
         {...rawToolSurfaceProps({
           currentLutName: 'Panasonic Look.cube',
           lutProfileSelection: {
-            status: 'resolved',
+            status: 'confirmed',
             fingerprint: 'abc123',
             profileId: profile.id,
             confidence: 'metadata',
           },
           lutProfileResolution: {
-            kind: 'resolved',
+            kind: 'confirmed',
             profile,
             confidence: 'metadata',
           },
@@ -854,13 +854,13 @@ describe('rawToolSurface', () => {
         {...rawToolSurfaceProps({
           currentLutName: 'Panasonic Look.cube',
           lutProfileSelection: {
-            status: 'resolved',
+            status: 'confirmed',
             fingerprint: 'abc123',
             profileId: profile.id,
             confidence: 'metadata',
           },
           lutProfileResolution: {
-            kind: 'resolved',
+            kind: 'confirmed',
             profile,
             confidence: 'metadata',
           },
@@ -882,13 +882,13 @@ describe('rawToolSurface', () => {
     const firstLutProps = rawToolSurfaceProps({
       currentLutName: 'Sony Look.cube',
       lutProfileSelection: {
-        status: 'resolved',
+        status: 'confirmed',
         fingerprint: 'first-lut',
         profileId: sonyProfile.id,
         confidence: 'metadata',
       },
       lutProfileResolution: {
-        kind: 'resolved',
+        kind: 'confirmed',
         profile: sonyProfile,
         confidence: 'metadata',
       },
@@ -912,13 +912,13 @@ describe('rawToolSurface', () => {
         {...rawToolSurfaceProps({
           currentLutName: 'Canon Look.cube',
           lutProfileSelection: {
-            status: 'resolved',
+            status: 'confirmed',
             fingerprint: 'second-lut',
             profileId: canonProfile.id,
             confidence: 'metadata',
           },
           lutProfileResolution: {
-            kind: 'resolved',
+            kind: 'confirmed',
             profile: canonProfile,
             confidence: 'metadata',
           },

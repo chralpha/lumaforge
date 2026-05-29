@@ -102,7 +102,7 @@ describe('cube-parser input profiles', () => {
       kind: 'needs-user-selection',
     })
     expect(lut.profileResolution).not.toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
     })
   })
 
@@ -122,7 +122,7 @@ describe('cube-parser input profiles', () => {
     )
 
     expect(lut.profileResolution).toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
       confidence: 'metadata',
       profile: {
         inputGamut: 'v-gamut',
@@ -151,7 +151,7 @@ describe('cube-parser input profiles', () => {
       kind: 'needs-user-selection',
     })
     expect(lut.profileResolution).not.toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
     })
   })
 
@@ -170,7 +170,7 @@ describe('cube-parser input profiles', () => {
 
     expect(renamed.fingerprint).toBe(first.fingerprint)
     expect(renamed.profileResolution).toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
       confidence: 'persisted-user',
     })
   })
@@ -231,7 +231,7 @@ describe('cube-parser input profiles', () => {
       ]),
     })
     expect(lut.profileResolution).not.toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
       profile: { id: 'panasonic-vgamut-vlog' },
     })
     expect(lut.inputProfile).toBe('display-srgb')
@@ -243,7 +243,7 @@ describe('cube-parser input profiles', () => {
     })
 
     expect(lut.profileResolution).not.toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
       profile: { id: 'panasonic-vgamut-vlog' },
     })
     expect(lut.inputProfile).toBe('display-srgb')
@@ -307,7 +307,7 @@ describe('cube-parser input profiles', () => {
       ]),
     )
     expect(cineon.profileResolution).not.toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
       profile: { outputTransfer: 'gamma24' },
     })
   })

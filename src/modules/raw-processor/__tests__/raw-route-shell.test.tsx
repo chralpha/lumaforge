@@ -554,7 +554,7 @@ describe('rawProcessorView online LUT route sources', () => {
       builtinPreset: null,
     })
     expect(getLut()?.profileResolution).toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
       confidence: 'user',
       profile: {
         role: 'combined-look-output',

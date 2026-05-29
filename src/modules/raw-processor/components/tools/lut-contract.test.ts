@@ -39,14 +39,14 @@ describe('getContractAttentionState', () => {
       throw new Error('test fixture missing: sony-sgamut3cine-slog3')
 
     const selection: LUTContractSelectionState = {
-      status: 'resolved',
+      status: 'confirmed',
       profileId: profile.id,
       fingerprint: 'x',
       confidence: 'metadata',
     }
 
     const state = getContractAttentionState(selection, {
-      kind: 'resolved',
+      kind: 'confirmed',
       profile,
       confidence: 'metadata',
     })
@@ -62,14 +62,14 @@ describe('getContractAttentionState', () => {
     if (!profile) throw new Error('test fixture missing: rec709-gamma24')
 
     const selection: LUTContractSelectionState = {
-      status: 'resolved',
+      status: 'confirmed',
       profileId: profile.id,
       fingerprint: 'x',
       confidence: 'metadata',
     }
 
     const state = getContractAttentionState(selection, {
-      kind: 'resolved',
+      kind: 'confirmed',
       profile,
       confidence: 'metadata',
     })

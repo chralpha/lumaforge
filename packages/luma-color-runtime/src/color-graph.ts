@@ -205,7 +205,7 @@ export function resolveExportColorGraph(input: {
     }
   }
 
-  if (input.lut.profileResolution.kind !== 'resolved') {
+  if (input.lut.profileResolution.kind !== 'confirmed') {
     return {
       supported: false,
       reason: 'unsupported-pipeline',

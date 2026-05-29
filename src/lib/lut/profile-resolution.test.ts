@@ -68,7 +68,7 @@ describe('lUT profile selection persistence', () => {
         fingerprint: 'lut-fingerprint-2',
       }),
     ).toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
       confidence: 'persisted-user',
       profile: { id: 'sony-sgamut3cine-slog3' },
     })
@@ -123,7 +123,7 @@ describe('lUT profile selection persistence', () => {
     )
 
     expect(selected?.profileResolution).toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
       confidence: 'user',
       profile: {
         inputGamut: 'v-gamut',
@@ -213,7 +213,7 @@ describe('lUT explicit profile labels', () => {
       kind: 'needs-user-selection',
     })
     expect(resolution).not.toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
     })
   })
 
@@ -231,7 +231,7 @@ describe('lUT explicit profile labels', () => {
     })
 
     expect(resolution).toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
       confidence: 'metadata',
       profile: {
         inputGamut: 'v-gamut',
@@ -264,7 +264,7 @@ describe('lUT explicit profile labels', () => {
       kind: 'needs-user-selection',
     })
     expect(resolution).not.toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
     })
   })
 
@@ -282,7 +282,7 @@ describe('lUT explicit profile labels', () => {
       kind: 'needs-user-selection',
     })
     expect(resolution).not.toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
     })
   })
 
@@ -303,7 +303,7 @@ describe('lUT explicit profile labels', () => {
       kind: 'needs-user-selection',
     })
     expect(resolution).not.toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
     })
   })
 
@@ -328,7 +328,7 @@ describe('lUT explicit profile labels', () => {
     })
 
     expect(resolution).not.toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
       profile: { id: 'panasonic-vgamut-vlog' },
     })
     expect(resolution).toMatchObject({
@@ -416,7 +416,7 @@ describe('lUT explicit profile labels', () => {
       ]),
     )
     expect(resolution).not.toMatchObject({
-      kind: 'resolved',
+      kind: 'confirmed',
       profile: {
         role: 'combined-look-output',
       },

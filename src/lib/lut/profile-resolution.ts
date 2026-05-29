@@ -280,7 +280,7 @@ export function applyLUTContractSelection(
   if (!profile) return undefined
 
   const profileResolution: LUTContractResolution = {
-    kind: 'resolved',
+    kind: 'confirmed',
     confidence: 'user',
     profile,
   }
@@ -512,7 +512,7 @@ export function resolveLUTProfile(input: {
   const metadataProfile = resolveStructuredMetadataContract(input.comments)
   if (metadataProfile) {
     return {
-      kind: 'resolved',
+      kind: 'confirmed',
       confidence: 'metadata',
       profile: metadataProfile,
     }
@@ -522,7 +522,7 @@ export function resolveLUTProfile(input: {
     const storedProfile = getStoredLUTProfileSelection(input.fingerprint)
     if (storedProfile) {
       return {
-        kind: 'resolved',
+        kind: 'confirmed',
         confidence: 'persisted-user',
         profile: storedProfile,
       }
@@ -553,7 +553,7 @@ export function resolveLUTProfile(input: {
 export function toCompatInputProfile(
   profileResolution: LUTContractResolution,
 ): LUTInputProfile {
-  if (profileResolution.kind !== 'resolved') return 'display-srgb'
+  if (profileResolution.kind !== 'confirmed') return 'display-srgb'
 
   const { profile } = profileResolution
   if (

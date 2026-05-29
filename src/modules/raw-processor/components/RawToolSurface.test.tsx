@@ -877,13 +877,13 @@ describe('rawToolSurface', () => {
         {...baseProps}
         currentLutName="SLog3SGamut3.CineToLC_709.cube"
         lutProfileSelection={{
-          status: 'resolved',
+          status: 'confirmed',
           fingerprint: 'stable-catalog-lut',
           profileId: resolvedProfile.id,
           confidence: 'metadata',
         }}
         lutProfileResolution={{
-          kind: 'resolved',
+          kind: 'confirmed',
           profile: resolvedProfile,
           confidence: 'metadata',
         }}

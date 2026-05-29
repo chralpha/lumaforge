@@ -248,13 +248,13 @@ describe('mobileLabChrome', () => {
           ...base.lutBrowser,
           currentLutName: 'client-look.cube',
           lutProfileSelection: {
-            status: 'resolved',
+            status: 'confirmed',
             fingerprint: 'lut-fingerprint',
             profileId: detectedProfile.id,
             confidence: 'metadata',
           },
           lutProfileResolution: {
-            kind: 'resolved',
+            kind: 'confirmed',
             profile: detectedProfile,
             confidence: 'metadata',
           },
@@ -304,13 +304,13 @@ describe('mobileLabChrome', () => {
           ...base.lutBrowser,
           currentLutName: 'client-look.cube',
           lutProfileSelection: {
-            status: 'resolved',
+            status: 'confirmed',
             fingerprint: 'lut-fingerprint',
             profileId: detectedProfile.id,
             confidence: 'metadata',
           },
           lutProfileResolution: {
-            kind: 'resolved',
+            kind: 'confirmed',
             profile: detectedProfile,
             confidence: 'metadata',
           },

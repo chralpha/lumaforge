@@ -16,8 +16,8 @@ export function getResolvedProfile(
   selection?: LUTContractSelectionState | null,
   resolution?: LUTContractResolution | null,
 ) {
-  if (resolution?.kind === 'resolved') return resolution.profile
-  if (selection?.status === 'resolved') {
+  if (resolution?.kind === 'confirmed') return resolution.profile
+  if (selection?.status === 'confirmed') {
     return getLUTColorProfile(selection.profileId)
   }
   return undefined

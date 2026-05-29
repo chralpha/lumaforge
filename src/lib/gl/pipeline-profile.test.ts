@@ -17,7 +17,7 @@ import {
 
 function resolved(profile: LUTColorProfile) {
   return {
-    kind: 'resolved' as const,
+    kind: 'confirmed' as const,
     profile,
     confidence: 'metadata' as const,
   }
