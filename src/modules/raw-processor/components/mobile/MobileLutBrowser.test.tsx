@@ -695,10 +695,11 @@ describe('mobileLutBrowser', () => {
       />,
     )
 
+    // With a recommendation the overview now shows the recognized input chip
+    // and the "Input recognized — choose an output to confirm." note instead
+    // of the generic "unknown" prompt.
     expect(
-      screen.getByText(
-        'Choose the LUT input and output contract before preview or export.',
-      ),
+      screen.getByText('Input recognized — choose an output to confirm.'),
     ).toBeInTheDocument()
 
     await userEvent.click(
@@ -968,5 +969,131 @@ describe('mobileLutBrowser', () => {
         name: 'Use Rec.709 display as LUT output',
       }),
     ).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  describe('recommended state in the overview contract section', () => {
+    // A complete recommendation has input + output fields — completesContract=true
+    const completeRecommendation = {
+      ...getLUTColorProfile('panasonic-vgamut-vlog')!,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'gamma24' as const,
+      outputRange: 'full' as const,
+    }
+
+    // An input-only recommendation has no output fields — completesContract=false
+    const inputOnlyRecommendation = getLUTColorProfile('panasonic-vgamut-vlog')!
+
+    function renderRecommendedOverview(
+      recommendation:
+        | typeof completeRecommendation
+        | typeof inputOnlyRecommendation,
+      onLutProfileSelect = vi.fn(),
+    ) {
+      return render(
+        <MobileLutBrowser
+          {...baseProps}
+          currentLutName="film-look.cube"
+          lutProfileSelection={{
+            status: 'recommended',
+            fingerprint: 'lut-fp',
+            title: 'Film look',
+            sourceName: 'film-look.cube',
+            recommendations: [recommendation],
+          }}
+          lutProfileResolution={{
+            kind: 'recommended',
+            recommendations: [recommendation],
+          }}
+          onLutProfileSelect={onLutProfileSelect}
+        />,
+      )
+    }
+
+    it('shows the recommended input chip with a recommended marker in the overview', () => {
+      renderRecommendedOverview(completeRecommendation)
+
+      const contractSection = screen
+        .getByRole('heading', { name: /contract profile/i })
+        .closest('section')!
+
+      // Input chip should include the profile label and "recommended" badge
+      expect(
+        within(contractSection).getByText(/panasonic v-gamut \/ v-log/i),
+      ).toBeInTheDocument()
+      expect(
+        within(contractSection).getByText(/recommended/i),
+      ).toBeInTheDocument()
+    })
+
+    it('shows the output chip with the resolved output label for a complete recommendation', () => {
+      renderRecommendedOverview(completeRecommendation)
+
+      const contractSection = screen
+        .getByRole('heading', { name: /contract profile/i })
+        .closest('section')!
+
+      // Output chip for gamma24/srgb-rec709 maps to "Rec.709 display"
+      expect(
+        within(contractSection).getByText('Rec.709 display'),
+      ).toBeInTheDocument()
+    })
+
+    it('shows "Choose output" chip for an input-only recommendation', () => {
+      renderRecommendedOverview(inputOnlyRecommendation)
+
+      const contractSection = screen
+        .getByRole('heading', { name: /contract profile/i })
+        .closest('section')!
+
+      // "Choose output" appears both in the output chip and in the inline
+      // choose-output button — confirm at least one instance is present.
+      const matches = within(contractSection).getAllByText('Choose output')
+      expect(matches.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('calls onLutProfileSelect with the recommendation when the apply-contract button is clicked (complete)', async () => {
+      const onLutProfileSelect = vi.fn()
+      renderRecommendedOverview(completeRecommendation, onLutProfileSelect)
+
+      const button = document.querySelector(
+        '[data-raw-mobile-lut="apply-contract"]',
+      ) as HTMLButtonElement | null
+
+      expect(button).not.toBeNull()
+      await userEvent.click(button!)
+
+      expect(onLutProfileSelect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inputGamut: completeRecommendation.inputGamut,
+          outputGamut: 'srgb-rec709',
+          outputTransfer: 'gamma24',
+        }),
+      )
+    })
+
+    it('opens the contract view at the output step with the recommendation as draft when choose-output is clicked (input-only)', async () => {
+      renderRecommendedOverview(inputOnlyRecommendation)
+
+      const button = document.querySelector(
+        '[data-raw-mobile-lut="choose-output"]',
+      ) as HTMLButtonElement | null
+
+      expect(button).not.toBeNull()
+      await userEvent.click(button!)
+
+      // Should transition to the contract view
+      expect(screen.getByRole('dialog')).toHaveAttribute(
+        'data-mobile-lut-view',
+        'contract',
+      )
+      // Should be on the output step (Output tab selected)
+      const panels = screen.getByRole('tablist', {
+        name: 'LUT contract panels',
+      })
+      expect(
+        within(panels).getByRole('tab', { name: 'Output', selected: true }),
+      ).toBeInTheDocument()
+    })
   })
 })

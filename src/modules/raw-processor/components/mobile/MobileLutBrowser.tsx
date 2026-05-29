@@ -34,6 +34,7 @@ import { LUTOutputOptionButton } from '../tools/lut/LUTOutputOptionButton'
 import { LUTProfileButton } from '../tools/lut/LUTProfileButton'
 import {
   composeLUTContractProfile,
+  deriveLUTContractView,
   getContractAttentionState,
   getProfileOutputLabel,
   getResolvedProfile,
@@ -383,8 +384,13 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     scrollOverviewToTop()
   }
 
-  const openContractView = (step: ContractStep = 'input') => {
-    setDraftInputProfile(resolvedProfile ?? null)
+  const openContractView = (
+    step: ContractStep = 'input',
+    draftOverride?: LUTColorProfile | null,
+  ) => {
+    setDraftInputProfile(
+      draftOverride !== undefined ? draftOverride : (resolvedProfile ?? null),
+    )
     setContractQuery('')
     setContractStep(step)
     setCatalogResourceId(null)
@@ -514,6 +520,126 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       return null
     }
 
+    const view = deriveLUTContractView(
+      props.lutProfileSelection,
+      props.lutProfileResolution,
+    )
+
+    const renderStatusContent = () => {
+      if (view.status === 'unknown') {
+        return (
+          <p className="m-0 rounded-md border border-lf-amber/45 bg-lf-amber/10 px-2.5 py-2 text-xs leading-relaxed text-lf-amber-soft">
+            {t('raw.lutContract.unknown')}
+          </p>
+        )
+      }
+
+      if (view.status === 'unsupported-output') {
+        return (
+          <p className="m-0 rounded-md border border-lf-amber/45 bg-lf-amber/10 px-2.5 py-2 text-xs leading-relaxed text-lf-amber-soft">
+            {t('raw.lutContract.unsupportedOutput')}
+          </p>
+        )
+      }
+
+      if (view.status === 'recommended') {
+        const { recommendation, completesContract } = view
+        const outputLabel = completesContract
+          ? getProfileOutputLabel(recommendation)
+          : t('raw.lutContract.chooseOutput')
+
+        return (
+          <div className="grid gap-2">
+            <div className="grid gap-1">
+              <span className="text-[0.66rem] font-semibold uppercase tracking-normal text-lf-hero-ink/50">
+                {t('raw.lutContract.inputTerm')}
+              </span>
+              <ContractChip
+                label={`${recommendation.label} · ${t('raw.lutContract.recommendedBadge')}`}
+              />
+            </div>
+            <div className="grid gap-1">
+              <span className="text-[0.66rem] font-semibold uppercase tracking-normal text-lf-hero-ink/50">
+                {t('raw.lutContract.outputTerm')}
+              </span>
+              <ContractChip
+                label={outputLabel ?? t('raw.lutContract.chooseOutput')}
+                tone={completesContract ? 'neutral' : 'warning'}
+              />
+            </div>
+            <p className="m-0 rounded-md border border-lf-amber/45 bg-lf-amber/10 px-2.5 py-2 text-xs leading-relaxed text-lf-amber-soft">
+              {completesContract
+                ? t('raw.lutContract.recommendedNote')
+                : t('raw.lutContract.recommendedInputOnlyNote')}
+            </p>
+            {completesContract ? (
+              <button
+                type="button"
+                data-raw-mobile-lut="apply-contract"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-3 text-lf-control font-semibold text-lf-hero-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={props.disabled}
+                onClick={() => props.onLutProfileSelect(recommendation)}
+              >
+                {t('raw.lutContract.applyContract')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                data-raw-mobile-lut="choose-output"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-3 text-lf-control font-semibold text-lf-hero-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={props.disabled}
+                onClick={() => openContractView('output', recommendation)}
+              >
+                {t('raw.lutContract.chooseOutput')}
+              </button>
+            )}
+          </div>
+        )
+      }
+
+      // confirmed or incomplete-output
+      if (view.status === 'confirmed' || view.status === 'incomplete-output') {
+        const profile = view.profile
+        const outLabel =
+          view.status === 'confirmed'
+            ? (view.outputLabel ?? displayOutputLabel)
+            : displayOutputLabel
+        const needsOutput = view.status === 'incomplete-output'
+
+        return (
+          <div className="grid gap-2">
+            <div className="grid gap-1">
+              <span className="text-[0.66rem] font-semibold uppercase tracking-normal text-lf-hero-ink/50">
+                {t('raw.lutContract.inputTerm')}
+              </span>
+              <ContractChip label={profile.label} />
+            </div>
+            <div className="grid gap-1">
+              <span className="text-[0.66rem] font-semibold uppercase tracking-normal text-lf-hero-ink/50">
+                {t('raw.lutContract.outputTerm')}
+              </span>
+              <ContractChip
+                label={outLabel ?? t('raw.mobile.lut.outputRequired')}
+                tone={needsOutput ? 'warning' : 'neutral'}
+              />
+            </div>
+            {needsOutput && (
+              <p className="m-0 rounded-md border border-lf-amber/45 bg-lf-amber/10 px-2.5 py-2 text-xs leading-relaxed text-lf-amber-soft">
+                {t('raw.lutContract.needsOutput')}
+              </p>
+            )}
+          </div>
+        )
+      }
+
+      // fallback: no contract known
+      return (
+        <p className="m-0 text-xs leading-relaxed text-lf-hero-ink/64">
+          {t('raw.mobile.lut.noContract')}
+        </p>
+      )
+    }
+
     return (
       <section className="grid gap-2">
         <div className="flex items-center justify-between gap-2">
@@ -535,42 +661,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         </div>
 
         <div className="grid gap-2.5 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5">
-          {attention.needsUserSelection ? (
-            <p className="m-0 rounded-md border border-lf-amber/45 bg-lf-amber/10 px-2.5 py-2 text-xs leading-relaxed text-lf-amber-soft">
-              {attention.unsupportedOutput
-                ? t('raw.lutContract.unsupportedOutput')
-                : t('raw.lutContract.unknown')}
-            </p>
-          ) : resolvedProfile ? (
-            <div className="grid gap-2">
-              <div className="grid gap-1">
-                <span className="text-[0.66rem] font-semibold uppercase tracking-normal text-lf-hero-ink/50">
-                  {t('raw.lutContract.inputTerm')}
-                </span>
-                <ContractChip label={resolvedProfile.label} />
-              </div>
-              <div className="grid gap-1">
-                <span className="text-[0.66rem] font-semibold uppercase tracking-normal text-lf-hero-ink/50">
-                  {t('raw.lutContract.outputTerm')}
-                </span>
-                <ContractChip
-                  label={
-                    displayOutputLabel ?? t('raw.mobile.lut.outputRequired')
-                  }
-                  tone={attention.needsOutputContract ? 'warning' : 'neutral'}
-                />
-              </div>
-              {attention.needsOutputContract && (
-                <p className="m-0 rounded-md border border-lf-amber/45 bg-lf-amber/10 px-2.5 py-2 text-xs leading-relaxed text-lf-amber-soft">
-                  {t('raw.lutContract.needsOutput')}
-                </p>
-              )}
-            </div>
-          ) : (
-            <p className="m-0 text-xs leading-relaxed text-lf-hero-ink/64">
-              {t('raw.mobile.lut.noContract')}
-            </p>
-          )}
+          {renderStatusContent()}
 
           <button
             type="button"
