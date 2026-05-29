@@ -479,6 +479,61 @@ describe('mobileLabChrome', () => {
     vi.useRealTimers()
   })
 
+  it('re-expands the dock panel when leaving immersive', () => {
+    vi.useFakeTimers()
+    render(<MobileLabChrome {...base} previewFrameEl={previewFrameEl} />)
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    })
+    act(() => {
+      vi.advanceTimersByTime(160)
+    })
+    expect(
+      screen.queryByRole('heading', { name: 'DSC09142.ARW' }),
+    ).not.toBeInTheDocument()
+    // Exit: chrome returns immediately, the panel re-expands after the stagger.
+    fireEvent.click(screen.getByRole('button', { name: /show controls/i }))
+    expect(screen.queryByRole('button', { name: /lut browser/i })).toBeNull()
+    act(() => {
+      vi.advanceTimersByTime(160)
+    })
+    expect(
+      screen.getByRole('button', { name: /lut browser/i }),
+    ).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
+  it('keeps the panel-restore intent through a rapid double-tap into immersive', () => {
+    vi.useFakeTimers()
+    render(<MobileLabChrome {...base} previewFrameEl={previewFrameEl} />)
+    expect(
+      screen.getByRole('button', { name: /lut browser/i }),
+    ).toBeInTheDocument()
+    // Tap 1 begins the collapse→recede stagger.
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    })
+    // Tap 2 within the stagger window completes immersive immediately.
+    act(() => {
+      previewFrameEl.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      previewFrameEl.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    })
+    expect(
+      screen.queryByRole('heading', { name: 'DSC09142.ARW' }),
+    ).not.toBeInTheDocument()
+    // Exiting must still restore the panel that was open before immersive.
+    fireEvent.click(screen.getByRole('button', { name: /show controls/i }))
+    act(() => {
+      vi.advanceTimersByTime(160)
+    })
+    expect(
+      screen.getByRole('button', { name: /lut browser/i }),
+    ).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
   it('tap on the exposed preview closes an open sheet instead of toggling immersive', async () => {
     render(<MobileLabChrome {...base} previewFrameEl={previewFrameEl} />)
     await userEvent.click(screen.getByRole('button', { name: /lut browser/i }))

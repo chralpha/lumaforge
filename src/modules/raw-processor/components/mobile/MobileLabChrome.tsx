@@ -269,8 +269,14 @@ export function MobileLabChrome(props: {
   // sequence instead of a wall vanishing at once. Exit reverses it. Reduced
   // motion collapses both halves to an instant flip.
   const enterImmersive = () => {
+    // A stagger already in flight means dockExpanded is mid-transition; reading
+    // it on a rapid second tap would mis-record the user's panel state. Keep the
+    // value captured when this immersive sequence first began.
+    const wasStaggering = immersiveStaggerTimer.current !== null
     clearImmersiveStagger()
-    expandedBeforeImmersive.current = dockExpanded
+    if (!wasStaggering) {
+      expandedBeforeImmersive.current = dockExpanded
+    }
     if (dockExpanded && !prefersReduced) {
       setDockExpanded(false)
       immersiveStaggerTimer.current = setTimeout(() => {
@@ -294,7 +300,9 @@ export function MobileLabChrome(props: {
         }, IMMERSIVE_STAGGER_MS)
       }
     }
-    expandedBeforeImmersive.current = false
+    // No eager reset: the next stable enterImmersive recaptures the panel state.
+    // Zeroing here would destroy the restore intent if a re-tap interrupts the
+    // re-expand stagger.
   }
   useMobilePreviewGestures(props.previewFrameEl ?? null, {
     enabled: previewGesturesEnabled,
