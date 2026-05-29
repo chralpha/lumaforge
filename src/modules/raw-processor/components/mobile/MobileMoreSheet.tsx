@@ -9,20 +9,55 @@ import { SHEET_SPRING, useToolMotion } from '../../motion'
 type Row = { label: string; value: string }
 type Step = { index: number; label: string; timing: string }
 
+// Facts sit in a borderless lift-soft well (DESIGN.md §6 "Borderless Track
+// Rule"): the 5% cool-white fill carries the edge instead of a drawn hairline,
+// which reads consistently on the flat sheet.
 function FactRows({ rows }: { rows: Row[] }) {
   return (
-    <dl className="m-0 grid grid-cols-[5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5">
+    <dl className="m-0 grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 rounded-lf-control bg-[oklch(0.96_0.006_255/0.05)] px-3 py-2.5">
       {rows.map((r) => (
         <div key={r.label} className="contents">
-          <dt className="m-0 truncate text-[0.72rem] tracking-tight text-lf-ink/55">
+          <dt className="m-0 truncate text-[0.72rem] tracking-tight text-lf-hero-ink/62">
             {r.label}
           </dt>
-          <dd className="m-0 truncate text-[0.78rem] font-medium tabular-nums text-lf-ink">
+          <dd className="m-0 truncate text-[0.78rem] font-medium tabular-nums text-lf-hero-ink/80">
             {r.value}
           </dd>
         </div>
       ))}
     </dl>
+  )
+}
+
+// The pipeline is the Contract Rail signature (DESIGN.md §5): ordered, numbered
+// color-math steps with a connecting spine. Amber numbers per "Amber Explains
+// Color"; the spine links the steps so they read as one sequence, not a list.
+function PipelineRail({ steps }: { steps: Step[] }) {
+  return (
+    <ol className="m-0 grid list-none gap-0 rounded-lf-control bg-[oklch(0.96_0.006_255/0.05)] px-3 py-1">
+      {steps.map((step, i) => (
+        <li
+          key={step.index}
+          className="relative grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-2.5 py-2"
+        >
+          {i < steps.length - 1 && (
+            <span
+              aria-hidden="true"
+              className="absolute left-[0.59rem] top-[1.85rem] h-[calc(100%-1.1rem)] w-px bg-lf-on-photo-bord-soft"
+            />
+          )}
+          <span className="z-[1] grid size-5 place-items-center rounded-full bg-lf-amber/15 text-[0.62rem] font-semibold tabular-nums text-lf-amber">
+            {step.index}
+          </span>
+          <span className="min-w-0 truncate text-[0.82rem] text-lf-hero-ink">
+            {step.label}
+          </span>
+          <em className="not-italic tabular-nums text-[0.72rem] text-lf-hero-ink/55">
+            {step.timing}
+          </em>
+        </li>
+      ))}
+    </ol>
   )
 }
 
@@ -46,7 +81,7 @@ export function MobileMoreSheet(props: {
           aria-modal="false"
           aria-label={t('raw.mobile.more.title')}
           data-mobile-substrate="ink-sheet"
-          className="pointer-events-auto absolute inset-x-0 bottom-0 z-[46] grid max-h-[78%] grid-rows-[auto_minmax(0,1fr)] rounded-t-xl border-t border-lf-hairline/40 bg-lf-paper-high pb-safe-offset-3 text-lf-ink shadow-[0_-14px_36px_-6px_oklch(0.18_0.018_76/0.22)]"
+          className="pointer-events-auto absolute inset-x-0 bottom-0 z-[46] grid max-h-[78%] grid-rows-[auto_minmax(0,1fr)] rounded-t-xl border-t border-lf-on-photo-bord-soft bg-[oklch(0.12_0.006_255/0.97)] pb-safe-offset-3 text-lf-hero-ink shadow-[0_-14px_36px_-6px_oklch(0.02_0.006_255/0.6)] backdrop-blur-background"
           initial={prefersReduced ? { opacity: 0 } : { y: '100%' }}
           animate={prefersReduced ? { opacity: 1 } : { y: '0%' }}
           exit={prefersReduced ? { opacity: 0 } : { y: '100%' }}
@@ -66,10 +101,10 @@ export function MobileMoreSheet(props: {
           >
             <div
               aria-hidden="true"
-              className="mx-auto h-1 w-9 rounded-lf-pill bg-lf-ink/25"
+              className="mx-auto h-1 w-9 rounded-lf-pill bg-lf-hero-ink/25"
             />
             <div className="flex items-center justify-between gap-2.5">
-              <h2 className="m-0 text-[0.95rem] font-semibold text-lf-ink">
+              <h2 className="m-0 text-[0.95rem] font-semibold text-lf-hero-ink">
                 {t('raw.mobile.more.title')}
               </h2>
               <IconButton
@@ -77,40 +112,25 @@ export function MobileMoreSheet(props: {
                 size="md"
                 aria-label={t('raw.mobile.more.close')}
                 onClick={props.onClose}
-                className="size-[44px] rounded-md bg-transparent text-lf-ink/55 transition-colors hover:bg-lf-ink/5 hover:text-lf-ink [&_svg]:size-5 [&_svg]:stroke-current"
+                className="size-[44px] rounded-md bg-transparent text-lf-hero-ink/55 transition-colors hover:bg-[oklch(0.96_0.006_255/0.06)] hover:text-lf-hero-ink [&_svg]:size-5 [&_svg]:stroke-current"
               />
             </div>
           </div>
-          <div className="grid min-h-0 gap-3 overflow-y-auto px-4 pb-5 pt-1">
+          <div className="grid min-h-0 gap-4 overflow-y-auto px-4 pb-5 pt-1">
             <section className="grid gap-2">
-              <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
+              <h3 className="m-0 text-[0.66rem] font-semibold uppercase tracking-wide text-lf-hero-ink/55">
                 {t('raw.mobile.more.pipelineHeading')}
               </h3>
-              <div className="grid gap-1.5 rounded-md bg-lf-paper-warm/55 px-3 py-2.5">
-                {props.pipelineSteps.map((s) => (
-                  <div
-                    key={s.index}
-                    className="flex items-center gap-2.5 text-[0.82rem] text-lf-ink"
-                  >
-                    <span className="grid size-[18px] place-items-center rounded-full bg-lf-amber/15 text-[0.62rem] font-semibold tabular-nums text-lf-amber">
-                      {s.index}
-                    </span>
-                    {s.label}
-                    <em className="ml-auto not-italic tabular-nums text-lf-ink-soft">
-                      {s.timing}
-                    </em>
-                  </div>
-                ))}
-              </div>
+              <PipelineRail steps={props.pipelineSteps} />
             </section>
             <section className="grid gap-2">
-              <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
+              <h3 className="m-0 text-[0.66rem] font-semibold uppercase tracking-wide text-lf-hero-ink/55">
                 {t('raw.mobile.more.lutHeading')}
               </h3>
               <FactRows rows={props.lutRows} />
             </section>
             <section className="grid gap-2">
-              <h3 className="m-0 text-lf-body font-semibold text-lf-ink">
+              <h3 className="m-0 text-[0.66rem] font-semibold uppercase tracking-wide text-lf-hero-ink/55">
                 {t('raw.mobile.more.fileHeading')}
               </h3>
               <FactRows rows={props.fileRows} />

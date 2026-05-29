@@ -3,6 +3,7 @@ import { MoreHorizontal } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { IconButton } from '~/components/ui/button'
+import { clsxm } from '~/lib/cn'
 
 export type MobileMoreMenuItem =
   | {
@@ -50,13 +51,18 @@ export function MobileMoreMenu(props: {
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((value) => !value)}
-        className="size-11 rounded-md border border-lf-on-photo-bord bg-lf-on-photo-bg text-lf-hero-ink [&_svg]:size-5 [&_svg]:stroke-current"
+        className={clsxm(
+          'size-11 rounded-md text-lf-hero-ink transition-colors [&_svg]:size-5 [&_svg]:stroke-current',
+          open
+            ? 'bg-[oklch(0.96_0.006_255/0.06)]'
+            : 'bg-transparent hover:bg-[oklch(0.96_0.006_255/0.06)]',
+        )}
       />
       {open && (
         <div
           role="menu"
           data-mobile-substrate="ink-popover"
-          className="absolute right-0 top-[calc(100%+6px)] z-50 grid min-w-[12.25rem] gap-0.5 rounded-md border border-lf-on-photo-bord bg-lf-dark-low p-1.5 text-lf-hero-ink shadow-[0_18px_42px_oklch(0.04_0.012_76/0.55)]"
+          className="absolute right-0 top-[calc(100%+6px)] z-50 grid min-w-[12.25rem] gap-0.5 rounded-md border border-lf-on-photo-bord-soft bg-[oklch(0.11_0.006_255/0.94)] p-1.5 text-lf-hero-ink shadow-[0_18px_42px_oklch(0.02_0.006_255/0.6)] backdrop-blur-background"
         >
           {props.items.map((it, i) =>
             it.kind === 'separator' ? (
