@@ -680,9 +680,10 @@ describe('rawToolSurface', () => {
       />,
     )
 
+    // With a complete recommendation the component surfaces inline rows + recommended note
     expect(
       screen.getByText(
-        'Choose the LUT input and output contract before preview or export.',
+        'Inferred from the file name/metadata — confirm before export.',
       ),
     ).toBeInTheDocument()
     expect(
@@ -691,6 +692,7 @@ describe('rawToolSurface', () => {
     expect(
       screen.queryByRole('dialog', { name: 'LUT contract browser' }),
     ).not.toBeInTheDocument()
+    // Full suggestion list not rendered inline - only the top recommendation is shown
     expect(
       screen.queryByText('Sony S-Gamut3.Cine / S-Log3 -> Rec.709 display'),
     ).not.toBeInTheDocument()

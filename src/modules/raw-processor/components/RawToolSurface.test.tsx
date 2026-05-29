@@ -1191,6 +1191,118 @@ describe('rawToolSurface', () => {
     }
   })
 
+  it('renders input and output rows with apply-contract button for a complete recommendation', async () => {
+    const vlog709 = getLUTColorProfile('panasonic-vgamut-vlog')!
+    const completeProfile = {
+      ...vlog709,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'gamma24' as const,
+      outputRange: 'full' as const,
+    }
+
+    render(
+      <RawToolSurface
+        {...baseProps}
+        currentLutName="VLog-to-Rec709.cube"
+        lutProfileSelection={{
+          status: 'recommended',
+          fingerprint: 'vlog-rec709',
+          title: 'VLog to Rec.709',
+          recommendations: [completeProfile],
+        }}
+        lutProfileResolution={{
+          kind: 'recommended',
+          recommendations: [completeProfile],
+        }}
+      />,
+    )
+
+    const contractRegions = screen.getAllByRole('region', {
+      name: 'LUT contract',
+    })
+    const contractRegion = contractRegions[0]
+    expect(within(contractRegion).getByText('LUT input:')).toBeInTheDocument()
+    expect(within(contractRegion).getByText('LUT output:')).toBeInTheDocument()
+    expect(
+      within(contractRegion).getByRole('button', {
+        name: 'Use this contract',
+      }),
+    ).toHaveAttribute('data-raw-lut', 'apply-contract')
+  })
+
+  it('clicking apply-contract calls onLutProfileSelect with the recommendation profile', async () => {
+    const user = userEvent.setup()
+    const onLutProfileSelect = vi.fn()
+    const vlog709 = getLUTColorProfile('panasonic-vgamut-vlog')!
+    const completeProfile = {
+      ...vlog709,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'gamma24' as const,
+      outputRange: 'full' as const,
+    }
+
+    render(
+      <RawToolSurface
+        {...baseProps}
+        currentLutName="VLog-to-Rec709.cube"
+        onLutProfileSelect={onLutProfileSelect}
+        lutProfileSelection={{
+          status: 'recommended',
+          fingerprint: 'vlog-rec709',
+          title: 'VLog to Rec.709',
+          recommendations: [completeProfile],
+        }}
+        lutProfileResolution={{
+          kind: 'recommended',
+          recommendations: [completeProfile],
+        }}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Use this contract' }))
+
+    expect(onLutProfileSelect).toHaveBeenCalledWith(completeProfile)
+  })
+
+  it('renders choose-output button for input-only recommendation and opens browser on click', async () => {
+    const user = userEvent.setup()
+    const vlog709 = getLUTColorProfile('panasonic-vgamut-vlog')!
+
+    render(
+      <RawToolSurface
+        {...baseProps}
+        currentLutName="VLog-Look.cube"
+        lutProfileSelection={{
+          status: 'recommended',
+          fingerprint: 'vlog-look',
+          title: 'VLog Look',
+          recommendations: [vlog709],
+        }}
+        lutProfileResolution={{
+          kind: 'recommended',
+          recommendations: [vlog709],
+        }}
+      />,
+    )
+
+    const contractRegions = screen.getAllByRole('region', {
+      name: 'LUT contract',
+    })
+    const contractRegion = contractRegions[0]
+    const chooseOutputBtn = within(contractRegion).getByRole('button', {
+      name: 'Choose output',
+    })
+    expect(chooseOutputBtn).toHaveAttribute('data-raw-lut', 'choose-output')
+
+    await user.click(chooseOutputBtn)
+
+    expect(
+      screen.getByRole('dialog', { name: 'LUT contract browser' }),
+    ).toBeInTheDocument()
+  })
+
   it('mobile Compare defaults to hold-to-peek before exposing split reset', async () => {
     const user = userEvent.setup()
     const prev = jotaiStore.get(viewportAtom)

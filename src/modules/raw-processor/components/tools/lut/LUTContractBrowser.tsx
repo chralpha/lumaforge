@@ -38,6 +38,8 @@ export function LUTContractBrowser({
   currentProfile,
   onSelect,
   browserId,
+  initialStep,
+  initialInputDraft,
 }: {
   open: boolean
   onClose: (options?: { restoreFocus?: boolean }) => void
@@ -45,6 +47,8 @@ export function LUTContractBrowser({
   currentProfile?: LUTColorProfile
   onSelect: (profile: LUTColorProfile) => void
   browserId: string
+  initialStep?: 'input' | 'output'
+  initialInputDraft?: LUTColorProfile | null
 }) {
   const { t } = useI18n()
   const searchInputId = useId()
@@ -64,9 +68,9 @@ export function LUTContractBrowser({
   useEffect(() => {
     if (!open) return
     setQuery('')
-    setStep('input')
-    setDraftInputProfile(currentProfile ?? null)
-  }, [currentProfile, open])
+    setStep(initialStep ?? 'input')
+    setDraftInputProfile(initialInputDraft ?? currentProfile ?? null)
+  }, [currentProfile, initialInputDraft, initialStep, open])
 
   const visibleSuggestions = useMemo(
     () =>
