@@ -371,8 +371,8 @@ export function CompareSplitHandle({
       type="button"
       role="slider"
       aria-label={t('raw.stage.sliderAria')}
-      aria-valuemin={5}
-      aria-valuemax={95}
+      aria-valuemin={0}
+      aria-valuemax={100}
       aria-valuenow={Math.round(clampCompareSplit(value) * 100)}
       disabled={disabled}
       className={clsxm('raw-lab-compare-handle', className)}

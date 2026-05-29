@@ -68,7 +68,7 @@ describe('view session state transitions', () => {
 
     expect(next.viewState).toEqual({
       ...session.viewState,
-      compareSplit: 0.95,
+      compareSplit: 1,
     })
     expect(next.exportState).toBe(session.exportState)
   })

@@ -63,7 +63,7 @@ describe('raw load preparation', () => {
       activeStyle: createActiveStyle(),
     })
 
-    expect(prepared.compareSplit).toBe(0.95)
+    expect(prepared.compareSplit).toBe(1)
     expect(prepared.retainedSessionState).toEqual({
       activeStyle: null,
       lutProfileSelection: undefined,
@@ -71,7 +71,7 @@ describe('raw load preparation', () => {
     expect(prepared.processingParamsPatch).toEqual({
       intensity: 0.7,
       viewMode: 'compare',
-      compareSplit: 0.95,
+      compareSplit: 1,
       styleKind: 'none',
       builtinPreset: null,
     })

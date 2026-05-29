@@ -27,18 +27,16 @@ beforeAll(() => {
 })
 
 describe('compare split helpers', () => {
-  it('clamps split to the visible handle range', () => {
-    expect(clampCompareSplit(-1)).toBe(0.05)
+  it('clamps split to the full image range', () => {
+    expect(clampCompareSplit(-1)).toBe(0)
     expect(clampCompareSplit(0.5)).toBe(0.5)
-    expect(clampCompareSplit(2)).toBe(0.95)
+    expect(clampCompareSplit(2)).toBe(1)
   })
 
   it('maps pointer x position to split fraction', () => {
     expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 300)).toBe(0.5)
-    expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 60)).toBe(0.05)
-    expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 520)).toBe(
-      0.95,
-    )
+    expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 60)).toBe(0)
+    expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 520)).toBe(1)
   })
 })
 
@@ -387,20 +385,20 @@ describe('compareSplitHandle', () => {
     expect(onParentClick).not.toHaveBeenCalled()
   })
 
-  it('exposes the clamped range and supports Home and End keys', () => {
+  it('exposes the full range and supports Home and End keys', () => {
     const onChange = vi.fn()
 
     render(<CompareSplitHandle value={0.5} onChange={onChange} />)
 
     const slider = screen.getByRole('slider')
 
-    expect(slider).toHaveAttribute('aria-valuemin', '5')
-    expect(slider).toHaveAttribute('aria-valuemax', '95')
+    expect(slider).toHaveAttribute('aria-valuemin', '0')
+    expect(slider).toHaveAttribute('aria-valuemax', '100')
 
     fireEvent.keyDown(slider, { key: 'Home' })
-    expect(onChange).toHaveBeenLastCalledWith(0.05)
+    expect(onChange).toHaveBeenLastCalledWith(0)
 
     fireEvent.keyDown(slider, { key: 'End' })
-    expect(onChange).toHaveBeenLastCalledWith(0.95)
+    expect(onChange).toHaveBeenLastCalledWith(1)
   })
 })

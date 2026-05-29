@@ -1,5 +1,5 @@
-export const COMPARE_SPLIT_MIN = 0.05
-export const COMPARE_SPLIT_MAX = 0.95
+export const COMPARE_SPLIT_MIN = 0
+export const COMPARE_SPLIT_MAX = 1
 
 export function clampCompareSplit(value: number) {
   if (!Number.isFinite(value)) return 0.5

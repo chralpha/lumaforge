@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { clampCompareSplit, getCompareSplitFromClientX } from './compare-split'
 
 describe('compare split math', () => {
-  it('clamps split to the visible handle range', () => {
-    expect(clampCompareSplit(-1)).toBe(0.05)
+  it('clamps split to the full image range', () => {
+    expect(clampCompareSplit(-1)).toBe(0)
     expect(clampCompareSplit(0.5)).toBe(0.5)
-    expect(clampCompareSplit(2)).toBe(0.95)
+    expect(clampCompareSplit(2)).toBe(1)
   })
 
   it('falls back to the centered split for non-finite values', () => {
@@ -17,10 +17,8 @@ describe('compare split math', () => {
 
   it('maps pointer x position to a split fraction', () => {
     expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 300)).toBe(0.5)
-    expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 60)).toBe(0.05)
-    expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 520)).toBe(
-      0.95,
-    )
+    expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 60)).toBe(0)
+    expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 520)).toBe(1)
   })
 
   it('falls back to the centered split for unusable geometry', () => {

@@ -873,7 +873,7 @@ export class RawProcessingPipeline {
     )
     gl.uniform1f(
       processUniforms.u_compareSplit,
-      Math.min(0.95, Math.max(0.05, params.compareSplit)),
+      Math.min(1, Math.max(0, params.compareSplit)),
     )
     gl.uniform1f(
       processUniforms.u_rawRenderExposureMultiplier,

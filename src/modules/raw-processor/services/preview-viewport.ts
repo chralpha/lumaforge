@@ -179,12 +179,12 @@ export function getCanvasCompareSplit(
   if (!Number.isFinite(viewportCompareSplit)) return 0.5
 
   if (zoom <= 1 || !Number.isFinite(zoom))
-    return clamp(viewportCompareSplit, 0.05, 0.95)
+    return clamp(viewportCompareSplit, 0, 1)
   if (!Number.isFinite(contentWidth) || contentWidth <= 0)
-    return clamp(viewportCompareSplit, 0.05, 0.95)
+    return clamp(viewportCompareSplit, 0, 1)
 
   const canvasSplit =
     0.5 + (viewportCompareSplit - 0.5) / zoom - panX / (contentWidth * zoom)
 
-  return clamp(canvasSplit, 0.05, 0.95)
+  return clamp(canvasSplit, 0, 1)
 }

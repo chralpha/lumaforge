@@ -129,9 +129,9 @@ describe('compare split viewport compensation', () => {
     expect(getCanvasCompareSplit(0.5, 2, -200, 400)).toBe(0.75)
   })
 
-  it('clamps output to [0.05, 0.95] range', () => {
-    expect(getCanvasCompareSplit(0, 1, 0, 400)).toBe(0.05)
-    expect(getCanvasCompareSplit(1, 1, 0, 400)).toBe(0.95)
+  it('clamps output to [0, 1] range', () => {
+    expect(getCanvasCompareSplit(0, 1, 0, 400)).toBe(0)
+    expect(getCanvasCompareSplit(1, 1, 0, 400)).toBe(1)
     // zoom=8, compareSplit=1, panX=0, contentWidth=400:
     // canvasSplit = 0.5 + (1 - 0.5)/8 - 0 = 0.5 + 0.0625 = 0.5625 (within range)
     // zoom=8, compareSplit=0, panX=0:

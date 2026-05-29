@@ -1576,10 +1576,10 @@ describe('useRawProcessor embedded preview state', () => {
       result.current.setCompareSplit(2)
     })
 
-    expect(result.current.compareSplit).toBe(0.95)
+    expect(result.current.compareSplit).toBe(1)
     expect(jotaiStore.get(currentSessionAtom)?.viewState).toMatchObject({
       mode: 'processed',
-      compareSplit: 0.95,
+      compareSplit: 1,
     })
   })
 
