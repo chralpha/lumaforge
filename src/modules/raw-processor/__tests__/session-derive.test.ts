@@ -211,7 +211,7 @@ describe('session derivation', () => {
           dimension: 33,
           profileResolution: {
             kind: 'needs-user-selection',
-            suggestions: [],
+            recommendations: [],
             reason: 'unsupported-output',
           },
         },

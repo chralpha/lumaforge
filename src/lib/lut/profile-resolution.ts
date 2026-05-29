@@ -540,13 +540,13 @@ export function resolveLUTProfile(input: {
     return {
       kind: 'needs-user-selection',
       reason: 'unsupported-output',
-      suggestions,
+      recommendations: suggestions,
     }
   }
 
   return {
     kind: 'needs-user-selection',
-    suggestions,
+    recommendations: suggestions,
   }
 }
 

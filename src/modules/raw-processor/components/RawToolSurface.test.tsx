@@ -842,11 +842,11 @@ describe('rawToolSurface', () => {
           status: 'pending',
           fingerprint: 'lut-contract-materials',
           title: 'Unknown Look',
-          suggestions: [],
+          recommendations: [],
         }}
         lutProfileResolution={{
           kind: 'needs-user-selection',
-          suggestions: [],
+          recommendations: [],
         }}
       />,
     )
@@ -929,11 +929,11 @@ describe('rawToolSurface', () => {
           status: 'pending',
           fingerprint: 'stable-catalog-look',
           title: 'Stable catalog look',
-          suggestions: [sonyProfile, panasonicProfile],
+          recommendations: [sonyProfile, panasonicProfile],
         }}
         lutProfileResolution={{
           kind: 'needs-user-selection',
-          suggestions: [sonyProfile, panasonicProfile],
+          recommendations: [sonyProfile, panasonicProfile],
         }}
       />,
     )

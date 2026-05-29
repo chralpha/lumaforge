@@ -101,7 +101,7 @@ describe('look session state transitions', () => {
       status: 'pending' as const,
       fingerprint: 'lut-fingerprint',
       title: 'Client LUT',
-      suggestions: [],
+      recommendations: [],
     }
     const session = createSession({ exportState: readyExportState() })
     const style = createStyle()
@@ -130,7 +130,7 @@ describe('look session state transitions', () => {
         status: 'pending',
         fingerprint: 'previous',
         title: 'Previous LUT',
-        suggestions: [],
+        recommendations: [],
       },
       exportState: readyExportState(),
     })
@@ -199,7 +199,7 @@ describe('look session state transitions', () => {
         status: 'pending',
         fingerprint: 'lut-fingerprint',
         title: 'Client LUT',
-        suggestions: [],
+        recommendations: [],
       },
       exportState: readyExportState(),
     })

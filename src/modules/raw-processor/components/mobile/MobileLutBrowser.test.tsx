@@ -542,11 +542,11 @@ describe('mobileLutBrowser', () => {
           fingerprint: 'lut-fingerprint',
           title: 'Unknown client look',
           sourceName: 'unknown-client-look.cube',
-          suggestions: [panasonic],
+          recommendations: [panasonic],
         }}
         lutProfileResolution={{
           kind: 'needs-user-selection',
-          suggestions: [panasonic],
+          recommendations: [panasonic],
         }}
       />,
     )
@@ -610,11 +610,11 @@ describe('mobileLutBrowser', () => {
           fingerprint: 'lut-fingerprint',
           title: 'Unknown client look',
           sourceName: 'unknown-client-look.cube',
-          suggestions: [getLUTColorProfile('panasonic-vgamut-vlog')!],
+          recommendations: [getLUTColorProfile('panasonic-vgamut-vlog')!],
         }}
         lutProfileResolution={{
           kind: 'needs-user-selection',
-          suggestions: [getLUTColorProfile('panasonic-vgamut-vlog')!],
+          recommendations: [getLUTColorProfile('panasonic-vgamut-vlog')!],
         }}
       />,
     )
@@ -656,11 +656,11 @@ describe('mobileLutBrowser', () => {
           fingerprint: 'lut-fingerprint',
           title: 'Unknown client look',
           sourceName: 'unknown-client-look.cube',
-          suggestions: [getLUTColorProfile('panasonic-vgamut-vlog')!],
+          recommendations: [getLUTColorProfile('panasonic-vgamut-vlog')!],
         }}
         lutProfileResolution={{
           kind: 'needs-user-selection',
-          suggestions: [getLUTColorProfile('panasonic-vgamut-vlog')!],
+          recommendations: [getLUTColorProfile('panasonic-vgamut-vlog')!],
         }}
       />,
     )
@@ -685,11 +685,11 @@ describe('mobileLutBrowser', () => {
           fingerprint: 'lut-fingerprint',
           title: 'Unknown client look',
           sourceName: 'unknown-client-look.cube',
-          suggestions: [getLUTColorProfile('panasonic-vgamut-vlog')!],
+          recommendations: [getLUTColorProfile('panasonic-vgamut-vlog')!],
         }}
         lutProfileResolution={{
           kind: 'needs-user-selection',
-          suggestions: [getLUTColorProfile('panasonic-vgamut-vlog')!],
+          recommendations: [getLUTColorProfile('panasonic-vgamut-vlog')!],
         }}
         onLutProfileSelect={onLutProfileSelect}
       />,
@@ -756,11 +756,11 @@ describe('mobileLutBrowser', () => {
           fingerprint: 'lut-fingerprint',
           title: 'Unknown client look',
           sourceName: 'unknown-client-look.cube',
-          suggestions: [panasonic],
+          recommendations: [panasonic],
         }}
         lutProfileResolution={{
           kind: 'needs-user-selection',
-          suggestions: [panasonic],
+          recommendations: [panasonic],
         }}
         onLutProfileSelect={onLutProfileSelect}
       />,
@@ -831,11 +831,11 @@ describe('mobileLutBrowser', () => {
           fingerprint: 'lut-fingerprint',
           title: 'Unknown client look',
           sourceName: 'unknown-client-look.cube',
-          suggestions: [panasonic],
+          recommendations: [panasonic],
         }}
         lutProfileResolution={{
           kind: 'needs-user-selection',
-          suggestions: [panasonic],
+          recommendations: [panasonic],
         }}
       />,
     )

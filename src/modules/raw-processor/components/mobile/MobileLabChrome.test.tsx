@@ -345,11 +345,11 @@ describe('mobileLabChrome', () => {
             fingerprint: 'lut-fingerprint',
             title: 'Unknown look',
             sourceName: 'unknown-look.cube',
-            suggestions: [],
+            recommendations: [],
           },
           lutProfileResolution: {
             kind: 'needs-user-selection',
-            suggestions: [],
+            recommendations: [],
           },
         }}
       />,

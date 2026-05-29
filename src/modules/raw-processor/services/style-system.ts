@@ -67,7 +67,7 @@ export function buildLUTContractSelectionState(
       fingerprint: lut.fingerprint,
       title: lut.title,
       sourceName: lut.sourceName,
-      suggestions: lut.profileResolution.suggestions,
+      recommendations: lut.profileResolution.recommendations,
     }
   }
 

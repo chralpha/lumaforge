@@ -134,7 +134,7 @@ describe('rawProcessingPipeline export telemetry', () => {
       inputProfile: 'display-srgb',
       profileResolution: {
         kind: 'needs-user-selection',
-        suggestions: [],
+        recommendations: [],
       },
     })
     pipeline.setParams({

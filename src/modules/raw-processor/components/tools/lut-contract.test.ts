@@ -8,7 +8,7 @@ describe('getContractAttentionState', () => {
   it('flags needs-user-selection when resolution is unresolved', () => {
     const state = getContractAttentionState(null, {
       kind: 'needs-user-selection',
-      suggestions: [],
+      recommendations: [],
     })
 
     expect(state).toEqual({
@@ -23,7 +23,7 @@ describe('getContractAttentionState', () => {
     const state = getContractAttentionState(null, {
       kind: 'needs-user-selection',
       reason: 'unsupported-output',
-      suggestions: [],
+      recommendations: [],
     })
 
     expect(state.unsupportedOutput).toBe(true)

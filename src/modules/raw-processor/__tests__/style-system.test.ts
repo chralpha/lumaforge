@@ -88,7 +88,7 @@ describe('style-system', () => {
       fingerprint: lut.fingerprint,
       title: 'Client Secret Sauce',
       sourceName: 'unknown-look.cube',
-      suggestions: [],
+      recommendations: [],
     })
   })
 })

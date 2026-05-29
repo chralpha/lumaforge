@@ -105,7 +105,7 @@ describe('raw load preparation', () => {
       fingerprint: lut.fingerprint,
       title: 'Client LUT',
       sourceName: 'client.cube',
-      suggestions: [],
+      recommendations: [],
     })
     expect(prepared.processingParamsPatch).toMatchObject({
       intensity: 0.7,

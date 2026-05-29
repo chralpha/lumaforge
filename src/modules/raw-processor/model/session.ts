@@ -55,7 +55,7 @@ export type LUTContractSelectionState =
       fingerprint: string
       title: string
       sourceName?: string
-      suggestions: LUTColorProfile[]
+      recommendations: LUTColorProfile[]
     }
   | {
       status: 'resolved'

@@ -33,7 +33,7 @@ export type LUTContractResolution =
     }
   | {
       kind: 'needs-user-selection'
-      suggestions: LUTColorProfile[]
+      recommendations: LUTColorProfile[]
       reason?: 'unsupported-output'
     }
 

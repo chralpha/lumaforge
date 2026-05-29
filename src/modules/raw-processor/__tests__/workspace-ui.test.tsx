@@ -669,11 +669,11 @@ describe('rawToolSurface', () => {
             status: 'pending',
             fingerprint: 'abc123',
             title: 'Sony Look',
-            suggestions: [profile],
+            recommendations: [profile],
           },
           lutProfileResolution: {
             kind: 'needs-user-selection',
-            suggestions: [profile],
+            recommendations: [profile],
           },
           onLutProfileSelect,
         })}
@@ -951,11 +951,11 @@ describe('rawToolSurface', () => {
             fingerprint: 'def456',
             title: 'Unknown Look',
             sourceName: 'Unknown Look.cube',
-            suggestions: [],
+            recommendations: [],
           },
           lutProfileResolution: {
             kind: 'needs-user-selection',
-            suggestions: [],
+            recommendations: [],
           },
           onLutProfileSelect,
         })}
@@ -1043,11 +1043,11 @@ describe('rawToolSurface', () => {
             status: 'pending',
             fingerprint: 'ghi789',
             title: 'Unknown Look',
-            suggestions: [suggestion],
+            recommendations: [suggestion],
           },
           lutProfileResolution: {
             kind: 'needs-user-selection',
-            suggestions: [suggestion],
+            recommendations: [suggestion],
           },
           onLutProfileSelect,
         })}
@@ -1084,11 +1084,11 @@ describe('rawToolSurface', () => {
             status: 'pending',
             fingerprint: 'jkl012',
             title: 'Cineon Output',
-            suggestions: [suggestion],
+            recommendations: [suggestion],
           },
           lutProfileResolution: {
             kind: 'needs-user-selection',
-            suggestions: [suggestion],
+            recommendations: [suggestion],
             reason: 'unsupported-output',
           },
         })}

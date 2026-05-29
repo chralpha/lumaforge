@@ -190,7 +190,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
   const profileSuggestions = useMemo(
     () =>
       props.lutProfileResolution?.kind === 'needs-user-selection'
-        ? props.lutProfileResolution.suggestions
+        ? props.lutProfileResolution.recommendations
         : [],
     [props.lutProfileResolution],
   )

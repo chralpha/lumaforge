@@ -744,7 +744,7 @@ describe('useRawProcessor embedded preview state', () => {
     await waitFor(() => {
       expect(result.current.lut?.profileResolution).toEqual({
         kind: 'needs-user-selection',
-        suggestions: [],
+        recommendations: [],
       })
     })
     const pendingSelection = {
@@ -752,7 +752,7 @@ describe('useRawProcessor embedded preview state', () => {
       fingerprint: result.current.lut?.fingerprint,
       title: 'Client Secret Sauce',
       sourceName: 'unknown-look.cube',
-      suggestions: [],
+      recommendations: [],
     }
     expect(result.current.lutProfileSelection).toEqual(pendingSelection)
     expect(jotaiStore.get(currentSessionAtom)?.lutProfileSelection).toEqual(
@@ -922,7 +922,7 @@ describe('useRawProcessor embedded preview state', () => {
 
     expect(result.current.lut?.profileResolution).toEqual({
       kind: 'needs-user-selection',
-      suggestions: [],
+      recommendations: [],
     })
     expect(result.current.lutProfileSelection?.status).toBe('pending')
     expect(getStoredLUTContractSelection(fingerprint)).toBeUndefined()
@@ -1111,7 +1111,7 @@ describe('useRawProcessor embedded preview state', () => {
       sourceName: 'Direct Online LUT',
       profileResolution: {
         kind: 'needs-user-selection',
-        suggestions: [],
+        recommendations: [],
       },
     })
     expect(result.current.lutProfileSelection).toMatchObject({

@@ -31,7 +31,7 @@ export function LUTProfileStatus({
   const attention = getContractAttentionState(selection, resolution)
   const isPending = selection?.status === 'pending'
   const suggestions =
-    selection?.status === 'pending' ? selection.suggestions : []
+    selection?.status === 'pending' ? selection.recommendations : []
   const [browserOpen, setBrowserOpen] = useState(false)
   const browserId = useId()
   const triggerRef = useRef<HTMLButtonElement | null>(null)

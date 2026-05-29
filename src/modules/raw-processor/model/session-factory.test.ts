@@ -93,7 +93,7 @@ describe('createImageSession', () => {
       status: 'pending',
       fingerprint: 'lut-fingerprint',
       title: 'Client LUT',
-      suggestions: [],
+      recommendations: [],
     }
 
     const session = createImageSession(new File(['raw'], 'frame.RAF'), {

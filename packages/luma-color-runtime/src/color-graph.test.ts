@@ -361,7 +361,7 @@ describe('resolveExportColorGraph', () => {
         inputProfile: 'display-srgb',
         profileResolution: {
           kind: 'needs-user-selection',
-          suggestions: [],
+          recommendations: [],
         },
       },
     })

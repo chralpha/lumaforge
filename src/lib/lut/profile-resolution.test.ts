@@ -315,7 +315,7 @@ describe('lUT explicit profile labels', () => {
       }),
     ).toMatchObject({
       kind: 'needs-user-selection',
-      suggestions: expect.arrayContaining([
+      recommendations: expect.arrayContaining([
         expect.objectContaining({ id: 'panasonic-vgamut-vlog' }),
       ]),
     })
@@ -333,7 +333,7 @@ describe('lUT explicit profile labels', () => {
     })
     expect(resolution).toMatchObject({
       kind: 'needs-user-selection',
-      suggestions: [],
+      recommendations: [],
     })
   })
 
@@ -345,7 +345,7 @@ describe('lUT explicit profile labels', () => {
 
     expect(resolution).toMatchObject({
       kind: 'needs-user-selection',
-      suggestions: [],
+      recommendations: [],
     })
   })
 
@@ -357,7 +357,7 @@ describe('lUT explicit profile labels', () => {
 
     expect(resolution).toMatchObject({
       kind: 'needs-user-selection',
-      suggestions: [],
+      recommendations: [],
     })
   })
 
@@ -369,7 +369,7 @@ describe('lUT explicit profile labels', () => {
 
     expect(resolution).toMatchObject({
       kind: 'needs-user-selection',
-      suggestions: [],
+      recommendations: [],
     })
   })
 
@@ -382,7 +382,7 @@ describe('lUT explicit profile labels', () => {
 
     expect(resolution).toMatchObject({
       kind: 'needs-user-selection',
-      suggestions: [],
+      recommendations: [],
     })
   })
 
@@ -395,7 +395,7 @@ describe('lUT explicit profile labels', () => {
 
     expect(resolution).toMatchObject({
       kind: 'needs-user-selection',
-      suggestions: [],
+      recommendations: [],
     })
   })
 
@@ -410,7 +410,7 @@ describe('lUT explicit profile labels', () => {
     if (resolution.kind !== 'needs-user-selection') {
       throw new Error('Expected Cineon LUT to require profile selection')
     }
-    expect(resolution.suggestions).toEqual(
+    expect(resolution.recommendations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'sony-sgamut3cine-slog3' }),
       ]),
