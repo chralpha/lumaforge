@@ -21,7 +21,7 @@ describe('raw route bootstrap paint', () => {
   it('renders a visible /raw boot shell inside the root before React mounts', () => {
     expect(indexHtml).toContain('data-lf-raw-boot')
     expect(indexHtml).toContain('data-lf-raw-boot-title')
-    expect(indexHtml).toContain('Open a single RAW file')
+    expect(indexHtml).toContain('Finish a RAW with a LUT')
     expect(indexHtml).toContain(
       'html:not(.luma-route-raw) #root > [data-lf-raw-boot]',
     )
@@ -31,7 +31,11 @@ describe('raw route bootstrap paint', () => {
   })
 
   it('keeps the /raw boot shell paint path simple and stable', () => {
-    expect(indexHtml).not.toContain('radial-gradient')
+    // The static darkroom radial-gradient substrate is an intentional part of
+    // the boot shell (mobile boot redesign). What must stay out of the critical
+    // inline paint path is viewport-derived sizing math that can reflow the
+    // first paint, so the title scales via fixed sizes + one media query rather
+    // than clamp().
     expect(indexHtml).not.toContain('clamp(')
   })
 
