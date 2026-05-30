@@ -74,6 +74,11 @@ export class CpuPreviewClient {
     data: Uint16Array
   }) {
     const worker = this.ensureWorker()
+    // Release the previously-owned source in the worker before loading a new
+    // one, so the worker's source map does not retain stale image buffers.
+    if (this.sourceId && this.sourceId !== input.sourceId) {
+      worker.postMessage({ type: 'disposeSource', sourceId: this.sourceId })
+    }
     this.sourceId = input.sourceId
     this.inFlightId = null
     this.pending = null

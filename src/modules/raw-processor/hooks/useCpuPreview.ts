@@ -90,8 +90,10 @@ export function buildCpuPreviewGraph(
 // Hook
 // ---------------------------------------------------------------------------
 
-function deriveSourceId(image: DecodedImage): string {
-  return `${image.width}x${image.height}:${image.data.byteLength}`
+function deriveSourceId(image: DecodedImage, imageVersion: number): string {
+  // Include imageVersion so two distinct decodes of identical dimensions get
+  // distinct ids (prevents neutral-cache collisions across images).
+  return `v${imageVersion}:${image.width}x${image.height}:${image.data.byteLength}`
 }
 
 function isQuickU16(image: DecodedImage): boolean {
@@ -140,6 +142,22 @@ export function useCpuPreview({
   // Track the last source id to detect image identity changes.
   const lastSourceIdRef = useRef<string | null>(null)
 
+  // Refs so the once-created onFrame handler reads current values rather than
+  // the stale closure captured when the client was first constructed.
+  const variantRef = useRef(variant)
+  variantRef.current = variant
+  const rawRenderExposureEvRef = useRef(params.rawRenderExposure.ev)
+  rawRenderExposureEvRef.current = params.rawRenderExposure.ev
+
+  // Guard against re-requesting an identical render on every React re-render:
+  // `params` is rebuilt as a fresh object upstream each render, so the render
+  // effect's dep changes every render; without this guard the worker would be
+  // driven in a perpetual loop.
+  const lastRenderKeyRef = useRef<{
+    sig: string
+    lut: CpuPreviewParams['lut']
+  } | null>(null)
+
   // Lazy-initialise the client on first use.
   function getClient(): CpuPreviewClient {
     if (!clientRef.current) {
@@ -148,10 +166,10 @@ export function useCpuPreview({
         setFrame(f)
         setInFlight(false)
         // Cache neutral frames by their source + exposure key.
-        if (variant === 'neutral') {
+        if (variantRef.current === 'neutral') {
           const key = neutralFrameCacheKey(
             f.sourceId,
-            params.rawRenderExposure.ev,
+            rawRenderExposureEvRef.current,
           )
           neutralCacheRef.current.set(key, f)
         }
@@ -167,13 +185,13 @@ export function useCpuPreview({
   }
 
   // Load source when the image identity changes.
-   
+
   useEffect(() => {
     if (!enabled || !image || !isQuickU16(image)) {
       return
     }
 
-    const sourceId = deriveSourceId(image)
+    const sourceId = deriveSourceId(image, imageVersion)
     if (sourceId === lastSourceIdRef.current) {
       return
     }
@@ -219,6 +237,13 @@ export function useCpuPreview({
       setFailureReason(null)
       return
     }
+
+    const renderSig = `${sourceId}|${variant}|${params.styleKind}|${params.intensity}|${params.builtinPreset ?? ''}|${params.rawRenderExposure.ev}|${params.userExposureEv}|${params.userContrast}|${params.userHighlights}|${params.userShadows}|${params.userWhites}|${params.userBlacks}`
+    const prevKey = lastRenderKeyRef.current
+    if (prevKey && prevKey.sig === renderSig && prevKey.lut === params.lut) {
+      return
+    }
+    lastRenderKeyRef.current = { sig: renderSig, lut: params.lut }
 
     setInFlight(true)
     getClient().requestRender({ variant, graph })
