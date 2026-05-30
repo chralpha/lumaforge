@@ -1,43 +1,22 @@
 import { useMemo } from 'react'
 
 import { detectCapabilities } from '~/lib/gl/context'
+import type { RawPreviewCapability } from '~/lib/preview/raw-preview-capability'
+import { resolveRawPreviewCapability } from '~/lib/preview/raw-preview-capability'
 
-export function useCapabilityGate() {
+export type RawCapabilityGate = { ready: true } & RawPreviewCapability
+
+export function useCapabilityGate(): RawCapabilityGate {
   return useMemo(() => {
     const caps = detectCapabilities()
-
-    if (!caps.webgl2) {
-      return {
-        ready: true,
-        supportStatus: 'unsupported' as const,
-        reason: 'WebGL2 is required',
-      }
-    }
-
-    if (!caps.toneHighPrecision) {
-      return {
-        ready: true,
-        supportStatus: 'unsupported' as const,
-        reason:
-          'High precision fragment shader math is required for RAW tone controls',
-      }
-    }
-
-    if (
-      typeof globalThis.crossOriginIsolated === 'boolean' &&
-      !globalThis.crossOriginIsolated
-    ) {
-      return {
-        ready: true,
-        supportStatus: 'unsupported' as const,
-        reason: 'Cross-origin isolation is required for pthread RAW decode',
-      }
-    }
-
-    return {
-      ready: true,
-      supportStatus: 'supported' as const,
-      reason: null,
-    }
+    const coi =
+      typeof globalThis.crossOriginIsolated === 'boolean'
+        ? globalThis.crossOriginIsolated
+        : true
+    const capability = resolveRawPreviewCapability(
+      { webgl2: caps.webgl2, toneHighPrecision: caps.toneHighPrecision },
+      coi,
+    )
+    return { ready: true, ...capability }
   }, [])
 }
