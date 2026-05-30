@@ -118,7 +118,8 @@ Expected: PASS. The rename is name-only; values are unchanged at this step (`@th
 - [ ] **Step 4: Commit the rename**
 
 ```bash
-git add -A src
+# Stage only renamed files; NEVER `git add -A` (foreign unstaged changes exist).
+git add $(git diff --name-only -- src | grep -vE 'ExportCanvas|IntensityChips|MetadataPanel|StatsPanel|UploadState|raw-processor/components/index\.ts|state/session\.atoms\.ts')
 git commit --no-gpg-sign -m "refactor(raw): rename value-lying lf tokens to role names
 
 paper->surface, ink->on-surface, hero-ink->on-photo-ink, dark->darkroom-stage.
