@@ -223,6 +223,73 @@ describe('session derivation', () => {
     )
   })
 
+  it('blocks export with the choose-input reason for a recommended LUT contract', () => {
+    const session: ImageSession = {
+      ...baseSession,
+      previewBundle: {
+        ...baseSession.previewBundle,
+        quickDecodePreview: { status: 'ready', width: 2000, height: 1250 },
+      },
+      renderState: { status: 'ready' as const },
+      exportState: {
+        ...baseSession.exportState,
+        fullResCapability: { status: 'supported', width: 4000, height: 3000 },
+      },
+      activeStyle: {
+        kind: 'custom',
+        name: 'Recommended LUT',
+        defaultIntensityLevel: 'standard',
+        currentIntensityLevel: 'standard',
+        lutAsset: {
+          format: 'cube',
+          dimension: 33,
+          profileResolution: {
+            kind: 'recommended',
+            recommendations: [getLUTColorProfile('panasonic-vgamut-vlog')!],
+          },
+        },
+      },
+    }
+
+    expect(deriveCanExport(session)).toBe(false)
+    expect(deriveExportDisabledReason(session)).toBe(
+      'Choose a LUT input profile before full-resolution export.',
+    )
+  })
+
+  it('blocks export with the choose-input reason for an unknown LUT contract', () => {
+    const session: ImageSession = {
+      ...baseSession,
+      previewBundle: {
+        ...baseSession.previewBundle,
+        quickDecodePreview: { status: 'ready', width: 2000, height: 1250 },
+      },
+      renderState: { status: 'ready' as const },
+      exportState: {
+        ...baseSession.exportState,
+        fullResCapability: { status: 'supported', width: 4000, height: 3000 },
+      },
+      activeStyle: {
+        kind: 'custom',
+        name: 'Unknown LUT',
+        defaultIntensityLevel: 'standard',
+        currentIntensityLevel: 'standard',
+        lutAsset: {
+          format: 'cube',
+          dimension: 33,
+          profileResolution: {
+            kind: 'unknown',
+          },
+        },
+      },
+    }
+
+    expect(deriveCanExport(session)).toBe(false)
+    expect(deriveExportDisabledReason(session)).toBe(
+      'Choose a LUT input profile before full-resolution export.',
+    )
+  })
+
   it('disables export for resolved technical-output LUTs with linear output transfer', () => {
     const profile = getLUTColorProfile('panasonic-vgamut-vlog')
     expect(profile).toBeDefined()

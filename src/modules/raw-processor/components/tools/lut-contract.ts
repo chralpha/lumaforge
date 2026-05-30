@@ -169,12 +169,6 @@ export type LUTContractView =
   | { status: 'unknown' }
   | { status: 'unsupported-output'; recommendations: LUTColorProfile[] }
 
-export function needsContractSelection(
-  resolution?: LUTContractResolution | null,
-): boolean {
-  return resolution != null && resolution.kind !== 'confirmed'
-}
-
 export function deriveLUTContractView(
   selection?: LUTContractSelectionState | null,
   resolution?: LUTContractResolution | null,

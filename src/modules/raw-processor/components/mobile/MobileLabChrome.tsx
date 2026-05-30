@@ -23,6 +23,7 @@ import { DOCK_SPRING, IMMERSIVE_STAGGER_MS } from '../../motion'
 import type { RawRuntimeReadinessState } from '../raw-runtime-readiness'
 import { getRawRuntimeReadinessCopy } from '../raw-runtime-readiness'
 import {
+  deriveLUTContractView,
   getProfileOutputLabel,
   getResolvedProfile,
 } from '../tools/lut-contract'
@@ -321,6 +322,10 @@ export function MobileLabChrome(props: {
     props.lutBrowser.lutProfileSelection,
     props.lutBrowser.lutProfileResolution,
   )
+  const lutContractView = deriveLUTContractView(
+    props.lutBrowser.lutProfileSelection,
+    props.lutBrowser.lutProfileResolution,
+  )
   const runtimeReadiness =
     !props.hasImage && props.runtimeReadinessState
       ? getRawRuntimeReadinessCopy(t, props.runtimeReadinessState)
@@ -373,7 +378,45 @@ export function MobileLabChrome(props: {
               </button>
             </div>
 
-            {lutNeedsUserSelection ? (
+            {lutContractView.status === 'recommended' ? (
+              <button
+                type="button"
+                onClick={openLutContractBrowser}
+                aria-label={t('raw.mobile.lut.chooseContract')}
+                className="grid gap-1.5 rounded-lf-control border border-lf-amber/35 bg-lf-amber/10 px-2.5 py-2 text-left transition-colors hover:border-lf-amber/60"
+              >
+                <span className="flex items-center justify-between gap-2 text-lf-eyebrow font-semibold uppercase tracking-wide text-lf-amber-soft">
+                  {t('raw.lutContract.recommendedBadge')}
+                  <span className="inline-flex items-center gap-1">
+                    {t('raw.mobile.lut.chooseContract')}
+                    <ChevronRight aria-hidden="true" className="size-3" />
+                  </span>
+                </span>
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <span className="inline-flex max-w-full items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 py-1 text-lf-eyebrow font-semibold text-lf-hero-ink/86">
+                    <span className="min-w-0 truncate">
+                      {lutContractView.recommendation.label}
+                    </span>
+                  </span>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="size-3 shrink-0 text-lf-hero-ink/35"
+                  />
+                  <span className="inline-flex max-w-full items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 py-1 text-lf-eyebrow font-semibold text-lf-hero-ink/86">
+                    <span className="min-w-0 truncate">
+                      {lutContractView.completesContract
+                        ? getProfileOutputLabel(lutContractView.recommendation)
+                        : t('raw.lutContract.chooseOutput')}
+                    </span>
+                  </span>
+                </div>
+                <span className="text-xs leading-relaxed text-lf-amber-soft">
+                  {lutContractView.completesContract
+                    ? t('raw.lutContract.recommendedNote')
+                    : t('raw.lutContract.recommendedInputOnlyNote')}
+                </span>
+              </button>
+            ) : lutNeedsUserSelection ? (
               <button
                 type="button"
                 onClick={openLutContractBrowser}

@@ -87,6 +87,6 @@ describe('deriveLUTContractView', () => {
       },
       null,
     )
-    expect(['confirmed', 'incomplete-output']).toContain(view.status)
+    expect(view.status).toBe('incomplete-output')
   })
 })
