@@ -2,6 +2,13 @@
 
 name: LumaForge
 description: Browser-local RAW finishing lab with color-safe guardrails.
+# NOTE: the `colors` block below is the warm BRAND / landing palette (it lives
+# at `.lf-landing` in src/pages/(main)/index.css). The /raw runtime does NOT use
+# these warm values. /raw is a fixed cool-slate darkroom whose tokens were
+# renamed to the DARK --color-lf-surface* / --color-lf-on-surface* set in
+# src/styles/tailwind.css @theme (formerly lf-paper / lf-ink). The dark on-photo
+# values are in the `workspace-chrome` block below. See the "Theme contract"
+# section after this front matter.
 colors:
 lf-paper: 'oklch(0.964 0.018 86)'
 lf-paper-low: 'oklch(0.918 0.026 86)'

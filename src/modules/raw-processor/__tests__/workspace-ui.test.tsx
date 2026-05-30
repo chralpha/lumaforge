@@ -478,11 +478,12 @@ describe('rawProcessorView', () => {
 
       // Desktop sm: overrides must also stay in the workspace chrome
       // language. The dialog renders in a Portal so it escapes the
-      // .raw-lab @media token rebinds — sm:bg-lf-surface-raised resolved to
-      // the global warm-paper token and turned the desktop dialog back
-      // into the paper era. Encode the no-paper-leak contract: the sm:
-      // class set must NOT include any paper variant, and MUST include
-      // the on-photo bord-soft hairline.
+      // .raw-lab scoping, so a generic chrome surface like
+      // sm:bg-lf-surface-raised resolves to the @theme token (now dark
+      // slate; formerly the warm-paper value) instead of the on-photo
+      // material the dialog needs. Encode the no-leak contract: the sm:
+      // class set must NOT include a generic surface variant, and MUST
+      // include the on-photo bord-soft hairline.
       expect(dialog).not.toHaveClass('sm:bg-lf-surface-raised')
       expect(dialog).not.toHaveClass('sm:text-lf-on-surface')
       expect(dialog).not.toHaveClass('sm:border-border-secondary')
