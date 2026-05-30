@@ -23,25 +23,25 @@ describe('export execution profile selection', () => {
     vi.restoreAllMocks()
   })
 
-  it('rejects lowMemoryAvailable in legacy runtime input at type level', () => {
-    const selectPlanWithDeadLowMemoryFlag = () =>
-      selectExportExecutionPlan({
-        // @ts-expect-error lowMemoryAvailable was removed from legacy runtime input.
-        runtime: { lowMemoryAvailable: true, pthreadAvailable: true },
-      })
-
-    expect(selectPlanWithDeadLowMemoryFlag).toBeTypeOf('function')
-  })
-
   it('uses crash-retry policy after interrupted checkpoint regardless of platform', () => {
     const plan = selectExportExecutionPlan({
       fidelity: 'max',
       sourceWidth: 11662,
       sourceHeight: 8746,
       previousInterrupted: true,
-      runtime: { pthreadAvailable: true },
-      output: { opfsAvailable: true, streamingAvailable: true },
-      platform: { userAgent: 'Mozilla/5.0 (Windows NT 10.0)', touch: false },
+      capability: {
+        coi: true,
+        pthread: true,
+        deviceMemoryGB: null,
+        hwConcurrency: 1,
+        webKitClass: 'unknown',
+        maybeOpfsSupported: true,
+      },
+      runtime: {
+        opfsSinkAvailable: true,
+        opfsAvailableMB: Number.POSITIVE_INFINITY,
+        streamingSinkAvailable: true,
+      },
     })
 
     expect(plan.preferredRows).toBe(64)
@@ -52,17 +52,23 @@ describe('export execution profile selection', () => {
     expect(plan.productCopy).toBe('interrupted-retry')
   })
 
-  it('uses low-memory OPFS policy for iPhone WebKit-like environments', () => {
+  it('uses low-memory OPFS policy for webkit-mobile environments', () => {
     const plan = selectExportExecutionPlan({
       fidelity: 'balanced',
       sourceWidth: 11662,
       sourceHeight: 8746,
-      runtime: { pthreadAvailable: true },
-      output: { opfsAvailable: true, streamingAvailable: false },
-      platform: {
-        userAgent:
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
-        touch: true,
+      capability: {
+        coi: true,
+        pthread: true,
+        deviceMemoryGB: null,
+        hwConcurrency: 1,
+        webKitClass: 'webkit-mobile',
+        maybeOpfsSupported: true,
+      },
+      runtime: {
+        opfsSinkAvailable: true,
+        opfsAvailableMB: Number.POSITIVE_INFINITY,
+        streamingSinkAvailable: false,
       },
     })
 
@@ -80,17 +86,23 @@ describe('export execution profile selection', () => {
     })
   })
 
-  it('marks iPhone WebKit large blob handoff exports as unable to complete safely', () => {
+  it('marks webkit-mobile large blob handoff exports as unable to complete safely', () => {
     const plan = selectExportExecutionPlan({
       fidelity: 'balanced',
       sourceWidth: 9566,
       sourceHeight: 6374,
-      runtime: { pthreadAvailable: false },
-      output: { opfsAvailable: false, streamingAvailable: false },
-      platform: {
-        userAgent:
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
-        touch: true,
+      capability: {
+        coi: false,
+        pthread: false,
+        deviceMemoryGB: null,
+        hwConcurrency: 1,
+        webKitClass: 'webkit-mobile',
+        maybeOpfsSupported: false,
+      },
+      runtime: {
+        opfsSinkAvailable: false,
+        opfsAvailableMB: null,
+        streamingSinkAvailable: false,
       },
     })
 
@@ -103,17 +115,23 @@ describe('export execution profile selection', () => {
     )
   })
 
-  it('keeps smaller iPhone WebKit blob handoff exports allowed', () => {
+  it('keeps smaller webkit-mobile blob handoff exports allowed', () => {
     const plan = selectExportExecutionPlan({
       fidelity: 'balanced',
       sourceWidth: 6048,
       sourceHeight: 4024,
-      runtime: { pthreadAvailable: false },
-      output: { opfsAvailable: false, streamingAvailable: false },
-      platform: {
-        userAgent:
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
-        touch: true,
+      capability: {
+        coi: false,
+        pthread: false,
+        deviceMemoryGB: null,
+        hwConcurrency: 1,
+        webKitClass: 'webkit-mobile',
+        maybeOpfsSupported: false,
+      },
+      runtime: {
+        opfsSinkAvailable: false,
+        opfsAvailableMB: null,
+        streamingSinkAvailable: false,
       },
     })
 
@@ -123,45 +141,23 @@ describe('export execution profile selection', () => {
     expect(plan.productCopy).toBe('safe-export')
   })
 
-  it('uses low-memory policy for iPadOS Safari desktop-mode user agents with touch', () => {
-    const plan = selectExportExecutionPlan({
-      fidelity: 'max',
-      sourceWidth: 11662,
-      sourceHeight: 8746,
-      runtime: { pthreadAvailable: true },
-      output: { opfsAvailable: true, streamingAvailable: false },
-      platform: {
-        userAgent:
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
-        touch: true,
-      },
-    })
-
-    expect(plan.preferredRows).toBe(128)
-    expect(plan.concurrency).toBe(1)
-    expect(plan.runtimeMemoryProfile).toBe('low-memory')
-    expect(plan.outputSink).toBe('opfs-file')
-    expect(plan.derivedLabel).toContain('wkwebkit-mobile')
-    expect(plan.policyVector).toMatchObject({
-      workerMemoryProfile: 'low-memory',
-      rowSlice: 128,
-      concurrency: 1,
-      outputSink: 'opfs-file',
-    })
-  })
-
   it('uses low-memory policy for desktop Safari WebKit workers', () => {
     const plan = selectExportExecutionPlan({
       fidelity: 'balanced',
       sourceWidth: 5520,
       sourceHeight: 8288,
-      runtime: { pthreadAvailable: true },
-      output: { opfsAvailable: false, streamingAvailable: false },
-      platform: {
-        userAgent:
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Safari/605.1.15',
-        touch: false,
-        hardwareConcurrency: 8,
+      capability: {
+        coi: true,
+        pthread: true,
+        deviceMemoryGB: null,
+        hwConcurrency: 8,
+        webKitClass: 'webkit-desktop-safari',
+        maybeOpfsSupported: false,
+      },
+      runtime: {
+        opfsSinkAvailable: false,
+        opfsAvailableMB: null,
+        streamingSinkAvailable: false,
       },
     })
 
@@ -172,33 +168,27 @@ describe('export execution profile selection', () => {
   })
 
   it.each([
-    [
-      'Android Chromium balanced',
-      'balanced',
-      true,
-      2,
-      'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36',
-    ],
-    [
-      'desktop Chromium max',
-      'max',
-      false,
-      3,
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/537.36 Chrome/126 Safari/537.36',
-    ],
-  ] as Array<[string, 'balanced' | 'max', boolean, number, string]>)(
-    'derives non-WebKit %s throughput policy',
-    (_label, fidelity, touch, expectedConcurrency, userAgent) => {
+    ['balanced', 2],
+    ['max', 3],
+  ] as Array<['balanced' | 'max', number]>)(
+    'derives non-WebKit chromium %s throughput policy',
+    (performancePreference, expectedConcurrency) => {
       const plan = selectExportExecutionPlan({
-        fidelity,
+        performancePreference,
         sourceWidth: 10000,
         sourceHeight: 9000,
-        runtime: { pthreadAvailable: true },
-        output: { opfsAvailable: false, streamingAvailable: true },
-        platform: {
-          userAgent,
-          touch,
-          hardwareConcurrency: 8,
+        capability: {
+          coi: true,
+          pthread: true,
+          deviceMemoryGB: null,
+          hwConcurrency: 8,
+          webKitClass: 'chromium',
+          maybeOpfsSupported: false,
+        },
+        runtime: {
+          opfsSinkAvailable: false,
+          opfsAvailableMB: null,
+          streamingSinkAvailable: true,
         },
       })
 
@@ -237,11 +227,11 @@ describe('export execution profile selection', () => {
         opfsAvailableMB: 4_000,
         streamingSinkAvailable: true,
       },
-    } as never)
+    })
 
     expect(plan.profile.checkpointOutput).toBe(true)
     expect(plan.runtimeMemoryProfile).toBe('desktop')
-    expect((plan as { derivedLabel?: string }).derivedLabel).toMatch(/chromium/)
+    expect(plan.derivedLabel).toMatch(/chromium/)
   })
 
   it('maps product copy without saying resume for safe retry', () => {
