@@ -1,3 +1,10 @@
+/* /raw is a FIXED cool-slate darkroom. It ignores data-theme.
+   The canonical lf-* token values live in src/styles/tailwind.css @theme
+   (already dark). This file scopes the Pastel aliases (--color-background,
+   --color-text, ...) to .raw-lab and carries viewport-specific tokens and
+   intrinsic effects. Do NOT re-declare the neutral lf-surface / lf-on-surface
+   tokens here. See DESIGN.md "Theme contract". */
+
 .raw-lab {
   /* Palette aliases. The 2026-05-25 desktop visual refresh shifts the
      role of borders from "drawn boundaries" to "structural seams." Most

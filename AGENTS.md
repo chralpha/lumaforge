@@ -35,6 +35,9 @@ Keep changes aligned with the current codebase and product boundary, not generic
 - `src/modules/raw-processor`: the main `/raw` product workflow and UI surface.
 - `src/providers/root-providers.tsx`: the root provider composition.
   Extend this carefully and preserve provider order unless there is a concrete reason to change it.
+- `/raw` theme: a fixed cool-slate darkroom defined by `--color-lf-*` in
+  `src/styles/tailwind.css` `@theme`; it ignores `data-theme`. See
+  `DESIGN.md` "Theme contract" before touching tokens or theme code.
 
 ## Implementation Rules
 

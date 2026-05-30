@@ -165,7 +165,10 @@ body {
   --color-primary-light: var(--color-accent-light);
   --color-primary-dark: var(--color-accent-dark);
 
-  /* LumaForge design tokens — see colors_and_type.css in design handoff */
+  /* LumaForge /raw darkroom tokens: these are DARK by design and are the single
+     source of truth. /raw renders them directly; do not expect a light variant.
+     The landing has its own separate warm palette (.lf-landing in
+     src/pages/(main)/index.css). See DESIGN.md "Theme contract". */
   --color-lf-surface:        oklch(0.118 0.006 255);
   --color-lf-surface-raised: oklch(0.16 0.007 255 / 0.9);
   --color-lf-surface-sunk:   oklch(0.085 0.006 255 / 0.74);

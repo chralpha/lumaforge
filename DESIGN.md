@@ -135,6 +135,23 @@ height-mouse-tabs: '28px'
 
 # Design System: LumaForge
 
+## Theme contract (read first)
+
+`/raw` is a fixed cool-slate darkroom (hue ~255). It ignores `data-theme` and is
+dark in every system theme. The rest of the app (landing, toasts, star
+background) follows the system theme via Pastel `data-theme`.
+
+The `--color-lf-*` tokens are the darkroom design system, defined once in
+`src/styles/tailwind.css` `@theme` with their true dark values (consumed by the
+`ui` Button/Slider/Chip primitives and `/raw`, as CSS vars and Tailwind
+utilities). Token roles: `surface` / `surface-raised` / `surface-sunk` /
+`surface-muted` (chrome surfaces), `on-surface` / `on-surface-soft` (text),
+`on-photo-ink` and `on-photo-*` (over the photograph), `darkroom-stage*` (the
+warm export moment), and the hue roles `green` / `amber` / `rose` / `sky` /
+`hist-*`. The landing page has a SEPARATE warm palette under `.lf-landing` in
+`src/pages/(main)/index.css` (its own `--lf-*` names, no `color-` prefix); do not
+confuse the two.
+
 ## 1. Overview
 
 **Creative North Star: "The Calibrated Photo Lab"**
