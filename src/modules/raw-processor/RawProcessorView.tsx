@@ -27,9 +27,13 @@ import {
   UnsupportedState,
   WorkspaceHeader,
 } from './components'
+import { CpuPreviewBanner } from './components/CpuPreviewBanner'
+import { CpuPreviewCanvas } from './components/CpuPreviewCanvas'
 import type { RawRuntimeReadinessState } from './components/raw-runtime-readiness'
 import { useRawProcessor } from './hooks'
 import { useCapabilityGate } from './hooks/useCapabilityGate'
+import type { CpuPreviewParams } from './hooks/useCpuPreview'
+import { useCpuPreview } from './hooks/useCpuPreview'
 import { useHiddenFilePicker } from './hooks/useHiddenFilePicker'
 import { useOnlineLutSources } from './hooks/useOnlineLutSources'
 import { clampCompareSplit } from './services/compare-split'
@@ -158,6 +162,11 @@ function RawProcessorViewInner({
       rawRuntimeAdapter.getPrewarmState(),
     )
   const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false)
+  const [cpuPreviewBannerDismissed, setCpuPreviewBannerDismissed] =
+    useState(false)
+  const [cpuPreviewVariant, setCpuPreviewVariant] = useState<
+    'processed' | 'neutral'
+  >('processed')
   const runtimeReadinessMountedRef = useRef(false)
 
   useEffect(() => {
@@ -337,6 +346,45 @@ function RawProcessorViewInner({
       }
     : null
   const capability = useCapabilityGate()
+  const isCpuMode = capability.ready && capability.previewMode === 'cpu'
+
+  // Build CPU preview params from the same sources as ComparePreviewStage/
+  // PreviewCanvas (decodedImageRef + processing params + lut).
+  const cpuPreviewParams: CpuPreviewParams = {
+    styleKind: params.styleKind,
+    intensity: params.intensity,
+    builtinPreset: params.builtinPreset,
+    lut: lutDataRef.current,
+    rawRenderExposure: decodedImageRef.current?.renderExposure ?? {
+      ev: 0,
+      whitePoint: 1,
+    },
+    userExposureEv: params.userExposureEv,
+    userContrast: params.userContrast,
+    userHighlights: params.userHighlights,
+    userShadows: params.userShadows,
+    userWhites: params.userWhites,
+    userBlacks: params.userBlacks,
+  }
+
+  // useCpuPreview must be called unconditionally (Rules of Hooks).
+  // It self-gates via the `enabled` flag.
+  const cpuPreview = useCpuPreview({
+    enabled: isCpuMode && hasImage,
+    image: decodedImageRef.current,
+    imageVersion: decodedImageVersion,
+    params: cpuPreviewParams,
+    variant: cpuPreviewVariant,
+  })
+
+  // Map the structured `reason` token from RawPreviewCapability to a
+  // localized string before passing to UnsupportedState.
+  const unsupportedReason =
+    capability.ready && capability.supportStatus === 'unsupported'
+      ? capability.reason === 'coi-missing'
+        ? t('raw.unsupported.coi')
+        : t('raw.unsupported.webgl2')
+      : t('raw.unsupported.webgl2')
 
   if (capability.ready && capability.supportStatus === 'unsupported') {
     return (
@@ -345,9 +393,7 @@ function RawProcessorViewInner({
         data-raw-lab-shell="viewport"
         data-raw-lab-state="unsupported"
       >
-        <UnsupportedState
-          reason={capability.reason || t('raw.unsupported.webgl2')}
-        />
+        <UnsupportedState reason={unsupportedReason} />
       </div>
     )
   }
@@ -368,54 +414,111 @@ function RawProcessorViewInner({
         />
       </div>
 
+      {isCpuMode && !cpuPreviewBannerDismissed && (
+        <CpuPreviewBanner
+          reason={
+            capability.supportStatus === 'degraded'
+              ? capability.reason
+              : 'webgl2-missing'
+          }
+          onDismiss={() => setCpuPreviewBannerDismissed(true)}
+          className="mx-3 mt-2 max-[640px]:mx-2"
+        />
+      )}
+
       <div
         className="raw-lab-shell grid min-h-0 min-w-0 overflow-hidden [grid-template-columns:minmax(0,1fr)_minmax(332px,376px)] max-[980px]:[grid-template-columns:minmax(0,1fr)] max-[980px]:[grid-template-rows:minmax(0,1fr)_auto] max-[640px]:[grid-template-columns:minmax(0,1fr)] max-[640px]:[grid-template-rows:minmax(0,1fr)]"
         data-raw-lab-layout="stage-tools"
         data-raw-desktop-layout="photo-stage-command-rail"
       >
-        <ComparePreviewStage
-          hasImage={hasImage}
-          imageRef={decodedImageRef}
-          imageVersion={decodedImageVersion}
-          params={params}
-          lutDataRef={lutDataRef}
-          lutDataVersion={lutDataVersion}
-          embeddedPreviewUrl={embeddedPreviewUrl}
-          displaySource={displaySource}
-          originalReferenceSnapshot={originalReferenceSnapshot}
-          originalReferenceFallbackReason={originalReferenceFallbackReason}
-          dualWebglAllowed={dualWebglAllowed}
-          previewSuspended={previewSuspended}
-          previewViewport={previewViewport}
-          split={compareSplit}
-          splitEnabled={viewMode === 'compare'}
-          onSplitChange={setCompareSplit}
-          onSplitPreviewChange={handleCompareSplitPreviewChange}
-          onPreviewViewportChange={setPreviewViewport}
-          isProcessing={isProcessing}
-          runtimeReadinessState={runtimeReadinessState}
-          onPrepareRuntime={triggerRawRuntimePrewarm}
-          phase={
-            status === 'warming'
-              ? 'warming'
-              : status === 'loading'
-                ? 'loading'
-                : status === 'decoding'
-                  ? 'decoding'
-                  : status === 'exporting'
-                    ? 'exporting'
-                    : 'processing'
-          }
-          progress={progress}
-          recoveryHint={progressRecoveryHint}
-          onRawDrop={handleFileDrop}
-          onStatsUpdate={handleStatsUpdate}
-          onPipelineChange={handlePipelineChange}
-          onOriginalPreviewPipelineChange={setOriginalPreviewPipeline}
-          onRequestOriginalReferenceFallback={requestOriginalReferenceFallback}
-          onRestorePreview={restorePreviewAfterExport}
-          previewFrameRef={setPreviewFrameEl}
-        />
+        {isCpuMode ? (
+          <section
+            className="raw-lab-stage relative flex flex-col"
+            aria-label={t('raw.stage.aria')}
+          >
+            <CpuPreviewCanvas
+              frame={cpuPreview.frame}
+              inFlight={cpuPreview.inFlight}
+              failureReason={cpuPreview.failureReason}
+              fallbackThumbnailUrl={embeddedPreviewUrl}
+              className="min-h-0 flex-1"
+            />
+            {hasImage && (
+              <div className="flex shrink-0 justify-center gap-2 px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => setCpuPreviewVariant('processed')}
+                  className={clsxm(
+                    'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                    cpuPreviewVariant === 'processed'
+                      ? 'border-lf-green/60 bg-lf-green/10 text-lf-on-photo-ink'
+                      : 'border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong text-lf-on-photo-ink/60 hover:text-lf-on-photo-ink',
+                  )}
+                >
+                  {t('raw.preview.cpuDegraded.showProcessed')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCpuPreviewVariant('neutral')}
+                  className={clsxm(
+                    'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                    cpuPreviewVariant === 'neutral'
+                      ? 'border-lf-green/60 bg-lf-green/10 text-lf-on-photo-ink'
+                      : 'border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong text-lf-on-photo-ink/60 hover:text-lf-on-photo-ink',
+                  )}
+                >
+                  {t('raw.preview.cpuDegraded.showOriginal')}
+                </button>
+              </div>
+            )}
+          </section>
+        ) : (
+          <ComparePreviewStage
+            hasImage={hasImage}
+            imageRef={decodedImageRef}
+            imageVersion={decodedImageVersion}
+            params={params}
+            lutDataRef={lutDataRef}
+            lutDataVersion={lutDataVersion}
+            embeddedPreviewUrl={embeddedPreviewUrl}
+            displaySource={displaySource}
+            originalReferenceSnapshot={originalReferenceSnapshot}
+            originalReferenceFallbackReason={originalReferenceFallbackReason}
+            dualWebglAllowed={dualWebglAllowed}
+            previewSuspended={previewSuspended}
+            previewViewport={previewViewport}
+            split={compareSplit}
+            splitEnabled={viewMode === 'compare'}
+            onSplitChange={setCompareSplit}
+            onSplitPreviewChange={handleCompareSplitPreviewChange}
+            onPreviewViewportChange={setPreviewViewport}
+            isProcessing={isProcessing}
+            runtimeReadinessState={runtimeReadinessState}
+            onPrepareRuntime={triggerRawRuntimePrewarm}
+            phase={
+              status === 'warming'
+                ? 'warming'
+                : status === 'loading'
+                  ? 'loading'
+                  : status === 'decoding'
+                    ? 'decoding'
+                    : status === 'exporting'
+                      ? 'exporting'
+                      : 'processing'
+            }
+            progress={progress}
+            recoveryHint={progressRecoveryHint}
+            onRawDrop={handleFileDrop}
+            onStatsUpdate={handleStatsUpdate}
+            onPipelineChange={handlePipelineChange}
+            onOriginalPreviewPipelineChange={setOriginalPreviewPipeline}
+            onRequestOriginalReferenceFallback={
+              requestOriginalReferenceFallback
+            }
+            onRestorePreview={restorePreviewAfterExport}
+            previewFrameRef={setPreviewFrameEl}
+          />
+        )}
 
         <RawToolSurface
           activeIntensity={activeIntensity}
@@ -434,10 +537,10 @@ function RawProcessorViewInner({
           onReplaceFile={handleReplaceFile}
           onResetSession={requestSessionReset}
           onCompareReset={handleCompareReset}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
+          viewMode={isCpuMode ? 'processed' : viewMode}
+          onViewModeChange={isCpuMode ? () => {} : setViewMode}
           compareSplit={compareSplit}
-          onCompareSplitChange={setCompareSplit}
+          onCompareSplitChange={isCpuMode ? () => {} : setCompareSplit}
           onLutLoad={handleLutDrop}
           onLutClear={clearLUT}
           currentLutName={currentLutName}
@@ -471,7 +574,14 @@ function RawProcessorViewInner({
           supportLevel={supportLevel}
           metadata={toolMetadata}
           stats={toolStats}
-          histogram={histogram}
+          histogram={
+            isCpuMode
+              ? {
+                  state: 'unsupported',
+                  reason: t('raw.preview.cpuDegraded.banner'),
+                }
+              : histogram
+          }
           previewFrameEl={previewFrameEl}
         />
       </div>

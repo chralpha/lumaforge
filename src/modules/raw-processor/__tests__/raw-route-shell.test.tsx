@@ -342,7 +342,8 @@ describe('rawProcessorView shell states', () => {
     mockedUseCapabilityGate.mockReturnValue({
       ready: true,
       supportStatus: 'unsupported',
-      reason: 'Cross-origin isolation is required for pthread RAW decode',
+      previewMode: null,
+      reason: 'coi-missing',
     })
 
     const { container } = render(<RawProcessorView />)
@@ -356,11 +357,11 @@ describe('rawProcessorView shell states', () => {
     expect(
       screen.getByText('This browser cannot run the RAW Lab'),
     ).toBeInTheDocument()
+    // coi-missing maps to the localized COI message (not the raw token)
     expect(
-      screen.getByText(
-        'Cross-origin isolation is required for pthread RAW decode',
-      ),
+      screen.getByText('Cross-origin isolation is required for RAW decode'),
     ).toBeInTheDocument()
+    expect(screen.queryByText('coi-missing')).not.toBeInTheDocument()
   })
 })
 
