@@ -58,18 +58,13 @@
 /* Desktop workspace chrome — photo-first dark on-photo language.
    The whole @media block is the desktop substrate: the photograph IS the
    surface and topbar / tool rail / export footer float over it as
-   translucent glass. The earlier paper palette only survives at the
-   .raw-lab base layer where mobile + the rare unscoped surface still
-   read it; mobile overrides it again inside its own (max-width: 640px)
-   block. See DESIGN.md §7 "Workspace Chrome" for the language contract. */
+   translucent glass. The lf-* surface tokens are already dark in
+   src/styles/tailwind.css @theme (the single source of truth); this block
+   only scopes the Pastel aliases (--color-background, --color-text, ...) to
+   .raw-lab, tunes the darkroom green, and carries viewport-specific tokens +
+   layout. See DESIGN.md §7 "Workspace Chrome" for the language contract. */
 @media (min-width: 641px) {
   .raw-lab {
-    --color-lf-surface: oklch(0.118 0.006 255);
-    --color-lf-surface-raised: oklch(0.16 0.007 255 / 0.9);
-    --color-lf-surface-sunk: oklch(0.085 0.006 255 / 0.74);
-    --color-lf-surface-muted: oklch(0.18 0.008 255 / 0.78);
-    --color-lf-on-surface: var(--color-lf-on-photo-ink);
-    --color-lf-on-surface-soft: oklch(0.84 0.012 255 / 0.68);
     --color-lf-green: oklch(0.56 0.15 153);
     --color-lf-green-hover: oklch(0.63 0.16 153);
     --color-lf-green-deep: var(--color-lf-green-soft);
@@ -619,16 +614,11 @@
        warm hue-76 darkroom inherited from the .raw-lab base while desktop
        retokenized to cool slate (hue 255) behind min-width:641px. That
        divergence is what DESIGN.md §6 "Avoid letting them diverge again"
-       warns against. The color tokens below mirror the desktop block
-       (lines ~67-111) verbatim so both viewports share one slate material.
+       warns against. The shared slate surface now lives once in @theme (dark
+       lf-* tokens), so both viewports inherit one material; the green / alias /
+       preview values below mirror the desktop @media block.
        Layout specifics (full-bleed stage, single grid row) stay mobile-only.
        The export progress overlay keeps its warm darkroom by design (§6). */
-    --color-lf-surface: oklch(0.118 0.006 255);
-    --color-lf-surface-raised: oklch(0.16 0.007 255 / 0.9);
-    --color-lf-surface-sunk: oklch(0.085 0.006 255 / 0.74);
-    --color-lf-surface-muted: oklch(0.18 0.008 255 / 0.78);
-    --color-lf-on-surface: var(--color-lf-on-photo-ink);
-    --color-lf-on-surface-soft: oklch(0.84 0.012 255 / 0.68);
     --color-lf-green: oklch(0.56 0.15 153);
     --color-lf-green-hover: oklch(0.63 0.16 153);
     --color-lf-green-deep: var(--color-lf-green-soft);
