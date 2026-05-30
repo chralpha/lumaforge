@@ -5,6 +5,7 @@
 
 import './raw-lab.css'
 import './raw-lab.surface.css'
+import './raw-lab.effects.css'
 
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { RotateCcw } from 'lucide-react'

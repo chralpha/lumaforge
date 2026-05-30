@@ -1,0 +1,8 @@
+/*
+ * raw-lab effects: intrinsic darkroom visuals that Tailwind cannot express
+ * cleanly — layered/radial gradients, mix-blend-mode, backdrop-filter,
+ * ::before/::after, clip-path. Structure / layout / flat color live on the
+ * components as Tailwind classes (Radix primitives where one fits). As the
+ * chrome migrates out of raw-lab.css, the intrinsic rules land here.
+ * See DESIGN.md "Theme contract".
+ */
