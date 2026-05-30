@@ -8,6 +8,11 @@ const rawLabCss = readFileSync(
   'utf8',
 )
 
+const rawLabEffectsCss = readFileSync(
+  resolve(process.cwd(), 'src/modules/raw-processor/raw-lab.effects.css'),
+  'utf8',
+)
+
 function extractRuleBody(css: string, selector: string) {
   const start = css.indexOf(`${selector} {`)
   expect(start).toBeGreaterThanOrEqual(0)
@@ -77,8 +82,9 @@ describe('raw lab css tokens', () => {
   })
 
   it('reserves stable mobile runtime-readiness space to avoid empty-state CLS', () => {
+    // .raw-mobile-empty-readiness was relocated to raw-lab.effects.css
     const readinessRule = extractRuleBody(
-      rawLabCss,
+      rawLabEffectsCss,
       '.raw-mobile-empty-readiness',
     )
 

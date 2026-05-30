@@ -189,3 +189,471 @@
     );
   }
 }
+
+/* Histogram visuals (relocated from raw-lab.css). */
+.raw-histogram-plot {
+  background:
+    linear-gradient(
+      180deg,
+      oklch(0.235 0.025 78 / 0.96),
+      oklch(0.17 0.022 76 / 0.96)
+    ),
+    var(--color-stage-background);
+  box-shadow:
+    inset 0 1px 0 oklch(0.92 0.026 86 / 0.12),
+    inset 0 -18px 28px oklch(0.12 0.018 76 / 0.2);
+}
+
+.raw-histogram-grid line,
+.raw-histogram-channel-fill,
+.raw-histogram-channel-line,
+.raw-histogram-luma {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.raw-histogram-grid line {
+  stroke: oklch(0.74 0.035 78 / 0.16);
+  stroke-width: 0.65;
+}
+
+.raw-histogram-grid .raw-histogram-baseline {
+  stroke: oklch(0.9 0.034 82 / 0.24);
+}
+
+.raw-histogram-channel-fill {
+  mix-blend-mode: screen;
+  stroke: none;
+}
+
+/* Histogram channel fills use hand-tuned L/C for visual separation from the
+   line strokes; hue is anchored to the lf-hist-* family. Successor histogram
+   spec may collapse these to relative-color derivations once the look is
+   re-evaluated end-to-end. */
+.raw-histogram-channel-fill-red {
+  fill: oklch(from var(--color-lf-hist-red) 0.66 0.19 h / 0.38);
+}
+
+.raw-histogram-channel-fill-green {
+  fill: oklch(from var(--color-lf-hist-green) 0.76 0.16 128 / 0.36);
+}
+
+.raw-histogram-channel-fill-blue {
+  fill: oklch(from var(--color-lf-hist-blue) 0.72 0.13 220 / 0.46);
+}
+
+.raw-histogram-channel-line {
+  fill: none;
+  stroke-width: 0.75;
+  mix-blend-mode: screen;
+}
+
+.raw-histogram-channel-line-red {
+  stroke: oklch(from var(--color-lf-hist-red) l c h / 0.62);
+}
+
+.raw-histogram-channel-line-green {
+  stroke: oklch(from var(--color-lf-hist-green) l c h / 0.58);
+}
+
+.raw-histogram-channel-line-blue {
+  stroke: oklch(from var(--color-lf-hist-blue) l c h / 0.68);
+}
+
+.raw-histogram-luma {
+  fill: none;
+  stroke: var(--color-lf-hist-luma);
+  stroke-width: 1.6;
+  opacity: 0.94;
+  filter: drop-shadow(0 1px 1px oklch(0.11 0.018 76 / 0.52));
+}
+
+/* Sample-image visuals (relocated from raw-lab.css). */
+.raw-lab-sample {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.raw-lab-sample-photo,
+.raw-lab-sample-finish {
+  position: absolute;
+  inset: 0;
+}
+
+.raw-lab-sample-photo {
+  background:
+    radial-gradient(
+      circle at 54% 28%,
+      oklch(0.9 0.08 68) 0 5%,
+      transparent 5.4%
+    ),
+    linear-gradient(
+      140deg,
+      oklch(0.26 0.05 136),
+      oklch(0.58 0.08 72) 46%,
+      oklch(0.24 0.03 53) 47% 100%
+    );
+  filter: saturate(0.58) contrast(0.92) brightness(0.82);
+}
+
+.raw-lab-sample-finish {
+  clip-path: inset(
+    0 0 0 var(--raw-compare-split, var(--raw-compare-split-committed, 50%))
+  );
+  background:
+    radial-gradient(
+      circle at 54% 28%,
+      oklch(0.92 0.09 68) 0 5%,
+      transparent 5.4%
+    ),
+    linear-gradient(
+      140deg,
+      oklch(0.3 0.085 145),
+      oklch(0.68 0.1 72) 46%,
+      oklch(0.32 0.045 54) 47% 100%
+    );
+  filter: saturate(1.16) contrast(1.06) brightness(1.04);
+}
+
+/* Compare-handle decorative pseudo (relocated from raw-lab.css). */
+.raw-lab-compare-handle::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 50%;
+  width: 2px;
+  background: var(--color-stage-hairline);
+  transform: translateX(-50%);
+  transition: background 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.raw-lab-compare-handle:hover::before,
+.raw-lab-compare-handle:focus-visible::before,
+[data-raw-compare-dragging] .raw-lab-compare-handle::before {
+  background: var(--color-on-stage);
+}
+
+/* Progress visuals — base (relocated from raw-lab.css). */
+.raw-progress-overlay {
+  background:
+    radial-gradient(
+      circle at 50% 47%,
+      transparent 0 28%,
+      var(--color-progress-wash) 68%,
+      var(--color-progress-wash-edge) 100%
+    ),
+    linear-gradient(180deg, transparent, var(--color-progress-wash));
+}
+
+.raw-progress-panel {
+  background: var(--color-progress-panel);
+  box-shadow:
+    0 18px 54px oklch(0.04 0.012 76 / 0.34),
+    inset 0 1px 0 oklch(0.96 0.012 86 / 0.1);
+}
+
+.raw-progress-title,
+.raw-progress-detail {
+  margin: 0;
+}
+
+.raw-progress-overlay[data-progress-variant='flat-handoff'] {
+  overflow: hidden;
+  background:
+    radial-gradient(
+      68% 44% at 50% 42%,
+      oklch(0.22 0.026 78),
+      oklch(0.13 0.02 76) 72%
+    ),
+    linear-gradient(180deg, oklch(0.16 0.02 76), oklch(0.1 0.016 76));
+  color: var(--color-on-stage);
+}
+
+.raw-progress-overlay[data-progress-variant='flat-handoff']::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, oklch(0.06 0.012 76 / 0.18), transparent 36%),
+    radial-gradient(
+      62% 38% at 50% 46%,
+      transparent,
+      oklch(0.06 0.012 76 / 0.42)
+    );
+}
+
+.raw-progress-darkroom-field {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  opacity: 0.52;
+  pointer-events: none;
+}
+
+.raw-progress-darkroom-field span {
+  border-right: 1px solid oklch(0.95 0.01 86 / 0.08);
+  background: linear-gradient(
+    180deg,
+    transparent 0 18%,
+    oklch(0.95 0.01 86 / 0.055) 18% 18.5%,
+    transparent 18.5% 100%
+  );
+}
+
+.raw-progress-darkroom-field span:last-child {
+  border-right: 0;
+}
+
+.raw-progress-flat-handoff {
+  position: relative;
+  z-index: 1;
+}
+
+.raw-progress-flat-handoff .raw-progress-ring {
+  filter: drop-shadow(0 10px 24px oklch(0.04 0.012 76 / 0.42));
+}
+
+.raw-progress-readout p {
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.raw-progress-readout em {
+  color: var(--color-progress);
+  font-style: normal;
+  font-weight: 720;
+}
+
+/* Mobile-empty visuals (relocated from raw-lab.css). */
+.raw-mobile-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      72% 52% at 50% 34%,
+      oklch(0.138 0.006 255),
+      oklch(0.078 0.006 255) 70%
+    ),
+    #0a0c10;
+  background:
+    radial-gradient(
+      72% 52% at 50% 34%,
+      oklch(0.138 0.006 255),
+      oklch(0.078 0.006 255) 70%
+    ),
+    oklch(0.064 0.006 255);
+  color: oklch(0.97 0.014 86);
+}
+
+.raw-mobile-empty-hero {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: 32px 28px;
+  text-align: center;
+}
+
+.raw-mobile-empty-mark {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border: 1px solid oklch(0.9 0.006 255 / 0.34);
+  border-radius: 14px;
+  background: oklch(0.105 0.006 255 / 0.84);
+  box-shadow:
+    0 16px 36px oklch(0.02 0.006 255 / 0.55),
+    inset 0 1px 0 oklch(0.96 0.006 255 / 0.08);
+  color: oklch(0.78 0.16 63);
+}
+
+.raw-mobile-empty-hero h1 {
+  margin: 0;
+  max-width: 15rem;
+  color: oklch(0.97 0.014 86);
+  font-size: 1.4rem;
+  font-weight: 760;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.raw-mobile-empty-copy {
+  margin: 0;
+  max-width: 280px;
+  color: oklch(0.86 0.012 255 / 0.72);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.raw-mobile-empty-cta {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid oklch(0.54 0.14 153);
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: oklch(0.16 0.018 76);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 760;
+  padding: 0 18px;
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.raw-mobile-empty-cta:active {
+  transform: scale(0.98);
+}
+
+.raw-mobile-empty-cta:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.raw-mobile-empty-readiness {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  width: min(320px, 100%);
+  min-height: 64px;
+  max-width: min(320px, 100%);
+  align-items: center;
+  gap: 3px 8px;
+  border: 1px solid oklch(0.9 0.006 255 / 0.18);
+  border-radius: 10px;
+  background: oklch(0.09 0.006 255 / 0.56);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.raw-mobile-empty-readiness-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--color-progress);
+}
+
+.raw-mobile-empty-readiness[data-state='ready']
+  .raw-mobile-empty-readiness-dot {
+  background: var(--color-accent);
+}
+
+.raw-mobile-empty-readiness strong,
+.raw-mobile-empty-readiness span:last-child {
+  min-width: 0;
+}
+
+.raw-mobile-empty-readiness strong {
+  color: oklch(0.97 0.014 86);
+  font-size: 0.72rem;
+  font-weight: 760;
+  line-height: 1.2;
+}
+
+.raw-mobile-empty-readiness span:last-child {
+  grid-column: 2;
+  color: oklch(0.86 0.012 255 / 0.72);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.raw-mobile-empty-formats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: oklch(0.82 0.01 255 / 0.5);
+  font-size: 0.66rem;
+  font-weight: 720;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.raw-mobile-empty-formats span {
+  border: 1px solid oklch(0.9 0.006 255 / 0.18);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+.raw-mobile-empty-prestage {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid oklch(0.9 0.006 255 / 0.18);
+  background: oklch(0.09 0.006 255 / 0.56);
+  padding: 16px 18px max(16px, env(safe-area-inset-bottom));
+}
+
+.raw-mobile-empty-prestage-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.raw-mobile-empty-prestage-icon {
+  display: grid;
+  place-items: center;
+  color: oklch(0.78 0.16 63);
+}
+
+.raw-mobile-empty-prestage-row strong {
+  display: block;
+  color: oklch(0.97 0.014 86);
+  font-size: 0.82rem;
+  font-weight: 720;
+}
+
+.raw-mobile-empty-prestage-row span {
+  display: block;
+  color: oklch(0.86 0.012 255 / 0.72);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.raw-mobile-empty-prestage-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid oklch(0.59 0.15 153 / 0.5);
+  border-radius: 999px;
+  background: transparent;
+  color: oklch(0.84 0.09 145);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 720;
+  padding: 5px 9px;
+}
+
+/* Mobile progress overrides — must follow base .raw-progress-* rules above
+   so the mobile specificity wins (relocated from raw-lab.css). */
+@media (max-width: 640px) {
+  .raw-progress-overlay {
+    background:
+      radial-gradient(
+        circle at 50% 48%,
+        transparent 0 24%,
+        oklch(0.1 0.018 76 / 0.3) 66%,
+        oklch(0.08 0.018 76 / 0.44) 100%
+      ),
+      linear-gradient(180deg, transparent, oklch(0.08 0.018 76 / 0.36));
+  }
+
+  .raw-progress-panel {
+    max-width: min(22rem, calc(100vw - 48px));
+    background: oklch(0.13 0.018 76 / 0.56);
+  }
+}
