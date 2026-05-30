@@ -17,10 +17,10 @@ function FactRows({ rows }: { rows: Row[] }) {
     <dl className="m-0 grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 rounded-lf-control bg-[oklch(0.96_0.006_255/0.05)] px-3 py-2.5">
       {rows.map((r) => (
         <div key={r.label} className="contents">
-          <dt className="m-0 truncate text-[0.72rem] tracking-tight text-lf-hero-ink/62">
+          <dt className="m-0 truncate text-[0.72rem] tracking-tight text-lf-on-photo-ink/62">
             {r.label}
           </dt>
-          <dd className="m-0 truncate text-[0.78rem] font-medium tabular-nums text-lf-hero-ink/80">
+          <dd className="m-0 truncate text-[0.78rem] font-medium tabular-nums text-lf-on-photo-ink/80">
             {r.value}
           </dd>
         </div>
@@ -49,10 +49,10 @@ function PipelineRail({ steps }: { steps: Step[] }) {
           <span className="z-[1] grid size-5 place-items-center rounded-full bg-lf-amber/15 text-[0.62rem] font-semibold tabular-nums text-lf-amber">
             {step.index}
           </span>
-          <span className="min-w-0 truncate text-[0.82rem] text-lf-hero-ink">
+          <span className="min-w-0 truncate text-[0.82rem] text-lf-on-photo-ink">
             {step.label}
           </span>
-          <em className="not-italic tabular-nums text-[0.72rem] text-lf-hero-ink/55">
+          <em className="not-italic tabular-nums text-[0.72rem] text-lf-on-photo-ink/55">
             {step.timing}
           </em>
         </li>
@@ -81,7 +81,7 @@ export function MobileMoreSheet(props: {
           aria-modal="false"
           aria-label={t('raw.mobile.more.title')}
           data-mobile-substrate="ink-sheet"
-          className="pointer-events-auto absolute inset-x-0 bottom-0 z-[46] grid max-h-[78%] grid-rows-[auto_minmax(0,1fr)] rounded-t-xl border-t border-lf-on-photo-bord-soft bg-[oklch(0.12_0.006_255/0.97)] pb-safe-offset-3 text-lf-hero-ink shadow-[0_-14px_36px_-6px_oklch(0.02_0.006_255/0.6)] backdrop-blur-background"
+          className="pointer-events-auto absolute inset-x-0 bottom-0 z-[46] grid max-h-[78%] grid-rows-[auto_minmax(0,1fr)] rounded-t-xl border-t border-lf-on-photo-bord-soft bg-[oklch(0.12_0.006_255/0.97)] pb-safe-offset-3 text-lf-on-photo-ink shadow-[0_-14px_36px_-6px_oklch(0.02_0.006_255/0.6)] backdrop-blur-background"
           initial={prefersReduced ? { opacity: 0 } : { y: '100%' }}
           animate={prefersReduced ? { opacity: 1 } : { y: '0%' }}
           exit={prefersReduced ? { opacity: 0 } : { y: '100%' }}
@@ -101,10 +101,10 @@ export function MobileMoreSheet(props: {
           >
             <div
               aria-hidden="true"
-              className="mx-auto h-1 w-9 rounded-lf-pill bg-lf-hero-ink/25"
+              className="mx-auto h-1 w-9 rounded-lf-pill bg-lf-on-photo-ink/25"
             />
             <div className="flex items-center justify-between gap-2.5">
-              <h2 className="m-0 text-[0.95rem] font-semibold text-lf-hero-ink">
+              <h2 className="m-0 text-[0.95rem] font-semibold text-lf-on-photo-ink">
                 {t('raw.mobile.more.title')}
               </h2>
               <IconButton
@@ -112,25 +112,25 @@ export function MobileMoreSheet(props: {
                 size="md"
                 aria-label={t('raw.mobile.more.close')}
                 onClick={props.onClose}
-                className="size-[44px] rounded-md bg-transparent text-lf-hero-ink/55 transition-colors hover:bg-[oklch(0.96_0.006_255/0.06)] hover:text-lf-hero-ink [&_svg]:size-5 [&_svg]:stroke-current"
+                className="size-[44px] rounded-md bg-transparent text-lf-on-photo-ink/55 transition-colors hover:bg-[oklch(0.96_0.006_255/0.06)] hover:text-lf-on-photo-ink [&_svg]:size-5 [&_svg]:stroke-current"
               />
             </div>
           </div>
           <div className="grid min-h-0 gap-4 overflow-y-auto px-4 pb-5 pt-1">
             <section className="grid gap-2">
-              <h3 className="m-0 text-[0.66rem] font-semibold uppercase tracking-wide text-lf-hero-ink/55">
+              <h3 className="m-0 text-[0.66rem] font-semibold uppercase tracking-wide text-lf-on-photo-ink/55">
                 {t('raw.mobile.more.pipelineHeading')}
               </h3>
               <PipelineRail steps={props.pipelineSteps} />
             </section>
             <section className="grid gap-2">
-              <h3 className="m-0 text-[0.66rem] font-semibold uppercase tracking-wide text-lf-hero-ink/55">
+              <h3 className="m-0 text-[0.66rem] font-semibold uppercase tracking-wide text-lf-on-photo-ink/55">
                 {t('raw.mobile.more.lutHeading')}
               </h3>
               <FactRows rows={props.lutRows} />
             </section>
             <section className="grid gap-2">
-              <h3 className="m-0 text-[0.66rem] font-semibold uppercase tracking-wide text-lf-hero-ink/55">
+              <h3 className="m-0 text-[0.66rem] font-semibold uppercase tracking-wide text-lf-on-photo-ink/55">
                 {t('raw.mobile.more.fileHeading')}
               </h3>
               <FactRows rows={props.fileRows} />

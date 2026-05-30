@@ -49,7 +49,7 @@ export function ToneFocusEditor(props: {
       transition={SHEET_SPRING}
     >
       <m.div
-        className="pointer-events-auto absolute inset-x-0 top-0 z-[41] grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 bg-gradient-to-b from-black/80 via-black/45 to-transparent px-3 pb-3.5 pt-safe-offset-3 text-lf-hero-ink"
+        className="pointer-events-auto absolute inset-x-0 top-0 z-[41] grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 bg-gradient-to-b from-black/80 via-black/45 to-transparent px-3 pb-3.5 pt-safe-offset-3 text-lf-on-photo-ink"
         aria-label={t(f.labelKey)}
         initial={{ y: -slideY, opacity: 0 }}
         animate={{ y: 0, opacity: receded }}
@@ -61,7 +61,7 @@ export function ToneFocusEditor(props: {
           whileTap={{ scale: 0.96 }}
           transition={TAP_SPRING}
           onClick={props.onCancel}
-          className="inline-flex min-h-[44px] items-center justify-center rounded-lf-pill border border-lf-on-photo-bord bg-lf-on-photo-bg px-3.5 text-sm font-semibold text-lf-hero-ink"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-lf-pill border border-lf-on-photo-bord bg-lf-on-photo-bg px-3.5 text-sm font-semibold text-lf-on-photo-ink"
         >
           {t('raw.mobile.focus.cancel')}
         </m.button>
@@ -78,14 +78,14 @@ export function ToneFocusEditor(props: {
           whileTap={{ scale: 0.96 }}
           transition={TAP_SPRING}
           onClick={props.onDone}
-          className="inline-flex min-h-[44px] items-center justify-center rounded-lf-pill border border-lf-green-deep/40 bg-lf-green px-3.5 text-sm font-semibold text-lf-ink"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-lf-pill border border-lf-green-deep/40 bg-lf-green px-3.5 text-sm font-semibold text-lf-on-surface"
         >
           {t('raw.mobile.focus.done')}
         </m.button>
       </m.div>
 
       <m.div
-        className="pointer-events-auto absolute inset-x-0 bottom-0 z-40 pb-safe-offset-3 text-lf-hero-ink"
+        className="pointer-events-auto absolute inset-x-0 bottom-0 z-40 pb-safe-offset-3 text-lf-on-photo-ink"
         initial={{ y: slideY, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: slideY, opacity: 0 }}
@@ -110,7 +110,7 @@ export function ToneFocusEditor(props: {
           >
             <span>{formatToneValueShort(f.key, v)}</span>
             {f.unit && (
-              <small className="text-sm font-semibold text-lf-hero-ink/68">
+              <small className="text-sm font-semibold text-lf-on-photo-ink/68">
                 {f.unit}
               </small>
             )}
@@ -131,7 +131,7 @@ export function ToneFocusEditor(props: {
             />
           </div>
           <m.div
-            className="flex items-center justify-between px-0.5 text-[0.7rem] tabular-nums text-lf-hero-ink/55"
+            className="flex items-center justify-between px-0.5 text-[0.7rem] tabular-nums text-lf-on-photo-ink/55"
             animate={{ opacity: receded }}
             transition={{ duration: 0.14 }}
           >
@@ -164,13 +164,13 @@ export function ToneFocusEditor(props: {
                   whileTap={{ scale: 0.95 }}
                   transition={TAP_SPRING}
                   onClick={() => props.onPickField(o.key)}
-                  className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-1.5 text-[0.7rem] font-semibold text-lf-hero-ink/82"
+                  className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-1.5 text-[0.7rem] font-semibold text-lf-on-photo-ink/82"
                 >
                   {t(o.labelKey)}
                   <em
                     className={clsxm(
                       'not-italic tabular-nums',
-                      dirty ? 'text-lf-amber-soft' : 'text-lf-hero-ink/55',
+                      dirty ? 'text-lf-amber-soft' : 'text-lf-on-photo-ink/55',
                     )}
                   >
                     {formatToneValueShort(o.key, ov)}

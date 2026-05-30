@@ -55,7 +55,7 @@ export function MobileMoreMenu(props: {
         aria-haspopup="menu"
         onClick={() => setOpen((value) => !value)}
         className={clsxm(
-          'size-11 rounded-md text-lf-hero-ink transition-colors [&_svg]:size-5 [&_svg]:stroke-current',
+          'size-11 rounded-md text-lf-on-photo-ink transition-colors [&_svg]:size-5 [&_svg]:stroke-current',
           open
             ? 'bg-[oklch(0.96_0.006_255/0.06)]'
             : 'bg-transparent hover:bg-[oklch(0.96_0.006_255/0.06)]',
@@ -80,7 +80,7 @@ export function MobileMoreMenu(props: {
               y: prefersReduced ? 0 : -4,
             }}
             transition={surfaceFade}
-            className="absolute right-0 top-[calc(100%+6px)] z-50 grid min-w-[12.25rem] origin-top-right gap-0.5 rounded-md border border-lf-on-photo-bord-soft bg-[oklch(0.11_0.006_255/0.94)] p-1.5 text-lf-hero-ink shadow-[0_18px_42px_oklch(0.02_0.006_255/0.6)] backdrop-blur-background"
+            className="absolute right-0 top-[calc(100%+6px)] z-50 grid min-w-[12.25rem] origin-top-right gap-0.5 rounded-md border border-lf-on-photo-bord-soft bg-[oklch(0.11_0.006_255/0.94)] p-1.5 text-lf-on-photo-ink shadow-[0_18px_42px_oklch(0.02_0.006_255/0.6)] backdrop-blur-background"
           >
             {props.items.map((it, i) =>
               it.kind === 'separator' ? (
@@ -98,11 +98,11 @@ export function MobileMoreMenu(props: {
                     setOpen(false)
                     it.onSelect()
                   }}
-                  className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[0.82rem] font-semibold text-lf-hero-ink transition-colors hover:bg-lf-on-photo-bg-strong disabled:cursor-not-allowed disabled:opacity-45"
+                  className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[0.82rem] font-semibold text-lf-on-photo-ink transition-colors hover:bg-lf-on-photo-bg-strong disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   <it.icon
                     aria-hidden="true"
-                    className="size-[15px] text-lf-hero-ink/68"
+                    className="size-[15px] text-lf-on-photo-ink/68"
                   />
                   {it.label}
                 </button>

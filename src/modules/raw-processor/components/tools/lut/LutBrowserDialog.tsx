@@ -74,7 +74,7 @@ export function LutBrowserDialog({
                     mass: 0.7,
                   }}
                   className={clsxm(
-                    'pointer-events-auto grid w-full max-w-[560px] gap-2.5 overflow-hidden rounded-xl border border-border-secondary bg-lf-paper-high p-3 shadow-lf-lift',
+                    'pointer-events-auto grid w-full max-w-[560px] gap-2.5 overflow-hidden rounded-xl border border-border-secondary bg-lf-surface-raised p-3 shadow-lf-lift',
                     'max-h-[min(720px,85svh)] min-h-[min(360px,70svh)]',
                     'max-[640px]:w-[calc(100%-1rem)] max-[640px]:max-w-none max-[640px]:rounded-t-xl max-[640px]:rounded-b-none max-[640px]:mb-0',
                     className,
@@ -86,10 +86,10 @@ export function LutBrowserDialog({
                   </DialogDescription>
                   <div className="flex min-w-0 items-start justify-between gap-2.5 px-1 pt-0.5">
                     <div aria-hidden="true" className="min-w-0">
-                      <p className="m-0 min-w-0 truncate text-[0.82rem] font-semibold text-lf-ink/90">
+                      <p className="m-0 min-w-0 truncate text-[0.82rem] font-semibold text-lf-on-surface/90">
                         {title}
                       </p>
-                      <p className="mt-0.5 min-w-0 truncate text-[0.7rem] tracking-tight text-lf-ink/50">
+                      <p className="mt-0.5 min-w-0 truncate text-[0.7rem] tracking-tight text-lf-on-surface/50">
                         {description}
                       </p>
                     </div>
@@ -97,7 +97,7 @@ export function LutBrowserDialog({
                       type="button"
                       aria-label={closeLabel}
                       title={closeLabel}
-                      className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-transparent text-lf-ink/55 transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] hover:text-lf-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green [&_svg]:size-[15px] [&_svg]:stroke-[1.75]"
+                      className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-transparent text-lf-on-surface/55 transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.06)] hover:text-lf-on-surface focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green [&_svg]:size-[15px] [&_svg]:stroke-[1.75]"
                     >
                       <X aria-hidden="true" />
                     </DialogPrimitive.Close>

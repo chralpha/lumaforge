@@ -161,13 +161,13 @@ export function OnlineLutSourceControls({
                   return (
                     <div
                       key={entry.id}
-                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_28px] items-center gap-2 rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)]"
+                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_28px] items-center gap-2 rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.045)]"
                       data-raw-lut="source-entry"
                       data-raw-lut-entry-loading={
                         isLoading ? 'true' : undefined
                       }
                     >
-                      <span className="min-w-0 truncate text-[0.74rem] leading-[1.35] text-lf-ink/75">
+                      <span className="min-w-0 truncate text-[0.74rem] leading-[1.35] text-lf-on-surface/75">
                         {entry.title}
                       </span>
                       <LutIconButton
@@ -194,7 +194,7 @@ export function OnlineLutSourceControls({
                   <>
                     {families.map(({ family, items }) => (
                       <div key={family} className="grid gap-1">
-                        <div className="px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
+                        <div className="px-1 text-[0.7rem] font-medium tracking-tight text-lf-on-surface/50">
                           {family}
                         </div>
                         <div className="grid gap-0.5 sm:grid-cols-2">
@@ -204,7 +204,7 @@ export function OnlineLutSourceControls({
                     ))}
                     {others.length > 0 && (
                       <div className="grid gap-1">
-                        <div className="px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
+                        <div className="px-1 text-[0.7rem] font-medium tracking-tight text-lf-on-surface/50">
                           {t('raw.lutSource.others')}
                         </div>
                         <div className="grid gap-0.5 sm:grid-cols-2">
@@ -216,7 +216,7 @@ export function OnlineLutSourceControls({
                 )
               })()
             ) : (
-              <p className="text-[0.78rem] leading-relaxed text-lf-ink/72">
+              <p className="text-[0.78rem] leading-relaxed text-lf-on-surface/72">
                 {openIssues.length > 0
                   ? t('raw.lutSource.noneCompatible')
                   : t('raw.lutSource.noneYet')}
@@ -250,7 +250,7 @@ export function OnlineLutSourceControls({
               void onlineLutSources.addSourceFromInput()
             }
           }}
-          inputClassName="h-8 rounded-md border-transparent bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.04)] text-[0.78rem] text-lf-ink shadow-none placeholder:text-lf-ink/40 focus:border-transparent focus:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] focus:ring-2 focus:ring-lf-green/25"
+          inputClassName="h-8 rounded-md border-transparent bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.04)] text-[0.78rem] text-lf-on-surface shadow-none placeholder:text-lf-on-surface/40 focus:border-transparent focus:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.06)] focus:ring-2 focus:ring-lf-green/25"
         />
         <LutIconButton
           label={t('raw.lutSource.add')}
@@ -274,7 +274,7 @@ export function OnlineLutSourceControls({
       </div>
 
       {state.resources.length === 0 && (
-        <p className="m-0 text-[0.72rem] leading-relaxed text-lf-ink/72">
+        <p className="m-0 text-[0.72rem] leading-relaxed text-lf-on-surface/72">
           {t('raw.lutSource.emptyHint')}
         </p>
       )}
@@ -300,10 +300,10 @@ export function OnlineLutSourceControls({
                   data-raw-lut="source-resource-row"
                 >
                   <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                    <span className="min-w-0 truncate text-[0.78rem] font-medium text-lf-ink/85">
+                    <span className="min-w-0 truncate text-[0.78rem] font-medium text-lf-on-surface/85">
                       {resource.label}
                     </span>
-                    <span className="shrink-0 rounded-full bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] px-1.5 py-0.5 text-[0.66rem] font-medium leading-none text-lf-ink/72 tabular-nums">
+                    <span className="shrink-0 rounded-full bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.06)] px-1.5 py-0.5 text-[0.66rem] font-medium leading-none text-lf-on-surface/72 tabular-nums">
                       {formatEntryCount(entries.length)}
                     </span>
                     {isResourceLoading && (
@@ -312,7 +312,7 @@ export function OnlineLutSourceControls({
                       </span>
                     )}
                     {hasIssue && (
-                      <span className="shrink-0 rounded-full bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.14)] px-1.5 py-0.5 text-[0.66rem] font-medium leading-none text-lf-ink/80">
+                      <span className="shrink-0 rounded-full bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.14)] px-1.5 py-0.5 text-[0.66rem] font-medium leading-none text-lf-on-surface/80">
                         {t('raw.lutSource.issue')}
                       </span>
                     )}
@@ -416,7 +416,7 @@ export function OnlineLutSourceControls({
 
         return (
           <div
-            className="grid gap-1 text-lf-label leading-relaxed text-lf-ink-soft"
+            className="grid gap-1 text-lf-label leading-relaxed text-lf-on-surface-soft"
             role="status"
             aria-live="polite"
           >

@@ -138,12 +138,12 @@ function ToneField({
   return (
     <div className="grid gap-1.5">
       <div className="flex items-center justify-between text-[0.8rem]">
-        <label id={labelId} className="font-medium text-lf-ink/80">
+        <label id={labelId} className="font-medium text-lf-on-surface/80">
           {label}
         </label>
         <output
           aria-hidden="true"
-          className="tabular-nums font-medium text-lf-ink/80"
+          className="tabular-nums font-medium text-lf-on-surface/80"
         >
           {formatValue(field.key, value[field.key])}
         </output>
@@ -205,11 +205,11 @@ export function ToneTool({
     <div className="grid gap-3">
       <div className="grid gap-3.5">{BASIC_FIELDS.map(renderField)}</div>
       <div className="grid gap-3.5">{FINE_FIELDS.map(renderField)}</div>
-      <p className="text-[0.78rem] leading-relaxed text-lf-ink/72">
+      <p className="text-[0.78rem] leading-relaxed text-lf-on-surface/72">
         {t('raw.tone.note')}
       </p>
       {!isNeutral && (
-        <p className="text-[0.78rem] leading-relaxed text-lf-ink/72">
+        <p className="text-[0.78rem] leading-relaxed text-lf-on-surface/72">
           {t('raw.tone.preserved')}
         </p>
       )}

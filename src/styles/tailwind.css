@@ -166,16 +166,16 @@ body {
   --color-primary-dark: var(--color-accent-dark);
 
   /* LumaForge design tokens — see colors_and_type.css in design handoff */
-  --color-lf-paper:        oklch(0.964 0.018 86);
-  --color-lf-paper-high:   oklch(0.948 0.022 86);
-  --color-lf-paper-low:    oklch(0.918 0.026 86);
-  --color-lf-paper-warm:   oklch(0.900 0.034 82);
-  --color-lf-ink:          oklch(0.180 0.018 76);
-  --color-lf-ink-soft:     oklch(0.380 0.032 75);
+  --color-lf-surface:        oklch(0.964 0.018 86);
+  --color-lf-surface-raised:   oklch(0.948 0.022 86);
+  --color-lf-surface-sunk:    oklch(0.918 0.026 86);
+  --color-lf-surface-muted:   oklch(0.900 0.034 82);
+  --color-lf-on-surface:          oklch(0.180 0.018 76);
+  --color-lf-on-surface-soft:     oklch(0.380 0.032 75);
   --color-lf-hairline:     oklch(0.740 0.035 78);
-  --color-lf-hero-ink:     oklch(0.970 0.014 86);
-  --color-lf-dark:         oklch(0.180 0.020 76);
-  --color-lf-dark-low:     oklch(0.230 0.026 76);
+  --color-lf-on-photo-ink:     oklch(0.970 0.014 86);
+  --color-lf-darkroom-stage:         oklch(0.180 0.020 76);
+  --color-lf-darkroom-stage-low:     oklch(0.230 0.026 76);
   --color-lf-green:        oklch(0.590 0.150 153);
   --color-lf-green-hover:  oklch(0.660 0.160 153);
   --color-lf-green-deep:   oklch(0.370 0.105 155);

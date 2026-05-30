@@ -27,7 +27,7 @@ export function FloatingHistogramCard(props: {
         // surface, and the redundant RGB legend is dropped (channels are
         // already color-coded in the plot). Cool-slate glass so the photo tints
         // it through the backdrop blur (DESIGN.md §6).
-        'pointer-events-none absolute right-3 top-safe-offset-20 z-[15] w-[min(72vw,256px)] rounded-lf-panel border border-lf-on-photo-bord-soft bg-[oklch(0.105_0.006_255/0.86)] px-3 py-2.5 text-lf-hero-ink backdrop-blur-background',
+        'pointer-events-none absolute right-3 top-safe-offset-20 z-[15] w-[min(72vw,256px)] rounded-lf-panel border border-lf-on-photo-bord-soft bg-[oklch(0.105_0.006_255/0.86)] px-3 py-2.5 text-lf-on-photo-ink backdrop-blur-background',
         'shadow-[0_10px_30px_oklch(0.02_0.006_255/0.5),inset_0_1px_0_oklch(0.96_0.006_255/0.08)]',
       )}
     >

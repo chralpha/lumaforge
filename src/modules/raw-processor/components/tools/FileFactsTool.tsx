@@ -61,10 +61,10 @@ export function FileFactsTool({
     <dl className="grid grid-cols-[5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5">
       {facts.map((fact) => (
         <Fragment key={fact.label}>
-          <dt className="text-[0.72rem] tracking-tight text-lf-ink/62">
+          <dt className="text-[0.72rem] tracking-tight text-lf-on-surface/62">
             {fact.label}
           </dt>
-          <dd className="truncate text-[0.78rem] font-medium tabular-nums text-lf-ink">
+          <dd className="truncate text-[0.78rem] font-medium tabular-nums text-lf-on-surface">
             {fact.value || t('raw.fileFacts.notLoaded')}
           </dd>
         </Fragment>

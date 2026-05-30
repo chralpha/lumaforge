@@ -22,14 +22,14 @@ export function ToneStripPanel(props: {
   const neutral = isToneNeutral(props.tone)
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 px-0.5 pb-1.5 text-[0.68rem] text-lf-hero-ink/68">
+      <div className="flex items-center justify-between gap-3 px-0.5 pb-1.5 text-[0.68rem] text-lf-on-photo-ink/68">
         <span>{t('raw.mobile.toneStrip.hint')}</span>
         <button
           type="button"
           onClick={props.onReset}
           disabled={neutral}
           aria-label={t('raw.tone.reset')}
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft px-2.5 py-1 text-[0.66rem] font-semibold text-lf-hero-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft px-2.5 py-1 text-[0.66rem] font-semibold text-lf-on-photo-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-40"
         >
           <RotateCcw aria-hidden="true" className="size-3" />
           {t('raw.tone.reset')}
@@ -54,7 +54,7 @@ export function ToneStripPanel(props: {
               transition={TAP_SPRING}
               onClick={() => props.onPickField(f.key)}
               className={clsxm(
-                'grid min-h-[60px] min-w-[76px] shrink-0 grid-rows-[auto_auto] items-center gap-1 rounded-md border px-2.5 py-2 text-lf-hero-ink transition-colors',
+                'grid min-h-[60px] min-w-[76px] shrink-0 grid-rows-[auto_auto] items-center gap-1 rounded-md border px-2.5 py-2 text-lf-on-photo-ink transition-colors',
                 active
                   ? 'border-lf-amber bg-lf-on-photo-bg-strong'
                   : dirty
@@ -67,7 +67,7 @@ export function ToneStripPanel(props: {
                   'text-[0.62rem] font-semibold uppercase tracking-wide',
                   active || dirty
                     ? 'text-lf-amber-soft'
-                    : 'text-lf-hero-ink/72',
+                    : 'text-lf-on-photo-ink/72',
                 )}
               >
                 {f.short}

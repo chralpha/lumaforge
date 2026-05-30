@@ -332,11 +332,11 @@ export function LutDropzone({
         interactiveMotion={false}
         aria-label={label}
         data-raw-lut="dropzone"
-        className="min-h-9 min-w-0 flex-1 rounded-md bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.04)] px-2 py-1.5 text-[0.78rem] font-semibold leading-tight text-lf-ink/75 shadow-none transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] hover:text-lf-ink focus-within:ring-2 focus-within:ring-lf-green/30 disabled:opacity-50"
+        className="min-h-9 min-w-0 flex-1 rounded-md bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.04)] px-2 py-1.5 text-[0.78rem] font-semibold leading-tight text-lf-on-surface/75 shadow-none transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.06)] hover:text-lf-on-surface focus-within:ring-2 focus-within:ring-lf-green/30 disabled:opacity-50"
       >
         <div className="flex min-h-full min-w-0 items-center gap-2">
           <span
-            className="grid size-6 shrink-0 place-items-center rounded-[5px] bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] text-lf-ink/65 [&_svg]:size-[13px] [&_svg]:stroke-[2]"
+            className="grid size-6 shrink-0 place-items-center rounded-[5px] bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.06)] text-lf-on-surface/65 [&_svg]:size-[13px] [&_svg]:stroke-[2]"
             aria-hidden="true"
           >
             <Upload aria-hidden="true" />
@@ -356,7 +356,7 @@ export function LutDropzone({
             e.stopPropagation()
             onClear()
           }}
-          className="relative inline-flex min-h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.04)] text-lf-ink/55 transition-colors duration-150 before:absolute before:inset-x-0 before:-inset-y-[5px] before:content-[''] hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.08)] hover:text-lf-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green [&_svg]:size-[15px] [&_svg]:stroke-[1.75]"
+          className="relative inline-flex min-h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.04)] text-lf-on-surface/55 transition-colors duration-150 before:absolute before:inset-x-0 before:-inset-y-[5px] before:content-[''] hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.08)] hover:text-lf-on-surface focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green [&_svg]:size-[15px] [&_svg]:stroke-[1.75]"
           data-raw-lut="dropzone-clear"
           aria-label={t('raw.lut.clear')}
           title={t('raw.lut.clear')}

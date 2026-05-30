@@ -35,8 +35,8 @@ export const Slider = ({
     <SliderPrimitive.Track
       data-slot="slider-track"
       className={clsxm(
-        'relative h-[5px] w-full grow overflow-hidden rounded-full bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.10)]',
-        'group-data-[disabled]:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)]',
+        'relative h-[5px] w-full grow overflow-hidden rounded-full bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.10)]',
+        'group-data-[disabled]:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.06)]',
       )}
     >
       <SliderPrimitive.Range
@@ -44,8 +44,8 @@ export const Slider = ({
         className={clsxm(
           'absolute h-full',
           variant === 'primary'
-            ? 'bg-lf-green-deep/55 group-data-[disabled]:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.15)]'
-            : 'bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.25)]',
+            ? 'bg-lf-green-deep/55 group-data-[disabled]:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.15)]'
+            : 'bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.25)]',
         )}
       />
     </SliderPrimitive.Track>
@@ -53,10 +53,10 @@ export const Slider = ({
       aria-label={thumbAriaLabel}
       aria-labelledby={thumbAriaLabelledBy}
       className={clsxm(
-        'block size-[15px] rounded-full bg-lf-paper transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lf-green/30 disabled:pointer-events-none disabled:opacity-50',
-        'shadow-[0_1px_2px_oklch(0.18_0.018_76/0.22),0_0_0_1px_oklch(from_var(--color-lf-ink)_l_c_h_/_0.18)]',
-        'hover:shadow-[0_1px_3px_oklch(0.18_0.018_76/0.28),0_0_0_1px_oklch(from_var(--color-lf-ink)_l_c_h_/_0.28)]',
-        'data-[disabled]:bg-lf-paper-low data-[disabled]:shadow-[0_0_0_1px_oklch(from_var(--color-lf-ink)_l_c_h_/_0.10)]',
+        'block size-[15px] rounded-full bg-lf-surface transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lf-green/30 disabled:pointer-events-none disabled:opacity-50',
+        'shadow-[0_1px_2px_oklch(0.18_0.018_76/0.22),0_0_0_1px_oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.18)]',
+        'hover:shadow-[0_1px_3px_oklch(0.18_0.018_76/0.28),0_0_0_1px_oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.28)]',
+        'data-[disabled]:bg-lf-surface-sunk data-[disabled]:shadow-[0_0_0_1px_oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.10)]',
       )}
     />
   </SliderPrimitive.Root>

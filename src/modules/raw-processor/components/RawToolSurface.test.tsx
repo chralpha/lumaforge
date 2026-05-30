@@ -242,7 +242,7 @@ describe('rawToolSurface', () => {
       'm-0',
       'text-[0.72rem]',
       'leading-relaxed',
-      'text-lf-ink/72',
+      'text-lf-on-surface/72',
     )
     expect(lutHint.className).toBe(catalogHint.className)
   })

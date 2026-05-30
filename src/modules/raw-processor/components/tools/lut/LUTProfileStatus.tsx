@@ -70,19 +70,19 @@ export function LUTProfileStatus({
       {view.status === 'confirmed' ? (
         <div className="grid min-w-0 gap-1.5 text-[0.78rem] leading-snug">
           <p className="m-0 grid min-w-0 grid-cols-[4.2rem_minmax(0,1fr)] items-baseline gap-2">
-            <span className="text-[0.72rem] tracking-tight text-lf-ink/62">
+            <span className="text-[0.72rem] tracking-tight text-lf-on-surface/62">
               {t('raw.lutContract.inputTerm')}
             </span>
-            <span className="min-w-0 break-words font-medium text-lf-ink/85">
+            <span className="min-w-0 break-words font-medium text-lf-on-surface/85">
               {view.profile.label}
             </span>
           </p>
           {view.outputLabel && (
             <p className="m-0 grid min-w-0 grid-cols-[4.2rem_minmax(0,1fr)] items-baseline gap-2">
-              <span className="text-[0.72rem] tracking-tight text-lf-ink/62">
+              <span className="text-[0.72rem] tracking-tight text-lf-on-surface/62">
                 {t('raw.lutContract.outputTerm')}
               </span>
-              <span className="min-w-0 break-words font-medium text-lf-ink/85">
+              <span className="min-w-0 break-words font-medium text-lf-on-surface/85">
                 {view.outputLabel}
               </span>
             </p>
@@ -91,23 +91,23 @@ export function LUTProfileStatus({
       ) : view.status === 'incomplete-output' ? (
         <div className="grid min-w-0 gap-1.5 text-[0.78rem] leading-snug">
           <p className="m-0 grid min-w-0 grid-cols-[4.2rem_minmax(0,1fr)] items-baseline gap-2">
-            <span className="text-[0.72rem] tracking-tight text-lf-ink/62">
+            <span className="text-[0.72rem] tracking-tight text-lf-on-surface/62">
               {t('raw.lutContract.inputTerm')}
             </span>
-            <span className="min-w-0 break-words font-medium text-lf-ink/85">
+            <span className="min-w-0 break-words font-medium text-lf-on-surface/85">
               {view.profile.label}
             </span>
           </p>
           <p className="m-0 grid min-w-0 grid-cols-[4.2rem_minmax(0,1fr)] items-baseline gap-2">
-            <span className="text-[0.72rem] tracking-tight text-lf-ink/62">
+            <span className="text-[0.72rem] tracking-tight text-lf-on-surface/62">
               {t('raw.lutContract.outputTerm')}
             </span>
-            <span className="min-w-0 break-words font-medium text-lf-ink/85">
+            <span className="min-w-0 break-words font-medium text-lf-on-surface/85">
               {getProfileOutputLabel(view.profile)}
             </span>
           </p>
           <p
-            className="m-0 inline-flex w-full items-start gap-2 rounded-md bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink/80"
+            className="m-0 inline-flex w-full items-start gap-2 rounded-md bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] px-2.5 py-2 text-lf-body leading-relaxed text-lf-on-surface/80"
             data-raw-lut="contract-status"
           >
             {t('raw.lutContract.needsOutput')}
@@ -116,33 +116,33 @@ export function LUTProfileStatus({
       ) : view.status === 'recommended' ? (
         <div className="grid min-w-0 gap-1.5 text-[0.78rem] leading-snug">
           <p className="m-0 grid min-w-0 grid-cols-[4.2rem_minmax(0,1fr)] items-baseline gap-2">
-            <span className="text-[0.72rem] tracking-tight text-lf-ink/62">
+            <span className="text-[0.72rem] tracking-tight text-lf-on-surface/62">
               {t('raw.lutContract.inputTerm')}
             </span>
-            <span className="min-w-0 break-words font-medium text-lf-ink/85">
+            <span className="min-w-0 break-words font-medium text-lf-on-surface/85">
               {view.recommendation.label}
-              <span className="ml-1 font-normal text-lf-ink/55">
+              <span className="ml-1 font-normal text-lf-on-surface/55">
                 · {t('raw.lutContract.recommendedBadge')}
               </span>
             </span>
           </p>
           <p className="m-0 grid min-w-0 grid-cols-[4.2rem_minmax(0,1fr)] items-baseline gap-2">
-            <span className="text-[0.72rem] tracking-tight text-lf-ink/62">
+            <span className="text-[0.72rem] tracking-tight text-lf-on-surface/62">
               {t('raw.lutContract.outputTerm')}
             </span>
-            <span className="min-w-0 break-words font-medium text-lf-ink/85">
+            <span className="min-w-0 break-words font-medium text-lf-on-surface/85">
               {view.completesContract
                 ? getProfileOutputLabel(view.recommendation)
                 : t('raw.lutContract.chooseOutput')}
               {view.completesContract && (
-                <span className="ml-1 font-normal text-lf-ink/55">
+                <span className="ml-1 font-normal text-lf-on-surface/55">
                   · {t('raw.lutContract.recommendedBadge')}
                 </span>
               )}
             </span>
           </p>
           <p
-            className="m-0 inline-flex w-full items-start gap-2 rounded-md bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink/80"
+            className="m-0 inline-flex w-full items-start gap-2 rounded-md bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] px-2.5 py-2 text-lf-body leading-relaxed text-lf-on-surface/80"
             data-raw-lut="contract-status"
           >
             {view.completesContract
@@ -173,14 +173,14 @@ export function LUTProfileStatus({
         </div>
       ) : view.status === 'unsupported-output' ? (
         <p
-          className="m-0 inline-flex w-full items-start gap-2 rounded-md bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink/80"
+          className="m-0 inline-flex w-full items-start gap-2 rounded-md bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] px-2.5 py-2 text-lf-body leading-relaxed text-lf-on-surface/80"
           data-raw-lut="contract-status"
         >
           {t('raw.lutContract.unsupportedOutput')}
         </p>
       ) : (
         <p
-          className="m-0 inline-flex w-full items-start gap-2 rounded-md bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] px-2.5 py-2 text-lf-body leading-relaxed text-lf-ink/80"
+          className="m-0 inline-flex w-full items-start gap-2 rounded-md bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)] px-2.5 py-2 text-lf-body leading-relaxed text-lf-on-surface/80"
           data-raw-lut="contract-status"
         >
           {t('raw.lutContract.unknown')}

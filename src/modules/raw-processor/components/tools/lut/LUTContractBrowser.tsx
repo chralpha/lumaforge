@@ -228,7 +228,7 @@ export function LUTContractBrowser({
         value={query}
         placeholder={t('raw.lutContract.searchPlaceholder')}
         onChange={(event) => setQuery(event.currentTarget.value)}
-        inputClassName="h-8 border-transparent bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.04)] text-[0.78rem] text-lf-ink shadow-none placeholder:text-lf-ink/40 focus:border-transparent focus:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.06)] focus:ring-2 focus:ring-lf-green/25"
+        inputClassName="h-8 border-transparent bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.04)] text-[0.78rem] text-lf-on-surface shadow-none placeholder:text-lf-on-surface/40 focus:border-transparent focus:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.06)] focus:ring-2 focus:ring-lf-green/25"
       />
 
       <div
@@ -241,7 +241,7 @@ export function LUTContractBrowser({
           <>
             {visibleSuggestions.length > 0 && (
               <div className="space-y-1">
-                <p className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
+                <p className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-on-surface/50">
                   {t('raw.lutContract.suggestedInput')}
                 </p>
                 <div className="grid gap-0.5 sm:grid-cols-2">
@@ -264,7 +264,7 @@ export function LUTContractBrowser({
 
             {groupedInputProfiles.map((group) => (
               <div key={`input-${group.label}`} className="space-y-1">
-                <p className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
+                <p className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-on-surface/50">
                   {t('raw.lutContract.groupInput', { group: group.label })}
                 </p>
                 <div className="grid gap-0.5 sm:grid-cols-2">
@@ -285,7 +285,7 @@ export function LUTContractBrowser({
             ))}
 
             {!hasInputMatches && (
-              <p className="m-0 text-[0.78rem] leading-relaxed text-lf-ink/72">
+              <p className="m-0 text-[0.78rem] leading-relaxed text-lf-on-surface/72">
                 {t('raw.lutContract.noInput')}
               </p>
             )}
@@ -294,7 +294,7 @@ export function LUTContractBrowser({
           <>
             {suggestedOutputOptions.length > 0 && (
               <div className="space-y-1">
-                <p className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
+                <p className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-on-surface/50">
                   {t('raw.lutContract.suggestedOutput')}
                 </p>
                 <div className="grid gap-0.5 sm:grid-cols-2">
@@ -313,7 +313,7 @@ export function LUTContractBrowser({
 
             {groupedOutputOptions.map((group) => (
               <div key={`output-${group.label}`} className="space-y-1">
-                <p className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-ink/50">
+                <p className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-on-surface/50">
                   {t('raw.lutContract.groupOutput', { group: group.label })}
                 </p>
                 <div className="grid gap-0.5 sm:grid-cols-2">
@@ -330,7 +330,7 @@ export function LUTContractBrowser({
             ))}
 
             {!hasOutputMatches && (
-              <p className="m-0 text-[0.78rem] leading-relaxed text-lf-ink/72">
+              <p className="m-0 text-[0.78rem] leading-relaxed text-lf-on-surface/72">
                 {t('raw.lutContract.noOutput')}
               </p>
             )}

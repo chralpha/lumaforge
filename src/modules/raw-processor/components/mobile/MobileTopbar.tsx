@@ -15,7 +15,7 @@ const appIcon = '/favicon.png'
 // boxes read as competing chips over the photo; the slate scrim below carries
 // legibility instead.
 const ghostAction =
-  'inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md bg-transparent text-lf-hero-ink transition-colors hover:bg-[oklch(0.96_0.006_255/0.06)] [&_svg]:size-5 [&_svg]:stroke-current'
+  'inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md bg-transparent text-lf-on-photo-ink transition-colors hover:bg-[oklch(0.96_0.006_255/0.06)] [&_svg]:size-5 [&_svg]:stroke-current'
 
 export function MobileTopbar(props: {
   hasImage: boolean
@@ -32,7 +32,7 @@ export function MobileTopbar(props: {
   return (
     <header
       data-mobile-topbar
-      className="pointer-events-none absolute inset-x-0 top-0 z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 bg-gradient-to-b from-[oklch(0.05_0.006_255/0.82)] via-[oklch(0.05_0.006_255/0.4)] to-transparent px-3 pb-5 pt-safe-offset-3 text-lf-hero-ink"
+      className="pointer-events-none absolute inset-x-0 top-0 z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 bg-gradient-to-b from-[oklch(0.05_0.006_255/0.82)] via-[oklch(0.05_0.006_255/0.4)] to-transparent px-3 pb-5 pt-safe-offset-3 text-lf-on-photo-ink"
     >
       <img
         src={appIcon}
@@ -43,7 +43,7 @@ export function MobileTopbar(props: {
         <h1 className="m-0 truncate text-sm font-semibold leading-tight">
           {title}
         </h1>
-        <p className="m-0 truncate text-[0.68rem] leading-tight text-lf-hero-ink/72 tabular-nums">
+        <p className="m-0 truncate text-[0.68rem] leading-tight text-lf-on-photo-ink/72 tabular-nums">
           {props.hasImage && (
             <span
               aria-hidden="true"
@@ -82,7 +82,7 @@ export function MobileTopbar(props: {
               'size-11 rounded-md transition-colors [&_svg]:size-5 [&_svg]:stroke-current',
               props.histogramShown
                 ? 'bg-lf-amber/15 text-lf-amber-soft'
-                : 'bg-transparent text-lf-hero-ink hover:bg-[oklch(0.96_0.006_255/0.06)]',
+                : 'bg-transparent text-lf-on-photo-ink hover:bg-[oklch(0.96_0.006_255/0.06)]',
             )}
           />
         ) : (

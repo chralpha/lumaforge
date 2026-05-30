@@ -13,15 +13,16 @@ interface ChipProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 const TONE_PAPER: Record<ChipTone, string> = {
-  neutral: 'bg-lf-paper-low text-lf-ink-soft border-lf-hairline',
-  amber: 'bg-lf-amber-soft text-lf-ink border-lf-amber',
-  rose: 'bg-lf-paper-warm text-lf-rose border-lf-rose/40',
-  sky: 'bg-lf-paper-low text-lf-sky border-lf-sky/40',
+  neutral: 'bg-lf-surface-sunk text-lf-on-surface-soft border-lf-hairline',
+  amber: 'bg-lf-amber-soft text-lf-on-surface border-lf-amber',
+  rose: 'bg-lf-surface-muted text-lf-rose border-lf-rose/40',
+  sky: 'bg-lf-surface-sunk text-lf-sky border-lf-sky/40',
   green: 'bg-lf-green-soft text-lf-green-deep border-lf-green-deep/30',
 }
 
 const TONE_ON_PHOTO: Record<ChipTone, string> = {
-  neutral: 'bg-lf-on-photo-bg text-lf-hero-ink border-lf-on-photo-bord-soft',
+  neutral:
+    'bg-lf-on-photo-bg text-lf-on-photo-ink border-lf-on-photo-bord-soft',
   amber: 'bg-lf-on-photo-bg-strong text-lf-amber border-lf-amber/55',
   rose: 'bg-lf-on-photo-bg-strong text-lf-rose border-lf-rose/55',
   sky: 'bg-lf-on-photo-bg-strong text-lf-sky border-lf-sky/55',

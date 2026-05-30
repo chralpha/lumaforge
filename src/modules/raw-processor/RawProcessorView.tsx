@@ -494,18 +494,18 @@ function RawProcessorViewInner({
                 <DialogPrimitive.Content
                   role="alertdialog"
                   data-mobile-substrate="ink-sheet"
-                  className="pointer-events-auto grid max-h-[82%] w-full overflow-hidden rounded-t-xl border-t border-lf-on-photo-bord-soft bg-gradient-to-t from-black/92 via-black/82 to-lf-dark-low/94 text-lf-hero-ink shadow-[0_-18px_42px_oklch(0.04_0.012_76/0.62)] backdrop-blur-background sm:max-w-[28rem] sm:rounded-lf-panel sm:border sm:border-lf-on-photo-bord-soft sm:bg-[oklch(0.092_0.006_255/0.96)] sm:bg-none sm:text-lf-hero-ink sm:shadow-[0_22px_64px_oklch(0.04_0.006_255/0.5),inset_0_1px_0_oklch(0.96_0.006_255/0.06)]"
+                  className="pointer-events-auto grid max-h-[82%] w-full overflow-hidden rounded-t-xl border-t border-lf-on-photo-bord-soft bg-gradient-to-t from-black/92 via-black/82 to-lf-darkroom-stage-low/94 text-lf-on-photo-ink shadow-[0_-18px_42px_oklch(0.04_0.012_76/0.62)] backdrop-blur-background sm:max-w-[28rem] sm:rounded-lf-panel sm:border sm:border-lf-on-photo-bord-soft sm:bg-[oklch(0.092_0.006_255/0.96)] sm:bg-none sm:text-lf-on-photo-ink sm:shadow-[0_22px_64px_oklch(0.04_0.006_255/0.5),inset_0_1px_0_oklch(0.96_0.006_255/0.06)]"
                 >
                   <div className="px-5 pb-5 pt-5">
                     <div className="flex min-w-0 items-center gap-2.5">
                       <div className="grid size-8 shrink-0 place-items-center rounded-lf-control border border-lf-rose/40 bg-lf-on-photo-bg-strong text-lf-rose sm:border-lf-rose/30 sm:bg-[oklch(0.96_0.006_255/0.05)]">
                         <RotateCcw aria-hidden="true" className="size-[12px]" />
                       </div>
-                      <DialogTitle className="flex h-8 min-w-0 items-center text-[1rem] font-semibold leading-none text-lf-hero-ink">
+                      <DialogTitle className="flex h-8 min-w-0 items-center text-[1rem] font-semibold leading-none text-lf-on-photo-ink">
                         {t('raw.resetConfirm.title')}
                       </DialogTitle>
                     </div>
-                    <DialogDescription className="mt-3 text-lf-body leading-6 text-lf-hero-ink/72">
+                    <DialogDescription className="mt-3 text-lf-body leading-6 text-lf-on-photo-ink/72">
                       {t('raw.resetConfirm.description')}
                     </DialogDescription>
                   </div>
@@ -518,7 +518,7 @@ function RawProcessorViewInner({
                       size="sm"
                       type="button"
                       onClick={() => setResetConfirmationOpen(false)}
-                      className="min-h-[44px] border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong text-lf-hero-ink/82 shadow-none hover:bg-lf-on-photo-bg-strong hover:text-lf-hero-ink sm:min-h-0 sm:border-0 sm:bg-transparent sm:text-lf-hero-ink/78 sm:shadow-none sm:hover:bg-[oklch(0.96_0.006_255/0.06)] sm:hover:text-lf-hero-ink"
+                      className="min-h-[44px] border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong text-lf-on-photo-ink/82 shadow-none hover:bg-lf-on-photo-bg-strong hover:text-lf-on-photo-ink sm:min-h-0 sm:border-0 sm:bg-transparent sm:text-lf-on-photo-ink/78 sm:shadow-none sm:hover:bg-[oklch(0.96_0.006_255/0.06)] sm:hover:text-lf-on-photo-ink"
                     >
                       {t('raw.resetConfirm.cancel')}
                     </Button>
@@ -527,7 +527,7 @@ function RawProcessorViewInner({
                       size="sm"
                       type="button"
                       onClick={confirmSessionReset}
-                      className="min-h-[44px] text-lf-hero-ink sm:min-h-0"
+                      className="min-h-[44px] text-lf-on-photo-ink sm:min-h-0"
                     >
                       {t('raw.resetConfirm.confirm')}
                     </Button>

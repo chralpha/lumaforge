@@ -130,7 +130,7 @@ export function RawToolSurface(props: {
         onlineLutSources={props.onlineLutSources}
       />
       <div className="mt-3 grid gap-1.5" data-raw-desktop-strength="row">
-        <span className="text-[0.7rem] font-semibold uppercase tracking-[0.04em] text-lf-hero-ink/56">
+        <span className="text-[0.7rem] font-semibold uppercase tracking-[0.04em] text-lf-on-photo-ink/56">
           {t('raw.strength.title')}
         </span>
         {strengthControl}
@@ -364,7 +364,7 @@ function DesktopToolAside({
 
   return (
     <aside
-      className="raw-tool-surface relative grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden bg-lf-on-photo-bg-strong p-0 text-lf-hero-ink backdrop-blur-background max-[980px]:max-h-[min(42svh,390px)]"
+      className="raw-tool-surface relative grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-0 overflow-hidden bg-lf-on-photo-bg-strong p-0 text-lf-on-photo-ink backdrop-blur-background max-[980px]:max-h-[min(42svh,390px)]"
       data-raw-tool-surface="raw-finishing"
       data-raw-desktop-chrome="on-photo-tools"
       data-raw-desktop-density="linear-compact"

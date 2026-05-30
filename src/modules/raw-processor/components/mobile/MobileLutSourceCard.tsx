@@ -26,10 +26,10 @@ export function MobileLutSourceCard(props: {
     >
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="min-w-0 truncate text-lf-control font-medium text-lf-hero-ink/85">
+          <span className="min-w-0 truncate text-lf-control font-medium text-lf-on-photo-ink/85">
             {label}
           </span>
-          <span className="shrink-0 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-hero-ink/62">
+          <span className="shrink-0 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-on-photo-ink/62">
             {t('raw.mobile.lut.entryCount', { count: props.entryCount })}
           </span>
           {props.isLoading && (
@@ -45,7 +45,7 @@ export function MobileLutSourceCard(props: {
             aria-busy={props.isLoading}
             disabled={props.isLoading}
             onClick={props.onRefresh}
-            className="grid size-[44px] place-items-center rounded-md bg-transparent text-lf-hero-ink/55 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-hero-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
+            className="grid size-[44px] place-items-center rounded-md bg-transparent text-lf-on-photo-ink/55 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-on-photo-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw
               aria-hidden="true"
@@ -56,7 +56,7 @@ export function MobileLutSourceCard(props: {
             type="button"
             aria-label={t('raw.lutSource.remove', { label })}
             onClick={props.onRemove}
-            className="grid size-[44px] place-items-center rounded-md bg-transparent text-lf-hero-ink/55 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-hero-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
+            className="grid size-[44px] place-items-center rounded-md bg-transparent text-lf-on-photo-ink/55 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-on-photo-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
           >
             <Trash2 aria-hidden="true" className="size-5" />
           </button>

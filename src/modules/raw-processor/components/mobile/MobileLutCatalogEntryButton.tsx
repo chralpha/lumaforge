@@ -22,7 +22,7 @@ export function MobileLutCatalogEntryButton(props: {
       data-raw-mobile-lut="catalog-entry"
       data-raw-mobile-lut-entry-loading={props.loading ? 'true' : undefined}
     >
-      <span className="min-w-0 truncate text-lf-control font-medium text-lf-hero-ink">
+      <span className="min-w-0 truncate text-lf-control font-medium text-lf-on-photo-ink">
         {props.title}
       </span>
       {props.loading ? (

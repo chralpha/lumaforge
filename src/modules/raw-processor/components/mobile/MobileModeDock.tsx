@@ -53,7 +53,7 @@ export function MobileModeDock(props: {
   return (
     <div
       data-mobile-dock
-      className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/92 via-black/65 to-transparent pb-[max(8px,calc(env(safe-area-inset-bottom)-24px))] text-lf-hero-ink"
+      className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/92 via-black/65 to-transparent pb-[max(8px,calc(env(safe-area-inset-bottom)-24px))] text-lf-on-photo-ink"
     >
       <AnimatePresence initial={false}>
         {props.expanded && !disabled && (
@@ -102,10 +102,10 @@ export function MobileModeDock(props: {
               className={clsxm(
                 'relative grid min-h-[52px] grid-rows-[auto_auto] place-items-center gap-1 rounded-md px-1 py-1.5 text-[0.64rem] font-semibold uppercase tracking-wide transition-colors',
                 disabled
-                  ? 'cursor-not-allowed text-lf-hero-ink/35'
+                  ? 'cursor-not-allowed text-lf-on-photo-ink/35'
                   : showActive
-                    ? 'text-lf-hero-ink'
-                    : 'text-lf-hero-ink/68 hover:text-lf-hero-ink',
+                    ? 'text-lf-on-photo-ink'
+                    : 'text-lf-on-photo-ink/68 hover:text-lf-on-photo-ink',
               )}
             >
               <tab.icon aria-hidden="true" className="size-[18px]" />

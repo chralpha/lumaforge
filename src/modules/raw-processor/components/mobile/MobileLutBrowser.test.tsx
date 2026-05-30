@@ -96,10 +96,10 @@ describe('mobileLutBrowser', () => {
     expect(dialog).toHaveAttribute('data-mobile-substrate', 'ink-sheet')
     expect(dialog).toHaveClass('bg-gradient-to-t')
     expect(dialog).toHaveClass('from-black/92')
-    expect(dialog).toHaveClass('text-lf-hero-ink')
+    expect(dialog).toHaveClass('text-lf-on-photo-ink')
     expect(dialog).toHaveClass('border-lf-on-photo-bord-soft')
-    expect(dialog).not.toHaveClass('bg-lf-paper-high')
-    expect(dialog).not.toHaveClass('text-lf-ink')
+    expect(dialog).not.toHaveClass('bg-lf-surface-raised')
+    expect(dialog).not.toHaveClass('text-lf-on-surface')
     expect(dialog.className).not.toMatch(
       /bg-material|bg-background|bg-fill|text-text|border-border/,
     )
@@ -196,7 +196,7 @@ describe('mobileLutBrowser', () => {
     // substrate. Keep the LUT sheet in the dark on-photo family instead of
     // importing the desktop paper surface.
     expect(strengthSection?.className ?? '').not.toMatch(/bg-\[oklch/)
-    expect(strengthSection?.className ?? '').not.toMatch(/bg-lf-paper-warm/)
+    expect(strengthSection?.className ?? '').not.toMatch(/bg-lf-surface-muted/)
 
     const tablist = screen.getByRole('tablist', { name: 'Strength' })
     expect(tablist).toBeInTheDocument()
@@ -207,10 +207,10 @@ describe('mobileLutBrowser', () => {
     expect(tablist.className).toMatch(/bg-\[oklch\(0\.96_0\.006_255\/0\.05\)\]/)
     expect(tablist).not.toHaveClass('border-lf-on-photo-bord-soft')
     expect(tablist).not.toHaveClass('bg-lf-on-photo-bg')
-    expect(tablist).not.toHaveClass('bg-lf-paper-warm/55')
+    expect(tablist).not.toHaveClass('bg-lf-surface-muted/55')
     expect(tablist).not.toHaveClass('border-lf-hairline/45')
     expect(tablist.className).not.toMatch(
-      /bg-\[oklch\(from_var\(--color-lf-ink\)/,
+      /bg-\[oklch\(from_var\(--color-lf-on-surface\)/,
     )
     // The active segment renders a motion-animated thumb (layoutId-driven
     // spring) and earns the cool-white wash + top highlight that matches
@@ -225,9 +225,9 @@ describe('mobileLutBrowser', () => {
     // Weight contrast carries the readability when the bg delta is subtle.
     expect(standardTab.className).toMatch(/data-\[state=active\]:font-semibold/)
     expect(standardTab.className).toMatch(
-      /data-\[state=active\]:text-lf-hero-ink/,
+      /data-\[state=active\]:text-lf-on-photo-ink/,
     )
-    expect(standardTab.className).not.toMatch(/bg-lf-paper-high/)
+    expect(standardTab.className).not.toMatch(/bg-lf-surface-raised/)
     expect(standardTab.className).not.toMatch(/bg-lf-on-photo-bg-strong/)
     expect(standardTab).toBeDisabled()
   })
@@ -477,7 +477,7 @@ describe('mobileLutBrowser', () => {
       '[data-raw-mobile-lut="source-card"]',
     )
     expect(sourceCard).toHaveClass('bg-transparent')
-    expect(sourceCard).not.toHaveClass('bg-lf-paper-warm/55')
+    expect(sourceCard).not.toHaveClass('bg-lf-surface-muted/55')
 
     const sourceInput = screen.getByLabelText(/online lut source url/i)
     expect(sourceInput).toHaveClass('focus:ring-lf-green/25')
@@ -492,7 +492,7 @@ describe('mobileLutBrowser', () => {
     })
     expect(entry).toHaveClass('hover:bg-lf-on-photo-bg-strong')
     expect(entry).not.toHaveClass(
-      'hover:bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.045)]',
+      'hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.045)]',
     )
     expect(entry).not.toHaveClass('border-lf-hairline/40')
   })
@@ -585,7 +585,7 @@ describe('mobileLutBrowser', () => {
     expect(contractThumb?.className ?? '').toMatch(
       /bg-\[oklch\(0\.96_0\.006_255\/0\.10\)\]/,
     )
-    expect(contractThumb).not.toHaveClass('bg-lf-paper-high')
+    expect(contractThumb).not.toHaveClass('bg-lf-surface-raised')
     expect(contractThumb).not.toHaveClass('bg-lf-on-photo-bg-strong')
     expect(activeInputTab.className).not.toMatch(/aria-selected:bg-lf-amber/)
     expect(

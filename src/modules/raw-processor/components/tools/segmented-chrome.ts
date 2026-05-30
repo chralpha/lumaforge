@@ -34,17 +34,17 @@ export const SEGMENTED_TRACK = 'rounded-md bg-[oklch(0.96_0.006_255/0.05)] p-1'
 // to /92 on pointer hover so the segment under the cursor previews a lift
 // before commit.
 export const SEGMENTED_ITEM_TEXT =
-  'font-medium text-lf-hero-ink/72 transition-colors duration-150 hover:text-lf-hero-ink/92'
+  'font-medium text-lf-on-photo-ink/72 transition-colors duration-150 hover:text-lf-on-photo-ink/92'
 
 // Active item: full hero-ink + font-semibold weight contrast so the active
 // label wins even when the bg delta is subtle. The primitive intentionally
 // does NOT set an active text color; consumers MUST supply this.
 export const SEGMENTED_ITEM_TEXT_ACTIVE =
-  'data-[state=active]:font-semibold data-[state=active]:text-lf-hero-ink'
+  'data-[state=active]:font-semibold data-[state=active]:text-lf-on-photo-ink'
 
 // Active thumb: 10% cool-white wash + 1px inset top highlight. The wash
 // hue intentionally matches the rest of the chrome's seam idiom
-// (oklch(0.96 0.006 255 / *)) instead of pulling from --color-lf-hero-ink
+// (oklch(0.96 0.006 255 / *)) instead of pulling from --color-lf-on-photo-ink
 // (which is warm) — the chrome's topbar, tool rail, tool cards, and
 // export footer all use this cool near-white at varying opacities, so
 // the thumb reads as one of the chrome's lifts and not as a foreign
