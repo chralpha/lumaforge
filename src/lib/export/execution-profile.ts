@@ -1,9 +1,5 @@
 import type { ExportFidelity } from '~/lib/gl/export'
 import type { CapabilityVector } from '~/lib/runtime/capability-vector'
-import {
-  classifyUserAgent,
-  getCapabilityVectorSnapshot,
-} from '~/lib/runtime/capability-vector'
 import type {
   ExportOrchestrationCopy,
   ExportPolicy,
@@ -292,15 +288,6 @@ function chooseProfile(
   return 'mobile-balanced'
 }
 
-type LegacyRuntimeInput = {
-  pthreadAvailable: boolean
-}
-
-type LegacyOutputInput = {
-  opfsAvailable: boolean
-  streamingAvailable: boolean
-}
-
 type SelectExportExecutionPlanInput = {
   performancePreference?: PerformancePreference
   fidelity?: ExportFidelity
@@ -310,58 +297,8 @@ type SelectExportExecutionPlanInput = {
   previousCrashLikeInterruption?: boolean
   previousUserInterrupted?: boolean
   previousResourceFailure?: boolean
-  capability?: CapabilityVector
-  runtime: ExportRuntimeResources | LegacyRuntimeInput
-  output?: LegacyOutputInput
-  platform?: {
-    userAgent?: string
-    touch?: boolean
-    hardwareConcurrency?: number
-  }
-}
-
-function isExportRuntimeResources(
-  runtime: ExportRuntimeResources | LegacyRuntimeInput,
-): runtime is ExportRuntimeResources {
-  return 'opfsSinkAvailable' in runtime
-}
-
-function resolveCapability(
-  input: SelectExportExecutionPlanInput,
-): CapabilityVector {
-  if (input.capability) return input.capability
-
-  const snapshot = getCapabilityVectorSnapshot()
-  if (snapshot) return snapshot
-
-  const runtime = input.runtime
-  const legacyRuntime = isExportRuntimeResources(runtime) ? null : runtime
-  const platform = input.platform ?? {}
-  return Object.freeze({
-    coi: legacyRuntime?.pthreadAvailable ?? false,
-    pthread: legacyRuntime?.pthreadAvailable ?? false,
-    deviceMemoryGB: null,
-    hwConcurrency: Math.max(1, Math.floor(platform.hardwareConcurrency ?? 1)),
-    webKitClass: classifyUserAgent(
-      platform.userAgent ?? '',
-      platform.touch ?? false,
-    ),
-    maybeOpfsSupported: input.output?.opfsAvailable ?? false,
-  })
-}
-
-function resolveRuntimeResources(
-  input: SelectExportExecutionPlanInput,
-): ExportRuntimeResources {
-  if (isExportRuntimeResources(input.runtime)) return input.runtime
-
-  return Object.freeze({
-    opfsSinkAvailable: input.output?.opfsAvailable ?? false,
-    opfsAvailableMB: input.output?.opfsAvailable
-      ? Number.POSITIVE_INFINITY
-      : null,
-    streamingSinkAvailable: input.output?.streamingAvailable ?? false,
-  })
+  capability: CapabilityVector
+  runtime: ExportRuntimeResources
 }
 
 function synthesizeProfile(
@@ -390,8 +327,8 @@ export function selectExportExecutionPlan(
 ): ExportExecutionPlan {
   const performancePreference =
     input.performancePreference ?? input.fidelity ?? 'balanced'
-  const capability = resolveCapability(input)
-  const runtime = resolveRuntimeResources(input)
+  const capability = input.capability
+  const runtime = input.runtime
   const policy = deriveExportPolicy(
     capability,
     {
