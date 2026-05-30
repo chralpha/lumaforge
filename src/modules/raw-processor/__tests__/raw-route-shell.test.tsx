@@ -194,6 +194,7 @@ beforeEach(() => {
   mockedUseCapabilityGate.mockReturnValue({
     ready: true,
     supportStatus: 'supported',
+    previewMode: 'gpu',
     reason: null,
   })
 
@@ -223,6 +224,7 @@ describe('rawProcessorView', () => {
     mockedUseCapabilityGate.mockReturnValue({
       ready: true,
       supportStatus: 'supported',
+      previewMode: 'gpu',
       reason: null,
     })
 
@@ -252,6 +254,7 @@ describe('rawProcessorView', () => {
     mockedUseCapabilityGate.mockReturnValue({
       ready: true,
       supportStatus: 'supported',
+      previewMode: 'gpu',
       reason: null,
     })
 
@@ -278,6 +281,7 @@ describe('rawProcessorView', () => {
     mockedUseCapabilityGate.mockReturnValue({
       ready: true,
       supportStatus: 'supported',
+      previewMode: 'gpu',
       reason: null,
     })
 
@@ -303,6 +307,7 @@ describe('rawProcessorView', () => {
     mockedUseCapabilityGate.mockReturnValue({
       ready: true,
       supportStatus: 'supported',
+      previewMode: 'gpu',
       reason: null,
     })
 
@@ -318,26 +323,6 @@ describe('rawProcessorView', () => {
 })
 
 describe('rawProcessorView shell states', () => {
-  it('keeps unsupported WebGL2 state inside the raw route shell contract', () => {
-    mockedUseCapabilityGate.mockReturnValue({
-      ready: true,
-      supportStatus: 'unsupported',
-      reason: 'WebGL2 is required',
-    })
-
-    const { container } = render(<RawProcessorView />)
-    const viewportShell = container.querySelector(
-      '[data-raw-lab-shell="viewport"]',
-    )
-
-    expect(viewportShell).not.toBeNull()
-    expect(viewportShell).toHaveClass('raw-lab')
-    expect(viewportShell).toHaveAttribute('data-raw-lab-state', 'unsupported')
-    expect(
-      screen.getByText('This browser cannot run the RAW Lab'),
-    ).toBeInTheDocument()
-  })
-
   it('keeps unsupported isolation state inside the raw route shell contract', () => {
     mockedUseCapabilityGate.mockReturnValue({
       ready: true,

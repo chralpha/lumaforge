@@ -60,7 +60,11 @@ export function CpuPreviewCanvas({
     //      build a minimal ImageData-shaped object for putImageData.
     let imageData: ImageData
     try {
-      imageData = new ImageData(frame.rgba, frame.width, frame.height)
+      imageData = new ImageData(
+        frame.rgba as Uint8ClampedArray<ArrayBuffer>,
+        frame.width,
+        frame.height,
+      )
     } catch {
       if (typeof backingCtx.createImageData === 'function') {
         imageData = backingCtx.createImageData(frame.width, frame.height)

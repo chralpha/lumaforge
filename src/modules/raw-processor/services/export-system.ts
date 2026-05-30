@@ -292,7 +292,8 @@ export async function runFullResolutionExportJob({
         previousResourceFailure: true,
         previousCrashLikeInterruption: false,
         previousUserInterrupted: false,
-        capability: attemptPlan.capabilitySnapshot,
+        capability:
+          attemptPlan.capabilitySnapshot ?? (await detectCapabilityVector()),
         runtime:
           attemptPlan.runtimeSnapshot ??
           ({

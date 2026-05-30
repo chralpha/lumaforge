@@ -357,7 +357,8 @@ function RawProcessorViewInner({
     lut: lutDataRef.current,
     rawRenderExposure: decodedImageRef.current?.renderExposure ?? {
       ev: 0,
-      whitePoint: 1,
+      multiplier: 1,
+      source: 'identity',
     },
     userExposureEv: params.userExposureEv,
     userContrast: params.userContrast,
