@@ -1,10 +1,9 @@
 import { useAtomValue } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
-import { useCallback, useLayoutEffect } from 'react'
+import { useLayoutEffect } from 'react'
 import { useMediaQuery } from 'usehooks-ts'
 
 import { nextFrame } from '~/lib/dom'
-import { jotaiStore } from '~/lib/jotai'
 
 const useDarkQuery = () => useMediaQuery('(prefers-color-scheme: dark)')
 type ColorMode = 'light' | 'dark' | 'system'
@@ -38,11 +37,6 @@ const useSyncThemeWebApp = () => {
 }
 
 export const useSyncThemeark = useSyncThemeWebApp
-
-export const useSetTheme = () =>
-  useCallback((colorMode: ColorMode) => {
-    jotaiStore.set(themeAtom, colorMode)
-  }, [])
 
 function disableTransition(disableTransitionExclude: string[] = []) {
   const css = document.createElement('style')
