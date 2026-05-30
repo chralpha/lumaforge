@@ -64,16 +64,46 @@ These must NOT be touched by this refactor:
 - The global theme system for **non-`/raw`** surfaces. The landing page
   (`StarBackground`), `sonner` toasts, and the `data-theme` `dark:` variant all
   legitimately follow the system theme and stay intact.
+- The landing's **separate** warm palette in `src/pages/(main)/index.css`
+  (`.lf-landing` `--lf-*`, no `color-` prefix). It is a parallel system the
+  `/raw` tokens do not touch; folding the two together is not in scope.
 - Color contracts: declared input gamut, transfer/log curve, LUT intent, and
   output handling are out of scope. This is chrome and token-naming work.
 
 ## 4. Token model
 
-### 4.1 Rename map (misleading neutral family only)
+### 4.0 Corrected architecture (verified)
 
-Only the neutral/surface tokens whose names imply lightness are renamed. The
-hue-role tokens (`lf-green*`, `lf-amber*`, `lf-rose`, `lf-sky`, `lf-hist-*`,
-`lf-on-photo-*`) already have honest names and keep them.
+`--color-lf-*` is a **shared design-token system**, not a `/raw`-private set. It
+is consumed three ways: CSS `var()`, Tailwind utilities (`text-lf-ink`,
+`bg-lf-paper-high`, `border-lf-hairline`), and Tailwind arbitrary values
+(`bg-[oklch(from_var(--color-lf-ink)_l_c_h_/_0.04)]`), across the `ui` primitives
+**Button, Slider, Chip** plus `/raw` components and their tests.
+
+Consequences that override the original draft:
+
+- **Tokens must stay registered in `@theme`.** Tailwind v4 only generates
+  `text-lf-*` / `bg-lf-*` utilities for `@theme` tokens. They cannot be deleted
+  from `@theme`; doing so removes the utilities and breaks Button/Slider/Chip.
+- **`lf-hairline` is live**, not dead — `Chip.tsx` uses `border-lf-hairline`.
+  Keep it.
+- In the **live app these primitives render almost exclusively inside `.raw-lab`
+  (dark)**. The landing (`index.sync.tsx`) has its **own separate** warm palette
+  under `.lf-landing` (`--lf-paper`, no `color-` prefix) and renders no
+  `<Button>`; the only non-`/raw` Button is Footer's `ghost` variant with a
+  Pastel color override; the `lf-*` selects are not mounted. So the warm `@theme`
+  values render on **no live light surface**.
+
+**Decision (approved):** the canonical `@theme` value for the neutral surface
+family is the **dark darkroom value** (single source of truth, honest name AND
+value). The `.raw-lab` per-token neutral override is removed.
+
+### 4.1 Rename map
+
+Neutral/surface tokens whose names imply a lightness value are renamed to
+role-neutral names (honest regardless of context). Hue-role tokens (`lf-green*`,
+`lf-amber*`, `lf-rose`, `lf-sky`, `lf-hist-*`, `lf-on-photo-*`) and `lf-hairline`
+already read as roles and keep their names.
 
 | Current (lies) | New (honest) | Notes |
 |---|---|---|
@@ -86,46 +116,48 @@ hue-role tokens (`lf-green*`, `lf-amber*`, `lf-rose`, `lf-sky`, `lf-hist-*`,
 | `--color-lf-hero-ink` | `--color-lf-on-photo-ink` | bright text over photo/stage |
 | `--color-lf-dark` | `--color-lf-darkroom-stage` | warm export stage bg |
 | `--color-lf-dark-low` | `--color-lf-darkroom-stage-low` | warm export stage bg, lower |
-| `--color-lf-hairline` | (remove if dead, else `--color-lf-hairline`) | verify no consumers |
+| `--color-lf-hairline` | `--color-lf-hairline` (unchanged) | live: `Chip` border |
 
-Implementation: a mechanical rename across all definitions and consumers
-(`.ts`, `.tsx`, `.css`). Values are unchanged. A one-shot codemod / global
-replace is appropriate (delegate to Codex, Claude reviews the diff).
+The rename touches **every consumption channel**: CSS `var()` and
+`oklch(from var(--color-lf-X) …)`, Tailwind utilities (`text-lf-X`, `bg-lf-X`,
+`border-lf-X`, `ring-lf-X`, `outline-lf-X`), Tailwind arbitrary values
+(`[oklch(from_var(--color-lf-X)…)]`), and test assertions that reference any of
+these. Order replacements longest-first to avoid partial overlaps
+(`lf-paper-high` before `lf-paper`; `lf-hero-ink` before `lf-ink`; `lf-dark-low`
+before `lf-dark`). Mechanical and scriptable; delegate to Codex, Claude reviews
+the diff.
 
 ### 4.2 Single-source consolidation
 
-- The warm neutral base values in `.raw-lab` never render (the two media queries
-  together cover all widths), so the base neutral palette is replaced by the
-  **canonical darkroom values** — no more warm-definition-then-dark-override.
-- The desktop and mobile blocks hold identical neutral darkroom values today;
-  hoist that shared neutral set into the single `.raw-lab` base declaration and
-  delete the duplication.
-- Keep in the media queries ONLY genuinely viewport-specific tokens and layout:
-  - `--color-preview-mat`, `--color-preview-mat-edge`, `--color-preview-border`
-    (desktop vs. mobile differ on purpose; guarded by `raw-lab-css.test.ts`).
-  - viewport background image / gradient, `grid-template-rows`, stage padding,
-    full-bleed mobile stage.
+- In `@theme`, the renamed neutral surface tokens take the **dark darkroom
+  values** that `.raw-lab` currently overrides to (e.g.
+  `--color-lf-surface: oklch(0.118 0.006 255)`,
+  `--color-lf-on-surface: var(--color-lf-on-photo-ink)`). One honest definition,
+  no warm-to-dark hop.
+- Remove the per-token neutral `lf-*` redefinitions from BOTH the desktop
+  (`min-width: 641px`) and mobile (`max-width: 640px`) `.raw-lab` blocks. They
+  become redundant (the `@theme` value is already the darkroom value), which also
+  deletes the desktop/mobile duplication.
+- `.raw-lab` keeps only: the Pastel **alias scoping** (`--color-background`,
+  `--color-text`, `--color-border*`, `--color-fill*`, `--color-material-*`,
+  `--color-stage-*`, scrollbar) mapped to the `lf-*` tokens so the darkroom stays
+  scoped to `/raw` and the rest of the app keeps following the system theme; the
+  genuinely **viewport-specific** tokens (`--color-preview-mat`,
+  `--color-preview-mat-edge`, `--color-preview-border`, guarded by
+  `raw-lab-css.test.ts`); and layout (background gradient, `grid-template-rows`,
+  stage padding, full-bleed mobile stage).
 - Keep the deliberately-warm tokens (export `darkroom` field, `lf-amber`
-  safelight, `lf-hist-*`). These are design intent, not legacy.
-- Remove neutral warm-paper surface tokens that no longer render after
-  consolidation.
+  safelight, `lf-hist-*`). Design intent, not legacy.
 
-### 4.3 Canonical location
+### 4.3 Render-parity note
 
-Each effective value lives in exactly one place:
-
-- `src/styles/tailwind.css` `@theme` keeps the brand hue tokens (`lf-green*`,
-  `lf-amber*`, `lf-rose`, `lf-sky`, `lf-hist-*`), the deliberately-warm export
-  tokens (renamed `lf-darkroom-stage` / `-low`), the bright on-photo ink
-  (renamed `lf-on-photo-ink`), the `lf-on-photo-*` tokens, and the non-color
-  design tokens (radius, spacing, shadow, type, ease, duration).
-- The **neutral darkroom surface palette** (`lf-surface*`, `lf-on-surface*`, and
-  the `.raw-lab` chrome aliases: `--color-background`, `--color-text`,
-  `--color-border*`, `--color-fill*`, `--color-material-*`, `--color-stage-*`,
-  scrollbar) is defined **once** on the `.raw-lab` base in `raw-lab.css`. No
-  warm-paper surface values remain in `@theme`. The `raw-lab.css` header comment
-  states this file is the canonical source for the effective surface values and
-  points to `DESIGN.md`.
+Because the warm `@theme` values render on no live light surface, and `/raw`
+already renders the dark override values, moving the dark values into `@theme`
+and dropping the `.raw-lab` override leaves `/raw` **pixel-identical**. The only
+theoretical delta is Footer's lone `ghost`-Button hover tint
+(`--color-lf-ink` at ~4% opacity) shifting warm to cool; it is imperceptible and
+already color-overridden. The visual-parity gate (Section 8) confirms `/raw`
+parity.
 
 ## 5. Theme scaffold
 
@@ -170,18 +202,20 @@ for contract-sensitive changes (on-photo contrast, blend behavior).
 2. `raw-lab.css` header comment: states the fixed-dark decision, that this file
    is the canonical source for the effective darkroom surface values, and points
    to `DESIGN.md`.
-3. Token contract test: asserts the canonical darkroom surface tokens exist and
-   are dark (lightness below a threshold), and guards that warm-paper light
-   values cannot reappear for the surface roles (regression guard against the
-   exact confusing state this refactor removes).
+3. Token contract test: asserts the `@theme` neutral surface tokens
+   (`lf-surface*`, `lf-on-surface*`) exist and are dark (lightness below a
+   threshold), and that `.raw-lab` no longer re-declares them (guards against the
+   warm-then-override structure reappearing).
 4. `CLAUDE.md` Architecture Snapshot: one line pointing agents to `DESIGN.md`
    for the `/raw` theme contract. Highest leverage because `CLAUDE.md` loads
    every session.
 
 ## 8. Safety net
 
-- **Value preservation:** the rename changes names only; a mapping check asserts
-  old-value equals new-value so the rename has zero visual delta.
+- **Value preservation:** the rename changes token names only. The neutral
+  `@theme` values move from their warm defaults to the dark values `.raw-lab`
+  already overrode to, so `/raw` renders identical values (Section 4.3). The
+  parity gate is the oracle.
 - **Visual parity gate:** capture baseline `/raw` screenshots before any change
   (desktop + mobile; empty/boot and sample-stage states; stable selectors).
   Compare after each phase. Browser validation runs under `vite preview` (not
@@ -195,11 +229,12 @@ for contract-sensitive changes (on-photo contrast, blend behavior).
 ## 9. Phasing (each phase ends green and committable)
 
 - **Phase 0 — Baseline:** capture visual-parity reference screenshots.
-- **Phase 1 — Token truth:** rename neutral family (values byte-identical);
-  consolidate to one canonical darkroom declaration; remove dead warm-paper
-  surface tokens; update `raw-lab-css.test.ts`; add token contract test; update
-  `DESIGN.md`, `raw-lab.css` header, `CLAUDE.md` pointer. Verify parity
-  screenshots identical, tests green.
+- **Phase 1 — Token truth:** rename the neutral family across all consumption
+  channels; set the `@theme` neutral surface tokens to the dark darkroom values
+  and remove the `.raw-lab` per-token neutral override (desktop + mobile);
+  update `raw-lab-css.test.ts`; add token contract test; update `DESIGN.md`,
+  `raw-lab.css` header, `CLAUDE.md` pointer. Verify parity screenshots identical,
+  tests green.
 - **Phase 2 — Theme scaffold:** delete `useSetTheme`; document the `/raw`
   fixed-dark boundary. Verify.
 - **Phase 3 — Chrome to Radix + Tailwind:** per-component migration with a
@@ -223,7 +258,8 @@ this environment).
 
 | Risk | Mitigation |
 |---|---|
-| Aggressive chrome rewrite silently shifts darkroom rendering | Per-component visual-parity gate; rename preserves values byte-for-byte; scope fences keep preview/export untouched |
+| Aggressive chrome rewrite silently shifts darkroom rendering | Per-component visual-parity gate; rename preserves names; `/raw` keeps the same rendered values; scope fences keep preview/export untouched |
+| Deleting `lf-*` from `@theme` would break Tailwind utilities (Button/Slider/Chip) | Tokens stay registered in `@theme`; only their value changes (warm to dark) |
 | Token consolidation breaks jsdom tests that read base `.raw-lab` values | Update `raw-lab-css.test.ts` to the consolidated structure intentionally |
 | Removing theme scaffold breaks landing/toast | Only `useSetTheme` removed; verified `useSyncThemeark` / `useThemeAtomValue` / `useIsDark` retained |
 | Forcing intrinsic effects into Tailwind degrades the look | Keep blend modes, gradients, backdrop-filter, pseudo-elements, clip-path in the thin labeled CSS file |
@@ -233,4 +269,6 @@ this environment).
 
 None. Scope confirmed: Phase 3 is fully in scope this round; rename vocabulary
 (`surface` / `on-surface` / `sunk`) approved; theme cleanup limited to deleting
-`useSetTheme` plus documentation.
+`useSetTheme` plus documentation; canonical `@theme` neutral value resolved to
+the dark darkroom value (single source); `lf-hairline` kept (live `Chip`
+consumer); landing's separate `.lf-landing` palette out of scope.
