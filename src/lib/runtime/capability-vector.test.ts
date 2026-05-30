@@ -54,6 +54,12 @@ describe('detectCapabilityVector', () => {
       'webkit-mobile',
     ],
     [
+      'webkit-mobile (iPadOS desktop-mode UA + touch)',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+      5,
+      'webkit-mobile',
+    ],
+    [
       'webkit-desktop-safari',
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Safari/605.1.15',
       0,
