@@ -5,6 +5,7 @@ import type {
 import {
   createRowBandProcessor,
   mat3Identity,
+  resolveColorBalanceParams,
 } from '@lumaforge/luma-color-runtime'
 import type {
   LumaRawExportCapability,
@@ -171,8 +172,18 @@ const IDENTITY_RAW_RENDER_EXPOSURE_STEP = {
   multiplier: 1,
 }
 
+const neutralColorBalance = resolveColorBalanceParams()
+
 function neutralToneSteps(): ExportColorGraphStep[] {
   return [
+    {
+      kind: 'user-color-balance',
+      temperature: neutralColorBalance.userTemperature,
+      tint: neutralColorBalance.userTint,
+      gain: neutralColorBalance.gain,
+      operator: neutralColorBalance.operator,
+      luminanceCoefficients: neutralColorBalance.luminanceCoefficients,
+    },
     { kind: 'user-exposure', ev: 0, multiplier: 1 },
     {
       kind: 'user-contrast',

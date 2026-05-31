@@ -1,3 +1,4 @@
+import { resolveColorBalanceParams } from './color-balance'
 import type { SupportedExportColorGraphDescriptor } from './color-graph'
 import type { Mat3 } from './matrix'
 import { mat3Identity } from './matrix'
@@ -17,8 +18,18 @@ const BOUNDARY_PROFILE: LUTColorProfile = {
   aliases: [],
 }
 
+const neutralColorBalance = resolveColorBalanceParams()
+
 function neutralToneSteps(): SupportedExportColorGraphDescriptor['steps'] {
   return [
+    {
+      kind: 'user-color-balance',
+      temperature: neutralColorBalance.userTemperature,
+      tint: neutralColorBalance.userTint,
+      gain: neutralColorBalance.gain,
+      operator: neutralColorBalance.operator,
+      luminanceCoefficients: neutralColorBalance.luminanceCoefficients,
+    },
     { kind: 'user-exposure', ev: 0, multiplier: 1 },
     {
       kind: 'user-contrast',

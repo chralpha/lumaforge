@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
+import { resolveColorBalanceParams } from './color-balance'
 import type { SupportedExportColorGraphDescriptor } from './color-graph'
 import { createPreviewHistogramProcessor } from './histogram'
+
+const neutralColorBalance = resolveColorBalanceParams()
 
 const noLutGraph: SupportedExportColorGraphDescriptor = {
   supported: true,
@@ -11,6 +14,14 @@ const noLutGraph: SupportedExportColorGraphDescriptor = {
   steps: [
     { kind: 'input-linear-prophoto' },
     { kind: 'raw-render-exposure', ev: 0, multiplier: 1 },
+    {
+      kind: 'user-color-balance',
+      temperature: neutralColorBalance.userTemperature,
+      tint: neutralColorBalance.userTint,
+      gain: neutralColorBalance.gain,
+      operator: neutralColorBalance.operator,
+      luminanceCoefficients: neutralColorBalance.luminanceCoefficients,
+    },
     { kind: 'user-exposure', ev: 0, multiplier: 1 },
     {
       kind: 'user-contrast',
