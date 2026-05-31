@@ -126,16 +126,16 @@ describe('mobileLabChrome', () => {
     ).toBeDisabled()
   })
 
-  it('tears down focus/sheets when the RAW is cleared (hasImage→false)', async () => {
+  it('tears down adjust sheets when the RAW is cleared (hasImage→false)', async () => {
     const { rerender } = render(<MobileLabChrome {...base} />)
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
     await userEvent.click(within(dock).getByRole('tab', { name: /adjust/i }))
-    const strip = screen.getByRole('tablist', { name: /tone parameters/i })
-    await userEvent.click(within(strip).getAllByRole('tab')[0])
-    expect(screen.getByRole('button', { name: /done/i })).toBeInTheDocument()
+    expect(
+      screen.getByRole('group', { name: /tone sliders/i }),
+    ).toBeInTheDocument()
     rerender(<MobileLabChrome {...base} hasImage={false} />)
     expect(
-      screen.queryByRole('button', { name: /done/i }),
+      screen.queryByRole('group', { name: /tone sliders/i }),
     ).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: /browse raw files/i }),
@@ -388,7 +388,7 @@ describe('mobileLabChrome', () => {
     expect(screen.queryByRole('button', { name: /lut browser/i })).toBeNull()
   })
 
-  it('enters focus mode from a tone pill and hides the topbar', async () => {
+  it('opens Adjust inline with tone sliders and keeps the topbar visible', async () => {
     render(<MobileLabChrome {...base} />)
     expect(
       screen.getByRole('heading', { name: 'DSC09142.ARW' }),
@@ -396,33 +396,45 @@ describe('mobileLabChrome', () => {
 
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
     await userEvent.click(within(dock).getByRole('tab', { name: /adjust/i }))
-    const strip = screen.getByRole('tablist', { name: /tone parameters/i })
-    await userEvent.click(within(strip).getAllByRole('tab')[0])
 
-    expect(screen.getByRole('button', { name: /done/i })).toBeInTheDocument()
     expect(
-      screen.queryByRole('heading', { name: 'DSC09142.ARW' }),
-    ).not.toBeInTheDocument()
+      screen.getByRole('group', { name: /tone sliders/i }),
+    ).toBeInTheDocument()
+    expect(screen.getAllByRole('slider')).toHaveLength(6)
+    // The topbar stays present — no focus editor takeover.
+    expect(
+      screen.getByRole('heading', { name: 'DSC09142.ARW' }),
+    ).toBeInTheDocument()
   })
 
-  it('recedes focus chrome while the slider is scrubbed', async () => {
-    render(<MobileLabChrome {...base} />)
+  it('shows the scrub HUD and flags the chrome while a slider is dragged', async () => {
+    const { container } = render(<MobileLabChrome {...base} />)
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
     await userEvent.click(within(dock).getByRole('tab', { name: /adjust/i }))
-    const strip = screen.getByRole('tablist', { name: /tone parameters/i })
-    await userEvent.click(within(strip).getAllByRole('tab')[0])
-    const focus = document.querySelector('[data-tone-focus]')
-    expect(focus).toBeInTheDocument()
-    expect(focus).not.toHaveAttribute('data-scrubbing')
-    const scrub = screen.getByTestId('tone-focus-scrub')
-    fireEvent.pointerDown(scrub)
+    const exposureRow = screen
+      .getByRole('slider', { name: 'Exposure' })
+      .closest('[data-testid="adjust-slider-row-scrub"]')!
+    expect(container.querySelector('[data-scrub-value-hud]')).toBeNull()
+    expect(container.querySelector('[data-mobile-lab-chrome]')).toHaveAttribute(
+      'data-focus',
+      'false',
+    )
+
+    fireEvent.pointerDown(exposureRow)
     expect(
-      document.querySelector('[data-tone-focus][data-scrubbing="true"]'),
+      container.querySelector('[data-scrub-value-hud]'),
     ).toBeInTheDocument()
-    fireEvent.pointerUp(scrub)
-    expect(
-      document.querySelector('[data-tone-focus][data-scrubbing="true"]'),
-    ).toBeNull()
+    expect(container.querySelector('[data-mobile-lab-chrome]')).toHaveAttribute(
+      'data-focus',
+      'true',
+    )
+
+    fireEvent.pointerUp(exposureRow)
+    expect(container.querySelector('[data-scrub-value-hud]')).toBeNull()
+    expect(container.querySelector('[data-mobile-lab-chrome]')).toHaveAttribute(
+      'data-focus',
+      'false',
+    )
   })
 
   it('opens Adjust color controls without adding a dock mode', async () => {
@@ -434,25 +446,19 @@ describe('mobileLabChrome', () => {
     )
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
     expect(within(dock).getAllByRole('tab')).toHaveLength(4)
-    expect(within(dock).getByRole('tab', { name: /look/i })).toBeInTheDocument()
-    expect(
-      within(dock).getByRole('tab', { name: /adjust/i }),
-    ).toBeInTheDocument()
-    expect(
-      within(dock).getByRole('tab', { name: /compare/i }),
-    ).toBeInTheDocument()
-    expect(
-      within(dock).getByRole('tab', { name: /export/i }),
-    ).toBeInTheDocument()
 
     await userEvent.click(within(dock).getByRole('tab', { name: /adjust/i }))
     await userEvent.click(screen.getByRole('tab', { name: /color/i }))
 
     expect(
-      screen.getByRole('tablist', { name: /color parameters/i }),
+      screen.getByRole('group', { name: /color sliders/i }),
     ).toBeInTheDocument()
-    expect(screen.getByText('TEMP')).toBeInTheDocument()
-    expect(screen.getByText('TINT')).toBeInTheDocument()
+    const sliders = screen.getAllByRole('slider')
+    expect(sliders).toHaveLength(2)
+    expect(sliders.map((s) => s.getAttribute('aria-label'))).toEqual([
+      'Temperature',
+      'Tint',
+    ])
     expect(screen.getByText('+24')).toBeInTheDocument()
     expect(screen.getByText('-12')).toBeInTheDocument()
     expect(within(dock).queryByRole('tab', { name: /color/i })).toBeNull()

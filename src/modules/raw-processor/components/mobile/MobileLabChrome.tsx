@@ -29,8 +29,8 @@ import {
   getResolvedProfile,
 } from '../tools/lut-contract'
 import type { ToneValue } from '../tools/ToneTool'
-import { AdjustStripPanel } from './AdjustStripPanel'
-import { ColorFocusEditor } from './ColorFocusEditor'
+import type { ScrubFieldId } from './AdjustListPanel'
+import { AdjustListPanel } from './AdjustListPanel'
 import { FloatingHistogramCard } from './FloatingHistogramCard'
 import { MobileComparePanel } from './MobileComparePanel'
 import type { MobileLutBrowserProps } from './MobileLutBrowser'
@@ -39,7 +39,7 @@ import type { MobileMode } from './MobileModeDock'
 import { MobileModeDock } from './MobileModeDock'
 import { MobileMoreSheet } from './MobileMoreSheet'
 import { MobileTopbar } from './MobileTopbar'
-import { ToneFocusEditor } from './ToneFocusEditor'
+import { ScrubValueHud } from './ScrubValueHud'
 import { useMobilePreviewGestures } from './useMobilePreviewGestures'
 
 type ViewMode = 'processed' | 'original' | 'compare'
@@ -78,10 +78,7 @@ export function MobileLabChrome(props: {
   const { t } = useI18n()
   const prefersReduced = useReducedMotion() ?? false
   const [mode, setMode] = useState<MobileMode>('look')
-  const [toneFocusKey, setToneFocusKey] = useState<keyof ToneValue | null>(null)
-  const [colorFocusKey, setColorFocusKey] = useState<keyof ColorValue | null>(
-    null,
-  )
+  const [scrubField, setScrubField] = useState<ScrubFieldId | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
   const [lutBrowserOpen, setLutBrowserOpen] = useState(false)
   const [lutBrowserStartsInContract, setLutBrowserStartsInContract] =
@@ -90,14 +87,11 @@ export function MobileLabChrome(props: {
   const [immersive, setImmersive] = useState(false)
   const [histogramOpen, setHistogramOpen] = useState(false)
   const [dockExpanded, setDockExpanded] = useState(true)
-  const [scrubbing, setScrubbing] = useState(false)
   const [compareSplitOpen, setCompareSplitOpen] = useState(false)
   const previewReleasedReady =
     props.hasImage && props.previewSuspended === true && !props.isProcessing
   const handoffActive =
     props.hasImage && (props.isProcessing || previewReleasedReady)
-  const toneSnapshot = useRef<ToneValue | null>(null)
-  const colorSnapshot = useRef<ColorValue | null>(null)
   const viewModeBeforePeek = useRef<ViewMode>('processed')
   const compareSplitOpenRef = useRef(false)
   const suppressNextPeekRestore = useRef(false)
@@ -120,21 +114,17 @@ export function MobileLabChrome(props: {
       immersiveStaggerTimer.current = null
     }
     expandedBeforeImmersive.current = false
-    setToneFocusKey(null)
-    setColorFocusKey(null)
+    setScrubField(null)
     setImmersive(false)
     setLutBrowserOpen(false)
     setLutBrowserStartsInContract(false)
     setMoreOpen(false)
-    setScrubbing(false)
     setDockExpanded(true)
     compareSplitOpenRef.current = false
     suppressNextPeekRestore.current = false
     setCompareSplitOpen(false)
     setHistogramOpen(false)
     setMode('look')
-    toneSnapshot.current = null
-    colorSnapshot.current = null
   }, [hasImage])
 
   useEffect(() => {
@@ -144,20 +134,16 @@ export function MobileLabChrome(props: {
       immersiveStaggerTimer.current = null
     }
     expandedBeforeImmersive.current = false
-    setToneFocusKey(null)
-    setColorFocusKey(null)
+    setScrubField(null)
     setImmersive(false)
     setLutBrowserOpen(false)
     setLutBrowserStartsInContract(false)
     setMoreOpen(false)
-    setScrubbing(false)
     compareSplitOpenRef.current = false
     suppressNextPeekRestore.current = false
     setCompareSplitOpen(false)
     setHistogramOpen(false)
     setPeeking(false)
-    toneSnapshot.current = null
-    colorSnapshot.current = null
   }, [handoffActive])
 
   useEffect(() => {
@@ -180,19 +166,15 @@ export function MobileLabChrome(props: {
 
     setMode('export')
     setDockExpanded(true)
-    setToneFocusKey(null)
-    setColorFocusKey(null)
+    setScrubField(null)
     setImmersive(false)
     setLutBrowserOpen(false)
     setLutBrowserStartsInContract(false)
     setMoreOpen(false)
-    setScrubbing(false)
     compareSplitOpenRef.current = false
     suppressNextPeekRestore.current = false
     setCompareSplitOpen(false)
     setHistogramOpen(false)
-    toneSnapshot.current = null
-    colorSnapshot.current = null
   }, [hasImage, props.preferExportMode])
 
   useEffect(
@@ -203,69 +185,6 @@ export function MobileLabChrome(props: {
     },
     [],
   )
-
-  const startFocus = (k: keyof ToneValue) => {
-    toneSnapshot.current = props.tone
-    colorSnapshot.current = null
-    setColorFocusKey(null)
-    setToneFocusKey(k)
-  }
-  const cancelFocus = () => {
-    if (toneSnapshot.current) {
-      const s = toneSnapshot.current
-      props.onToneChange({
-        userExposureEv: s.userExposureEv,
-        userContrast: s.userContrast,
-        userHighlights: s.userHighlights,
-        userShadows: s.userShadows,
-        userWhites: s.userWhites,
-        userBlacks: s.userBlacks,
-      })
-    }
-    toneSnapshot.current = null
-    setToneFocusKey(null)
-    setDockExpanded(false)
-    setScrubbing(false)
-  }
-  const commitFocus = () => {
-    toneSnapshot.current = null
-    setToneFocusKey(null)
-    setDockExpanded(false)
-    setScrubbing(false)
-  }
-  const switchFocus = (k: keyof ToneValue) => {
-    toneSnapshot.current = toneSnapshot.current ?? props.tone
-    setToneFocusKey(k)
-  }
-  const startColorFocus = (k: keyof ColorValue) => {
-    colorSnapshot.current = props.color
-    toneSnapshot.current = null
-    setToneFocusKey(null)
-    setColorFocusKey(k)
-  }
-  const cancelColorFocus = () => {
-    if (colorSnapshot.current) {
-      const s = colorSnapshot.current
-      props.onColorChange({
-        userTemperature: s.userTemperature,
-        userTint: s.userTint,
-      })
-    }
-    colorSnapshot.current = null
-    setColorFocusKey(null)
-    setDockExpanded(false)
-    setScrubbing(false)
-  }
-  const commitColorFocus = () => {
-    colorSnapshot.current = null
-    setColorFocusKey(null)
-    setDockExpanded(false)
-    setScrubbing(false)
-  }
-  const switchColorFocus = (k: keyof ColorValue) => {
-    colorSnapshot.current = colorSnapshot.current ?? props.color
-    setColorFocusKey(k)
-  }
 
   const onPeekChange = (p: boolean) => {
     if (p) {
@@ -299,7 +218,7 @@ export function MobileLabChrome(props: {
   // preview frame element that owns pinch / pan. Sharing the gesture target
   // is what keeps multi-touch alive — a sibling overlay would swallow every
   // touch before `PreviewCanvas` ever saw the second finger.
-  const focusActive = toneFocusKey !== null || colorFocusKey !== null
+  const focusActive = scrubField !== null
   const previewGesturesEnabled =
     props.hasImage && !handoffActive && !focusActive
   const closeSheets = () => {
@@ -401,15 +320,14 @@ export function MobileLabChrome(props: {
 
   const panelContent =
     mode === 'tone' ? (
-      <AdjustStripPanel
+      <AdjustListPanel
         tone={props.tone}
         color={props.color}
-        toneFocusKey={toneFocusKey}
-        colorFocusKey={colorFocusKey}
-        onPickToneField={startFocus}
-        onPickColorField={startColorFocus}
+        onToneChange={props.onToneChange}
+        onColorChange={props.onColorChange}
         onToneReset={props.onToneReset}
         onColorReset={props.onColorReset}
+        onScrubChange={setScrubField}
       />
     ) : mode === 'look' ? (
       <div className="grid gap-2.5">
@@ -730,12 +648,23 @@ export function MobileLabChrome(props: {
           )}
       </AnimatePresence>
 
-      {/* Topbar + dock recede together as one surface when immersive or focus
-          focus takes over, instead of hard-unmounting behind the overlay.
+      <ScrubValueHud
+        key={
+          scrubField
+            ? `${scrubField.kind}-${String(scrubField.key)}`
+            : 'scrub-idle'
+        }
+        field={scrubField}
+        tone={props.tone}
+        color={props.color}
+      />
+
+      {/* Topbar + dock recede together as one surface when immersive takes over,
+          instead of hard-unmounting behind the overlay.
           `initial={false}`: present on first load (no page-load choreography),
-          fades only on the immersive/focus toggle. */}
+          fades only on the immersive toggle. */}
       <AnimatePresence initial={false}>
-        {!focusActive && !immersive && (
+        {!immersive && (
           <m.div
             key="mobile-chrome"
             className="pointer-events-none absolute inset-0"
@@ -811,38 +740,6 @@ export function MobileLabChrome(props: {
               panel={panel}
             />
           </m.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {toneFocusKey && props.hasImage && !handoffActive && (
-          <ToneFocusEditor
-            key="tone-focus"
-            tone={props.tone}
-            focusKey={toneFocusKey}
-            onChange={props.onToneChange}
-            onPickField={switchFocus}
-            onCancel={cancelFocus}
-            onDone={commitFocus}
-            onDragChange={setScrubbing}
-            scrubbing={scrubbing}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {colorFocusKey && props.hasImage && !handoffActive && (
-          <ColorFocusEditor
-            key="color-focus"
-            color={props.color}
-            focusKey={colorFocusKey}
-            onChange={props.onColorChange}
-            onPickField={switchColorFocus}
-            onCancel={cancelColorFocus}
-            onDone={commitColorFocus}
-            onDragChange={setScrubbing}
-            scrubbing={scrubbing}
-          />
         )}
       </AnimatePresence>
 
