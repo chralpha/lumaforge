@@ -21,6 +21,8 @@ import type {
 import { MobileExportPanel } from './mobile/MobileExportPanel'
 import { MobileLabChrome } from './mobile/MobileLabChrome'
 import type { RawRuntimeReadinessState } from './raw-runtime-readiness'
+import { AdjustTool } from './tools/AdjustTool'
+import type { ColorValue } from './tools/ColorTool'
 import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
 import { FileFactsTool } from './tools/FileFactsTool'
@@ -29,7 +31,6 @@ import { LutContractTool } from './tools/lut/LutContractTool'
 import type { StrengthLevel } from './tools/StrengthControl'
 import { StrengthControl } from './tools/StrengthControl'
 import type { ToneValue } from './tools/ToneTool'
-import { ToneTool } from './tools/ToneTool'
 import { ToolCard, ToolCardStack } from './tools/ToolCard'
 
 const selectIsNarrowViewport = (v: { w: number }) => v.w <= 640 && v.w !== 0
@@ -37,9 +38,12 @@ const selectIsNarrowViewport = (v: { w: number }) => v.w <= 640 && v.w !== 0
 export function RawToolSurface(props: {
   activeIntensity: StrengthLevel
   tone: ToneValue
+  color: ColorValue
   onIntensitySelect: (level: StrengthLevel) => void
   onToneChange: (value: Partial<ToneValue>) => void
   onToneReset: () => void
+  onColorChange: (value: Partial<ColorValue>) => void
+  onColorReset: () => void
   onCompareReset: () => void
   viewMode: 'processed' | 'original' | 'compare'
   onViewModeChange: (mode: 'processed' | 'original' | 'compare') => void
@@ -212,12 +216,15 @@ export function RawToolSurface(props: {
       <ToolCard id="look" title={t('raw.lutContract.title')}>
         {lutBlock}
       </ToolCard>
-      <ToolCard id="tone" title={t('raw.tone.title')}>
-        <ToneTool
-          value={props.tone}
+      <ToolCard id="tone" title={t('raw.adjust.title')}>
+        <AdjustTool
+          tone={props.tone}
+          color={props.color}
           disabled={editorDisabled}
-          onChange={props.onToneChange}
-          onReset={props.onToneReset}
+          onToneChange={props.onToneChange}
+          onToneReset={props.onToneReset}
+          onColorChange={props.onColorChange}
+          onColorReset={props.onColorReset}
         />
       </ToolCard>
       <ToolCard id="compare" title={t('raw.compare.title')}>
@@ -268,7 +275,7 @@ export function RawToolSurface(props: {
   const moreSheet = {
     pipelineSteps: [
       { index: 1, label: 'RAW decode', timing: '—' },
-      { index: 2, label: t('raw.tone.title'), timing: '—' },
+      { index: 2, label: t('raw.adjust.title'), timing: '—' },
       {
         index: 3,
         label: props.currentLutName ?? t('raw.mobile.more.lutHeading'),

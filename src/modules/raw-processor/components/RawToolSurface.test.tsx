@@ -25,9 +25,15 @@ const baseProps = {
     userWhites: 0,
     userBlacks: 0,
   },
+  color: {
+    userTemperature: 0,
+    userTint: 0,
+  },
   onIntensitySelect: vi.fn(),
   onToneChange: vi.fn(),
   onToneReset: vi.fn(),
+  onColorChange: vi.fn(),
+  onColorReset: vi.fn(),
   onCompareReset: vi.fn(),
   viewMode: 'processed' as const,
   onViewModeChange: vi.fn(),
@@ -121,7 +127,7 @@ function onlineLutSourcesFixture(
 }
 
 function getToneRegion() {
-  return screen.getByRole('region', { name: 'Tone' })
+  return screen.getByRole('region', { name: 'Adjust' })
 }
 
 function resetToolCards() {
@@ -178,7 +184,7 @@ describe('rawToolSurface', () => {
       screen.getAllByRole('region', { name: 'LUT contract' }).length,
     ).toBeGreaterThanOrEqual(1)
     expect(
-      screen.getAllByRole('region', { name: 'Tone' }).length,
+      screen.getAllByRole('region', { name: 'Adjust' }).length,
     ).toBeGreaterThanOrEqual(1)
     // Export is a persistent, non-collapsible region
     const exportRegion = screen.getByRole('region', { name: 'Export' })
@@ -372,6 +378,48 @@ describe('rawToolSurface', () => {
     expect(
       screen.getByRole('button', { name: 'Reset tone' }),
     ).toBeInTheDocument()
+  })
+
+  it('switches desktop Adjust between tone and color controls with scoped resets', async () => {
+    const user = userEvent.setup()
+    const onToneReset = vi.fn()
+    const onColorReset = vi.fn()
+
+    render(
+      <RawToolSurface
+        {...baseProps}
+        hasImage
+        color={{ userTemperature: 0, userTint: 0 }}
+        onColorChange={vi.fn()}
+        onColorReset={onColorReset}
+        onToneReset={onToneReset}
+      />,
+    )
+
+    const adjust = screen.getByRole('region', { name: 'Adjust' })
+    expect(
+      within(adjust).getByRole('tablist', { name: 'Adjust' }),
+    ).toBeInTheDocument()
+    expect(within(adjust).getByRole('tab', { name: 'Tone' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(within(adjust).getByRole('tab', { name: 'Color' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    )
+
+    await user.click(within(adjust).getByRole('tab', { name: 'Color' }))
+
+    expect(within(adjust).getByText('Temperature')).toBeInTheDocument()
+    expect(within(adjust).getByText('Tint')).toBeInTheDocument()
+
+    await user.click(
+      within(adjust).getByRole('button', { name: 'Reset color' }),
+    )
+
+    expect(onColorReset).toHaveBeenCalledTimes(1)
+    expect(onToneReset).not.toHaveBeenCalled()
   })
 
   it('disables tone controls before upload', async () => {

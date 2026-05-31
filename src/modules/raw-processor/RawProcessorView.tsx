@@ -132,6 +132,7 @@ function RawProcessorViewInner({
     selectLUTProfile,
     selectIntensityLevel,
     setToneParams,
+    setColorParams,
     setViewMode,
     setCompareSplit,
     setPreviewViewport,
@@ -148,6 +149,7 @@ function RawProcessorViewInner({
     setOriginalPreviewPipeline,
     reset,
     resetTone,
+    resetColor,
     dismissError,
     updateStats,
     pipelineRef,
@@ -366,6 +368,8 @@ function RawProcessorViewInner({
     userShadows: params.userShadows,
     userWhites: params.userWhites,
     userBlacks: params.userBlacks,
+    userTemperature: params.userTemperature,
+    userTint: params.userTint,
   }
 
   // useCpuPreview must be called unconditionally (Rules of Hooks).
@@ -531,9 +535,15 @@ function RawProcessorViewInner({
             userWhites: params.userWhites,
             userBlacks: params.userBlacks,
           }}
+          color={{
+            userTemperature: params.userTemperature,
+            userTint: params.userTint,
+          }}
           onIntensitySelect={selectIntensityLevel}
           onToneChange={setToneParams}
           onToneReset={resetTone}
+          onColorChange={setColorParams}
+          onColorReset={resetColor}
           fileName={sourceFileName}
           onReplaceFile={handleReplaceFile}
           onResetSession={requestSessionReset}

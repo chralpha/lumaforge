@@ -48,9 +48,15 @@ function rawToolSurfaceProps(
       userWhites: 0,
       userBlacks: 0,
     },
+    color: {
+      userTemperature: 0,
+      userTint: 0,
+    },
     onIntensitySelect: () => {},
     onToneChange: () => {},
     onToneReset: () => {},
+    onColorChange: () => {},
+    onColorReset: () => {},
     onCompareReset: () => {},
     viewMode: 'processed',
     onViewModeChange: () => {},
@@ -100,6 +106,8 @@ function compareStageProps(
       userShadows: 0,
       userWhites: 0,
       userBlacks: 0,
+      userTemperature: 0,
+      userTint: 0,
       intensity: 0.7,
       viewMode: 'compare',
       compareSplit: 0.5,
@@ -131,6 +139,8 @@ function rawProcessorViewState(
       userShadows: 0,
       userWhites: 0,
       userBlacks: 0,
+      userTemperature: 0,
+      userTint: 0,
       intensity: 0.7,
       viewMode: 'compare',
       compareSplit: 0.5,
@@ -186,7 +196,9 @@ function rawProcessorViewState(
     clearLUT: vi.fn(),
     setParams: vi.fn(),
     setToneParams: vi.fn(),
+    setColorParams: vi.fn(),
     resetTone: vi.fn(),
+    resetColor: vi.fn(),
     exportImage: vi.fn(),
     exportPreviewImage: vi.fn(),
     recoverInterruptedExport: vi.fn(),
@@ -544,7 +556,7 @@ describe('rawToolSurface', () => {
       screen.getAllByRole('region', { name: 'LUT contract' }).length,
     ).toBeGreaterThanOrEqual(1)
     expect(
-      screen.getAllByRole('region', { name: 'Tone' }).length,
+      screen.getAllByRole('region', { name: 'Adjust' }).length,
     ).toBeGreaterThanOrEqual(1)
     // Strength is now inside the Look card, no longer a standalone region
     expect(
