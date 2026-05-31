@@ -52,17 +52,21 @@ export class CpuPreviewClient {
     this.errorHandler = fn
   }
 
-  private ensureWorker(): CpuPreviewWorkerLike {
+  private ensureWorker(): CpuPreviewWorkerLike | null {
     if (this.worker) return this.worker
     let worker: CpuPreviewWorkerLike
     try {
       worker = this.factory()
     } catch {
       this.errorHandler?.('worker-construction-failed')
-      throw new Error('worker-construction-failed')
+      return null
     }
     worker.onmessage = (e) => this.handle(e.data)
-    worker.onerror = () => this.errorHandler?.('worker-module-load-failed')
+    worker.onerror = () => {
+      this.inFlightId = null
+      this.pending = null
+      this.errorHandler?.('worker-module-load-failed')
+    }
     this.worker = worker
     return worker
   }
@@ -74,25 +78,35 @@ export class CpuPreviewClient {
     data: Uint16Array
   }) {
     const worker = this.ensureWorker()
+    if (!worker) return
     // Release the previously-owned source in the worker before loading a new
     // one, so the worker's source map does not retain stale image buffers.
     if (this.sourceId && this.sourceId !== input.sourceId) {
-      worker.postMessage({ type: 'disposeSource', sourceId: this.sourceId })
+      try {
+        worker.postMessage({ type: 'disposeSource', sourceId: this.sourceId })
+      } catch {
+        // Best-effort cleanup; a failed cleanup must not crash the workspace.
+      }
     }
     this.sourceId = input.sourceId
     this.inFlightId = null
     this.pending = null
-    const copy = input.data.slice()
-    worker.postMessage(
-      {
-        type: 'loadSource',
-        sourceId: input.sourceId,
-        width: input.width,
-        height: input.height,
-        data: copy,
-      },
-      [copy.buffer],
-    )
+    try {
+      const copy = input.data.slice()
+      worker.postMessage(
+        {
+          type: 'loadSource',
+          sourceId: input.sourceId,
+          width: input.width,
+          height: input.height,
+          data: copy,
+        },
+        [copy.buffer],
+      )
+    } catch {
+      this.sourceId = null
+      this.errorHandler?.('source-transfer-failed')
+    }
   }
 
   requestRender(req: PendingRender) {
@@ -106,19 +120,31 @@ export class CpuPreviewClient {
 
   private post(req: PendingRender) {
     const worker = this.ensureWorker()
+    if (!worker) return
     const requestId = this.nextRequestId++
     this.inFlightId = requestId
-    worker.postMessage({
-      type: 'render',
-      sourceId: this.sourceId!,
-      requestId,
-      graph: req.graph,
-      variant: req.variant,
-    })
+    try {
+      worker.postMessage({
+        type: 'render',
+        sourceId: this.sourceId!,
+        requestId,
+        graph: req.graph,
+        variant: req.variant,
+      })
+    } catch {
+      this.inFlightId = null
+      this.errorHandler?.('render-failed')
+    }
   }
 
   private handle(res: CpuPreviewResponse) {
     if (res.type === 'error') {
+      const sourceMatches = res.sourceId === this.sourceId
+      const requestMatches =
+        res.requestId == null || res.requestId === this.inFlightId
+      if (!sourceMatches || !requestMatches) {
+        return
+      }
       this.inFlightId = null
       this.errorHandler?.(res.reason)
       this.flushPending()

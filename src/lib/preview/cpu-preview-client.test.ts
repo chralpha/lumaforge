@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type {CpuPreviewWorkerLike} from './cpu-preview-client';
-import {
-  CpuPreviewClient
-} from './cpu-preview-client'
+import type { CpuPreviewWorkerLike } from './cpu-preview-client'
+import { CpuPreviewClient } from './cpu-preview-client'
 import type {
   CpuPreviewRequest,
   CpuPreviewResponse,
@@ -122,5 +120,93 @@ describe('cpuPreviewClient', () => {
       height: 2,
     })
     expect(frames).toEqual([renders[0].requestId, renders2[1].requestId])
+  })
+
+  it('reports worker construction failure without throwing to the caller', () => {
+    const client = new CpuPreviewClient(() => {
+      throw new Error('boom')
+    })
+    const errors: string[] = []
+    client.onError((reason) => errors.push(reason))
+
+    expect(() =>
+      client.loadSource({
+        sourceId: 's1',
+        width: 2,
+        height: 2,
+        data: new Uint16Array(12),
+      }),
+    ).not.toThrow()
+    expect(errors).toEqual(['worker-construction-failed'])
+  })
+
+  it('reports source transfer failure without throwing to the caller', () => {
+    const { worker } = fakeWorker()
+    worker.postMessage = () => {
+      throw new Error('DataCloneError')
+    }
+    const client = new CpuPreviewClient(() => worker)
+    const errors: string[] = []
+    client.onError((reason) => errors.push(reason))
+
+    expect(() =>
+      client.loadSource({
+        sourceId: 's1',
+        width: 2,
+        height: 2,
+        data: new Uint16Array(12),
+      }),
+    ).not.toThrow()
+    expect(errors).toEqual(['source-transfer-failed'])
+  })
+
+  it('ignores stale source errors without clearing the current in-flight render', () => {
+    const { worker, posted, respond } = fakeWorker()
+    const client = new CpuPreviewClient(() => worker)
+    const frames: number[] = []
+    const errors: string[] = []
+    client.onFrame((f) => frames.push(f.requestId))
+    client.onError((reason) => errors.push(reason))
+
+    client.loadSource({
+      sourceId: 's1',
+      width: 2,
+      height: 2,
+      data: new Uint16Array(12),
+    })
+    client.requestRender({ variant: 'processed', graph })
+    const staleRender = posted.find((m) => m.type === 'render') as Extract<
+      CpuPreviewRequest,
+      { type: 'render' }
+    >
+
+    client.loadSource({
+      sourceId: 's2',
+      width: 2,
+      height: 2,
+      data: new Uint16Array(12),
+    })
+    client.requestRender({ variant: 'processed', graph })
+    const currentRender = posted
+      .filter((m) => m.type === 'render')
+      .at(-1) as Extract<CpuPreviewRequest, { type: 'render' }>
+
+    respond({
+      type: 'error',
+      sourceId: 's1',
+      requestId: staleRender.requestId,
+      reason: 'render-failed',
+    })
+    respond({
+      type: 'rendered',
+      sourceId: 's2',
+      requestId: currentRender.requestId,
+      rgba: new Uint8ClampedArray(16),
+      width: 2,
+      height: 2,
+    })
+
+    expect(errors).toEqual([])
+    expect(frames).toEqual([currentRender.requestId])
   })
 })
