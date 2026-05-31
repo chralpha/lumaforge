@@ -4,8 +4,6 @@ import { render } from 'takumi-js'
 
 export const LUMAFORGE_OG_IMAGE_WIDTH = 1200
 export const LUMAFORGE_OG_IMAGE_HEIGHT = 630
-export const LUMAFORGE_OG_HERO_IMAGE_URL =
-  'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=2400&q=86'
 
 interface LumaForgeOgImageAssets {
   fontData: Uint8Array

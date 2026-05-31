@@ -18,8 +18,7 @@ import { HOME_ROUTE_SEO } from '~/lib/seo'
 
 import { repository } from '../../../package.json'
 
-const heroImage =
-  'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=2400&q=86'
+const heroImage = '/og-raw-preview.svg'
 const appIcon = '/favicon.png'
 
 export const handle = {

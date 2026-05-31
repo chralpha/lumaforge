@@ -13,7 +13,7 @@ import { checker } from 'vite-plugin-checker'
 import { routeBuilderPlugin } from 'vite-plugin-route-builder'
 
 import PKG from './package.json'
-import { fetchImageDataUrl, toDataUrl } from './scripts/build/image-data-url'
+import { toDataUrl } from './scripts/build/image-data-url'
 import {
   deferRawRouteAppModule,
   deferRawRouteStylesheets,
@@ -37,10 +37,7 @@ import {
   replaceSeoBlock,
   resolveDeployEnvironment,
 } from './src/lib/seo'
-import {
-  LUMAFORGE_OG_HERO_IMAGE_URL,
-  renderLumaForgeOgImage,
-} from './src/pages/(main)/og-image'
+import { renderLumaForgeOgImage } from './src/pages/(main)/og-image'
 
 const ROOT = fileURLToPath(new URL('./', import.meta.url))
 const LUMA_COLOR_RUNTIME_GLSL_SOURCE = resolve(
@@ -68,10 +65,44 @@ const LUMAFORGE_OG_IMAGE_FONT_SOURCE = resolve(
   ROOT,
   './src/assets/fonts/GeistVF.woff2',
 )
+const LUMAFORGE_OG_IMAGE_HERO_SOURCE = resolve(
+  ROOT,
+  './public/og-raw-preview.svg',
+)
 const LUMAFORGE_OG_IMAGE_LOGO_SOURCE = resolve(ROOT, './public/favicon.png')
 const CROSS_ORIGIN_ISOLATION_HEADERS = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'require-corp',
+}
+
+function selectManualChunk(moduleId: string) {
+  const id = moduleId.replaceAll('\\', '/')
+
+  if (!id.includes('/node_modules/')) return undefined
+  if (id.includes('/react-router/')) return 'vendor-router'
+  if (id.includes('/i18next/') || id.includes('/react-i18next/')) {
+    return 'vendor-i18n'
+  }
+  if (id.includes('/@radix-ui/') || id.includes('/radix-ui/')) {
+    return 'vendor-radix'
+  }
+  if (
+    id.includes('/motion/') ||
+    id.includes('/motion-dom/') ||
+    id.includes('/motion-utils/') ||
+    id.includes('/framer-motion/')
+  ) {
+    return 'vendor-motion'
+  }
+  if (id.includes('/lucide-react/')) return 'vendor-icons'
+  if (id.includes('/jotai/') || id.includes('/@tanstack/')) {
+    return 'vendor-state'
+  }
+  if (id.includes('/react') || id.includes('/scheduler/')) {
+    return 'vendor-react'
+  }
+
+  return 'vendor-misc'
 }
 
 function resolveSeoRuntimeOptions(env = process.env) {
@@ -116,12 +147,10 @@ function staticSeoArtifactsPlugin(): Plugin {
       const seoOptions = resolveSeoRuntimeOptions()
       const ogImage = await renderLumaForgeOgImage({
         fontData: readFileSync(LUMAFORGE_OG_IMAGE_FONT_SOURCE),
-        heroImageSrc: await fetchImageDataUrl(LUMAFORGE_OG_HERO_IMAGE_URL, {
-          fallbackPath: LUMAFORGE_OG_IMAGE_LOGO_SOURCE,
-          onFallback: (message) => {
-            console.warn(`[lumaforge-static-seo-artifacts] ${message}`)
-          },
-        }),
+        heroImageSrc: toDataUrl(
+          'image/svg+xml',
+          readFileSync(LUMAFORGE_OG_IMAGE_HERO_SOURCE),
+        ),
         logoSrc: toDataUrl(
           'image/png',
           readFileSync(LUMAFORGE_OG_IMAGE_LOGO_SOURCE),
@@ -214,6 +243,17 @@ export default defineConfig(({ command }) => {
         enableInDev: true,
       }),
     ],
+    build: {
+      chunkSizeWarningLimit: 650,
+      rolldownOptions: {
+        output: {
+          manualChunks: selectManualChunk,
+        },
+        checks: {
+          pluginTimings: false,
+        },
+      },
+    },
     resolve: {
       alias: {
         '@lumaforge/luma-color-runtime/glsl': LUMA_COLOR_RUNTIME_GLSL_SOURCE,
