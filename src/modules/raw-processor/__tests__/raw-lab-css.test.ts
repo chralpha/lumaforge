@@ -91,4 +91,15 @@ describe('raw lab css tokens', () => {
     expect(readinessRule).toContain('width: min(320px, 100%);')
     expect(readinessRule).toContain('min-height: 64px;')
   })
+
+  it('keeps the mobile empty-state onboarding copy centered as a block', () => {
+    const copyBlockRule = extractRuleBody(
+      rawLabEffectsCss,
+      '.raw-mobile-empty-copy-block',
+    )
+
+    expect(copyBlockRule).toContain('display: grid;')
+    expect(copyBlockRule).toContain('justify-items: center;')
+    expect(copyBlockRule).toContain('width: min(280px, 100%);')
+  })
 })

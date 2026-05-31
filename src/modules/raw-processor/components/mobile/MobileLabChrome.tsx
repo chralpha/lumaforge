@@ -549,7 +549,7 @@ export function MobileLabChrome(props: {
               <span className="raw-mobile-empty-mark" aria-hidden="true">
                 <ImageUp className="size-[30px]" strokeWidth={1.6} />
               </span>
-              <div className="grid gap-2">
+              <div className="raw-mobile-empty-copy-block">
                 <h1>{t('raw.onboarding.slogan')}</h1>
                 <p className="raw-mobile-empty-copy">
                   {t('raw.mobile.empty.copy')}

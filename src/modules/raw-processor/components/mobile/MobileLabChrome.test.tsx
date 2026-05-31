@@ -93,6 +93,10 @@ describe('mobileLabChrome', () => {
     expect(
       screen.getByRole('heading', { name: /finish a raw with a lut/i }),
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: /finish a raw with a lut/i })
+        .parentElement,
+    ).toHaveClass('raw-mobile-empty-copy-block')
 
     expect(
       screen.getByRole('tablist', { name: /lab modes/i }),
