@@ -100,7 +100,12 @@ async function openRawToolsIfNeeded(page: Page) {
 
 test('closes the online LUT resource browser when its trigger is clicked again', async ({
   page,
-}) => {
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-desktop',
+    'desktop LUT source popover regression',
+  )
+
   await page.goto(
     `/raw?luts=${encodeURIComponent('https://example.com/valid.cube')}`,
   )
@@ -127,7 +132,12 @@ test('closes the online LUT resource browser when its trigger is clicked again',
 
 test('closes the online LUT resource browser after a rapid repeated trigger click', async ({
   page,
-}) => {
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-desktop',
+    'desktop LUT source popover regression',
+  )
+
   await page.goto(
     `/raw?luts=${encodeURIComponent('https://example.com/rapid.cube')}`,
   )
@@ -147,6 +157,11 @@ test('closes the online LUT resource browser after a rapid repeated trigger clic
 test('closes the LUT contract browser when its trigger is clicked again', async ({
   page,
 }, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-desktop',
+    'desktop LUT contract popover regression',
+  )
+
   const cubePath = testInfo.outputPath('unknown-validation.cube')
   await writeFile(cubePath, createIdentityCube('Unknown Validation'), 'utf8')
   await page.goto('/raw')
