@@ -17,6 +17,7 @@ import {
   getLUTOutputToTargetMatrix,
   mat3Identity,
   mat3ToGLSL,
+  resolveColorBalanceParams,
   resolveExportColorGraph,
   resolveToneParams,
 } from '@lumaforge/luma-color-runtime'
@@ -208,6 +209,8 @@ const DEFAULT_PARAMS: ProcessingParams = {
   userShadows: 0,
   userWhites: 0,
   userBlacks: 0,
+  userTemperature: 0,
+  userTint: 0,
 }
 
 const VIEW_MODE_UNIFORMS: Record<ProcessingParams['viewMode'], number> = {
@@ -489,6 +492,10 @@ export class RawProcessingPipeline {
         program,
         'u_rawRenderExposureMultiplier',
       ),
+      u_userColorBalanceGain: gl.getUniformLocation(
+        program,
+        'u_userColorBalanceGain',
+      ),
       u_userExposureMultiplier: gl.getUniformLocation(
         program,
         'u_userExposureMultiplier',
@@ -753,6 +760,8 @@ export class RawProcessingPipeline {
       userShadows: this.params.userShadows,
       userWhites: this.params.userWhites,
       userBlacks: this.params.userBlacks,
+      userTemperature: this.params.userTemperature,
+      userTint: this.params.userTint,
     })
     const resolvedProfile = exportGraph.supported
       ? exportGraph.lutProfile
@@ -887,6 +896,16 @@ export class RawProcessingPipeline {
       userWhites: params.userWhites,
       userBlacks: params.userBlacks,
     })
+    const colorBalance = resolveColorBalanceParams({
+      userTemperature: params.userTemperature,
+      userTint: params.userTint,
+    })
+    gl.uniform3f(
+      processUniforms.u_userColorBalanceGain,
+      colorBalance.gain[0],
+      colorBalance.gain[1],
+      colorBalance.gain[2],
+    )
     gl.uniform1f(
       processUniforms.u_userExposureMultiplier,
       tone.userExposureMultiplier,

@@ -1,5 +1,6 @@
 import { getProPhotoToTargetMatrix } from '@lumaforge/luma-color-runtime'
 import {
+  LUMA_COLOR_BALANCE_GLSL,
   LUMA_COLOR_LUT_GLSL,
   LUMA_COLOR_RANGE_GLSL,
   LUMA_COLOR_TONE_GLSL,
@@ -63,6 +64,7 @@ describe('process shader style path', () => {
       expect(shader).toContain(LUMA_COLOR_TRANSFER_GLSL)
       expect(shader).toContain(LUMA_COLOR_RANGE_GLSL)
       expect(shader).toContain(LUMA_COLOR_LUT_GLSL)
+      expect(shader).toContain(LUMA_COLOR_BALANCE_GLSL)
       expect(shader).toContain(LUMA_COLOR_TONE_GLSL)
     },
   )
@@ -133,8 +135,16 @@ describe('process shader style path', () => {
       expect(shader).toContain('uniform float u_userShadows')
       expect(shader).toContain('uniform float u_userWhites')
       expect(shader).toContain('uniform float u_userBlacks')
+      expect(shader).toContain('uniform vec3 u_userColorBalanceGain')
       expect(shader).toContain('vec3 technicalBaseSceneLinearProPhoto')
+      expect(shader).toContain('applyUserColorBalance(')
       expect(shader).toContain('vec3 editedBaseSceneLinearProPhoto')
+      expect(shader.indexOf('u_rawRenderExposureMultiplier')).toBeLessThan(
+        shader.indexOf('applyUserColorBalance'),
+      )
+      expect(shader.indexOf('applyUserColorBalance')).toBeLessThan(
+        shader.indexOf('applyUserTone'),
+      )
       expect(shader).toContain(
         'styledColor = mix(technicalBaseDisplayColor, styledColor, finalSide)',
       )

@@ -472,6 +472,12 @@ vec3 removeSignalRangeFromLutOutput(vec3 color, int range) {
 }
 `
 
+export const LUMA_COLOR_BALANCE_GLSL = /* glsl */ `
+vec3 applyUserColorBalance(vec3 color, vec3 gain) {
+  return color * gain;
+}
+`
+
 export const LUMA_COLOR_LUT_GLSL = /* glsl */ `
 const int LUT_ROLE_DISPLAY_LOOK = 0;
 const int LUT_ROLE_SCENE_CREATIVE = 1;

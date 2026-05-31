@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  LUMA_COLOR_BALANCE_GLSL,
   LUMA_COLOR_LUT_GLSL,
   LUMA_COLOR_RANGE_GLSL,
   LUMA_COLOR_TONE_GLSL,
@@ -144,6 +145,12 @@ describe('gLSL color contract surface', () => {
     expect(LUMA_COLOR_TONE_GLSL).toContain('float blacks')
     expect(LUMA_COLOR_TONE_GLSL).toContain('smoothstep')
     expect(LUMA_COLOR_TONE_GLSL).toContain('log2')
+  })
+
+  it('exports relative color balance GLSL helper for preview parity', () => {
+    expect(LUMA_COLOR_BALANCE_GLSL).toContain('applyUserColorBalance')
+    expect(LUMA_COLOR_BALANCE_GLSL).toContain('vec3 gain')
+    expect(LUMA_COLOR_BALANCE_GLSL).toContain('return color * gain')
   })
 
   it('compresses above-domain LUT input before texture sampling', () => {

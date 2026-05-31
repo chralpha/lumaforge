@@ -244,6 +244,8 @@ export function PreviewCanvas({
         userShadows: params.userShadows,
         userWhites: params.userWhites,
         userBlacks: params.userBlacks,
+        userTemperature: params.userTemperature,
+        userTint: params.userTint,
       }) satisfies ProcessingParams,
     [
       params.builtinPreset,
@@ -254,6 +256,8 @@ export function PreviewCanvas({
       params.userExposureEv,
       params.userHighlights,
       params.userShadows,
+      params.userTemperature,
+      params.userTint,
       params.userWhites,
       params.viewMode,
       pipelineCompareSplit,

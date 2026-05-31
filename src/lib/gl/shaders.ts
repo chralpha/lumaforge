@@ -1,4 +1,5 @@
 import {
+  LUMA_COLOR_BALANCE_GLSL,
   LUMA_COLOR_LUT_GLSL,
   LUMA_COLOR_RANGE_GLSL,
   LUMA_COLOR_TONE_GLSL,
@@ -45,6 +46,7 @@ uniform vec3 u_lutDomainMin;
 uniform vec3 u_lutDomainMax;
 uniform float u_intensity;
 uniform float u_rawRenderExposureMultiplier;
+uniform vec3 u_userColorBalanceGain;
 uniform float u_userExposureMultiplier;
 uniform float u_userContrastAmount;
 uniform float u_userContrastFactor;
@@ -76,6 +78,7 @@ const int STYLE_CUSTOM = 2;
 ${LUMA_COLOR_TRANSFER_GLSL}
 ${LUMA_COLOR_RANGE_GLSL}
 ${LUMA_COLOR_LUT_GLSL}
+${LUMA_COLOR_BALANCE_GLSL}
 ${LUMA_COLOR_TONE_GLSL}
 
 float luminance709(vec3 color) {
@@ -140,8 +143,12 @@ vec3 applyBuiltinStyle(vec3 displayColor) {
 void main() {
   vec3 technicalBaseSceneLinearProPhoto =
     readInputSceneLinearProPhoto(v_texCoord) * u_rawRenderExposureMultiplier;
-  vec3 editedBaseSceneLinearProPhoto = applyUserTone(
+  vec3 colorBalancedSceneLinearProPhoto = applyUserColorBalance(
     technicalBaseSceneLinearProPhoto,
+    u_userColorBalanceGain
+  );
+  vec3 editedBaseSceneLinearProPhoto = applyUserTone(
+    colorBalancedSceneLinearProPhoto,
     u_userExposureMultiplier,
     u_userContrastAmount,
     u_userContrastFactor,

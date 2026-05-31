@@ -56,6 +56,7 @@ const contextMock = vi.hoisted(() => {
     activeTexture: vi.fn(),
     uniform1i: vi.fn(),
     uniform1f: vi.fn(),
+    uniform3f: vi.fn(),
     uniform3fv: vi.fn(),
     uniformMatrix3fv: vi.fn(),
     bindVertexArray: vi.fn(),
@@ -256,9 +257,21 @@ describe('rawProcessingPipeline render uniforms', () => {
       userShadows: 35,
       userWhites: -25,
       userBlacks: 20,
+      userTemperature: 50,
+      userTint: -25,
     })
     pipeline.render()
 
+    expect(contextMock.gl.getUniformLocation).toHaveBeenCalledWith(
+      expect.anything(),
+      'u_userColorBalanceGain',
+    )
+    expect(contextMock.gl.uniform3f).toHaveBeenCalledWith(
+      'u_userColorBalanceGain',
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    )
     expect(contextMock.gl.uniform1f).toHaveBeenCalledWith(
       'u_userExposureMultiplier',
       2,
