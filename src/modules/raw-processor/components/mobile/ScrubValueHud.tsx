@@ -26,16 +26,16 @@ export function ScrubValueHud(props: ScrubValueHudProps) {
           key={`${readout.kind}-${readout.key}`}
           data-scrub-value-hud
           aria-label={t('raw.mobile.adjustList.scrubHudAria')}
-          initial={{ opacity: 0, y: 4 }}
+          initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 4 }}
+          exit={{ opacity: 0, y: -6 }}
           transition={surfaceFade}
-          className="pointer-events-none absolute left-1/2 top-1/3 z-30 grid -translate-x-1/2 -translate-y-1/2 gap-1 rounded-lf-panel border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-5 py-3 text-center backdrop-blur-background"
+          className="pointer-events-none absolute left-1/2 top-safe-offset-3 z-30 grid -translate-x-1/2 gap-0.5 px-4 text-center text-lf-on-photo-ink [text-shadow:0_1px_2px_oklch(0_0_0/0.55)]"
         >
-          <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-lf-amber-soft">
+          <span className="text-[0.62rem] font-bold uppercase tracking-[0.18em] text-lf-amber-soft">
             {readout.label}
           </span>
-          <strong className="text-[2rem] font-semibold leading-none tabular-nums text-lf-on-photo-ink">
+          <strong className="text-[1.85rem] font-semibold leading-none tabular-nums">
             {readout.formatted}
           </strong>
         </m.div>

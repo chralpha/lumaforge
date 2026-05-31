@@ -3,6 +3,7 @@ import { AnimatePresence, m } from 'motion/react'
 import { useState } from 'react'
 
 import { SegmentGroup, SegmentItem } from '~/components/ui/segment'
+import { clsxm } from '~/lib/cn'
 import { useI18n } from '~/lib/i18n'
 import { surfaceFade } from '~/lib/spring'
 
@@ -27,6 +28,7 @@ type AdjustListPanelProps = {
   onToneReset: () => void
   onColorReset: () => void
   onScrubChange: (field: ScrubFieldId | null) => void
+  scrubbing?: boolean
 }
 
 export function AdjustListPanel(props: AdjustListPanelProps) {
@@ -40,13 +42,22 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
   const onSectionReset =
     section === 'tone' ? props.onToneReset : props.onColorReset
 
+  const scrubbing = props.scrubbing === true
+
   return (
     <div
       role="region"
       aria-label={t('raw.mobile.adjustList.aria')}
+      data-scrubbing={scrubbing || undefined}
       className="grid gap-2"
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+      <div
+        data-adjust-section-chrome
+        className={clsxm(
+          'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 transition-opacity duration-150',
+          scrubbing && 'opacity-25',
+        )}
+      >
         <SegmentGroup
           aria-label={t('raw.adjust.title')}
           value={section}
@@ -61,12 +72,12 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
           <SegmentItem
             value="tone"
             label={t('raw.adjust.tone')}
-            className="flex-1 text-[0.76rem] font-medium text-lf-on-photo-ink/72 transition-colors duration-150 hover:text-lf-on-photo-ink/92 data-[state=active]:font-semibold data-[state=active]:text-lf-on-photo-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-[oklch(0.96_0.006_255/0.10)] data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.14)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80"
+            className="flex-1 text-[0.8rem] font-semibold text-lf-on-photo-ink/86 transition-colors duration-150 hover:text-lf-on-photo-ink data-[state=active]:text-lf-on-photo-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-[oklch(0.96_0.006_255/0.14)] data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.18)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80"
           />
           <SegmentItem
             value="color"
             label={t('raw.adjust.color')}
-            className="flex-1 text-[0.76rem] font-medium text-lf-on-photo-ink/72 transition-colors duration-150 hover:text-lf-on-photo-ink/92 data-[state=active]:font-semibold data-[state=active]:text-lf-on-photo-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-[oklch(0.96_0.006_255/0.10)] data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.14)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80"
+            className="flex-1 text-[0.8rem] font-semibold text-lf-on-photo-ink/86 transition-colors duration-150 hover:text-lf-on-photo-ink data-[state=active]:text-lf-on-photo-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-[oklch(0.96_0.006_255/0.14)] data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.18)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80"
           />
         </SegmentGroup>
         <button
@@ -74,7 +85,7 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
           onClick={onSectionReset}
           disabled={isNeutral}
           aria-label={resetLabel}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft px-2.5 py-1 text-[0.7rem] font-semibold text-lf-on-photo-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft px-2.5 py-1 text-[0.72rem] font-semibold text-lf-on-photo-ink transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-40"
         >
           <RotateCcw aria-hidden="true" className="size-3" />
           {resetLabel}

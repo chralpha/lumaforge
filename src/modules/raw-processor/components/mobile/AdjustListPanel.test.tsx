@@ -103,4 +103,37 @@ describe('adjustListPanel', () => {
     await userEvent.click(screen.getByRole('tab', { name: /color/i }))
     expect(onScrubChange).toHaveBeenCalledWith(null)
   })
+
+  it('recedes the segment+reset row when scrubbing is true', () => {
+    const { container, rerender } = render(
+      <AdjustListPanel
+        tone={TONE_NEUTRAL}
+        color={COLOR_NEUTRAL}
+        onToneChange={vi.fn()}
+        onColorChange={vi.fn()}
+        onToneReset={vi.fn()}
+        onColorReset={vi.fn()}
+        onScrubChange={vi.fn()}
+      />,
+    )
+    const chrome = container.querySelector('[data-adjust-section-chrome]')!
+    expect(chrome).not.toHaveClass('opacity-25')
+
+    rerender(
+      <AdjustListPanel
+        tone={TONE_NEUTRAL}
+        color={COLOR_NEUTRAL}
+        onToneChange={vi.fn()}
+        onColorChange={vi.fn()}
+        onToneReset={vi.fn()}
+        onColorReset={vi.fn()}
+        onScrubChange={vi.fn()}
+        scrubbing
+      />,
+    )
+    expect(chrome).toHaveClass('opacity-25')
+    expect(
+      container.querySelector('[role="region"][data-scrubbing="true"]'),
+    ).toBeInTheDocument()
+  })
 })

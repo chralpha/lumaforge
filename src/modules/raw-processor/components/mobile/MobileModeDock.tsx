@@ -61,8 +61,11 @@ export function MobileModeDock(props: {
           <m.div
             key="dock-panel"
             data-mobile-dock-panel
+            data-scrubbing={props.scrubbing || undefined}
             className={clsxm(
-              'absolute inset-x-0 bottom-full overflow-y-auto bg-gradient-to-t from-black/82 via-black/58 to-transparent px-3.5 pb-2.5 pt-3.5',
+              'isolate absolute inset-x-0 bottom-full overflow-y-auto px-3.5 pb-2.5 pt-3.5',
+              "before:absolute before:inset-0 before:-z-10 before:bg-gradient-to-t before:from-black/82 before:via-black/58 before:to-transparent before:transition-opacity before:duration-150 before:content-['']",
+              props.scrubbing && 'before:opacity-15',
               props.mode === 'tone'
                 ? 'max-h-[min(60vh,360px)]'
                 : 'max-h-[24vh]',

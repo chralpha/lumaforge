@@ -328,6 +328,7 @@ export function MobileLabChrome(props: {
         onToneReset={props.onToneReset}
         onColorReset={props.onColorReset}
         onScrubChange={setScrubField}
+        scrubbing={focusActive}
       />
     ) : mode === 'look' ? (
       <div className="grid gap-2.5">

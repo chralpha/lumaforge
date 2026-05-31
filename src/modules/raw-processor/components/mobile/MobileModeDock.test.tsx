@@ -119,6 +119,39 @@ describe('mobileModeDock', () => {
     expect(tablist).toHaveClass('opacity-45')
   })
 
+  it('fades the dock panel backdrop while scrubbing so the photo dominates', () => {
+    const { rerender } = render(
+      <MobileModeDock
+        mode="tone"
+        expanded
+        onModeChange={vi.fn()}
+        onCollapse={vi.fn()}
+        onOpenMore={vi.fn()}
+        canExport
+        panel={<div data-testid="panel">tone-panel</div>}
+      />,
+    )
+    const panelFrame = screen.getByTestId('panel').parentElement
+    expect(panelFrame).not.toHaveAttribute('data-scrubbing')
+    expect(panelFrame).not.toHaveClass('before:opacity-15')
+
+    rerender(
+      <MobileModeDock
+        mode="tone"
+        expanded
+        scrubbing
+        onModeChange={vi.fn()}
+        onCollapse={vi.fn()}
+        onOpenMore={vi.fn()}
+        canExport
+        panel={<div data-testid="panel">tone-panel</div>}
+      />,
+    )
+    const scrubbingPanelFrame = screen.getByTestId('panel').parentElement
+    expect(scrubbingPanelFrame).toHaveAttribute('data-scrubbing', 'true')
+    expect(scrubbingPanelFrame).toHaveClass('before:opacity-15')
+  })
+
   it('overlays the expanded panel above the dock without growing the dock box', () => {
     render(
       <MobileModeDock
