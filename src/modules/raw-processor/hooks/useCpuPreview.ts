@@ -141,6 +141,7 @@ export function useCpuPreview({
 
   // Track the last source id to detect image identity changes.
   const lastSourceIdRef = useRef<string | null>(null)
+  const sourceRenderExposureRef = useRef<RawRenderExposure | null>(null)
 
   // Refs so the once-created onFrame handler reads current values rather than
   // the stale closure captured when the client was first constructed.
@@ -187,7 +188,19 @@ export function useCpuPreview({
   // Load source when the image identity changes.
 
   useEffect(() => {
-    if (!enabled || !image || !isQuickU16(image)) {
+    if (!enabled || !image) {
+      lastSourceIdRef.current = null
+      sourceRenderExposureRef.current = null
+      lastRenderKeyRef.current = null
+      setFrame(null)
+      setInFlight(false)
+      setFailureReason(null)
+      clientRef.current?.dispose()
+      clientRef.current = null
+      return
+    }
+
+    if (!isQuickU16(image)) {
       return
     }
 
@@ -197,6 +210,8 @@ export function useCpuPreview({
     }
 
     lastSourceIdRef.current = sourceId
+    sourceRenderExposureRef.current = image.renderExposure
+    lastRenderKeyRef.current = null
     setFrame(null)
     setInFlight(true)
     setFailureReason(null)
@@ -215,15 +230,20 @@ export function useCpuPreview({
 
   // Request a render whenever params or variant change (and a source is loaded).
   useEffect(() => {
-    if (!enabled || !image || !isQuickU16(image) || !lastSourceIdRef.current) {
+    const sourceId = lastSourceIdRef.current
+    const sourceRenderExposure = sourceRenderExposureRef.current
+    if (!enabled || !sourceId || !sourceRenderExposure) {
       return
     }
 
-    const sourceId = lastSourceIdRef.current
+    const paramsForSource =
+      params.rawRenderExposure === sourceRenderExposure
+        ? params
+        : { ...params, rawRenderExposure: sourceRenderExposure }
 
     // Return a cached neutral frame immediately if available.
     if (variant === 'neutral') {
-      const key = neutralFrameCacheKey(sourceId, params.rawRenderExposure.ev)
+      const key = neutralFrameCacheKey(sourceId, sourceRenderExposure.ev)
       const cached = neutralCacheRef.current.get(key)
       if (cached) {
         setFrame(cached)
@@ -231,23 +251,26 @@ export function useCpuPreview({
       }
     }
 
-    const graph = buildCpuPreviewGraph(params, variant)
+    const graph = buildCpuPreviewGraph(paramsForSource, variant)
     if ('unsupportedReason' in graph) {
       // Surface unsupported pipeline as a failure state rather than crashing.
       setFailureReason(null)
       return
     }
 
-    const renderSig = `${sourceId}|${variant}|${params.styleKind}|${params.intensity}|${params.builtinPreset ?? ''}|${params.rawRenderExposure.ev}|${params.userExposureEv}|${params.userContrast}|${params.userHighlights}|${params.userShadows}|${params.userWhites}|${params.userBlacks}`
+    const renderSig = `${sourceId}|${variant}|${paramsForSource.styleKind}|${paramsForSource.intensity}|${paramsForSource.builtinPreset ?? ''}|${paramsForSource.rawRenderExposure.ev}|${paramsForSource.rawRenderExposure.multiplier}|${paramsForSource.userExposureEv}|${paramsForSource.userContrast}|${paramsForSource.userHighlights}|${paramsForSource.userShadows}|${paramsForSource.userWhites}|${paramsForSource.userBlacks}`
     const prevKey = lastRenderKeyRef.current
-    if (prevKey && prevKey.sig === renderSig && prevKey.lut === params.lut) {
+    if (
+      prevKey &&
+      prevKey.sig === renderSig &&
+      prevKey.lut === paramsForSource.lut
+    ) {
       return
     }
-    lastRenderKeyRef.current = { sig: renderSig, lut: params.lut }
+    lastRenderKeyRef.current = { sig: renderSig, lut: paramsForSource.lut }
 
     setInFlight(true)
     getClient().requestRender({ variant, graph })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, params, variant])
 
   // Memoise the return shape to avoid unnecessary re-renders downstream.
@@ -264,7 +287,7 @@ export function useCpuPreview({
     }
   }, [])
 
-  if (!enabled || !image || !isQuickU16(image)) {
+  if (!enabled || !lastSourceIdRef.current) {
     return { frame: null, inFlight: false, failureReason: null }
   }
 

@@ -1,13 +1,19 @@
-import type {RawRenderExposure} from '@lumaforge/luma-color-runtime';
-import {
-  exposureMultiplierFromEv
-} from '@lumaforge/luma-color-runtime'
-import { describe, expect, it } from 'vitest'
+import type { RawRenderExposure } from '@lumaforge/luma-color-runtime'
+import { exposureMultiplierFromEv } from '@lumaforge/luma-color-runtime'
+import { act, renderHook } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type {CpuPreviewParams} from './useCpuPreview';
+import type {
+  CpuPreviewRequest,
+  CpuPreviewResponse,
+} from '~/lib/preview/cpu-preview-protocol'
+import type { DecodedImage } from '~/lib/raw/decoder'
+
+import type { CpuPreviewParams } from './useCpuPreview'
 import {
   buildCpuPreviewGraph,
-  neutralFrameCacheKey
+  neutralFrameCacheKey,
+  useCpuPreview,
 } from './useCpuPreview'
 
 const exposure: RawRenderExposure = {
@@ -30,6 +36,51 @@ const baseParams: CpuPreviewParams = {
   userWhites: 5,
   userBlacks: -5,
 }
+
+class FakeWorker {
+  static instances: FakeWorker[] = []
+
+  onmessage: ((event: { data: CpuPreviewResponse }) => void) | null = null
+  onerror: ((event: unknown) => void) | null = null
+  readonly posted: CpuPreviewRequest[] = []
+  readonly terminate = vi.fn()
+
+  constructor() {
+    FakeWorker.instances.push(this)
+  }
+
+  postMessage(message: CpuPreviewRequest) {
+    this.posted.push(message)
+  }
+
+  respond(response: CpuPreviewResponse) {
+    this.onmessage?.({ data: response })
+  }
+}
+
+function makeDecodedImage(
+  source: 'quick' | 'bounded-hq',
+  over: Partial<DecodedImage> = {},
+): DecodedImage {
+  return {
+    width: 2,
+    height: 2,
+    channels: 3,
+    bitsPerChannel: 16,
+    data: new Uint16Array(12),
+    layout: 'rgb-u16',
+    colorSpace: 'linear-prophoto-rgb',
+    source,
+    metadata: { width: 2, height: 2 },
+    renderExposure: exposure,
+    ...over,
+  }
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  FakeWorker.instances = []
+})
 
 describe('useCpuPreview helpers', () => {
   it('neutral cache key changes only with source + render exposure', () => {
@@ -72,5 +123,78 @@ describe('useCpuPreview helpers', () => {
     expect('unsupportedReason' in processed).toBe(false)
     // Differs from neutral because edits are applied.
     expect(processed).not.toEqual(buildCpuPreviewGraph(baseParams, 'neutral'))
+  })
+})
+
+describe('useCpuPreview hook', () => {
+  it('keeps the quick CPU source active after bounded-HQ replaces the current decoded image', () => {
+    vi.stubGlobal('Worker', FakeWorker)
+    const quickImage = makeDecodedImage('quick')
+    const boundedHqImage = makeDecodedImage('bounded-hq', {
+      width: 4,
+      height: 4,
+      data: new Uint16Array(4 * 4 * 3),
+      renderExposure: {
+        ev: 2,
+        multiplier: exposureMultiplierFromEv(2),
+        source: 'image-statistics',
+      },
+    })
+
+    const { result, rerender } = renderHook((props) => useCpuPreview(props), {
+      initialProps: {
+        enabled: true,
+        image: quickImage,
+        imageVersion: 1,
+        params: baseParams,
+        variant: 'processed' as const,
+      },
+    })
+
+    const worker = FakeWorker.instances[0]
+    expect(worker).toBeDefined()
+    const firstRender = worker.posted.find((m) => m.type === 'render')
+    expect(firstRender).toBeDefined()
+
+    act(() => {
+      worker.respond({
+        type: 'rendered',
+        sourceId: firstRender!.sourceId,
+        requestId: firstRender!.requestId,
+        rgba: new Uint8ClampedArray(2 * 2 * 4),
+        width: 2,
+        height: 2,
+      })
+    })
+
+    expect(result.current.frame?.sourceId).toBe(firstRender!.sourceId)
+
+    rerender({
+      enabled: true,
+      image: boundedHqImage,
+      imageVersion: 2,
+      params: baseParams,
+      variant: 'processed' as const,
+    })
+
+    expect(result.current.frame?.sourceId).toBe(firstRender!.sourceId)
+
+    const renderCountBeforeToneChange = worker.posted.filter(
+      (m) => m.type === 'render',
+    ).length
+
+    rerender({
+      enabled: true,
+      image: boundedHqImage,
+      imageVersion: 2,
+      params: { ...baseParams, userContrast: 30 },
+      variant: 'processed' as const,
+    })
+
+    const rendersAfterToneChange = worker.posted.filter(
+      (m) => m.type === 'render',
+    )
+    expect(rendersAfterToneChange).toHaveLength(renderCountBeforeToneChange + 1)
+    expect(rendersAfterToneChange.at(-1)?.sourceId).toBe(firstRender!.sourceId)
   })
 })
