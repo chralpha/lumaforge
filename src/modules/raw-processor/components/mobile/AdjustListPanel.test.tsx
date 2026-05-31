@@ -89,13 +89,14 @@ describe('adjustListPanel', () => {
   })
 
   it('clears any in-flight scrub when the segment is switched', async () => {
-    const props = renderPanel()
+    const onScrubChange = vi.fn()
+    renderPanel({ onScrubChange })
     const exposureRow = screen
       .getByRole('slider', { name: 'Exposure' })
       .closest('[data-testid="adjust-slider-row-scrub"]')!
     fireEvent.pointerDown(exposureRow)
-    props.onScrubChange.mockClear()
+    onScrubChange.mockClear()
     await userEvent.click(screen.getByRole('tab', { name: /color/i }))
-    expect(props.onScrubChange).toHaveBeenCalledWith(null)
+    expect(onScrubChange).toHaveBeenCalledWith(null)
   })
 })
