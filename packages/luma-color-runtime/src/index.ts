@@ -1,3 +1,4 @@
+export * from './color-balance'
 export * from './color-graph'
 export * from './constants'
 export * from './histogram'
