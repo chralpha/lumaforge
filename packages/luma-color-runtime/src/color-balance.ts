@@ -51,6 +51,15 @@ export function resolveColorBalanceParams(
   input?: Partial<LumaColorBalanceParams> | null,
 ): ResolvedColorBalanceParams {
   const normalized = normalizeColorBalanceParams(input)
+  if (normalized.userTemperature === 0 && normalized.userTint === 0) {
+    return {
+      ...normalized,
+      gain: [1, 1, 1],
+      operator: 'linear-prophoto-relative-rgb-gain',
+      luminanceCoefficients: LINEAR_PROPHOTO_LUMINANCE,
+    }
+  }
+
   const temperatureNorm = normalized.userTemperature / 100
   const tintNorm = normalized.userTint / 100
 
