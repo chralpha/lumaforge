@@ -338,6 +338,11 @@ test('monitors a full desktop RAW export lifecycle with resource diagnostics', a
     samples.push(await sampleResourceUsage(page, 'download-materialized'))
 
     await page.getByRole('button', { name: /^reset$/i }).click()
+    const resetDialog = page.getByRole('alertdialog', {
+      name: 'Reset session',
+    })
+    await expect(resetDialog).toBeVisible()
+    await resetDialog.getByRole('button', { name: 'Reset session' }).click()
     await expect(
       page.getByRole('button', { name: /finish a raw with a lut/i }),
     ).toBeVisible({ timeout: 30_000 })
