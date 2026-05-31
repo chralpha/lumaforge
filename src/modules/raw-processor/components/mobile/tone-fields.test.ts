@@ -22,6 +22,13 @@ describe('mobile tone fields', () => {
     expect([con.min, con.max, con.step]).toEqual([-100, 100, 1])
   })
 
+  it('does not include color adjustment fields', () => {
+    expect(MOBILE_TONE_FIELDS.map((f) => f.key)).not.toContain(
+      'userTemperature',
+    )
+    expect(MOBILE_TONE_FIELDS.map((f) => f.key)).not.toContain('userTint')
+  })
+
   it('formats exposure with EV and sign', () => {
     expect(formatToneValue('userExposureEv', 1.5)).toBe('+1.50 EV')
     expect(formatToneValue('userExposureEv', -1.5)).toBe('-1.50 EV')

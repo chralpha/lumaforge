@@ -1,0 +1,62 @@
+import { useState } from 'react'
+
+import { SegmentGroup, SegmentItem } from '~/components/ui/segment'
+import { useI18n } from '~/lib/i18n'
+
+import type { ColorValue } from '../tools/ColorTool'
+import type { ToneValue } from '../tools/ToneTool'
+import { ColorStripPanel } from './ColorStripPanel'
+import { ToneStripPanel } from './ToneStripPanel'
+
+type AdjustPanel = 'tone' | 'color'
+
+export function AdjustStripPanel(props: {
+  tone: ToneValue
+  color: ColorValue
+  toneFocusKey: keyof ToneValue | null
+  colorFocusKey: keyof ColorValue | null
+  onPickToneField: (key: keyof ToneValue) => void
+  onPickColorField: (key: keyof ColorValue) => void
+  onToneReset: () => void
+  onColorReset: () => void
+}) {
+  const { t } = useI18n()
+  const [activePanel, setActivePanel] = useState<AdjustPanel>('tone')
+
+  return (
+    <div className="grid gap-2.5">
+      <SegmentGroup
+        aria-label={t('raw.adjust.title')}
+        value={activePanel}
+        onValueChanged={(value) => setActivePanel(value as AdjustPanel)}
+        className="h-9 w-full rounded-md bg-[oklch(0.96_0.006_255/0.05)] p-1"
+      >
+        <SegmentItem
+          value="tone"
+          label={t('raw.adjust.tone')}
+          className="flex-1 text-[0.76rem] font-medium text-lf-on-photo-ink/72 transition-colors duration-150 hover:text-lf-on-photo-ink/92 data-[state=active]:font-semibold data-[state=active]:text-lf-on-photo-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-[oklch(0.96_0.006_255/0.10)] data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.14)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80"
+        />
+        <SegmentItem
+          value="color"
+          label={t('raw.adjust.color')}
+          className="flex-1 text-[0.76rem] font-medium text-lf-on-photo-ink/72 transition-colors duration-150 hover:text-lf-on-photo-ink/92 data-[state=active]:font-semibold data-[state=active]:text-lf-on-photo-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-[oklch(0.96_0.006_255/0.10)] data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.14)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80"
+        />
+      </SegmentGroup>
+      {activePanel === 'tone' ? (
+        <ToneStripPanel
+          tone={props.tone}
+          focusKey={props.toneFocusKey}
+          onPickField={props.onPickToneField}
+          onReset={props.onToneReset}
+        />
+      ) : (
+        <ColorStripPanel
+          color={props.color}
+          focusKey={props.colorFocusKey}
+          onPickField={props.onPickColorField}
+          onReset={props.onColorReset}
+        />
+      )}
+    </div>
+  )
+}

@@ -22,6 +22,12 @@ describe('mobileModeDock', () => {
     expect(screen.getByTestId('panel')).toHaveTextContent('tone-panel')
     const tabs = screen.getAllByRole('tab')
     expect(tabs).toHaveLength(4)
+    expect(tabs.map((tab) => tab.textContent)).toEqual([
+      'Look',
+      'Adjust',
+      'Compare',
+      'Export',
+    ])
     expect(screen.queryByRole('tab', { name: /more/i })).not.toBeInTheDocument()
     expect(
       screen.queryByRole('tab', { name: /strength/i }),
@@ -132,7 +138,7 @@ describe('mobileModeDock', () => {
       />,
     )
     expect(screen.queryByTestId('p')).toBeNull()
-    await userEvent.click(screen.getByRole('tab', { name: /tone/i }))
+    await userEvent.click(screen.getByRole('tab', { name: /adjust/i }))
     expect(onModeChange).toHaveBeenCalledWith('tone')
 
     rerender(
@@ -147,7 +153,7 @@ describe('mobileModeDock', () => {
       />,
     )
     expect(screen.getByTestId('p')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('tab', { name: /tone/i }))
+    await userEvent.click(screen.getByRole('tab', { name: /adjust/i }))
     expect(onCollapse).toHaveBeenCalled()
   })
 
@@ -167,7 +173,7 @@ describe('mobileModeDock', () => {
 
     rerender(<MobileModeDock {...common} expanded />)
     expect(screen.getByRole('tab', { selected: true })).toHaveAccessibleName(
-      /tone/i,
+      /adjust/i,
     )
   })
 })

@@ -23,7 +23,7 @@ const TABS: {
   primary?: boolean
 }[] = [
   { id: 'look', icon: Wand2, labelKey: 'raw.mobile.mode.look' },
-  { id: 'tone', icon: SlidersHorizontal, labelKey: 'raw.mobile.mode.tone' },
+  { id: 'tone', icon: SlidersHorizontal, labelKey: 'raw.mobile.mode.adjust' },
   {
     id: 'compare',
     icon: SplitSquareHorizontal,

@@ -10,14 +10,18 @@ import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { COLOR_NEUTRAL } from './color-fields'
 import { MobileLabChrome } from './MobileLabChrome'
 import { TONE_NEUTRAL } from './tone-fields'
 
 const base = {
   hasImage: true,
   tone: TONE_NEUTRAL,
+  color: COLOR_NEUTRAL,
   onToneChange: vi.fn(),
   onToneReset: vi.fn(),
+  onColorChange: vi.fn(),
+  onColorReset: vi.fn(),
   viewMode: 'processed' as const,
   onViewModeChange: vi.fn(),
   histogram: { state: 'unavailable', reason: 'no-image' } as never,
@@ -125,7 +129,7 @@ describe('mobileLabChrome', () => {
   it('tears down focus/sheets when the RAW is cleared (hasImage→false)', async () => {
     const { rerender } = render(<MobileLabChrome {...base} />)
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
-    await userEvent.click(within(dock).getByRole('tab', { name: /tone/i }))
+    await userEvent.click(within(dock).getByRole('tab', { name: /adjust/i }))
     const strip = screen.getByRole('tablist', { name: /tone parameters/i })
     await userEvent.click(within(strip).getAllByRole('tab')[0])
     expect(screen.getByRole('button', { name: /done/i })).toBeInTheDocument()
@@ -391,7 +395,7 @@ describe('mobileLabChrome', () => {
     ).toBeInTheDocument()
 
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
-    await userEvent.click(within(dock).getByRole('tab', { name: /tone/i }))
+    await userEvent.click(within(dock).getByRole('tab', { name: /adjust/i }))
     const strip = screen.getByRole('tablist', { name: /tone parameters/i })
     await userEvent.click(within(strip).getAllByRole('tab')[0])
 
@@ -404,7 +408,7 @@ describe('mobileLabChrome', () => {
   it('recedes focus chrome while the slider is scrubbed', async () => {
     render(<MobileLabChrome {...base} />)
     const dock = screen.getByRole('tablist', { name: /lab modes/i })
-    await userEvent.click(within(dock).getByRole('tab', { name: /tone/i }))
+    await userEvent.click(within(dock).getByRole('tab', { name: /adjust/i }))
     const strip = screen.getByRole('tablist', { name: /tone parameters/i })
     await userEvent.click(within(strip).getAllByRole('tab')[0])
     const focus = document.querySelector('[data-tone-focus]')
@@ -419,6 +423,40 @@ describe('mobileLabChrome', () => {
     expect(
       document.querySelector('[data-tone-focus][data-scrubbing="true"]'),
     ).toBeNull()
+  })
+
+  it('opens Adjust color controls without adding a dock mode', async () => {
+    render(
+      <MobileLabChrome
+        {...base}
+        color={{ ...COLOR_NEUTRAL, userTemperature: 24, userTint: -12 }}
+      />,
+    )
+    const dock = screen.getByRole('tablist', { name: /lab modes/i })
+    expect(within(dock).getAllByRole('tab')).toHaveLength(4)
+    expect(within(dock).getByRole('tab', { name: /look/i })).toBeInTheDocument()
+    expect(
+      within(dock).getByRole('tab', { name: /adjust/i }),
+    ).toBeInTheDocument()
+    expect(
+      within(dock).getByRole('tab', { name: /compare/i }),
+    ).toBeInTheDocument()
+    expect(
+      within(dock).getByRole('tab', { name: /export/i }),
+    ).toBeInTheDocument()
+
+    await userEvent.click(within(dock).getByRole('tab', { name: /adjust/i }))
+    await userEvent.click(screen.getByRole('tab', { name: /color/i }))
+
+    expect(
+      screen.getByRole('tablist', { name: /color parameters/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('TEMP')).toBeInTheDocument()
+    expect(screen.getByText('TINT')).toBeInTheDocument()
+    expect(screen.getByText('+24')).toBeInTheDocument()
+    expect(screen.getByText('-12')).toBeInTheDocument()
+    expect(within(dock).queryByRole('tab', { name: /color/i })).toBeNull()
+    expect(within(dock).queryByRole('tab', { name: /tone/i })).toBeNull()
   })
 
   it('short tap toggles immersive (chrome hidden) and back', () => {
