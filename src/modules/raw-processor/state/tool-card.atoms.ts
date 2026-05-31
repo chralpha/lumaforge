@@ -2,7 +2,7 @@ import { atomWithStorage } from 'jotai/utils'
 
 export const TOOL_CARD_IDS = [
   'look',
-  'tone',
+  'adjust',
   'histogram',
   'compare',
   'fileFacts',
@@ -10,7 +10,7 @@ export const TOOL_CARD_IDS = [
 
 export type ToolCardId = (typeof TOOL_CARD_IDS)[number]
 
-export const DEFAULT_OPEN_TOOL_CARDS: ToolCardId[] = ['look', 'tone']
+export const DEFAULT_OPEN_TOOL_CARDS: ToolCardId[] = ['look', 'adjust']
 
 export const toolCardOpenAtom = atomWithStorage<ToolCardId[]>(
   'raw-tool-cards-open',

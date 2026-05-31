@@ -216,7 +216,7 @@ export function RawToolSurface(props: {
       <ToolCard id="look" title={t('raw.lutContract.title')}>
         {lutBlock}
       </ToolCard>
-      <ToolCard id="tone" title={t('raw.adjust.title')}>
+      <ToolCard id="adjust" title={t('raw.adjust.title')}>
         <AdjustTool
           tone={props.tone}
           color={props.color}
@@ -322,8 +322,11 @@ export function RawToolSurface(props: {
         <MobileLabChrome
           hasImage={props.hasImage}
           tone={props.tone}
+          color={props.color}
           onToneChange={props.onToneChange}
           onToneReset={props.onToneReset}
+          onColorChange={props.onColorChange}
+          onColorReset={props.onColorReset}
           viewMode={props.viewMode}
           onViewModeChange={props.onViewModeChange}
           histogram={props.histogram}

@@ -36,6 +36,7 @@ export function AdjustTool({
         aria-label={t('raw.adjust.title')}
         value={activePanel}
         onValueChanged={(value) => setActivePanel(value as AdjustPanel)}
+        disabled={disabled}
         className="h-9 w-full rounded-md bg-[oklch(0.96_0.006_255/0.05)] p-1"
       >
         <SegmentItem

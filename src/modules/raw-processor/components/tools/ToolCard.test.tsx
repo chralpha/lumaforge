@@ -17,8 +17,8 @@ afterEach(() => {
 function setup() {
   return render(
     <ToolCardStack ariaLabel="RAW finishing controls">
-      <ToolCard id="tone" title="Tone">
-        <p>tone body</p>
+      <ToolCard id="adjust" title="Adjust">
+        <p>adjust body</p>
       </ToolCard>
       <ToolCard id="histogram" title="Histogram" meta={<span>Clip 3</span>}>
         <p>hist body</p>
@@ -30,9 +30,9 @@ function setup() {
 describe('toolCard', () => {
   it('renders an open card as a region named only by its title', () => {
     setup()
-    const tone = screen.getByRole('region', { name: 'Tone' })
-    expect(tone).toBeInTheDocument()
-    expect(screen.getByText('tone body')).toBeInTheDocument()
+    const adjust = screen.getByRole('region', { name: 'Adjust' })
+    expect(adjust).toBeInTheDocument()
+    expect(screen.getByText('adjust body')).toBeInTheDocument()
   })
 
   it('keeps a collapsed card body out of the document', () => {
@@ -55,7 +55,7 @@ describe('toolCard', () => {
     setup()
     await user.click(screen.getByRole('button', { name: 'Histogram' }))
     expect(jotaiStore.get(toolCardOpenAtom)).toEqual(
-      expect.arrayContaining(['tone', 'histogram']),
+      expect.arrayContaining(['adjust', 'histogram']),
     )
   })
 

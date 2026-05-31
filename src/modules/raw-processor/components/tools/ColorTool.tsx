@@ -159,7 +159,7 @@ export function ColorTool({
       <Button
         variant="light"
         size="sm"
-        disabled={disabled}
+        disabled={disabled || isNeutral}
         onClick={onReset}
         className="self-start [&_svg]:size-3.5"
       >

@@ -14,14 +14,14 @@ afterEach(() => {
 })
 
 describe('toolCardOpenAtom', () => {
-  it('defaults to look and tone open', () => {
-    expect(jotaiStore.get(toolCardOpenAtom)).toEqual(['look', 'tone'])
+  it('defaults to look and adjust open', () => {
+    expect(jotaiStore.get(toolCardOpenAtom)).toEqual(['look', 'adjust'])
   })
 
   it('exposes the canonical card id set', () => {
     expect(TOOL_CARD_IDS).toEqual([
       'look',
-      'tone',
+      'adjust',
       'histogram',
       'compare',
       'fileFacts',

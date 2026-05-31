@@ -186,6 +186,8 @@ describe('rawToolSurface', () => {
     expect(
       screen.getAllByRole('region', { name: 'Adjust' }).length,
     ).toBeGreaterThanOrEqual(1)
+    expect(container.querySelector('[data-tool-card="adjust"]')).toBeTruthy()
+    expect(container.querySelector('[data-tool-card="tone"]')).toBeNull()
     // Export is a persistent, non-collapsible region
     const exportRegion = screen.getByRole('region', { name: 'Export' })
     expect(exportRegion).toHaveAttribute('data-raw-export-block', 'persistent')
@@ -389,7 +391,7 @@ describe('rawToolSurface', () => {
       <RawToolSurface
         {...baseProps}
         hasImage
-        color={{ userTemperature: 0, userTint: 0 }}
+        color={{ userTemperature: 18, userTint: 0 }}
         onColorChange={vi.fn()}
         onColorReset={onColorReset}
         onToneReset={onToneReset}
@@ -422,10 +424,25 @@ describe('rawToolSurface', () => {
     expect(onToneReset).not.toHaveBeenCalled()
   })
 
+  it('disables reset color when color controls are neutral', async () => {
+    const user = userEvent.setup()
+
+    render(<RawToolSurface {...baseProps} hasImage />)
+
+    const adjust = screen.getByRole('region', { name: 'Adjust' })
+    await user.click(within(adjust).getByRole('tab', { name: 'Color' }))
+
+    expect(
+      within(adjust).getByRole('button', { name: 'Reset color' }),
+    ).toBeDisabled()
+  })
+
   it('disables tone controls before upload', async () => {
     render(<RawToolSurface {...baseProps} />)
 
     const tone = getToneRegion()
+    expect(within(tone).getByRole('tab', { name: 'Tone' })).toBeDisabled()
+    expect(within(tone).getByRole('tab', { name: 'Color' })).toBeDisabled()
     expect(
       within(tone).getByRole('slider', { name: 'Exposure' }),
     ).toHaveAttribute('data-disabled')
