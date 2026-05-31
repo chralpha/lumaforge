@@ -215,6 +215,7 @@ export function LUTProfileStatus({
         suggestions={recommendations}
         currentProfile={currentProfile}
         onSelect={onSelect}
+        triggerRef={triggerRef}
         browserId={browserId}
         initialStep={browserInitialStep}
         initialInputDraft={browserInitialDraft}

@@ -8,7 +8,15 @@ import {
   Share2,
   Trash2,
 } from 'lucide-react'
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { toast } from 'sonner'
 
 import { Chip } from '~/components/ui/chip'
@@ -17,6 +25,8 @@ import { useScrollEdgeFade } from '~/hooks/common'
 import { useI18n } from '~/lib/i18n'
 
 import type { UseOnlineLutSourcesResult } from '../../../hooks/useOnlineLutSources'
+import type { OnlineLutBrowserLayout } from './lut-browser-layout'
+import { getViewportBoundedBrowserLayout } from './lut-browser-layout'
 import { groupEntriesByFamily } from './lut-source-grouping'
 import { LutBrowserDialog } from './LutBrowserDialog'
 import { LutIconButton } from './LutIconButton'
@@ -35,6 +45,8 @@ export function OnlineLutSourceControls({
   const { state } = onlineLutSources
   const [openResourceId, setOpenResourceId] = useState<string | null>(null)
   const [loadingEntryId, setLoadingEntryId] = useState<string | null>(null)
+  const [browserLayout, setBrowserLayout] =
+    useState<OnlineLutBrowserLayout | null>(null)
   const [browserListEl, setBrowserListEl] = useState<HTMLDivElement | null>(
     null,
   )
@@ -86,6 +98,7 @@ export function OnlineLutSourceControls({
   const closeBrowser = useCallback(
     (resourceId = openResourceId, options: { restoreFocus?: boolean } = {}) => {
       setOpenResourceId(null)
+      setBrowserLayout(null)
 
       if (options.restoreFocus && resourceId) {
         queueMicrotask(() => openButtonRefs.current.get(resourceId)?.focus())
@@ -94,8 +107,21 @@ export function OnlineLutSourceControls({
     [openResourceId],
   )
   const openBrowserForResource = useCallback((resourceId: string) => {
+    const trigger = openButtonRefs.current.get(resourceId)
+    if (!trigger) return
+
+    setBrowserLayout(getViewportBoundedBrowserLayout(trigger))
     setOpenResourceId(resourceId)
   }, [])
+  const updateBrowserLayout = useCallback(() => {
+    if (!openResourceId) return
+
+    setBrowserLayout(
+      getViewportBoundedBrowserLayout(
+        openButtonRefs.current.get(openResourceId),
+      ),
+    )
+  }, [openResourceId])
 
   useEffect(() => {
     if (!openResourceId) return
@@ -105,6 +131,34 @@ export function OnlineLutSourceControls({
     }
   }, [closeBrowser, openResourceId, resourcesById])
 
+  useLayoutEffect(() => {
+    updateBrowserLayout()
+  }, [updateBrowserLayout, openEntries.length, openIssues.length])
+
+  useEffect(() => {
+    if (!openResourceId) return
+
+    const handleViewportChange = () => {
+      updateBrowserLayout()
+    }
+    const trigger = openButtonRefs.current.get(openResourceId)
+    const scrollTargets = [trigger?.closest('.raw-tool-surface')].filter(
+      (target): target is Element => target instanceof Element,
+    )
+
+    window.addEventListener('resize', handleViewportChange)
+    for (const target of scrollTargets) {
+      target.addEventListener('scroll', handleViewportChange)
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleViewportChange)
+      for (const target of scrollTargets) {
+        target.removeEventListener('scroll', handleViewportChange)
+      }
+    }
+  }, [openResourceId, updateBrowserLayout])
+
   const formatEntryCount = (count: number) =>
     count === 1
       ? t('raw.lutSource.countOne')
@@ -113,10 +167,12 @@ export function OnlineLutSourceControls({
         : t('raw.lutSource.countZero')
   const openBrowser =
     openResource &&
+    browserLayout &&
     (() => {
       return (
         <LutBrowserDialog
           open={Boolean(openResource)}
+          layout={browserLayout}
           id={browserId}
           kind="source"
           className="grid-rows-[auto_minmax(0,1fr)]"
@@ -124,6 +180,12 @@ export function OnlineLutSourceControls({
           title={openResource.label}
           description={formatEntryCount(openEntries.length)}
           closeLabel={t('raw.lutSource.close')}
+          restoreFocus={() =>
+            openButtonRefs.current.get(openResource.id)?.focus()
+          }
+          triggerElement={openButtonRefs.current.get(openResource.id)}
+          passthroughElements={() => openButtonRefs.current.values()}
+          fillHeight={false}
           onOpenChange={(nextOpen) => {
             if (!nextOpen) {
               closeBrowser(openResource.id, { restoreFocus: true })

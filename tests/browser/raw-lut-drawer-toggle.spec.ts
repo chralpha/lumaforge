@@ -318,7 +318,7 @@ test('keeps sparse online LUT resource entries compact on desktop', async ({
     .click()
   await expect(browser).toHaveCount(0)
   await expect(page.getByText('LUT input:')).toBeVisible()
-  await expect(page.getByText('s-gamut3-cine / s-log3')).toBeVisible()
+  await expect(page.getByText('Sony S-Gamut3.Cine / S-Log3')).toBeVisible()
   await expect(page.getByText('LUT output:')).toBeVisible()
   await expect(page.getByText('Rec.709 display')).toBeVisible()
   await expect(page.getByText('LUT intent is unsupported')).toHaveCount(0)

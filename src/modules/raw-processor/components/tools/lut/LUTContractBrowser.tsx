@@ -1,7 +1,15 @@
 import type { LUTColorProfile } from '@lumaforge/luma-color-runtime'
 import { searchLUTColorProfiles } from '@lumaforge/luma-color-runtime'
 import { m } from 'motion/react'
-import { useEffect, useId, useMemo, useState } from 'react'
+import type { RefObject } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react'
 
 import { Input } from '~/components/ui/input'
 import { useScrollEdgeFade } from '~/hooks/common'
@@ -16,6 +24,8 @@ import {
   SEGMENTED_THUMB_BG,
   SEGMENTED_TRACK,
 } from '../segmented-chrome'
+import type { OnlineLutBrowserLayout } from './lut-browser-layout'
+import { getViewportBoundedBrowserLayout } from './lut-browser-layout'
 import type { LUTOutputOption } from './lut-output-options'
 import {
   dedupeOutputOptions,
@@ -37,6 +47,7 @@ export function LUTContractBrowser({
   suggestions,
   currentProfile,
   onSelect,
+  triggerRef,
   browserId,
   initialStep,
   initialInputDraft,
@@ -46,12 +57,15 @@ export function LUTContractBrowser({
   suggestions: LUTColorProfile[]
   currentProfile?: LUTColorProfile
   onSelect: (profile: LUTColorProfile) => void
+  triggerRef: RefObject<HTMLButtonElement | null>
   browserId: string
   initialStep?: 'input' | 'output'
   initialInputDraft?: LUTColorProfile | null
 }) {
   const { t } = useI18n()
   const searchInputId = useId()
+  const [browserLayout, setBrowserLayout] =
+    useState<OnlineLutBrowserLayout | null>(null)
   const [listEl, setListEl] = useState<HTMLDivElement | null>(null)
   useScrollEdgeFade(listEl, { enabled: open })
   const [query, setQuery] = useState('')
@@ -70,7 +84,45 @@ export function LUTContractBrowser({
     setQuery('')
     setStep(initialStep ?? 'input')
     setDraftInputProfile(initialInputDraft ?? currentProfile ?? null)
-  }, [currentProfile, initialInputDraft, initialStep, open])
+    setBrowserLayout(
+      getViewportBoundedBrowserLayout(triggerRef.current ?? undefined),
+    )
+  }, [currentProfile, initialInputDraft, initialStep, open, triggerRef])
+
+  const updateBrowserLayout = useCallback(() => {
+    if (!open) return
+
+    setBrowserLayout(
+      getViewportBoundedBrowserLayout(triggerRef.current ?? undefined),
+    )
+  }, [open, triggerRef])
+
+  useLayoutEffect(() => {
+    updateBrowserLayout()
+  }, [open, updateBrowserLayout])
+
+  useEffect(() => {
+    if (!open) return
+
+    const handleViewportChange = () => {
+      updateBrowserLayout()
+    }
+    const scrollTargets = [
+      triggerRef.current?.closest('.raw-tool-surface'),
+    ].filter((target): target is Element => target instanceof Element)
+
+    window.addEventListener('resize', handleViewportChange)
+    for (const target of scrollTargets) {
+      target.addEventListener('scroll', handleViewportChange)
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleViewportChange)
+      for (const target of scrollTargets) {
+        target.removeEventListener('scroll', handleViewportChange)
+      }
+    }
+  }, [open, triggerRef, updateBrowserLayout])
 
   const visibleSuggestions = useMemo(
     () =>
@@ -151,11 +203,12 @@ export function LUTContractBrowser({
   const hasOutputMatches =
     suggestedOutputOptions.length > 0 || groupedOutputOptions.length > 0
 
-  if (!open) return null
+  if (!open || !browserLayout) return null
 
   return (
     <LutBrowserDialog
       open={open}
+      layout={browserLayout}
       id={browserId}
       kind="contract"
       className="grid-rows-[auto_auto_auto_minmax(0,1fr)]"
@@ -169,6 +222,8 @@ export function LUTContractBrowser({
           : t('raw.lutContract.chooseInputOutput')
       }
       closeLabel={t('raw.lutContract.closeBrowser')}
+      restoreFocus={() => triggerRef.current?.focus()}
+      triggerElement={triggerRef.current}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) onClose({ restoreFocus: true })
       }}
