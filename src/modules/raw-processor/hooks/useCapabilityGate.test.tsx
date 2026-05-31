@@ -7,6 +7,10 @@ import { useCapabilityGate } from './useCapabilityGate'
 
 describe('useCapabilityGate', () => {
   afterEach(() => vi.restoreAllMocks())
+  afterEach(() => {
+    window.history.replaceState(null, '', '/')
+    vi.unstubAllGlobals()
+  })
 
   it('reports gpu preview when capable + COI', () => {
     vi.spyOn(glContext, 'detectCapabilities').mockReturnValue({
@@ -48,6 +52,39 @@ describe('useCapabilityGate', () => {
       supportStatus: 'unsupported',
       previewMode: null,
     })
-    vi.unstubAllGlobals()
+  })
+
+  it('forces CPU preview from a local validation query flag when COI is present', () => {
+    vi.spyOn(glContext, 'detectCapabilities').mockReturnValue({
+      webgl2: true,
+      toneHighPrecision: true,
+    } as glContext.WebGLCapabilities)
+    vi.stubGlobal('crossOriginIsolated', true)
+    window.history.replaceState(null, '', '/raw?forcePreview=cpu')
+
+    const { result } = renderHook(() => useCapabilityGate())
+
+    expect(result.current).toMatchObject({
+      supportStatus: 'degraded',
+      previewMode: 'cpu',
+      reason: 'tone-float-precision-low',
+    })
+  })
+
+  it('does not let the CPU preview validation flag bypass COI', () => {
+    vi.spyOn(glContext, 'detectCapabilities').mockReturnValue({
+      webgl2: true,
+      toneHighPrecision: true,
+    } as glContext.WebGLCapabilities)
+    vi.stubGlobal('crossOriginIsolated', false)
+    window.history.replaceState(null, '', '/raw?forcePreview=cpu')
+
+    const { result } = renderHook(() => useCapabilityGate())
+
+    expect(result.current).toMatchObject({
+      supportStatus: 'unsupported',
+      previewMode: null,
+      reason: 'coi-missing',
+    })
   })
 })
