@@ -1,8 +1,13 @@
+import process from 'node:process'
+
 import { defineConfig, devices } from '@playwright/test'
+
+delete process.env.NO_COLOR
 
 export default defineConfig({
   testDir: './tests/browser',
   timeout: 120_000,
+  workers: 1,
   expect: { timeout: 15_000 },
   webServer: {
     command: 'pnpm build && pnpm serve --host 127.0.0.1 --port 4178',
