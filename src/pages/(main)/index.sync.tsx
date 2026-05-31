@@ -26,6 +26,8 @@ export const handle = {
   seo: HOME_ROUTE_SEO,
 } satisfies SeoRouteHandle
 
+export const loader = () => null
+
 const workflow = [
   {
     label: 'landing.workflow.0.label',
