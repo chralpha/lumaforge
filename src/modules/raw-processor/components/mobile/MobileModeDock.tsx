@@ -45,6 +45,7 @@ export function MobileModeDock(props: {
   onOpenMore?: () => void
   canExport: boolean
   disabled?: boolean
+  scrubbing?: boolean
   panel: ReactNode
 }) {
   const { t } = useI18n()
@@ -60,7 +61,12 @@ export function MobileModeDock(props: {
           <m.div
             key="dock-panel"
             data-mobile-dock-panel
-            className="absolute inset-x-0 bottom-full max-h-[24vh] overflow-y-auto bg-gradient-to-t from-black/82 via-black/58 to-transparent px-3.5 pb-2.5 pt-3.5"
+            className={clsxm(
+              'absolute inset-x-0 bottom-full overflow-y-auto bg-gradient-to-t from-black/82 via-black/58 to-transparent px-3.5 pb-2.5 pt-3.5',
+              props.mode === 'tone'
+                ? 'max-h-[min(60vh,360px)]'
+                : 'max-h-[24vh]',
+            )}
             initial={{ opacity: 0, y: prefersReduced ? 0 : 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: prefersReduced ? 0 : 8 }}
@@ -71,9 +77,13 @@ export function MobileModeDock(props: {
         )}
       </AnimatePresence>
       <div
+        data-scrubbing={props.scrubbing || undefined}
         aria-label={t('raw.mobile.modes.aria')}
         role="tablist"
-        className="grid grid-cols-4 gap-1 border-t border-lf-on-photo-bord-soft px-2.5 pb-2 pt-2"
+        className={clsxm(
+          'grid grid-cols-4 gap-1 border-t border-lf-on-photo-bord-soft px-2.5 pb-2 pt-2 transition-opacity duration-150',
+          props.scrubbing && 'opacity-45',
+        )}
       >
         {TABS.map((tab) => {
           const active = props.mode === tab.id

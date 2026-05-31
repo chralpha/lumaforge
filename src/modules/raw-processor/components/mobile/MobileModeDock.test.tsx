@@ -63,7 +63,7 @@ describe('mobileModeDock', () => {
     expect(tablist).not.toHaveClass('pb-3')
   })
 
-  it('keeps export in the same compact panel frame as the other tools', () => {
+  it('keeps export compact while giving Adjust enough room for inline rows', () => {
     const { rerender } = render(
       <MobileModeDock
         mode="export"
@@ -96,8 +96,27 @@ describe('mobileModeDock', () => {
     )
 
     expect(screen.getByTestId('panel').parentElement).toHaveClass(
-      'max-h-[24vh]',
+      'max-h-[min(60vh,360px)]',
     )
+  })
+
+  it('dims the mode tabs while a slider scrub is active', () => {
+    render(
+      <MobileModeDock
+        mode="tone"
+        expanded
+        scrubbing
+        onModeChange={vi.fn()}
+        onCollapse={vi.fn()}
+        onOpenMore={vi.fn()}
+        canExport
+        panel={<div>tone-panel</div>}
+      />,
+    )
+
+    const tablist = screen.getByRole('tablist', { name: /lab modes/i })
+    expect(tablist).toHaveAttribute('data-scrubbing', 'true')
+    expect(tablist).toHaveClass('opacity-45')
   })
 
   it('overlays the expanded panel above the dock without growing the dock box', () => {

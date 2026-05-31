@@ -419,6 +419,7 @@ describe('mobileLabChrome', () => {
       'data-focus',
       'false',
     )
+    expect(dock).not.toHaveAttribute('data-scrubbing')
 
     fireEvent.pointerDown(exposureRow)
     expect(
@@ -428,13 +429,18 @@ describe('mobileLabChrome', () => {
       'data-focus',
       'true',
     )
+    expect(dock).toHaveAttribute('data-scrubbing', 'true')
+    expect(dock).toHaveClass('opacity-45')
 
     fireEvent.pointerUp(exposureRow)
-    expect(container.querySelector('[data-scrub-value-hud]')).toBeNull()
+    await waitFor(() =>
+      expect(container.querySelector('[data-scrub-value-hud]')).toBeNull(),
+    )
     expect(container.querySelector('[data-mobile-lab-chrome]')).toHaveAttribute(
       'data-focus',
       'false',
     )
+    expect(dock).not.toHaveAttribute('data-scrubbing')
   })
 
   it('opens Adjust color controls without adding a dock mode', async () => {

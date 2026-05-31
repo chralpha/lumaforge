@@ -44,6 +44,10 @@ describe('adjustListPanel', () => {
       screen.getByRole('group', { name: /tone sliders/i }),
     ).toBeInTheDocument()
     expect(screen.getAllByRole('slider')).toHaveLength(6)
+    expect(screen.getByRole('tablist', { name: /adjust/i })).toHaveClass('h-11')
+    expect(screen.getByRole('button', { name: /reset tone/i })).toHaveClass(
+      'min-h-11',
+    )
     expect(screen.getByRole('button', { name: /reset tone/i })).toBeEnabled()
   })
 

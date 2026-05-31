@@ -648,16 +648,7 @@ export function MobileLabChrome(props: {
           )}
       </AnimatePresence>
 
-      <ScrubValueHud
-        key={
-          scrubField
-            ? `${scrubField.kind}-${String(scrubField.key)}`
-            : 'scrub-idle'
-        }
-        field={scrubField}
-        tone={props.tone}
-        color={props.color}
-      />
+      <ScrubValueHud field={scrubField} tone={props.tone} color={props.color} />
 
       {/* Topbar + dock recede together as one surface when immersive takes over,
           instead of hard-unmounting behind the overlay.
@@ -737,6 +728,7 @@ export function MobileLabChrome(props: {
               onCollapse={() => setDockExpanded(false)}
               onOpenMore={() => setMoreOpen(true)}
               canExport
+              scrubbing={focusActive}
               panel={panel}
             />
           </m.div>

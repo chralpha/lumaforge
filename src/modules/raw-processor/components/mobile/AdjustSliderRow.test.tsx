@@ -48,6 +48,14 @@ describe('adjustSliderRow', () => {
     expect(screen.getByText('Contrast')).toBeInTheDocument()
   })
 
+  it('emits onChange when the slider value changes', () => {
+    const props = renderRow({ value: 12 })
+    const thumb = screen.getByRole('slider', { name: 'Contrast' })
+    thumb.focus()
+    fireEvent.keyDown(thumb, { key: 'ArrowRight' })
+    expect(props.onChange).toHaveBeenCalledWith(13)
+  })
+
   it('renders the value as plain text when neutral', () => {
     renderRow({ value: 0 })
     expect(screen.queryByRole('button', { name: /reset contrast/i })).toBeNull()
@@ -58,6 +66,7 @@ describe('adjustSliderRow', () => {
     const props = renderRow({ value: -42 })
     const resetButton = screen.getByRole('button', { name: /reset contrast/i })
     expect(resetButton).toHaveTextContent('-42')
+    expect(resetButton).toHaveClass('h-11')
     await userEvent.click(resetButton)
     expect(props.onChange).toHaveBeenCalledWith(0)
   })

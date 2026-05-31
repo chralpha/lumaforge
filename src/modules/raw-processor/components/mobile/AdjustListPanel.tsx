@@ -1,8 +1,10 @@
 import { RotateCcw } from 'lucide-react'
+import { AnimatePresence, m } from 'motion/react'
 import { useState } from 'react'
 
 import { SegmentGroup, SegmentItem } from '~/components/ui/segment'
 import { useI18n } from '~/lib/i18n'
+import { surfaceFade } from '~/lib/spring'
 
 import type { ColorValue } from '../tools/ColorTool'
 import type { ToneValue } from '../tools/ToneTool'
@@ -54,7 +56,7 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
             props.onScrubChange(null)
             setSection(next)
           }}
-          className="h-9 w-full rounded-md bg-[oklch(0.96_0.006_255/0.05)] p-1"
+          className="h-11 w-full rounded-md bg-[oklch(0.96_0.006_255/0.05)] p-1"
         >
           <SegmentItem
             value="tone"
@@ -72,31 +74,53 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
           onClick={onSectionReset}
           disabled={isNeutral}
           aria-label={resetLabel}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft px-2.5 py-1 text-[0.7rem] font-semibold text-lf-on-photo-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft px-2.5 py-1 text-[0.7rem] font-semibold text-lf-on-photo-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-40"
         >
           <RotateCcw aria-hidden="true" className="size-3" />
           {resetLabel}
         </button>
       </div>
-      {section === 'tone' ? (
-        <ToneListPanel
-          tone={props.tone}
-          onChange={props.onToneChange}
-          onScrubChange={(field) =>
-            props.onScrubChange(field ? { kind: 'tone', key: field.key } : null)
-          }
-        />
-      ) : (
-        <ColorListPanel
-          color={props.color}
-          onChange={props.onColorChange}
-          onScrubChange={(field) =>
-            props.onScrubChange(
-              field ? { kind: 'color', key: field.key } : null,
-            )
-          }
-        />
-      )}
+      <AnimatePresence mode="wait" initial={false}>
+        {section === 'tone' ? (
+          <m.div
+            key="tone"
+            data-adjust-list-section="tone"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={surfaceFade}
+          >
+            <ToneListPanel
+              tone={props.tone}
+              onChange={props.onToneChange}
+              onScrubChange={(field) =>
+                props.onScrubChange(
+                  field ? { kind: 'tone', key: field.key } : null,
+                )
+              }
+            />
+          </m.div>
+        ) : (
+          <m.div
+            key="color"
+            data-adjust-list-section="color"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={surfaceFade}
+          >
+            <ColorListPanel
+              color={props.color}
+              onChange={props.onColorChange}
+              onScrubChange={(field) =>
+                props.onScrubChange(
+                  field ? { kind: 'color', key: field.key } : null,
+                )
+              }
+            />
+          </m.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

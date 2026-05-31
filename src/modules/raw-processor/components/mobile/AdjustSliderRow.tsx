@@ -27,7 +27,7 @@ export function AdjustSliderRow(props: AdjustSliderRowProps) {
       data-active-scrub={activeScrub || undefined}
       data-sibling-scrubbing={siblingScrubbing || undefined}
       className={clsxm(
-        'grid min-h-[44px] grid-cols-[88px_minmax(0,1fr)_56px] items-center gap-3 rounded-md border border-transparent px-3 py-2 transition-[opacity,background-color,border-color] duration-150',
+        'grid min-h-11 grid-cols-[88px_minmax(0,1fr)_56px] items-center gap-3 rounded-md border border-transparent px-3 transition-[opacity,background-color,border-color] duration-150',
         activeScrub && 'border-lf-amber/55 bg-lf-on-photo-bg-strong',
         siblingScrubbing && 'opacity-40',
       )}
@@ -64,12 +64,12 @@ export function AdjustSliderRow(props: AdjustSliderRowProps) {
           type="button"
           aria-label={props.resetAriaLabel}
           onClick={() => props.onChange(0)}
-          className="inline-flex h-9 items-center justify-end rounded-md px-1 text-right text-[0.82rem] font-semibold tabular-nums text-lf-amber-soft transition-colors hover:text-lf-on-photo-ink"
+          className="inline-flex h-11 items-center justify-end rounded-md px-1 text-right text-[0.82rem] font-semibold tabular-nums text-lf-amber-soft transition-colors hover:text-lf-on-photo-ink"
         >
           {formatted}
         </button>
       ) : (
-        <span className="inline-flex h-9 items-center justify-end px-1 text-right text-[0.82rem] font-semibold tabular-nums text-lf-on-photo-ink/72">
+        <span className="inline-flex h-11 items-center justify-end px-1 text-right text-[0.82rem] font-semibold tabular-nums text-lf-on-photo-ink/72">
           {formatted}
         </span>
       )}
