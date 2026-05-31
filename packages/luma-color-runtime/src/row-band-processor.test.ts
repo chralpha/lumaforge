@@ -3,6 +3,17 @@ import { mat3Identity } from './matrix'
 import type { LUTColorProfile } from './registry'
 import { createRowBandProcessor } from './row-band-processor'
 
+function neutralColorStep(): SupportedExportColorGraphDescriptor['steps'][number] {
+  return {
+    kind: 'user-color-balance',
+    temperature: 0,
+    tint: 0,
+    gain: [1, 1, 1],
+    operator: 'linear-prophoto-relative-rgb-gain',
+    luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+  }
+}
+
 function neutralToneSteps(): SupportedExportColorGraphDescriptor['steps'] {
   return [
     { kind: 'user-exposure', ev: 0, multiplier: 1 },
@@ -49,6 +60,7 @@ const noLutGraph: SupportedExportColorGraphDescriptor = {
   steps: [
     { kind: 'input-linear-prophoto' },
     { kind: 'raw-render-exposure', ev: 0, multiplier: 1 },
+    neutralColorStep(),
     ...neutralToneSteps(),
     { kind: 'output-srgb' },
   ],
@@ -115,6 +127,7 @@ function makePrecisionProbeGraph(
     steps: [
       { kind: 'input-linear-prophoto' },
       { kind: 'raw-render-exposure', ev: 0, multiplier: 1 },
+      neutralColorStep(),
       ...neutralToneSteps(),
       {
         kind: 'gamut-to-lut-input',
@@ -151,6 +164,7 @@ function makeIdentityProbeGraph(): SupportedExportColorGraphDescriptor {
     steps: [
       { kind: 'input-linear-prophoto' },
       { kind: 'raw-render-exposure', ev: 0, multiplier: 1 },
+      neutralColorStep(),
       ...neutralToneSteps(),
       {
         kind: 'gamut-to-lut-input',
@@ -215,6 +229,33 @@ describe('createRowBandProcessor', () => {
     expect(rows).toEqual(
       new Uint8Array([toSrgbByte(0.18), toSrgbByte(0.18), toSrgbByte(0.18)]),
     )
+  })
+
+  it('applies color balance before tone in no-lut export', () => {
+    const graph: SupportedExportColorGraphDescriptor = {
+      ...noLutGraph,
+      steps: noLutGraph.steps.map((step) =>
+        step.kind === 'user-color-balance'
+          ? {
+              ...step,
+              temperature: 100,
+              gain: [1.15, 1, 0.85],
+            }
+          : step,
+      ),
+    }
+    const processor = createRowBandProcessor({
+      width: 1,
+      rowBandRows: 1,
+      graph,
+    })
+
+    const rows = processor.processFloatRows(
+      new Float32Array([0.18, 0.18, 0.18]),
+      1,
+    )
+
+    expect(rows[0]).toBeGreaterThan(rows[2])
   })
 
   it('applies user contrast before LUT input sampling', () => {

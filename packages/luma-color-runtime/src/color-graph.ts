@@ -1,3 +1,5 @@
+import type { LumaColorBalanceParams } from './color-balance'
+import { resolveColorBalanceParams } from './color-balance'
 import type { ColorGamutId } from './constants'
 import type { TransferFunctionId } from './log-encoding'
 import type { Mat3 } from './matrix'
@@ -15,6 +17,14 @@ import type { LUTData, ProcessingParams } from './types'
 export type ExportColorGraphStep =
   | { kind: 'input-linear-prophoto' }
   | { kind: 'raw-render-exposure'; ev: number; multiplier: number }
+  | {
+      kind: 'user-color-balance'
+      temperature: number
+      tint: number
+      gain: readonly [number, number, number]
+      operator: 'linear-prophoto-relative-rgb-gain'
+      luminanceCoefficients: readonly [number, number, number]
+    }
   | { kind: 'user-exposure'; ev: number; multiplier: number }
   | {
       kind: 'user-contrast'
@@ -140,9 +150,15 @@ export function resolveExportColorGraph(input: {
   userShadows?: LumaColorToneParams['userShadows']
   userWhites?: LumaColorToneParams['userWhites']
   userBlacks?: LumaColorToneParams['userBlacks']
+  userTemperature?: LumaColorBalanceParams['userTemperature']
+  userTint?: LumaColorBalanceParams['userTint']
 }): ExportColorGraphDescriptor {
   const rawRenderExposure =
     input.rawRenderExposure ?? IDENTITY_RAW_RENDER_EXPOSURE
+  const colorBalance = resolveColorBalanceParams({
+    userTemperature: input.userTemperature,
+    userTint: input.userTint,
+  })
   const tone = resolveToneParams({
     userExposureEv: input.userExposureEv,
     userContrast: input.userContrast,
@@ -157,6 +173,14 @@ export function resolveExportColorGraph(input: {
       kind: 'raw-render-exposure',
       ev: rawRenderExposure.ev,
       multiplier: rawRenderExposure.multiplier,
+    },
+    {
+      kind: 'user-color-balance',
+      temperature: colorBalance.userTemperature,
+      tint: colorBalance.userTint,
+      gain: colorBalance.gain,
+      operator: colorBalance.operator,
+      luminanceCoefficients: colorBalance.luminanceCoefficients,
     },
     {
       kind: 'user-exposure',

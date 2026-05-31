@@ -57,6 +57,11 @@ function normalizeLutSample(
   return clamp01((value - domainMin) * inverseDomainSpan)
 }
 
+type UserColorBalanceStep = Extract<
+  SupportedExportColorGraphDescriptor['steps'][number],
+  { kind: 'user-color-balance' }
+>
+
 function isSimpleNoLutGraph(
   graph: SupportedExportColorGraphDescriptor,
 ): graph is SupportedExportColorGraphDescriptor & {
@@ -66,6 +71,7 @@ function isSimpleNoLutGraph(
       SupportedExportColorGraphDescriptor['steps'][number],
       { kind: 'raw-render-exposure' }
     >,
+    UserColorBalanceStep,
     Extract<
       SupportedExportColorGraphDescriptor['steps'][number],
       { kind: 'user-exposure' }
@@ -83,13 +89,14 @@ function isSimpleNoLutGraph(
 } {
   return (
     graph.lutProfile === null &&
-    graph.steps.length === 6 &&
+    graph.steps.length === 7 &&
     graph.steps[0]?.kind === 'input-linear-prophoto' &&
     graph.steps[1]?.kind === 'raw-render-exposure' &&
-    graph.steps[2]?.kind === 'user-exposure' &&
-    graph.steps[3]?.kind === 'user-contrast' &&
-    graph.steps[4]?.kind === 'user-regional-tone' &&
-    graph.steps[5]?.kind === 'output-srgb'
+    graph.steps[2]?.kind === 'user-color-balance' &&
+    graph.steps[3]?.kind === 'user-exposure' &&
+    graph.steps[4]?.kind === 'user-contrast' &&
+    graph.steps[5]?.kind === 'user-regional-tone' &&
+    graph.steps[6]?.kind === 'output-srgb'
   )
 }
 
@@ -102,6 +109,7 @@ function isSupportedLutGraph(
       SupportedExportColorGraphDescriptor['steps'][number],
       { kind: 'raw-render-exposure' }
     >,
+    UserColorBalanceStep,
     Extract<
       SupportedExportColorGraphDescriptor['steps'][number],
       { kind: 'user-exposure' }
@@ -134,17 +142,18 @@ function isSupportedLutGraph(
   ]
 } {
   return (
-    graph.steps.length === 10 &&
+    graph.steps.length === 11 &&
     graph.steps[0]?.kind === 'input-linear-prophoto' &&
     graph.steps[1]?.kind === 'raw-render-exposure' &&
-    graph.steps[2]?.kind === 'user-exposure' &&
-    graph.steps[3]?.kind === 'user-contrast' &&
-    graph.steps[4]?.kind === 'user-regional-tone' &&
-    graph.steps[5]?.kind === 'gamut-to-lut-input' &&
-    graph.steps[6]?.kind === 'encode-lut-transfer' &&
-    graph.steps[7]?.kind === 'lut3d' &&
-    graph.steps[8]?.kind === 'lut-output-to-srgb' &&
-    graph.steps[9]?.kind === 'output-srgb'
+    graph.steps[2]?.kind === 'user-color-balance' &&
+    graph.steps[3]?.kind === 'user-exposure' &&
+    graph.steps[4]?.kind === 'user-contrast' &&
+    graph.steps[5]?.kind === 'user-regional-tone' &&
+    graph.steps[6]?.kind === 'gamut-to-lut-input' &&
+    graph.steps[7]?.kind === 'encode-lut-transfer' &&
+    graph.steps[8]?.kind === 'lut3d' &&
+    graph.steps[9]?.kind === 'lut-output-to-srgb' &&
+    graph.steps[10]?.kind === 'output-srgb'
   )
 }
 
@@ -155,6 +164,16 @@ function getRawRenderExposureMultiplier(
   >,
 ) {
   return Number.isFinite(step.multiplier) ? step.multiplier : 1
+}
+
+function getUserColorBalanceGain(
+  step: UserColorBalanceStep,
+): readonly [number, number, number] {
+  return [
+    Number.isFinite(step.gain[0]) ? step.gain[0] : 1,
+    Number.isFinite(step.gain[1]) ? step.gain[1] : 1,
+    Number.isFinite(step.gain[2]) ? step.gain[2] : 1,
+  ]
 }
 
 type UserExposureStep = Extract<
@@ -265,25 +284,20 @@ function compileGraphApplier(
     const rawRenderExposureMultiplier = getRawRenderExposureMultiplier(
       graph.steps[1],
     )
-    const exposureMultiplier = getUserExposureMultiplier(graph.steps[2])
-    const contrastStep = graph.steps[3]
-    const regionalToneStep = graph.steps[4]
+    const colorBalanceGain = getUserColorBalanceGain(graph.steps[2])
+    const exposureMultiplier = getUserExposureMultiplier(graph.steps[3])
+    const contrastStep = graph.steps[4]
+    const regionalToneStep = graph.steps[5]
     const toneScratch: MutableRgb = [0, 0, 0]
 
     return (linear, bytes) => {
       for (let index = 0; index < linear.length; index += 3) {
-        const exposedR =
-          (linear[index] ?? 0) *
-          rawRenderExposureMultiplier *
-          exposureMultiplier
-        const exposedG =
-          (linear[index + 1] ?? 0) *
-          rawRenderExposureMultiplier *
-          exposureMultiplier
-        const exposedB =
-          (linear[index + 2] ?? 0) *
-          rawRenderExposureMultiplier *
-          exposureMultiplier
+        const baseR = (linear[index] ?? 0) * rawRenderExposureMultiplier
+        const baseG = (linear[index + 1] ?? 0) * rawRenderExposureMultiplier
+        const baseB = (linear[index + 2] ?? 0) * rawRenderExposureMultiplier
+        const exposedR = baseR * colorBalanceGain[0] * exposureMultiplier
+        const exposedG = baseG * colorBalanceGain[1] * exposureMultiplier
+        const exposedB = baseB * colorBalanceGain[2] * exposureMultiplier
         const contrasted = applyUserContrastScalarTo(
           exposedR,
           exposedG,
@@ -330,13 +344,14 @@ function compileGraphApplier(
   const rawRenderExposureMultiplier = getRawRenderExposureMultiplier(
     graph.steps[1],
   )
-  const exposureMultiplier = getUserExposureMultiplier(graph.steps[2])
-  const contrastStep = graph.steps[3]
-  const regionalToneStep = graph.steps[4]
-  const inputMatrix = graph.steps[5].matrix
-  const encodeStep = graph.steps[6]
-  const lutStep = graph.steps[7]
-  const outputStep = graph.steps[8]
+  const colorBalanceGain = getUserColorBalanceGain(graph.steps[2])
+  const exposureMultiplier = getUserExposureMultiplier(graph.steps[3])
+  const contrastStep = graph.steps[4]
+  const regionalToneStep = graph.steps[5]
+  const inputMatrix = graph.steps[6].matrix
+  const encodeStep = graph.steps[7]
+  const lutStep = graph.steps[8]
+  const outputStep = graph.steps[9]
   const outputMatrix = outputStep.matrix
   const encodeTransfer = getTransferFunction(encodeStep.transfer)
   const decodeTransfer = getTransferFunction(outputStep.transfer)
@@ -363,16 +378,12 @@ function compileGraphApplier(
 
   return (linear, bytes) => {
     for (let index = 0; index < linear.length; index += 3) {
-      const exposedR =
-        (linear[index] ?? 0) * rawRenderExposureMultiplier * exposureMultiplier
-      const exposedG =
-        (linear[index + 1] ?? 0) *
-        rawRenderExposureMultiplier *
-        exposureMultiplier
-      const exposedB =
-        (linear[index + 2] ?? 0) *
-        rawRenderExposureMultiplier *
-        exposureMultiplier
+      const baseR = (linear[index] ?? 0) * rawRenderExposureMultiplier
+      const baseG = (linear[index + 1] ?? 0) * rawRenderExposureMultiplier
+      const baseB = (linear[index + 2] ?? 0) * rawRenderExposureMultiplier
+      const exposedR = baseR * colorBalanceGain[0] * exposureMultiplier
+      const exposedG = baseG * colorBalanceGain[1] * exposureMultiplier
+      const exposedB = baseB * colorBalanceGain[2] * exposureMultiplier
       const contrasted = applyUserContrastScalarTo(
         exposedR,
         exposedG,

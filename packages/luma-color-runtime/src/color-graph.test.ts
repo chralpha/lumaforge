@@ -21,6 +21,7 @@ describe('resolveExportColorGraph', () => {
     expect(graph.steps.map((step) => step.kind)).toEqual([
       'input-linear-prophoto',
       'raw-render-exposure',
+      'user-color-balance',
       'user-exposure',
       'user-contrast',
       'user-regional-tone',
@@ -47,6 +48,12 @@ describe('resolveExportColorGraph', () => {
       steps: [
         { kind: 'input-linear-prophoto' },
         { kind: 'raw-render-exposure', ev: 1, multiplier: 2 },
+        {
+          kind: 'user-color-balance',
+          temperature: 0,
+          tint: 0,
+          gain: [1, 1, 1],
+        },
         { kind: 'user-exposure', ev: 0, multiplier: 1 },
         { kind: 'user-contrast', amount: 0, factor: 1 },
         {
@@ -74,17 +81,26 @@ describe('resolveExportColorGraph', () => {
     expect(graph.steps.map((step) => step.kind)).toEqual([
       'input-linear-prophoto',
       'raw-render-exposure',
+      'user-color-balance',
       'user-exposure',
       'user-contrast',
       'user-regional-tone',
       'output-srgb',
     ])
     expect(graph.steps[2]).toMatchObject({
+      kind: 'user-color-balance',
+      temperature: 0,
+      tint: 0,
+      gain: [1, 1, 1],
+      operator: 'linear-prophoto-relative-rgb-gain',
+      luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+    })
+    expect(graph.steps[3]).toMatchObject({
       kind: 'user-exposure',
       ev: 0,
       multiplier: 1,
     })
-    expect(graph.steps[3]).toMatchObject({
+    expect(graph.steps[4]).toMatchObject({
       kind: 'user-contrast',
       amount: 0,
       factor: 1,
@@ -93,7 +109,7 @@ describe('resolveExportColorGraph', () => {
       luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
       zeroLuminanceMode: 'return-black',
     })
-    expect(graph.steps[4]).toMatchObject({
+    expect(graph.steps[5]).toMatchObject({
       kind: 'user-regional-tone',
       highlights: 0,
       shadows: 0,
@@ -102,6 +118,32 @@ describe('resolveExportColorGraph', () => {
       operator: 'linear-prophoto-log-luminance-regions',
       luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
       zeroLuminanceMode: 'return-black',
+    })
+  })
+
+  it('places user color balance after raw render exposure and before tone', () => {
+    const graph = resolveExportColorGraph({
+      styleKind: 'none',
+      intensity: 0.7,
+      builtinPreset: null,
+      lut: null,
+      userTemperature: 40,
+      userTint: -25,
+    })
+
+    expect(graph.supported).toBe(true)
+    if (!graph.supported) throw new Error('Expected supported graph')
+    expect(graph.steps.map((step) => step.kind).slice(0, 5)).toEqual([
+      'input-linear-prophoto',
+      'raw-render-exposure',
+      'user-color-balance',
+      'user-exposure',
+      'user-contrast',
+    ])
+    expect(graph.steps[2]).toMatchObject({
+      kind: 'user-color-balance',
+      temperature: 40,
+      tint: -25,
     })
   })
 
@@ -143,6 +185,7 @@ describe('resolveExportColorGraph', () => {
     expect(graph.steps.map((step) => step.kind)).toEqual([
       'input-linear-prophoto',
       'raw-render-exposure',
+      'user-color-balance',
       'user-exposure',
       'user-contrast',
       'user-regional-tone',
@@ -152,17 +195,17 @@ describe('resolveExportColorGraph', () => {
       'lut-output-to-srgb',
       'output-srgb',
     ])
-    expect(graph.steps[2]).toMatchObject({
+    expect(graph.steps[3]).toMatchObject({
       kind: 'user-exposure',
       ev: 1,
       multiplier: 2,
     })
-    expect(graph.steps[3]).toMatchObject({
+    expect(graph.steps[4]).toMatchObject({
       kind: 'user-contrast',
       amount: 50,
       factor: Math.pow(2, 50 / 200),
     })
-    expect(graph.steps[4]).toMatchObject({
+    expect(graph.steps[5]).toMatchObject({
       kind: 'user-regional-tone',
       highlights: -40,
       shadows: 35,
@@ -247,6 +290,7 @@ describe('resolveExportColorGraph', () => {
     expect(graph.steps.map((step) => step.kind)).toEqual([
       'input-linear-prophoto',
       'raw-render-exposure',
+      'user-color-balance',
       'user-exposure',
       'user-contrast',
       'user-regional-tone',
@@ -256,12 +300,12 @@ describe('resolveExportColorGraph', () => {
       'lut-output-to-srgb',
       'output-srgb',
     ])
-    expect(graph.steps[7]).toMatchObject({
+    expect(graph.steps[8]).toMatchObject({
       kind: 'lut3d',
       domainMin: [0, 0, 0],
       domainMax: [1, 1, 1],
     })
-    expect(graph.steps[8]).toMatchObject({
+    expect(graph.steps[9]).toMatchObject({
       kind: 'lut-output-to-srgb',
       transfer: 's-log3',
       range: 'full',
@@ -339,7 +383,7 @@ describe('resolveExportColorGraph', () => {
     if (!graph.supported) {
       throw new Error('Expected supported graph')
     }
-    expect(graph.steps[8]).toMatchObject({
+    expect(graph.steps[9]).toMatchObject({
       kind: 'lut-output-to-srgb',
       transfer: 'gamma24',
       range: 'full',
