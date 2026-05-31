@@ -161,30 +161,3 @@ export function getWheelPreviewZoomTarget(
 export function resetPreviewViewport() {
   return DEFAULT_PREVIEW_VIEWPORT
 }
-
-/**
- * Converts a viewport-space compare split (0-1) to canvas-space.
- *
- * When the preview surface is CSS-transformed (zoom/pan), the shader's
- * texture-coordinate comparison splits at a different screen position
- * than the handle.  This undoes the CSS transform so the split line
- * stays aligned to the handle in screen space.
- */
-export function getCanvasCompareSplit(
-  viewportCompareSplit: number,
-  zoom: number,
-  panX: number,
-  contentWidth: number,
-): number {
-  if (!Number.isFinite(viewportCompareSplit)) return 0.5
-
-  if (zoom <= 1 || !Number.isFinite(zoom))
-    return clamp(viewportCompareSplit, 0, 1)
-  if (!Number.isFinite(contentWidth) || contentWidth <= 0)
-    return clamp(viewportCompareSplit, 0, 1)
-
-  const canvasSplit =
-    0.5 + (viewportCompareSplit - 0.5) / zoom - panX / (contentWidth * zoom)
-
-  return clamp(canvasSplit, 0, 1)
-}

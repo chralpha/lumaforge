@@ -61,7 +61,7 @@ describe('view session state transitions', () => {
     expect(next.exportState).toBe(session.exportState)
   })
 
-  it('clamps compare split before committing it to session view state', () => {
+  it('clamps compare split values into the session view state', () => {
     const session = createSession()
 
     const next = applyCompareSplitToSession(session, 2)

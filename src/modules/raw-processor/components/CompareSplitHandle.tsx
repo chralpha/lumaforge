@@ -9,7 +9,6 @@ import {
   COMPARE_SPLIT_MIN as MIN_SPLIT,
   getCompareSplitFromClientX,
 } from '../services/compare-split'
-import { getCanvasCompareSplit } from '../services/preview-viewport'
 
 export {
   clampCompareSplit,
@@ -29,106 +28,104 @@ function parseCssNumber(value: string, fallback: number) {
 }
 
 function readPreviewTransform(element: HTMLElement | null) {
-  if (!element) {
-    return { zoom: 1, panX: 0 }
-  }
-
+  if (!element) return { zoom: 1, panX: 0 }
   const style = getComputedStyle(element)
   const zoom = parseCssNumber(style.getPropertyValue('--raw-preview-zoom'), 1)
   const panX = parseCssNumber(style.getPropertyValue('--raw-preview-pan-x'), 0)
-
   return {
     zoom: Number.isFinite(zoom) && zoom > 0 ? zoom : 1,
-    panX,
+    panX: Number.isFinite(panX) ? panX : 0,
   }
 }
 
-function hasRenderedTransform(element: HTMLElement) {
-  const transform = getComputedStyle(element).transform
-  return Boolean(transform && transform !== 'none')
+interface TrackGeometry {
+  frameRect: { left: number; width: number }
+  trackLeft: number
+  trackWidth: number
+  zoom: number
+  panX: number
 }
 
-function getUntransformedTrackRect(
-  imageTrack: HTMLElement,
-  imageRect: DOMRect,
-  zoom: number,
-  panX: number,
-) {
-  const layoutWidth =
-    imageTrack.offsetWidth > 0
-      ? imageTrack.offsetWidth
-      : zoom > 0
-        ? imageRect.width / zoom
-        : imageRect.width
-
-  if (!hasRenderedTransform(imageTrack)) {
-    return {
-      left: imageRect.left,
-      width: layoutWidth,
-    }
-  }
-
-  return {
-    left: imageRect.left - panX - (layoutWidth * (1 - zoom)) / 2,
-    width: layoutWidth,
-  }
-}
-
-function getCompareTrackGeometry(target: HTMLElement) {
+function getCompareTrackGeometry(target: HTMLElement): TrackGeometry {
   const frame = target.parentElement ?? target
   const frameRect = frame.getBoundingClientRect()
   const imageTrack = frame.querySelector<HTMLElement>(IMAGE_TRACK_SELECTOR)
   const imageRect = imageTrack?.getBoundingClientRect()
   const { zoom, panX } = readPreviewTransform(imageTrack ?? null)
-  const trackRect =
-    imageTrack && imageRect && isUsableRect(imageRect)
-      ? getUntransformedTrackRect(imageTrack, imageRect, zoom, panX)
-      : frameRect
+
+  if (imageTrack && imageRect && isUsableRect(imageRect)) {
+    // The track element itself is not transformed; the surface inside it is.
+    // Use the pre-transform layout width when the DOM exposes it, otherwise
+    // fall back to the track's own bounding box.
+    const offsetWidth = imageTrack.offsetWidth
+    const trackWidth = offsetWidth > 0 ? offsetWidth : imageRect.width
+    return {
+      frameRect,
+      trackLeft: imageRect.left,
+      trackWidth,
+      zoom,
+      panX,
+    }
+  }
 
   return {
     frameRect,
-    trackRect,
+    trackLeft: frameRect.left,
+    trackWidth: frameRect.width,
     zoom,
     panX,
   }
 }
 
-function getHandlePositionX(
-  frameRect: Pick<DOMRect, 'left'>,
-  trackRect: Pick<DOMRect, 'left' | 'width'>,
-  split: number,
-) {
-  return trackRect.left - frameRect.left + trackRect.width * split
+/**
+ * Texture-coord (clip percentage) that visually lands at the given screen X.
+ *
+ * The clipped layer lives inside `.raw-preview-surface` which is CSS
+ * `translate(panX) scale(zoom)` around its centre.  A layer-local fraction T
+ * maps to screen X via:
+ *   X = trackLeft + (T - 0.5) * zoom * trackWidth + trackWidth/2 + panX
+ * Inverting:
+ *   T = 0.5 + (X - trackLeft - trackWidth/2 - panX) / (zoom * trackWidth)
+ *
+ * Returns values outside [0,1] when the handle is in letterbox whitespace;
+ * CSS clip-path treats `inset > 100%` / `inset < 0` as fully-clipped /
+ * no-clip, which gives the "fully one side" view squoosh-style.
+ */
+function clipFracFromScreenX(screenX: number, geometry: TrackGeometry): number {
+  const { trackLeft, trackWidth, zoom, panX } = geometry
+  if (!trackWidth || zoom <= 0) return 0.5
+  return (
+    0.5 + (screenX - trackLeft - trackWidth / 2 - panX) / (zoom * trackWidth)
+  )
+}
+
+function getHandlePositionX(frameRect: Pick<DOMRect, 'width'>, split: number) {
+  if (!Number.isFinite(frameRect.width) || frameRect.width <= 0) return 0
+  return frameRect.width * clampCompareSplit(split)
 }
 
 export function getCompareSplitInteractionGeometry(
   target: HTMLElement,
   clientX: number,
 ) {
-  const { frameRect, trackRect, zoom, panX } = getCompareTrackGeometry(target)
-  const split = getCompareSplitFromClientX(trackRect, clientX)
-  const clipSplit = getCanvasCompareSplit(split, zoom, panX, trackRect.width)
-
-  return {
-    split,
-    clipSplit,
-    handleX: getHandlePositionX(frameRect, trackRect, split),
-  }
+  const geometry = getCompareTrackGeometry(target)
+  const split = getCompareSplitFromClientX(geometry.frameRect, clientX)
+  const handleX = getHandlePositionX(geometry.frameRect, split)
+  const screenX = geometry.frameRect.left + handleX
+  const clipSplit = clipFracFromScreenX(screenX, geometry)
+  return { split, clipSplit, handleX }
 }
 
 export function getCompareSplitPositionGeometry(
   target: HTMLElement,
   value: number,
 ) {
-  const { frameRect, trackRect, zoom, panX } = getCompareTrackGeometry(target)
+  const geometry = getCompareTrackGeometry(target)
   const split = clampCompareSplit(value)
-  const clipSplit = getCanvasCompareSplit(split, zoom, panX, trackRect.width)
-
-  return {
-    split,
-    clipSplit,
-    handleX: getHandlePositionX(frameRect, trackRect, split),
-  }
+  const handleX = getHandlePositionX(geometry.frameRect, split)
+  const screenX = geometry.frameRect.left + handleX
+  const clipSplit = clipFracFromScreenX(screenX, geometry)
+  return { split, clipSplit, handleX }
 }
 
 function applyHandlePosition(target: HTMLElement, value: number) {
@@ -148,14 +145,18 @@ function applyPointerPosition(target: HTMLElement, clientX: number) {
   return split
 }
 
+function roundForCss(value: number) {
+  return Number(value.toFixed(4))
+}
+
 function applyCompareSplitVariables(
   target: HTMLElement,
-  split: number,
+  _split: number,
   clipSplit: number,
   handleX: number,
 ) {
-  const clipSplitPercent = `${clipSplit * 100}%`
-  const handlePosition = `${handleX}px`
+  const clipSplitPercent = `${roundForCss(clipSplit * 100)}%`
+  const handlePosition = `${roundForCss(handleX)}px`
 
   target.style.setProperty('--raw-compare-split', clipSplitPercent)
   target.style.setProperty('--raw-compare-split-x', handlePosition)
@@ -343,10 +344,10 @@ export function CompareSplitHandle({
 
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
-        onChange(clampCompareSplit(value - KEYBOARD_STEP))
+        onChange(clampCompareSplit(clampCompareSplit(value) - KEYBOARD_STEP))
       } else if (event.key === 'ArrowRight') {
         event.preventDefault()
-        onChange(clampCompareSplit(value + KEYBOARD_STEP))
+        onChange(clampCompareSplit(clampCompareSplit(value) + KEYBOARD_STEP))
       } else if (event.key === 'Home') {
         event.preventDefault()
         onChange(MIN_SPLIT)
@@ -365,6 +366,8 @@ export function CompareSplitHandle({
     [],
   )
 
+  const ariaValueNow = Math.round(clampCompareSplit(value) * 100)
+
   return (
     <button
       ref={handleRef}
@@ -373,7 +376,7 @@ export function CompareSplitHandle({
       aria-label={t('raw.stage.sliderAria')}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-valuenow={Math.round(clampCompareSplit(value) * 100)}
+      aria-valuenow={ariaValueNow}
       disabled={disabled}
       className={clsxm('raw-lab-compare-handle', className)}
       style={

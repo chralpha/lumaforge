@@ -27,13 +27,13 @@ beforeAll(() => {
 })
 
 describe('compare split helpers', () => {
-  it('clamps split to the full image range', () => {
+  it('clamps finite split values to the preview frame range', () => {
     expect(clampCompareSplit(-1)).toBe(0)
     expect(clampCompareSplit(0.5)).toBe(0.5)
     expect(clampCompareSplit(2)).toBe(1)
   })
 
-  it('maps pointer x position to split fraction', () => {
+  it('maps pointer x position to a clamped frame fraction', () => {
     expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 300)).toBe(0.5)
     expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 60)).toBe(0)
     expect(getCompareSplitFromClientX({ left: 100, width: 400 }, 520)).toBe(1)
@@ -125,7 +125,7 @@ describe('compareSplitHandle', () => {
     expect(getComputedStyle(slider).willChange).toContain('transform')
   })
 
-  it('maps pointer movement through the rendered image bounds when letterboxed', () => {
+  it('commits pointer movement in frame coordinates when the photo is letterboxed', () => {
     const onChange = vi.fn()
 
     render(
@@ -151,10 +151,11 @@ describe('compareSplitHandle', () => {
     fireEvent.pointerDown(slider, { clientX: 650, pointerId: 1 })
     fireEvent.pointerUp(slider, { clientX: 650, pointerId: 1 })
 
-    expect(onChange).toHaveBeenLastCalledWith(0.8)
+    expect(onChange).toHaveBeenLastCalledWith(0.65)
+    expect(slider.style.getPropertyValue('--raw-compare-split')).toBe('80%')
   })
 
-  it('keeps handle position in frame coordinates when the image track is zoomed and panned', () => {
+  it('keeps handle position in frame coordinates when the photo is zoomed and panned', () => {
     const onChange = vi.fn()
 
     render(
@@ -188,10 +189,13 @@ describe('compareSplitHandle', () => {
       value: 500,
     })
 
+    // split is a frame coordinate: handle stays centred in the preview frame.
+    // The photo layer still receives the transformed clip coordinate:
+    //   clipFrac = 0.5 + (500 - 100 - 250 - 100) / (2 * 500) = 0.55
     expect(getCompareSplitPositionGeometry(slider, 0.5)).toMatchObject({
       split: 0.5,
       handleX: 500,
-      clipSplit: 0.4,
+      clipSplit: 0.55,
     })
   })
 
@@ -234,8 +238,10 @@ describe('compareSplitHandle', () => {
     fireEvent.pointerDown(slider, { clientX: 500, pointerId: 1 })
     fireEvent.pointerUp(slider, { clientX: 500, pointerId: 1 })
 
+    // The committed split remains a frame coordinate, while the CSS clip
+    // compensates for the transformed photo surface.
     expect(onChange).toHaveBeenLastCalledWith(0.5)
-    expect(slider.style.getPropertyValue('--raw-compare-split')).toBe('40%')
+    expect(slider.style.getPropertyValue('--raw-compare-split')).toBe('55%')
   })
 
   it('keeps the transient preview position when the parent rerenders during drag', () => {

@@ -11,5 +11,6 @@ export function getCompareSplitFromClientX(
   clientX: number,
 ) {
   if (!rect.width || rect.width <= 0) return 0.5
+  if (!Number.isFinite(clientX)) return 0.5
   return clampCompareSplit((clientX - rect.left) / rect.width)
 }
