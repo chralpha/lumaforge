@@ -127,18 +127,19 @@ describe('useCpuPreview helpers', () => {
 })
 
 describe('useCpuPreview hook', () => {
-  it('keeps the quick CPU source active after bounded-HQ replaces the current decoded image', () => {
+  it('keeps the quick CPU source but uses the current decoded image exposure after bounded-HQ replaces it', () => {
     vi.stubGlobal('Worker', FakeWorker)
     const quickImage = makeDecodedImage('quick')
+    const boundedHqExposure: RawRenderExposure = {
+      ev: 2,
+      multiplier: exposureMultiplierFromEv(2),
+      source: 'image-statistics',
+    }
     const boundedHqImage = makeDecodedImage('bounded-hq', {
       width: 4,
       height: 4,
       data: new Uint16Array(4 * 4 * 3),
-      renderExposure: {
-        ev: 2,
-        multiplier: exposureMultiplierFromEv(2),
-        source: 'image-statistics',
-      },
+      renderExposure: boundedHqExposure,
     })
 
     const { result, rerender } = renderHook((props) => useCpuPreview(props), {
@@ -169,15 +170,42 @@ describe('useCpuPreview hook', () => {
 
     expect(result.current.frame?.sourceId).toBe(firstRender!.sourceId)
 
+    const renderCountBeforeHqReplace = worker.posted.filter(
+      (m) => m.type === 'render',
+    ).length
+
     rerender({
       enabled: true,
       image: boundedHqImage,
       imageVersion: 2,
-      params: baseParams,
+      params: { ...baseParams, rawRenderExposure: boundedHqExposure },
       variant: 'processed' as const,
     })
 
     expect(result.current.frame?.sourceId).toBe(firstRender!.sourceId)
+
+    const rendersAfterHqReplace = worker.posted.filter(
+      (m) => m.type === 'render',
+    )
+    expect(rendersAfterHqReplace).toHaveLength(renderCountBeforeHqReplace + 1)
+    const hqExposureRender = rendersAfterHqReplace.at(-1)
+    expect(hqExposureRender?.sourceId).toBe(firstRender!.sourceId)
+    expect(hqExposureRender?.graph.steps[1]).toMatchObject({
+      kind: 'raw-render-exposure',
+      ev: boundedHqExposure.ev,
+      multiplier: boundedHqExposure.multiplier,
+    })
+
+    act(() => {
+      worker.respond({
+        type: 'rendered',
+        sourceId: hqExposureRender!.sourceId,
+        requestId: hqExposureRender!.requestId,
+        rgba: new Uint8ClampedArray(2 * 2 * 4),
+        width: 2,
+        height: 2,
+      })
+    })
 
     const renderCountBeforeToneChange = worker.posted.filter(
       (m) => m.type === 'render',
@@ -187,7 +215,11 @@ describe('useCpuPreview hook', () => {
       enabled: true,
       image: boundedHqImage,
       imageVersion: 2,
-      params: { ...baseParams, userContrast: 30 },
+      params: {
+        ...baseParams,
+        rawRenderExposure: boundedHqExposure,
+        userContrast: 30,
+      },
       variant: 'processed' as const,
     })
 
@@ -195,6 +227,12 @@ describe('useCpuPreview hook', () => {
       (m) => m.type === 'render',
     )
     expect(rendersAfterToneChange).toHaveLength(renderCountBeforeToneChange + 1)
-    expect(rendersAfterToneChange.at(-1)?.sourceId).toBe(firstRender!.sourceId)
+    const latestRender = rendersAfterToneChange.at(-1)
+    expect(latestRender?.sourceId).toBe(firstRender!.sourceId)
+    expect(latestRender?.graph.steps[1]).toMatchObject({
+      kind: 'raw-render-exposure',
+      ev: boundedHqExposure.ev,
+      multiplier: boundedHqExposure.multiplier,
+    })
   })
 })
