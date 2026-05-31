@@ -63,7 +63,7 @@ describe('mobileModeDock', () => {
     expect(tablist).not.toHaveClass('pb-3')
   })
 
-  it('keeps export compact while giving Adjust enough room for inline rows', () => {
+  it('gives Export enough room while keeping non-editor modes compact', () => {
     const { rerender } = render(
       <MobileModeDock
         mode="export"
@@ -77,10 +77,27 @@ describe('mobileModeDock', () => {
     )
 
     expect(screen.getByTestId('panel').parentElement).toHaveClass(
-      'max-h-[24vh]',
+      'max-h-[min(32vh,260px)]',
     )
     expect(screen.getByTestId('panel').parentElement).toHaveClass(
       'overflow-y-auto',
+    )
+    expect(screen.getByTestId('panel').parentElement).toHaveClass('pb-4')
+
+    rerender(
+      <MobileModeDock
+        mode="look"
+        expanded
+        onModeChange={vi.fn()}
+        onCollapse={vi.fn()}
+        onOpenMore={vi.fn()}
+        canExport
+        panel={<div data-testid="panel">look-panel</div>}
+      />,
+    )
+
+    expect(screen.getByTestId('panel').parentElement).toHaveClass(
+      'max-h-[24vh]',
     )
 
     rerender(

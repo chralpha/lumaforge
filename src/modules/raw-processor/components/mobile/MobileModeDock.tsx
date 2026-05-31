@@ -68,7 +68,10 @@ export function MobileModeDock(props: {
               props.scrubbing && 'before:opacity-15',
               props.mode === 'tone'
                 ? 'max-h-[min(60vh,360px)]'
-                : 'max-h-[24vh]',
+                : props.mode === 'export'
+                  ? 'max-h-[min(32vh,260px)]'
+                  : 'max-h-[24vh]',
+              props.mode === 'export' && 'pb-4',
             )}
             initial={{ opacity: 0, y: prefersReduced ? 0 : 8 }}
             animate={{ opacity: 1, y: 0 }}
