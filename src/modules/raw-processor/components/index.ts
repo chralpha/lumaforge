@@ -6,9 +6,6 @@ export {
   LutDropzone,
   RAW_FILE_ACCEPT,
 } from './Dropzone'
-export { ExportCanvas } from './ExportCanvas'
-export { IntensityChips } from './IntensityChips'
-export { MetadataPanel } from './MetadataPanel'
 export {
   createRawUploadInput,
   syncRawUploadInput,
@@ -16,7 +13,6 @@ export {
 export { PreviewCanvas } from './PreviewCanvas'
 export { ErrorOverlay, ProgressOverlay, SuccessToast } from './ProgressOverlay'
 export { RawToolSurface } from './RawToolSurface'
-export { StatsPanel } from './StatsPanel'
 export { SupportBadge } from './SupportBadge'
 export { CompareTool } from './tools/CompareTool'
 export { ExportTool } from './tools/ExportTool'
@@ -35,5 +31,4 @@ export {
 export { StrengthControl, type StrengthLevel } from './tools/StrengthControl'
 export { ToolCard, ToolCardStack } from './tools/ToolCard'
 export { UnsupportedState } from './UnsupportedState'
-export { UploadState } from './UploadState'
 export { WorkspaceHeader } from './WorkspaceHeader'
