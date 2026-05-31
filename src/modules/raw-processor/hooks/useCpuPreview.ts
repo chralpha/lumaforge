@@ -275,6 +275,10 @@ export function useCpuPreview({
   }, [])
 
   if (!enabled || !lastSourceIdRef.current) {
+    if (enabled && image && isQuickU16(image) && !failureReason) {
+      return { frame: null, inFlight: true, failureReason: null }
+    }
+
     return { frame: null, inFlight: false, failureReason: null }
   }
 

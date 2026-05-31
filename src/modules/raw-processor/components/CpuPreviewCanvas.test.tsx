@@ -34,6 +34,15 @@ describe('cpuPreviewCanvas', () => {
     expect(screen.getByTestId('cpu-preview-spinner')).toBeInTheDocument()
   })
 
+  it('shows loading instead of unavailable before the first CPU frame resolves', () => {
+    render(<CpuPreviewCanvas frame={null} inFlight failureReason={null} />)
+
+    expect(screen.getByTestId('cpu-preview-spinner')).toBeInTheDocument()
+    expect(
+      screen.queryByTestId('cpu-preview-unavailable'),
+    ).not.toBeInTheDocument()
+  })
+
   it('shows an explicit placeholder when no frame and no thumbnail on failure', () => {
     render(
       <CpuPreviewCanvas

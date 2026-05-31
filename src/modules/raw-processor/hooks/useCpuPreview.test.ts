@@ -154,6 +154,7 @@ describe('useCpuPreview hook', () => {
 
     const worker = FakeWorker.instances[0]
     expect(worker).toBeDefined()
+    expect(result.current.inFlight).toBe(true)
     const firstRender = worker.posted.find((m) => m.type === 'render')
     expect(firstRender).toBeDefined()
 

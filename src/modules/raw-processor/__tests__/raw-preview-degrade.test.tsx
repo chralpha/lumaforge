@@ -82,6 +82,15 @@ describe('rawProcessorView CPU preview degraded path', () => {
     // PreviewCanvas renders a canvas inside a .raw-lab-preview-frame element;
     // the specific marker is the data attribute set on the canvas wrapper.
     expect(container.querySelector('[data-preview-canvas]')).toBeNull()
+
+    // Empty CPU mode must keep the normal RAW chooser instead of showing the
+    // post-decode CPU-preview failure placeholder.
+    expect(
+      screen.getByRole('button', { name: /choose raw/i }),
+    ).toBeInTheDocument()
+    expect(
+      container.querySelector('[data-testid="cpu-preview-unavailable"]'),
+    ).toBeNull()
   })
 
   it('renders workspace shell (not UnsupportedState) when degraded/cpu with webgl2-missing', () => {

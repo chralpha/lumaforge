@@ -432,7 +432,7 @@ function RawProcessorViewInner({
         data-raw-lab-layout="stage-tools"
         data-raw-desktop-layout="photo-stage-command-rail"
       >
-        {isCpuMode ? (
+        {isCpuMode && hasImage ? (
           <section
             className="raw-lab-stage relative flex flex-col"
             aria-label={t('raw.stage.aria')}

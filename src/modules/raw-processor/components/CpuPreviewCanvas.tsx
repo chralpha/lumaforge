@@ -28,7 +28,7 @@ export function CpuPreviewCanvas({
   frame,
   inFlight,
   fallbackThumbnailUrl,
-  failureReason: _failureReason,
+  failureReason,
   className,
 }: CpuPreviewCanvasProps) {
   const { t } = useI18n()
@@ -140,6 +140,45 @@ export function CpuPreviewCanvas({
             className="max-w-full max-h-full object-contain"
             draggable={false}
           />
+          {inFlight && (
+            <div
+              data-testid="cpu-preview-spinner"
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
+              aria-live="polite"
+              aria-label={t('raw.progress.processing')}
+            >
+              <LoadingCircle
+                size="small"
+                className="text-[var(--color-on-stage-soft,theme(colors.lf-on-photo-ink/60))]"
+              />
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    if (inFlight && !failureReason) {
+      return (
+        <div
+          className={clsxm(
+            'relative flex items-center justify-center w-full h-full bg-[var(--color-preview-mat)]',
+            className,
+          )}
+        >
+          <div
+            data-testid="cpu-preview-spinner"
+            className="flex flex-col items-center gap-3 text-center"
+            aria-live="polite"
+            aria-label={t('raw.progress.processing')}
+          >
+            <LoadingCircle
+              size="small"
+              className="text-[var(--color-on-stage-soft,theme(colors.lf-on-photo-ink/60))]"
+            />
+            <span className="text-sm text-[var(--color-on-stage-soft,theme(colors.lf-on-photo-ink/60))]">
+              {t('raw.progress.processing')}
+            </span>
+          </div>
         </div>
       )
     }
