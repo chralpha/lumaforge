@@ -382,7 +382,7 @@ describe('rawToolSurface', () => {
     ).toBeInTheDocument()
   })
 
-  it('switches desktop Adjust between tone and color controls with scoped resets', async () => {
+  it('stacks desktop Adjust tone and color controls with scoped resets', async () => {
     const user = userEvent.setup()
     const onToneReset = vi.fn()
     const onColorReset = vi.fn()
@@ -400,37 +400,29 @@ describe('rawToolSurface', () => {
 
     const adjust = screen.getByRole('region', { name: 'Adjust' })
     expect(
-      within(adjust).getByRole('tablist', { name: 'Adjust' }),
-    ).toBeInTheDocument()
-    expect(within(adjust).getByRole('tab', { name: 'Tone' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    )
-    expect(within(adjust).getByRole('tab', { name: 'Color' })).toHaveAttribute(
-      'aria-selected',
-      'false',
-    )
-
-    await user.click(within(adjust).getByRole('tab', { name: 'Color' }))
-
+      within(adjust).queryByRole('tablist', { name: 'Adjust' }),
+    ).not.toBeInTheDocument()
+    expect(within(adjust).getByText('Exposure')).toBeInTheDocument()
+    expect(within(adjust).getByText('Contrast')).toBeInTheDocument()
     expect(within(adjust).getByText('Temperature')).toBeInTheDocument()
     expect(within(adjust).getByText('Tint')).toBeInTheDocument()
+
+    await user.click(within(adjust).getByRole('button', { name: 'Reset tone' }))
+    expect(onToneReset).toHaveBeenCalledTimes(1)
+    expect(onColorReset).not.toHaveBeenCalled()
 
     await user.click(
       within(adjust).getByRole('button', { name: 'Reset color' }),
     )
 
     expect(onColorReset).toHaveBeenCalledTimes(1)
-    expect(onToneReset).not.toHaveBeenCalled()
+    expect(onToneReset).toHaveBeenCalledTimes(1)
   })
 
-  it('disables reset color when color controls are neutral', async () => {
-    const user = userEvent.setup()
-
+  it('disables reset color when color controls are neutral', () => {
     render(<RawToolSurface {...baseProps} hasImage />)
 
     const adjust = screen.getByRole('region', { name: 'Adjust' })
-    await user.click(within(adjust).getByRole('tab', { name: 'Color' }))
 
     expect(
       within(adjust).getByRole('button', { name: 'Reset color' }),
@@ -441,8 +433,6 @@ describe('rawToolSurface', () => {
     render(<RawToolSurface {...baseProps} />)
 
     const tone = getToneRegion()
-    expect(within(tone).getByRole('tab', { name: 'Tone' })).toBeDisabled()
-    expect(within(tone).getByRole('tab', { name: 'Color' })).toBeDisabled()
     expect(
       within(tone).getByRole('slider', { name: 'Exposure' }),
     ).toHaveAttribute('data-disabled')
@@ -461,7 +451,14 @@ describe('rawToolSurface', () => {
     expect(
       within(tone).getByRole('slider', { name: 'Blacks' }),
     ).toHaveAttribute('data-disabled')
+    expect(
+      within(tone).getByRole('slider', { name: 'Temperature' }),
+    ).toHaveAttribute('data-disabled')
+    expect(within(tone).getByRole('slider', { name: 'Tint' })).toHaveAttribute(
+      'data-disabled',
+    )
     expect(screen.getByRole('button', { name: 'Reset tone' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Reset color' })).toBeDisabled()
   })
 
   it('disables preview-dependent editing while the preview is released after export', () => {
