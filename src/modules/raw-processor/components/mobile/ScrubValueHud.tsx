@@ -30,7 +30,7 @@ export function ScrubValueHud(props: ScrubValueHudProps) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 4 }}
           transition={surfaceFade}
-          className="pointer-events-none absolute left-1/2 top-1/2 z-30 grid -translate-x-1/2 -translate-y-1/2 gap-1 rounded-lf-panel border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-5 py-3 text-center backdrop-blur-background"
+          className="pointer-events-none absolute left-1/2 top-1/3 z-30 grid -translate-x-1/2 -translate-y-1/2 gap-1 rounded-lf-panel border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-5 py-3 text-center backdrop-blur-background"
         >
           <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-lf-amber-soft">
             {readout.label}
