@@ -35,6 +35,8 @@ const baseParams: CpuPreviewParams = {
   userShadows: 10,
   userWhites: 5,
   userBlacks: -5,
+  userTemperature: 40,
+  userTint: -20,
 }
 
 class FakeWorker {
@@ -112,6 +114,8 @@ describe('useCpuPreview helpers', () => {
         userShadows: 0,
         userWhites: 0,
         userBlacks: 0,
+        userTemperature: 0,
+        userTint: 0,
       },
       'processed',
     )
@@ -124,10 +128,38 @@ describe('useCpuPreview helpers', () => {
     // Differs from neutral because edits are applied.
     expect(processed).not.toEqual(buildCpuPreviewGraph(baseParams, 'neutral'))
   })
+
+  it('passes color balance params to the processed CPU preview graph', () => {
+    const graph = buildCpuPreviewGraph(baseParams, 'processed')
+
+    expect('unsupportedReason' in graph).toBe(false)
+    if ('unsupportedReason' in graph) throw new Error('Expected graph')
+    expect(
+      graph.steps.find((step) => step.kind === 'user-color-balance'),
+    ).toMatchObject({
+      kind: 'user-color-balance',
+      temperature: 40,
+      tint: -20,
+    })
+  })
+
+  it('resets color balance params in the neutral CPU preview graph', () => {
+    const graph = buildCpuPreviewGraph(baseParams, 'neutral')
+
+    expect('unsupportedReason' in graph).toBe(false)
+    if ('unsupportedReason' in graph) throw new Error('Expected graph')
+    expect(
+      graph.steps.find((step) => step.kind === 'user-color-balance'),
+    ).toMatchObject({
+      kind: 'user-color-balance',
+      temperature: 0,
+      tint: 0,
+    })
+  })
 })
 
 describe('useCpuPreview hook', () => {
-  it('keeps the quick CPU source but uses the current decoded image exposure after bounded-HQ replaces it', () => {
+  it('keeps the quick CPU source but uses the current decoded image exposure after bounded-HQ replaces it', async () => {
     vi.stubGlobal('Worker', FakeWorker)
     const quickImage = makeDecodedImage('quick')
     const boundedHqExposure: RawRenderExposure = {
@@ -234,6 +266,53 @@ describe('useCpuPreview hook', () => {
       kind: 'raw-render-exposure',
       ev: boundedHqExposure.ev,
       multiplier: boundedHqExposure.multiplier,
+    })
+
+    const renderCountBeforeColorChange = worker.posted.filter(
+      (m) => m.type === 'render',
+    ).length
+
+    await act(async () => {
+      rerender({
+        enabled: true,
+        image: boundedHqImage,
+        imageVersion: 2,
+        params: {
+          ...baseParams,
+          rawRenderExposure: boundedHqExposure,
+          userContrast: 30,
+          userTemperature: -25,
+        },
+        variant: 'processed' as const,
+      })
+    })
+
+    const rendersAfterColorChange = worker.posted.filter(
+      (m) => m.type === 'render',
+    )
+    expect(rendersAfterColorChange).toHaveLength(renderCountBeforeColorChange)
+
+    act(() => {
+      worker.respond({
+        type: 'rendered',
+        sourceId: latestRender!.sourceId,
+        requestId: latestRender!.requestId,
+        rgba: new Uint8ClampedArray(2 * 2 * 4),
+        width: 2,
+        height: 2,
+      })
+    })
+
+    const rendersAfterColorFlush = worker.posted.filter(
+      (m) => m.type === 'render',
+    )
+    expect(rendersAfterColorFlush).toHaveLength(
+      renderCountBeforeColorChange + 1,
+    )
+    expect(rendersAfterColorFlush.at(-1)?.graph.steps[2]).toMatchObject({
+      kind: 'user-color-balance',
+      temperature: -25,
+      tint: -20,
     })
   })
 })

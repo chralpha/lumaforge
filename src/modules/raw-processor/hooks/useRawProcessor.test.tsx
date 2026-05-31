@@ -2148,6 +2148,14 @@ describe('useRawProcessor embedded preview state', () => {
         ev: renderExposure.ev,
         multiplier: renderExposure.multiplier,
       },
+      {
+        kind: 'user-color-balance',
+        temperature: 0,
+        tint: 0,
+        gain: [1, 1, 1],
+        operator: 'linear-prophoto-relative-rgb-gain',
+        luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
+      },
       { kind: 'user-exposure', ev: 0, multiplier: 1 },
       {
         kind: 'user-contrast',
@@ -4101,6 +4109,33 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
+  it('updates and resets color params without resetting tone params', () => {
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+
+    act(() => {
+      result.current.setToneParams({ userExposureEv: 1, userContrast: 25 })
+      result.current.setColorParams({ userTemperature: 35, userTint: -10 })
+    })
+
+    expect(result.current.params).toMatchObject({
+      userExposureEv: 1,
+      userContrast: 25,
+      userTemperature: 35,
+      userTint: -10,
+    })
+
+    act(() => {
+      result.current.resetColor()
+    })
+
+    expect(result.current.params).toMatchObject({
+      userExposureEv: 1,
+      userContrast: 25,
+      userTemperature: 0,
+      userTint: 0,
+    })
+  })
+
   it('merges back-to-back partial tone updates before React re-renders', () => {
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
 
@@ -4184,6 +4219,47 @@ describe('useRawProcessor embedded preview state', () => {
       shadows: 40,
       whites: -20,
       blacks: 20,
+    })
+  })
+
+  it('passes user color into full-resolution export graph', async () => {
+    rawRuntimeAdapterMock.extractEmbeddedPreview.mockResolvedValue(null)
+    rawRuntimeAdapterMock.decodeQuickRaw.mockResolvedValue(
+      createDecodedImage('quick'),
+    )
+    rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
+      createDecodedImage('bounded-hq'),
+    )
+    exportSystemMock.runFullResolutionExportJob.mockResolvedValue({
+      filename: 'frame_color_fullres.jpg',
+      blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    await act(async () => {
+      await result.current.loadFile(new File(['raw'], 'frame.ARW'))
+    })
+    act(() => {
+      result.current.setColorParams({
+        userTemperature: 35,
+        userTint: -10,
+      })
+    })
+    await act(async () => {
+      await result.current.exportImage({
+        quality: 'high',
+        fidelity: 'balanced',
+      })
+    })
+
+    const [{ graph }] =
+      exportSystemMock.runFullResolutionExportJob.mock.calls[0]!
+    expect(
+      graph.steps.find((step) => step.kind === 'user-color-balance'),
+    ).toMatchObject({
+      kind: 'user-color-balance',
+      temperature: 35,
+      tint: -10,
     })
   })
 

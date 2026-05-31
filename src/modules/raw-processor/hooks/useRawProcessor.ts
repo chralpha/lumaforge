@@ -107,6 +107,7 @@ import type { OriginalReferenceSnapshot } from '../services/original-reference-s
 import { releaseOriginalReferenceSnapshot } from '../services/original-reference-snapshot'
 import {
   computeClearLUT,
+  computeColorParams,
   computeCompareSplitChange,
   computeIntensityChange,
   computeToneParams,
@@ -250,6 +251,10 @@ export interface UseRawProcessorReturn {
     >,
   ) => void
   resetTone: () => void
+  setColorParams: (
+    params: Partial<Pick<ProcessingParams, 'userTemperature' | 'userTint'>>,
+  ) => void
+  resetColor: () => void
   exportImage: (options: {
     quality: 'standard' | 'high'
     fidelity: 'safe' | 'balanced' | 'max'
@@ -1272,6 +1277,34 @@ export function useRawProcessor(): UseRawProcessorReturn {
     })
   }, [handleSetParams])
 
+  const setColorParams = useCallback(
+    (
+      colorParams: Partial<
+        Pick<ProcessingParams, 'userTemperature' | 'userTint'>
+      >,
+    ) => {
+      let shouldClearExportResult = false
+      setParams((prev) => {
+        const { params: nextParams, shouldClearExportResult: shouldClear } =
+          computeColorParams(prev, colorParams)
+        shouldClearExportResult = shouldClear
+        return nextParams
+      })
+
+      if (shouldClearExportResult) {
+        invalidateExportGraph()
+      }
+    },
+    [invalidateExportGraph, setParams],
+  )
+
+  const resetColor = useCallback(() => {
+    handleSetParams({
+      userTemperature: 0,
+      userTint: 0,
+    })
+  }, [handleSetParams])
+
   // Export image
   const exportImage = useCallback(
     async (options: {
@@ -1881,6 +1914,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setParams: handleSetParams,
     setToneParams,
     resetTone,
+    setColorParams,
+    resetColor,
     exportImage,
     exportPreviewImage,
     recoverInterruptedExport,

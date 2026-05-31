@@ -1,5 +1,8 @@
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
-import { normalizeToneParams } from '@lumaforge/luma-color-runtime'
+import {
+  normalizeColorBalanceParams,
+  normalizeToneParams,
+} from '@lumaforge/luma-color-runtime'
 
 import type { ImageSession, StyleAsset } from '../../model/session'
 import { clampCompareSplit } from '../compare-split'
@@ -143,6 +146,26 @@ export function computeToneParams(
     userShadows: toneParams.userShadows ?? prevParams.userShadows,
     userWhites: toneParams.userWhites ?? prevParams.userWhites,
     userBlacks: toneParams.userBlacks ?? prevParams.userBlacks,
+  })
+
+  const shouldClearExportResult = changesRenderGraphParams(
+    prevParams,
+    normalized,
+  )
+
+  return {
+    params: { ...prevParams, ...normalized },
+    shouldClearExportResult,
+  }
+}
+
+export function computeColorParams(
+  prevParams: ProcessingParams,
+  colorParams: Partial<Pick<ProcessingParams, 'userTemperature' | 'userTint'>>,
+): { params: ProcessingParams; shouldClearExportResult: boolean } {
+  const normalized = normalizeColorBalanceParams({
+    userTemperature: colorParams.userTemperature ?? prevParams.userTemperature,
+    userTint: colorParams.userTint ?? prevParams.userTint,
   })
 
   const shouldClearExportResult = changesRenderGraphParams(

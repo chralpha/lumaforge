@@ -14,6 +14,8 @@ const defaultParams: ProcessingParams = {
   userShadows: 0,
   userWhites: 0,
   userBlacks: 0,
+  userTemperature: 0,
+  userTint: 0,
   intensity: 0.7,
   viewMode: 'processed',
   compareSplit: 0.5,
@@ -491,6 +493,35 @@ describe('usePreviewHistogram', () => {
     expect(result.current).toBe(ready)
     await runAllWork()
     expect(result.current).toBe(ready)
+  })
+
+  it('recomputes on color changes while compare split remains irrelevant', async () => {
+    const { result, rerender, imageRef, lutDataRef } = renderPreviewHistogram({
+      image: createImage('quick'),
+    })
+
+    await runAllWork()
+    expect(result.current.state).toBe('ready')
+    const previous = result.current
+
+    rerender({
+      imageRef,
+      imageVersion: 1,
+      params: {
+        ...defaultParams,
+        viewMode: 'compare',
+        compareSplit: 0.82,
+        userTemperature: 25,
+      },
+      lutDataRef,
+      lutDataVersion: 0,
+      displaySource: 'quick',
+    })
+
+    expect(result.current).toEqual({ state: 'stale', previous })
+
+    await runDebouncedWork(150)
+    expect(result.current).toEqual({ state: 'computing', previous })
   })
 
   it('keeps previous bins as stale while tone recomputation is pending', async () => {

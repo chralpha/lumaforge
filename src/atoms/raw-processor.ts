@@ -47,6 +47,8 @@ const DEFAULT_PROCESSING_PARAMS: ProcessingParams = {
   userShadows: 0,
   userWhites: 0,
   userBlacks: 0,
+  userTemperature: 0,
+  userTint: 0,
 }
 
 const baseProcessingParamsAtom = atom<ProcessingParams>({

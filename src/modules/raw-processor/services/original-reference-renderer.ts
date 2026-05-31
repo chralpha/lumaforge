@@ -34,6 +34,8 @@ const ORIGINAL_REFERENCE_PARAMS: ProcessingParams = {
   userShadows: 0,
   userWhites: 0,
   userBlacks: 0,
+  userTemperature: 0,
+  userTint: 0,
 }
 
 function fitWithinPixelCap(width: number, height: number, maxPixels: number) {

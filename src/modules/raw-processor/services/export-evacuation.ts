@@ -21,6 +21,7 @@ export type PreExportSnapshot = {
   lutTitle?: string
   quickPreviewReady: boolean
   tone: unknown
+  color?: unknown
   style: unknown
 }
 

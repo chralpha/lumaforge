@@ -172,6 +172,9 @@ export function changesRenderGraphParams(
     (Object.hasOwn(next, 'userWhites') &&
       next.userWhites !== current.userWhites) ||
     (Object.hasOwn(next, 'userBlacks') &&
-      next.userBlacks !== current.userBlacks)
+      next.userBlacks !== current.userBlacks) ||
+    (Object.hasOwn(next, 'userTemperature') &&
+      next.userTemperature !== current.userTemperature) ||
+    (Object.hasOwn(next, 'userTint') && next.userTint !== current.userTint)
   )
 }

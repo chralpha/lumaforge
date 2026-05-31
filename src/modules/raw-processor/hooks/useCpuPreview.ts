@@ -31,6 +31,8 @@ export type CpuPreviewParams = {
   userShadows: number
   userWhites: number
   userBlacks: number
+  userTemperature: number
+  userTint: number
 }
 
 // ---------------------------------------------------------------------------
@@ -74,6 +76,8 @@ export function buildCpuPreviewGraph(
           userShadows: 0,
           userWhites: 0,
           userBlacks: 0,
+          userTemperature: 0,
+          userTint: 0,
         }
       : params
 
@@ -249,7 +253,7 @@ export function useCpuPreview({
       return
     }
 
-    const renderSig = `${sourceId}|${variant}|${params.styleKind}|${params.intensity}|${params.builtinPreset ?? ''}|${params.rawRenderExposure.ev}|${params.rawRenderExposure.multiplier}|${params.userExposureEv}|${params.userContrast}|${params.userHighlights}|${params.userShadows}|${params.userWhites}|${params.userBlacks}`
+    const renderSig = `${sourceId}|${variant}|${params.styleKind}|${params.intensity}|${params.builtinPreset ?? ''}|${params.rawRenderExposure.ev}|${params.rawRenderExposure.multiplier}|${params.userExposureEv}|${params.userContrast}|${params.userHighlights}|${params.userShadows}|${params.userWhites}|${params.userBlacks}|${params.userTemperature}|${params.userTint}`
     const prevKey = lastRenderKeyRef.current
     if (prevKey && prevKey.sig === renderSig && prevKey.lut === params.lut) {
       return

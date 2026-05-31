@@ -186,6 +186,8 @@ describe('export state helpers', () => {
       userShadows: 0,
       userWhites: 0,
       userBlacks: 0,
+      userTemperature: 0,
+      userTint: 0,
     } as const
 
     expect(
@@ -206,6 +208,29 @@ describe('export state helpers', () => {
     expect(changesRenderGraphParams(current, { builtinPreset: 'cool' })).toBe(
       true,
     )
+  })
+
+  it('treats temperature and tint changes as render graph changes', () => {
+    const current = {
+      styleKind: 'none',
+      builtinPreset: null,
+      intensity: 0.7,
+      viewMode: 'compare',
+      compareSplit: 0.5,
+      userExposureEv: 0,
+      userContrast: 0,
+      userHighlights: 0,
+      userShadows: 0,
+      userWhites: 0,
+      userBlacks: 0,
+      userTemperature: 0,
+      userTint: 0,
+    } as const
+
+    expect(changesRenderGraphParams(current, { userTemperature: 12 })).toBe(
+      true,
+    )
+    expect(changesRenderGraphParams(current, { userTint: -8 })).toBe(true)
   })
 
   it('compares raw render exposure by value while preserving null semantics', () => {

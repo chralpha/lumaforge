@@ -169,6 +169,8 @@ export async function orchestrateFullResExport(
     userShadows: ctx.atoms.params.userShadows,
     userWhites: ctx.atoms.params.userWhites,
     userBlacks: ctx.atoms.params.userBlacks,
+    userTemperature: ctx.atoms.params.userTemperature,
+    userTint: ctx.atoms.params.userTint,
   })
 
   if (!graph.supported) {
@@ -389,6 +391,10 @@ export async function orchestrateFullResExport(
         userShadows: ctx.atoms.params.userShadows,
         userWhites: ctx.atoms.params.userWhites,
         userBlacks: ctx.atoms.params.userBlacks,
+      },
+      color: {
+        userTemperature: ctx.atoms.params.userTemperature,
+        userTint: ctx.atoms.params.userTint,
       },
       style: activeSession.activeStyle,
     })

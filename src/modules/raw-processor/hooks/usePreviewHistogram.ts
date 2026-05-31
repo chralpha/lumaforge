@@ -109,6 +109,8 @@ function createHistogramJob({
     params.userShadows ?? 0,
     params.userWhites ?? 0,
     params.userBlacks ?? 0,
+    params.userTemperature ?? 0,
+    params.userTint ?? 0,
   ].join(':')
 
   if (!image) {
@@ -168,6 +170,8 @@ function createHistogramJob({
     userShadows: params.userShadows,
     userWhites: params.userWhites,
     userBlacks: params.userBlacks,
+    userTemperature: params.userTemperature,
+    userTint: params.userTint,
   })
 
   if (!graph.supported) {
@@ -233,6 +237,8 @@ export function usePreviewHistogram(
     userShadows,
     userWhites,
     userBlacks,
+    userTemperature,
+    userTint,
   } = params
   const histogramParams = useMemo<ProcessingParams>(
     () => ({
@@ -245,6 +251,8 @@ export function usePreviewHistogram(
       userShadows,
       userWhites,
       userBlacks,
+      userTemperature,
+      userTint,
       viewMode: 'processed',
       compareSplit: 0.5,
     }),
@@ -257,6 +265,8 @@ export function usePreviewHistogram(
       userExposureEv,
       userHighlights,
       userShadows,
+      userTemperature,
+      userTint,
       userWhites,
     ],
   )
