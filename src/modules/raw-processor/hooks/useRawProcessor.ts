@@ -50,9 +50,9 @@ import { useOriginalReferenceSnapshotResources } from './stages/compare/useOrigi
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
 import { useExportDerivedState } from './stages/export/useExportDerivedState'
 import { useExportGraphInvalidation } from './stages/export/useExportGraphInvalidation'
-import type { PendingRecoveryRetry } from './stages/export/useExportRecoveryAction'
 import { useExportRecoveryAction } from './stages/export/useExportRecoveryAction'
 import { useExportRecoveryDiscovery } from './stages/export/useExportRecoveryDiscovery'
+import { useExportRecoveryState } from './stages/export/useExportRecoveryState'
 import { useExportResourceManagement } from './stages/export/useExportResourceManagement'
 import { useExportResultActions } from './stages/export/useExportResultActions'
 import type { FullResExportOptions } from './stages/export/useFullResExportAction'
@@ -211,11 +211,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const paramsRef = useRef(compareStage.params)
   const rawRenderExposureRef = useRef<RawRenderExposure | null>(null)
   const [decodedImageVersion, setDecodedImageVersion] = useState(0)
-  const discoveredRecoveryRef = useRef<ExportRecoveryState>({ status: 'none' })
-  const [discoveredRecovery, setDiscoveredRecovery] =
-    useState<ExportRecoveryState>({ status: 'none' })
-  const [pendingRecoveryRetry, setPendingRecoveryRetry] =
-    useState<PendingRecoveryRetry | null>(null)
+  const {
+    discoveredRecovery,
+    discoveredRecoveryRef,
+    setDiscoveredRecoveryState,
+    pendingRecoveryRetry,
+    setPendingRecoveryRetry,
+  } = useExportRecoveryState()
   if (!resourceRegistryRef.current) {
     resourceRegistryRef.current = createResourceRegistry()
   }
@@ -232,13 +234,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     })
   }, [])
   sessionRef.current = session
-  const setDiscoveredRecoveryState = useCallback(
-    (next: ExportRecoveryState) => {
-      discoveredRecoveryRef.current = next
-      setDiscoveredRecovery(next)
-    },
-    [],
-  )
   const {
     hasImage,
     loadedImage,
