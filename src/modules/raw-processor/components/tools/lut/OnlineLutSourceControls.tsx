@@ -8,6 +8,7 @@ import {
   Share2,
   Trash2,
 } from 'lucide-react'
+import { AnimatePresence } from 'motion/react'
 import {
   useCallback,
   useEffect,
@@ -98,7 +99,8 @@ export function OnlineLutSourceControls({
   const closeBrowser = useCallback(
     (resourceId = openResourceId, options: { restoreFocus?: boolean } = {}) => {
       setOpenResourceId(null)
-      setBrowserLayout(null)
+      // Layout is left in place so the dialog's exit animation can finish
+      // against the same anchor before the next open recomputes it.
 
       if (options.restoreFocus && resourceId) {
         queueMicrotask(() => openButtonRefs.current.get(resourceId)?.focus())
@@ -165,129 +167,124 @@ export function OnlineLutSourceControls({
       : count > 1
         ? t('raw.lutSource.countMany', { count })
         : t('raw.lutSource.countZero')
-  const openBrowser =
-    openResource &&
-    browserLayout &&
-    (() => {
-      return (
-        <LutBrowserDialog
-          open={Boolean(openResource)}
-          layout={browserLayout}
-          id={browserId}
-          kind="source"
-          className="grid-rows-[auto_minmax(0,1fr)]"
-          dialogLabel={`${openResource.label} LUTs`}
-          title={openResource.label}
-          description={formatEntryCount(openEntries.length)}
-          closeLabel={t('raw.lutSource.close')}
-          restoreFocus={() =>
-            openButtonRefs.current.get(openResource.id)?.focus()
-          }
-          triggerElement={openButtonRefs.current.get(openResource.id)}
-          passthroughElements={() => openButtonRefs.current.values()}
-          fillHeight={false}
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) {
-              closeBrowser(openResource.id, { restoreFocus: true })
-            }
-          }}
-        >
-          <div
-            ref={setBrowserListEl}
-            className="grid min-h-0 content-start gap-2 overflow-y-auto overscroll-contain pr-0.5"
-            data-raw-lut="source-browser-list"
-            data-lut-source-scroll="internal"
-          >
-            {openEntries.length > 0 ? (
-              (() => {
-                const { families, others } = groupEntriesByFamily(openEntries)
+  const dialogResource = openResource
+  const openBrowser = dialogResource && browserLayout && (
+    <LutBrowserDialog
+      key={dialogResource.id}
+      open={Boolean(openResource)}
+      layout={browserLayout}
+      id={browserId}
+      kind="source"
+      className="grid-rows-[auto_minmax(0,1fr)]"
+      dialogLabel={`${dialogResource.label} LUTs`}
+      title={dialogResource.label}
+      description={formatEntryCount(openEntries.length)}
+      closeLabel={t('raw.lutSource.close')}
+      restoreFocus={() =>
+        openButtonRefs.current.get(dialogResource.id)?.focus()
+      }
+      triggerElement={openButtonRefs.current.get(dialogResource.id)}
+      passthroughElements={() => openButtonRefs.current.values()}
+      fillHeight={false}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          closeBrowser(dialogResource.id, { restoreFocus: true })
+        }
+      }}
+    >
+      <div
+        ref={setBrowserListEl}
+        className="grid min-h-0 content-start gap-2 overflow-y-auto overscroll-contain pr-0.5"
+        data-raw-lut="source-browser-list"
+        data-lut-source-scroll="internal"
+      >
+        {openEntries.length > 0 ? (
+          (() => {
+            const { families, others } = groupEntriesByFamily(openEntries)
 
-                const renderEntry = (entry: (typeof openEntries)[number]) => {
-                  const isLoading = loadingEntryId === entry.id
-                  const handleLoadEntry = async () => {
-                    if (loadingEntryId) return
-                    setLoadingEntryId(entry.id)
-                    await new Promise<void>((resolve) =>
-                      requestAnimationFrame(() => resolve()),
-                    )
-                    try {
-                      await onlineLutSources.loadEntry(entry.id)
-                      closeBrowser(openResource.id, { restoreFocus: true })
-                    } catch {
-                      // per-resource issue chip surfaces the failure
-                    } finally {
-                      setLoadingEntryId(null)
-                    }
-                  }
-
-                  return (
-                    <div
-                      key={entry.id}
-                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_28px] items-center gap-2 rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.045)]"
-                      data-raw-lut="source-entry"
-                      data-raw-lut-entry-loading={
-                        isLoading ? 'true' : undefined
-                      }
-                    >
-                      <span className="min-w-0 truncate text-[0.74rem] leading-[1.35] text-lf-on-surface/75">
-                        {entry.title}
-                      </span>
-                      <LutIconButton
-                        label={t('raw.lutSource.load', {
-                          label: entry.title,
-                        })}
-                        busy={isLoading}
-                        disabled={isLoading}
-                        onClick={() => {
-                          void handleLoadEntry()
-                        }}
-                      >
-                        {isLoading ? (
-                          <Loader2 aria-hidden="true" />
-                        ) : (
-                          <Download aria-hidden="true" />
-                        )}
-                      </LutIconButton>
-                    </div>
-                  )
-                }
-
-                return (
-                  <>
-                    {families.map(({ family, items }) => (
-                      <div key={family} className="grid gap-1">
-                        <div className="px-1 text-[0.7rem] font-medium tracking-tight text-lf-on-surface/50">
-                          {family}
-                        </div>
-                        <div className="grid gap-0.5 sm:grid-cols-2">
-                          {items.map(renderEntry)}
-                        </div>
-                      </div>
-                    ))}
-                    {others.length > 0 && (
-                      <div className="grid gap-1">
-                        <div className="px-1 text-[0.7rem] font-medium tracking-tight text-lf-on-surface/50">
-                          {t('raw.lutSource.others')}
-                        </div>
-                        <div className="grid gap-0.5 sm:grid-cols-2">
-                          {others.map(renderEntry)}
-                        </div>
-                      </div>
-                    )}
-                  </>
+            const renderEntry = (entry: (typeof openEntries)[number]) => {
+              const isLoading = loadingEntryId === entry.id
+              const handleLoadEntry = async () => {
+                if (loadingEntryId) return
+                setLoadingEntryId(entry.id)
+                await new Promise<void>((resolve) =>
+                  requestAnimationFrame(() => resolve()),
                 )
-              })()
-            ) : (
-              <p className="text-[0.78rem] leading-relaxed text-lf-on-surface/72">
-                {openIssues.length > 0
-                  ? t('raw.lutSource.noneCompatible')
-                  : t('raw.lutSource.noneYet')}
-              </p>
-            )}
-          </div>
-        </LutBrowserDialog>
-      )
-    })()
+                try {
+                  await onlineLutSources.loadEntry(entry.id)
+                  closeBrowser(openResource.id, { restoreFocus: true })
+                } catch {
+                  // per-resource issue chip surfaces the failure
+                } finally {
+                  setLoadingEntryId(null)
+                }
+              }
+
+              return (
+                <div
+                  key={entry.id}
+                  className="grid min-w-0 grid-cols-[minmax(0,1fr)_28px] items-center gap-2 rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.045)]"
+                  data-raw-lut="source-entry"
+                  data-raw-lut-entry-loading={isLoading ? 'true' : undefined}
+                >
+                  <span className="min-w-0 truncate text-[0.74rem] leading-[1.35] text-lf-on-surface/75">
+                    {entry.title}
+                  </span>
+                  <LutIconButton
+                    label={t('raw.lutSource.load', {
+                      label: entry.title,
+                    })}
+                    busy={isLoading}
+                    disabled={isLoading}
+                    onClick={() => {
+                      void handleLoadEntry()
+                    }}
+                  >
+                    {isLoading ? (
+                      <Loader2 aria-hidden="true" />
+                    ) : (
+                      <Download aria-hidden="true" />
+                    )}
+                  </LutIconButton>
+                </div>
+              )
+            }
+
+            return (
+              <>
+                {families.map(({ family, items }) => (
+                  <div key={family} className="grid gap-1">
+                    <div className="px-1 text-[0.7rem] font-medium tracking-tight text-lf-on-surface/50">
+                      {family}
+                    </div>
+                    <div className="grid gap-0.5 sm:grid-cols-2">
+                      {items.map(renderEntry)}
+                    </div>
+                  </div>
+                ))}
+                {others.length > 0 && (
+                  <div className="grid gap-1">
+                    <div className="px-1 text-[0.7rem] font-medium tracking-tight text-lf-on-surface/50">
+                      {t('raw.lutSource.others')}
+                    </div>
+                    <div className="grid gap-0.5 sm:grid-cols-2">
+                      {others.map(renderEntry)}
+                    </div>
+                  </div>
+                )}
+              </>
+            )
+          })()
+        ) : (
+          <p className="text-[0.78rem] leading-relaxed text-lf-on-surface/72">
+            {openIssues.length > 0
+              ? t('raw.lutSource.noneCompatible')
+              : t('raw.lutSource.noneYet')}
+          </p>
+        )}
+      </div>
+    </LutBrowserDialog>
+  )
 
   return (
     <div className="grid min-w-0 gap-2 pt-1" data-raw-lut="source-controls">
@@ -470,7 +467,7 @@ export function OnlineLutSourceControls({
         </div>
       )}
 
-      {openBrowser}
+      <AnimatePresence>{openBrowser}</AnimatePresence>
 
       {(() => {
         const looseIssues = state.issues.filter((issue) => !issue.resourceId)
