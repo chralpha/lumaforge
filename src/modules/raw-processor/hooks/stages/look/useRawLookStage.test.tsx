@@ -90,6 +90,8 @@ describe('useRawLookStage', () => {
     )
 
     expect(result.current.params.intensity).toBe(1)
+    expect(result.current.params.styleKind).toBe('custom')
+    expect(result.current.params.builtinPreset).toBeNull()
     expect(result.current.activeIntensity).toBe('strong')
     expect(result.current.currentLutName).toBe('Client Look')
   })

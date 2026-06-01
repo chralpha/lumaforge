@@ -92,9 +92,17 @@ export function useRawLookStage({
     const intensity = mapIntensityLevel(
       session.activeStyle.currentIntensityLevel,
     )
-    return baseParams.intensity === intensity
+    const stylePatch =
+      session.activeStyle.kind === 'custom'
+        ? { styleKind: 'custom' as const, builtinPreset: null }
+        : {}
+    const nextParams = { ...baseParams, ...stylePatch, intensity }
+
+    return baseParams.intensity === intensity &&
+      baseParams.styleKind === nextParams.styleKind &&
+      baseParams.builtinPreset === nextParams.builtinPreset
       ? baseParams
-      : { ...baseParams, intensity }
+      : nextParams
   }, [baseParams, session?.activeStyle])
 
   const lutCtx = useMemo<LutLoadContext>(
