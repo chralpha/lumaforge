@@ -95,29 +95,17 @@ import { orchestrateFullResExport } from '../services/export/orchestrate-full-re
 import type { RawLoadContext } from '../services/ingest/orchestrate-raw-load'
 import { orchestrateRawLoad } from '../services/ingest/orchestrate-raw-load'
 import { getProgressRecoveryHint } from '../services/ingest/workflow-status'
-import type { LutLoadContext } from '../services/look/orchestrate-lut-load'
 import {
-  orchestrateLutLoadFromFile,
-  orchestrateOnlineLutLoad,
-  orchestrateProfileSelection,
-} from '../services/look/orchestrate-lut-load'
-import {
-  computeClearLUT,
   computeColorParams,
-  computeIntensityChange,
   computeToneParams,
 } from '../services/look/orchestrate-params-update'
-import {
-  buildLUTContractSelectionState,
-  mapIntensityLevel,
-  toCustomStyle,
-} from '../services/look/style-system'
 import {
   clearEmbeddedPreviewUrlFromSession,
   revokeEmbeddedPreviewObjectUrls,
 } from '../services/preview/embedded-preview-url'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
+import { useRawLookStage } from './stages/look/useRawLookStage'
 import { useImageSession } from './useImageSession'
 import type {
   OriginalReferenceSnapshotCapability,
@@ -323,16 +311,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setParams,
     setSession,
   })
-  const sessionActiveIntensity = session?.activeStyle?.currentIntensityLevel
-  const params = useMemo<ProcessingParams>(() => {
-    const viewParams = compareStage.params
-    if (!sessionActiveIntensity) return viewParams
-
-    const intensity = mapIntensityLevel(sessionActiveIntensity)
-    return viewParams.intensity === intensity
-      ? viewParams
-      : { ...viewParams, intensity }
-  }, [compareStage.params, sessionActiveIntensity])
   const embeddedPreviewUrlRef = useRef<string | null>(null)
   const isMountedRef = useRef(false)
   const runtimeWorkSessionIdRef = useRef<string | null>(null)
@@ -345,7 +323,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     new WeakSet(),
   )
   const decodedImageRef = useRef<DecodedImage | null>(null)
-  const paramsRef = useRef(params)
+  const paramsRef = useRef(compareStage.params)
   const originalPreviewPipelineRef =
     useRef<PreviewPipelineEvacuationHandle | null>(null)
   const rawRenderExposureRef = useRef<RawRenderExposure | null>(null)
@@ -364,9 +342,23 @@ export function useRawProcessor(): UseRawProcessorReturn {
   if (!resourceRegistryRef.current) {
     resourceRegistryRef.current = createResourceRegistry()
   }
-  sessionRef.current = session
-  paramsRef.current = params
   const getCurrentProcessingParams = useCallback(() => paramsRef.current, [])
+  const scheduleToast = useCallback((notify: () => void) => {
+    // Sonner uses flushSync internally; move RAW-workspace toasts out of the
+    // current commit so dev-only tooling does not crash on the same render pass.
+    enqueuePostCommitTask(() => {
+      if (!isMountedRef.current) {
+        return
+      }
+
+      notify()
+    })
+  }, [])
+  const setLutDataRef = useCallback((nextLutData: LUTData | null) => {
+    lutDataRef.current = nextLutData
+    setLutDataVersion((version) => version + 1)
+  }, [])
+  sessionRef.current = session
   const setDiscoveredRecoveryState = useCallback(
     (next: ExportRecoveryState) => {
       discoveredRecoveryRef.current = next
@@ -393,18 +385,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const exportDisabledReason = !canExport
     ? exportReadiness.disabledReason
     : undefined
-  const detachedStyle =
-    !session && lut
-      ? {
-          ...toCustomStyle(lut),
-          currentIntensityLevel: 'standard' as const,
-        }
-      : null
-  const activeStyle = session?.activeStyle || detachedStyle
-  const lutProfileSelection =
-    session?.lutProfileSelection ||
-    (lut ? buildLUTContractSelectionState(lut) : null)
-  const activeIntensity = activeStyle?.currentIntensityLevel || 'standard'
   const {
     viewMode,
     compareSplit,
@@ -414,8 +394,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setPreviewViewport,
     resetPreviewViewport,
   } = compareStage
-  const currentLutName =
-    activeStyle?.kind === 'custom' ? activeStyle.name : null
   const sourceFileName =
     session?.sourceFile.name || loadedImage.file?.name || 'RAW photo'
   const supportLevel =
@@ -426,30 +404,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const embeddedPreviewUrl =
     session?.previewBundle.embeddedPreview.objectUrl || null
   const displaySource = session?.previewBundle.displaySource || 'none'
-  const histogram = usePreviewHistogram({
-    imageRef: decodedImageRef,
-    imageVersion: decodedImageVersion,
-    imageIdentity: session?.id ?? pendingLoadSessionIdRef.current ?? undefined,
-    params,
-    lutDataRef,
-    lutDataVersion,
-    displaySource,
-  })
-  const scheduleToast = useCallback((notify: () => void) => {
-    // Sonner uses flushSync internally; move RAW-workspace toasts out of the
-    // current commit so dev-only tooling does not crash on the same render pass.
-    enqueuePostCommitTask(() => {
-      if (!isMountedRef.current) {
-        return
-      }
-
-      notify()
-    })
-  }, [])
-  const setLutDataRef = useCallback((nextLutData: LUTData | null) => {
-    lutDataRef.current = nextLutData
-    setLutDataVersion((version) => version + 1)
-  }, [])
 
   const clearSessionEmbeddedPreviewUrl = useCallback(
     (sessionId?: string) => {
@@ -738,6 +692,43 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setSession,
     setStatus,
   ])
+
+  const lookStage = useRawLookStage({
+    baseParams: compareStage.params,
+    session,
+    sessionRef,
+    setSession,
+    lut,
+    setLut,
+    setParams,
+    getProcessingParams: getCurrentProcessingParams,
+    lutDataRef,
+    setLutDataRef,
+    scheduleToast,
+    invalidateExportGraph,
+  })
+  const {
+    params,
+    activeStyle,
+    lutProfileSelection,
+    activeIntensity,
+    currentLutName,
+    loadLUT,
+    loadOnlineLUT,
+    selectLUTProfile,
+    selectIntensityLevel,
+    clearLUT,
+  } = lookStage
+  paramsRef.current = params
+  const histogram = usePreviewHistogram({
+    imageRef: decodedImageRef,
+    imageVersion: decodedImageVersion,
+    imageIdentity: session?.id ?? pendingLoadSessionIdRef.current ?? undefined,
+    params,
+    lutDataRef,
+    lutDataVersion,
+    displaySource,
+  })
 
   const setDecodedImageRef = useCallback(
     (
@@ -1094,121 +1085,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
       revokeCurrentEmbeddedPreviewUrl,
     ],
   )
-
-  // Stable context for the LUT load orchestrator
-  const lutCtx = useMemo<LutLoadContext>(
-    () => ({
-      atoms: {
-        setLut,
-        setSession,
-        setParams,
-        getProcessingParams: getCurrentProcessingParams,
-        lut,
-        activeStyle,
-      },
-      refs: {
-        lutDataRef,
-        sessionRef,
-      },
-      services: {
-        scheduleToast,
-        invalidateExportGraph,
-        setLutDataRef,
-      },
-    }),
-    [
-      activeStyle,
-      getCurrentProcessingParams,
-      invalidateExportGraph,
-      lut,
-      scheduleToast,
-      setLut,
-      setLutDataRef,
-      setParams,
-      setSession,
-    ],
-  )
-
-  // Load LUT file
-  const loadLUT = useCallback(
-    (file: File) => orchestrateLutLoadFromFile(file, lutCtx),
-    [lutCtx],
-  )
-
-  const loadOnlineLUT = useCallback(
-    (entry: OnlineLUTEntry, options?: { signal?: AbortSignal }) =>
-      orchestrateOnlineLutLoad(entry, options, lutCtx),
-    [lutCtx],
-  )
-
-  const selectLUTProfile = useCallback(
-    (profile: LUTColorProfile | string) =>
-      orchestrateProfileSelection(profile, lutCtx),
-    [lutCtx],
-  )
-
-  const selectIntensityLevel = useCallback(
-    (level: 'off' | 'light' | 'standard' | 'strong') => {
-      const {
-        params: nextParams,
-        session: nextSession,
-        shouldInvalidateExportGraph,
-      } = computeIntensityChange(params, session, activeStyle, level)
-
-      if (shouldInvalidateExportGraph) {
-        invalidateExportGraph()
-      }
-      if (!session?.activeStyle) {
-        setParams(nextParams)
-      }
-      setSession(nextSession)
-    },
-    [
-      activeStyle,
-      invalidateExportGraph,
-      params,
-      session,
-      setParams,
-      setSession,
-    ],
-  )
-
-  // Clear LUT
-  const clearLUT = useCallback(() => {
-    const {
-      params: nextParams,
-      session: nextSession,
-      shouldInvalidateExportGraph,
-    } = computeClearLUT(
-      params,
-      session,
-      activeStyle,
-      Boolean(lut),
-      Boolean(lutDataRef.current),
-      Boolean(lutProfileSelection),
-    )
-
-    if (shouldInvalidateExportGraph) {
-      invalidateExportGraph()
-    }
-    setLut(null)
-    setLutDataRef(null)
-    setSession(nextSession)
-    setParams(nextParams)
-    scheduleToast(() => toast.info('LUT cleared'))
-  }, [
-    activeStyle,
-    invalidateExportGraph,
-    lut,
-    lutProfileSelection,
-    params,
-    scheduleToast,
-    session,
-    setLut,
-    setLutDataRef,
-    setParams,
-    setSession,
-  ])
 
   // Update params
   const handleSetParams = useCallback(
