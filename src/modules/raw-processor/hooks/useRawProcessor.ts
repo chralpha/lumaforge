@@ -104,11 +104,8 @@ import {
 import {
   computeClearLUT,
   computeColorParams,
-  computeCompareSplitChange,
   computeIntensityChange,
   computeToneParams,
-  computeViewModeChange,
-  computeViewportChange,
 } from '../services/look/orchestrate-params-update'
 import {
   buildLUTContractSelectionState,
@@ -120,10 +117,7 @@ import {
   revokeEmbeddedPreviewObjectUrls,
 } from '../services/preview/embedded-preview-url'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
-import {
-  DEFAULT_PREVIEW_VIEWPORT,
-  normalizePreviewViewport,
-} from '../services/preview/preview-viewport'
+import { useRawCompareStage } from './stages/compare/useRawCompareStage'
 import { useImageSession } from './useImageSession'
 import type {
   OriginalReferenceSnapshotCapability,
@@ -303,26 +297,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const stats = usePipelineStatsValue()
   const setStats = useSetPipelineStats()
   const { session, replaceFile, resetSession, setSession } = useImageSession()
-  const sessionViewMode = session?.viewState.mode
-  const sessionCompareSplit = session?.viewState.compareSplit
-  const sessionActiveIntensity = session?.activeStyle?.currentIntensityLevel
-  const params = useMemo<ProcessingParams>(() => {
-    const viewParams =
-      !sessionViewMode || sessionCompareSplit === undefined
-        ? baseParams
-        : {
-            ...baseParams,
-            viewMode: sessionViewMode,
-            compareSplit: sessionCompareSplit,
-          }
-
-    if (!sessionActiveIntensity) return viewParams
-
-    const intensity = mapIntensityLevel(sessionActiveIntensity)
-    return viewParams.intensity === intensity
-      ? viewParams
-      : { ...viewParams, intensity }
-  }, [baseParams, sessionActiveIntensity, sessionCompareSplit, sessionViewMode])
 
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
   const resourceRegistryRef = useRef<ResourceRegistry | null>(null)
@@ -342,6 +316,23 @@ export function useRawProcessor(): UseRawProcessorReturn {
   )
   const previewCopyCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const sessionRef = useRef(session)
+  const compareStage = useRawCompareStage({
+    baseParams,
+    session,
+    sessionRef,
+    setParams,
+    setSession,
+  })
+  const sessionActiveIntensity = session?.activeStyle?.currentIntensityLevel
+  const params = useMemo<ProcessingParams>(() => {
+    const viewParams = compareStage.params
+    if (!sessionActiveIntensity) return viewParams
+
+    const intensity = mapIntensityLevel(sessionActiveIntensity)
+    return viewParams.intensity === intensity
+      ? viewParams
+      : { ...viewParams, intensity }
+  }, [compareStage.params, sessionActiveIntensity])
   const embeddedPreviewUrlRef = useRef<string | null>(null)
   const isMountedRef = useRef(false)
   const runtimeWorkSessionIdRef = useRef<string | null>(null)
@@ -414,16 +405,15 @@ export function useRawProcessor(): UseRawProcessorReturn {
     session?.lutProfileSelection ||
     (lut ? buildLUTContractSelectionState(lut) : null)
   const activeIntensity = activeStyle?.currentIntensityLevel || 'standard'
-  const viewMode = params.viewMode
-  const compareSplit = params.compareSplit
-  const previewViewport = session
-    ? normalizePreviewViewport({
-        zoom: session.viewState.zoom,
-        panX: session.viewState.panX,
-        panY: session.viewState.panY,
-        fitMode: session.viewState.fitMode,
-      })
-    : DEFAULT_PREVIEW_VIEWPORT
+  const {
+    viewMode,
+    compareSplit,
+    previewViewport,
+    setViewMode,
+    setCompareSplit,
+    setPreviewViewport,
+    resetPreviewViewport,
+  } = compareStage
   const currentLutName =
     activeStyle?.kind === 'custom' ? activeStyle.name : null
   const sourceFileName =
@@ -1182,49 +1172,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
       setSession,
     ],
   )
-
-  const setViewMode = useCallback(
-    (mode: ProcessingParams['viewMode']) => {
-      if (sessionRef.current) {
-        setSession((prev) => computeViewModeChange(prev, mode))
-        return
-      }
-
-      setParams((prev) =>
-        prev.viewMode === mode ? prev : { ...prev, viewMode: mode },
-      )
-    },
-    [setParams, setSession],
-  )
-
-  const setCompareSplit = useCallback(
-    (split: number) => {
-      const { nextSplit } = computeCompareSplitChange(null, split)
-
-      if (sessionRef.current) {
-        setSession((prev) => computeCompareSplitChange(prev, nextSplit).session)
-        return
-      }
-
-      setParams((prev) =>
-        prev.compareSplit === nextSplit
-          ? prev
-          : { ...prev, compareSplit: nextSplit },
-      )
-    },
-    [setParams, setSession],
-  )
-
-  const setPreviewViewport = useCallback(
-    (viewport: PreviewViewport) => {
-      setSession((prev) => computeViewportChange(prev, viewport))
-    },
-    [setSession],
-  )
-
-  const resetPreviewViewport = useCallback(() => {
-    setPreviewViewport(DEFAULT_PREVIEW_VIEWPORT)
-  }, [setPreviewViewport])
 
   // Clear LUT
   const clearLUT = useCallback(() => {
