@@ -119,7 +119,7 @@ export function LutBrowserDialog({
     }
   })
 
-  if (!open || !layout) return null
+  if (!layout) return null
 
   return (
     <Dialog modal={false} open={open} onOpenChange={onOpenChange}>
@@ -133,7 +133,7 @@ export function LutBrowserDialog({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.12, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
           style={overlayStyle}
           className="fixed inset-y-0 left-0 right-[var(--raw-lut-browser-overlay-right,0px)] z-[59] bg-[oklch(0.18_0.018_76/0.32)] backdrop-blur-[2px]"
         />
@@ -167,9 +167,9 @@ export function LutBrowserDialog({
         >
           <m.div
             key={`${id}-card`}
-            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+            initial={{ opacity: 0, y: 6, scale: 0.985 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 6, scale: 0.985 }}
+            exit={{ opacity: 0, y: 4, scale: 0.99 }}
             transition={{
               type: 'spring',
               stiffness: 420,
