@@ -1,17 +1,8 @@
 import type { PreviewHistogramState } from '@lumaforge/luma-color-runtime'
-import {
-  ImageUp,
-  Info,
-  LockKeyhole,
-  RotateCcw,
-  ShieldCheck,
-  Wand2,
-} from 'lucide-react'
 import { AnimatePresence, m, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 
-import { useI18n } from '~/lib/i18n'
 import { surfaceFade } from '~/lib/spring'
 
 import { DOCK_SPRING, IMMERSIVE_STAGGER_MS } from '../../motion'
@@ -23,13 +14,13 @@ import { AdjustListPanel } from './AdjustListPanel'
 import { MobileComparePanel } from './MobileComparePanel'
 import { MobileEmptyState } from './MobileEmptyState'
 import { MobileFloatingOverlays } from './MobileFloatingOverlays'
+import { MobileLabTopbar } from './MobileLabTopbar'
 import { MobileLookPanel } from './MobileLookPanel'
 import type { MobileLutBrowserProps } from './MobileLutBrowser'
 import { MobileLutBrowser } from './MobileLutBrowser'
 import type { MobileMode } from './MobileModeDock'
 import { MobileModeDock } from './MobileModeDock'
 import { MobileMoreSheet } from './MobileMoreSheet'
-import { MobileTopbar } from './MobileTopbar'
 import { useMobilePreviewGestures } from './useMobilePreviewGestures'
 
 type ViewMode = 'processed' | 'original' | 'compare'
@@ -63,7 +54,6 @@ export function MobileLabChrome(props: {
   preferExportMode?: boolean
   previewFrameEl?: HTMLDivElement | null
 }) {
-  const { t } = useI18n()
   const prefersReduced = useReducedMotion() ?? false
   const [mode, setMode] = useState<MobileMode>('look')
   const [scrubField, setScrubField] = useState<ScrubFieldId | null>(null)
@@ -374,55 +364,17 @@ export function MobileLabChrome(props: {
             exit={{ opacity: 0 }}
             transition={DOCK_SPRING}
           >
-            <MobileTopbar
+            <MobileLabTopbar
               hasImage={props.hasImage}
               fileName={props.fileName}
               fileMeta={props.fileMeta}
               supportLevel={props.supportLevel}
               histogramShown={histogramOpen}
               onToggleHistogram={() => setHistogramOpen((v) => !v)}
-              moreMenuItems={[
-                {
-                  kind: 'item',
-                  icon: ImageUp,
-                  label: t('raw.mobile.more.replace'),
-                  onSelect: props.onReplaceFile,
-                },
-                {
-                  kind: 'item',
-                  icon: Wand2,
-                  label: t('raw.mobile.more.addLut'),
-                  onSelect: openLutBrowser,
-                },
-                {
-                  kind: 'item',
-                  icon: Info,
-                  label: t('raw.mobile.more.fileDetails'),
-                  onSelect: () => setMoreOpen(true),
-                },
-                { kind: 'separator' },
-                {
-                  kind: 'item',
-                  icon: RotateCcw,
-                  label: t('raw.mobile.more.reset'),
-                  onSelect: props.onResetSession,
-                },
-                { kind: 'separator' },
-                {
-                  kind: 'item',
-                  icon: LockKeyhole,
-                  label: t('raw.mobile.more.browserLocal'),
-                  onSelect: () => {},
-                  disabled: true,
-                },
-                {
-                  kind: 'item',
-                  icon: ShieldCheck,
-                  label: t('raw.mobile.more.officialSupport'),
-                  onSelect: () => {},
-                  disabled: true,
-                },
-              ]}
+              onReplaceFile={props.onReplaceFile}
+              onOpenLutBrowser={openLutBrowser}
+              onOpenMore={() => setMoreOpen(true)}
+              onResetSession={props.onResetSession}
             />
             <MobileModeDock
               mode={mode}
