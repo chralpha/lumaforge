@@ -4,7 +4,7 @@ import type {
   PreviewHistogramState,
   ProcessingParams,
 } from '@lumaforge/luma-color-runtime'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 
 import {
@@ -41,8 +41,7 @@ import type {
 import type { ProcessingStatus } from '../model/workflow'
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
-import { useOriginalReferencePolicy } from './stages/compare/useOriginalReferencePolicy'
-import { useOriginalReferenceSnapshotResources } from './stages/compare/useOriginalReferenceSnapshotResources'
+import { useOriginalReferenceStage } from './stages/compare/useOriginalReferenceStage'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
 import { useExportDerivedState } from './stages/export/useExportDerivedState'
 import { useExportGraphInvalidation } from './stages/export/useExportGraphInvalidation'
@@ -67,7 +66,6 @@ import type { PreviewPipelineEvacuationHandle } from './stages/preview/usePrevie
 import { usePreviewPipelineEvacuation } from './stages/preview/usePreviewPipelineEvacuation'
 import { useRestorePreviewAfterExport } from './stages/preview/useRestorePreviewAfterExport'
 import { useImageSession } from './useImageSession'
-import { useOriginalReferenceSnapshot } from './useOriginalReferenceSnapshot'
 import { usePreviewHistogram } from './usePreviewHistogram'
 import { useRawWorkflowActions } from './useRawWorkflowActions'
 import { useRawWorkflowRefs } from './useRawWorkflowRefs'
@@ -268,11 +266,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     resourceRegistryRef,
     pipelineRef,
   })
-  const {
-    setPendingOriginalReferenceSnapshotRender,
-    trackOriginalReferenceSnapshot,
-  } = useOriginalReferenceSnapshotResources({ resourceRegistryRef })
-
   const { registerExportResultResource, queueExportResultResourceDisposal } =
     useExportResourceManagement({ resourceRegistryRef })
 
@@ -534,30 +527,20 @@ export function useRawProcessor(): UseRawProcessorReturn {
     toast,
   })
   const {
-    originalReferenceCapability,
+    originalReferenceSnapshot,
+    originalReferenceFallbackReason,
     dualWebglAllowed,
-    shouldPrepareOriginalReferenceSnapshot,
     requestOriginalReferenceFallback,
-  } = useOriginalReferencePolicy({
+  } = useOriginalReferenceStage({
     sessionId: session?.id ?? null,
     sessionRef,
     viewMode,
     previewSuspended,
-  })
-  const originalReference = useOriginalReferenceSnapshot({
-    sessionId: session?.id ?? null,
-    image: shouldPrepareOriginalReferenceSnapshot
-      ? decodedImageRef.current
-      : null,
-    imageVersion: decodedImageVersion,
+    decodedImageRef,
+    decodedImageVersion,
     displaySource,
-    capability: originalReferenceCapability,
-    onPendingRenderChange: setPendingOriginalReferenceSnapshotRender,
+    resourceRegistryRef,
   })
-
-  useEffect(() => {
-    trackOriginalReferenceSnapshot(originalReference.snapshot)
-  }, [originalReference.snapshot, trackOriginalReferenceSnapshot])
 
   return {
     params,
@@ -595,8 +578,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
     progressRecoveryHint,
     embeddedPreviewUrl,
     displaySource,
-    originalReferenceSnapshot: originalReference.snapshot,
-    originalReferenceFallbackReason: originalReference.fallbackReason,
+    originalReferenceSnapshot,
+    originalReferenceFallbackReason,
     dualWebglAllowed,
     histogram,
     previewSuspended,
