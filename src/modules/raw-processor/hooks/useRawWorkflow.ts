@@ -24,10 +24,7 @@ import { useRawWorkflowActions } from './useRawWorkflowActions'
 import { useRawWorkflowRefs } from './useRawWorkflowRefs'
 import { useRawWorkflowState } from './useRawWorkflowState'
 
-export type {
-  UseRawProcessorReturn,
-  UseRawWorkflowReturn,
-} from './useRawWorkflow.types'
+export type { UseRawWorkflowReturn } from './useRawWorkflow.types'
 
 export function useRawWorkflow(): UseRawWorkflowReturn {
   const { baseParams, setParams, lut, setLut } = useRawDetachedWorkflowState()

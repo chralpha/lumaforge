@@ -113,5 +113,3 @@ export interface UseRawWorkflowReturn {
   updateStats: (stats: PipelineStats) => void
   pipelineRef: RefObject<RawProcessingPipeline | null>
 }
-
-export type UseRawProcessorReturn = UseRawWorkflowReturn
