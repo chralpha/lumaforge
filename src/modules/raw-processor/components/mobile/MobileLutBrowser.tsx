@@ -3,7 +3,7 @@ import type {
   LUTContractResolution,
 } from '@lumaforge/luma-color-runtime'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { AlertTriangle, ArrowLeft, Check, Plus, Share2, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Plus, Share2, X } from 'lucide-react'
 import { AnimatePresence, m, useDragControls } from 'motion/react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -24,10 +24,7 @@ import { LUTOutputOptionButton } from '../tools/lut/LUTOutputOptionButton'
 import { LUTProfileButton } from '../tools/lut/LUTProfileButton'
 import { useOnlineLutEntryLoader } from '../tools/lut/useOnlineLutEntryLoader'
 import { useOnlineLutResourceState } from '../tools/lut/useOnlineLutResourceState'
-import {
-  composeLUTContractProfile,
-  getProfileOutputLabel,
-} from '../tools/lut-contract'
+import { composeLUTContractProfile } from '../tools/lut-contract'
 import {
   SEGMENTED_FOCUS_RING,
   SEGMENTED_ITEM_TEXT,
@@ -37,6 +34,7 @@ import {
 } from '../tools/segmented-chrome'
 import type { StrengthLevel } from '../tools/StrengthControl'
 import { MobileLutCatalogEntryButton } from './MobileLutCatalogEntryButton'
+import { MobileLutContractStatusSection } from './MobileLutContractStatusSection'
 import { MobileLutCurrentSections } from './MobileLutCurrentSections'
 import { MobileLutSourceCard } from './MobileLutSourceCard'
 import { useMobileLutContractState } from './useMobileLutContractState'
@@ -66,30 +64,6 @@ type MobileLutView = 'overview' | 'catalog' | 'contract'
 
 function resourceLabel(resource: OnlineResource) {
   return resource.label || resource.url
-}
-
-function ContractChip({
-  label,
-  tone = 'neutral',
-}: {
-  label: string
-  tone?: 'neutral' | 'warning'
-}) {
-  return (
-    <Chip
-      tone={tone === 'warning' ? 'amber' : 'neutral'}
-      surface="on-photo"
-      size="sm"
-      className="min-w-0 max-w-full"
-    >
-      {tone === 'warning' ? (
-        <AlertTriangle aria-hidden="true" className="size-3 shrink-0" />
-      ) : (
-        <Check aria-hidden="true" className="size-3 shrink-0" />
-      )}
-      <span className="min-w-0 truncate">{label}</span>
-    </Chip>
-  )
 }
 
 function IssueChips({ issues }: { issues: OnlineIssue[] }) {
@@ -273,15 +247,6 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     returnToOverview()
   }
 
-  const contractActionLabel =
-    contractView.status === 'recommended' ||
-    contractView.status === 'unknown' ||
-    contractView.status === 'unsupported-output'
-      ? t('raw.mobile.lut.chooseContract')
-      : contractView.status === 'incomplete-output'
-        ? t('raw.mobile.lut.chooseOutput')
-        : t('raw.mobile.lut.changeContract')
-
   const handleOpenChange = (open: boolean) => {
     if (!open) props.onClose()
   }
@@ -297,175 +262,6 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         animate: { opacity: 1, y: 0 },
         exit: { opacity: 0, y: -8 },
       }
-
-  const renderContractStatusSection = () => {
-    if (
-      !props.currentLutName &&
-      !props.lutProfileSelection &&
-      !props.lutProfileResolution
-    ) {
-      return null
-    }
-
-    const renderStatusContent = () => {
-      if (contractView.status === 'unknown') {
-        return (
-          <p className="m-0 rounded-md border border-lf-amber/45 bg-lf-amber/10 px-2.5 py-2 text-xs leading-relaxed text-lf-amber-soft">
-            {t('raw.lutContract.unknown')}
-          </p>
-        )
-      }
-
-      if (contractView.status === 'unsupported-output') {
-        return (
-          <p className="m-0 rounded-md border border-lf-amber/45 bg-lf-amber/10 px-2.5 py-2 text-xs leading-relaxed text-lf-amber-soft">
-            {t('raw.lutContract.unsupportedOutput')}
-          </p>
-        )
-      }
-
-      if (contractView.status === 'recommended') {
-        const { recommendation, completesContract } = contractView
-        const outputLabel = completesContract
-          ? getProfileOutputLabel(recommendation)
-          : t('raw.lutContract.chooseOutput')
-
-        return (
-          <div className="grid gap-2">
-            <div className="grid gap-1">
-              <span className="text-[0.66rem] font-semibold uppercase tracking-normal text-lf-on-photo-ink/50">
-                {t('raw.lutContract.inputTerm')}
-              </span>
-              <ContractChip
-                label={`${recommendation.label} · ${t('raw.lutContract.recommendedBadge')}`}
-              />
-            </div>
-            <div className="grid gap-1">
-              <span className="text-[0.66rem] font-semibold uppercase tracking-normal text-lf-on-photo-ink/50">
-                {t('raw.lutContract.outputTerm')}
-              </span>
-              <ContractChip
-                label={outputLabel ?? t('raw.lutContract.chooseOutput')}
-                tone={completesContract ? 'neutral' : 'warning'}
-              />
-            </div>
-            <p className="m-0 rounded-md border border-lf-amber/45 bg-lf-amber/10 px-2.5 py-2 text-xs leading-relaxed text-lf-amber-soft">
-              {completesContract
-                ? t('raw.lutContract.recommendedNote')
-                : t('raw.lutContract.recommendedInputOnlyNote')}
-            </p>
-            {completesContract ? (
-              <button
-                type="button"
-                data-raw-mobile-lut="apply-contract"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-3 text-lf-control font-semibold text-lf-on-photo-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={props.disabled}
-                onClick={() => props.onLutProfileSelect(recommendation)}
-              >
-                {t('raw.lutContract.applyContract')}
-              </button>
-            ) : (
-              <button
-                type="button"
-                data-raw-mobile-lut="choose-output"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-3 text-lf-control font-semibold text-lf-on-photo-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={props.disabled}
-                onClick={() => openContractView('output', recommendation)}
-              >
-                {t('raw.lutContract.chooseOutput')}
-              </button>
-            )}
-          </div>
-        )
-      }
-
-      // confirmed or incomplete-output
-      if (
-        contractView.status === 'confirmed' ||
-        contractView.status === 'incomplete-output'
-      ) {
-        const profile = contractView.profile
-        const outLabel =
-          contractView.status === 'confirmed'
-            ? (contractView.outputLabel ?? displayOutputLabel)
-            : displayOutputLabel
-        const needsOutput = contractView.status === 'incomplete-output'
-
-        return (
-          <div className="grid gap-2">
-            <div className="grid gap-1">
-              <span className="text-[0.66rem] font-semibold uppercase tracking-normal text-lf-on-photo-ink/50">
-                {t('raw.lutContract.inputTerm')}
-              </span>
-              <ContractChip label={profile.label} />
-            </div>
-            <div className="grid gap-1">
-              <span className="text-[0.66rem] font-semibold uppercase tracking-normal text-lf-on-photo-ink/50">
-                {t('raw.lutContract.outputTerm')}
-              </span>
-              <ContractChip
-                label={outLabel ?? t('raw.mobile.lut.outputRequired')}
-                tone={needsOutput ? 'warning' : 'neutral'}
-              />
-            </div>
-            {needsOutput && (
-              <p className="m-0 rounded-md border border-lf-amber/45 bg-lf-amber/10 px-2.5 py-2 text-xs leading-relaxed text-lf-amber-soft">
-                {t('raw.lutContract.needsOutput')}
-              </p>
-            )}
-          </div>
-        )
-      }
-
-      // fallback: no contract known
-      return (
-        <p className="m-0 text-xs leading-relaxed text-lf-on-photo-ink/64">
-          {t('raw.mobile.lut.noContract')}
-        </p>
-      )
-    }
-
-    return (
-      <section className="grid gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="m-0 text-lf-body font-semibold text-lf-on-photo-ink">
-            {t('raw.mobile.lut.contractHeading')}
-          </h3>
-          <span
-            className={[
-              'rounded-lf-pill border px-2 py-0.5 text-lf-eyebrow font-semibold',
-              contractView.status !== 'confirmed'
-                ? 'border-lf-amber/55 bg-lf-amber/12 text-lf-amber-soft'
-                : 'border-lf-green/55 bg-lf-on-photo-bg-strong text-lf-green-soft',
-            ].join(' ')}
-          >
-            {contractView.status !== 'confirmed'
-              ? t('raw.mobile.lut.contractNeedsReview')
-              : t('raw.mobile.lut.contractResolved')}
-          </span>
-        </div>
-
-        <div className="grid gap-2.5 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5">
-          {renderStatusContent()}
-
-          <button
-            type="button"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-3 text-lf-control font-semibold text-lf-on-photo-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={props.disabled}
-            onClick={() =>
-              openContractView(
-                contractView.status === 'incomplete-output'
-                  ? 'output'
-                  : 'input',
-              )
-            }
-          >
-            {contractActionLabel}
-          </button>
-        </div>
-      </section>
-    )
-  }
 
   const renderOnlineSourcesSection = () => {
     if (!props.onlineLutSources) return null
@@ -605,7 +401,18 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         onIntensitySelect={props.onIntensitySelect}
         strengthDisabled={strengthDisabled}
       />
-      {renderContractStatusSection()}
+      <MobileLutContractStatusSection
+        visible={Boolean(
+          props.currentLutName ||
+          props.lutProfileSelection ||
+          props.lutProfileResolution,
+        )}
+        contractView={contractView}
+        displayOutputLabel={displayOutputLabel}
+        disabled={props.disabled}
+        onLutProfileSelect={props.onLutProfileSelect}
+        onOpenContractView={openContractView}
+      />
       {renderOnlineSourcesSection()}
     </m.div>
   )
