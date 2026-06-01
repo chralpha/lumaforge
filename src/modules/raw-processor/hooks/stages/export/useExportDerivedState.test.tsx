@@ -43,7 +43,7 @@ function createSession(): ImageSession {
     },
     previewBundle: {
       embeddedPreview: { status: 'idle' },
-      quickDecodePreview: { status: 'idle' },
+      quickDecodePreview: { status: 'ready', width: 800, height: 600 },
       boundedHqPreview: { status: 'ready', width: 800, height: 600 },
       displaySource: 'bounded-hq',
       boundedHqRequiredForExport: false,
@@ -100,10 +100,14 @@ describe('useExportDerivedState', () => {
         status: 'ready',
         hasImage: true,
         displaySource: 'bounded-hq',
+        sourceFile: session.sourceFile.file ?? null,
+        rawRenderExposure: { ev: 0, multiplier: 1, source: 'identity' },
         stats,
       }),
     )
 
+    expect(result.current.canExport).toBe(true)
+    expect(result.current.exportDisabledReason).toBeUndefined()
     expect(result.current.previewSuspended).toBe(false)
     expect(result.current.canPreviewExport).toBe(true)
     expect(result.current.previewExportDisabledReason).toBeUndefined()
@@ -136,6 +140,8 @@ describe('useExportDerivedState', () => {
         status: 'ready',
         hasImage: true,
         displaySource: 'bounded-hq',
+        sourceFile: session.sourceFile.file ?? null,
+        rawRenderExposure: { ev: 0, multiplier: 1, source: 'identity' },
         stats: { inputSize: { width: 800, height: 600 } } as PipelineStats,
       }),
     )

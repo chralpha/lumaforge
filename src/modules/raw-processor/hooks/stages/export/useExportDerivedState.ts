@@ -1,3 +1,4 @@
+import type { RawRenderExposure } from '@lumaforge/luma-color-runtime'
 import type { MutableRefObject } from 'react'
 import { useMemo } from 'react'
 
@@ -11,6 +12,7 @@ import type {
   ImageSession,
 } from '../../../model/session'
 import type { ProcessingStatus } from '../../../model/workflow'
+import { deriveFullResExportReadiness } from '../../../services/export/export-readiness'
 import { resolveExportShareButtonCapability } from '../../../services/export/export-result-actions'
 
 type UseExportDerivedStateInput = {
@@ -21,6 +23,8 @@ type UseExportDerivedStateInput = {
   status: ProcessingStatus
   hasImage: boolean
   displaySource: DisplaySource
+  sourceFile: File | null
+  rawRenderExposure: RawRenderExposure | null
   stats: PipelineStats | null
 }
 
@@ -32,9 +36,20 @@ export function useExportDerivedState({
   status,
   hasImage,
   displaySource,
+  sourceFile,
+  rawRenderExposure,
   stats,
 }: UseExportDerivedStateInput) {
   return useMemo(() => {
+    const fullResExportReadiness = deriveFullResExportReadiness({
+      sourceFile,
+      session,
+      rawRenderExposure,
+    })
+    const canExport = fullResExportReadiness.canExport
+    const exportDisabledReason = !canExport
+      ? fullResExportReadiness.disabledReason
+      : undefined
     const exportResult = session?.exportState.result ?? null
     const exportShareCapability: ExportShareCapability = exportResult
       ? resolveExportShareButtonCapability()
@@ -78,6 +93,8 @@ export function useExportDerivedState({
             : undefined
 
     return {
+      canExport,
+      exportDisabledReason,
       exportResult,
       exportShareCapability,
       exportRecovery,
@@ -91,7 +108,9 @@ export function useExportDerivedState({
     displaySource,
     embeddedPreviewUrl,
     hasImage,
+    rawRenderExposure,
     session,
+    sourceFile,
     stats,
     status,
   ])

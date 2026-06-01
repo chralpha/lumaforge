@@ -46,7 +46,6 @@ import type {
 } from '../model/session'
 import type { ProcessingStatus } from '../model/workflow'
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
-import { deriveFullResExportReadiness } from '../services/export/export-readiness'
 import { getProgressRecoveryHint } from '../services/ingest/workflow-status'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
 import { useOriginalReferencePolicy } from './stages/compare/useOriginalReferencePolicy'
@@ -259,15 +258,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
   )
   const rawRenderExposure =
     decodedImageRef.current?.renderExposure ?? rawRenderExposureRef.current
-  const exportReadiness = deriveFullResExportReadiness({
-    sourceFile: loadedImage.file,
-    session,
-    rawRenderExposure,
-  })
-  const canExport = exportReadiness.canExport
-  const exportDisabledReason = !canExport
-    ? exportReadiness.disabledReason
-    : undefined
   const {
     viewMode,
     compareSplit,
@@ -507,6 +497,28 @@ export function useRawProcessor(): UseRawProcessorReturn {
     revokeCurrentEmbeddedPreviewUrl,
   })
 
+  const {
+    canExport,
+    exportDisabledReason,
+    exportResult,
+    exportShareCapability,
+    exportRecovery,
+    previewSuspended,
+    canPreviewExport,
+    previewExportDisabledReason,
+  } = useExportDerivedState({
+    session,
+    discoveredRecovery,
+    decodedImageRef,
+    embeddedPreviewUrl,
+    status,
+    hasImage,
+    displaySource,
+    sourceFile: loadedImage.file,
+    rawRenderExposure,
+    stats,
+  })
+
   const { recoverInterruptedExport } = useExportRecoveryAction({
     pendingRecoveryRetry,
     setPendingRecoveryRetry,
@@ -565,23 +577,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [setStats],
   )
 
-  const {
-    exportResult,
-    exportShareCapability,
-    exportRecovery,
-    previewSuspended,
-    canPreviewExport,
-    previewExportDisabledReason,
-  } = useExportDerivedState({
-    session,
-    discoveredRecovery,
-    decodedImageRef,
-    embeddedPreviewUrl,
-    status,
-    hasImage,
-    displaySource,
-    stats,
-  })
   const { exportPreviewImage } = useHqPreviewExportAction({
     sessionRef,
     decodedImageRef,
