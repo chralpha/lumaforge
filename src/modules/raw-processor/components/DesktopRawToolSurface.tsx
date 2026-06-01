@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useScrollEdgeFade } from '~/hooks/common'
 import { useI18n } from '~/lib/i18n'
 
-import type { RawToolSurfaceProps } from './RawToolSurface'
+import { useRawWorkflowContext } from './RawWorkflowContext'
 import { AdjustTool } from './tools/AdjustTool'
 import { CompareTool } from './tools/CompareTool'
 import { ExportTool } from './tools/ExportTool'
@@ -14,7 +14,8 @@ import { LutContractTool } from './tools/lut/LutContractTool'
 import { StrengthControl } from './tools/StrengthControl'
 import { ToolCard, ToolCardStack } from './tools/ToolCard'
 
-export function DesktopRawToolSurface(props: RawToolSurfaceProps) {
+export function DesktopRawToolSurface() {
+  const props = useRawWorkflowContext()
   const { t } = useI18n()
   const previewSuspended = props.previewSuspended === true
   const editorDisabled =

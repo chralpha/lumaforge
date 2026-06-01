@@ -1,10 +1,11 @@
 import { useI18n } from '~/lib/i18n'
 
-import type { RawToolSurfaceProps } from '../RawToolSurface'
+import { useRawWorkflowContext } from '../RawWorkflowContext'
 import { MobileExportPanel } from './MobileExportPanel'
 import { MobileLabChrome } from './MobileLabChrome'
 
-export function MobileRawToolSurface(props: RawToolSurfaceProps) {
+export function MobileRawToolSurface() {
+  const props = useRawWorkflowContext()
   const { t } = useI18n()
   const previewSuspended = props.previewSuspended === true
   const lutDropDisabled = props.isExporting === true || previewSuspended

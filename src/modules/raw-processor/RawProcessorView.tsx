@@ -25,6 +25,7 @@ import {
 import { CpuPreviewBanner } from './components/CpuPreviewBanner'
 import { RawCpuPreviewStage } from './components/RawCpuPreviewStage'
 import { RawResetConfirmationDialog } from './components/RawResetConfirmationDialog'
+import { RawWorkflowProvider } from './components/RawWorkflowContext'
 import { useRawWorkflow } from './hooks'
 import { useRawRuntimeReadiness } from './hooks/stages/ingest/useRawRuntimeReadiness'
 import { useCapabilityGate } from './hooks/useCapabilityGate'
@@ -394,76 +395,77 @@ function RawProcessorViewInner({
           />
         )}
 
-        <RawToolSurface
-          activeIntensity={activeIntensity}
-          tone={{
-            userExposureEv: params.userExposureEv,
-            userContrast: params.userContrast,
-            userHighlights: params.userHighlights,
-            userShadows: params.userShadows,
-            userWhites: params.userWhites,
-            userBlacks: params.userBlacks,
-          }}
-          color={{
-            userTemperature: params.userTemperature,
-            userTint: params.userTint,
-          }}
-          onIntensitySelect={selectIntensityLevel}
-          onToneChange={setToneParams}
-          onToneReset={resetTone}
-          onColorChange={setColorParams}
-          onColorReset={resetColor}
-          fileName={sourceFileName}
-          onReplaceFile={handleReplaceFile}
-          onResetSession={requestSessionReset}
-          onCompareReset={handleCompareReset}
-          viewMode={isCpuMode ? 'processed' : viewMode}
-          onViewModeChange={isCpuMode ? () => {} : setViewMode}
-          compareSplit={compareSplit}
-          onCompareSplitChange={isCpuMode ? () => {} : setCompareSplit}
-          onLutLoad={handleLutDrop}
-          onLutClear={clearLUT}
-          currentLutName={currentLutName}
-          lutProfileSelection={lutProfileSelection}
-          lutProfileResolution={
-            activeStyle?.kind === 'custom'
-              ? activeStyle.lutAsset?.profileResolution
-              : null
-          }
-          onLutProfileSelect={selectLUTProfile}
-          onlineLutSources={onlineLutSources}
-          onExport={handleExport}
-          onPreviewExport={exportPreviewImage}
-          canExport={canExport}
-          disabledReason={exportDisabledReason}
-          canPreviewExport={canPreviewExport}
-          previewExportDisabledReason={previewExportDisabledReason}
-          isProcessing={isProcessing}
-          isExporting={status === 'exporting'}
-          runtimeReadinessState={runtimeReadinessState}
-          onPrepareRuntime={triggerRawRuntimePrewarm}
-          previewSuspended={previewSuspended}
-          exportResult={exportResult}
-          exportShareCapability={exportShareCapability}
-          recovery={exportRecovery}
-          onShareExport={shareExportResult}
-          onDownloadExport={downloadExportResult}
-          onCopyExport={copyExportResult}
-          onRecoverExportSource={handleRecoveryFileSelect}
-          hasImage={hasImage}
-          supportLevel={supportLevel}
-          metadata={toolMetadata}
-          stats={toolStats}
-          histogram={
-            isCpuMode
+        <RawWorkflowProvider
+          value={{
+            activeIntensity,
+            tone: {
+              userExposureEv: params.userExposureEv,
+              userContrast: params.userContrast,
+              userHighlights: params.userHighlights,
+              userShadows: params.userShadows,
+              userWhites: params.userWhites,
+              userBlacks: params.userBlacks,
+            },
+            color: {
+              userTemperature: params.userTemperature,
+              userTint: params.userTint,
+            },
+            onIntensitySelect: selectIntensityLevel,
+            onToneChange: setToneParams,
+            onToneReset: resetTone,
+            onColorChange: setColorParams,
+            onColorReset: resetColor,
+            fileName: sourceFileName,
+            onReplaceFile: handleReplaceFile,
+            onResetSession: requestSessionReset,
+            onCompareReset: handleCompareReset,
+            viewMode: isCpuMode ? 'processed' : viewMode,
+            onViewModeChange: isCpuMode ? () => {} : setViewMode,
+            compareSplit,
+            onCompareSplitChange: isCpuMode ? () => {} : setCompareSplit,
+            onLutLoad: handleLutDrop,
+            onLutClear: clearLUT,
+            currentLutName,
+            lutProfileSelection,
+            lutProfileResolution:
+              activeStyle?.kind === 'custom'
+                ? activeStyle.lutAsset?.profileResolution
+                : null,
+            onLutProfileSelect: selectLUTProfile,
+            onlineLutSources,
+            onExport: handleExport,
+            onPreviewExport: exportPreviewImage,
+            canExport,
+            disabledReason: exportDisabledReason,
+            canPreviewExport,
+            previewExportDisabledReason,
+            isProcessing,
+            isExporting: status === 'exporting',
+            runtimeReadinessState,
+            onPrepareRuntime: triggerRawRuntimePrewarm,
+            previewSuspended,
+            exportResult,
+            exportShareCapability,
+            recovery: exportRecovery,
+            onShareExport: shareExportResult,
+            onDownloadExport: downloadExportResult,
+            onCopyExport: copyExportResult,
+            onRecoverExportSource: handleRecoveryFileSelect,
+            hasImage,
+            supportLevel,
+            metadata: toolMetadata,
+            stats: toolStats,
+            histogram: isCpuMode
               ? {
                   state: 'unsupported',
                   reason: t('raw.preview.cpuDegraded.banner'),
                 }
-              : histogram
-          }
-          previewFrameEl={previewFrameEl}
-        />
+              : (histogram ?? { state: 'unavailable', reason: 'no-image' }),
+            previewFrameEl,
+          }}
+        >
+          <RawToolSurface />
+        </RawWorkflowProvider>
       </div>
 
       <ErrorOverlay

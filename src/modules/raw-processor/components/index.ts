@@ -13,6 +13,7 @@ export {
 export { PreviewCanvas } from './PreviewCanvas'
 export { ErrorOverlay, ProgressOverlay, SuccessToast } from './ProgressOverlay'
 export { RawToolSurface } from './RawToolSurface'
+export { RawWorkflowProvider } from './RawWorkflowContext'
 export { SupportBadge } from './SupportBadge'
 export { CompareTool } from './tools/CompareTool'
 export { ExportTool } from './tools/ExportTool'
