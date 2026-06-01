@@ -4,7 +4,7 @@ import type {
   PreviewHistogramState,
   ProcessingParams,
 } from '@lumaforge/luma-color-runtime'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import {
@@ -69,11 +69,8 @@ import { useRestorePreviewAfterExport } from './stages/preview/useRestorePreview
 import { useImageSession } from './useImageSession'
 import { useOriginalReferenceSnapshot } from './useOriginalReferenceSnapshot'
 import { usePreviewHistogram } from './usePreviewHistogram'
+import { useRawWorkflowActions } from './useRawWorkflowActions'
 import { useRawWorkflowRefs } from './useRawWorkflowRefs'
-
-function enqueuePostCommitTask(task: () => void) {
-  setTimeout(task, 0)
-}
 
 export interface UseRawProcessorReturn {
   // State
@@ -215,24 +212,19 @@ export function useRawProcessor(): UseRawProcessorReturn {
     pendingRecoveryRetry,
     setPendingRecoveryRetry,
   } = useExportRecoveryState()
-  const getCurrentProcessingParams = useCallback(
-    () => paramsRef.current,
-    [paramsRef],
-  )
-  const scheduleToast = useCallback(
-    (notify: () => void) => {
-      // Sonner uses flushSync internally; move RAW-workspace toasts out of the
-      // current commit so dev-only tooling does not crash on the same render pass.
-      enqueuePostCommitTask(() => {
-        if (!isMountedRef.current) {
-          return
-        }
-
-        notify()
-      })
-    },
-    [isMountedRef],
-  )
+  const {
+    getCurrentProcessingParams,
+    scheduleToast,
+    dismissError,
+    updateStats,
+  } = useRawWorkflowActions({
+    paramsRef,
+    isMountedRef,
+    status,
+    setError,
+    setStatus,
+    setStats,
+  })
   const {
     hasImage,
     loadedImage,
@@ -521,22 +513,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setStats,
     resetSession,
   })
-
-  // Dismiss error
-  const dismissError = useCallback(() => {
-    setError(null)
-    if (status === 'error') {
-      setStatus('idle')
-    }
-  }, [setError, status, setStatus])
-
-  // Update stats
-  const updateStats = useCallback(
-    (newStats: PipelineStats) => {
-      setStats(newStats)
-    },
-    [setStats],
-  )
 
   const { exportPreviewImage } = useHqPreviewExportAction({
     sessionRef,
