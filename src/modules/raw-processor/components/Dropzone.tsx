@@ -3,7 +3,7 @@
  */
 
 import { Upload, X } from 'lucide-react'
-import { m } from 'motion/react'
+import { AnimatePresence, m } from 'motion/react'
 import { useCallback, useId, useRef, useState } from 'react'
 
 import { clsxm } from '~/lib/cn'
@@ -155,23 +155,27 @@ export function Dropzone({
       {typeof children === 'function'
         ? children({ openFilePicker, disabled })
         : children}
-      {isDragOver && (
-        <m.div
-          className={clsxm(
-            'absolute inset-0 flex items-center justify-center',
-            variant === 'stage'
-              ? 'rounded-md bg-accent/20'
-              : 'rounded-xl bg-accent/20',
-          )}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <span className="text-accent font-medium">
-            {t('raw.drop.toLoad')}
-          </span>
-        </m.div>
-      )}
+      <AnimatePresence>
+        {isDragOver && (
+          <m.div
+            key="drop-overlay"
+            className={clsxm(
+              'absolute inset-0 flex items-center justify-center',
+              variant === 'stage'
+                ? 'rounded-md bg-accent/20'
+                : 'rounded-xl bg-accent/20',
+            )}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <span className="text-accent font-medium">
+              {t('raw.drop.toLoad')}
+            </span>
+          </m.div>
+        )}
+      </AnimatePresence>
     </>
   )
 
