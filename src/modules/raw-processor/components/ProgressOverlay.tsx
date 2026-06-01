@@ -81,15 +81,15 @@ export function ProgressOverlay({
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
-        animate={
-          normalizedProgress === null && !reduced
-            ? { rotate: 360 }
-            : { rotate: 0 }
-        }
+        animate={reduced ? { rotate: 0 } : { rotate: 360 }}
         transition={
-          normalizedProgress === null && !reduced
-            ? { duration: 0.9, ease: 'linear', repeat: Infinity }
-            : { duration: 0 }
+          reduced
+            ? { duration: 0 }
+            : {
+                duration: normalizedProgress === null ? 0.9 : 1.6,
+                ease: 'linear',
+                repeat: Infinity,
+              }
         }
         style={{ transformOrigin: '50% 50%' }}
       >
