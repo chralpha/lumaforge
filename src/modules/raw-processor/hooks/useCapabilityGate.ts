@@ -24,17 +24,10 @@ export function useCapabilityGate(): RawCapabilityGate {
   return useMemo(() => {
     const caps = detectCapabilities()
     const forceCpuPreview = isLocalCpuPreviewOverrideEnabled()
-    const coi =
-      typeof globalThis.crossOriginIsolated === 'boolean'
-        ? globalThis.crossOriginIsolated
-        : true
-    const capability = resolveRawPreviewCapability(
-      {
-        webgl2: caps.webgl2,
-        toneHighPrecision: forceCpuPreview ? false : caps.toneHighPrecision,
-      },
-      coi,
-    )
+    const capability = resolveRawPreviewCapability({
+      webgl2: caps.webgl2,
+      toneHighPrecision: forceCpuPreview ? false : caps.toneHighPrecision,
+    })
     return { ready: true, ...capability }
   }, [])
 }

@@ -25,9 +25,22 @@ describe('deriveInteractivePolicy', () => {
     const p = deriveInteractivePolicy({
       ...baseCap,
       webKitClass: 'webkit-mobile',
+      pthread: false,
     })
 
     expect(p.boundedHqMaxPixels).toBe(8_000_000)
+    expect(p.previewWorkerMemoryProfile).toBe('low-memory')
+  })
+
+  it('grants 12MP bounded HQ to strong WebKit mobile without using desktop memory', () => {
+    const p = deriveInteractivePolicy({
+      ...baseCap,
+      deviceMemoryGB: null,
+      hwConcurrency: 8,
+      webKitClass: 'webkit-mobile',
+    })
+
+    expect(p.boundedHqMaxPixels).toBe(12_000_000)
     expect(p.previewWorkerMemoryProfile).toBe('low-memory')
   })
 

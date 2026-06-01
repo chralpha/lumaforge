@@ -19,11 +19,11 @@ describe('resolveRawPreviewCapability', () => {
     })
   })
 
-  it('hard-fails (unsupported) when COI is missing, regardless of GPU', () => {
+  it('allows GPU preview without COI because low-memory RAW decode does not require SAB', () => {
     expect(resolveRawPreviewCapability(caps({}), false)).toEqual({
-      supportStatus: 'unsupported',
-      previewMode: null,
-      reason: 'coi-missing',
+      supportStatus: 'supported',
+      previewMode: 'gpu',
+      reason: null,
     })
   })
 
@@ -45,9 +45,9 @@ describe('resolveRawPreviewCapability', () => {
     })
   })
 
-  it('treats missing COI as unsupported even when GPU is also insufficient', () => {
+  it('degrades to CPU preview without COI when GPU is insufficient', () => {
     expect(
       resolveRawPreviewCapability(caps({ webgl2: false }), false),
-    ).toMatchObject({ supportStatus: 'unsupported', reason: 'coi-missing' })
+    ).toMatchObject({ supportStatus: 'degraded', reason: 'webgl2-missing' })
   })
 })

@@ -13,21 +13,14 @@ export type RawPreviewGpuFacts = {
 }
 
 /**
- * Pure preview-capability decision. COI gates RAW decode itself (the runtime
- * hard-gates on it), so missing COI is always unsupported. With COI present, an
- * insufficient GPU degrades to the CPU preview instead of hard-failing.
+ * Pure preview-capability decision. RAW runtime memory-profile selection is
+ * handled by the runtime policy layer; this gate only decides whether the
+ * interactive preview can use GPU or must degrade to CPU.
  */
 export function resolveRawPreviewCapability(
   gpu: RawPreviewGpuFacts,
-  crossOriginIsolated: boolean,
+  _crossOriginIsolated?: boolean,
 ): RawPreviewCapability {
-  if (!crossOriginIsolated) {
-    return {
-      supportStatus: 'unsupported',
-      previewMode: null,
-      reason: 'coi-missing',
-    }
-  }
   if (!gpu.webgl2) {
     return {
       supportStatus: 'degraded',

@@ -1,4 +1,5 @@
 import type { CapabilityVector } from './capability-vector'
+import { deriveRuntimeResourceBudget } from './resource-budget'
 
 export interface InteractivePolicy {
   readonly boundedHqMaxPixels: number
@@ -9,28 +10,11 @@ export interface InteractivePolicy {
 export function deriveInteractivePolicy(
   cap: CapabilityVector,
 ): InteractivePolicy {
-  let boundedHqMaxPixels = 16_000_000
-
-  if (cap.webKitClass === 'webkit-mobile' || !cap.pthread) {
-    boundedHqMaxPixels = Math.min(boundedHqMaxPixels, 8_000_000)
-  }
-
-  if (cap.deviceMemoryGB != null) {
-    boundedHqMaxPixels = Math.min(
-      boundedHqMaxPixels,
-      cap.deviceMemoryGB * 4_000_000,
-    )
-  }
-
-  const previewWorkerMemoryProfile: InteractivePolicy['previewWorkerMemoryProfile'] =
-    cap.coi && cap.pthread && cap.webKitClass === 'chromium'
-      ? 'desktop'
-      : 'low-memory'
-  const allowConcurrentDecodeAndLutParse = cap.pthread && cap.hwConcurrency >= 4
+  const budget = deriveRuntimeResourceBudget(cap)
 
   return Object.freeze({
-    boundedHqMaxPixels,
-    previewWorkerMemoryProfile,
-    allowConcurrentDecodeAndLutParse,
+    boundedHqMaxPixels: budget.boundedHqMaxPixels,
+    previewWorkerMemoryProfile: budget.workerMemoryProfile,
+    allowConcurrentDecodeAndLutParse: budget.allowConcurrentDecodeAndLutParse,
   })
 }

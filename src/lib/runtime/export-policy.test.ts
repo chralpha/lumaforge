@@ -59,6 +59,29 @@ describe('deriveExportPolicy', () => {
     expect(p.workerMemoryProfile).toBe('low-memory')
   })
 
+  it('keeps strong WebKit mobile export on the safe single-worker budget', () => {
+    const p = deriveExportPolicy(
+      {
+        ...baseCap,
+        deviceMemoryGB: null,
+        hwConcurrency: 8,
+        webKitClass: 'webkit-mobile',
+      },
+      { width: 6000, height: 4000 },
+      {
+        performancePreference: 'max',
+        previousResourceFailure: false,
+        previousCrashLikeInterruption: false,
+        previousUserInterrupted: false,
+      },
+      opfsRuntime,
+    )
+
+    expect(p.rowSlice).toBe(128)
+    expect(p.concurrency).toBe(1)
+    expect(p.workerMemoryProfile).toBe('low-memory')
+  })
+
   it('user-cancel is idempotent vs no prior state', () => {
     const intent = {
       performancePreference: 'balanced' as const,

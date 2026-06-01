@@ -1,5 +1,6 @@
 import type { CapabilityVector } from './capability-vector'
 import type { ExportRuntimeResources } from './export-runtime-resources'
+import { deriveRuntimeResourceBudget } from './resource-budget'
 
 export type PolicyProductCopy =
   | 'high-performance'
@@ -53,29 +54,19 @@ export function deriveExportPolicy(
   runtime: ExportRuntimeResources,
 ): ExportPolicy {
   const megapixels = (image.width * image.height) / 1_000_000
+  const budget = deriveRuntimeResourceBudget(cap)
 
   let rowSlice = 512
   if (megapixels >= 100) rowSlice /= 2
-  if (!cap.pthread) rowSlice = Math.min(rowSlice, 256)
-  if (cap.webKitClass === 'webkit-mobile') rowSlice = Math.min(rowSlice, 128)
-  if (cap.webKitClass === 'webkit-desktop-safari') {
-    rowSlice = Math.min(rowSlice, 256)
-  }
-  if (cap.deviceMemoryGB != null && cap.deviceMemoryGB <= 4) {
-    rowSlice = Math.min(rowSlice, 128)
-  }
+  rowSlice = Math.min(rowSlice, budget.exportRowSliceCeiling)
   if (intent.previousResourceFailure) rowSlice /= 2
   if (intent.previousCrashLikeInterruption) rowSlice /= 4
   rowSlice = clamp(Math.floor(rowSlice), 64, 2048)
 
   const threadBudget = Math.max(1, cap.hwConcurrency - 1)
-  let maxConcurrency = cap.pthread ? Math.min(threadBudget, 3) : 1
-  if (
-    cap.webKitClass === 'webkit-mobile' ||
-    cap.webKitClass === 'webkit-desktop-safari'
-  ) {
-    maxConcurrency = 1
-  }
+  let maxConcurrency = cap.pthread
+    ? Math.min(threadBudget, budget.exportConcurrencyCeiling)
+    : 1
   if (intent.previousResourceFailure || intent.previousCrashLikeInterruption) {
     maxConcurrency = 1
   }
@@ -86,10 +77,7 @@ export function deriveExportPolicy(
     maxConcurrency,
   )
 
-  const workerMemoryProfile: ExportPolicy['workerMemoryProfile'] =
-    cap.coi && cap.pthread && cap.webKitClass === 'chromium'
-      ? 'desktop'
-      : 'low-memory'
+  const workerMemoryProfile = budget.workerMemoryProfile
 
   const targetRows = rowSlice <= 128 ? 2048 : 4096
   const persistEveryNRows = clamp(

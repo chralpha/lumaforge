@@ -41,16 +41,17 @@ describe('useCapabilityGate', () => {
     vi.unstubAllGlobals()
   })
 
-  it('stays unsupported when COI missing', () => {
+  it('keeps GPU preview available when COI is missing', () => {
     vi.spyOn(glContext, 'detectCapabilities').mockReturnValue({
-      webgl2: false,
-      toneHighPrecision: false,
+      webgl2: true,
+      toneHighPrecision: true,
     } as glContext.WebGLCapabilities)
     vi.stubGlobal('crossOriginIsolated', false)
     const { result } = renderHook(() => useCapabilityGate())
     expect(result.current).toMatchObject({
-      supportStatus: 'unsupported',
-      previewMode: null,
+      supportStatus: 'supported',
+      previewMode: 'gpu',
+      reason: null,
     })
   })
 
@@ -71,7 +72,7 @@ describe('useCapabilityGate', () => {
     })
   })
 
-  it('does not let the CPU preview validation flag bypass COI', () => {
+  it('lets the CPU preview validation flag use the low-memory path without COI', () => {
     vi.spyOn(glContext, 'detectCapabilities').mockReturnValue({
       webgl2: true,
       toneHighPrecision: true,
@@ -82,9 +83,9 @@ describe('useCapabilityGate', () => {
     const { result } = renderHook(() => useCapabilityGate())
 
     expect(result.current).toMatchObject({
-      supportStatus: 'unsupported',
-      previewMode: null,
-      reason: 'coi-missing',
+      supportStatus: 'degraded',
+      previewMode: 'cpu',
+      reason: 'tone-float-precision-low',
     })
   })
 })
