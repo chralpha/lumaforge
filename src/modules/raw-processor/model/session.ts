@@ -11,6 +11,7 @@ import type {
   ExportOutputSink,
   ExportRuntimeMemoryProfile,
 } from '~/lib/export/execution-profile'
+import type { ImageMetadata } from '~/lib/raw/decoder'
 
 import type { ExportResult } from './export-result'
 
@@ -124,9 +125,11 @@ export type ImageSession = {
   id: string
   createdAt: number
   sourceFile: {
+    file?: File
     name: string
     extension: string
     sizeBytes: number
+    metadata?: ImageMetadata
     rawFormat?: string
     cameraBrand?: string
     cameraModel?: string

@@ -21,6 +21,7 @@ describe('createImageSession', () => {
       id: '00000000-0000-4000-8000-000000000001',
       createdAt: 12345,
       sourceFile: {
+        file,
         name: 'Frame.ARW',
         extension: 'arw',
         sizeBytes: 3,
@@ -62,14 +63,15 @@ describe('createImageSession', () => {
     )
     vi.spyOn(Date, 'now').mockReturnValue(12346)
 
-    expect(createImageSession(new File(['raw'], 'RAWFILE')).sourceFile).toEqual(
-      {
-        name: 'RAWFILE',
-        extension: 'rawfile',
-        sizeBytes: 3,
-        supportLevel: 'experimental',
-      },
-    )
+    const file = new File(['raw'], 'RAWFILE')
+
+    expect(createImageSession(file).sourceFile).toEqual({
+      file,
+      name: 'RAWFILE',
+      extension: 'rawfile',
+      sizeBytes: 3,
+      supportLevel: 'experimental',
+    })
   })
 
   it('retains staged style and LUT profile selection when provided', () => {

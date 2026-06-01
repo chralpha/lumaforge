@@ -17,6 +17,7 @@ export function createImageSession(
     id: globalThis.crypto.randomUUID(),
     createdAt: Date.now(),
     sourceFile: {
+      file,
       name: file.name,
       extension: file.name.split('.').pop()?.toLowerCase() || '',
       sizeBytes: file.size,

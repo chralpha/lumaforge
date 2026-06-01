@@ -82,6 +82,7 @@ export function applyPreviewReady(
     sourceFile: decoded
       ? {
           ...session.sourceFile,
+          metadata: decoded.metadata,
           cameraBrand: decoded.metadata.make,
           cameraModel: decoded.metadata.model,
           rawFormat: session.sourceFile.extension,

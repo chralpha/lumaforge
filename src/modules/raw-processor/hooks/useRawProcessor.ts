@@ -982,6 +982,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
                 status: 'ready',
                 lastRenderSource: 'quick',
               },
+              sourceFile: {
+                ...prev.sourceFile,
+                metadata: decoded.metadata,
+              },
             }
           : prev,
       )
