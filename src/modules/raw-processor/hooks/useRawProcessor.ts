@@ -67,6 +67,7 @@ import type { FullResExportOptions } from './stages/export/useFullResExportActio
 import { useFullResExportAction } from './stages/export/useFullResExportAction'
 import { useHqPreviewExportAction } from './stages/export/useHqPreviewExportAction'
 import { useRawLoadAction } from './stages/ingest/useRawLoadAction'
+import { useRawSessionReset } from './stages/ingest/useRawSessionReset'
 import { useRawLookStage } from './stages/look/useRawLookStage'
 import { useDecodedPreviewResource } from './stages/preview/useDecodedPreviewResource'
 import { useEmbeddedPreviewUrlLifecycle } from './stages/preview/useEmbeddedPreviewUrlLifecycle'
@@ -625,35 +626,23 @@ export function useRawProcessor(): UseRawProcessorReturn {
       toast,
     })
 
-  // Reset state
-  const reset = useCallback(() => {
-    runtimeWorkSessionIdRef.current = null
-    pendingLoadSessionIdRef.current = null
-    setPendingRecoveryRetry(null)
-    abortExportWork()
-    abortRuntimeWork()
-    queueExportResultResourceDisposal('reset-session')
-    revokeCurrentEmbeddedPreviewUrl()
-    previewCopyCanvasRef.current = null
-    setDecodedImageRef(null)
-    setStatus('idle')
-    setError(null)
-    setProgress(0)
-    setStats(null)
-    resetSession()
-    sessionRef.current = null
-  }, [
+  const { reset } = useRawSessionReset({
+    runtimeWorkSessionIdRef,
+    pendingLoadSessionIdRef,
+    previewCopyCanvasRef,
+    sessionRef,
+    setPendingRecoveryRetry,
     abortExportWork,
     abortRuntimeWork,
     queueExportResultResourceDisposal,
-    resetSession,
     revokeCurrentEmbeddedPreviewUrl,
     setDecodedImageRef,
+    setStatus,
     setError,
     setProgress,
     setStats,
-    setStatus,
-  ])
+    resetSession,
+  })
 
   // Dismiss error
   const dismissError = useCallback(() => {
