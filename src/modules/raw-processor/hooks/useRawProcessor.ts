@@ -112,6 +112,7 @@ import {
 } from '../services/look/orchestrate-params-update'
 import {
   buildLUTContractSelectionState,
+  mapIntensityLevel,
   toCustomStyle,
 } from '../services/look/style-system'
 import {
@@ -304,15 +305,24 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const { session, replaceFile, resetSession, setSession } = useImageSession()
   const sessionViewMode = session?.viewState.mode
   const sessionCompareSplit = session?.viewState.compareSplit
+  const sessionActiveIntensity = session?.activeStyle?.currentIntensityLevel
   const params = useMemo<ProcessingParams>(() => {
-    if (!sessionViewMode || sessionCompareSplit === undefined) return baseParams
+    const viewParams =
+      !sessionViewMode || sessionCompareSplit === undefined
+        ? baseParams
+        : {
+            ...baseParams,
+            viewMode: sessionViewMode,
+            compareSplit: sessionCompareSplit,
+          }
 
-    return {
-      ...baseParams,
-      viewMode: sessionViewMode,
-      compareSplit: sessionCompareSplit,
-    }
-  }, [baseParams, sessionCompareSplit, sessionViewMode])
+    if (!sessionActiveIntensity) return viewParams
+
+    const intensity = mapIntensityLevel(sessionActiveIntensity)
+    return viewParams.intensity === intensity
+      ? viewParams
+      : { ...viewParams, intensity }
+  }, [baseParams, sessionActiveIntensity, sessionCompareSplit, sessionViewMode])
 
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
   const resourceRegistryRef = useRef<ResourceRegistry | null>(null)
@@ -1158,7 +1168,9 @@ export function useRawProcessor(): UseRawProcessorReturn {
       if (shouldInvalidateExportGraph) {
         invalidateExportGraph()
       }
-      setParams(nextParams)
+      if (!session?.activeStyle) {
+        setParams(nextParams)
+      }
       setSession(nextSession)
     },
     [

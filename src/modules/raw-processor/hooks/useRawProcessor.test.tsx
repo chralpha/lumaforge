@@ -1586,6 +1586,32 @@ describe('useRawProcessor embedded preview state', () => {
     })
   })
 
+  it('keeps active style intensity session canonical while projecting numeric params', () => {
+    jotaiStore.set(currentSessionAtom, {
+      ...createTestSession(),
+      activeStyle: {
+        kind: 'builtin',
+        name: 'Warm',
+        defaultIntensityLevel: 'standard',
+        currentIntensityLevel: 'standard',
+      },
+    })
+
+    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const storedParamsBefore = getProcessingParams()
+
+    act(() => {
+      result.current.selectIntensityLevel('strong')
+    })
+
+    expect(result.current.activeIntensity).toBe('strong')
+    expect(result.current.params.intensity).toBe(1)
+    expect(getProcessingParams()).toBe(storedParamsBefore)
+    expect(
+      jotaiStore.get(currentSessionAtom)?.activeStyle?.currentIntensityLevel,
+    ).toBe('strong')
+  })
+
   it('starts an original reference fallback snapshot after dual WebGL fails', async () => {
     vi.stubGlobal('CSS', {
       supports: vi.fn(() => true),
