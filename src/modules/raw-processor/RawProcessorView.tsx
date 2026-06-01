@@ -7,13 +7,12 @@ import './raw-lab.css'
 import './raw-lab.surface.css'
 import './raw-lab.effects.css'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useInRouterContext, useLocation } from 'react-router'
 
 import { clsxm } from '~/lib/cn'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import { useI18n } from '~/lib/i18n'
-import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
 import {
   ComparePreviewStage,
@@ -25,9 +24,9 @@ import {
 } from './components'
 import { CpuPreviewBanner } from './components/CpuPreviewBanner'
 import { CpuPreviewCanvas } from './components/CpuPreviewCanvas'
-import type { RawRuntimeReadinessState } from './components/raw-runtime-readiness'
 import { RawResetConfirmationDialog } from './components/RawResetConfirmationDialog'
 import { useRawWorkflow } from './hooks'
+import { useRawRuntimeReadiness } from './hooks/stages/ingest/useRawRuntimeReadiness'
 import { useCapabilityGate } from './hooks/useCapabilityGate'
 import type { CpuPreviewParams } from './hooks/useCpuPreview'
 import { useCpuPreview } from './hooks/useCpuPreview'
@@ -156,71 +155,14 @@ function RawProcessorViewInner({
     pathname: rawRouteLocation.pathname,
     loadOnlineLUT,
   })
-  const [runtimeReadinessState, setRuntimeReadinessState] =
-    useState<RawRuntimeReadinessState>(() =>
-      rawRuntimeAdapter.getPrewarmState(),
-    )
+  const { runtimeReadinessState, triggerRawRuntimePrewarm } =
+    useRawRuntimeReadiness()
   const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false)
   const [cpuPreviewBannerDismissed, setCpuPreviewBannerDismissed] =
     useState(false)
   const [cpuPreviewVariant, setCpuPreviewVariant] = useState<
     'processed' | 'neutral'
   >('processed')
-  const runtimeReadinessMountedRef = useRef(false)
-
-  useEffect(() => {
-    runtimeReadinessMountedRef.current = true
-    return () => {
-      runtimeReadinessMountedRef.current = false
-    }
-  }, [])
-
-  const syncRuntimeReadinessState = useCallback(() => {
-    if (!runtimeReadinessMountedRef.current) return
-    setRuntimeReadinessState(rawRuntimeAdapter.getPrewarmState())
-  }, [])
-
-  const triggerRawRuntimePrewarm = useCallback(() => {
-    if (typeof window === 'undefined') return
-
-    if (import.meta.env.MODE === 'test') {
-      syncRuntimeReadinessState()
-      return
-    }
-
-    const prewarm = rawRuntimeAdapter.prewarm()
-    syncRuntimeReadinessState()
-    void prewarm.then(syncRuntimeReadinessState, syncRuntimeReadinessState)
-  }, [syncRuntimeReadinessState])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (import.meta.env.MODE === 'test') return
-    let cancelled = false
-    const trigger = () => {
-      if (cancelled) return
-      triggerRawRuntimePrewarm()
-    }
-    const win = window as Window & {
-      requestIdleCallback?: (
-        cb: () => void,
-        opts?: { timeout?: number },
-      ) => number
-      cancelIdleCallback?: (handle: number) => void
-    }
-    if (typeof win.requestIdleCallback === 'function') {
-      const handle = win.requestIdleCallback(trigger, { timeout: 1500 })
-      return () => {
-        cancelled = true
-        win.cancelIdleCallback?.(handle)
-      }
-    }
-    const handle = window.setTimeout(trigger, 200)
-    return () => {
-      cancelled = true
-      window.clearTimeout(handle)
-    }
-  }, [triggerRawRuntimePrewarm])
 
   // Handle file drop
   const handleFileDrop = useCallback(
