@@ -73,6 +73,7 @@ import { useDecodedPreviewResource } from './stages/preview/useDecodedPreviewRes
 import { useEmbeddedPreviewUrlLifecycle } from './stages/preview/useEmbeddedPreviewUrlLifecycle'
 import type { PreviewPipelineEvacuationHandle } from './stages/preview/usePreviewPipelineEvacuation'
 import { usePreviewPipelineEvacuation } from './stages/preview/usePreviewPipelineEvacuation'
+import { useRestorePreviewAfterExport } from './stages/preview/useRestorePreviewAfterExport'
 import { useImageSession } from './useImageSession'
 import type { OriginalReferenceSnapshotCapability } from './useOriginalReferenceSnapshot'
 import { useOriginalReferenceSnapshot } from './useOriginalReferenceSnapshot'
@@ -587,125 +588,24 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [params, lut, activeStyle, rawLoadCtx],
   )
 
-  const restorePreviewAfterExport = useCallback(async () => {
-    const activeSession = sessionRef.current
-    const file = loadedImage.file
-
-    if (!activeSession || !file) {
-      return
-    }
-
-    abortRuntimeWork()
-    const restoreAbortController = new AbortController()
-    runtimeAbortControllerRef.current = restoreAbortController
-    runtimeWorkSessionIdRef.current = activeSession.id
-    setStatus('decoding')
-    setProgress(0)
-    setError(null)
-
-    let runtimeSession: RawRuntimeSession | null = null
-    const matchesActiveSession = () =>
-      isMountedRef.current &&
-      !restoreAbortController.signal.aborted &&
-      sessionRef.current?.id === activeSession.id &&
-      runtimeWorkSessionIdRef.current === activeSession.id
-    const mapPhaseToStatus = (
-      phase: 'loading' | 'decoding' | 'processing' | 'complete',
-    ): ProcessingStatus => {
-      if (phase === 'loading') return 'loading'
-      if (phase === 'decoding') return 'decoding'
-      if (phase === 'processing') return 'processing'
-      return 'ready'
-    }
-
-    try {
-      runtimeSession = await rawRuntimeAdapter.openSession(
-        file,
-        restoreAbortController.signal,
-      )
-      if (!matchesActiveSession()) {
-        return
-      }
-
-      runtimeSessionRef.current = runtimeSession
-      const decoded = await runtimeSession.decodeQuickRaw(
-        ({ phase, progress }) => {
-          if (!matchesActiveSession()) return
-          setStatus(mapPhaseToStatus(phase))
-          setProgress(progress)
-        },
-        restoreAbortController.signal,
-      )
-
-      if (!matchesActiveSession()) {
-        return
-      }
-
-      setDecodedImageRef(decoded, { preserveExportResult: true })
-      setSession((prev) =>
-        prev && prev.id === activeSession.id
-          ? {
-              ...prev,
-              previewBundle: {
-                ...prev.previewBundle,
-                quickDecodePreview: {
-                  status: 'ready',
-                  width: decoded.width,
-                  height: decoded.height,
-                  timings: decoded.timings,
-                },
-                displaySource: 'quick',
-              },
-              renderState: {
-                ...prev.renderState,
-                status: 'ready',
-                lastRenderSource: 'quick',
-              },
-              sourceFile: {
-                ...prev.sourceFile,
-                metadata: decoded.metadata,
-              },
-            }
-          : prev,
-      )
-      setStatus('ready')
-      setProgress(100)
-    } catch (err) {
-      if (!matchesActiveSession()) {
-        return
-      }
-
-      const description =
-        err instanceof Error ? err.message : 'Preview restore failed.'
-      setStatus('ready')
-      setProgress(0)
-      scheduleToast(() =>
-        toast.error('Preview restore failed', {
-          description,
-        }),
-      )
-    } finally {
-      if (runtimeAbortControllerRef.current === restoreAbortController) {
-        runtimeAbortControllerRef.current = null
-      }
-      if (runtimeWorkSessionIdRef.current === activeSession.id) {
-        runtimeWorkSessionIdRef.current = null
-      }
-      if (runtimeSession) {
-        disposeRuntimeSession(runtimeSession)
-      }
-    }
-  }, [
+  const { restorePreviewAfterExport } = useRestorePreviewAfterExport({
+    loadedFile: loadedImage.file,
+    sessionRef,
+    isMountedRef,
+    runtimeAbortControllerRef,
+    runtimeWorkSessionIdRef,
+    runtimeSessionRef,
+    setStatus,
+    setProgress,
+    setError,
+    setSession,
+    setDecodedImageRef,
     abortRuntimeWork,
     disposeRuntimeSession,
-    loadedImage.file,
+    openSession: rawRuntimeAdapter.openSession,
     scheduleToast,
-    setDecodedImageRef,
-    setError,
-    setProgress,
-    setSession,
-    setStatus,
-  ])
+    toast,
+  })
 
   const { exportImage } = useFullResExportAction({
     setStatus,
