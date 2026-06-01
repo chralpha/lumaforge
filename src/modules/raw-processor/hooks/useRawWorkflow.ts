@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { yieldToPaint } from '~/lib/dom'
 import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
+import { buildRawWorkflowReturn } from './buildRawWorkflowReturn'
 import { useOriginalReferenceStage } from './stages/compare/useOriginalReferenceStage'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
 import { useExportGraphInvalidation } from './stages/export/useExportGraphInvalidation'
@@ -95,17 +96,18 @@ export function useRawWorkflow(): UseRawWorkflowReturn {
     embeddedPreviewUrl,
     displaySource,
   } = useRawSourceState({ session, status })
+  const sourceState = {
+    hasImage,
+    loadedImage,
+    sourceFileName,
+    supportLevel,
+    progressRecoveryHint,
+    embeddedPreviewUrl,
+    displaySource,
+  }
   const rawRenderExposure =
     decodedImageRef.current?.renderExposure ?? rawRenderExposureRef.current
-  const {
-    viewMode,
-    compareSplit,
-    previewViewport,
-    setViewMode,
-    setCompareSplit,
-    setPreviewViewport,
-    resetPreviewViewport,
-  } = compareStage
+  const { viewMode, setViewMode, setCompareSplit } = compareStage
   const { disposeRuntimeSession, abortRuntimeWork, abortExportWork } =
     useRawRuntimeControls({
       runtimeSessionRef,
@@ -147,23 +149,7 @@ export function useRawWorkflow(): UseRawWorkflowReturn {
     setViewMode,
     setCompareSplit,
   })
-  const {
-    params,
-    activeStyle,
-    lutProfileSelection,
-    activeIntensity,
-    currentLutName,
-    loadLUT,
-    loadOnlineLUT,
-    selectLUTProfile,
-    selectIntensityLevel,
-    clearLUT,
-    setParams: handleSetParams,
-    setToneParams,
-    resetTone,
-    setColorParams,
-    resetColor,
-  } = lookStage
+  const { params, activeStyle, setParams: handleSetParams } = lookStage
   paramsRef.current = params
   const {
     histogram,
@@ -204,6 +190,11 @@ export function useRawWorkflow(): UseRawWorkflowReturn {
     scheduleToast,
     toast,
   })
+  const previewStage = {
+    histogram,
+    restorePreviewAfterExport,
+    setOriginalPreviewPipeline,
+  }
 
   useExportRecoveryDiscovery({
     setDiscoveredRecoveryState,
@@ -249,6 +240,7 @@ export function useRawWorkflow(): UseRawWorkflowReturn {
     previewCopyCanvasRef,
     resetSession,
   })
+  const ingestStage = { loadFile, reset }
 
   const {
     canExport,
@@ -304,6 +296,22 @@ export function useRawWorkflow(): UseRawWorkflowReturn {
     queueExportResultResourceDisposal,
     toast,
   })
+  const exportStage = {
+    canExport,
+    exportDisabledReason,
+    exportResult,
+    exportShareCapability,
+    exportRecovery,
+    previewSuspended,
+    canPreviewExport,
+    previewExportDisabledReason,
+    exportImage,
+    recoverInterruptedExport,
+    downloadExportResult,
+    shareExportResult,
+    copyExportResult,
+    exportPreviewImage,
+  }
 
   const {
     originalReferenceSnapshot,
@@ -320,75 +328,40 @@ export function useRawWorkflow(): UseRawWorkflowReturn {
     displaySource,
     resourceRegistryRef,
   })
-
-  return {
-    params,
-    loadedImage: {
-      file: loadedImage.file,
-      metadata: loadedImage.metadata,
-    },
-    decodedImageRef,
-    decodedImageVersion,
-    status,
-    error,
-    progress,
-    lut,
-    lutData: lutDataRef.current,
-    lutDataRef,
-    lutDataVersion,
-    stats,
-    hasImage,
-    canExport,
-    exportDisabledReason,
-    canPreviewExport,
-    previewExportDisabledReason,
-    exportResult,
-    exportShareCapability,
-    exportRecovery,
-    activeStyle,
-    lutProfileSelection,
-    activeIntensity,
-    viewMode,
-    compareSplit,
-    previewViewport,
-    currentLutName,
-    sourceFileName,
-    supportLevel,
-    progressRecoveryHint,
-    embeddedPreviewUrl,
-    displaySource,
+  const originalReferenceStage = {
     originalReferenceSnapshot,
     originalReferenceFallbackReason,
     dualWebglAllowed,
-    histogram,
-    previewSuspended,
-    loadFile,
-    loadLUT,
-    loadOnlineLUT,
-    selectLUTProfile,
-    selectIntensityLevel,
-    setViewMode,
-    setCompareSplit,
-    setPreviewViewport,
-    resetPreviewViewport,
-    clearLUT,
-    setParams: handleSetParams,
-    setToneParams,
-    resetTone,
-    setColorParams,
-    resetColor,
-    exportImage,
-    exportPreviewImage,
-    recoverInterruptedExport,
-    downloadExportResult,
-    shareExportResult,
-    copyExportResult,
-    restorePreviewAfterExport,
     requestOriginalReferenceFallback,
-    setOriginalPreviewPipeline,
-    reset,
-    dismissError,
-    updateStats,
-    pipelineRef,
   }
+
+  return buildRawWorkflowReturn({
+    workflowState: {
+      status,
+      error,
+      progress,
+      stats,
+      dismissError,
+      updateStats,
+    },
+    refs: { decodedImageRef, pipelineRef },
+    decodedImageVersion,
+    lut,
+    lutData: {
+      lutData: lutDataRef.current,
+      lutDataRef,
+      lutDataVersion,
+    },
+    sourceState,
+    compareStage,
+    lookStage: {
+      ...lookStage,
+      params,
+      setParams: handleSetParams,
+    },
+    previewStage,
+    ingestStage,
+    exportStage,
+    originalReferenceStage,
+  })
 }
