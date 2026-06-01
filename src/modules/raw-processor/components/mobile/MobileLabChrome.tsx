@@ -20,9 +20,9 @@ import type { ColorValue } from '../tools/ColorTool'
 import type { ToneValue } from '../tools/ToneTool'
 import type { ScrubFieldId } from './AdjustListPanel'
 import { AdjustListPanel } from './AdjustListPanel'
-import { FloatingHistogramCard } from './FloatingHistogramCard'
 import { MobileComparePanel } from './MobileComparePanel'
 import { MobileEmptyState } from './MobileEmptyState'
+import { MobileFloatingOverlays } from './MobileFloatingOverlays'
 import { MobileLookPanel } from './MobileLookPanel'
 import type { MobileLutBrowserProps } from './MobileLutBrowser'
 import { MobileLutBrowser } from './MobileLutBrowser'
@@ -30,7 +30,6 @@ import type { MobileMode } from './MobileModeDock'
 import { MobileModeDock } from './MobileModeDock'
 import { MobileMoreSheet } from './MobileMoreSheet'
 import { MobileTopbar } from './MobileTopbar'
-import { ScrubValueHud } from './ScrubValueHud'
 import { useMobilePreviewGestures } from './useMobilePreviewGestures'
 
 type ViewMode = 'processed' | 'original' | 'compare'
@@ -347,54 +346,19 @@ export function MobileLabChrome(props: {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {immersive && !focusActive && props.hasImage && !handoffActive && (
-          <m.button
-            key="immersive-show"
-            type="button"
-            aria-label={t('raw.mobile.immersive.show')}
-            onClick={exitImmersive}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={surfaceFade}
-            className="pointer-events-auto absolute bottom-safe-offset-4 left-1/2 z-[12] inline-flex min-h-[44px] -translate-x-1/2 items-center justify-center rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-3 text-[0.7rem] font-semibold text-lf-on-photo-ink/82 backdrop-blur-background transition-colors hover:text-lf-on-photo-ink"
-          >
-            {t('raw.mobile.immersive.show')}
-          </m.button>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {peeking && props.hasImage && !handoffActive && (
-          <m.div
-            key="peek-hint"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={surfaceFade}
-            className="pointer-events-none absolute left-1/2 top-safe-offset-14 z-[12] -translate-x-1/2 rounded-lf-pill border border-lf-on-photo-bord bg-lf-on-photo-bg-strong px-2.5 py-1.5 text-[0.7rem] font-semibold uppercase tracking-wide text-lf-on-photo-ink"
-          >
-            {t('raw.mobile.peek.hint')}
-          </m.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {histogramOpen &&
-          !focusActive &&
-          !immersive &&
-          props.hasImage &&
-          !handoffActive && (
-            <FloatingHistogramCard
-              key="histogram"
-              histogram={props.histogram}
-              hidden={peeking}
-            />
-          )}
-      </AnimatePresence>
-
-      <ScrubValueHud field={scrubField} tone={props.tone} color={props.color} />
+      <MobileFloatingOverlays
+        immersive={immersive}
+        focusActive={focusActive}
+        hasImage={props.hasImage}
+        handoffActive={handoffActive}
+        peeking={peeking}
+        histogramOpen={histogramOpen}
+        histogram={props.histogram}
+        scrubField={scrubField}
+        tone={props.tone}
+        color={props.color}
+        onExitImmersive={exitImmersive}
+      />
 
       {/* Topbar + dock recede together as one surface when immersive takes over,
           instead of hard-unmounting behind the overlay.
