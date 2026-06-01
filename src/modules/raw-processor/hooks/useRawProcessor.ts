@@ -3,9 +3,8 @@ import type {
   LUTData,
   PreviewHistogramState,
   ProcessingParams,
-  RawRenderExposure,
 } from '@lumaforge/luma-color-runtime'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import {
@@ -23,13 +22,10 @@ import {
   useSetProgress,
 } from '~/atoms/raw-processor'
 import { yieldToPaint } from '~/lib/dom'
-import type { ResourceRegistry } from '~/lib/export/resource-registry'
-import { createResourceRegistry } from '~/lib/export/resource-registry'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import type { OnlineLUTEntry } from '~/lib/profiles/catalog'
 import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
-import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
 import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
 import type {
@@ -73,6 +69,7 @@ import { useRestorePreviewAfterExport } from './stages/preview/useRestorePreview
 import { useImageSession } from './useImageSession'
 import { useOriginalReferenceSnapshot } from './useOriginalReferenceSnapshot'
 import { usePreviewHistogram } from './usePreviewHistogram'
+import { useRawWorkflowRefs } from './useRawWorkflowRefs'
 
 function enqueuePostCommitTask(task: () => void) {
   setTimeout(task, 0)
@@ -185,10 +182,24 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const setStats = useSetPipelineStats()
   const { session, replaceFile, resetSession, setSession } = useImageSession()
 
-  const pipelineRef = useRef<RawProcessingPipeline | null>(null)
-  const resourceRegistryRef = useRef<ResourceRegistry | null>(null)
-  const previewCopyCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const sessionRef = useRef(session)
+  const {
+    pipelineRef,
+    resourceRegistryRef,
+    previewCopyCanvasRef,
+    sessionRef,
+    embeddedPreviewUrlRef,
+    isMountedRef,
+    runtimeWorkSessionIdRef,
+    pendingLoadSessionIdRef,
+    runtimeSessionRef,
+    runtimeAbortControllerRef,
+    exportAbortControllerRef,
+    exportGraphVersionRef,
+    disposedRuntimeSessionsRef,
+    decodedImageRef,
+    paramsRef,
+    rawRenderExposureRef,
+  } = useRawWorkflowRefs({ session, initialParams: baseParams })
   const compareStage = useRawCompareStage({
     baseParams,
     session,
@@ -196,20 +207,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setParams,
     setSession,
   })
-  const embeddedPreviewUrlRef = useRef<string | null>(null)
-  const isMountedRef = useRef(false)
-  const runtimeWorkSessionIdRef = useRef<string | null>(null)
-  const pendingLoadSessionIdRef = useRef<string | null>(null)
-  const runtimeSessionRef = useRef<RawRuntimeSession | null>(null)
-  const runtimeAbortControllerRef = useRef<AbortController | null>(null)
-  const exportAbortControllerRef = useRef<AbortController | null>(null)
-  const exportGraphVersionRef = useRef(0)
-  const disposedRuntimeSessionsRef = useRef<WeakSet<RawRuntimeSession>>(
-    new WeakSet(),
-  )
-  const decodedImageRef = useRef<DecodedImage | null>(null)
-  const paramsRef = useRef(compareStage.params)
-  const rawRenderExposureRef = useRef<RawRenderExposure | null>(null)
   const [decodedImageVersion, setDecodedImageVersion] = useState(0)
   const {
     discoveredRecovery,
@@ -218,22 +215,24 @@ export function useRawProcessor(): UseRawProcessorReturn {
     pendingRecoveryRetry,
     setPendingRecoveryRetry,
   } = useExportRecoveryState()
-  if (!resourceRegistryRef.current) {
-    resourceRegistryRef.current = createResourceRegistry()
-  }
-  const getCurrentProcessingParams = useCallback(() => paramsRef.current, [])
-  const scheduleToast = useCallback((notify: () => void) => {
-    // Sonner uses flushSync internally; move RAW-workspace toasts out of the
-    // current commit so dev-only tooling does not crash on the same render pass.
-    enqueuePostCommitTask(() => {
-      if (!isMountedRef.current) {
-        return
-      }
+  const getCurrentProcessingParams = useCallback(
+    () => paramsRef.current,
+    [paramsRef],
+  )
+  const scheduleToast = useCallback(
+    (notify: () => void) => {
+      // Sonner uses flushSync internally; move RAW-workspace toasts out of the
+      // current commit so dev-only tooling does not crash on the same render pass.
+      enqueuePostCommitTask(() => {
+        if (!isMountedRef.current) {
+          return
+        }
 
-      notify()
-    })
-  }, [])
-  sessionRef.current = session
+        notify()
+      })
+    },
+    [isMountedRef],
+  )
   const {
     hasImage,
     loadedImage,
