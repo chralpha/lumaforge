@@ -21,7 +21,6 @@ describe('useMobileLutContractState', () => {
         },
         lutProfileResolution: {
           kind: 'recommended',
-          reason: 'ambiguous',
           recommendations: [recommendation],
         },
       }),
