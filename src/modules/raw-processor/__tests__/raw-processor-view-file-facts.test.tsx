@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 
-import type { UseRawProcessorReturn } from '../hooks/useRawProcessor'
+import type { UseRawWorkflowReturn } from '../hooks/useRawWorkflow'
 import { RawProcessorView } from '../RawProcessorView'
 
 const mockUseRawWorkflow = vi.hoisted(() => vi.fn())
@@ -63,8 +63,8 @@ function valueForFact(region: HTMLElement, label: string) {
 }
 
 function createLoadedProcessorState(
-  overrides: Partial<UseRawProcessorReturn> = {},
-): UseRawProcessorReturn {
+  overrides: Partial<UseRawWorkflowReturn> = {},
+): UseRawWorkflowReturn {
   return {
     params: {
       userExposureEv: 0,

@@ -19,14 +19,17 @@ import { useRawLookStage } from './stages/look/useRawLookStage'
 import { useRawPreviewStage } from './stages/preview/useRawPreviewStage'
 import { useImageSession } from './useImageSession'
 import { useRawDetachedWorkflowState } from './useRawDetachedWorkflowState'
-import type { UseRawProcessorReturn } from './useRawProcessor.types'
+import type { UseRawWorkflowReturn } from './useRawWorkflow.types'
 import { useRawWorkflowActions } from './useRawWorkflowActions'
 import { useRawWorkflowRefs } from './useRawWorkflowRefs'
 import { useRawWorkflowState } from './useRawWorkflowState'
 
-export type { UseRawProcessorReturn } from './useRawProcessor.types'
+export type {
+  UseRawProcessorReturn,
+  UseRawWorkflowReturn,
+} from './useRawWorkflow.types'
 
-export function useRawWorkflow(): UseRawProcessorReturn {
+export function useRawWorkflow(): UseRawWorkflowReturn {
   const { baseParams, setParams, lut, setLut } = useRawDetachedWorkflowState()
   const {
     status,

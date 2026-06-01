@@ -12,7 +12,7 @@ import { ComparePreviewStage } from '../components/ComparePreviewStage'
 import { LutDropzone } from '../components/Dropzone'
 import { PreviewCanvas } from '../components/PreviewCanvas'
 import { RawToolSurface } from '../components/RawToolSurface'
-import type { UseRawProcessorReturn } from '../hooks/useRawProcessor'
+import type { UseRawWorkflowReturn } from '../hooks/useRawWorkflow'
 import { RawProcessorView } from '../RawProcessorView'
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 
@@ -129,8 +129,8 @@ function compareStageProps(
 }
 
 function rawProcessorViewState(
-  overrides: Partial<UseRawProcessorReturn> = {},
-): UseRawProcessorReturn {
+  overrides: Partial<UseRawWorkflowReturn> = {},
+): UseRawWorkflowReturn {
   return {
     params: {
       userExposureEv: 0,
