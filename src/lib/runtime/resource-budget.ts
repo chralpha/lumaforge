@@ -2,7 +2,7 @@ import type { CapabilityVector } from './capability-vector'
 
 export type RuntimeResourceClass =
   | 'desktop-performance'
-  | 'webkit-balanced'
+  | 'balanced-preview'
   | 'mobile-safe'
   | 'compat-safe'
 
@@ -41,18 +41,35 @@ function canUseDesktopMemory(cap: CapabilityVector) {
     cap.coi &&
     cap.pthread &&
     cap.webKitClass === 'chromium' &&
+    cap.deviceFormFactor === 'desktop' &&
     !hasKnownLowMemory(cap)
   )
 }
 
-function canUseBalancedWebKitPreview(cap: CapabilityVector) {
+function isMobileFormFactor(cap: CapabilityVector) {
+  return (
+    cap.deviceFormFactor === 'mobile' || cap.webKitClass === 'webkit-mobile'
+  )
+}
+
+function canUseBalancedPreview(cap: CapabilityVector) {
   return (
     cap.coi &&
     cap.pthread &&
     cap.hwConcurrency >= 6 &&
     !hasKnownLowMemory(cap) &&
-    (cap.webKitClass === 'webkit-mobile' ||
-      cap.webKitClass === 'webkit-desktop-safari')
+    (isMobileFormFactor(cap) || cap.webKitClass === 'webkit-desktop-safari')
+  )
+}
+
+function canUseBalancedMobileExport(cap: CapabilityVector) {
+  return (
+    isMobileFormFactor(cap) &&
+    cap.webKitClass === 'chromium' &&
+    cap.pthread &&
+    cap.hwConcurrency >= 6 &&
+    cap.deviceMemoryGB != null &&
+    cap.deviceMemoryGB >= 8
   )
 }
 
@@ -61,32 +78,37 @@ export function deriveRuntimeResourceBudget(
 ): RuntimeResourceBudget {
   const knownLowMemory = hasKnownLowMemory(cap)
   const desktopMemory = canUseDesktopMemory(cap)
-  const balancedWebKitPreview = canUseBalancedWebKitPreview(cap)
+  const balancedPreview = canUseBalancedPreview(cap)
+  const mobileFormFactor = isMobileFormFactor(cap)
 
   const workerMemoryProfile = desktopMemory ? 'desktop' : 'low-memory'
   const resourceClass: RuntimeResourceClass = desktopMemory
     ? 'desktop-performance'
-    : balancedWebKitPreview
-      ? 'webkit-balanced'
-      : cap.webKitClass === 'webkit-mobile'
+    : balancedPreview
+      ? 'balanced-preview'
+      : mobileFormFactor
         ? 'mobile-safe'
         : 'compat-safe'
 
   const boundedHqBasePixels = desktopMemory
     ? DESKTOP_HQ_MAX_PIXELS
-    : balancedWebKitPreview
+    : balancedPreview
       ? BALANCED_HQ_MAX_PIXELS
       : LOW_MEMORY_HQ_MAX_PIXELS
 
   let exportRowSliceCeiling = 2048
   if (cap.webKitClass === 'webkit-mobile' || knownLowMemory) {
     exportRowSliceCeiling = 128
+  } else if (mobileFormFactor) {
+    exportRowSliceCeiling = canUseBalancedMobileExport(cap) ? 256 : 128
   } else if (!cap.pthread || cap.webKitClass === 'webkit-desktop-safari') {
     exportRowSliceCeiling = 256
   }
 
   const exportConcurrencyCeiling =
     cap.pthread &&
+    !mobileFormFactor &&
+    !knownLowMemory &&
     cap.webKitClass !== 'webkit-mobile' &&
     cap.webKitClass !== 'webkit-desktop-safari'
       ? 3
@@ -101,6 +123,7 @@ export function deriveRuntimeResourceBudget(
     allowConcurrentDecodeAndLutParse:
       cap.pthread &&
       cap.hwConcurrency >= 4 &&
-      cap.webKitClass !== 'webkit-mobile',
+      !mobileFormFactor &&
+      !knownLowMemory,
   })
 }

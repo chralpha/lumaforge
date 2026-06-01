@@ -108,6 +108,7 @@ describe('lumaRuntimeAdapter bridge migration', () => {
       deviceMemoryGB: 4,
       hwConcurrency: 4,
       webKitClass: 'webkit-mobile',
+      deviceFormFactor: 'mobile',
       maybeOpfsSupported: true,
     })
     const runtime = fakeRuntime()

@@ -5,6 +5,7 @@ import {
   selectExportExecutionPlan,
 } from '~/lib/export/execution-profile'
 import {
+  classifyDeviceFormFactor,
   classifyUserAgent,
   getCapabilityVectorSnapshot,
 } from '~/lib/runtime/capability-vector'
@@ -62,6 +63,11 @@ function getUnsafeFullResExportReason(input: {
         Math.floor(globalThis.navigator?.hardwareConcurrency ?? 1),
       ),
       webKitClass: classifyUserAgent(
+        globalThis.navigator?.userAgent ?? '',
+        typeof globalThis.navigator?.maxTouchPoints === 'number' &&
+          globalThis.navigator.maxTouchPoints > 0,
+      ),
+      deviceFormFactor: classifyDeviceFormFactor(
         globalThis.navigator?.userAgent ?? '',
         typeof globalThis.navigator?.maxTouchPoints === 'number' &&
           globalThis.navigator.maxTouchPoints > 0,

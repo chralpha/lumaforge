@@ -35,6 +35,7 @@ describe('export execution profile selection', () => {
         deviceMemoryGB: null,
         hwConcurrency: 1,
         webKitClass: 'unknown',
+        deviceFormFactor: 'unknown',
         maybeOpfsSupported: true,
       },
       runtime: {
@@ -63,6 +64,7 @@ describe('export execution profile selection', () => {
         deviceMemoryGB: null,
         hwConcurrency: 1,
         webKitClass: 'webkit-mobile',
+        deviceFormFactor: 'mobile',
         maybeOpfsSupported: true,
       },
       runtime: {
@@ -97,6 +99,7 @@ describe('export execution profile selection', () => {
         deviceMemoryGB: null,
         hwConcurrency: 1,
         webKitClass: 'webkit-mobile',
+        deviceFormFactor: 'mobile',
         maybeOpfsSupported: false,
       },
       runtime: {
@@ -126,6 +129,7 @@ describe('export execution profile selection', () => {
         deviceMemoryGB: null,
         hwConcurrency: 1,
         webKitClass: 'webkit-mobile',
+        deviceFormFactor: 'mobile',
         maybeOpfsSupported: false,
       },
       runtime: {
@@ -152,6 +156,7 @@ describe('export execution profile selection', () => {
         deviceMemoryGB: null,
         hwConcurrency: 8,
         webKitClass: 'webkit-desktop-safari',
+        deviceFormFactor: 'desktop',
         maybeOpfsSupported: false,
       },
       runtime: {
@@ -183,6 +188,7 @@ describe('export execution profile selection', () => {
           deviceMemoryGB: null,
           hwConcurrency: 8,
           webKitClass: 'chromium',
+          deviceFormFactor: 'desktop',
           maybeOpfsSupported: false,
         },
         runtime: {
@@ -220,6 +226,7 @@ describe('export execution profile selection', () => {
         deviceMemoryGB: 16,
         hwConcurrency: 8,
         webKitClass: 'chromium',
+        deviceFormFactor: 'desktop',
         maybeOpfsSupported: true,
       },
       runtime: {
@@ -359,6 +366,7 @@ describe('export execution profile selection', () => {
         deviceMemoryGB: null,
         hwConcurrency: 1,
         webKitClass: 'webkit-mobile',
+        deviceFormFactor: 'mobile',
         maybeOpfsSupported: true,
       },
       runtime: {
@@ -410,6 +418,7 @@ describe('export execution profile selection', () => {
           deviceMemoryGB: 16,
           hwConcurrency: 8,
           webKitClass: 'chromium',
+          deviceFormFactor: 'desktop',
           maybeOpfsSupported: true,
         },
         runtime: {

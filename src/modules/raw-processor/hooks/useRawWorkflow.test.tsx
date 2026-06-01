@@ -1622,6 +1622,7 @@ describe('useRawWorkflow embedded preview state', () => {
       deviceMemoryGB: 8,
       hwConcurrency: 8,
       webKitClass: 'chromium',
+      deviceFormFactor: 'desktop',
       maybeOpfsSupported: true,
     })
 
@@ -1661,6 +1662,7 @@ describe('useRawWorkflow embedded preview state', () => {
       deviceMemoryGB: 4,
       hwConcurrency: 4,
       webKitClass: 'webkit-mobile',
+      deviceFormFactor: 'mobile',
       maybeOpfsSupported: false,
     })
 
@@ -3243,6 +3245,7 @@ describe('useRawWorkflow embedded preview state', () => {
       deviceMemoryGB: 4,
       hwConcurrency: 4,
       webKitClass: 'webkit-mobile',
+      deviceFormFactor: 'mobile',
       maybeOpfsSupported: false,
     })
     const snapshot = {
@@ -3300,6 +3303,7 @@ describe('useRawWorkflow embedded preview state', () => {
       deviceMemoryGB: 4,
       hwConcurrency: 4,
       webKitClass: 'webkit-mobile',
+      deviceFormFactor: 'mobile',
       maybeOpfsSupported: false,
     })
     const pendingSnapshot = deferred<{
@@ -3374,6 +3378,7 @@ describe('useRawWorkflow embedded preview state', () => {
       deviceMemoryGB: 4,
       hwConcurrency: 4,
       webKitClass: 'webkit-mobile',
+      deviceFormFactor: 'mobile',
       maybeOpfsSupported: false,
     })
     const snapshot = {

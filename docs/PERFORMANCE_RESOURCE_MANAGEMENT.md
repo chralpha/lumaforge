@@ -21,6 +21,19 @@ Primary implementation sources:
 - `src/modules/raw-processor/services/export/export-evacuation.ts`
 - `src/lib/raw/luma-runtime-adapter.ts`
 
+External API facts checked during the 2026-06-01 refresh:
+
+- [MDN `navigator.deviceMemory`](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/deviceMemory):
+  approximate, privacy-coarsened, limited browser availability.
+- [MDN `navigator.hardwareConcurrency`](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/hardwareConcurrency):
+  browser-reported logical processor count that may be reduced by the user
+  agent.
+- [MDN `SharedArrayBuffer`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer):
+  worker sharing requires a secure, cross-origin isolated context.
+- [MDN `StorageManager.getDirectory()`](https://developer.mozilla.org/en-US/docs/Web/API/StorageManager/getDirectory):
+  OPFS access is secure-context-only and can fail because of storage, memory, or
+  private-browsing constraints.
+
 ## Product Boundary
 
 The product workflow is:
@@ -51,19 +64,23 @@ resource snapshots and resource evacuation.
 
 Fields:
 
-| Field                | Meaning                                 | Rule                                                                |
-| -------------------- | --------------------------------------- | ------------------------------------------------------------------- |
-| `coi`                | `globalThis.crossOriginIsolated`        | Required before pthread/SAB can be true.                            |
-| `pthread`            | WebAssembly thread/SAB availability     | False when `coi` is false.                                          |
-| `deviceMemoryGB`     | Coarse browser memory signal            | `null` when unavailable or invalid.                                 |
-| `hwConcurrency`      | Browser-reported CPU thread upper bound | Clamped to `[1, 64]`.                                               |
-| `webKitClass`        | UA family bucket                        | `chromium`, `webkit-desktop-safari`, `webkit-mobile`, or `unknown`. |
-| `maybeOpfsSupported` | Stable OPFS feature hint                | Does not include quota or free space.                               |
+| Field                | Meaning                                 | Rule                                                                    |
+| -------------------- | --------------------------------------- | ----------------------------------------------------------------------- |
+| `coi`                | `globalThis.crossOriginIsolated`        | Required before pthread/SAB can be true.                                |
+| `pthread`            | WebAssembly thread/SAB availability     | False when `coi` is false.                                              |
+| `deviceMemoryGB`     | Coarse browser memory signal            | `null` when unavailable or invalid.                                     |
+| `hwConcurrency`      | Browser-reported CPU thread upper bound | Clamped to `[1, 64]`.                                                   |
+| `webKitClass`        | UA family bucket                        | `chromium`, `webkit-desktop-safari`, `webkit-mobile`, or `unknown`.     |
+| `deviceFormFactor`   | UA/touch-derived shape bucket           | `desktop`, `mobile`, or `unknown`; iPadOS desktop UA + touch is mobile. |
+| `maybeOpfsSupported` | Stable OPFS feature hint                | Does not include quota or free space.                                   |
 
-The key discipline is that missing memory data is not proof of high memory.
-Safari/WebKit often has weaker memory observability than desktop Chromium, so a
-new iPhone can be computationally strong while still needing conservative
-full-resolution export orchestration.
+The key discipline is that missing memory data is not proof of high memory, and
+one strong signal is not enough to unlock every budget. A browser can expose many
+hardware threads while storage is private-mode disabled; a desktop can be
+low-memory; an Android Chromium browser can be fast but still running on a phone
+thermal envelope; a WebKit browser can have strong CPU/GPU hardware while keeping
+more conservative process and memory behavior. The policy therefore reasons from
+capability axes first, then derives device-class outcomes from those axes.
 
 ## Runtime Resource Budget
 
@@ -82,14 +99,28 @@ desktopMemory =
   coi &&
   pthread &&
   webKitClass == "chromium" &&
+  deviceFormFactor == "desktop" &&
   !knownLowMemory
 
-balancedWebKitPreview =
+mobileFormFactor =
+  deviceFormFactor == "mobile" ||
+  webKitClass == "webkit-mobile"
+
+balancedPreview =
   coi &&
   pthread &&
   hwConcurrency >= 6 &&
   !knownLowMemory &&
-  webKitClass in {"webkit-mobile", "webkit-desktop-safari"}
+  (mobileFormFactor ||
+   webKitClass == "webkit-desktop-safari")
+
+balancedMobileExport =
+  mobileFormFactor &&
+  webKitClass == "chromium" &&
+  pthread &&
+  hwConcurrency >= 6 &&
+  deviceMemoryGB != null &&
+  deviceMemoryGB >= 8
 ```
 
 Resource class:
@@ -97,9 +128,9 @@ Resource class:
 ```text
 if desktopMemory:
   resourceClass = "desktop-performance"
-else if balancedWebKitPreview:
-  resourceClass = "webkit-balanced"
-else if webKitClass == "webkit-mobile":
+else if balancedPreview:
+  resourceClass = "balanced-preview"
+else if mobileFormFactor:
   resourceClass = "mobile-safe"
 else:
   resourceClass = "compat-safe"
@@ -111,10 +142,10 @@ Worker memory profile:
 workerMemoryProfile = desktopMemory ? "desktop" : "low-memory"
 ```
 
-This means WebKit mobile can earn a larger preview budget, but it still does not
-receive the desktop pthread RAW runtime profile. That separation is deliberate:
-preview can spend more pixels when the device appears strong, while export
-continues to avoid high-risk worker memory shapes.
+This means a platform can earn more preview budget without receiving the desktop
+RAW runtime profile. That separation is deliberate: preview can spend more pixels
+when the device appears strong, while export continues to avoid high-risk worker
+memory shapes.
 
 ### Bounded HQ Preview Budget
 
@@ -123,7 +154,7 @@ Base budgets:
 | Budget source                 | Base bounded-HQ pixels |
 | ----------------------------- | ---------------------: |
 | `desktop-performance`         |           `16_000_000` |
-| `webkit-balanced`             |           `12_000_000` |
+| `balanced-preview`            |           `12_000_000` |
 | `mobile-safe` / `compat-safe` |            `8_000_000` |
 
 Known browser memory further caps this:
@@ -149,6 +180,8 @@ Row ceiling:
 ```text
 if webKitClass == "webkit-mobile" || knownLowMemory:
   exportRowSliceCeiling = 128
+else if mobileFormFactor:
+  exportRowSliceCeiling = balancedMobileExport ? 256 : 128
 else if !pthread || webKitClass == "webkit-desktop-safari":
   exportRowSliceCeiling = 256
 else:
@@ -159,6 +192,8 @@ Concurrency ceiling:
 
 ```text
 if pthread &&
+   !mobileFormFactor &&
+   !knownLowMemory &&
    webKitClass != "webkit-mobile" &&
    webKitClass != "webkit-desktop-safari":
   exportConcurrencyCeiling = 3
@@ -170,11 +205,17 @@ Side-work concurrency:
 
 ```text
 allowConcurrentDecodeAndLutParse =
-  pthread && hwConcurrency >= 4 && webKitClass != "webkit-mobile"
+  pthread &&
+  hwConcurrency >= 4 &&
+  !mobileFormFactor &&
+  !knownLowMemory
 ```
 
-This keeps mobile WebKit from doing expensive background side work while a RAW
-decode path is already active, even when `hwConcurrency` is high.
+This keeps mobile and known-low-memory devices from doing expensive background
+side work while a RAW decode path is already active, even when
+`hwConcurrency` is high. Desktop engines may use side-work concurrency only when
+pthread and CPU signals are present, and export still applies its separate
+row/concurrency limits.
 
 ## Interactive Preview Policy
 
@@ -276,7 +317,7 @@ Product copy classification:
 ```text
 if megapixels > 50 &&
    outputSink == "blob-handoff" &&
-   webKitClass == "webkit-mobile":
+   mobileFormFactor:
   productCopy = "cannot-safely-complete"
 else if previousCrashLikeInterruption:
   productCopy = "interrupted-retry"
@@ -293,26 +334,62 @@ else:
 ```
 
 Full-resolution export never silently downscales output dimensions. If the
-policy says a large local export cannot be completed safely with the available
-sink, the UI must fail closed and say so.
+policy says a large local export cannot be completed safely on a mobile-form
+device with the available sink, the UI must fail closed and say so.
 
 ## Device-Class Outcomes
 
-These are derived outcomes, not hard-coded marketing tiers.
+These are derived outcomes, not hard-coded marketing tiers. The current
+implementation uses both browser-family and device-form axes so a high-core phone
+does not accidentally receive the desktop worker profile, while still getting a
+better preview when the stable signals justify it.
 
-| Environment                                                                       |                         Preview budget | RAW runtime profile |                                        Export rows | Export concurrency |
-| --------------------------------------------------------------------------------- | -------------------------------------: | ------------------- | -------------------------------------------------: | -----------------: |
-| Chromium desktop with COI, pthread, not known-low-memory                          |                           up to `16MP` | `desktop`           |   starts at `512`, can go higher by policy ceiling |          up to `3` |
-| Strong WebKit mobile with COI, pthread, `hwConcurrency >= 6`, no known-low-memory |                           up to `12MP` | `low-memory`        |                                      `128` ceiling |                `1` |
-| WebKit mobile without those strong signals, or known-low-memory mobile            |                            up to `8MP` | `low-memory`        |                                      `128` ceiling |                `1` |
-| Desktop Safari WebKit                                                             |    `12MP` when strong, otherwise `8MP` | `low-memory`        |                                      `256` ceiling |                `1` |
-| Unknown non-WebKit with pthread                                                   | usually `8MP` unless memory caps lower | `low-memory`        | can use wider rows, but not desktop memory profile |          up to `3` |
-| No pthread                                                                        |   up to `8MP` unless memory caps lower | `low-memory`        |        `256` ceiling, or `128` if known-low-memory |                `1` |
+| Case                                                 | Typical examples                                                                         |                                                         Preview budget | RAW runtime profile |                                                          Export rows | Export concurrency |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------: | ------------------- | -------------------------------------------------------------------: | -----------------: |
+| Desktop Chromium, COI, pthread, not known-low-memory | Desktop Chrome/Edge, ChromeOS, Linux/Windows/macOS desktop Chromium                      |                                                           up to `16MP` | `desktop`           |                                    starts at `512`, capped by `2048` |          up to `3` |
+| Touch-capable desktop Chromium                       | Windows tablet/laptop with desktop UA and touch                                          |                            up to `16MP` when otherwise desktop-capable | `desktop`           |                                    starts at `512`, capped by `2048` |          up to `3` |
+| Known-low-memory desktop                             | Desktop browser reporting `deviceMemoryGB <= 4`                                          |        `min(8MP, deviceMemoryGB * 4MP)`, floored at quick-preview size | `low-memory`        |                                                        `128` ceiling |                `1` |
+| Strong Chromium mobile                               | Android Chrome/Edge with COI, pthread, `hwConcurrency >= 6`, known memory `>= 8GB`       |                                                           up to `12MP` | `low-memory`        |                                                        `256` ceiling |                `1` |
+| Conservative Chromium mobile                         | Android Chromium without COI/pthread, unknown memory, or known memory `< 8GB`            | `12MP` only when balanced-preview signals are present; otherwise `8MP` | `low-memory`        | `128` ceiling, or `256` only for strong known-memory Chromium mobile |                `1` |
+| Strong WebKit mobile                                 | Recent iPhone/iPadOS WebKit with COI, pthread, `hwConcurrency >= 6`, no known-low-memory |                                                           up to `12MP` | `low-memory`        |                                                        `128` ceiling |                `1` |
+| Conservative WebKit mobile                           | Older iPhone/iPad, private/restrictive context, no pthread, or known-low-memory          |                                up to `8MP` unless memory cap lowers it | `low-memory`        |                                                        `128` ceiling |                `1` |
+| Desktop Safari/WebKit                                | macOS Safari/WebKit with desktop interaction model                                       |                                    `12MP` when strong, otherwise `8MP` | `low-memory`        |                                                        `256` ceiling |                `1` |
+| Mobile unknown engine                                | Android Firefox, uncommon mobile webview, or touch-only unknown UA                       |      `12MP` when balanced-preview signals are present; otherwise `8MP` | `low-memory`        |                                                        `128` ceiling |                `1` |
+| Desktop unknown engine with pthread                  | Firefox-like desktop, test harness, or unclassified desktop engine                       |                              usually `8MP` unless memory cap lowers it | `low-memory`        |                                    starts at `512`, capped by `2048` |          up to `3` |
+| No pthread                                           | Non-isolated deploy, old browser, hardened browser, restrictive webview                  |                                up to `8MP` unless memory cap lowers it | `low-memory`        |                   `256` ceiling, or `128` if mobile/known-low-memory |                `1` |
 
-The important iPhone rule is the second row: strong recent iPhones can justify a
-better preview surface, but that does not imply desktop-style export workers.
-This avoids wasting the device's interactive performance while preserving the
-authoritative export safety boundary.
+The iPhone/WebKit rule is only one row in the matrix. The broader rule is:
+preview budget follows bounded, observable headroom; desktop worker/export
+throughput follows desktop form factor plus Chromium-family isolation/threading
+signals; mobile full-resolution export stays single-worker and sink-sensitive.
+
+## Constraint Matrix
+
+The policy must also compose with resource constraints that are independent of
+device family.
+
+| Constraint                                       | Detection                                              | Policy consequence                                                                            | Reason                                                                       |
+| ------------------------------------------------ | ------------------------------------------------------ | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Source fits quick preview                        | `sourceWidth * sourceHeight <= 2_500_000`              | Skip bounded HQ decode                                                                        | Avoid spending memory on a redundant stage.                                  |
+| Normal RAW size                                  | Below `50MP` and below `100MP` thresholds              | Use derived row/concurrency budget directly                                                   | Keep common 24-45MP photos responsive.                                       |
+| Large local export                               | `megapixels > 50`                                      | If only `blob-handoff` is available, show non-durable desktop copy or fail-closed mobile copy | Large final JPEG handoff can spike memory.                                   |
+| 100MP-class export                               | `megapixels >= 100`                                    | Halve starting row slice before other caps                                                    | Bound RAW/JPEG strip working set.                                            |
+| OPFS available and enough quota                  | `opfsAvailableMB > megapixels * 4 + 64`                | Prefer `opfs-file`                                                                            | Durable, bounded output path.                                                |
+| OPFS absent, unknown, private, or low quota      | Runtime snapshot has no fitting OPFS sink              | Use streaming if wired; otherwise `blob-handoff`                                              | Storage capability is volatile and cannot be cached from boot.               |
+| Mobile form factor + large export + blob handoff | `mobileFormFactor`, `megapixels > 50`, no durable sink | `cannot-safely-complete`                                                                      | Fail closed instead of risking process termination or false full-res output. |
+| Previous resource failure                        | Session/export state marks resource-looking failure    | Halve rows, force concurrency `1`, fresh worker retry                                         | Do not retry near the same heap boundary.                                    |
+| Previous crash-like interruption                 | Interrupted checkpoint/recovery state                  | Quarter rows, force concurrency `1`, safer copy                                               | Treat tab/process interruption as stronger pressure.                         |
+| User cancel                                      | Explicit user interruption                             | No row or concurrency penalty                                                                 | Intent is not evidence of resource pressure.                                 |
+| WebGL2 missing                                   | Preview GPU facts                                      | CPU preview mode, reason `webgl2-missing`                                                     | Preserve preview usability when RAW decode still works.                      |
+| Fragment high-float precision too low            | Preview GPU facts                                      | CPU preview mode, reason `tone-float-precision-low`                                           | Avoid inaccurate tone preview on weak GPU precision.                         |
+| Missing or hostile navigator fields              | Sanitized at capability boundary                       | Clamp integers, convert invalid memory to `null`, use `unknown` UA                            | Bad input should not unlock higher budgets.                                  |
+
+These constraints stack. For example, a high-core Android Chromium phone with
+COI, pthread, and known memory headroom may use a higher HQ preview and `256`
+export rows, but it still stays single-worker and low-memory. If OPFS quota is
+low, the output sink still demotes. A desktop with `deviceMemoryGB <= 4` keeps
+low-memory rows. A browser with excellent GPU preview can still fail closed for a
+large full-resolution export if the only output path is mobile `blob-handoff`.
 
 ## Resource Lifecycle And Evacuation
 
@@ -355,8 +432,10 @@ compatibility strategy.
 - Do not make HQ preview export the primary product promise. It is a fallback or
   social-size compromise; full-resolution export remains authoritative.
 - Do not use preview success as proof that full-resolution export is safe.
-- Do not let WebKit mobile receive the desktop RAW memory profile just because it
-  reports many hardware threads.
+- Do not let any mobile-form browser receive the desktop RAW memory profile just
+  because it reports many hardware threads.
+- Do not treat a touch-capable desktop UA as mobile; the form-factor classifier
+  must distinguish desktop touch hardware from phone/tablet UAs.
 - Do not use missing `deviceMemoryGB` as evidence of abundant memory.
 - Do not silently downscale a full-resolution export and keep the full-res label.
 - Do not keep preview buffers, WebGL textures, previous export blobs, or in-flight
@@ -369,6 +448,7 @@ compatibility strategy.
 
 Policy and invariant tests:
 
+- `src/lib/runtime/capability-vector.test.ts`
 - `src/lib/runtime/resource-budget.test.ts`
 - `src/lib/runtime/interactive-policy.test.ts`
 - `src/lib/runtime/export-policy.test.ts`

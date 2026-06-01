@@ -133,6 +133,7 @@ describe('orchestrateRawLoad ack-before-work contract', () => {
     deviceMemoryGB: null,
     hwConcurrency: 2,
     webKitClass: 'unknown',
+    deviceFormFactor: 'unknown',
     maybeOpfsSupported: false,
   }
 

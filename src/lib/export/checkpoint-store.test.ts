@@ -211,6 +211,7 @@ describe('checkpoint store', () => {
       deviceMemoryGB: 4,
       hwConcurrency: 4,
       webKitClass: 'webkit-mobile',
+      deviceFormFactor: 'mobile',
       maybeOpfsSupported: false,
     })
 

@@ -8,6 +8,7 @@ export interface CapabilityVector {
     | 'webkit-desktop-safari'
     | 'webkit-mobile'
     | 'unknown'
+  readonly deviceFormFactor: 'desktop' | 'mobile' | 'unknown'
   readonly maybeOpfsSupported: boolean
 }
 
@@ -60,6 +61,27 @@ export function classifyUserAgent(
   return 'unknown'
 }
 
+export function classifyDeviceFormFactor(
+  ua: string,
+  touch: boolean,
+): CapabilityVector['deviceFormFactor'] {
+  if (!ua) return 'unknown'
+
+  const isiOS = /\b(?:iPhone|iPad|iPod)\b/i.test(ua)
+  const isIPadOsDesktopMode = /\bMacintosh\b/i.test(ua) && touch
+  const mobileOrTablet =
+    /\b(?:Android|Mobile|Mobi|Tablet|Silk|Kindle|Windows Phone)\b/i.test(ua)
+  if (isiOS || isIPadOsDesktopMode || mobileOrTablet) {
+    return 'mobile'
+  }
+
+  const desktop =
+    /\b(?:Macintosh|Windows NT|Win64|WOW64|X11|CrOS|Linux x86_64)\b/i.test(ua)
+  if (desktop) return 'desktop'
+
+  return touch ? 'mobile' : 'unknown'
+}
+
 async function detectThreads(coi: boolean): Promise<boolean> {
   if (!coi) return false
 
@@ -103,6 +125,7 @@ export async function detectCapabilityVector(): Promise<CapabilityVector> {
       deviceMemoryGB,
       hwConcurrency: clampInteger(nav?.hardwareConcurrency, 1, 64, 1),
       webKitClass: classifyUserAgent(ua, touch),
+      deviceFormFactor: classifyDeviceFormFactor(ua, touch),
       maybeOpfsSupported,
     })
     cached = vector

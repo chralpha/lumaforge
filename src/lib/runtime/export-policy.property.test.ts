@@ -17,9 +17,15 @@ const capArb: fc.Arbitrary<CapabilityVector> = fc
       'webkit-mobile',
       'unknown',
     ),
+    deviceFormFactor: fc.constantFrom('desktop', 'mobile', 'unknown'),
     maybeOpfsSupported: fc.boolean(),
   })
-  .map((v) => ({ ...v, pthread: v.coi && v.pthread }))
+  .map((v) => ({
+    ...v,
+    pthread: v.coi && v.pthread,
+    deviceFormFactor:
+      v.webKitClass === 'webkit-mobile' ? 'mobile' : v.deviceFormFactor,
+  }))
 
 const intentArb = fc.record({
   performancePreference: fc.constantFrom('safe', 'balanced', 'max'),
@@ -63,6 +69,7 @@ describe('deriveExportPolicy invariants (property)', () => {
             expect(cap.coi).toBe(true)
             expect(cap.pthread).toBe(true)
             expect(cap.webKitClass).toBe('chromium')
+            expect(cap.deviceFormFactor).toBe('desktop')
           }
         },
       ),

@@ -29,6 +29,7 @@ describe('decideBoundedHqPreview', () => {
       deviceMemoryGB: null,
       hwConcurrency: 2,
       webKitClass: 'webkit-mobile',
+      deviceFormFactor: 'mobile',
       maybeOpfsSupported: false,
     })
 

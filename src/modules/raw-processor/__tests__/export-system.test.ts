@@ -78,6 +78,7 @@ describe('export-system', () => {
       deviceMemoryGB: null,
       hwConcurrency: 1,
       webKitClass: 'unknown' as const,
+      deviceFormFactor: 'unknown' as const,
       maybeOpfsSupported: false,
     })
     const noopfsRuntime = Object.freeze({

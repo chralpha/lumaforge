@@ -19,6 +19,7 @@ describe('snapshotExportRuntimeResources', () => {
       deviceMemoryGB: 16,
       hwConcurrency: 8,
       webKitClass: 'chromium',
+      deviceFormFactor: 'desktop',
       maybeOpfsSupported: true,
     })
     vi.stubGlobal('navigator', {
@@ -47,6 +48,7 @@ describe('snapshotExportRuntimeResources', () => {
       deviceMemoryGB: 16,
       hwConcurrency: 8,
       webKitClass: 'chromium',
+      deviceFormFactor: 'desktop',
       maybeOpfsSupported: false,
     })
 

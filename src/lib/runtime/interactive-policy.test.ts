@@ -9,6 +9,7 @@ const baseCap: CapabilityVector = {
   deviceMemoryGB: 16,
   hwConcurrency: 8,
   webKitClass: 'chromium',
+  deviceFormFactor: 'desktop',
   maybeOpfsSupported: true,
 }
 
@@ -25,6 +26,7 @@ describe('deriveInteractivePolicy', () => {
     const p = deriveInteractivePolicy({
       ...baseCap,
       webKitClass: 'webkit-mobile',
+      deviceFormFactor: 'mobile',
       pthread: false,
     })
 
@@ -38,6 +40,7 @@ describe('deriveInteractivePolicy', () => {
       deviceMemoryGB: null,
       hwConcurrency: 8,
       webKitClass: 'webkit-mobile',
+      deviceFormFactor: 'mobile',
     })
 
     expect(p.boundedHqMaxPixels).toBe(12_000_000)
@@ -65,5 +68,18 @@ describe('deriveInteractivePolicy', () => {
     })
 
     expect(p.previewWorkerMemoryProfile).toBe('low-memory')
+  })
+
+  it('uses mobile-safe side-work policy for strong Chromium phones', () => {
+    const p = deriveInteractivePolicy({
+      ...baseCap,
+      deviceMemoryGB: 8,
+      webKitClass: 'chromium',
+      deviceFormFactor: 'mobile',
+    })
+
+    expect(p.boundedHqMaxPixels).toBe(12_000_000)
+    expect(p.previewWorkerMemoryProfile).toBe('low-memory')
+    expect(p.allowConcurrentDecodeAndLutParse).toBe(false)
   })
 })

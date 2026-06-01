@@ -55,6 +55,8 @@ export function deriveExportPolicy(
 ): ExportPolicy {
   const megapixels = (image.width * image.height) / 1_000_000
   const budget = deriveRuntimeResourceBudget(cap)
+  const mobileFormFactor =
+    cap.deviceFormFactor === 'mobile' || cap.webKitClass === 'webkit-mobile'
 
   let rowSlice = 512
   if (megapixels >= 100) rowSlice /= 2
@@ -101,7 +103,7 @@ export function deriveExportPolicy(
   if (
     megapixels > LARGE_EXPORT_MEGAPIXEL_THRESHOLD &&
     outputSink === 'blob-handoff' &&
-    cap.webKitClass === 'webkit-mobile'
+    mobileFormFactor
   ) {
     productCopy = 'cannot-safely-complete'
   } else if (intent.previousCrashLikeInterruption) {
@@ -123,7 +125,7 @@ export function deriveExportPolicy(
     productCopy = 'safe-export'
   }
 
-  const derivedLabel = `${workerMemoryProfile}-thr${concurrency}-rs${rowSlice}-${outputSink}-wk${cap.webKitClass}`
+  const derivedLabel = `${workerMemoryProfile}-thr${concurrency}-rs${rowSlice}-${outputSink}-wk${cap.webKitClass}-ff${cap.deviceFormFactor}`
 
   return Object.freeze({
     rowSlice,
