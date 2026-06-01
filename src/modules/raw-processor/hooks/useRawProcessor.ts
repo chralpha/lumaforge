@@ -64,10 +64,6 @@ import { orchestrateFullResExport } from '../services/export/orchestrate-full-re
 import type { RawLoadContext } from '../services/ingest/orchestrate-raw-load'
 import { orchestrateRawLoad } from '../services/ingest/orchestrate-raw-load'
 import { getProgressRecoveryHint } from '../services/ingest/workflow-status'
-import {
-  clearEmbeddedPreviewUrlFromSession,
-  revokeEmbeddedPreviewObjectUrls,
-} from '../services/preview/embedded-preview-url'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
 import type { PendingRecoveryRetry } from './stages/export/useExportRecoveryAction'
@@ -78,6 +74,7 @@ import { useExportResultActions } from './stages/export/useExportResultActions'
 import { useHqPreviewExportAction } from './stages/export/useHqPreviewExportAction'
 import { useRawLookStage } from './stages/look/useRawLookStage'
 import { useDecodedPreviewResource } from './stages/preview/useDecodedPreviewResource'
+import { useEmbeddedPreviewUrlLifecycle } from './stages/preview/useEmbeddedPreviewUrlLifecycle'
 import type { PreviewPipelineEvacuationHandle } from './stages/preview/usePreviewPipelineEvacuation'
 import { usePreviewPipelineEvacuation } from './stages/preview/usePreviewPipelineEvacuation'
 import { useImageSession } from './useImageSession'
@@ -347,37 +344,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
     session?.previewBundle.embeddedPreview.objectUrl || null
   const displaySource = session?.previewBundle.displaySource || 'none'
 
-  const clearSessionEmbeddedPreviewUrl = useCallback(
-    (sessionId?: string) => {
-      setSession((prev) => {
-        if (!prev || (sessionId && prev.id !== sessionId)) {
-          return prev
-        }
-
-        if (!prev.previewBundle.embeddedPreview.objectUrl) {
-          return prev
-        }
-
-        return clearEmbeddedPreviewUrlFromSession(prev)
-      })
-    },
-    [setSession],
-  )
-
-  const revokeCurrentEmbeddedPreviewUrl = useCallback(() => {
-    const sessionId = sessionRef.current?.id
-    const urls = new Set(
-      [
-        embeddedPreviewUrlRef.current,
-        sessionRef.current?.previewBundle.embeddedPreview.objectUrl,
-      ].filter((url): url is string => Boolean(url)),
-    )
-
-    revokeEmbeddedPreviewObjectUrls(urls)
-
-    embeddedPreviewUrlRef.current = null
-    clearSessionEmbeddedPreviewUrl(sessionId)
-  }, [clearSessionEmbeddedPreviewUrl])
+  const { clearSessionEmbeddedPreviewUrl, revokeCurrentEmbeddedPreviewUrl } =
+    useEmbeddedPreviewUrlLifecycle({
+      embeddedPreviewUrlRef,
+      sessionRef,
+      setSession,
+    })
 
   const requestOriginalReferenceFallback = useCallback(() => {
     setOriginalReferenceFallbackRequestSessionId(sessionRef.current?.id ?? null)
