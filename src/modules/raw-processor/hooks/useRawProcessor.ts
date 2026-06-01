@@ -32,10 +32,6 @@ import type { OnlineLUTEntry } from '~/lib/profiles/catalog'
 import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
 import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
-import {
-  classifyUserAgent,
-  getCapabilityVectorSnapshot,
-} from '~/lib/runtime/capability-vector'
 
 import { deriveCanEdit } from '../model/derive-session'
 import type {
@@ -49,13 +45,13 @@ import type {
   StyleAsset,
 } from '../model/session'
 import type { ProcessingStatus } from '../model/workflow'
-import { supportsLayeredCompareCss } from '../services/compare/compare-render-mode'
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 import { deriveFullResExportReadiness } from '../services/export/export-readiness'
 import { resolveExportShareButtonCapability } from '../services/export/export-result-actions'
 import { clearExportResultState } from '../services/export/export-state'
 import { getProgressRecoveryHint } from '../services/ingest/workflow-status'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
+import { useOriginalReferencePolicy } from './stages/compare/useOriginalReferencePolicy'
 import { useOriginalReferenceSnapshotResources } from './stages/compare/useOriginalReferenceSnapshotResources'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
 import type { PendingRecoveryRetry } from './stages/export/useExportRecoveryAction'
@@ -75,39 +71,11 @@ import type { PreviewPipelineEvacuationHandle } from './stages/preview/usePrevie
 import { usePreviewPipelineEvacuation } from './stages/preview/usePreviewPipelineEvacuation'
 import { useRestorePreviewAfterExport } from './stages/preview/useRestorePreviewAfterExport'
 import { useImageSession } from './useImageSession'
-import type { OriginalReferenceSnapshotCapability } from './useOriginalReferenceSnapshot'
 import { useOriginalReferenceSnapshot } from './useOriginalReferenceSnapshot'
 import { usePreviewHistogram } from './usePreviewHistogram'
 
 function enqueuePostCommitTask(task: () => void) {
   setTimeout(task, 0)
-}
-
-function getOriginalReferenceSnapshotCapability(): OriginalReferenceSnapshotCapability {
-  const capability = getCapabilityVectorSnapshot()
-  if (capability) {
-    return {
-      webKitClass: capability.webKitClass,
-      pthread: capability.pthread,
-    }
-  }
-
-  const nav = globalThis.navigator
-  const touch =
-    typeof nav?.maxTouchPoints === 'number' ? nav.maxTouchPoints > 0 : false
-
-  return {
-    webKitClass: classifyUserAgent(nav?.userAgent ?? '', touch),
-    pthread:
-      Boolean(globalThis.crossOriginIsolated) &&
-      typeof SharedArrayBuffer !== 'undefined',
-  }
-}
-
-function allowDualWebglCompare(
-  capability: OriginalReferenceSnapshotCapability,
-) {
-  return capability.webKitClass === 'chromium' && capability.pthread
 }
 
 export interface UseRawProcessorReturn {
@@ -252,10 +220,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     useState<ExportRecoveryState>({ status: 'none' })
   const [pendingRecoveryRetry, setPendingRecoveryRetry] =
     useState<PendingRecoveryRetry | null>(null)
-  const [
-    originalReferenceFallbackRequestSessionId,
-    setOriginalReferenceFallbackRequestSessionId,
-  ] = useState<string | null>(null)
   if (!resourceRegistryRef.current) {
     resourceRegistryRef.current = createResourceRegistry()
   }
@@ -328,10 +292,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
       sessionRef,
       setSession,
     })
-
-  const requestOriginalReferenceFallback = useCallback(() => {
-    setOriginalReferenceFallbackRequestSessionId(sessionRef.current?.id ?? null)
-  }, [])
 
   const setOriginalPreviewPipeline = useCallback(
     (pipeline: PreviewPipelineEvacuationHandle | null) => {
@@ -720,24 +680,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setStatus,
     toast,
   })
-  const originalReferenceCapability = getOriginalReferenceSnapshotCapability()
-  const dualWebglAllowed = allowDualWebglCompare(originalReferenceCapability)
-  const supportsCssCompare = supportsLayeredCompareCss()
-  const originalReferenceFallbackRequested =
-    Boolean(session?.id) &&
-    originalReferenceFallbackRequestSessionId === session?.id
-
-  useEffect(() => {
-    if (viewMode !== 'compare' || previewSuspended) {
-      setOriginalReferenceFallbackRequestSessionId(null)
-    }
-  }, [previewSuspended, viewMode])
-
-  const shouldPrepareOriginalReferenceSnapshot =
-    viewMode === 'compare' &&
-    !previewSuspended &&
-    supportsCssCompare &&
-    (!dualWebglAllowed || originalReferenceFallbackRequested)
+  const {
+    originalReferenceCapability,
+    dualWebglAllowed,
+    shouldPrepareOriginalReferenceSnapshot,
+    requestOriginalReferenceFallback,
+  } = useOriginalReferencePolicy({
+    sessionId: session?.id ?? null,
+    sessionRef,
+    viewMode,
+    previewSuspended,
+  })
   const originalReference = useOriginalReferenceSnapshot({
     sessionId: session?.id ?? null,
     image: shouldPrepareOriginalReferenceSnapshot
