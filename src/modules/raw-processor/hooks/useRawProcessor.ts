@@ -63,10 +63,7 @@ import { releaseOriginalReferenceSnapshot } from '../services/compare/original-r
 import { deriveFullResExportReadiness } from '../services/export/export-readiness'
 import { createInterruptedExportRecovery } from '../services/export/export-recovery'
 import { resolveExportShareButtonCapability } from '../services/export/export-result-actions'
-import {
-  clearExportResultState,
-  hasSameRawRenderExposure,
-} from '../services/export/export-state'
+import { clearExportResultState } from '../services/export/export-state'
 import type { ExportContext } from '../services/export/orchestrate-full-res-export'
 import { orchestrateFullResExport } from '../services/export/orchestrate-full-res-export'
 import type { RawLoadContext } from '../services/ingest/orchestrate-raw-load'
@@ -84,6 +81,7 @@ import { useExportResourceManagement } from './stages/export/useExportResourceMa
 import { useExportResultActions } from './stages/export/useExportResultActions'
 import { useHqPreviewExportAction } from './stages/export/useHqPreviewExportAction'
 import { useRawLookStage } from './stages/look/useRawLookStage'
+import { useDecodedPreviewResource } from './stages/preview/useDecodedPreviewResource'
 import { useImageSession } from './useImageSession'
 import type {
   OriginalReferenceSnapshotCapability,
@@ -241,10 +239,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
   const resourceRegistryRef = useRef<ResourceRegistry | null>(null)
   const previewPipelineResourceIdRef = useRef(0)
-  const decodedPreviewResourceIdRef = useRef(0)
   const originalReferenceSnapshotResourceIdRef = useRef(0)
   const originalReferenceSnapshotPendingResourceIdRef = useRef(0)
-  const decodedPreviewResourceRef = useRef<TrackedLargeResource | null>(null)
   const originalReferenceSnapshotResourceRef =
     useRef<TrackedLargeResource | null>(null)
   const originalReferenceSnapshotResourceKeyRef = useRef<string | null>(null)
@@ -539,40 +535,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     })
   }, [])
 
-  const registerDecodedPreviewForEvacuation = useCallback(
-    (decoded: DecodedImage | null) => {
-      const previousResource = decodedPreviewResourceRef.current
-      decodedPreviewResourceRef.current = null
-      if (previousResource) {
-        void previousResource.dispose().catch((error) => {
-          console.warn('Failed to clean up decoded preview resource:', error)
-        })
-      }
-
-      const registry = resourceRegistryRef.current
-      if (!decoded || !registry) return
-
-      let tracked: TrackedLargeResource | null = null
-      tracked = registry.register({
-        id: `decoded-preview-${++decodedPreviewResourceIdRef.current}`,
-        owner: 'preview',
-        kind: 'array-buffer',
-        estimatedBytes: decoded.data.byteLength,
-        dispose: () => {
-          if (decodedPreviewResourceRef.current === tracked) {
-            decodedPreviewResourceRef.current = null
-          }
-          if (decodedImageRef.current === decoded) {
-            decodedImageRef.current = null
-            setDecodedImageVersion((version) => version + 1)
-          }
-        },
-      })
-      decodedPreviewResourceRef.current = tracked
-    },
-    [],
-  )
-
   const { registerExportResultResource, queueExportResultResourceDisposal } =
     useExportResourceManagement({ resourceRegistryRef })
 
@@ -645,27 +607,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
     displaySource,
   })
 
-  const setDecodedImageRef = useCallback(
-    (
-      nextDecoded: DecodedImage | null,
-      options?: { preserveExportResult?: boolean },
-    ) => {
-      const currentExposure = rawRenderExposureRef.current
-      const nextExposure = nextDecoded?.renderExposure ?? null
-      decodedImageRef.current = nextDecoded
-      rawRenderExposureRef.current = nextExposure
-      registerDecodedPreviewForEvacuation(nextDecoded)
-      setDecodedImageVersion((version) => version + 1)
-
-      if (
-        !options?.preserveExportResult &&
-        !hasSameRawRenderExposure(currentExposure, nextExposure)
-      ) {
-        invalidateExportGraph()
-      }
-    },
-    [invalidateExportGraph, registerDecodedPreviewForEvacuation],
-  )
+  const { setDecodedImageRef } = useDecodedPreviewResource({
+    decodedImageRef,
+    rawRenderExposureRef,
+    resourceRegistryRef,
+    setDecodedImageVersion,
+    invalidateExportGraph,
+  })
 
   useEffect(() => {
     let cancelled = false
