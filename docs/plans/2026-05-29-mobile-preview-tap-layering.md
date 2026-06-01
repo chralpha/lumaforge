@@ -8,7 +8,7 @@
 
 **Tech Stack:** React, TypeScript, `motion/react` (`m`, `AnimatePresence`), Vitest + Testing Library, `~/` alias, pnpm.
 
-**Spec:** `docs/superpowers/specs/2026-05-29-mobile-preview-tap-layering-design.md`
+**Spec:** `docs/specs/2026-05-29-mobile-preview-tap-layering-design.md`
 
 ---
 
@@ -49,8 +49,8 @@ the branch is created there instead — skip this step.)
 - [ ] **Step 2: Commit the design + plan docs**
 
 ```bash
-git add docs/superpowers/specs/2026-05-29-mobile-preview-tap-layering-design.md \
-        docs/superpowers/plans/2026-05-29-mobile-preview-tap-layering.md
+git add docs/specs/2026-05-29-mobile-preview-tap-layering-design.md \
+        docs/plans/2026-05-29-mobile-preview-tap-layering.md
 git commit --no-gpg-sign -m "docs(raw-mobile): spec + plan for preview-tap layering"
 ```
 

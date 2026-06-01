@@ -8,7 +8,7 @@
 
 **Tech Stack:** React 18, TypeScript, Tailwind (lf-* tokens), `motion/react` (LazyMotion + `m` only, per CLAUDE.md), Radix Dialog primitives, vitest + @testing-library/react.
 
-**Spec:** `docs/superpowers/specs/2026-05-26-mobile-lut-browser-master-detail-design.md`
+**Spec:** `docs/specs/2026-05-26-mobile-lut-browser-master-detail-design.md`
 
 ---
 

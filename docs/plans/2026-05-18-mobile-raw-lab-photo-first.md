@@ -22,7 +22,7 @@ All live feedback flows through existing real-pipeline props
 `Spring` presets from `~/lib/spring`, Radix-based primitives in
 `~/components/ui`, Tailwind utilities + existing design tokens. `~/` alias.
 
-**Spec:** `docs/superpowers/specs/2026-05-18-mobile-raw-lab-photo-first-design.md`
+**Spec:** `docs/specs/2026-05-18-mobile-raw-lab-photo-first-design.md`
 
 **Hard constraints (apply to every task):**
 - Radix/Tailwind/React first. No new isolated vanilla CSS blocks. Additions to

@@ -8,7 +8,7 @@
 
 **Tech Stack:** React, TypeScript, `motion/react` v12 (with `m` inside the existing `LazyMotion` in `root-providers.tsx`), `Spring` presets from `src/lib/spring.ts`, plain CSS (`raw-lab.css`), Vitest + `@testing-library/react`.
 
-Spec: `docs/superpowers/specs/2026-05-15-raw-lab-motion-polish-design.md`
+Spec: `docs/specs/2026-05-15-raw-lab-motion-polish-design.md`
 
 ---
 

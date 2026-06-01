@@ -8,7 +8,7 @@
 
 **Tech Stack:** React, TypeScript, Radix UI (`@radix-ui/react-accordion`, `react-slider`, `react-dialog`), `motion/react` (`m`, `Spring` presets), Tailwind v4 + `@pastel-palette/tailwindcss`, jotai (`atomWithStorage`, `~/lib/jotai`), Vitest + Testing Library.
 
-**Spec:** `docs/superpowers/specs/2026-05-16-raw-tool-panel-redesign-design.md`
+**Spec:** `docs/specs/2026-05-16-raw-tool-panel-redesign-design.md`
 
 **Verification per phase:** `pnpm lint`, `pnpm test:run`, `pnpm build`, plus manual browser validation of `/raw` (golden path: load → Look/LUT → Tone → compare → export) including a mobile/WebKit viewport.
 

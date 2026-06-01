@@ -8,7 +8,7 @@
 
 **Tech Stack:** React, TypeScript, plain CSS (`raw-lab.css`), flat-JSON i18n (`src/locales/*.json`), Vitest + `@testing-library/react`.
 
-Spec: `docs/superpowers/specs/2026-05-15-raw-lab-eyebrow-hierarchy-design.md`
+Spec: `docs/specs/2026-05-15-raw-lab-eyebrow-hierarchy-design.md`
 
 ---
 

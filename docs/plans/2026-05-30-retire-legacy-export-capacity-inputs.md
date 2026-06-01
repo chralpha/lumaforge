@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Vitest (jsdom app project via `pnpm test:app`), ESLint.
 
-**Spec:** `docs/superpowers/specs/2026-05-30-retire-legacy-export-capacity-inputs-design.md`
+**Spec:** `docs/specs/2026-05-30-retire-legacy-export-capacity-inputs-design.md`
 
 ---
 

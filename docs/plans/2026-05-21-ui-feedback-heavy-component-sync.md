@@ -14,7 +14,7 @@
 
 **Tech Stack:** React 19, TypeScript, Vitest + Testing Library, Jotai atoms, motion/react. No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-05-21-ui-feedback-heavy-component-sync-design.md`
+**Spec:** `docs/specs/2026-05-21-ui-feedback-heavy-component-sync-design.md`
 
 **Verification per phase:** `pnpm lint`, `pnpm test:run` (focused on touched files), plus `pnpm build` at the end. Browser smoke (`pnpm serve` + manual upload on `/raw`) at the very end since per project memory headless RAW decode is blocked.
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Vitest (jsdom app project, `pnpm test:app`), Vite module workers, React, `@lumaforge/luma-color-runtime`.
 
-**Spec:** `docs/superpowers/specs/2026-05-30-cpu-preview-safety-net-design.md`
+**Spec:** `docs/specs/2026-05-30-cpu-preview-safety-net-design.md`
 
 ---
 

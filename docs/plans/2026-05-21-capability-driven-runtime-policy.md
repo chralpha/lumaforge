@@ -12,7 +12,7 @@
 
 **Tech Stack:** TypeScript, Vitest, optional `fast-check` for property tests, Web Workers, AbortSignal, existing `@lumaforge/luma-raw-runtime` and `src/lib/export/full-res-export-client.ts`.
 
-**Spec:** `docs/superpowers/specs/2026-05-21-capability-driven-runtime-policy-design.md`.
+**Spec:** `docs/specs/2026-05-21-capability-driven-runtime-policy-design.md`.
 
 ---
 

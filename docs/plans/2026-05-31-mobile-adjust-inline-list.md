@@ -8,7 +8,7 @@
 
 **Tech Stack:** React + TypeScript, Radix UI `Slider`, `motion/react` (`m` inside the app's `LazyMotion`), Tailwind v4 with the `/raw` darkroom tokens, Vitest + Testing Library + user-event for tests, i18n through `~/lib/i18n` (`src/locales/{en,zh-CN}.json`).
 
-**Spec:** `docs/superpowers/specs/2026-05-31-mobile-adjust-inline-list-design.md`
+**Spec:** `docs/specs/2026-05-31-mobile-adjust-inline-list-design.md`
 
 ---
 

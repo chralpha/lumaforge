@@ -8,7 +8,7 @@
 
 **Tech Stack:** React, TypeScript, Tailwind v4 + `@pastel-palette/tailwindcss`, Radix `ui/button` (`Button`/`IconButton`) + `ui/dropdown-menu`, `motion/react` (`m`, existing `SHEET_SPRING`/`BACKDROP_SPRING`/`TAP_SPRING`), `~/lib/cn` (`clsxm`), Vitest + Testing Library.
 
-**Spec:** `docs/superpowers/specs/2026-05-16-raw-shell-consistency-design.md`
+**Spec:** `docs/specs/2026-05-16-raw-shell-consistency-design.md`
 
 **Verification per phase:** `pnpm lint`, `pnpm test:run`, `pnpm build`, plus the per-phase browser validation noted in each phase's final task.
 

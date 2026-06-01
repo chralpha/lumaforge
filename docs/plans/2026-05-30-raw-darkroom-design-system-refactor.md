@@ -8,7 +8,7 @@
 
 **Tech Stack:** Tailwind v4 (`@theme`), Radix primitives, OKLCH color, Vitest, Playwright (browser parity), pnpm.
 
-**Spec:** `docs/superpowers/specs/2026-05-30-raw-darkroom-design-system-refactor-design.md`
+**Spec:** `docs/specs/2026-05-30-raw-darkroom-design-system-refactor-design.md`
 
 **Conventions for every commit:** use `git commit --no-gpg-sign` (SSH signing hangs headless). Branch is `refactor/raw-darkroom-design-system`. Do not stage the pre-existing unrelated working-tree changes (the `retire-legacy-export-capacity-inputs` deletions); stage only files this plan touches.
 
@@ -40,7 +40,7 @@ Hue tokens (`lf-green*`, `lf-amber*`, `lf-rose`, `lf-sky`, `lf-hist-*`) and `lf-
 ### Task 0: Capture `/raw` baseline screenshots
 
 **Files:**
-- Create: `docs/superpowers/plans/_artifacts/darkroom-baseline/` (screenshots; git-ignored or committed per repo norm)
+- Create: `docs/plans/_artifacts/darkroom-baseline/` (screenshots; git-ignored or committed per repo norm)
 
 - [ ] **Step 1: Build and serve the app**
 
@@ -64,7 +64,7 @@ Save each PNG into the baseline folder. Headless RAW decode is blocked, so do NO
 - [ ] **Step 3: Commit the baseline reference**
 
 ```bash
-git add docs/superpowers/plans/_artifacts/darkroom-baseline
+git add docs/plans/_artifacts/darkroom-baseline
 git commit --no-gpg-sign -m "test(raw): capture darkroom baseline screenshots for parity gate"
 ```
 

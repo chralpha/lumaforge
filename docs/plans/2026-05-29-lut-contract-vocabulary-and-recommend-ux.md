@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, React, Jotai, Vitest, pnpm workspaces (`@lumaforge/luma-color-runtime`), Tailwind, motion/react, i18n JSON locales.
 
-**Spec:** `docs/superpowers/specs/2026-05-29-lut-contract-vocabulary-and-recommend-ux-design.md`
+**Spec:** `docs/specs/2026-05-29-lut-contract-vocabulary-and-recommend-ux-design.md`
 
 ---
 

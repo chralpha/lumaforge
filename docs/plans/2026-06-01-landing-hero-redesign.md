@@ -8,7 +8,7 @@
 
 **Tech Stack:** React 19, react-router, motion/react (LazyMotion + `m.*`), `~/lib/spring`, Vitest + Testing Library, vanilla CSS (project pattern for this page), lucide-react icons, `~/lib/i18n`.
 
-**Spec:** `docs/superpowers/specs/2026-06-01-landing-hero-redesign-design.md`
+**Spec:** `docs/specs/2026-06-01-landing-hero-redesign-design.md`
 
 ---
 
@@ -901,7 +901,7 @@ gh pr create --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" \
 - [ ] `LUMAFORGE_NATIVE_RUNTIME_MODE=prebuilt pnpm build` succeeds.
 - [ ] Manual `pnpm preview` check at desktop 1440 and mobile 390 widths, plus reduced-motion emulation.
 
-Spec: `docs/superpowers/specs/2026-06-01-landing-hero-redesign-design.md`
+Spec: `docs/specs/2026-06-01-landing-hero-redesign-design.md`
 EOF
 )"
 ```
@@ -923,7 +923,7 @@ Do **not** run this before merge — it would discard the working tree.
 
 ## Self-Review
 
-Spec coverage (against `docs/superpowers/specs/2026-06-01-landing-hero-redesign-design.md`):
+Spec coverage (against `docs/specs/2026-06-01-landing-hero-redesign-design.md`):
 
 - §1 Problem — addressed by Tasks 3 (JSX removes `lf-hero-panel`) and 4 (CSS removes `.lf-compare-finish` / Unsplash). Pinned by Task 2 tests.
 - §2 Goals — (1) remote image removed: Task 4 + Task 2 CSS contract test. (2) one dominant visual: Task 3 markup. (3) editorial darkroom: Task 4 palette block. (4) hero-only with bridge: Task 4 `.lf-hero-bridge`. (5) reuse existing i18n keys: Task 3 uses `landing.kicker`, `heroCopy`, `start`, `viewSource`, `rawPreviewTag`, `finishedJpegTag`, `contract.0..5`, `workflowPreview`, `contractChecks`, `primaryActions`, `heroImageAlt`, `homeAria` — no new keys.

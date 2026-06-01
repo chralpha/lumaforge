@@ -3,7 +3,7 @@
 - Date: 2026-05-16
 - Status: Aligned with user — proceeding to plan
 - Scope: Bring the rest of the `/raw` surface (WorkspaceHeader, mobile rail/sheet, preview-stage chrome) onto the same design system the tool panel redesign established, and delete the bespoke `raw-lab.css` it left behind.
-- Predecessor spec: `docs/superpowers/specs/2026-05-16-raw-tool-panel-redesign-design.md` (the tool-card panel; already implemented)
+- Predecessor spec: `docs/specs/2026-05-16-raw-tool-panel-redesign-design.md` (the tool-card panel; already implemented)
 
 ## Background & Problem
 

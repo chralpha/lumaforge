@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Land the Look-mode visual-consistency pilot from `docs/superpowers/specs/2026-05-22-mobile-desktop-visual-consistency-design.md`: a shared foundation (tokens + primitives + named motion) under both `/raw` viewports, with Look mode (including Strength) recomposed against that foundation, while preserving each viewport's interaction model.
+**Goal:** Land the Look-mode visual-consistency pilot from `docs/specs/2026-05-22-mobile-desktop-visual-consistency-design.md`: a shared foundation (tokens + primitives + named motion) under both `/raw` viewports, with Look mode (including Strength) recomposed against that foundation, while preserving each viewport's interaction model.
 
 **Architecture:** Additive token layer (`lf-*` design tokens added to `src/styles/tailwind.css` `@theme` block, referenced from `~/lib/spring` and component classNames). A new `Chip` primitive in `~/components/ui/chip/`. The mobile LUT browser sheet rerouted through `~/components/ui/dialog` (Radix Dialog) with drag-to-dismiss as a thin behavioural overlay. The desktop LUT browser already uses Dialog — its surface treatment is realigned. `raw-lab.css` is reduced to histogram/SVG (bucket C) plus scrollbar/reset (bucket D) by migrating component-shape rules into component className strings.
 
@@ -17,7 +17,7 @@
 ## Task 1: Discovery — Look-mode divergence audit
 
 **Files:**
-- Create: `docs/superpowers/audits/2026-05-22-look-mode-divergence.md`
+- Create: `docs/audits/2026-05-22-look-mode-divergence.md`
 - Read: `src/modules/raw-processor/components/mobile/MobileLutBrowser.tsx`
 - Read: `src/modules/raw-processor/components/mobile/MobileStrengthPanel.tsx`
 - Read: `src/modules/raw-processor/components/tools/lut/LutBrowserDialog.tsx`
@@ -33,7 +33,7 @@
 - [ ] **Step 1: Ensure design handoff is extracted and create the audit document**
 
 ```bash
-mkdir -p docs/superpowers/audits
+mkdir -p docs/audits
 if [ ! -d /tmp/raw-lab-handoff/mobile-raw-lab ]; then
   mkdir -p /tmp/raw-lab-handoff
   unzip -o /workspaces/LumaForge/MobileDesktopRAWLab-handoff.zip -d /tmp/raw-lab-handoff > /dev/null
@@ -95,7 +95,7 @@ className. For Bucket C, write "retarget to var(--lf-*)". For Bucket D, write
 - [ ] **Step 3: Commit the audit**
 
 ```bash
-git add docs/superpowers/audits/2026-05-22-look-mode-divergence.md
+git add docs/audits/2026-05-22-look-mode-divergence.md
 git commit --no-gpg-sign -m "docs(audit): look-mode divergence inventory for visual consistency pilot"
 ```
 
@@ -530,7 +530,7 @@ Using Table A rows scoped to `MobileLutBrowser.tsx`, replace every captured lite
 
 - [ ] **Step 1: List the literals from the audit**
 
-Open `docs/superpowers/audits/2026-05-22-look-mode-divergence.md`, filter Table A by `Location` starting with `MobileLutBrowser.tsx`. Each row tells you the literal and the target token.
+Open `docs/audits/2026-05-22-look-mode-divergence.md`, filter Table A by `Location` starting with `MobileLutBrowser.tsx`. Each row tells you the literal and the target token.
 
 - [ ] **Step 2: Apply replacements**
 
@@ -774,7 +774,7 @@ git commit --no-gpg-sign -m "refactor(raw): retarget SVG rules to lf-* vars and 
 ## Task 11: Browser validation against the family-resemblance criterion
 
 **Files:**
-- Update: `docs/superpowers/audits/2026-05-22-look-mode-divergence.md` (add a final "After" section)
+- Update: `docs/audits/2026-05-22-look-mode-divergence.md` (add a final "After" section)
 
 - [ ] **Step 1: Build + preview**
 
@@ -793,7 +793,7 @@ For each of these states, capture two screenshots (mobile viewport ~390×844, de
 4. Strength changed to Strong
 5. Look reset / cleared
 
-Place screenshots under `docs/superpowers/audits/screenshots/2026-05-22/`.
+Place screenshots under `docs/audits/screenshots/2026-05-22/`.
 
 Memory note: headless RAW decode is blocked in the WSL devcontainer (per `project_raw_browser_validation`). If a real RAW upload cannot complete in preview, use whatever Look-stub the existing test fixtures rely on, or capture screenshots from a state that does not require a decoded preview (token-bearing chrome is still the criterion target).
 
@@ -809,7 +809,7 @@ For each screenshot pair, ask: *would a stranger sub-consciously associate these
 
 - [ ] **Step 4: Record the result in the audit doc**
 
-Append to `docs/superpowers/audits/2026-05-22-look-mode-divergence.md`:
+Append to `docs/audits/2026-05-22-look-mode-divergence.md`:
 
 ```markdown
 ## After (2026-05-22)
@@ -830,8 +830,8 @@ For any NEEDS FIX row, file the divergence under "Deferred — feeds successor s
 - [ ] **Step 5: Commit**
 
 ```bash
-git add docs/superpowers/audits/2026-05-22-look-mode-divergence.md \
-        docs/superpowers/audits/screenshots/2026-05-22
+git add docs/audits/2026-05-22-look-mode-divergence.md \
+        docs/audits/screenshots/2026-05-22
 git commit --no-gpg-sign -m "docs(audit): family-resemblance verdict for Look-mode pilot"
 ```
 
