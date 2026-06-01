@@ -19,7 +19,7 @@ import { clsxm } from '~/lib/cn'
 import type { PipelineStats } from '~/lib/gl/pipeline'
 import { RawProcessingPipeline } from '~/lib/gl/pipeline'
 import { useI18n } from '~/lib/i18n'
-import type { DecodedImage } from '~/lib/raw/decoder'
+import type { DecodedImage, DecodedImageSource } from '~/lib/raw/decoder'
 import { Spring } from '~/lib/spring'
 
 import type { DisplaySource } from '../model/session'
@@ -53,6 +53,20 @@ import {
   tryCapturePointer,
   tryReleasePointer,
 } from './preview-canvas-helpers'
+
+type PreviewFrameStatus = {
+  generationKey: string
+  displaySource: DisplaySource
+  source: DecodedImageSource | 'preview'
+  state: 'idle' | 'ready'
+}
+
+const EMPTY_PREVIEW_FRAME_STATUS: PreviewFrameStatus = {
+  generationKey: '',
+  displaySource: 'none',
+  source: 'preview',
+  state: 'idle',
+}
 
 export interface PreviewCanvasProps {
   imageRef: React.RefObject<DecodedImage | null>
@@ -137,6 +151,10 @@ export function PreviewCanvas({
   const suspendedRef = useRef(suspended)
   const previewViewportRef = useRef(previewViewport)
   const processedUploadGenerationKeyRef = useRef('')
+  const processedFrameStatusRef = useRef<PreviewFrameStatus>(
+    EMPTY_PREVIEW_FRAME_STATUS,
+  )
+  const renderProcessedPreviewRef = useRef<(() => boolean) | null>(null)
   const activePointersRef = useRef(new Map<number, TrackedPointer>())
   const pinchStartRef = useRef<{
     distance: number
@@ -155,6 +173,8 @@ export function PreviewCanvas({
     displaySource: DisplaySource
     state: 'idle' | 'ready' | 'failed'
   }>({ generationKey: '', displaySource: 'none', state: 'idle' })
+  const [processedFrameStatus, setProcessedFrameStatus] =
+    useState<PreviewFrameStatus>(EMPTY_PREVIEW_FRAME_STATUS)
   const [error, setError] = useState<string | null>(null)
   const showEmbeddedPreview =
     displaySource === 'embedded' && Boolean(embeddedPreviewUrl)
@@ -175,6 +195,9 @@ export function PreviewCanvas({
     imageHeight,
     hasImageData ? 'data' : 'empty',
   ].join(':')
+  const currentProcessedFrameReady =
+    processedFrameStatus.generationKey === processedImageGenerationKey &&
+    processedFrameStatus.state === 'ready'
   const canInteractWithPreview =
     !suspended &&
     !interactionDisabled &&
@@ -210,16 +233,25 @@ export function PreviewCanvas({
     originalWebglStatus.displaySource === 'quick' &&
     displaySource === 'bounded-hq' &&
     image?.source === 'bounded-hq'
+  const retainedProcessedFrameReady =
+    processedFrameStatus.state === 'ready' &&
+    processedFrameStatus.displaySource === 'quick' &&
+    processedFrameStatus.source === 'quick' &&
+    displaySource === 'bounded-hq' &&
+    image?.source === 'bounded-hq'
+  const retainedCompareFrameReady =
+    retainedOriginalWebglFrameReady && retainedProcessedFrameReady
   const embeddedPreviewFallbackReady =
     Boolean(embeddedPreviewUrl) &&
     originalWebglLayerEligible &&
     !originalWebglReady &&
-    !retainedOriginalWebglFrameReady
+    !retainedCompareFrameReady
   const compareRenderMode: CompareRenderMode = selectCompareRenderMode({
     requestedViewMode: showEmbeddedPreview ? 'processed' : params.viewMode,
     supportsCssClip,
     dualWebglAllowed,
-    originalWebglReady,
+    originalWebglReady: originalWebglReady && currentProcessedFrameReady,
+    retainedCompareFrameReady,
     originalWebglFailed,
     embeddedPreviewReady: embeddedPreviewFallbackReady,
     jpegSnapshotReady: Boolean(originalReferenceSnapshot),
@@ -265,7 +297,7 @@ export function PreviewCanvas({
   )
   const shouldMountOriginalWebglLayer =
     originalWebglLayerEligible && !originalWebglFailed
-  const shouldDelayProcessedCompareRender = retainedOriginalWebglFrameReady
+  const shouldDelayProcessedCompareRender = retainedCompareFrameReady
 
   suspendedRef.current = suspended
 
@@ -276,6 +308,28 @@ export function PreviewCanvas({
     },
     [frameRef],
   )
+
+  const commitProcessedFrameStatus = useCallback(
+    (nextStatus: PreviewFrameStatus) => {
+      const currentStatus = processedFrameStatusRef.current
+      if (
+        currentStatus.generationKey === nextStatus.generationKey &&
+        currentStatus.displaySource === nextStatus.displaySource &&
+        currentStatus.source === nextStatus.source &&
+        currentStatus.state === nextStatus.state
+      ) {
+        return
+      }
+
+      processedFrameStatusRef.current = nextStatus
+      setProcessedFrameStatus(nextStatus)
+    },
+    [],
+  )
+
+  const resetProcessedFrameStatus = useCallback(() => {
+    commitProcessedFrameStatus(EMPTY_PREVIEW_FRAME_STATUS)
+  }, [commitProcessedFrameStatus])
 
   useEffect(() => {
     previewViewportRef.current = normalizedPreviewViewport
@@ -373,11 +427,74 @@ export function PreviewCanvas({
     [getViewportGeometry],
   )
 
+  const syncProcessedImageUpload = useCallback(() => {
+    const pipeline = pipelineRef.current
+    if (!pipeline || !isInitialized) return false
+    if (
+      processedUploadGenerationKeyRef.current === processedImageGenerationKey
+    ) {
+      return true
+    }
+
+    const image = imageRef.current
+    const uploadInput = createRawUploadInput({
+      data: image?.data ?? null,
+      layout: image?.layout ?? null,
+      colorSpace: image?.colorSpace ?? null,
+      width: image?.width ?? 0,
+      height: image?.height ?? 0,
+      renderExposureEv: image?.renderExposure.ev ?? 0,
+    })
+    const uploaded = syncRawUploadInput({
+      pipeline,
+      imageData: image?.data ?? null,
+      uploadInput,
+      setError,
+    })
+    processedUploadGenerationKeyRef.current = uploaded
+      ? processedImageGenerationKey
+      : ''
+
+    return uploaded
+  }, [imageRef, isInitialized, processedImageGenerationKey])
+
+  const renderProcessedPreview = useCallback(() => {
+    const pipeline = pipelineRef.current
+    if (!pipeline || !isInitialized) return false
+    if (!syncProcessedImageUpload()) return false
+
+    pipeline.setParams(processedCanvasParams)
+    const stats = pipeline.render()
+    const renderedImage = imageRef.current
+    commitProcessedFrameStatus({
+      generationKey: processedImageGenerationKey,
+      displaySource,
+      source: renderedImage?.source ?? 'preview',
+      state: 'ready',
+    })
+    onStatsUpdate?.(stats)
+    return true
+  }, [
+    commitProcessedFrameStatus,
+    displaySource,
+    imageRef,
+    isInitialized,
+    onStatsUpdate,
+    processedCanvasParams,
+    processedImageGenerationKey,
+    syncProcessedImageUpload,
+  ])
+
+  useEffect(() => {
+    renderProcessedPreviewRef.current = renderProcessedPreview
+  }, [renderProcessedPreview])
+
   // Initialize pipeline
   useEffect(() => {
     if (suspended) {
       pipelineRef.current = null
       processedUploadGenerationKeyRef.current = ''
+      resetProcessedFrameStatus()
       onPipelineChange?.(null)
       setIsInitialized(false)
       return
@@ -404,6 +521,7 @@ export function PreviewCanvas({
       if (pipelineRef.current === disposedPipeline) {
         pipelineRef.current = null
         processedUploadGenerationKeyRef.current = ''
+        resetProcessedFrameStatus()
         onPipelineChange?.(null)
       }
       setIsInitialized(false)
@@ -425,6 +543,7 @@ export function PreviewCanvas({
 
         pipelineRef.current = pipeline
         processedUploadGenerationKeyRef.current = ''
+        resetProcessedFrameStatus()
         onPipelineChange?.(pipeline)
         setIsInitialized(true)
         setError(null)
@@ -447,7 +566,7 @@ export function PreviewCanvas({
       pipelineRef.current = null
       onPipelineChange?.(null)
     }
-  }, [onPipelineChange, suspended])
+  }, [onPipelineChange, resetProcessedFrameStatus, suspended])
 
   // Handle canvas resize
   useEffect(() => {
@@ -503,13 +622,8 @@ export function PreviewCanvas({
         const pipeline = pipelineRef.current
         if (pipeline) {
           pipeline.resize(canvas.width, canvas.height)
-          if (
-            isInitialized &&
-            imageRef.current &&
-            !shouldDelayProcessedCompareRender
-          ) {
-            const stats = pipeline.render()
-            onStatsUpdate?.(stats)
+          if (imageRef.current && !shouldDelayProcessedCompareRender) {
+            renderProcessedPreviewRef.current?.()
           }
         }
       }
@@ -525,8 +639,6 @@ export function PreviewCanvas({
     imageVersion,
     imageWidth,
     imageHeight,
-    isInitialized,
-    onStatsUpdate,
     shouldDelayProcessedCompareRender,
   ])
 
@@ -535,53 +647,6 @@ export function PreviewCanvas({
     pinchStartRef.current = null
     setIsPointerPanning(false)
   }, [])
-
-  const syncProcessedImageUpload = useCallback(() => {
-    const pipeline = pipelineRef.current
-    if (!pipeline || !isInitialized) return false
-    if (
-      processedUploadGenerationKeyRef.current === processedImageGenerationKey
-    ) {
-      return true
-    }
-
-    const image = imageRef.current
-    const uploadInput = createRawUploadInput({
-      data: image?.data ?? null,
-      layout: image?.layout ?? null,
-      colorSpace: image?.colorSpace ?? null,
-      width: image?.width ?? 0,
-      height: image?.height ?? 0,
-      renderExposureEv: image?.renderExposure.ev ?? 0,
-    })
-    const uploaded = syncRawUploadInput({
-      pipeline,
-      imageData: image?.data ?? null,
-      uploadInput,
-      setError,
-    })
-    processedUploadGenerationKeyRef.current = uploaded
-      ? processedImageGenerationKey
-      : ''
-
-    return uploaded
-  }, [imageRef, isInitialized, processedImageGenerationKey])
-
-  const renderProcessedPreview = useCallback(() => {
-    const pipeline = pipelineRef.current
-    if (!pipeline || !isInitialized) return false
-    if (!syncProcessedImageUpload()) return false
-
-    pipeline.setParams(processedCanvasParams)
-    const stats = pipeline.render()
-    onStatsUpdate?.(stats)
-    return true
-  }, [
-    isInitialized,
-    onStatsUpdate,
-    processedCanvasParams,
-    syncProcessedImageUpload,
-  ])
 
   const handleWheel = useCallback(
     (event: WheelEvent) => {

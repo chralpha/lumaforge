@@ -24,6 +24,11 @@ type WebglStats = {
   resetAt: number
 }
 
+type CompareModeSample = {
+  mode: string
+  at: number
+}
+
 async function installWebglCounters(page: Page) {
   await page.addInitScript(() => {
     type CounterWindow = Window & {
@@ -92,6 +97,81 @@ async function installWebglCounters(page: Page) {
       patchMethod(prototype, 'flush', 'flushCalls')
     }
   })
+}
+
+async function installCompareModeRecorder(page: Page) {
+  await page.addInitScript(() => {
+    type RecorderWindow = Window & {
+      __LUMAFORGE_COMPARE_MODE_SAMPLES__?: Array<{
+        mode: string
+        at: number
+      }>
+    }
+
+    const recorderWindow = window as RecorderWindow
+    const samples: NonNullable<
+      RecorderWindow['__LUMAFORGE_COMPARE_MODE_SAMPLES__']
+    > = []
+    let lastMode = ''
+
+    recorderWindow.__LUMAFORGE_COMPARE_MODE_SAMPLES__ = samples
+
+    const record = () => {
+      const mode =
+        document
+          .querySelector('[data-compare-mode]')
+          ?.getAttribute('data-compare-mode') ?? 'missing'
+      if (mode === lastMode) return
+      lastMode = mode
+      samples.push({ mode, at: performance.now() })
+    }
+
+    const start = () => {
+      const root = document.documentElement
+      if (!root) {
+        requestAnimationFrame(start)
+        return
+      }
+
+      const observer = new MutationObserver(record)
+      observer.observe(root, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['data-compare-mode'],
+      })
+      record()
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', start, { once: true })
+    } else {
+      start()
+    }
+  })
+}
+
+async function readCompareModeSamples(
+  page: Page,
+): Promise<CompareModeSample[]> {
+  return page.evaluate(() => {
+    type RecorderWindow = Window & {
+      __LUMAFORGE_COMPARE_MODE_SAMPLES__?: CompareModeSample[]
+    }
+
+    return (window as RecorderWindow).__LUMAFORGE_COMPARE_MODE_SAMPLES__ ?? []
+  })
+}
+
+function expectNoProcessedOnlyAfterDualWebgl(samples: CompareModeSample[]) {
+  const firstDualIndex = samples.findIndex((sample) => {
+    return sample.mode === 'dual-webgl'
+  })
+
+  expect(firstDualIndex).toBeGreaterThanOrEqual(0)
+  expect(
+    samples.slice(firstDualIndex + 1).map((sample) => sample.mode),
+  ).not.toContain('processed-only')
 }
 
 async function loadRawFixture(page: Page, fixture: string) {
@@ -390,6 +470,7 @@ test('keeps dual-layer RAW compare usable through split zoom and pan', async ({
   await page.setViewportSize({ width: 1440, height: 900 })
   expect(page.viewportSize()).toEqual({ width: 1440, height: 900 })
   await installWebglCounters(page)
+  await installCompareModeRecorder(page)
   await page.goto(RAW_COMPARE_URL)
   await expect(page.locator('[data-raw-lab-shell="viewport"]')).toBeVisible()
 
@@ -409,6 +490,8 @@ test('keeps dual-layer RAW compare usable through split zoom and pan', async ({
   )
 
   await waitForWebglStatsIdle(page)
+  const stagedModeSamples = await readCompareModeSamples(page)
+  expectNoProcessedOnlyAfterDualWebgl(stagedModeSamples)
 
   const split = await dragSlider(
     page,
@@ -496,6 +579,7 @@ test('keeps dual-layer RAW compare usable through split zoom and pan', async ({
         split,
         splitOnlyWebglStats,
         viewportWebglStats,
+        stagedModeSamples,
       },
       null,
       2,

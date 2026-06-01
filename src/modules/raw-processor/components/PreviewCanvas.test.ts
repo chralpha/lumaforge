@@ -719,6 +719,54 @@ describe('preview canvas upload descriptor', () => {
     ).toBeTruthy()
   })
 
+  it('keeps retained dual-webgl compare visible while bounded-HQ layers catch up', async () => {
+    const imageRef: RefObject<DecodedImage | null> = {
+      current: { ...decodedImage, source: 'quick' as const },
+    }
+    const onCompareRenderModeChange = vi.fn()
+    const props: ComponentProps<typeof PreviewCanvas> = {
+      imageRef,
+      imageVersion: 1,
+      params: {
+        ...defaultParams,
+        viewMode: 'compare',
+      },
+      lutDataRef: { current: null },
+      lutDataVersion: 0,
+      displaySource: 'quick',
+      dualWebglAllowed: true,
+      onCompareRenderModeChange,
+    }
+    const { container, rerender } = render(createElement(PreviewCanvas, props))
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-compare-mode="dual-webgl"]'),
+      ).toBeTruthy()
+    })
+    onCompareRenderModeChange.mockClear()
+
+    imageRef.current = {
+      ...decodedImage,
+      source: 'bounded-hq',
+      width: 420,
+      height: 320,
+      data: new Float32Array(420 * 320 * 4),
+    }
+    rerender(
+      createElement(PreviewCanvas, {
+        ...props,
+        imageVersion: 2,
+        displaySource: 'bounded-hq',
+      }),
+    )
+
+    expect(
+      container.querySelector('[data-compare-mode="dual-webgl"]'),
+    ).toBeTruthy()
+    expect(onCompareRenderModeChange).not.toHaveBeenCalledWith('processed-only')
+  })
+
   it('keeps dual-webgl compare ready after the preview image version changes', async () => {
     const imageRef = { current: decodedImage }
     const props: ComponentProps<typeof PreviewCanvas> = {

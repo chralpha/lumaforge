@@ -24,6 +24,7 @@ export type SelectCompareRenderModeInput = {
   supportsCssClip: boolean
   dualWebglAllowed: boolean
   originalWebglReady: boolean
+  retainedCompareFrameReady?: boolean
   originalWebglFailed?: boolean
   embeddedPreviewReady?: boolean
   jpegSnapshotReady: boolean
@@ -45,6 +46,7 @@ export function selectCompareRenderMode({
   supportsCssClip,
   dualWebglAllowed,
   originalWebglReady,
+  retainedCompareFrameReady = false,
   originalWebglFailed = false,
   embeddedPreviewReady = false,
   jpegSnapshotReady,
@@ -53,7 +55,7 @@ export function selectCompareRenderMode({
   if (!supportsCssClip) {
     return { kind: 'processed-only', reason: 'css-clip-unavailable' }
   }
-  if (dualWebglAllowed && originalWebglReady) {
+  if (dualWebglAllowed && (originalWebglReady || retainedCompareFrameReady)) {
     return { kind: 'dual-webgl' }
   }
   if (jpegSnapshotReady) {

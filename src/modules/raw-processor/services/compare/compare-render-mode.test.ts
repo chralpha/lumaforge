@@ -33,6 +33,19 @@ describe('selectCompareRenderMode', () => {
     })
   })
 
+  it('keeps dual WebGL while a retained compare frame covers a preview upgrade', () => {
+    expect(
+      selectCompareRenderMode({
+        requestedViewMode: 'compare',
+        supportsCssClip: true,
+        dualWebglAllowed: true,
+        originalWebglReady: false,
+        retainedCompareFrameReady: true,
+        jpegSnapshotReady: false,
+      }),
+    ).toEqual({ kind: 'dual-webgl' })
+  })
+
   it('uses embedded fallback while original WebGL is pending', () => {
     expect(
       selectCompareRenderMode({
