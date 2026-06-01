@@ -1,15 +1,8 @@
 import type { LUTContractResolution } from '@lumaforge/luma-color-runtime'
-import { useMemo } from 'react'
 
 import type { LUTContractSelectionState } from '../../model/session'
 import { useLutContractBrowserState } from '../tools/lut/useLutContractBrowserState'
-import {
-  deriveLUTContractView,
-  getProfileOutputLabel,
-  getResolvedProfile,
-} from '../tools/lut-contract'
-
-export const OUTPUT_REQUIRED_LABEL = 'Output profile required'
+import { useLutContractSummary } from '../tools/lut/useLutContractSummary'
 
 type UseMobileLutContractStateInput = {
   contractQuery: string
@@ -22,39 +15,18 @@ export function useMobileLutContractState({
   lutProfileSelection,
   lutProfileResolution,
 }: UseMobileLutContractStateInput) {
-  const profileSuggestions = useMemo(() => {
-    const resolution = lutProfileResolution
-    return resolution &&
-      (resolution.kind === 'recommended' ||
-        resolution.kind === 'unsupported-output')
-      ? resolution.recommendations
-      : []
-  }, [lutProfileResolution])
-  const resolvedProfile = getResolvedProfile(
+  const summary = useLutContractSummary({
     lutProfileSelection,
     lutProfileResolution,
-  )
-  const outputLabel = getProfileOutputLabel(resolvedProfile)
-  const displayOutputLabel =
-    outputLabel && outputLabel !== OUTPUT_REQUIRED_LABEL
-      ? outputLabel
-      : undefined
-  const contractView = deriveLUTContractView(
-    lutProfileSelection,
-    lutProfileResolution,
-  )
+  })
   const browserState = useLutContractBrowserState({
     query: contractQuery,
-    suggestions: profileSuggestions,
-    currentProfile: resolvedProfile,
+    suggestions: summary.profileSuggestions,
+    currentProfile: summary.resolvedProfile,
   })
 
   return {
-    profileSuggestions,
-    resolvedProfile,
-    outputLabel,
-    displayOutputLabel,
-    contractView,
+    ...summary,
     contractSearchResults: browserState.searchResults,
     hasContractQuery: browserState.hasQuery,
     visibleSuggestions: browserState.visibleSuggestions,

@@ -23,11 +23,8 @@ import { DOCK_SPRING, IMMERSIVE_STAGGER_MS } from '../../motion'
 import type { RawRuntimeReadinessState } from '../raw-runtime-readiness'
 import { getRawRuntimeReadinessCopy } from '../raw-runtime-readiness'
 import type { ColorValue } from '../tools/ColorTool'
-import {
-  deriveLUTContractView,
-  getProfileOutputLabel,
-  getResolvedProfile,
-} from '../tools/lut-contract'
+import { useLutContractSummary } from '../tools/lut/useLutContractSummary'
+import { getProfileOutputLabel } from '../tools/lut-contract'
 import type { ToneValue } from '../tools/ToneTool'
 import type { ScrubFieldId } from './AdjustListPanel'
 import { AdjustListPanel } from './AdjustListPanel'
@@ -45,8 +42,6 @@ import { useMobilePreviewGestures } from './useMobilePreviewGestures'
 type ViewMode = 'processed' | 'original' | 'compare'
 type Row = { label: string; value: string }
 type Step = { index: number; label: string; timing: string }
-
-const OUTPUT_REQUIRED_LABEL = 'Output profile required'
 
 export function MobileLabChrome(props: {
   hasImage: boolean
@@ -285,25 +280,20 @@ export function MobileLabChrome(props: {
       else enterImmersive()
     },
   })
-  const resolvedLutProfile = getResolvedProfile(
-    props.lutBrowser.lutProfileSelection,
-    props.lutBrowser.lutProfileResolution,
-  )
-  const lutContractView = deriveLUTContractView(
-    props.lutBrowser.lutProfileSelection,
-    props.lutBrowser.lutProfileResolution,
-  )
+  const {
+    resolvedProfile: resolvedLutProfile,
+    outputRequired: lutNeedsOutput,
+    displayOutputLabel: displayLutOutputLabel,
+    contractView: lutContractView,
+    needsUserSelection: lutNeedsUserSelection,
+  } = useLutContractSummary({
+    lutProfileSelection: props.lutBrowser.lutProfileSelection,
+    lutProfileResolution: props.lutBrowser.lutProfileResolution,
+  })
   const runtimeReadiness =
     !props.hasImage && props.runtimeReadinessState
       ? getRawRuntimeReadinessCopy(t, props.runtimeReadinessState)
       : null
-  const lutOutputLabel = getProfileOutputLabel(resolvedLutProfile)
-  const lutNeedsOutput = lutOutputLabel === OUTPUT_REQUIRED_LABEL
-  const displayLutOutputLabel =
-    lutOutputLabel && !lutNeedsOutput ? lutOutputLabel : undefined
-  const lutNeedsUserSelection =
-    props.lutBrowser.lutProfileResolution != null &&
-    props.lutBrowser.lutProfileResolution.kind !== 'confirmed'
   const lutContractWarningLabel = lutNeedsUserSelection
     ? t('raw.mobile.lut.chooseContract')
     : lutNeedsOutput
