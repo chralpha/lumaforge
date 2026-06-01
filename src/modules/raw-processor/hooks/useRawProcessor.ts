@@ -79,7 +79,6 @@ import {
 } from '../services/export/export-result-actions'
 import { createCompletedExportResult } from '../services/export/export-result-materialization'
 import {
-  changesRenderGraphParams,
   clearExportResultForActiveExport,
   clearExportResultState,
   hasSameRawRenderExposure,
@@ -95,10 +94,6 @@ import { orchestrateFullResExport } from '../services/export/orchestrate-full-re
 import type { RawLoadContext } from '../services/ingest/orchestrate-raw-load'
 import { orchestrateRawLoad } from '../services/ingest/orchestrate-raw-load'
 import { getProgressRecoveryHint } from '../services/ingest/workflow-status'
-import {
-  computeColorParams,
-  computeToneParams,
-} from '../services/look/orchestrate-params-update'
 import {
   clearEmbeddedPreviewUrlFromSession,
   revokeEmbeddedPreviewObjectUrls,
@@ -706,6 +701,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setLutDataRef,
     scheduleToast,
     invalidateExportGraph,
+    setViewMode,
+    setCompareSplit,
   })
   const {
     params,
@@ -718,6 +715,11 @@ export function useRawProcessor(): UseRawProcessorReturn {
     selectLUTProfile,
     selectIntensityLevel,
     clearLUT,
+    setParams: handleSetParams,
+    setToneParams,
+    resetTone,
+    setColorParams,
+    resetColor,
   } = lookStage
   paramsRef.current = params
   const histogram = usePreviewHistogram({
@@ -1085,98 +1087,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
       revokeCurrentEmbeddedPreviewUrl,
     ],
   )
-
-  // Update params
-  const handleSetParams = useCallback(
-    (newParams: Partial<ProcessingParams>) => {
-      const { viewMode, compareSplit, ...renderParamPatch } = newParams
-      const shouldClearExportResult = changesRenderGraphParams(
-        params,
-        renderParamPatch,
-      )
-      if (Object.keys(renderParamPatch).length > 0) {
-        setParams((prev) => ({ ...prev, ...renderParamPatch }))
-      }
-      if (viewMode) {
-        setViewMode(viewMode)
-      }
-      if (compareSplit !== undefined) {
-        setCompareSplit(compareSplit)
-      }
-      if (shouldClearExportResult) {
-        invalidateExportGraph()
-      }
-    },
-    [invalidateExportGraph, params, setCompareSplit, setParams, setViewMode],
-  )
-
-  const setToneParams = useCallback(
-    (
-      toneParams: Partial<
-        Pick<
-          ProcessingParams,
-          | 'userExposureEv'
-          | 'userContrast'
-          | 'userHighlights'
-          | 'userShadows'
-          | 'userWhites'
-          | 'userBlacks'
-        >
-      >,
-    ) => {
-      let shouldClearExportResult = false
-      setParams((prev) => {
-        const { params: nextParams, shouldClearExportResult: shouldClear } =
-          computeToneParams(prev, toneParams)
-        shouldClearExportResult = shouldClear
-        return nextParams
-      })
-
-      if (shouldClearExportResult) {
-        invalidateExportGraph()
-      }
-    },
-    [invalidateExportGraph, setParams],
-  )
-
-  const resetTone = useCallback(() => {
-    handleSetParams({
-      userExposureEv: 0,
-      userContrast: 0,
-      userHighlights: 0,
-      userShadows: 0,
-      userWhites: 0,
-      userBlacks: 0,
-    })
-  }, [handleSetParams])
-
-  const setColorParams = useCallback(
-    (
-      colorParams: Partial<
-        Pick<ProcessingParams, 'userTemperature' | 'userTint'>
-      >,
-    ) => {
-      let shouldClearExportResult = false
-      setParams((prev) => {
-        const { params: nextParams, shouldClearExportResult: shouldClear } =
-          computeColorParams(prev, colorParams)
-        shouldClearExportResult = shouldClear
-        return nextParams
-      })
-
-      if (shouldClearExportResult) {
-        invalidateExportGraph()
-      }
-    },
-    [invalidateExportGraph, setParams],
-  )
-
-  const resetColor = useCallback(() => {
-    handleSetParams({
-      userTemperature: 0,
-      userTint: 0,
-    })
-  }, [handleSetParams])
 
   // Export image
   const exportImage = useCallback(

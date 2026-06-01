@@ -93,4 +93,44 @@ describe('useRawLookStage', () => {
     expect(result.current.activeIntensity).toBe('strong')
     expect(result.current.currentLutName).toBe('Client Look')
   })
+
+  it('normalizes tone params and invalidates export when the render graph changes', () => {
+    const setParams = vi.fn(
+      (
+        value:
+          | ProcessingParams
+          | ((prev: ProcessingParams) => ProcessingParams),
+      ) => (typeof value === 'function' ? value(baseParams) : value),
+    )
+    const invalidateExportGraph = vi.fn()
+    const session = createSession()
+    const { result } = renderHook(() =>
+      useRawLookStage({
+        baseParams,
+        session,
+        sessionRef: { current: session },
+        setSession: vi.fn(),
+        lut: null,
+        setLut: vi.fn(),
+        setParams,
+        getProcessingParams: () => baseParams,
+        lutDataRef: { current: null },
+        setLutDataRef: vi.fn(),
+        scheduleToast: vi.fn(),
+        invalidateExportGraph,
+        setViewMode: vi.fn(),
+        setCompareSplit: vi.fn(),
+      }),
+    )
+
+    result.current.setToneParams({ userContrast: 120 })
+
+    expect(setParams).toHaveBeenCalledTimes(1)
+    const updater = setParams.mock.calls[0]?.[0]
+    expect(typeof updater).toBe('function')
+    expect(
+      (updater as (prev: ProcessingParams) => ProcessingParams)(baseParams),
+    ).toMatchObject({ userContrast: 100 })
+    expect(invalidateExportGraph).toHaveBeenCalledTimes(1)
+  })
 })
