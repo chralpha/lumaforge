@@ -39,8 +39,6 @@ export function prepareRawLoadState(input: {
       intensity: preservedCustomStyle
         ? mapIntensityLevel(preservedCustomStyle.currentIntensityLevel)
         : 0.7,
-      viewMode: 'compare',
-      compareSplit,
       styleKind: preservedCustomStyle ? 'custom' : 'none',
       builtinPreset: null,
     },

@@ -58,7 +58,7 @@ function createActiveStyle(overrides: Partial<StyleAsset> = {}): StyleAsset {
 }
 
 describe('raw load preparation', () => {
-  it('prepares neutral load state while preserving tone params outside the returned patch', () => {
+  it('prepares neutral load state while leaving view state canonical in the session', () => {
     const prepared = prepareRawLoadState({
       params: createParams({ compareSplit: 2 }),
       lut: null,
@@ -72,11 +72,11 @@ describe('raw load preparation', () => {
     })
     expect(prepared.processingParamsPatch).toEqual({
       intensity: 0.7,
-      viewMode: 'compare',
-      compareSplit: 1,
       styleKind: 'none',
       builtinPreset: null,
     })
+    expect(prepared.processingParamsPatch).not.toHaveProperty('viewMode')
+    expect(prepared.processingParamsPatch).not.toHaveProperty('compareSplit')
     expect(prepared.processingParamsPatch).not.toHaveProperty('userExposureEv')
     expect(prepared.processingParamsPatch).not.toHaveProperty('userContrast')
     expect(prepared.processingParamsPatch).not.toHaveProperty('userHighlights')
@@ -110,11 +110,11 @@ describe('raw load preparation', () => {
     })
     expect(prepared.processingParamsPatch).toMatchObject({
       intensity: 0.7,
-      viewMode: 'compare',
-      compareSplit: 0.8,
       styleKind: 'custom',
       builtinPreset: null,
     })
+    expect(prepared.processingParamsPatch).not.toHaveProperty('viewMode')
+    expect(prepared.processingParamsPatch).not.toHaveProperty('compareSplit')
   })
 
   it('preserves active custom intensity when replacing a RAW with a custom LUT loaded', () => {
