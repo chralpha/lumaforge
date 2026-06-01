@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import type { ResourceRegistry } from '~/lib/export/resource-registry'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
-import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
+import type { DecodedImage } from '~/lib/raw/decoder'
 import { isSupportedRaw } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
 import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
@@ -51,10 +51,6 @@ export interface RawLoadContext {
     setStatus: (status: ProcessingStatus) => void
     setError: (error: string | null) => void
     setProgress: (progress: number) => void
-    setLoadedImage: (image: {
-      file: File | null
-      metadata: ImageMetadata | null
-    }) => void
     getProcessingParams: () => ProcessingParams
     setParams: (
       value: ProcessingParams | ((prev: ProcessingParams) => ProcessingParams),
@@ -160,7 +156,6 @@ export async function orchestrateRawLoad(
     ctx.refs.runtimeWorkSessionIdRef.current = nextSession.id
     ctx.refs.pendingLoadSessionIdRef.current = nextSession.id
     ctx.services.setDecodedImageRef(null)
-    ctx.atoms.setLoadedImage({ file, metadata: null })
     ctx.atoms.setParams((prev) => ({
       ...prev,
       ...loadState.processingParamsPatch,
@@ -229,10 +224,6 @@ export async function orchestrateRawLoad(
 
       if (decoded) {
         ctx.services.setDecodedImageRef(decoded)
-        ctx.atoms.setLoadedImage({
-          file,
-          metadata: decoded.metadata,
-        })
         ctx.atoms.setStatus('ready')
       }
     }

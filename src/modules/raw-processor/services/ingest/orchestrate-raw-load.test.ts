@@ -60,7 +60,6 @@ function buildContext(hooks: OrderingHooks): RawLoadContext {
       setStatus: vi.fn((status) => order.push(`status:${status}`)),
       setError: vi.fn(),
       setProgress: vi.fn(),
-      setLoadedImage: vi.fn(),
       getProcessingParams: vi.fn(() => defaultParams),
       setParams: vi.fn(),
       setSession: vi.fn(),

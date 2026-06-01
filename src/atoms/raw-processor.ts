@@ -8,16 +8,7 @@ import { atom } from 'jotai'
 import type { PipelineStats } from '~/lib/gl/pipeline'
 import { createAtomHooks } from '~/lib/jotai'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
-import type { ImageMetadata } from '~/lib/raw/decoder'
 import type { ProcessingStatus } from '~/modules/raw-processor/model/workflow'
-
-/**
- * Current loaded image state
- */
-export interface LoadedImageState {
-  file: File | null
-  metadata: ImageMetadata | null
-}
 
 /**
  * Processing parameters atom
@@ -50,17 +41,6 @@ export const [
   getProcessingParams,
   setProcessingParams,
 ] = createAtomHooks(baseProcessingParamsAtom)
-
-/**
- * Loaded image atom
- */
-const baseLoadedImageAtom = atom<LoadedImageState>({
-  file: null,
-  metadata: null,
-})
-
-export const [, , useLoadedImageValue, useSetLoadedImage, , setLoadedImage] =
-  createAtomHooks(baseLoadedImageAtom)
 
 /**
  * Processing status atom
@@ -118,7 +98,6 @@ export const [
  * Reset all state
  */
 export function resetProcessorState(): void {
-  setLoadedImage({ file: null, metadata: null })
   setProcessingStatus('idle')
   setErrorMessage(null)
   setProgress(0)

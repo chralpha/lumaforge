@@ -11,14 +11,12 @@ import { toast } from 'sonner'
 import {
   getProcessingParams,
   useErrorMessageValue,
-  useLoadedImageValue,
   useLutValue,
   usePipelineStatsValue,
   useProcessingParamsValue,
   useProcessingStatusValue,
   useProgressValue,
   useSetErrorMessage,
-  useSetLoadedImage,
   useSetLut,
   useSetPipelineStats,
   useSetProcessingParams,
@@ -294,8 +292,6 @@ type PreviewPipelineEvacuationHandle = Pick<RawProcessingPipeline, 'dispose'>
 export function useRawProcessor(): UseRawProcessorReturn {
   const params = useProcessingParamsValue()
   const setParams = useSetProcessingParams()
-  const loadedImage = useLoadedImageValue()
-  const setLoadedImage = useSetLoadedImage()
   const status = useProcessingStatusValue()
   const setStatus = useSetProcessingStatus()
   const error = useErrorMessageValue()
@@ -365,6 +361,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [],
   )
   const hasImage = session ? deriveCanEdit(session) : false
+  const loadedImage = useMemo(
+    () => ({
+      file: session?.sourceFile.file ?? null,
+      metadata: session?.sourceFile.metadata ?? null,
+    }),
+    [session?.sourceFile.file, session?.sourceFile.metadata],
+  )
   const rawRenderExposure =
     decodedImageRef.current?.renderExposure ?? rawRenderExposureRef.current
   const exportReadiness = deriveFullResExportReadiness({
@@ -800,7 +803,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
       previewCopyCanvasRef.current = null
       if (pendingLoadSessionId) {
         decodedImageRef.current = null
-        setLoadedImage({ file: null, metadata: null })
         setStatus('idle')
         setError(null)
         setProgress(0)
@@ -815,7 +817,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     queueExportResultResourceDisposal,
     revokeCurrentEmbeddedPreviewUrl,
     setError,
-    setLoadedImage,
     setProgress,
     setSession,
     setStats,
@@ -838,7 +839,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
         setStatus,
         setError,
         setProgress,
-        setLoadedImage,
         getProcessingParams,
         setParams,
         setSession,
@@ -891,7 +891,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
       scheduleToast,
       setDecodedImageRef,
       setError,
-      setLoadedImage,
       setParams,
       setProgress,
       setSession,
@@ -962,7 +961,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
 
       setDecodedImageRef(decoded, { preserveExportResult: true })
-      setLoadedImage({ file, metadata: decoded.metadata })
       setSession((prev) =>
         prev && prev.id === activeSession.id
           ? {
@@ -1023,7 +1021,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     scheduleToast,
     setDecodedImageRef,
     setError,
-    setLoadedImage,
     setProgress,
     setSession,
     setStatus,
@@ -1545,7 +1542,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     revokeCurrentEmbeddedPreviewUrl()
     previewCopyCanvasRef.current = null
     setDecodedImageRef(null)
-    setLoadedImage({ file: null, metadata: null })
     setStatus('idle')
     setError(null)
     setProgress(0)
@@ -1560,7 +1556,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     revokeCurrentEmbeddedPreviewUrl,
     setDecodedImageRef,
     setError,
-    setLoadedImage,
     setProgress,
     setStats,
     setStatus,
