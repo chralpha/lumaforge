@@ -5,7 +5,6 @@ import { Provider } from 'jotai'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getProcessingParams, resetToDefaults } from '~/atoms/raw-processor'
 import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
 import type { FileBackedOutputResult } from '~/lib/export/output-sink'
 import {
@@ -31,6 +30,7 @@ import {
 } from '~/lib/runtime/capability-vector'
 
 import { currentSessionAtom } from '../state/session.atoms'
+import { getProcessingParams, resetToDefaults } from '../state/workflow.atoms'
 import { useRawProcessor } from './useRawProcessor'
 
 const rawRuntimeAdapterMock = vi.hoisted(() => ({

@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 
+import { yieldToPaint } from '~/lib/dom'
+import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
+
 import {
   useErrorMessageValue,
   useLutValue,
@@ -14,10 +17,7 @@ import {
   useSetProcessingParams,
   useSetProcessingStatus,
   useSetProgress,
-} from '~/atoms/raw-processor'
-import { yieldToPaint } from '~/lib/dom'
-import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
-
+} from '../state/workflow.atoms'
 import { useOriginalReferenceStage } from './stages/compare/useOriginalReferenceStage'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
 import { useExportGraphInvalidation } from './stages/export/useExportGraphInvalidation'

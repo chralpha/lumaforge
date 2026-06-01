@@ -4,17 +4,17 @@ import { MemoryRouter } from 'react-router'
 import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  getLut,
-  getProcessingParams,
-  resetToDefaults,
-} from '~/atoms/raw-processor'
 import { sha256Hex } from '~/lib/profiles/fetch'
 
 import { Component as RawRoute } from '../../../pages/(main)/raw'
 import { FileFactsTool } from '../components/tools/FileFactsTool'
 import { RawProcessorView } from '../RawProcessorView'
 import { classifySupportLevel } from '../services/ingest/support-matrix'
+import {
+  getLut,
+  getProcessingParams,
+  resetToDefaults,
+} from '../state/workflow.atoms'
 
 const fetchMock = vi.fn<typeof fetch>()
 const mockedToastSuccess = vi.mocked(toast.success)

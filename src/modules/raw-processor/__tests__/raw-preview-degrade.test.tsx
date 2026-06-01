@@ -10,9 +10,8 @@
 import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { resetToDefaults } from '~/atoms/raw-processor'
-
 import { RawProcessorView } from '../RawProcessorView'
+import { resetToDefaults } from '../state/workflow.atoms'
 
 // Mock capability gate — same pattern as raw-route-shell.test.tsx
 vi.mock('../hooks/useCapabilityGate', () => ({
