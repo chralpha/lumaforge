@@ -7,16 +7,12 @@ import './raw-lab.css'
 import './raw-lab.surface.css'
 import './raw-lab.effects.css'
 
-import { useCallback, useEffect, useState } from 'react'
 import { useInRouterContext, useLocation } from 'react-router'
 
 import { clsxm } from '~/lib/cn'
-import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
-import { useI18n } from '~/lib/i18n'
 
 import {
   ErrorOverlay,
-  RAW_FILE_ACCEPT,
   RawToolSurface,
   UnsupportedState,
   WorkspaceHeader,
@@ -26,10 +22,7 @@ import { RawPreviewStageSurface } from './components/RawPreviewStageSurface'
 import { RawResetConfirmationDialog } from './components/RawResetConfirmationDialog'
 import { RawWorkflowToolProvider } from './components/RawWorkflowToolProvider'
 import { useRawWorkflow } from './hooks'
-import { useRawRuntimeReadiness } from './hooks/stages/ingest/useRawRuntimeReadiness'
-import { useCapabilityGate } from './hooks/useCapabilityGate'
-import { useHiddenFilePicker } from './hooks/useHiddenFilePicker'
-import { useOnlineLutSources } from './hooks/useOnlineLutSources'
+import { useRawProcessorViewController } from './hooks/useRawProcessorViewController'
 
 export interface RawProcessorViewProps {
   className?: string
@@ -82,157 +75,31 @@ function RawProcessorViewInner({
   className,
   rawRouteLocation,
 }: RawProcessorViewInnerProps) {
-  const { t } = useI18n()
-  const workflow = useRawWorkflow()
+  const view = useRawProcessorViewController({
+    rawRouteLocation,
+    workflow: useRawWorkflow(),
+  })
+  const { workflow } = view
   const {
     status,
     error,
     hasImage,
     sourceFileName,
     supportLevel,
-    loadFile,
-    loadLUT,
-    loadOnlineLUT,
-    setViewMode,
-    setCompareSplit,
-    exportImage,
-    recoverInterruptedExport,
-    reset,
     dismissError,
-    updateStats,
-    pipelineRef,
   } = workflow
-  const onlineLutSources = useOnlineLutSources({
-    search: rawRouteLocation.search,
-    pathname: rawRouteLocation.pathname,
-    loadOnlineLUT,
-  })
-  const { runtimeReadinessState, triggerRawRuntimePrewarm } =
-    useRawRuntimeReadiness()
-  const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false)
-  const [cpuPreviewBannerDismissed, setCpuPreviewBannerDismissed] =
-    useState(false)
 
-  // Handle file drop
-  const handleFileDrop = useCallback(
-    (files: File[]) => {
-      if (files.length > 0) {
-        loadFile(files[0])
-      }
-    },
-    [loadFile],
-  )
-
-  // Handle LUT drop
-  const handleLutDrop = useCallback(
-    (files: File[]) => {
-      if (files.length > 0) {
-        loadLUT(files[0])
-      }
-    },
-    [loadLUT],
-  )
-
-  // Handle export
-  const handleExport = useCallback(
-    (options: {
-      quality: 'standard' | 'high'
-      fidelity: 'safe' | 'balanced' | 'max'
-    }) => {
-      exportImage(options)
-    },
-    [exportImage],
-  )
-
-  const replacePicker = useHiddenFilePicker({
-    accept: RAW_FILE_ACCEPT.join(','),
-    onFile: (file) => {
-      void loadFile(file)
-    },
-  })
-
-  const recoveryPicker = useHiddenFilePicker({
-    accept: RAW_FILE_ACCEPT.join(','),
-    onFile: (file) => {
-      void recoverInterruptedExport(file)
-    },
-  })
-
-  const handleReplaceFile = useCallback(() => {
-    replacePicker.open()
-  }, [replacePicker])
-
-  const handleRecoveryFileSelect = useCallback(() => {
-    recoveryPicker.open()
-  }, [recoveryPicker])
-
-  // Handle stats update from canvas
-  const handleStatsUpdate = useCallback(
-    (newStats: PipelineStats) => {
-      updateStats(newStats)
-    },
-    [updateStats],
-  )
-
-  const handlePipelineChange = useCallback(
-    (pipeline: RawProcessingPipeline | null) => {
-      pipelineRef.current = pipeline
-    },
-    [pipelineRef],
-  )
-
-  const handleCompareReset = useCallback(() => {
-    setViewMode('compare')
-    setCompareSplit(0.5)
-  }, [setCompareSplit, setViewMode])
-
-  const requestSessionReset = useCallback(() => {
-    setResetConfirmationOpen(true)
-  }, [])
-
-  const confirmSessionReset = useCallback(() => {
-    setResetConfirmationOpen(false)
-    reset()
-  }, [reset])
-
-  useEffect(() => {
-    if (!hasImage) setResetConfirmationOpen(false)
-  }, [hasImage])
-
-  // The interactive preview frame is owned by `PreviewCanvas`, but mobile
-  // chrome needs to attach gesture listeners (long-press peek / tap) to the
-  // same DOM element so they coexist with pinch / pan instead of a sibling
-  // overlay swallowing every touch.
-  const [previewFrameEl, setPreviewFrameEl] = useState<HTMLDivElement | null>(
-    null,
-  )
-
-  const isProcessing =
-    status === 'warming' ||
-    status === 'loading' ||
-    status === 'decoding' ||
-    status === 'processing' ||
-    status === 'exporting'
-  const capability = useCapabilityGate()
-  const isCpuMode = capability.ready && capability.previewMode === 'cpu'
-
-  // Map the structured `reason` token from RawPreviewCapability to a
-  // localized string before passing to UnsupportedState.
-  const unsupportedReason =
-    capability.ready && capability.supportStatus === 'unsupported'
-      ? capability.reason === 'coi-missing'
-        ? t('raw.unsupported.coi')
-        : t('raw.unsupported.webgl2')
-      : t('raw.unsupported.webgl2')
-
-  if (capability.ready && capability.supportStatus === 'unsupported') {
+  if (
+    view.capability.ready &&
+    view.capability.supportStatus === 'unsupported'
+  ) {
     return (
       <div
         className={clsxm('raw-lab', className)}
         data-raw-lab-shell="viewport"
         data-raw-lab-state="unsupported"
       >
-        <UnsupportedState reason={unsupportedReason} />
+        <UnsupportedState reason={view.unsupportedReason} />
       </div>
     )
   }
@@ -248,19 +115,15 @@ function RawProcessorViewInner({
           fileName={sourceFileName}
           hasImage={hasImage}
           supportLevel={supportLevel}
-          onReplaceFile={handleReplaceFile}
-          onResetSession={requestSessionReset}
+          onReplaceFile={view.handleReplaceFile}
+          onResetSession={view.requestSessionReset}
         />
       </div>
 
-      {isCpuMode && !cpuPreviewBannerDismissed && (
+      {view.isCpuMode && !view.cpuPreviewBannerDismissed && (
         <CpuPreviewBanner
-          reason={
-            capability.supportStatus === 'degraded'
-              ? capability.reason
-              : 'webgl2-missing'
-          }
-          onDismiss={() => setCpuPreviewBannerDismissed(true)}
+          reason={view.cpuPreviewReason}
+          onDismiss={() => view.setCpuPreviewBannerDismissed(true)}
           className="mx-3 mt-2 max-[640px]:mx-2"
         />
       )}
@@ -272,30 +135,30 @@ function RawProcessorViewInner({
       >
         <RawPreviewStageSurface
           workflow={workflow}
-          isCpuMode={isCpuMode}
-          isProcessing={isProcessing}
-          runtimeReadinessState={runtimeReadinessState}
-          onPrepareRuntime={triggerRawRuntimePrewarm}
-          onRawDrop={handleFileDrop}
-          onStatsUpdate={handleStatsUpdate}
-          onPipelineChange={handlePipelineChange}
-          onPreviewFrameChange={setPreviewFrameEl}
+          isCpuMode={view.isCpuMode}
+          isProcessing={view.isProcessing}
+          runtimeReadinessState={view.runtimeReadinessState}
+          onPrepareRuntime={view.triggerRawRuntimePrewarm}
+          onRawDrop={view.handleFileDrop}
+          onStatsUpdate={view.handleStatsUpdate}
+          onPipelineChange={view.handlePipelineChange}
+          onPreviewFrameChange={view.setPreviewFrameEl}
         />
 
         <RawWorkflowToolProvider
           workflow={workflow}
-          onlineLutSources={onlineLutSources}
-          isCpuMode={isCpuMode}
-          isProcessing={isProcessing}
-          runtimeReadinessState={runtimeReadinessState}
-          previewFrameEl={previewFrameEl}
-          onReplaceFile={handleReplaceFile}
-          onResetSession={requestSessionReset}
-          onCompareReset={handleCompareReset}
-          onLutDrop={handleLutDrop}
-          onExport={handleExport}
-          onRecoverExportSource={handleRecoveryFileSelect}
-          onPrepareRuntime={triggerRawRuntimePrewarm}
+          onlineLutSources={view.onlineLutSources}
+          isCpuMode={view.isCpuMode}
+          isProcessing={view.isProcessing}
+          runtimeReadinessState={view.runtimeReadinessState}
+          previewFrameEl={view.previewFrameEl}
+          onReplaceFile={view.handleReplaceFile}
+          onResetSession={view.requestSessionReset}
+          onCompareReset={view.handleCompareReset}
+          onLutDrop={view.handleLutDrop}
+          onExport={view.handleExport}
+          onRecoverExportSource={view.handleRecoveryFileSelect}
+          onPrepareRuntime={view.triggerRawRuntimePrewarm}
         >
           <RawToolSurface />
         </RawWorkflowToolProvider>
@@ -308,13 +171,13 @@ function RawProcessorViewInner({
       />
 
       <RawResetConfirmationDialog
-        open={resetConfirmationOpen}
-        onOpenChange={setResetConfirmationOpen}
-        onConfirm={confirmSessionReset}
+        open={view.resetConfirmationOpen}
+        onOpenChange={view.setResetConfirmationOpen}
+        onConfirm={view.confirmSessionReset}
       />
 
-      <input {...replacePicker.inputProps} />
-      <input {...recoveryPicker.inputProps} />
+      <input {...view.replacePicker.inputProps} />
+      <input {...view.recoveryPicker.inputProps} />
     </div>
   )
 }
