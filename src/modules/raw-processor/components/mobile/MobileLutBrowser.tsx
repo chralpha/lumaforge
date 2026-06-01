@@ -18,7 +18,6 @@ import { sheetSpring } from '~/lib/spring'
 import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
 import type { LUTContractSelectionState } from '../../model/session'
 import { useToolMotion } from '../../motion'
-import { Dropzone } from '../Dropzone'
 import type { LUTOutputOption } from '../tools/lut/lut-output-options'
 import { toOutputCarrierProfile } from '../tools/lut/lut-output-options'
 import { LUTOutputOptionButton } from '../tools/lut/LUTOutputOptionButton'
@@ -37,8 +36,8 @@ import {
   SEGMENTED_TRACK,
 } from '../tools/segmented-chrome'
 import type { StrengthLevel } from '../tools/StrengthControl'
-import { StrengthControl } from '../tools/StrengthControl'
 import { MobileLutCatalogEntryButton } from './MobileLutCatalogEntryButton'
+import { MobileLutCurrentSections } from './MobileLutCurrentSections'
 import { MobileLutSourceCard } from './MobileLutSourceCard'
 import { useMobileLutContractState } from './useMobileLutContractState'
 
@@ -298,81 +297,6 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         animate: { opacity: 1, y: 0 },
         exit: { opacity: 0, y: -8 },
       }
-
-  const renderCurrentLutDropzone = () => (
-    <Dropzone
-      onFileDrop={props.onLutLoad}
-      accept={['.cube']}
-      multiple
-      disabled={props.disabled}
-      aria-label={
-        props.currentLutName
-          ? t('raw.lut.selectedAria', { name: props.currentLutName })
-          : t('raw.mobile.lut.uploadAria')
-      }
-      className="flex min-h-[44px] min-w-0 items-center rounded-none border-0 border-solid bg-transparent p-0 text-left shadow-none hover:bg-transparent focus-within:ring-lf-amber/35 focus-visible:ring-lf-amber/35"
-      interactiveMotion={false}
-    >
-      <span className="flex min-w-0 items-center gap-2">
-        {!props.currentLutName && (
-          <span
-            className="grid size-7 shrink-0 place-items-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong text-lf-on-photo-ink/70"
-            aria-hidden="true"
-          >
-            <Plus className="size-3.5" />
-          </span>
-        )}
-        <span
-          className="min-w-0 truncate text-[0.82rem] font-semibold text-lf-on-photo-ink"
-          title={props.currentLutName ?? undefined}
-        >
-          {props.currentLutName ?? t('raw.lut.add')}
-        </span>
-      </span>
-    </Dropzone>
-  )
-
-  const renderCurrentSection = () => (
-    <section className="grid gap-2" data-raw-mobile-lut="current">
-      <h3 className="m-0 text-lf-body font-semibold text-lf-on-photo-ink">
-        {t('raw.mobile.lut.currentHeading')}
-      </h3>
-      <div
-        className={
-          props.currentLutName
-            ? 'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5'
-            : 'grid grid-cols-1 rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 py-2.5'
-        }
-        data-testid="raw-mobile-current-lut-card"
-      >
-        {renderCurrentLutDropzone()}
-        {props.currentLutName && (
-          <button
-            type="button"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-2.5 text-xs font-semibold text-lf-on-photo-ink/82 transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={props.disabled}
-            onClick={props.onLutClear}
-          >
-            {t('raw.mobile.lut.clear')}
-          </button>
-        )}
-      </div>
-    </section>
-  )
-
-  const renderStrengthSection = () => (
-    <section className="grid gap-2" data-raw-mobile-lut="strength">
-      <h3 className="m-0 text-lf-body font-semibold text-lf-on-photo-ink">
-        {t('raw.strength.title')}
-      </h3>
-      <StrengthControl
-        value={activeIntensity}
-        onChange={(level) => props.onIntensitySelect?.(level)}
-        disabled={strengthDisabled}
-        size="md"
-      />
-    </section>
-  )
 
   const renderContractStatusSection = () => {
     if (
@@ -672,8 +596,15 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       {...viewMotion}
       transition={sheetSpring}
     >
-      {renderCurrentSection()}
-      {renderStrengthSection()}
+      <MobileLutCurrentSections
+        currentLutName={props.currentLutName}
+        disabled={props.disabled}
+        onLutLoad={props.onLutLoad}
+        onLutClear={props.onLutClear}
+        activeIntensity={activeIntensity}
+        onIntensitySelect={props.onIntensitySelect}
+        strengthDisabled={strengthDisabled}
+      />
       {renderContractStatusSection()}
       {renderOnlineSourcesSection()}
     </m.div>
