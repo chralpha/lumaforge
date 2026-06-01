@@ -19,6 +19,8 @@
   ·
   <a href="https://luma.ichr.me">Product page</a>
   ·
+  <a href="./docs/README.md">Help</a>
+  ·
   <a href="#local-development">Run locally</a>
   ·
   <a href="#architecture">Architecture</a>
