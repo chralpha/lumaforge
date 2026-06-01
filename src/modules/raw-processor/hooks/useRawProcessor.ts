@@ -9,7 +9,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import {
-  getProcessingParams,
   useErrorMessageValue,
   useLutValue,
   usePipelineStatsValue,
@@ -290,7 +289,7 @@ type PendingRecoveryRetry = {
 type PreviewPipelineEvacuationHandle = Pick<RawProcessingPipeline, 'dispose'>
 
 export function useRawProcessor(): UseRawProcessorReturn {
-  const params = useProcessingParamsValue()
+  const baseParams = useProcessingParamsValue()
   const setParams = useSetProcessingParams()
   const status = useProcessingStatusValue()
   const setStatus = useSetProcessingStatus()
@@ -303,6 +302,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const stats = usePipelineStatsValue()
   const setStats = useSetPipelineStats()
   const { session, replaceFile, resetSession, setSession } = useImageSession()
+  const sessionViewMode = session?.viewState.mode
+  const sessionCompareSplit = session?.viewState.compareSplit
+  const params = useMemo<ProcessingParams>(() => {
+    if (!sessionViewMode || sessionCompareSplit === undefined) return baseParams
+
+    return {
+      ...baseParams,
+      viewMode: sessionViewMode,
+      compareSplit: sessionCompareSplit,
+    }
+  }, [baseParams, sessionCompareSplit, sessionViewMode])
 
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
   const resourceRegistryRef = useRef<ResourceRegistry | null>(null)
@@ -334,6 +344,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     new WeakSet(),
   )
   const decodedImageRef = useRef<DecodedImage | null>(null)
+  const paramsRef = useRef(params)
   const originalPreviewPipelineRef =
     useRef<PreviewPipelineEvacuationHandle | null>(null)
   const rawRenderExposureRef = useRef<RawRenderExposure | null>(null)
@@ -353,6 +364,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
     resourceRegistryRef.current = createResourceRegistry()
   }
   sessionRef.current = session
+  paramsRef.current = params
+  const getCurrentProcessingParams = useCallback(() => paramsRef.current, [])
   const setDiscoveredRecoveryState = useCallback(
     (next: ExportRecoveryState) => {
       discoveredRecoveryRef.current = next
@@ -839,7 +852,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         setStatus,
         setError,
         setProgress,
-        getProcessingParams,
+        getProcessingParams: getCurrentProcessingParams,
         setParams,
         setSession,
         setDecodedImageVersion,
@@ -883,6 +896,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       abortRuntimeWork,
       clearSessionEmbeddedPreviewUrl,
       disposeRuntimeSession,
+      getCurrentProcessingParams,
       invalidateExportGraph,
       queueExportResultResourceDisposal,
       registerCurrentPreviewPipelineForEvacuation,
@@ -1088,7 +1102,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
         setLut,
         setSession,
         setParams,
-        getProcessingParams,
+        getProcessingParams: getCurrentProcessingParams,
         lut,
         activeStyle,
       },
@@ -1104,6 +1118,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     }),
     [
       activeStyle,
+      getCurrentProcessingParams,
       invalidateExportGraph,
       lut,
       scheduleToast,
@@ -1158,19 +1173,32 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   const setViewMode = useCallback(
     (mode: ProcessingParams['viewMode']) => {
-      setParams((prev) => ({ ...prev, viewMode: mode }))
-      setSession((prev) => computeViewModeChange(prev, mode))
+      if (sessionRef.current) {
+        setSession((prev) => computeViewModeChange(prev, mode))
+        return
+      }
+
+      setParams((prev) =>
+        prev.viewMode === mode ? prev : { ...prev, viewMode: mode },
+      )
     },
     [setParams, setSession],
   )
 
   const setCompareSplit = useCallback(
     (split: number) => {
-      setParams((prev) => {
-        const { nextSplit } = computeCompareSplitChange(null, split)
-        return { ...prev, compareSplit: nextSplit }
-      })
-      setSession((prev) => computeCompareSplitChange(prev, split).session)
+      const { nextSplit } = computeCompareSplitChange(null, split)
+
+      if (sessionRef.current) {
+        setSession((prev) => computeCompareSplitChange(prev, nextSplit).session)
+        return
+      }
+
+      setParams((prev) =>
+        prev.compareSplit === nextSplit
+          ? prev
+          : { ...prev, compareSplit: nextSplit },
+      )
     },
     [setParams, setSession],
   )
@@ -1226,16 +1254,25 @@ export function useRawProcessor(): UseRawProcessorReturn {
   // Update params
   const handleSetParams = useCallback(
     (newParams: Partial<ProcessingParams>) => {
+      const { viewMode, compareSplit, ...renderParamPatch } = newParams
       const shouldClearExportResult = changesRenderGraphParams(
         params,
-        newParams,
+        renderParamPatch,
       )
-      setParams((prev) => ({ ...prev, ...newParams }))
+      if (Object.keys(renderParamPatch).length > 0) {
+        setParams((prev) => ({ ...prev, ...renderParamPatch }))
+      }
+      if (viewMode) {
+        setViewMode(viewMode)
+      }
+      if (compareSplit !== undefined) {
+        setCompareSplit(compareSplit)
+      }
       if (shouldClearExportResult) {
         invalidateExportGraph()
       }
     },
-    [invalidateExportGraph, params, setParams],
+    [invalidateExportGraph, params, setCompareSplit, setParams, setViewMode],
   )
 
   const setToneParams = useCallback(

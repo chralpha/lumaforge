@@ -5,7 +5,7 @@ import { Provider } from 'jotai'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { resetToDefaults } from '~/atoms/raw-processor'
+import { getProcessingParams, resetToDefaults } from '~/atoms/raw-processor'
 import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
 import type { FileBackedOutputResult } from '~/lib/export/output-sink'
 import {
@@ -543,6 +543,7 @@ describe('useRawProcessor embedded preview state', () => {
       })
     })
     const previousParams = result.current.params
+    const previousSession = jotaiStore.get(currentSessionAtom)
 
     await act(async () => {
       await result.current.loadFile(new File(['not raw'], 'notes.txt'))
@@ -552,7 +553,7 @@ describe('useRawProcessor embedded preview state', () => {
     expect(result.current.status).toBe('idle')
     expect(result.current.loadedImage.file).toBeNull()
     expect(result.current.params).toEqual(previousParams)
-    expect(jotaiStore.get(currentSessionAtom)).toBe(existingSession)
+    expect(jotaiStore.get(currentSessionAtom)).toBe(previousSession)
     expect(rawRuntimeAdapterMock.openSession).not.toHaveBeenCalled()
   })
 
@@ -1551,12 +1552,15 @@ describe('useRawProcessor embedded preview state', () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
 
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const storedParamsBefore = getProcessingParams()
 
     act(() => {
       result.current.setViewMode('original')
     })
 
     expect(result.current.viewMode).toBe('original')
+    expect(result.current.params.viewMode).toBe('original')
+    expect(getProcessingParams()).toBe(storedParamsBefore)
     expect(jotaiStore.get(currentSessionAtom)?.viewState).toMatchObject({
       mode: 'original',
       compareSplit: 0.5,
@@ -1567,12 +1571,15 @@ describe('useRawProcessor embedded preview state', () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
 
     const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const storedParamsBefore = getProcessingParams()
 
     act(() => {
       result.current.setCompareSplit(2)
     })
 
     expect(result.current.compareSplit).toBe(1)
+    expect(result.current.params.compareSplit).toBe(1)
+    expect(getProcessingParams()).toBe(storedParamsBefore)
     expect(jotaiStore.get(currentSessionAtom)?.viewState).toMatchObject({
       mode: 'processed',
       compareSplit: 1,
