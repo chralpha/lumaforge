@@ -27,7 +27,6 @@ import type { ResourceRegistry } from '~/lib/export/resource-registry'
 import { createResourceRegistry } from '~/lib/export/resource-registry'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
-import { toLUTData } from '~/lib/lut/cube-parser'
 import type { OnlineLUTEntry } from '~/lib/profiles/catalog'
 import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
@@ -64,6 +63,7 @@ import { useRawProcessorLifecycle } from './stages/ingest/useRawProcessorLifecyc
 import { useRawRuntimeControls } from './stages/ingest/useRawRuntimeControls'
 import { useRawSessionReset } from './stages/ingest/useRawSessionReset'
 import { useRawSourceState } from './stages/ingest/useRawSourceState'
+import { useLutDataState } from './stages/look/useLutDataState'
 import { useRawLookStage } from './stages/look/useRawLookStage'
 import { useDecodedPreviewResource } from './stages/preview/useDecodedPreviewResource'
 import { useEmbeddedPreviewUrlLifecycle } from './stages/preview/useEmbeddedPreviewUrlLifecycle'
@@ -213,8 +213,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     useRef<PreviewPipelineEvacuationHandle | null>(null)
   const rawRenderExposureRef = useRef<RawRenderExposure | null>(null)
   const [decodedImageVersion, setDecodedImageVersion] = useState(0)
-  const lutDataRef = useRef<LUTData | null>(null)
-  const [lutDataVersion, setLutDataVersion] = useState(0)
   const discoveredRecoveryRef = useRef<ExportRecoveryState>({ status: 'none' })
   const [discoveredRecovery, setDiscoveredRecovery] =
     useState<ExportRecoveryState>({ status: 'none' })
@@ -234,10 +232,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
       notify()
     })
-  }, [])
-  const setLutDataRef = useCallback((nextLutData: LUTData | null) => {
-    lutDataRef.current = nextLutData
-    setLutDataVersion((version) => version + 1)
   }, [])
   sessionRef.current = session
   const setDiscoveredRecoveryState = useCallback(
@@ -315,6 +309,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setStatus,
     setProgress,
   })
+  const { lutDataRef, lutDataVersion, setLutDataRef } = useLutDataState(lut)
 
   const lookStage = useRawLookStage({
     baseParams: compareStage.params,
@@ -390,15 +385,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setStats,
     setSession,
   })
-
-  // Convert LUT to pipeline format when it changes
-  useEffect(() => {
-    if (lut) {
-      setLutDataRef(toLUTData(lut))
-    } else {
-      setLutDataRef(null)
-    }
-  }, [lut, setLutDataRef])
 
   const { loadFile } = useRawLoadAction({
     params,
