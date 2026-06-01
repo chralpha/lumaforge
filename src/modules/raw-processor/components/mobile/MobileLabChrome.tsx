@@ -1,14 +1,10 @@
 import type { PreviewHistogramState } from '@lumaforge/luma-color-runtime'
 import {
-  AlertTriangle,
-  Check,
-  ChevronRight,
   ImageUp,
   Info,
   LockKeyhole,
   RotateCcw,
   ShieldCheck,
-  SlidersHorizontal,
   Wand2,
 } from 'lucide-react'
 import { AnimatePresence, m, useReducedMotion } from 'motion/react'
@@ -21,14 +17,13 @@ import { surfaceFade } from '~/lib/spring'
 import { DOCK_SPRING, IMMERSIVE_STAGGER_MS } from '../../motion'
 import type { RawRuntimeReadinessState } from '../raw-runtime-readiness'
 import type { ColorValue } from '../tools/ColorTool'
-import { useLutContractSummary } from '../tools/lut/useLutContractSummary'
-import { getProfileOutputLabel } from '../tools/lut-contract'
 import type { ToneValue } from '../tools/ToneTool'
 import type { ScrubFieldId } from './AdjustListPanel'
 import { AdjustListPanel } from './AdjustListPanel'
 import { FloatingHistogramCard } from './FloatingHistogramCard'
 import { MobileComparePanel } from './MobileComparePanel'
 import { MobileEmptyState } from './MobileEmptyState'
+import { MobileLookPanel } from './MobileLookPanel'
 import type { MobileLutBrowserProps } from './MobileLutBrowser'
 import { MobileLutBrowser } from './MobileLutBrowser'
 import type { MobileMode } from './MobileModeDock'
@@ -279,21 +274,6 @@ export function MobileLabChrome(props: {
       else enterImmersive()
     },
   })
-  const {
-    resolvedProfile: resolvedLutProfile,
-    outputRequired: lutNeedsOutput,
-    displayOutputLabel: displayLutOutputLabel,
-    contractView: lutContractView,
-    needsUserSelection: lutNeedsUserSelection,
-  } = useLutContractSummary({
-    lutProfileSelection: props.lutBrowser.lutProfileSelection,
-    lutProfileResolution: props.lutBrowser.lutProfileResolution,
-  })
-  const lutContractWarningLabel = lutNeedsUserSelection
-    ? t('raw.mobile.lut.chooseContract')
-    : lutNeedsOutput
-      ? t('raw.mobile.lut.chooseOutput')
-      : null
   const openLutBrowser = () => {
     setLutBrowserStartsInContract(false)
     setLutBrowserOpen(true)
@@ -316,173 +296,11 @@ export function MobileLabChrome(props: {
         scrubbing={focusActive}
       />
     ) : mode === 'look' ? (
-      <div className="grid gap-2.5">
-        {props.lutBrowser.currentLutName ? (
-          <div className="grid gap-2 rounded-lf-panel border border-lf-on-photo-bord-soft bg-lf-on-photo-bg p-3">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-              <span className="min-w-0 truncate text-lf-control font-semibold text-lf-on-photo-ink">
-                {props.lutBrowser.currentLutName}
-              </span>
-              <button
-                type="button"
-                aria-label={t('raw.mobile.lut.changeAria')}
-                onClick={openLutBrowser}
-                className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lf-pill border border-lf-amber/35 bg-lf-amber/12 px-3 text-lf-label font-semibold text-lf-amber-soft transition-colors hover:border-lf-amber/60 hover:text-lf-on-photo-ink"
-              >
-                {t('raw.mobile.lut.change')}
-                <ChevronRight aria-hidden="true" className="size-3" />
-              </button>
-            </div>
-
-            {lutContractView.status === 'recommended' ? (
-              <button
-                type="button"
-                onClick={openLutContractBrowser}
-                aria-label={t('raw.mobile.lut.chooseContract')}
-                className="grid gap-1.5 rounded-lf-control border border-lf-amber/35 bg-lf-amber/10 px-2.5 py-2 text-left transition-colors hover:border-lf-amber/60"
-              >
-                <span className="flex items-center justify-between gap-2 text-lf-eyebrow font-semibold uppercase tracking-wide text-lf-amber-soft">
-                  {t('raw.lutContract.recommendedBadge')}
-                  <span className="inline-flex items-center gap-1">
-                    {t('raw.mobile.lut.chooseContract')}
-                    <ChevronRight aria-hidden="true" className="size-3" />
-                  </span>
-                </span>
-                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                  <span className="inline-flex max-w-full items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 py-1 text-lf-eyebrow font-semibold text-lf-on-photo-ink/86">
-                    <span className="min-w-0 truncate">
-                      {lutContractView.recommendation.label}
-                    </span>
-                  </span>
-                  <ChevronRight
-                    aria-hidden="true"
-                    className="size-3 shrink-0 text-lf-on-photo-ink/35"
-                  />
-                  <span className="inline-flex max-w-full items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 py-1 text-lf-eyebrow font-semibold text-lf-on-photo-ink/86">
-                    <span className="min-w-0 truncate">
-                      {lutContractView.completesContract
-                        ? getProfileOutputLabel(lutContractView.recommendation)
-                        : t('raw.lutContract.chooseOutput')}
-                    </span>
-                  </span>
-                </div>
-                <span className="text-xs leading-relaxed text-lf-amber-soft">
-                  {lutContractView.completesContract
-                    ? t('raw.lutContract.recommendedNote')
-                    : t('raw.lutContract.recommendedInputOnlyNote')}
-                </span>
-              </button>
-            ) : lutNeedsUserSelection ? (
-              <button
-                type="button"
-                onClick={openLutContractBrowser}
-                aria-label={lutContractWarningLabel ?? undefined}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lf-control border border-lf-amber/35 bg-lf-amber/10 px-2.5 py-2 text-left text-xs leading-relaxed text-lf-amber-soft transition-colors hover:border-lf-amber/60 hover:text-lf-on-photo-ink"
-              >
-                <span className="inline-flex min-w-0 items-start gap-1.5">
-                  <AlertTriangle
-                    aria-hidden="true"
-                    className="mt-0.5 size-3 shrink-0"
-                  />
-                  <span className="min-w-0">
-                    {t('raw.lutContract.unknown')}
-                  </span>
-                </span>
-                <span className="inline-flex shrink-0 items-center gap-1 text-lf-eyebrow font-semibold uppercase tracking-wide text-lf-amber-soft">
-                  {lutContractWarningLabel}
-                  <ChevronRight aria-hidden="true" className="size-3" />
-                </span>
-              </button>
-            ) : resolvedLutProfile ? (
-              <button
-                type="button"
-                onClick={openLutContractBrowser}
-                aria-label={t('raw.mobile.lut.editContractAria', {
-                  label: resolvedLutProfile.label,
-                })}
-                className="grid gap-1.5 rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 py-2 text-left transition-colors hover:border-lf-amber/40"
-              >
-                <span className="flex items-center justify-between gap-2 text-lf-eyebrow font-semibold uppercase tracking-wide text-lf-on-photo-ink/45">
-                  {t('raw.mobile.lut.contractHeading')}
-                  <span className="inline-flex items-center gap-1 text-lf-amber/80">
-                    <SlidersHorizontal aria-hidden="true" className="size-3" />
-                    {t('raw.mobile.lut.editContract')}
-                  </span>
-                </span>
-                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                  <span className="inline-flex max-w-full items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 py-1 text-lf-eyebrow font-semibold text-lf-on-photo-ink/86">
-                    <Check aria-hidden="true" className="size-3 shrink-0" />
-                    <span className="min-w-0 truncate">
-                      {resolvedLutProfile.label}
-                    </span>
-                  </span>
-                  <ChevronRight
-                    aria-hidden="true"
-                    className="size-3 shrink-0 text-lf-on-photo-ink/35"
-                  />
-                  <span
-                    className={[
-                      'inline-flex max-w-full items-center gap-1.5 rounded-lf-pill border px-2.5 py-1 text-lf-eyebrow font-semibold',
-                      lutNeedsOutput
-                        ? 'border-lf-amber/45 bg-lf-amber/12 text-lf-amber-soft'
-                        : 'border-lf-on-photo-bord-soft bg-lf-on-photo-bg text-lf-on-photo-ink/86',
-                    ].join(' ')}
-                  >
-                    {lutNeedsOutput ? (
-                      <AlertTriangle
-                        aria-hidden="true"
-                        className="size-3 shrink-0"
-                      />
-                    ) : (
-                      <Check aria-hidden="true" className="size-3 shrink-0" />
-                    )}
-                    <span className="min-w-0 truncate">
-                      {displayLutOutputLabel ??
-                        t('raw.mobile.lut.outputRequired')}
-                    </span>
-                  </span>
-                </div>
-                {lutNeedsOutput && lutContractWarningLabel && (
-                  <span className="inline-flex items-center gap-1 text-lf-eyebrow font-semibold text-lf-amber-soft">
-                    {lutContractWarningLabel}
-                    <ChevronRight aria-hidden="true" className="size-3" />
-                  </span>
-                )}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={openLutContractBrowser}
-                aria-label={t('raw.mobile.lut.chooseContract')}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lf-control border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-2.5 py-2 text-left text-xs leading-relaxed text-lf-on-photo-ink/68 transition-colors hover:border-lf-amber/40 hover:text-lf-on-photo-ink"
-              >
-                <span className="min-w-0">
-                  {t('raw.mobile.lut.noContract')}
-                </span>
-                <span className="inline-flex shrink-0 items-center gap-1 text-lf-eyebrow font-semibold uppercase tracking-wide text-lf-amber-soft">
-                  {t('raw.mobile.lut.chooseContract')}
-                  <ChevronRight aria-hidden="true" className="size-3" />
-                </span>
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center justify-between gap-2 rounded-lf-panel border border-lf-on-photo-bord-soft bg-lf-on-photo-bg p-3">
-            <span className="text-lf-control font-semibold text-lf-on-photo-ink/76">
-              {t('raw.mobile.lut.noCurrent')}
-            </span>
-            <button
-              type="button"
-              aria-label={t('raw.mobile.lut.title')}
-              onClick={openLutBrowser}
-              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lf-pill border border-lf-amber/35 bg-lf-amber/12 px-3 text-lf-label font-semibold text-lf-amber-soft transition-colors hover:border-lf-amber/60 hover:text-lf-on-photo-ink"
-            >
-              {t('raw.mobile.lut.add')}
-              <ChevronRight aria-hidden="true" className="size-3" />
-            </button>
-          </div>
-        )}
-      </div>
+      <MobileLookPanel
+        lutBrowser={props.lutBrowser}
+        onOpenLutBrowser={openLutBrowser}
+        onOpenLutContractBrowser={openLutContractBrowser}
+      />
     ) : mode === 'compare' ? (
       <MobileComparePanel
         splitOpen={compareSplitOpen}
