@@ -4,12 +4,6 @@ import { toast } from 'sonner'
 import { yieldToPaint } from '~/lib/dom'
 import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
-import {
-  useLutValue,
-  useProcessingParamsValue,
-  useSetLut,
-  useSetProcessingParams,
-} from '../state/workflow.atoms'
 import { useOriginalReferenceStage } from './stages/compare/useOriginalReferenceStage'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
 import { useExportGraphInvalidation } from './stages/export/useExportGraphInvalidation'
@@ -24,6 +18,7 @@ import { useLutDataState } from './stages/look/useLutDataState'
 import { useRawLookStage } from './stages/look/useRawLookStage'
 import { useRawPreviewStage } from './stages/preview/useRawPreviewStage'
 import { useImageSession } from './useImageSession'
+import { useRawDetachedWorkflowState } from './useRawDetachedWorkflowState'
 import type { UseRawProcessorReturn } from './useRawProcessor.types'
 import { useRawWorkflowActions } from './useRawWorkflowActions'
 import { useRawWorkflowRefs } from './useRawWorkflowRefs'
@@ -32,10 +27,7 @@ import { useRawWorkflowState } from './useRawWorkflowState'
 export type { UseRawProcessorReturn } from './useRawProcessor.types'
 
 export function useRawProcessor(): UseRawProcessorReturn {
-  const baseParams = useProcessingParamsValue()
-  const setParams = useSetProcessingParams()
-  const lut = useLutValue()
-  const setLut = useSetLut()
+  const { baseParams, setParams, lut, setLut } = useRawDetachedWorkflowState()
   const {
     status,
     setStatus,
