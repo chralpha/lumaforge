@@ -23,7 +23,6 @@ import {
   useSetProgress,
 } from '~/atoms/raw-processor'
 import { yieldToPaint } from '~/lib/dom'
-import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
 import type { ResourceRegistry } from '~/lib/export/resource-registry'
 import { createResourceRegistry } from '~/lib/export/resource-registry'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
@@ -55,8 +54,6 @@ import type { OriginalReferenceSnapshot } from '../services/compare/original-ref
 import { deriveFullResExportReadiness } from '../services/export/export-readiness'
 import { resolveExportShareButtonCapability } from '../services/export/export-result-actions'
 import { clearExportResultState } from '../services/export/export-state'
-import type { ExportContext } from '../services/export/orchestrate-full-res-export'
-import { orchestrateFullResExport } from '../services/export/orchestrate-full-res-export'
 import type { RawLoadContext } from '../services/ingest/orchestrate-raw-load'
 import { orchestrateRawLoad } from '../services/ingest/orchestrate-raw-load'
 import { getProgressRecoveryHint } from '../services/ingest/workflow-status'
@@ -68,6 +65,8 @@ import { useExportRecoveryAction } from './stages/export/useExportRecoveryAction
 import { useExportRecoveryDiscovery } from './stages/export/useExportRecoveryDiscovery'
 import { useExportResourceManagement } from './stages/export/useExportResourceManagement'
 import { useExportResultActions } from './stages/export/useExportResultActions'
+import type { FullResExportOptions } from './stages/export/useFullResExportAction'
+import { useFullResExportAction } from './stages/export/useFullResExportAction'
 import { useHqPreviewExportAction } from './stages/export/useHqPreviewExportAction'
 import { useRawLookStage } from './stages/look/useRawLookStage'
 import { useDecodedPreviewResource } from './stages/preview/useDecodedPreviewResource'
@@ -183,13 +182,7 @@ export interface UseRawProcessorReturn {
     params: Partial<Pick<ProcessingParams, 'userTemperature' | 'userTint'>>,
   ) => void
   resetColor: () => void
-  exportImage: (options: {
-    quality: 'standard' | 'high'
-    fidelity: 'safe' | 'balanced' | 'max'
-    previousInterrupted?: boolean
-    recoveredExportId?: string
-    recoveredManifest?: ExportCheckpointManifest
-  }) => Promise<void>
+  exportImage: (options: FullResExportOptions) => Promise<void>
   exportPreviewImage: () => Promise<void>
   recoverInterruptedExport: (file: File) => Promise<void>
   downloadExportResult: () => Promise<void>
@@ -714,74 +707,33 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setStatus,
   ])
 
-  // Stable context for the full-res export orchestrator
-  const exportCtx = useMemo<ExportContext>(
-    () => ({
-      atoms: {
-        setStatus,
-        setError,
-        setProgress,
-        setSession,
-        loadedImage,
-        session,
-        params,
-        lutDataRef,
-        decodedImageRef,
-        stats,
-        setDiscoveredRecoveryState,
-      },
-      refs: {
-        exportAbortControllerRef,
-        exportGraphVersionRef,
-        isMountedRef,
-        sessionRef,
-        pipelineRef,
-        resourceRegistryRef,
-        previewCopyCanvasRef,
-      },
-      services: {
-        scheduleToast,
-        abortExportWork,
-        abortRuntimeWork,
-        terminateRawDecodeBridge: rawRuntimeAdapter.terminateDecodeBridge,
-        registerCurrentPreviewPipelineForEvacuation,
-        registerExportResultResource,
-        revokeCurrentEmbeddedPreviewUrl,
-      },
-    }),
-    [
-      loadedImage,
-      params,
-      session,
-      stats,
-      lutDataRef,
-      setStatus,
-      setError,
-      setProgress,
-      setSession,
-      setDiscoveredRecoveryState,
-      scheduleToast,
-      abortExportWork,
-      abortRuntimeWork,
-      registerCurrentPreviewPipelineForEvacuation,
-      registerExportResultResource,
-      revokeCurrentEmbeddedPreviewUrl,
-    ],
-  )
-
-  // Export image
-  const exportImage = useCallback(
-    async (options: {
-      quality: 'standard' | 'high'
-      fidelity: 'safe' | 'balanced' | 'max'
-      previousInterrupted?: boolean
-      recoveredExportId?: string
-      recoveredManifest?: ExportCheckpointManifest
-    }) => {
-      await orchestrateFullResExport(options, exportCtx)
-    },
-    [exportCtx],
-  )
+  const { exportImage } = useFullResExportAction({
+    setStatus,
+    setError,
+    setProgress,
+    setSession,
+    loadedImage,
+    session,
+    params,
+    lutDataRef,
+    decodedImageRef,
+    stats,
+    setDiscoveredRecoveryState,
+    exportAbortControllerRef,
+    exportGraphVersionRef,
+    isMountedRef,
+    sessionRef,
+    pipelineRef,
+    resourceRegistryRef,
+    previewCopyCanvasRef,
+    scheduleToast,
+    abortExportWork,
+    abortRuntimeWork,
+    terminateRawDecodeBridge: rawRuntimeAdapter.terminateDecodeBridge,
+    registerCurrentPreviewPipelineForEvacuation,
+    registerExportResultResource,
+    revokeCurrentEmbeddedPreviewUrl,
+  })
 
   const { recoverInterruptedExport } = useExportRecoveryAction({
     pendingRecoveryRetry,
