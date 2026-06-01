@@ -87,7 +87,21 @@ export function useRawLookStage({
     activeStyle?.kind === 'custom' ? activeStyle.name : null
 
   const params = useMemo<ProcessingParams>(() => {
-    if (!session?.activeStyle) return baseParams
+    if (!session) return baseParams
+    if (!session.activeStyle) {
+      const nextParams: ProcessingParams = {
+        ...baseParams,
+        intensity: 0.7,
+        styleKind: 'none',
+        builtinPreset: null,
+      }
+
+      return baseParams.intensity === nextParams.intensity &&
+        baseParams.styleKind === nextParams.styleKind &&
+        baseParams.builtinPreset === nextParams.builtinPreset
+        ? baseParams
+        : nextParams
+    }
 
     const intensity = mapIntensityLevel(
       session.activeStyle.currentIntensityLevel,
@@ -103,7 +117,7 @@ export function useRawLookStage({
       baseParams.builtinPreset === nextParams.builtinPreset
       ? baseParams
       : nextParams
-  }, [baseParams, session?.activeStyle])
+  }, [baseParams, session])
 
   const lutCtx = useMemo<LutLoadContext>(
     () => ({

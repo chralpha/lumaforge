@@ -71,6 +71,14 @@ function createSession(): ImageSession {
   }
 }
 
+function createSessionWithoutLook(): ImageSession {
+  return {
+    ...createSession(),
+    activeStyle: null,
+    lutProfileSelection: undefined,
+  }
+}
+
 function createCubeContent(title: string) {
   const size = 17
   const step = 1 / (size - 1)
@@ -120,6 +128,36 @@ describe('useRawLookStage', () => {
     expect(result.current.params.builtinPreset).toBeNull()
     expect(result.current.activeIntensity).toBe('strong')
     expect(result.current.currentLutName).toBe('Client Look')
+  })
+
+  it('projects a style-less session into neutral look params', () => {
+    const session = createSessionWithoutLook()
+    const staleParams: ProcessingParams = {
+      ...baseParams,
+      intensity: 1,
+      styleKind: 'custom',
+    }
+    const { result } = renderHook(() =>
+      useRawLookStage({
+        baseParams: staleParams,
+        session,
+        sessionRef: { current: session },
+        setSession: vi.fn(),
+        lut: null,
+        setLut: vi.fn(),
+        setParams: vi.fn(),
+        getProcessingParams: () => staleParams,
+        lutDataRef: { current: null },
+        setLutDataRef: vi.fn(),
+        scheduleToast: vi.fn(),
+        invalidateExportGraph: vi.fn(),
+      }),
+    )
+
+    expect(result.current.params.intensity).toBe(0.7)
+    expect(result.current.params.styleKind).toBe('none')
+    expect(result.current.params.builtinPreset).toBeNull()
+    expect(result.current.activeIntensity).toBe('standard')
   })
 
   it('normalizes tone params and invalidates export when the render graph changes', () => {
