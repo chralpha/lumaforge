@@ -45,12 +45,31 @@ Keep changes aligned with the current codebase and product boundary, not generic
   - primitives in `src/components/ui`
   - shared app components in `src/components/common`
   - domain behavior in `src/modules/<domain>`
+- For UI work, start from stable primitives and the existing styling system:
+  - prefer Radix-backed primitives or existing app components for interactive
+    controls and overlays.
+  - use Tailwind utilities, `--color-lf-*` theme tokens, and small component
+    refinements to finish visual polish.
+  - do not start UI changes by hand-rolling raw HTML or standalone vanilla CSS
+    when an existing primitive, component, Tailwind utility, or theme token can
+    cover the need.
 - Follow the existing state patterns.
   Prefer the helpers in `src/lib/jotai` and the established state locations instead of introducing a second state model.
 - Treat color and LUT changes as contract work, not taste work.
   Preserve declared input gamut, transfer/log curve, LUT intent, and output handling instead of adding ad hoc color fixes that merely look acceptable on one sample image.
 - When touching `/raw`, keep preview and export responsibilities distinct.
   Interactive preview code and authoritative export code may share intent, but they are not interchangeable executors.
+
+## Spec And Planning Artifacts
+
+- Spec-driven development artifacts live directly under `docs/`, not under
+  `docs/superpowers/` or plugin-owned directories.
+- Use `docs/specs/` for design/spec documents, `docs/plans/` for
+  implementation plans, and `docs/audits/` for audit/review artifacts when a
+  written artifact is required.
+- If an external workflow or agent skill defaults to `docs/superpowers/...`,
+  override that path to the matching `docs/...` directory before writing or
+  committing the artifact.
 
 ## Git Worktree Policy
 
