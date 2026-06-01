@@ -49,10 +49,8 @@ import { useExportRecoveryState } from './stages/export/useExportRecoveryState'
 import { useExportResourceManagement } from './stages/export/useExportResourceManagement'
 import type { FullResExportOptions } from './stages/export/useFullResExportAction'
 import { useRawExportStage } from './stages/export/useRawExportStage'
-import { useRawLoadAction } from './stages/ingest/useRawLoadAction'
-import { useRawProcessorLifecycle } from './stages/ingest/useRawProcessorLifecycle'
+import { useRawIngestStage } from './stages/ingest/useRawIngestStage'
 import { useRawRuntimeControls } from './stages/ingest/useRawRuntimeControls'
-import { useRawSessionReset } from './stages/ingest/useRawSessionReset'
 import { useRawSourceState } from './stages/ingest/useRawSourceState'
 import { useLutDataState } from './stages/look/useLutDataState'
 import { useRawLookStage } from './stages/look/useRawLookStage'
@@ -339,25 +337,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setSession,
   })
 
-  useRawProcessorLifecycle({
-    isMountedRef,
-    runtimeWorkSessionIdRef,
-    pendingLoadSessionIdRef,
-    decodedImageRef,
-    previewCopyCanvasRef,
-    sessionRef,
-    abortExportWork,
-    abortRuntimeWork,
-    queueExportResultResourceDisposal,
-    revokeCurrentEmbeddedPreviewUrl,
-    setStatus,
-    setError,
-    setProgress,
-    setStats,
-    setSession,
-  })
-
-  const { loadFile } = useRawLoadAction({
+  const { loadFile, reset } = useRawIngestStage({
     params,
     lut,
     activeStyle,
@@ -394,6 +374,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     runtimeWorkSessionIdRef,
     pendingLoadSessionIdRef,
     previewCopyCanvasRef,
+    resetSession,
   })
 
   const {
@@ -449,24 +430,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     loadFile,
     queueExportResultResourceDisposal,
     toast,
-  })
-
-  const { reset } = useRawSessionReset({
-    runtimeWorkSessionIdRef,
-    pendingLoadSessionIdRef,
-    previewCopyCanvasRef,
-    sessionRef,
-    setPendingRecoveryRetry,
-    abortExportWork,
-    abortRuntimeWork,
-    queueExportResultResourceDisposal,
-    revokeCurrentEmbeddedPreviewUrl,
-    setDecodedImageRef,
-    setStatus,
-    setError,
-    setProgress,
-    setStats,
-    resetSession,
   })
 
   const {
