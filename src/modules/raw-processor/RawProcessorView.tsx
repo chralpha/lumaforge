@@ -23,13 +23,11 @@ import {
   WorkspaceHeader,
 } from './components'
 import { CpuPreviewBanner } from './components/CpuPreviewBanner'
-import { CpuPreviewCanvas } from './components/CpuPreviewCanvas'
+import { RawCpuPreviewStage } from './components/RawCpuPreviewStage'
 import { RawResetConfirmationDialog } from './components/RawResetConfirmationDialog'
 import { useRawWorkflow } from './hooks'
 import { useRawRuntimeReadiness } from './hooks/stages/ingest/useRawRuntimeReadiness'
 import { useCapabilityGate } from './hooks/useCapabilityGate'
-import type { CpuPreviewParams } from './hooks/useCpuPreview'
-import { useCpuPreview } from './hooks/useCpuPreview'
 import { useHiddenFilePicker } from './hooks/useHiddenFilePicker'
 import { useOnlineLutSources } from './hooks/useOnlineLutSources'
 import { clampCompareSplit } from './services/compare/compare-split'
@@ -160,9 +158,6 @@ function RawProcessorViewInner({
   const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false)
   const [cpuPreviewBannerDismissed, setCpuPreviewBannerDismissed] =
     useState(false)
-  const [cpuPreviewVariant, setCpuPreviewVariant] = useState<
-    'processed' | 'neutral'
-  >('processed')
 
   // Handle file drop
   const handleFileDrop = useCallback(
@@ -289,38 +284,6 @@ function RawProcessorViewInner({
   const capability = useCapabilityGate()
   const isCpuMode = capability.ready && capability.previewMode === 'cpu'
 
-  // Build CPU preview params from the same sources as ComparePreviewStage/
-  // PreviewCanvas (decodedImageRef + processing params + lut).
-  const cpuPreviewParams: CpuPreviewParams = {
-    styleKind: params.styleKind,
-    intensity: params.intensity,
-    builtinPreset: params.builtinPreset,
-    lut: lutDataRef.current,
-    rawRenderExposure: decodedImageRef.current?.renderExposure ?? {
-      ev: 0,
-      multiplier: 1,
-      source: 'identity',
-    },
-    userExposureEv: params.userExposureEv,
-    userContrast: params.userContrast,
-    userHighlights: params.userHighlights,
-    userShadows: params.userShadows,
-    userWhites: params.userWhites,
-    userBlacks: params.userBlacks,
-    userTemperature: params.userTemperature,
-    userTint: params.userTint,
-  }
-
-  // useCpuPreview must be called unconditionally (Rules of Hooks).
-  // It self-gates via the `enabled` flag.
-  const cpuPreview = useCpuPreview({
-    enabled: isCpuMode && hasImage,
-    image: decodedImageRef.current,
-    imageVersion: decodedImageVersion,
-    params: cpuPreviewParams,
-    variant: cpuPreviewVariant,
-  })
-
   // Map the structured `reason` token from RawPreviewCapability to a
   // localized string before passing to UnsupportedState.
   const unsupportedReason =
@@ -376,46 +339,13 @@ function RawProcessorViewInner({
         data-raw-desktop-layout="photo-stage-command-rail"
       >
         {isCpuMode && hasImage ? (
-          <section
-            className="raw-lab-stage relative flex flex-col"
-            aria-label={t('raw.stage.aria')}
-          >
-            <CpuPreviewCanvas
-              frame={cpuPreview.frame}
-              inFlight={cpuPreview.inFlight}
-              failureReason={cpuPreview.failureReason}
-              fallbackThumbnailUrl={embeddedPreviewUrl}
-              className="min-h-0 flex-1"
-            />
-            {hasImage && (
-              <div className="flex shrink-0 justify-center gap-2 px-3 py-2">
-                <button
-                  type="button"
-                  onClick={() => setCpuPreviewVariant('processed')}
-                  className={clsxm(
-                    'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                    cpuPreviewVariant === 'processed'
-                      ? 'border-lf-green/60 bg-lf-green/10 text-lf-on-photo-ink'
-                      : 'border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong text-lf-on-photo-ink/60 hover:text-lf-on-photo-ink',
-                  )}
-                >
-                  {t('raw.preview.cpuDegraded.showProcessed')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCpuPreviewVariant('neutral')}
-                  className={clsxm(
-                    'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                    cpuPreviewVariant === 'neutral'
-                      ? 'border-lf-green/60 bg-lf-green/10 text-lf-on-photo-ink'
-                      : 'border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong text-lf-on-photo-ink/60 hover:text-lf-on-photo-ink',
-                  )}
-                >
-                  {t('raw.preview.cpuDegraded.showOriginal')}
-                </button>
-              </div>
-            )}
-          </section>
+          <RawCpuPreviewStage
+            image={decodedImageRef.current}
+            imageVersion={decodedImageVersion}
+            params={params}
+            lut={lutDataRef.current}
+            fallbackThumbnailUrl={embeddedPreviewUrl}
+          />
         ) : (
           <ComparePreviewStage
             hasImage={hasImage}
