@@ -16,7 +16,7 @@ import type { UseRawProcessorReturn } from '../hooks/useRawProcessor'
 import { RawProcessorView } from '../RawProcessorView'
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 
-const mockUseRawProcessor = vi.hoisted(() => vi.fn())
+const mockUseRawWorkflow = vi.hoisted(() => vi.fn())
 const mockUseCapabilityGate = vi.hoisted(() => vi.fn())
 const mockRawRuntimeAdapter = vi.hoisted(() => ({
   getPrewarmState: vi.fn(),
@@ -24,7 +24,7 @@ const mockRawRuntimeAdapter = vi.hoisted(() => ({
 }))
 
 vi.mock('../hooks', () => ({
-  useRawProcessor: mockUseRawProcessor,
+  useRawWorkflow: mockUseRawWorkflow,
 }))
 
 vi.mock('../hooks/useCapabilityGate', () => ({
@@ -350,7 +350,7 @@ afterEach(() => {
 
 describe('rawProcessorView', () => {
   it('syncs RAW engine warmup state into the empty first screen', async () => {
-    mockUseRawProcessor.mockReturnValue(rawProcessorViewState())
+    mockUseRawWorkflow.mockReturnValue(rawProcessorViewState())
     mockRawRuntimeAdapter.getPrewarmState.mockReturnValue('pending')
 
     await act(async () => {
@@ -371,7 +371,7 @@ describe('rawProcessorView', () => {
 
   it('passes hook histogram state into RAW tools with Histogram', async () => {
     const user = userEvent.setup()
-    mockUseRawProcessor.mockReturnValue(rawProcessorViewState())
+    mockUseRawWorkflow.mockReturnValue(rawProcessorViewState())
 
     await act(async () => {
       render(<RawProcessorView />)
@@ -387,7 +387,7 @@ describe('rawProcessorView', () => {
   it('requires confirmation before resetting the RAW session', async () => {
     const user = userEvent.setup()
     const reset = vi.fn()
-    mockUseRawProcessor.mockReturnValue(
+    mockUseRawWorkflow.mockReturnValue(
       rawProcessorViewState({
         hasImage: true,
         sourceFileName: 'DSC09142.ARW',
@@ -448,7 +448,7 @@ describe('rawProcessorView', () => {
       xl: false,
       '2xl': false,
     })
-    mockUseRawProcessor.mockReturnValue(
+    mockUseRawWorkflow.mockReturnValue(
       rawProcessorViewState({
         hasImage: true,
         sourceFileName: 'DSC09142.ARW',
@@ -515,7 +515,7 @@ describe('rawProcessorView', () => {
 
   it('renders Chinese Raw Lab shell when the persisted locale is Chinese', async () => {
     localStorage.setItem('lumaforge.locale', 'zh-CN')
-    mockUseRawProcessor.mockReturnValue(rawProcessorViewState())
+    mockUseRawWorkflow.mockReturnValue(rawProcessorViewState())
 
     await act(async () => {
       render(<RawProcessorView />)
@@ -537,7 +537,7 @@ describe('rawProcessorView', () => {
 
   it('renders header actions as accessible buttons', async () => {
     localStorage.setItem('lumaforge.locale', 'zh-CN')
-    mockUseRawProcessor.mockReturnValue(rawProcessorViewState())
+    mockUseRawWorkflow.mockReturnValue(rawProcessorViewState())
 
     await act(async () => {
       render(<RawProcessorView />)
@@ -1611,7 +1611,7 @@ describe('rawToolSurface', () => {
         estimatedBytes: 512,
       }
 
-      mockUseRawProcessor.mockReturnValue({
+      mockUseRawWorkflow.mockReturnValue({
         ...rawProcessorViewState({
           hasImage: true,
           decodedImageRef: {

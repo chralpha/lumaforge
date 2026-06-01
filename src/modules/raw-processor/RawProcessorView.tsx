@@ -30,7 +30,7 @@ import {
 import { CpuPreviewBanner } from './components/CpuPreviewBanner'
 import { CpuPreviewCanvas } from './components/CpuPreviewCanvas'
 import type { RawRuntimeReadinessState } from './components/raw-runtime-readiness'
-import { useRawProcessor } from './hooks'
+import { useRawWorkflow } from './hooks'
 import { useCapabilityGate } from './hooks/useCapabilityGate'
 import type { CpuPreviewParams } from './hooks/useCpuPreview'
 import { useCpuPreview } from './hooks/useCpuPreview'
@@ -153,7 +153,7 @@ function RawProcessorViewInner({
     dismissError,
     updateStats,
     pipelineRef,
-  } = useRawProcessor()
+  } = useRawWorkflow()
   const onlineLutSources = useOnlineLutSources({
     search: rawRouteLocation.search,
     pathname: rawRouteLocation.pathname,

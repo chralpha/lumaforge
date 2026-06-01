@@ -5,11 +5,11 @@ import { vi } from 'vitest'
 import type { UseRawProcessorReturn } from '../hooks/useRawProcessor'
 import { RawProcessorView } from '../RawProcessorView'
 
-const mockUseRawProcessor = vi.hoisted(() => vi.fn())
+const mockUseRawWorkflow = vi.hoisted(() => vi.fn())
 const mockUseCapabilityGate = vi.hoisted(() => vi.fn())
 
 vi.mock('../hooks', () => ({
-  useRawProcessor: mockUseRawProcessor,
+  useRawWorkflow: mockUseRawWorkflow,
 }))
 
 vi.mock('../hooks/useCapabilityGate', () => ({
@@ -223,7 +223,7 @@ describe('rawProcessorView file facts', () => {
 
   it('keeps source Size separate from bounded preview dimensions', async () => {
     const user = userEvent.setup()
-    mockUseRawProcessor.mockReturnValue(createLoadedProcessorState())
+    mockUseRawWorkflow.mockReturnValue(createLoadedProcessorState())
 
     await act(async () => {
       render(<RawProcessorView />)
