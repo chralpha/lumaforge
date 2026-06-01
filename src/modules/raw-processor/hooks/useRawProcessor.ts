@@ -70,12 +70,8 @@ import {
   validateRecoveryReselection,
 } from '../services/export/export-recovery'
 import {
-  copyCanvasToClipboard,
-  copyExportResultToClipboard,
-  downloadExportResult as downloadStoredExportResult,
   resolveExportCopyCapability,
   resolveExportShareButtonCapability,
-  shareExportResult as shareStoredExportResult,
 } from '../services/export/export-result-actions'
 import { createCompletedExportResult } from '../services/export/export-result-materialization'
 import {
@@ -100,6 +96,7 @@ import {
 } from '../services/preview/embedded-preview-url'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
+import { useExportResultActions } from './stages/export/useExportResultActions'
 import { useRawLookStage } from './stages/look/useRawLookStage'
 import { useImageSession } from './useImageSession'
 import type {
@@ -1186,132 +1183,15 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [loadFile, scheduleToast],
   )
 
-  const createMaterializationDiagnostics = useCallback(
-    (action: 'download' | 'share' | 'copy') => ({
-      onMaterialize(event: {
-        action: 'download' | 'share' | 'copy'
-        outputKind: 'blob' | 'file-backed'
-        filename: string
-        byteLength: number
-        materializedAt: string
-        cleanup: 'scheduled' | 'not-needed' | 'completed'
-      }) {
-        emitExportDebugEvent({
-          type: 'output-materialized',
-          payload: {
-            ...event,
-            action,
-          },
-        })
-      },
-    }),
-    [],
-  )
-
-  const downloadExportResult = useCallback(async () => {
-    const result = sessionRef.current?.exportState.result
-    if (!result) return
-
-    try {
-      await downloadStoredExportResult(
-        result,
-        createMaterializationDiagnostics('download'),
-      )
-    } catch (err) {
-      const description =
-        err instanceof Error ? err.message : 'Download action failed.'
-      scheduleToast(() =>
-        toast.error('Download failed', {
-          description,
-        }),
-      )
-    }
-  }, [createMaterializationDiagnostics, scheduleToast])
-
-  const shareExportResult = useCallback(async () => {
-    const result = sessionRef.current?.exportState.result
-    if (!result) return
-
-    try {
-      await shareStoredExportResult(
-        result,
-        navigator,
-        createMaterializationDiagnostics('share'),
-      )
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        return
-      }
-
-      const description =
-        err instanceof Error ? err.message : 'Share action failed.'
-      scheduleToast(() =>
-        toast.error('Share failed', {
-          description,
-        }),
-      )
-    }
-  }, [createMaterializationDiagnostics, scheduleToast])
-
-  const copyExportResult = useCallback(async () => {
-    const result = sessionRef.current?.exportState.result
-    if (!result) return
-
-    try {
-      if (result.copyCapability.mode === 'full-resolution') {
-        await copyExportResultToClipboard(
-          result,
-          globalThis,
-          createMaterializationDiagnostics('copy'),
-        )
-        scheduleToast(() => toast.success('Full-resolution image copied'))
-        return
-      }
-
-      if (result.copyCapability.mode === 'hq-preview') {
-        await copyExportResultToClipboard(
-          result,
-          globalThis,
-          createMaterializationDiagnostics('copy'),
-        )
-        scheduleToast(() => toast.success('HQ preview image copied'))
-        return
-      }
-
-      if (result.copyCapability.mode === 'preview-size') {
-        const previewCopyCanvas = previewCopyCanvasRef.current
-        if (previewCopyCanvas) {
-          await copyCanvasToClipboard(previewCopyCanvas)
-          scheduleToast(() => toast.success('Preview-size image copied'))
-          return
-        }
-
-        const pipeline = pipelineRef.current
-        const previewSize = stats?.previewSize
-        if (!pipeline || !previewSize) {
-          throw new Error('Preview image is not ready to copy.')
-        }
-
-        const canvas = await pipeline.renderToHiddenCanvas({
-          width: previewSize.width,
-          height: previewSize.height,
-        })
-        await copyCanvasToClipboard(canvas)
-        scheduleToast(() => toast.success('Preview-size image copied'))
-        return
-      }
-
-      throw new Error(result.copyCapability.reason)
-    } catch (err) {
-      const description =
-        err instanceof Error ? err.message : 'Copy action failed.'
-      scheduleToast(() =>
-        toast.error('Copy failed', {
-          description,
-        }),
-      )
-    }
-  }, [createMaterializationDiagnostics, scheduleToast, stats?.previewSize])
+  const { downloadExportResult, shareExportResult, copyExportResult } =
+    useExportResultActions({
+      sessionRef,
+      pipelineRef,
+      previewCopyCanvasRef,
+      previewSize: stats?.previewSize,
+      scheduleToast,
+      toast,
+    })
 
   // Reset state
   const reset = useCallback(() => {
