@@ -800,7 +800,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       previewCopyCanvasRef.current = null
       if (pendingLoadSessionId) {
         decodedImageRef.current = null
-        setLoadedImage({ file: null, decoded: null, metadata: null })
+        setLoadedImage({ file: null, metadata: null })
         setStatus('idle')
         setError(null)
         setProgress(0)
@@ -962,7 +962,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
       }
 
       setDecodedImageRef(decoded, { preserveExportResult: true })
-      setLoadedImage({ file, decoded: null, metadata: decoded.metadata })
+      setLoadedImage({ file, metadata: decoded.metadata })
       setSession((prev) =>
         prev && prev.id === activeSession.id
           ? {
@@ -1541,7 +1541,7 @@ export function useRawProcessor(): UseRawProcessorReturn {
     revokeCurrentEmbeddedPreviewUrl()
     previewCopyCanvasRef.current = null
     setDecodedImageRef(null)
-    setLoadedImage({ file: null, decoded: null, metadata: null })
+    setLoadedImage({ file: null, metadata: null })
     setStatus('idle')
     setError(null)
     setProgress(0)

@@ -53,7 +53,6 @@ export interface RawLoadContext {
     setProgress: (progress: number) => void
     setLoadedImage: (image: {
       file: File | null
-      decoded: DecodedImage | null
       metadata: ImageMetadata | null
     }) => void
     getProcessingParams: () => ProcessingParams
@@ -161,7 +160,7 @@ export async function orchestrateRawLoad(
     ctx.refs.runtimeWorkSessionIdRef.current = nextSession.id
     ctx.refs.pendingLoadSessionIdRef.current = nextSession.id
     ctx.services.setDecodedImageRef(null)
-    ctx.atoms.setLoadedImage({ file, decoded: null, metadata: null })
+    ctx.atoms.setLoadedImage({ file, metadata: null })
     ctx.atoms.setParams((prev) => ({
       ...prev,
       ...loadState.processingParamsPatch,
@@ -232,7 +231,6 @@ export async function orchestrateRawLoad(
         ctx.services.setDecodedImageRef(decoded)
         ctx.atoms.setLoadedImage({
           file,
-          decoded: null,
           metadata: decoded.metadata,
         })
         ctx.atoms.setStatus('ready')
