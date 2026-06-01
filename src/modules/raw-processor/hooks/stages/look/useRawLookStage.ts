@@ -217,7 +217,9 @@ export function useRawLookStage({
     setLut(null)
     setLutDataRef(null)
     setSession(nextSession)
-    setParams(nextParams)
+    if (!sessionRef.current) {
+      setParams(nextParams)
+    }
     scheduleToast(() => toast.info('LUT cleared'))
   }, [
     activeStyle,
@@ -228,6 +230,7 @@ export function useRawLookStage({
     params,
     scheduleToast,
     session,
+    sessionRef,
     setLut,
     setLutDataRef,
     setParams,

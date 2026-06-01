@@ -262,4 +262,38 @@ describe('useRawLookStage', () => {
     expect(setSession).toHaveBeenCalledTimes(1)
     expect(setParams).not.toHaveBeenCalled()
   })
+
+  it('clears session LUTs without writing legacy params', () => {
+    const session = createSession()
+    const setParams = vi.fn()
+    const setLut = vi.fn()
+    const setLutDataRef = vi.fn()
+    const setSession = vi.fn()
+    const lut = parseCubeLUT(createCubeContent('Client Look'), {
+      sourceName: 'look.cube',
+    })
+    const { result } = renderHook(() =>
+      useRawLookStage({
+        baseParams,
+        session,
+        sessionRef: { current: session },
+        setSession,
+        lut,
+        setLut,
+        setParams,
+        getProcessingParams: () => baseParams,
+        lutDataRef: { current: lut },
+        setLutDataRef,
+        scheduleToast: vi.fn(),
+        invalidateExportGraph: vi.fn(),
+      }),
+    )
+
+    result.current.clearLUT()
+
+    expect(setLut).toHaveBeenCalledWith(null)
+    expect(setLutDataRef).toHaveBeenCalledWith(null)
+    expect(setSession).toHaveBeenCalledTimes(1)
+    expect(setParams).not.toHaveBeenCalled()
+  })
 })
