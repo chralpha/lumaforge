@@ -65,10 +65,7 @@ import type { OriginalReferenceSnapshot } from '../services/compare/original-ref
 import { releaseOriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 import { toResourceCleanupDebugPayload } from '../services/export/export-evacuation'
 import { deriveFullResExportReadiness } from '../services/export/export-readiness'
-import {
-  createInterruptedExportRecovery,
-  validateRecoveryReselection,
-} from '../services/export/export-recovery'
+import { createInterruptedExportRecovery } from '../services/export/export-recovery'
 import { resolveExportShareButtonCapability } from '../services/export/export-result-actions'
 import {
   clearExportResultState,
@@ -85,6 +82,8 @@ import {
 } from '../services/preview/embedded-preview-url'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
+import type { PendingRecoveryRetry } from './stages/export/useExportRecoveryAction'
+import { useExportRecoveryAction } from './stages/export/useExportRecoveryAction'
 import { useExportResultActions } from './stages/export/useExportResultActions'
 import { useHqPreviewExportAction } from './stages/export/useHqPreviewExportAction'
 import { useRawLookStage } from './stages/look/useRawLookStage'
@@ -223,15 +222,6 @@ export interface UseRawProcessorReturn {
 
   // Pipeline ref for export
   pipelineRef: React.RefObject<RawProcessingPipeline | null>
-}
-
-type PendingRecoveryRetry = {
-  sourceExportId: string
-  manifest: ExportCheckpointManifest
-  sessionId: string
-  fileName: string
-  size: number
-  lastModified: number
 }
 
 type PreviewPipelineEvacuationHandle = Pick<RawProcessingPipeline, 'dispose'>
@@ -1072,89 +1062,19 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [exportCtx],
   )
 
-  useEffect(() => {
-    if (!pendingRecoveryRetry) return
-
-    if (status === 'error') {
-      setPendingRecoveryRetry(null)
-      return
-    }
-
-    const activeSession = sessionRef.current
-    const activeFile = loadedImage.file
-    if (
-      !activeSession ||
-      activeSession.id !== pendingRecoveryRetry.sessionId ||
-      !activeFile ||
-      activeFile.name !== pendingRecoveryRetry.fileName ||
-      activeFile.size !== pendingRecoveryRetry.size ||
-      activeFile.lastModified !== pendingRecoveryRetry.lastModified
-    ) {
-      setPendingRecoveryRetry(null)
-      return
-    }
-
-    if (!canExport || status !== 'ready') {
-      return
-    }
-
-    setPendingRecoveryRetry(null)
-    void exportImage({
-      quality: 'high',
-      fidelity: 'safe',
-      previousInterrupted: true,
-      recoveredExportId: pendingRecoveryRetry.sourceExportId,
-      recoveredManifest: pendingRecoveryRetry.manifest,
-    })
-  }, [canExport, exportImage, loadedImage.file, pendingRecoveryRetry, status])
-
-  const recoverInterruptedExport = useCallback(
-    async (file: File) => {
-      const sessionRecovery = sessionRef.current?.exportState.recovery
-      const recovery =
-        sessionRecovery?.status === 'source-required'
-          ? sessionRecovery
-          : discoveredRecoveryRef.current.status === 'source-required'
-            ? discoveredRecoveryRef.current
-            : null
-      if (!recovery || recovery.status !== 'source-required') {
-        return
-      }
-
-      const validation = await validateRecoveryReselection(
-        file,
-        recovery.manifest,
-      )
-      if (!validation.ok) {
-        scheduleToast(() =>
-          toast.error('RAW file does not match', {
-            description: validation.reason,
-          }),
-        )
-        return
-      }
-
-      await loadFile(file)
-
-      const activeSession = sessionRef.current
-      if (
-        activeSession?.sourceFile.name !== file.name ||
-        activeSession.sourceFile.sizeBytes !== file.size
-      ) {
-        return
-      }
-
-      setPendingRecoveryRetry({
-        sourceExportId: recovery.exportId,
-        manifest: recovery.manifest,
-        sessionId: activeSession.id,
-        fileName: file.name,
-        size: file.size,
-        lastModified: file.lastModified,
-      })
-    },
-    [loadFile, scheduleToast],
-  )
+  const { recoverInterruptedExport } = useExportRecoveryAction({
+    pendingRecoveryRetry,
+    setPendingRecoveryRetry,
+    sessionRef,
+    discoveredRecoveryRef,
+    loadedFile: loadedImage.file,
+    canExport,
+    status,
+    loadFile,
+    exportImage,
+    scheduleToast,
+    toast,
+  })
 
   const { downloadExportResult, shareExportResult, copyExportResult } =
     useExportResultActions({
