@@ -28,10 +28,7 @@ import {
   createCheckpointStore,
   createOpfsCheckpointBackend,
 } from '~/lib/export/checkpoint-store'
-import type { ExportResourceCleanupReason } from '~/lib/export/execution-profile'
-import { emitExportDebugEvent } from '~/lib/export/execution-profile'
 import type {
-  LargeResourceOwner,
   ResourceRegistry,
   TrackedLargeResource,
 } from '~/lib/export/resource-registry'
@@ -63,7 +60,6 @@ import type { ProcessingStatus } from '../model/workflow'
 import { supportsLayeredCompareCss } from '../services/compare/compare-render-mode'
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 import { releaseOriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
-import { toResourceCleanupDebugPayload } from '../services/export/export-evacuation'
 import { deriveFullResExportReadiness } from '../services/export/export-readiness'
 import { createInterruptedExportRecovery } from '../services/export/export-recovery'
 import { resolveExportShareButtonCapability } from '../services/export/export-result-actions'
@@ -84,6 +80,7 @@ import type { PreviewViewport } from '../services/preview/preview-viewport'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
 import type { PendingRecoveryRetry } from './stages/export/useExportRecoveryAction'
 import { useExportRecoveryAction } from './stages/export/useExportRecoveryAction'
+import { useExportResourceManagement } from './stages/export/useExportResourceManagement'
 import { useExportResultActions } from './stages/export/useExportResultActions'
 import { useHqPreviewExportAction } from './stages/export/useHqPreviewExportAction'
 import { useRawLookStage } from './stages/look/useRawLookStage'
@@ -245,7 +242,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const resourceRegistryRef = useRef<ResourceRegistry | null>(null)
   const previewPipelineResourceIdRef = useRef(0)
   const decodedPreviewResourceIdRef = useRef(0)
-  const exportResultResourceIdRef = useRef(0)
   const originalReferenceSnapshotResourceIdRef = useRef(0)
   const originalReferenceSnapshotPendingResourceIdRef = useRef(0)
   const decodedPreviewResourceRef = useRef<TrackedLargeResource | null>(null)
@@ -577,51 +573,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [],
   )
 
-  const registerExportResultResource = useCallback((result: ExportResult) => {
-    const registry = resourceRegistryRef.current
-    if (!registry) return
-
-    registry.register({
-      id: `export-result-${++exportResultResourceIdRef.current}`,
-      owner: 'export-result',
-      kind: 'blob',
-      estimatedBytes: result.size,
-      dispose: () =>
-        'cleanup' in result.output ? result.output.cleanup?.() : undefined,
-    })
-  }, [])
-
-  const disposeExportResultResources = useCallback(
-    async (reason?: ExportResourceCleanupReason) => {
-      const registry = resourceRegistryRef.current
-      if (!registry) return
-
-      const disposedOwners: LargeResourceOwner[] = ['export-result']
-      await registry.disposeOwners(disposedOwners)
-
-      if (!reason) return
-
-      emitExportDebugEvent({
-        type: 'resource-cleanup',
-        payload: toResourceCleanupDebugPayload({
-          reason,
-          disposedOwners,
-          registryCheck: registry.assertZeroLive(disposedOwners),
-          snapshot: registry.snapshot(),
-        }),
-      })
-    },
-    [],
-  )
-
-  const queueExportResultResourceDisposal = useCallback(
-    (reason?: ExportResourceCleanupReason) => {
-      void disposeExportResultResources(reason).catch((error) => {
-        console.warn('Failed to clean up export result resources:', error)
-      })
-    },
-    [disposeExportResultResources],
-  )
+  const { registerExportResultResource, queueExportResultResourceDisposal } =
+    useExportResourceManagement({ resourceRegistryRef })
 
   const invalidateExportGraph = useCallback(() => {
     exportGraphVersionRef.current += 1
