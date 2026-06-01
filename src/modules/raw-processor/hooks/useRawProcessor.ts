@@ -63,6 +63,7 @@ import type { FullResExportOptions } from './stages/export/useFullResExportActio
 import { useFullResExportAction } from './stages/export/useFullResExportAction'
 import { useHqPreviewExportAction } from './stages/export/useHqPreviewExportAction'
 import { useRawLoadAction } from './stages/ingest/useRawLoadAction'
+import { useRawRuntimeControls } from './stages/ingest/useRawRuntimeControls'
 import { useRawSessionReset } from './stages/ingest/useRawSessionReset'
 import { useRawLookStage } from './stages/look/useRawLookStage'
 import { useDecodedPreviewResource } from './stages/preview/useDecodedPreviewResource'
@@ -300,41 +301,14 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [],
   )
 
-  const disposeRuntimeSession = useCallback(
-    (runtimeSession = runtimeSessionRef.current) => {
-      if (
-        !runtimeSession ||
-        disposedRuntimeSessionsRef.current.has(runtimeSession)
-      ) {
-        return
-      }
-
-      disposedRuntimeSessionsRef.current.add(runtimeSession)
-      runtimeSession.dispose()
-      if (runtimeSessionRef.current === runtimeSession) {
-        runtimeSessionRef.current = null
-      }
-    },
-    [],
-  )
-
-  const abortRuntimeWork = useCallback(() => {
-    runtimeWorkSessionIdRef.current = null
-    const controller = runtimeAbortControllerRef.current
-    if (controller && !controller.signal.aborted) {
-      controller.abort()
-    }
-    runtimeAbortControllerRef.current = null
-    disposeRuntimeSession()
-  }, [disposeRuntimeSession])
-
-  const abortExportWork = useCallback(() => {
-    const controller = exportAbortControllerRef.current
-    if (controller && !controller.signal.aborted) {
-      controller.abort()
-    }
-    exportAbortControllerRef.current = null
-  }, [])
+  const { disposeRuntimeSession, abortRuntimeWork, abortExportWork } =
+    useRawRuntimeControls({
+      runtimeSessionRef,
+      runtimeAbortControllerRef,
+      runtimeWorkSessionIdRef,
+      exportAbortControllerRef,
+      disposedRuntimeSessionsRef,
+    })
 
   const { registerCurrentPreviewPipelineForEvacuation } =
     usePreviewPipelineEvacuation({
