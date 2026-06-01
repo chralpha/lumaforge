@@ -9,19 +9,7 @@ import type { PipelineStats } from '~/lib/gl/pipeline'
 import { createAtomHooks } from '~/lib/jotai'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
-
-/**
- * Processing status
- */
-export type ProcessingStatus =
-  | 'idle'
-  | 'warming'
-  | 'loading'
-  | 'decoding'
-  | 'processing'
-  | 'exporting'
-  | 'ready'
-  | 'error'
+import type { ProcessingStatus } from '~/modules/raw-processor/model/workflow'
 
 /**
  * Current loaded image state

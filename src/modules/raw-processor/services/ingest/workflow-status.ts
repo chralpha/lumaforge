@@ -1,4 +1,4 @@
-import type { ProcessingStatus } from '~/atoms/raw-processor'
+import type { ProcessingStatus } from '../../model/workflow'
 
 export function toUserFacingErrorCode(code: unknown) {
   if (typeof code === 'string' && code.startsWith('LUT_')) return code

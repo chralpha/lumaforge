@@ -8,7 +8,6 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
-import type { ProcessingStatus } from '~/atoms/raw-processor'
 import {
   getProcessingParams,
   useErrorMessageValue,
@@ -63,6 +62,7 @@ import type {
   LUTContractSelectionState,
   StyleAsset,
 } from '../model/session'
+import type { ProcessingStatus } from '../model/workflow'
 import { supportsLayeredCompareCss } from '../services/compare/compare-render-mode'
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 import { releaseOriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'

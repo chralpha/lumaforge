@@ -1,7 +1,6 @@
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { toast } from 'sonner'
 
-import type { ProcessingStatus } from '~/atoms/raw-processor'
 import type { ResourceRegistry } from '~/lib/export/resource-registry'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
@@ -21,6 +20,7 @@ import type {
   StyleAsset,
 } from '../../model/session'
 import type { RetainedSessionState } from '../../model/session-factory'
+import type { ProcessingStatus } from '../../model/workflow'
 import { toFullResCapabilityState } from '../export/export-state'
 import {
   createEmbeddedPreviewObjectUrl,

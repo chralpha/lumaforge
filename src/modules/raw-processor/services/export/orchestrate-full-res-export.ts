@@ -2,7 +2,6 @@ import type { LUTData, ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { resolveExportColorGraph } from '@lumaforge/luma-color-runtime'
 import { toast } from 'sonner'
 
-import type { ProcessingStatus } from '~/atoms/raw-processor'
 import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
 import {
   createCheckpointStore,
@@ -22,6 +21,7 @@ import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
 
 import type { ExportResult } from '../../model/export-result'
 import type { ExportRecoveryState, ImageSession } from '../../model/session'
+import type { ProcessingStatus } from '../../model/workflow'
 import {
   getStableErrorCode,
   isRetryableFullResExportFailure,
