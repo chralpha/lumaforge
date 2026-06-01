@@ -31,7 +31,7 @@ import {
 
 import { currentSessionAtom } from '../state/session.atoms'
 import { getProcessingParams, resetToDefaults } from '../state/workflow.atoms'
-import { useRawProcessor } from './useRawProcessor'
+import { useRawWorkflow } from './useRawWorkflow'
 
 const rawRuntimeAdapterMock = vi.hoisted(() => ({
   openSession: vi.fn(),
@@ -434,7 +434,7 @@ function stubDownloadLink() {
   return { click, remove }
 }
 
-describe('useRawProcessor embedded preview state', () => {
+describe('useRawWorkflow embedded preview state', () => {
   beforeEach(() => {
     resetToDefaults()
     jotaiStore.set(currentSessionAtom, null)
@@ -532,7 +532,7 @@ describe('useRawProcessor embedded preview state', () => {
     const existingSession = createTestSession()
     jotaiStore.set(currentSessionAtom, existingSession)
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     act(() => {
       result.current.setParams({
@@ -564,7 +564,7 @@ describe('useRawProcessor embedded preview state', () => {
       checkpointManifest,
     ])
 
-    renderHook(() => useRawProcessor(), { wrapper })
+    renderHook(() => useRawWorkflow(), { wrapper })
 
     await waitFor(() => {
       expect(jotaiStore.get(currentSessionAtom)?.exportState.recovery).toEqual(
@@ -586,7 +586,7 @@ describe('useRawProcessor embedded preview state', () => {
       checkpointManifest,
     ])
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await waitFor(() => {
       expect(result.current.exportRecovery).toEqual(
@@ -608,7 +608,7 @@ describe('useRawProcessor embedded preview state', () => {
     ])
     sourceFingerprintMock.sourceFingerprintMatches.mockResolvedValue(false)
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await waitFor(() => {
       expect(
@@ -642,7 +642,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await waitFor(() => {
       expect(result.current.exportRecovery.status).toBe('source-required')
@@ -700,7 +700,7 @@ describe('useRawProcessor embedded preview state', () => {
       })
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await waitFor(() => {
       expect(result.current.exportRecovery.status).toBe('source-required')
@@ -734,7 +734,7 @@ describe('useRawProcessor embedded preview state', () => {
   it('exposes pending LUT profile selection and applies a user-selected profile', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadLUT(
@@ -833,7 +833,7 @@ describe('useRawProcessor embedded preview state', () => {
   })
 
   it('keeps a detached LUT loaded before RAW upload and preserves it across RAW replacement', async () => {
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadLUT(
@@ -899,7 +899,7 @@ describe('useRawProcessor embedded preview state', () => {
   it('rejects raw registry scene-creative LUT profile selections without output metadata', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadLUT(
@@ -937,7 +937,7 @@ describe('useRawProcessor embedded preview state', () => {
   it('accepts explicit same-space output contract selections', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadLUT(
@@ -990,7 +990,7 @@ describe('useRawProcessor embedded preview state', () => {
   it('persists a searchable V-Log to Rec.709 display contract', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadLUT(
@@ -1047,7 +1047,7 @@ describe('useRawProcessor embedded preview state', () => {
   it('defers LUT success toasts until after the state commit finishes', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadLUT(
@@ -1090,7 +1090,7 @@ describe('useRawProcessor embedded preview state', () => {
       },
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadOnlineLUT(entry, { signal })
@@ -1133,7 +1133,7 @@ describe('useRawProcessor embedded preview state', () => {
       },
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadOnlineLUT(entry)
@@ -1170,7 +1170,7 @@ describe('useRawProcessor embedded preview state', () => {
 
   it('rejects unsupported trusted contracts and leaves the active LUT unchanged', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadLUT(
@@ -1211,7 +1211,7 @@ describe('useRawProcessor embedded preview state', () => {
 
   it('rejects online fetch errors and leaves the current RAW session and LUT intact', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadLUT(
@@ -1248,7 +1248,7 @@ describe('useRawProcessor embedded preview state', () => {
 
   it('ignores aborted verified online LUT fetches without changing error state or active LUT', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadLUT(
@@ -1283,7 +1283,7 @@ describe('useRawProcessor embedded preview state', () => {
 
   it('does not apply an online LUT when the signal is aborted after fetch resolves', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadLUT(
@@ -1338,7 +1338,7 @@ describe('useRawProcessor embedded preview state', () => {
       boundedHqDecode.promise,
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     let loadPromise!: Promise<void>
 
     await act(async () => {
@@ -1409,7 +1409,7 @@ describe('useRawProcessor embedded preview state', () => {
       }),
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       const loadPromise = result.current.loadFile(
@@ -1455,7 +1455,7 @@ describe('useRawProcessor embedded preview state', () => {
       }),
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       const loadPromise = result.current.loadFile(
         new File(['raw'], 'frame.ARW'),
@@ -1497,7 +1497,7 @@ describe('useRawProcessor embedded preview state', () => {
       dispose,
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(file)
@@ -1530,7 +1530,7 @@ describe('useRawProcessor embedded preview state', () => {
   it('preserves compare split in the new session when loading a file', async () => {
     const file = new File(['raw'], 'frame.ARW')
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     act(() => {
       result.current.setCompareSplit(0.8)
@@ -1551,7 +1551,7 @@ describe('useRawProcessor embedded preview state', () => {
   it('keeps view mode params and session view state in sync', () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     const storedParamsBefore = getProcessingParams()
 
     act(() => {
@@ -1570,7 +1570,7 @@ describe('useRawProcessor embedded preview state', () => {
   it('keeps committed compare split params and session view state in sync', () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     const storedParamsBefore = getProcessingParams()
 
     act(() => {
@@ -1597,7 +1597,7 @@ describe('useRawProcessor embedded preview state', () => {
       },
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     const storedParamsBefore = getProcessingParams()
 
     act(() => {
@@ -1625,7 +1625,7 @@ describe('useRawProcessor embedded preview state', () => {
       maybeOpfsSupported: true,
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -1664,7 +1664,7 @@ describe('useRawProcessor embedded preview state', () => {
       maybeOpfsSupported: false,
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -1684,7 +1684,7 @@ describe('useRawProcessor embedded preview state', () => {
     const session = createTestSession()
     jotaiStore.set(currentSessionAtom, session)
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     const paramsBefore = result.current.params
 
     act(() => {
@@ -1716,7 +1716,7 @@ describe('useRawProcessor embedded preview state', () => {
     )
     rawRuntimeAdapterMock.decodeBoundedHqRaw.mockReturnValue(boundedHq.promise)
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'sample.RAF'))
@@ -1736,7 +1736,7 @@ describe('useRawProcessor embedded preview state', () => {
       }),
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'sample.RAF'))
@@ -1779,7 +1779,7 @@ describe('useRawProcessor embedded preview state', () => {
     })
     stubDownloadLink()
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(file)
@@ -1833,7 +1833,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     let loadPromise!: Promise<void>
 
     await act(async () => {
@@ -1925,7 +1925,7 @@ describe('useRawProcessor embedded preview state', () => {
     })
     stubDownloadLink()
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(file)
@@ -1973,7 +1973,7 @@ describe('useRawProcessor embedded preview state', () => {
   it('keeps full-resolution export disabled until the source file is actually loaded', () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     expect(result.current.canExport).toBe(false)
   })
@@ -1992,7 +1992,7 @@ describe('useRawProcessor embedded preview state', () => {
         createUnsupportedCapability(reason),
       )
 
-      const { result } = renderHook(() => useRawProcessor(), { wrapper })
+      const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
       await act(async () => {
         await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -2031,7 +2031,7 @@ describe('useRawProcessor embedded preview state', () => {
       createRawMosaicCapability(),
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -2072,7 +2072,7 @@ describe('useRawProcessor embedded preview state', () => {
       new Error(reason),
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -2161,7 +2161,7 @@ describe('useRawProcessor embedded preview state', () => {
       return originalCreateElement(tagName)
     }) as typeof document.createElement)
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -2299,7 +2299,7 @@ describe('useRawProcessor embedded preview state', () => {
       .fn()
       .mockResolvedValue(document.createElement('canvas'))
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -2403,7 +2403,7 @@ describe('useRawProcessor embedded preview state', () => {
       }),
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -2472,7 +2472,7 @@ describe('useRawProcessor embedded preview state', () => {
       pendingExport.promise,
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     let exportPromise!: Promise<void>
 
     await act(async () => {
@@ -2535,7 +2535,7 @@ describe('useRawProcessor embedded preview state', () => {
       pendingExport.promise,
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -2592,7 +2592,7 @@ describe('useRawProcessor embedded preview state', () => {
       pendingExport.promise,
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -2655,7 +2655,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     const file = new File(['raw'], 'frame.ARW')
 
     await act(async () => {
@@ -2723,7 +2723,7 @@ describe('useRawProcessor embedded preview state', () => {
       pendingExport.promise,
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -2796,7 +2796,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.RAF'))
@@ -2850,7 +2850,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.RAF'))
@@ -2908,7 +2908,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     const file = new File(['raw'], 'frame.ARW', { lastModified: 123 })
 
     await act(async () => {
@@ -2991,7 +2991,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(
         new File(['raw'], 'frame.ARW', { lastModified: 123 }),
@@ -3069,7 +3069,7 @@ describe('useRawProcessor embedded preview state', () => {
       },
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(
         new File(['raw'], 'frame.ARW', { lastModified: 123 }),
@@ -3120,7 +3120,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await waitFor(() => {
       expect(result.current.exportRecovery.status).toBe('source-required')
@@ -3174,7 +3174,7 @@ describe('useRawProcessor embedded preview state', () => {
       }
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -3268,7 +3268,7 @@ describe('useRawProcessor embedded preview state', () => {
       }
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -3328,7 +3328,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -3398,7 +3398,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -3456,7 +3456,7 @@ describe('useRawProcessor embedded preview state', () => {
         blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
       })
 
-      const { result } = renderHook(() => useRawProcessor(), { wrapper })
+      const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
       await act(async () => {
         await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -3529,7 +3529,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -3570,7 +3570,7 @@ describe('useRawProcessor embedded preview state', () => {
       runExport.promise,
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -3629,7 +3629,7 @@ describe('useRawProcessor embedded preview state', () => {
     })
     const { click } = stubDownloadLink()
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -3675,7 +3675,7 @@ describe('useRawProcessor embedded preview state', () => {
       })
       const { click } = stubDownloadLink()
 
-      const { result } = renderHook(() => useRawProcessor(), { wrapper })
+      const { result } = renderHook(() => useRawWorkflow(), { wrapper })
       await act(async () => {
         await result.current.loadFile(new File(['raw'], 'frame.ARW'))
       })
@@ -3738,7 +3738,7 @@ describe('useRawProcessor embedded preview state', () => {
         },
       )
 
-      const { result } = renderHook(() => useRawProcessor(), { wrapper })
+      const { result } = renderHook(() => useRawWorkflow(), { wrapper })
       await act(async () => {
         await result.current.loadFile(new File(['raw'], 'frame.ARW'))
       })
@@ -3798,7 +3798,7 @@ describe('useRawProcessor embedded preview state', () => {
       output,
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -3849,7 +3849,7 @@ describe('useRawProcessor embedded preview state', () => {
       output,
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -3888,7 +3888,7 @@ describe('useRawProcessor embedded preview state', () => {
       share: vi.fn().mockRejectedValue(new DOMException('Abort', 'AbortError')),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -3928,7 +3928,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -3968,7 +3968,7 @@ describe('useRawProcessor embedded preview state', () => {
       output,
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -4012,7 +4012,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -4053,7 +4053,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -4088,7 +4088,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -4112,7 +4112,7 @@ describe('useRawProcessor embedded preview state', () => {
   })
 
   it('resets only tone params from the tone reset action', () => {
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     act(() => {
       result.current.setParams({
@@ -4143,7 +4143,7 @@ describe('useRawProcessor embedded preview state', () => {
   })
 
   it('updates and resets color params without resetting tone params', () => {
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     act(() => {
       result.current.setToneParams({ userExposureEv: 1, userContrast: 25 })
@@ -4170,7 +4170,7 @@ describe('useRawProcessor embedded preview state', () => {
   })
 
   it('merges back-to-back partial tone updates before React re-renders', () => {
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     act(() => {
       result.current.setToneParams({ userExposureEv: 1 })
@@ -4204,7 +4204,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -4268,7 +4268,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -4304,7 +4304,7 @@ describe('useRawProcessor embedded preview state', () => {
     rawRuntimeAdapterMock.decodeBoundedHqRaw.mockResolvedValue(
       createDecodedImage('bounded-hq'),
     )
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     act(() => {
       result.current.setToneParams({
@@ -4346,7 +4346,7 @@ describe('useRawProcessor embedded preview state', () => {
       blob: new Blob(['jpeg'], { type: 'image/jpeg' }),
     })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -4393,7 +4393,7 @@ describe('useRawProcessor embedded preview state', () => {
       },
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     let exportPromise!: Promise<void>
 
     await act(async () => {
@@ -4453,7 +4453,7 @@ describe('useRawProcessor embedded preview state', () => {
     rawRuntimeAdapterMock.decodeBoundedHqRaw.mockReturnValue(
       boundedHqDecode.promise,
     )
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -4544,7 +4544,7 @@ describe('useRawProcessor embedded preview state', () => {
     })
     renderToHiddenCanvas.mockResolvedValue(fakeCanvas)
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
     })
@@ -4639,7 +4639,7 @@ describe('useRawProcessor embedded preview state', () => {
         return Promise.resolve(currentSession)
       })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     let staleLoadPromise!: Promise<void>
     let currentLoadPromise!: Promise<void>
 
@@ -4719,7 +4719,7 @@ describe('useRawProcessor embedded preview state', () => {
       return originalCreateElement(tagName)
     }) as typeof document.createElement)
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     let staleExportPromise!: Promise<void>
 
     await act(async () => {
@@ -4768,7 +4768,7 @@ describe('useRawProcessor embedded preview state', () => {
       boundedHqDecode.promise,
     )
 
-    const mounted = renderHook(() => useRawProcessor(), { wrapper })
+    const mounted = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await mounted.result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -4782,7 +4782,7 @@ describe('useRawProcessor embedded preview state', () => {
       mounted.unmount()
     })
 
-    const remounted = renderHook(() => useRawProcessor(), { wrapper })
+    const remounted = renderHook(() => useRawWorkflow(), { wrapper })
     expect(remounted.result.current.status).toBe('ready')
     expect(remounted.result.current.displaySource).toBe('quick')
     expect(remounted.result.current.sourceFileName).toBe('frame.ARW')
@@ -4815,7 +4815,7 @@ describe('useRawProcessor embedded preview state', () => {
       },
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['raw'], 'frame.ARW'))
@@ -4879,7 +4879,7 @@ describe('useRawProcessor embedded preview state', () => {
         return Promise.resolve(currentSession)
       })
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
 
     await act(async () => {
       await result.current.loadFile(new File(['stale'], 'stale.ARW'))
@@ -4930,7 +4930,7 @@ describe('useRawProcessor embedded preview state', () => {
       },
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     let loadPromise!: Promise<void>
 
     await act(async () => {
@@ -4977,7 +4977,7 @@ describe('useRawProcessor embedded preview state', () => {
       createDecodedImage('bounded-hq'),
     )
 
-    const { result, unmount } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result, unmount } = renderHook(() => useRawWorkflow(), { wrapper })
     let loadPromise!: Promise<void>
 
     await act(async () => {
@@ -5015,7 +5015,7 @@ describe('useRawProcessor embedded preview state', () => {
       currentBoundedHqDecode.promise,
     )
 
-    const { result } = renderHook(() => useRawProcessor(), { wrapper })
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
     let staleLoadPromise!: Promise<void>
     let currentLoadPromise!: Promise<void>
 
@@ -5071,7 +5071,7 @@ describe('useRawProcessor embedded preview state', () => {
       createDecodedImage('bounded-hq'),
     )
 
-    const mounted = renderHook(() => useRawProcessor(), { wrapper })
+    const mounted = renderHook(() => useRawWorkflow(), { wrapper })
     let loadPromise!: Promise<void>
 
     await act(async () => {
@@ -5089,7 +5089,7 @@ describe('useRawProcessor embedded preview state', () => {
       mounted.unmount()
     })
 
-    const remounted = renderHook(() => useRawProcessor(), { wrapper })
+    const remounted = renderHook(() => useRawWorkflow(), { wrapper })
     expect(remounted.result.current.status).toBe('idle')
     expect(remounted.result.current.displaySource).toBe('none')
 
@@ -5121,7 +5121,7 @@ describe('useRawProcessor embedded preview state', () => {
       createDecodedImage('bounded-hq'),
     )
 
-    const mounted = renderHook(() => useRawProcessor(), { wrapper })
+    const mounted = renderHook(() => useRawWorkflow(), { wrapper })
     let loadPromise!: Promise<void>
 
     await act(async () => {
@@ -5143,7 +5143,7 @@ describe('useRawProcessor embedded preview state', () => {
       mounted.unmount()
     })
 
-    const remounted = renderHook(() => useRawProcessor(), { wrapper })
+    const remounted = renderHook(() => useRawWorkflow(), { wrapper })
     expect(remounted.result.current.status).toBe('error')
     expect(remounted.result.current.error).toBe('quick decode failed')
     expect(remounted.result.current.sourceFileName).toBe('failed.ARW')
