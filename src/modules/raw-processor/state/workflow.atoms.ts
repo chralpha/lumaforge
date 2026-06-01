@@ -36,6 +36,11 @@ export const [
   setProcessingParams,
 ] = createAtomHooks(baseProcessingParamsAtom)
 
+const baseLutAtom = atom<ParsedLUT | null>(null)
+
+export const [, , useLutValue, useSetLut, getLut, setLut] =
+  createAtomHooks(baseLutAtom)
+
 const baseProcessingStatusAtom = atom<ProcessingStatus>('idle')
 
 export const [
@@ -56,11 +61,6 @@ const baseProgressAtom = atom<number>(0)
 
 export const [, , useProgressValue, useSetProgress, , setProgress] =
   createAtomHooks(baseProgressAtom)
-
-const baseLutAtom = atom<ParsedLUT | null>(null)
-
-export const [, , useLutValue, useSetLut, getLut, setLut] =
-  createAtomHooks(baseLutAtom)
 
 const basePipelineStatsAtom = atom<PipelineStats | null>(null)
 

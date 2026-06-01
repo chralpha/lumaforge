@@ -5,18 +5,10 @@ import { yieldToPaint } from '~/lib/dom'
 import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
 import {
-  useErrorMessageValue,
   useLutValue,
-  usePipelineStatsValue,
   useProcessingParamsValue,
-  useProcessingStatusValue,
-  useProgressValue,
-  useSetErrorMessage,
   useSetLut,
-  useSetPipelineStats,
   useSetProcessingParams,
-  useSetProcessingStatus,
-  useSetProgress,
 } from '../state/workflow.atoms'
 import { useOriginalReferenceStage } from './stages/compare/useOriginalReferenceStage'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
@@ -35,22 +27,25 @@ import { useImageSession } from './useImageSession'
 import type { UseRawProcessorReturn } from './useRawProcessor.types'
 import { useRawWorkflowActions } from './useRawWorkflowActions'
 import { useRawWorkflowRefs } from './useRawWorkflowRefs'
+import { useRawWorkflowState } from './useRawWorkflowState'
 
 export type { UseRawProcessorReturn } from './useRawProcessor.types'
 
 export function useRawProcessor(): UseRawProcessorReturn {
   const baseParams = useProcessingParamsValue()
   const setParams = useSetProcessingParams()
-  const status = useProcessingStatusValue()
-  const setStatus = useSetProcessingStatus()
-  const error = useErrorMessageValue()
-  const setError = useSetErrorMessage()
-  const progress = useProgressValue()
-  const setProgress = useSetProgress()
   const lut = useLutValue()
   const setLut = useSetLut()
-  const stats = usePipelineStatsValue()
-  const setStats = useSetPipelineStats()
+  const {
+    status,
+    setStatus,
+    error,
+    setError,
+    progress,
+    setProgress,
+    stats,
+    setStats,
+  } = useRawWorkflowState()
   const { session, replaceFile, resetSession, setSession } = useImageSession()
 
   const {
