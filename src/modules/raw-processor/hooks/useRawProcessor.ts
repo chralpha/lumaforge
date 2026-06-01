@@ -43,16 +43,12 @@ import type { OriginalReferenceSnapshot } from '../services/compare/original-ref
 import type { PreviewViewport } from '../services/preview/preview-viewport'
 import { useOriginalReferenceStage } from './stages/compare/useOriginalReferenceStage'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
-import { useExportDerivedState } from './stages/export/useExportDerivedState'
 import { useExportGraphInvalidation } from './stages/export/useExportGraphInvalidation'
-import { useExportRecoveryAction } from './stages/export/useExportRecoveryAction'
 import { useExportRecoveryDiscovery } from './stages/export/useExportRecoveryDiscovery'
 import { useExportRecoveryState } from './stages/export/useExportRecoveryState'
 import { useExportResourceManagement } from './stages/export/useExportResourceManagement'
-import { useExportResultActions } from './stages/export/useExportResultActions'
 import type { FullResExportOptions } from './stages/export/useFullResExportAction'
-import { useFullResExportAction } from './stages/export/useFullResExportAction'
-import { useHqPreviewExportAction } from './stages/export/useHqPreviewExportAction'
+import { useRawExportStage } from './stages/export/useRawExportStage'
 import { useRawLoadAction } from './stages/ingest/useRawLoadAction'
 import { useRawProcessorLifecycle } from './stages/ingest/useRawProcessorLifecycle'
 import { useRawRuntimeControls } from './stages/ingest/useRawRuntimeControls'
@@ -400,7 +396,22 @@ export function useRawProcessor(): UseRawProcessorReturn {
     previewCopyCanvasRef,
   })
 
-  const { exportImage } = useFullResExportAction({
+  const {
+    canExport,
+    exportDisabledReason,
+    exportResult,
+    exportShareCapability,
+    exportRecovery,
+    previewSuspended,
+    canPreviewExport,
+    previewExportDisabledReason,
+    exportImage,
+    recoverInterruptedExport,
+    downloadExportResult,
+    shareExportResult,
+    copyExportResult,
+    exportPreviewImage,
+  } = useRawExportStage({
     setStatus,
     setError,
     setProgress,
@@ -426,53 +437,19 @@ export function useRawProcessor(): UseRawProcessorReturn {
     registerCurrentPreviewPipelineForEvacuation,
     registerExportResultResource,
     revokeCurrentEmbeddedPreviewUrl,
-  })
-
-  const {
-    canExport,
-    exportDisabledReason,
-    exportResult,
-    exportShareCapability,
-    exportRecovery,
-    previewSuspended,
-    canPreviewExport,
-    previewExportDisabledReason,
-  } = useExportDerivedState({
-    session,
     discoveredRecovery,
-    decodedImageRef,
     embeddedPreviewUrl,
     status,
     hasImage,
     displaySource,
-    sourceFile: loadedImage.file,
     rawRenderExposure,
-    stats,
-  })
-
-  const { recoverInterruptedExport } = useExportRecoveryAction({
     pendingRecoveryRetry,
     setPendingRecoveryRetry,
-    sessionRef,
     discoveredRecoveryRef,
-    loadedFile: loadedImage.file,
-    canExport,
-    status,
     loadFile,
-    exportImage,
-    scheduleToast,
+    queueExportResultResourceDisposal,
     toast,
   })
-
-  const { downloadExportResult, shareExportResult, copyExportResult } =
-    useExportResultActions({
-      sessionRef,
-      pipelineRef,
-      previewCopyCanvasRef,
-      previewSize: stats?.previewSize,
-      scheduleToast,
-      toast,
-    })
 
   const { reset } = useRawSessionReset({
     runtimeWorkSessionIdRef,
@@ -492,25 +469,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     resetSession,
   })
 
-  const { exportPreviewImage } = useHqPreviewExportAction({
-    sessionRef,
-    decodedImageRef,
-    pipelineRef,
-    isMountedRef,
-    exportGraphVersionRef,
-    exportAbortControllerRef,
-    previewCopyCanvasRef,
-    previewSuspended,
-    previewExportDisabledReason,
-    abortExportWork,
-    queueExportResultResourceDisposal,
-    registerExportResultResource,
-    scheduleToast,
-    setProgress,
-    setSession,
-    setStatus,
-    toast,
-  })
   const {
     originalReferenceSnapshot,
     originalReferenceFallbackReason,
