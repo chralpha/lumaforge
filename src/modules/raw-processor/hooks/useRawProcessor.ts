@@ -47,13 +47,13 @@ import type {
 import type { ProcessingStatus } from '../model/workflow'
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 import { deriveFullResExportReadiness } from '../services/export/export-readiness'
-import { clearExportResultState } from '../services/export/export-state'
 import { getProgressRecoveryHint } from '../services/ingest/workflow-status'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
 import { useOriginalReferencePolicy } from './stages/compare/useOriginalReferencePolicy'
 import { useOriginalReferenceSnapshotResources } from './stages/compare/useOriginalReferenceSnapshotResources'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
 import { useExportDerivedState } from './stages/export/useExportDerivedState'
+import { useExportGraphInvalidation } from './stages/export/useExportGraphInvalidation'
 import type { PendingRecoveryRetry } from './stages/export/useExportRecoveryAction'
 import { useExportRecoveryAction } from './stages/export/useExportRecoveryAction'
 import { useExportRecoveryDiscovery } from './stages/export/useExportRecoveryDiscovery'
@@ -325,30 +325,17 @@ export function useRawProcessor(): UseRawProcessorReturn {
   const { registerExportResultResource, queueExportResultResourceDisposal } =
     useExportResourceManagement({ resourceRegistryRef })
 
-  const invalidateExportGraph = useCallback(() => {
-    exportGraphVersionRef.current += 1
-    previewCopyCanvasRef.current = null
-    const hasActiveExport =
-      Boolean(
-        exportAbortControllerRef.current &&
-        !exportAbortControllerRef.current.signal.aborted,
-      ) || sessionRef.current?.exportState.status === 'exporting'
-
-    abortExportWork()
-    queueExportResultResourceDisposal()
-    setSession(clearExportResultState)
-
-    if (hasActiveExport) {
-      setStatus('ready')
-      setProgress(0)
-    }
-  }, [
+  const { invalidateExportGraph } = useExportGraphInvalidation({
+    exportGraphVersionRef,
+    previewCopyCanvasRef,
+    exportAbortControllerRef,
+    sessionRef,
     abortExportWork,
     queueExportResultResourceDisposal,
-    setProgress,
     setSession,
     setStatus,
-  ])
+    setProgress,
+  })
 
   const lookStage = useRawLookStage({
     baseParams: compareStage.params,
