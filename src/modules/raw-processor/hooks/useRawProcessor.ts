@@ -24,10 +24,6 @@ import {
 } from '~/atoms/raw-processor'
 import { yieldToPaint } from '~/lib/dom'
 import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
-import {
-  createCheckpointStore,
-  createOpfsCheckpointBackend,
-} from '~/lib/export/checkpoint-store'
 import type {
   ResourceRegistry,
   TrackedLargeResource,
@@ -61,7 +57,6 @@ import { supportsLayeredCompareCss } from '../services/compare/compare-render-mo
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 import { releaseOriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 import { deriveFullResExportReadiness } from '../services/export/export-readiness'
-import { createInterruptedExportRecovery } from '../services/export/export-recovery'
 import { resolveExportShareButtonCapability } from '../services/export/export-result-actions'
 import { clearExportResultState } from '../services/export/export-state'
 import type { ExportContext } from '../services/export/orchestrate-full-res-export'
@@ -77,6 +72,7 @@ import type { PreviewViewport } from '../services/preview/preview-viewport'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
 import type { PendingRecoveryRetry } from './stages/export/useExportRecoveryAction'
 import { useExportRecoveryAction } from './stages/export/useExportRecoveryAction'
+import { useExportRecoveryDiscovery } from './stages/export/useExportRecoveryDiscovery'
 import { useExportResourceManagement } from './stages/export/useExportResourceManagement'
 import { useExportResultActions } from './stages/export/useExportResultActions'
 import { useHqPreviewExportAction } from './stages/export/useHqPreviewExportAction'
@@ -615,45 +611,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
     invalidateExportGraph,
   })
 
-  useEffect(() => {
-    let cancelled = false
-
-    try {
-      const store = createCheckpointStore(createOpfsCheckpointBackend())
-
-      void store
-        .listSafeRetryCandidates()
-        .then((manifests) => {
-          if (cancelled || manifests.length === 0) return
-
-          const manifest = manifests[0]
-          if (!manifest) return
-
-          const recovery = createInterruptedExportRecovery(manifest)
-          setDiscoveredRecoveryState(recovery)
-          setSession((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  exportState: {
-                    ...prev.exportState,
-                    recovery,
-                  },
-                }
-              : prev,
-          )
-        })
-        .catch(() => undefined)
-    } catch {
-      return () => {
-        cancelled = true
-      }
-    }
-
-    return () => {
-      cancelled = true
-    }
-  }, [setDiscoveredRecoveryState, setSession])
+  useExportRecoveryDiscovery({
+    setDiscoveredRecoveryState,
+    setSession,
+  })
 
   useEffect(() => {
     isMountedRef.current = true
