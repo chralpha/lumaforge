@@ -1,5 +1,5 @@
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { ImageSession } from '../../../model/session'
@@ -69,6 +69,26 @@ function createSession(): ImageSession {
   }
 }
 
+function createCubeFile(title: string, name: string) {
+  const size = 17
+  const step = 1 / (size - 1)
+  const lines = [`TITLE "${title}"`, `LUT_3D_SIZE ${size}`]
+
+  for (let b = 0; b < size; b++) {
+    for (let g = 0; g < size; g++) {
+      for (let r = 0; r < size; r++) {
+        lines.push(`${r * step} ${g * step} ${b * step}`)
+      }
+    }
+  }
+
+  const content = lines.join('\n')
+
+  return Object.assign(new File([content], name), {
+    text: () => Promise.resolve(content),
+  })
+}
+
 describe('useRawLookStage', () => {
   it('projects session style intensity into processing params', () => {
     const session = createSession()
@@ -134,5 +154,36 @@ describe('useRawLookStage', () => {
       (updater as (prev: ProcessingParams) => ProcessingParams)(baseParams),
     ).toMatchObject({ userContrast: 100 })
     expect(invalidateExportGraph).toHaveBeenCalledTimes(1)
+  })
+
+  it('loads custom LUTs into the active session without writing legacy params', async () => {
+    const session = createSession()
+    const setParams = vi.fn()
+    const setLut = vi.fn()
+    const setSession = vi.fn()
+    const { result } = renderHook(() =>
+      useRawLookStage({
+        baseParams,
+        session,
+        sessionRef: { current: session },
+        setSession,
+        lut: null,
+        setLut,
+        setParams,
+        getProcessingParams: () => baseParams,
+        lutDataRef: { current: null },
+        setLutDataRef: vi.fn(),
+        scheduleToast: vi.fn(),
+        invalidateExportGraph: vi.fn(),
+      }),
+    )
+
+    await act(async () => {
+      await result.current.loadLUT(createCubeFile('Client Look', 'look.cube'))
+    })
+
+    expect(setLut).toHaveBeenCalledTimes(1)
+    expect(setSession).toHaveBeenCalledTimes(1)
+    expect(setParams).not.toHaveBeenCalled()
   })
 })

@@ -126,12 +126,14 @@ function applyLoadedLUT(parsed: ParsedLUT, ctx: LutLoadContext): void {
         })
       : prev,
   )
-  ctx.atoms.setParams((prev) => ({
-    ...prev,
-    styleKind: 'custom',
-    builtinPreset: null,
-    intensity: mapIntensityLevel(style.defaultIntensityLevel),
-  }))
+  if (!ctx.refs.sessionRef.current) {
+    ctx.atoms.setParams((prev) => ({
+      ...prev,
+      styleKind: 'custom',
+      builtinPreset: null,
+      intensity: mapIntensityLevel(style.defaultIntensityLevel),
+    }))
+  }
   ctx.services.scheduleToast(() =>
     toast.success(`Loaded LUT: ${parsed.title}`, {
       description: `${parsed.size}³ grid`,
