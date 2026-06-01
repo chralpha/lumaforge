@@ -18,16 +18,15 @@ describe('usePreviewPipelineEvacuation', () => {
     const processed = createPipeline()
     const original = createPipeline()
     const pipelineRef = { current: processed }
-    const originalPreviewPipelineRef = { current: original }
 
     const { result } = renderHook(() =>
       usePreviewPipelineEvacuation({
         resourceRegistryRef: { current: registry },
         pipelineRef,
-        originalPreviewPipelineRef,
       }),
     )
 
+    result.current.setOriginalPreviewPipeline(original)
     result.current.registerCurrentPreviewPipelineForEvacuation()
 
     expect(registry.snapshot().live).toEqual([
@@ -48,7 +47,9 @@ describe('usePreviewPipelineEvacuation', () => {
     expect(processed.dispose).toHaveBeenCalledWith({ releaseContext: true })
     expect(original.dispose).toHaveBeenCalledWith({ releaseContext: true })
     expect(pipelineRef.current).toBeNull()
-    expect(originalPreviewPipelineRef.current).toBeNull()
+
+    result.current.registerCurrentPreviewPipelineForEvacuation()
+    expect(registry.snapshot().live).toEqual([])
   })
 
   it('does not clear refs that have moved to newer pipelines before disposal', async () => {
@@ -56,15 +57,11 @@ describe('usePreviewPipelineEvacuation', () => {
     const processed = createPipeline()
     const nextProcessed = createPipeline()
     const pipelineRef = { current: processed }
-    const originalPreviewPipelineRef = {
-      current: null as PreviewPipelineEvacuationHandle | null,
-    }
 
     const { result } = renderHook(() =>
       usePreviewPipelineEvacuation({
         resourceRegistryRef: { current: registry },
         pipelineRef,
-        originalPreviewPipelineRef,
       }),
     )
 

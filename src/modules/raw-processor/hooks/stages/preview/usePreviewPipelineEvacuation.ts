@@ -12,15 +12,22 @@ export type PreviewPipelineEvacuationHandle = Pick<
 type UsePreviewPipelineEvacuationInput = {
   resourceRegistryRef: MutableRefObject<ResourceRegistry | null>
   pipelineRef: MutableRefObject<PreviewPipelineEvacuationHandle | null>
-  originalPreviewPipelineRef: MutableRefObject<PreviewPipelineEvacuationHandle | null>
 }
 
 export function usePreviewPipelineEvacuation({
   resourceRegistryRef,
   pipelineRef,
-  originalPreviewPipelineRef,
 }: UsePreviewPipelineEvacuationInput) {
   const previewPipelineResourceIdRef = useRef(0)
+  const originalPreviewPipelineRef =
+    useRef<PreviewPipelineEvacuationHandle | null>(null)
+
+  const setOriginalPreviewPipeline = useCallback(
+    (pipeline: PreviewPipelineEvacuationHandle | null) => {
+      originalPreviewPipelineRef.current = pipeline
+    },
+    [],
+  )
 
   const registerCurrentPreviewPipelineForEvacuation = useCallback(() => {
     const registry = resourceRegistryRef.current
@@ -64,5 +71,8 @@ export function usePreviewPipelineEvacuation({
     })
   }, [originalPreviewPipelineRef, pipelineRef, resourceRegistryRef])
 
-  return { registerCurrentPreviewPipelineForEvacuation }
+  return {
+    registerCurrentPreviewPipelineForEvacuation,
+    setOriginalPreviewPipeline,
+  }
 }

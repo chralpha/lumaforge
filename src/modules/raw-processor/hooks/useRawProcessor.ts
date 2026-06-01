@@ -209,8 +209,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
   )
   const decodedImageRef = useRef<DecodedImage | null>(null)
   const paramsRef = useRef(compareStage.params)
-  const originalPreviewPipelineRef =
-    useRef<PreviewPipelineEvacuationHandle | null>(null)
   const rawRenderExposureRef = useRef<RawRenderExposure | null>(null)
   const [decodedImageVersion, setDecodedImageVersion] = useState(0)
   const discoveredRecoveryRef = useRef<ExportRecoveryState>({ status: 'none' })
@@ -268,13 +266,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
       setSession,
     })
 
-  const setOriginalPreviewPipeline = useCallback(
-    (pipeline: PreviewPipelineEvacuationHandle | null) => {
-      originalPreviewPipelineRef.current = pipeline
-    },
-    [],
-  )
-
   const { disposeRuntimeSession, abortRuntimeWork, abortExportWork } =
     useRawRuntimeControls({
       runtimeSessionRef,
@@ -284,12 +275,13 @@ export function useRawProcessor(): UseRawProcessorReturn {
       disposedRuntimeSessionsRef,
     })
 
-  const { registerCurrentPreviewPipelineForEvacuation } =
-    usePreviewPipelineEvacuation({
-      resourceRegistryRef,
-      pipelineRef,
-      originalPreviewPipelineRef,
-    })
+  const {
+    registerCurrentPreviewPipelineForEvacuation,
+    setOriginalPreviewPipeline,
+  } = usePreviewPipelineEvacuation({
+    resourceRegistryRef,
+    pipelineRef,
+  })
   const {
     setPendingOriginalReferenceSnapshotRender,
     trackOriginalReferenceSnapshot,
