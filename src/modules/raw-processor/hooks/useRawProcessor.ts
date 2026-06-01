@@ -47,13 +47,13 @@ import type {
 import type { ProcessingStatus } from '../model/workflow'
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 import { deriveFullResExportReadiness } from '../services/export/export-readiness'
-import { resolveExportShareButtonCapability } from '../services/export/export-result-actions'
 import { clearExportResultState } from '../services/export/export-state'
 import { getProgressRecoveryHint } from '../services/ingest/workflow-status'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
 import { useOriginalReferencePolicy } from './stages/compare/useOriginalReferencePolicy'
 import { useOriginalReferenceSnapshotResources } from './stages/compare/useOriginalReferenceSnapshotResources'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
+import { useExportDerivedState } from './stages/export/useExportDerivedState'
 import type { PendingRecoveryRetry } from './stages/export/useExportRecoveryAction'
 import { useExportRecoveryAction } from './stages/export/useExportRecoveryAction'
 import { useExportRecoveryDiscovery } from './stages/export/useExportRecoveryDiscovery'
@@ -620,47 +620,23 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [setStats],
   )
 
-  const exportResult = session?.exportState.result ?? null
-  const exportShareCapability = exportResult
-    ? resolveExportShareButtonCapability()
-    : { available: false as const, reason: 'Export a JPEG before sharing.' }
-  const sessionRecovery = session?.exportState.recovery
-  const exportRecovery =
-    sessionRecovery && sessionRecovery.status !== 'none'
-      ? sessionRecovery
-      : discoveredRecovery
-  const exportState = session?.exportState
-  const activeExportPlan =
-    exportState?.status === 'exporting' ||
-    (exportState?.status === 'ready' && exportState.result)
-      ? exportState.activePlan
-      : undefined
-  const exportPlanSuspendsPreview = Boolean(activeExportPlan)
-  const previewEvacuatedForReadyExport =
-    exportState?.status === 'ready' &&
-    Boolean(exportState.result) &&
-    !decodedImageRef.current &&
-    !embeddedPreviewUrl
-  const previewSuspended =
-    exportPlanSuspendsPreview &&
-    (status === 'exporting' || previewEvacuatedForReadyExport)
-  const hqPreviewImage = decodedImageRef.current
-  const canPreviewExport =
-    status === 'ready' &&
-    !previewSuspended &&
-    displaySource === 'bounded-hq' &&
-    hqPreviewImage?.source === 'bounded-hq' &&
-    Boolean(stats?.inputSize)
-  const previewExportDisabledReason = !hasImage
-    ? 'Load a RAW file before exporting an HQ preview JPEG.'
-    : previewSuspended
-      ? 'Restore the preview before exporting an HQ preview JPEG.'
-      : displaySource !== 'bounded-hq' ||
-          hqPreviewImage?.source !== 'bounded-hq'
-        ? 'HQ preview export is available after the bounded HQ preview finishes.'
-        : !stats?.inputSize
-          ? 'HQ preview export is not ready.'
-          : undefined
+  const {
+    exportResult,
+    exportShareCapability,
+    exportRecovery,
+    previewSuspended,
+    canPreviewExport,
+    previewExportDisabledReason,
+  } = useExportDerivedState({
+    session,
+    discoveredRecovery,
+    decodedImageRef,
+    embeddedPreviewUrl,
+    status,
+    hasImage,
+    displaySource,
+    stats,
+  })
   const { exportPreviewImage } = useHqPreviewExportAction({
     sessionRef,
     decodedImageRef,
