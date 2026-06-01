@@ -1,22 +1,14 @@
 import type { LUTColorProfile } from '@lumaforge/luma-color-runtime'
-import { searchLUTColorProfiles } from '@lumaforge/luma-color-runtime'
 import { AnimatePresence, m } from 'motion/react'
 import type { RefObject } from 'react'
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useState } from 'react'
 
 import { Input } from '~/components/ui/input'
 import { useScrollEdgeFade } from '~/hooks/common'
 import { clsxm } from '~/lib/cn'
 import { useI18n } from '~/lib/i18n'
 
-import { composeLUTContractProfile, groupProfiles } from '../lut-contract'
+import { composeLUTContractProfile } from '../lut-contract'
 import {
   SEGMENTED_FOCUS_RING,
   SEGMENTED_ITEM_TEXT,
@@ -27,17 +19,11 @@ import {
 import type { OnlineLutBrowserLayout } from './lut-browser-layout'
 import { getViewportBoundedBrowserLayout } from './lut-browser-layout'
 import type { LUTOutputOption } from './lut-output-options'
-import {
-  dedupeOutputOptions,
-  dedupeProfiles,
-  groupOutputOptions,
-  toDeclaredOutputOption,
-  toOutputCarrierProfile,
-  toSearchOutputOption,
-} from './lut-output-options'
+import { toOutputCarrierProfile } from './lut-output-options'
 import { LutBrowserDialog } from './LutBrowserDialog'
 import { LUTOutputOptionButton } from './LUTOutputOptionButton'
 import { LUTProfileButton } from './LUTProfileButton'
+import { useLutContractBrowserState } from './useLutContractBrowserState'
 
 type LUTContractBrowserStep = 'input' | 'output'
 
@@ -72,12 +58,19 @@ export function LUTContractBrowser({
   const [step, setStep] = useState<LUTContractBrowserStep>('input')
   const [draftInputProfile, setDraftInputProfile] =
     useState<LUTColorProfile | null>(currentProfile ?? null)
-  const hasQuery = query.trim().length > 0
-  const searchResults = useMemo(() => searchLUTColorProfiles(query), [query])
-  const resultIds = useMemo(
-    () => new Set(searchResults.map((profile) => profile.id)),
-    [searchResults],
-  )
+  const {
+    visibleSuggestions,
+    groupedInputProfiles,
+    suggestedOutputOptions,
+    groupedOutputOptions,
+    activeOutputOptionId,
+    hasInputMatches,
+    hasOutputMatches,
+  } = useLutContractBrowserState({
+    query,
+    suggestions,
+    currentProfile,
+  })
 
   useEffect(() => {
     if (!open) return
@@ -124,66 +117,6 @@ export function LUTContractBrowser({
     }
   }, [open, triggerRef, updateBrowserLayout])
 
-  const visibleSuggestions = useMemo(
-    () =>
-      dedupeProfiles(suggestions).filter(
-        (profile) => !hasQuery || resultIds.has(profile.id),
-      ),
-    [hasQuery, resultIds, suggestions],
-  )
-  const suggestionIds = useMemo(
-    () => new Set(visibleSuggestions.map((profile) => profile.id)),
-    [visibleSuggestions],
-  )
-  const groupedInputProfiles = useMemo(
-    () =>
-      groupProfiles(
-        dedupeProfiles(searchResults).filter(
-          (profile) => !suggestionIds.has(profile.id),
-        ),
-      ),
-    [searchResults, suggestionIds],
-  )
-  const currentOutputOption = useMemo(
-    () => (currentProfile ? toDeclaredOutputOption(currentProfile) : undefined),
-    [currentProfile],
-  )
-  const suggestedOutputOptions = useMemo(
-    () =>
-      dedupeOutputOptions(
-        [
-          currentOutputOption,
-          ...visibleSuggestions.map(
-            (profile) =>
-              toDeclaredOutputOption(profile) ?? toSearchOutputOption(profile),
-          ),
-        ].filter(Boolean) as LUTOutputOption[],
-      ),
-    [currentOutputOption, visibleSuggestions],
-  )
-  const groupedOutputOptions = useMemo(
-    () =>
-      groupOutputOptions(
-        dedupeOutputOptions(
-          searchResults
-            .filter((profile) => !suggestionIds.has(profile.id))
-            .map(toSearchOutputOption),
-        ),
-      ),
-    [searchResults, suggestionIds],
-  )
-  const activeOutputOptionId = useMemo(() => {
-    if (
-      !currentProfile?.outputGamut ||
-      !currentProfile.outputTransfer ||
-      !currentProfile.outputRange
-    ) {
-      return undefined
-    }
-
-    return `${currentProfile.id}:declared-output`
-  }, [currentProfile])
-
   const handleInputSelect = (profile: LUTColorProfile) => {
     setDraftInputProfile(profile)
     setStep('output')
@@ -197,11 +130,6 @@ export function LUTContractBrowser({
     )
     onClose({ restoreFocus: true })
   }
-
-  const hasInputMatches =
-    visibleSuggestions.length > 0 || groupedInputProfiles.length > 0
-  const hasOutputMatches =
-    suggestedOutputOptions.length > 0 || groupedOutputOptions.length > 0
 
   return (
     <AnimatePresence>

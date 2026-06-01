@@ -1,0 +1,70 @@
+import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
+import { renderHook } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+
+import { useMobileLutContractState } from './useMobileLutContractState'
+
+describe('useMobileLutContractState', () => {
+  it('derives recommended contract profiles and output choices', () => {
+    const recommendation = getLUTColorProfile('sony-sgamut3cine-slog3')
+    const resolved = getLUTColorProfile('display-srgb')
+    if (!recommendation || !resolved) throw new Error('Missing test profiles')
+
+    const { result } = renderHook(() =>
+      useMobileLutContractState({
+        contractQuery: 'sony',
+        lutProfileSelection: {
+          status: 'confirmed',
+          fingerprint: 'lut-test',
+          profileId: resolved.id,
+          confidence: 'user',
+        },
+        lutProfileResolution: {
+          kind: 'recommended',
+          reason: 'ambiguous',
+          recommendations: [recommendation],
+        },
+      }),
+    )
+
+    expect(result.current.resolvedProfile?.id).toBe(resolved.id)
+    expect(
+      result.current.visibleSuggestions.map((profile) => profile.id),
+    ).toContain(recommendation.id)
+    expect(result.current.contractView.status).toBe('confirmed')
+    expect(result.current.displayOutputLabel).toBe('Rec.709 display')
+    expect(result.current.activeOutputOptionId).toBeUndefined()
+    expect(result.current.hasInputMatches).toBe(true)
+    expect(result.current.hasOutputMatches).toBe(true)
+  })
+
+  it('keeps the active output option for a confirmed full output contract', () => {
+    const profile = getLUTColorProfile('sony-sgamut3cine-slog3')
+    if (!profile) throw new Error('Missing test profile')
+    const confirmedProfile = {
+      ...profile,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'srgb' as const,
+      outputRange: 'full' as const,
+    }
+
+    const { result } = renderHook(() =>
+      useMobileLutContractState({
+        contractQuery: 'sony',
+        lutProfileResolution: {
+          kind: 'confirmed',
+          profile: confirmedProfile,
+          confidence: 'metadata',
+        },
+      }),
+    )
+
+    expect(result.current.resolvedProfile?.id).toBe(profile.id)
+    expect(result.current.displayOutputLabel).toBe('Rec.709 display')
+    expect(result.current.activeOutputOptionId).toBe(
+      `${profile.id}:declared-output`,
+    )
+    expect(result.current.hasOutputMatches).toBe(true)
+  })
+})

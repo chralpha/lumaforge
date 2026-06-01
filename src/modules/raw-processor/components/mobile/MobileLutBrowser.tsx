@@ -2,7 +2,6 @@ import type {
   LUTColorProfile,
   LUTContractResolution,
 } from '@lumaforge/luma-color-runtime'
-import { searchLUTColorProfiles } from '@lumaforge/luma-color-runtime'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { AlertTriangle, ArrowLeft, Check, Plus, Share2, X } from 'lucide-react'
 import { AnimatePresence, m, useDragControls } from 'motion/react'
@@ -21,23 +20,13 @@ import type { LUTContractSelectionState } from '../../model/session'
 import { useToolMotion } from '../../motion'
 import { Dropzone } from '../Dropzone'
 import type { LUTOutputOption } from '../tools/lut/lut-output-options'
-import {
-  dedupeOutputOptions,
-  dedupeProfiles,
-  groupOutputOptions,
-  toDeclaredOutputOption,
-  toOutputCarrierProfile,
-  toSearchOutputOption,
-} from '../tools/lut/lut-output-options'
+import { toOutputCarrierProfile } from '../tools/lut/lut-output-options'
 import { groupEntriesByFamily } from '../tools/lut/lut-source-grouping'
 import { LUTOutputOptionButton } from '../tools/lut/LUTOutputOptionButton'
 import { LUTProfileButton } from '../tools/lut/LUTProfileButton'
 import {
   composeLUTContractProfile,
-  deriveLUTContractView,
   getProfileOutputLabel,
-  getResolvedProfile,
-  groupProfiles,
 } from '../tools/lut-contract'
 import {
   SEGMENTED_FOCUS_RING,
@@ -50,6 +39,7 @@ import type { StrengthLevel } from '../tools/StrengthControl'
 import { StrengthControl } from '../tools/StrengthControl'
 import { MobileLutCatalogEntryButton } from './MobileLutCatalogEntryButton'
 import { MobileLutSourceCard } from './MobileLutSourceCard'
+import { useMobileLutContractState } from './useMobileLutContractState'
 
 export interface MobileLutBrowserProps {
   open: boolean
@@ -73,8 +63,6 @@ type OnlineEntry = UseOnlineLutSourcesResult['state']['entries'][number]
 type OnlineIssue = UseOnlineLutSourcesResult['state']['issues'][number]
 type ContractStep = 'input' | 'output'
 type MobileLutView = 'overview' | 'catalog' | 'contract'
-
-const OUTPUT_REQUIRED_LABEL = 'Output profile required'
 
 function resourceLabel(resource: OnlineResource) {
   return resource.label || resource.url
@@ -187,27 +175,22 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     return issues
   }, [props.onlineLutSources?.state.issues])
 
-  const profileSuggestions = useMemo(() => {
-    const resolution = props.lutProfileResolution
-    return resolution &&
-      (resolution.kind === 'recommended' ||
-        resolution.kind === 'unsupported-output')
-      ? resolution.recommendations
-      : []
-  }, [props.lutProfileResolution])
-  const resolvedProfile = getResolvedProfile(
-    props.lutProfileSelection,
-    props.lutProfileResolution,
-  )
-  const outputLabel = getProfileOutputLabel(resolvedProfile)
-  const displayOutputLabel =
-    outputLabel && outputLabel !== OUTPUT_REQUIRED_LABEL
-      ? outputLabel
-      : undefined
-  const contractView = deriveLUTContractView(
-    props.lutProfileSelection,
-    props.lutProfileResolution,
-  )
+  const {
+    resolvedProfile,
+    displayOutputLabel,
+    contractView,
+    visibleSuggestions,
+    groupedInputProfiles,
+    suggestedOutputOptions,
+    groupedOutputOptions,
+    activeOutputOptionId,
+    hasInputMatches,
+    hasOutputMatches,
+  } = useMobileLutContractState({
+    contractQuery,
+    lutProfileSelection: props.lutProfileSelection,
+    lutProfileResolution: props.lutProfileResolution,
+  })
   const [draftInputProfile, setDraftInputProfile] =
     useState<LUTColorProfile | null>(resolvedProfile ?? null)
 
@@ -268,80 +251,6 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       setView('overview')
     }
   }, [catalogResourceId, props.onlineLutSources?.state.resources, view])
-
-  const contractSearchResults = useMemo(
-    () => searchLUTColorProfiles(contractQuery),
-    [contractQuery],
-  )
-  const hasContractQuery = contractQuery.trim().length > 0
-  const resultIds = useMemo(
-    () => new Set(contractSearchResults.map((profile) => profile.id)),
-    [contractSearchResults],
-  )
-  const visibleSuggestions = useMemo(
-    () =>
-      dedupeProfiles(profileSuggestions).filter(
-        (profile) => !hasContractQuery || resultIds.has(profile.id),
-      ),
-    [hasContractQuery, profileSuggestions, resultIds],
-  )
-  const suggestionIds = useMemo(
-    () => new Set(visibleSuggestions.map((profile) => profile.id)),
-    [visibleSuggestions],
-  )
-  const groupedInputProfiles = useMemo(
-    () =>
-      groupProfiles(
-        dedupeProfiles(contractSearchResults).filter(
-          (profile) => !suggestionIds.has(profile.id),
-        ),
-      ),
-    [contractSearchResults, suggestionIds],
-  )
-  const currentOutputOption = useMemo(
-    () =>
-      resolvedProfile ? toDeclaredOutputOption(resolvedProfile) : undefined,
-    [resolvedProfile],
-  )
-  const suggestedOutputOptions = useMemo(
-    () =>
-      dedupeOutputOptions(
-        [
-          currentOutputOption,
-          ...visibleSuggestions.map(
-            (profile) =>
-              toDeclaredOutputOption(profile) ?? toSearchOutputOption(profile),
-          ),
-        ].filter(Boolean) as LUTOutputOption[],
-      ),
-    [currentOutputOption, visibleSuggestions],
-  )
-  const groupedOutputOptions = useMemo(
-    () =>
-      groupOutputOptions(
-        dedupeOutputOptions(
-          contractSearchResults
-            .filter((profile) => !suggestionIds.has(profile.id))
-            .map(toSearchOutputOption),
-        ),
-      ),
-    [contractSearchResults, suggestionIds],
-  )
-  const activeOutputOptionId = useMemo(() => {
-    if (
-      !resolvedProfile?.outputGamut ||
-      !resolvedProfile.outputTransfer ||
-      !resolvedProfile.outputRange
-    ) {
-      return undefined
-    }
-
-    return `${resolvedProfile.id}:declared-output`
-  }, [resolvedProfile])
-  const hasInputMatches =
-    visibleSuggestions.length > 0 || groupedInputProfiles.length > 0
-  const hasOutputMatches =
-    suggestedOutputOptions.length > 0 || groupedOutputOptions.length > 0
 
   const selectedResource =
     props.onlineLutSources?.state.resources.find(
