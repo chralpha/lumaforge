@@ -2,15 +2,15 @@ import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 
-import type { StyleAsset } from '../model/session'
-import type { RetainedSessionState } from '../model/session-factory'
-import { clampCompareSplit } from './compare-split'
-import { preserveCustomLookIntensity } from './look-session-state'
+import type { StyleAsset } from '../../model/session'
+import type { RetainedSessionState } from '../../model/session-factory'
+import { clampCompareSplit } from '../compare/compare-split'
+import { preserveCustomLookIntensity } from '../look/look-session-state'
 import {
   buildLUTContractSelectionState,
   mapIntensityLevel,
   toCustomStyle,
-} from './style-system'
+} from '../look/style-system'
 
 export function prepareRawLoadState(input: {
   params: ProcessingParams

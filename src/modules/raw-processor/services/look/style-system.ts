@@ -9,7 +9,7 @@ import {
 
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 
-import type { LUTContractSelectionState } from '../model/session'
+import type { LUTContractSelectionState } from '../../model/session'
 
 const DISPLAY_LIKE_INPUT_TRANSFERS = new Set(['srgb', 'bt709', 'gamma24'])
 

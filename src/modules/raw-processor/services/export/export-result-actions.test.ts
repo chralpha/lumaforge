@@ -6,7 +6,7 @@ import {
   createMemoryFileBackedOutputResult,
 } from '~/lib/export/output-sink'
 
-import { createExportResult } from '../model/export-result'
+import { createExportResult } from '../../model/export-result'
 import {
   copyCanvasToClipboard,
   copyExportResultToClipboard,

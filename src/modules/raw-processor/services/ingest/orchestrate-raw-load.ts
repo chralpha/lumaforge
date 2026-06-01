@@ -21,22 +21,22 @@ import type {
   StyleAsset,
 } from '../../model/session'
 import type { RetainedSessionState } from '../../model/session-factory'
+import { toFullResCapabilityState } from '../export/export-state'
 import {
   createEmbeddedPreviewObjectUrl,
   revokeEmbeddedPreviewObjectUrls,
-} from '../embedded-preview-url'
-import { toFullResCapabilityState } from '../export-state'
-import { runPreviewPipeline } from '../preview-pipeline'
-import { decideBoundedHqPreview } from '../preview-resolution-policy'
+} from '../preview/embedded-preview-url'
+import { runPreviewPipeline } from '../preview/preview-pipeline'
+import { decideBoundedHqPreview } from '../preview/preview-resolution-policy'
 import {
   applyBoundedHqPreviewFailure,
   applyBoundedHqPreviewSkipped,
   applyPreviewLoadStarted,
   applyPreviewReady,
   applyQuickPreviewFailure,
-} from '../preview-session-state'
-import { prepareRawLoadState } from '../raw-load-preparation'
-import { getStableErrorCode, toUserFacingErrorCode } from '../workflow-status'
+} from '../preview/preview-session-state'
+import { prepareRawLoadState } from './raw-load-preparation'
+import { getStableErrorCode, toUserFacingErrorCode } from './workflow-status'
 
 class RawAdapterErrorLike extends Error {
   readonly code = 'RAW_PREWARM_FAILED'

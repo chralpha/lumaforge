@@ -9,8 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { DecodedImage } from '~/lib/raw/decoder'
 
-import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
-import { DEFAULT_PREVIEW_VIEWPORT } from '../services/preview-viewport'
+import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
+import { DEFAULT_PREVIEW_VIEWPORT } from '../services/preview/preview-viewport'
 import {
   createRawUploadInput,
   syncRawUploadInput,

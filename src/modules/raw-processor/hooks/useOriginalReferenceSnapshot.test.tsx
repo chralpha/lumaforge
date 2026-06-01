@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
 import type { DisplaySource } from '../model/session'
-import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
+import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 import { useOriginalReferenceSnapshot } from './useOriginalReferenceSnapshot'
 
 function createImage(

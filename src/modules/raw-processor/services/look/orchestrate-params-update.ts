@@ -5,19 +5,19 @@ import {
 } from '@lumaforge/luma-color-runtime'
 
 import type { ImageSession, StyleAsset } from '../../model/session'
-import { clampCompareSplit } from '../compare-split'
-import { changesRenderGraphParams } from '../export-state'
-import {
-  applyLookIntensityToSession,
-  clearActiveLookFromSession,
-} from '../look-session-state'
-import type { PreviewViewport } from '../preview-viewport'
-import { mapIntensityLevel } from '../style-system'
+import { clampCompareSplit } from '../compare/compare-split'
 import {
   applyCompareSplitToSession,
   applyPreviewViewportToSession,
   applyViewModeToSession,
-} from '../view-session-state'
+} from '../compare/view-session-state'
+import { changesRenderGraphParams } from '../export/export-state'
+import type { PreviewViewport } from '../preview/preview-viewport'
+import {
+  applyLookIntensityToSession,
+  clearActiveLookFromSession,
+} from './look-session-state'
+import { mapIntensityLevel } from './style-system'
 
 export function computeViewModeChange(
   session: ImageSession | null,

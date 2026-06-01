@@ -1,4 +1,4 @@
-import type { DisplaySource } from '../model/session'
+import type { DisplaySource } from '../../model/session'
 
 export type OriginalReferenceSnapshot = {
   key: string

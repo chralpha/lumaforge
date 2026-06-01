@@ -1,5 +1,5 @@
-import { selectDisplaySource } from '../model/derive-session'
-import type { ImageSession } from '../model/session'
+import { selectDisplaySource } from '../../model/derive-session'
+import type { ImageSession } from '../../model/session'
 
 type BlobConstructor = new (
   blobParts?: BlobPart[],

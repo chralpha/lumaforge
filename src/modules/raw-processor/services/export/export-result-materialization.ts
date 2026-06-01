@@ -6,8 +6,8 @@ import { createBlobOutputResult } from '~/lib/export/output-sink'
 import type {
   ExportCopyCapability,
   ExportResultKind,
-} from '../model/export-result'
-import { createExportResult } from '../model/export-result'
+} from '../../model/export-result'
+import { createExportResult } from '../../model/export-result'
 
 export type CompletedExportJobResult = {
   filename: string

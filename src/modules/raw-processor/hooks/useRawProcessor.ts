@@ -63,19 +63,15 @@ import type {
   LUTContractSelectionState,
   StyleAsset,
 } from '../model/session'
-import { supportsLayeredCompareCss } from '../services/compare-render-mode'
-import {
-  clearEmbeddedPreviewUrlFromSession,
-  revokeEmbeddedPreviewObjectUrls,
-} from '../services/embedded-preview-url'
-import type { ExportContext } from '../services/export/orchestrate-full-res-export'
-import { orchestrateFullResExport } from '../services/export/orchestrate-full-res-export'
-import { toResourceCleanupDebugPayload } from '../services/export-evacuation'
-import { deriveFullResExportReadiness } from '../services/export-readiness'
+import { supportsLayeredCompareCss } from '../services/compare/compare-render-mode'
+import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
+import { releaseOriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
+import { toResourceCleanupDebugPayload } from '../services/export/export-evacuation'
+import { deriveFullResExportReadiness } from '../services/export/export-readiness'
 import {
   createInterruptedExportRecovery,
   validateRecoveryReselection,
-} from '../services/export-recovery'
+} from '../services/export/export-recovery'
 import {
   copyCanvasToClipboard,
   copyExportResultToClipboard,
@@ -83,28 +79,31 @@ import {
   resolveExportCopyCapability,
   resolveExportShareButtonCapability,
   shareExportResult as shareStoredExportResult,
-} from '../services/export-result-actions'
-import { createCompletedExportResult } from '../services/export-result-materialization'
+} from '../services/export/export-result-actions'
+import { createCompletedExportResult } from '../services/export/export-result-materialization'
 import {
   changesRenderGraphParams,
   clearExportResultForActiveExport,
   clearExportResultState,
   hasSameRawRenderExposure,
-} from '../services/export-state'
+} from '../services/export/export-state'
 import {
   buildPreviewExportFilename,
   HQ_PREVIEW_EXPORT_QUALITY,
   resolveHqPreviewExportSize,
   runPreviewExportJob,
-} from '../services/export-system'
-import type { LutLoadContext } from '../services/lut/orchestrate-lut-load'
+} from '../services/export/export-system'
+import type { ExportContext } from '../services/export/orchestrate-full-res-export'
+import { orchestrateFullResExport } from '../services/export/orchestrate-full-res-export'
+import type { RawLoadContext } from '../services/ingest/orchestrate-raw-load'
+import { orchestrateRawLoad } from '../services/ingest/orchestrate-raw-load'
+import { getProgressRecoveryHint } from '../services/ingest/workflow-status'
+import type { LutLoadContext } from '../services/look/orchestrate-lut-load'
 import {
   orchestrateLutLoadFromFile,
   orchestrateOnlineLutLoad,
   orchestrateProfileSelection,
-} from '../services/lut/orchestrate-lut-load'
-import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
-import { releaseOriginalReferenceSnapshot } from '../services/original-reference-snapshot'
+} from '../services/look/orchestrate-lut-load'
 import {
   computeClearLUT,
   computeColorParams,
@@ -113,19 +112,20 @@ import {
   computeToneParams,
   computeViewModeChange,
   computeViewportChange,
-} from '../services/params/orchestrate-params-update'
-import type { PreviewViewport } from '../services/preview-viewport'
-import {
-  DEFAULT_PREVIEW_VIEWPORT,
-  normalizePreviewViewport,
-} from '../services/preview-viewport'
-import type { RawLoadContext } from '../services/raw/orchestrate-raw-load'
-import { orchestrateRawLoad } from '../services/raw/orchestrate-raw-load'
+} from '../services/look/orchestrate-params-update'
 import {
   buildLUTContractSelectionState,
   toCustomStyle,
-} from '../services/style-system'
-import { getProgressRecoveryHint } from '../services/workflow-status'
+} from '../services/look/style-system'
+import {
+  clearEmbeddedPreviewUrlFromSession,
+  revokeEmbeddedPreviewObjectUrls,
+} from '../services/preview/embedded-preview-url'
+import type { PreviewViewport } from '../services/preview/preview-viewport'
+import {
+  DEFAULT_PREVIEW_VIEWPORT,
+  normalizePreviewViewport,
+} from '../services/preview/preview-viewport'
 import { useImageSession } from './useImageSession'
 import type {
   OriginalReferenceSnapshotCapability,

@@ -14,7 +14,7 @@ import { PreviewCanvas } from '../components/PreviewCanvas'
 import { RawToolSurface } from '../components/RawToolSurface'
 import type { UseRawProcessorReturn } from '../hooks/useRawProcessor'
 import { RawProcessorView } from '../RawProcessorView'
-import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
+import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 
 const mockUseRawProcessor = vi.hoisted(() => vi.fn())
 const mockUseCapabilityGate = vi.hoisted(() => vi.fn())

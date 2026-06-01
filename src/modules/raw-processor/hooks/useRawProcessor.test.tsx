@@ -87,8 +87,8 @@ vi.mock('sonner', () => ({
   toast: toastMock,
 }))
 
-vi.mock('../services/export-system', async () => {
-  const actual = await vi.importActual('../services/export-system')
+vi.mock('../services/export/export-system', async () => {
+  const actual = await vi.importActual('../services/export/export-system')
   return {
     ...actual,
     runFullResolutionExportJob: exportSystemMock.runFullResolutionExportJob,
@@ -124,9 +124,9 @@ vi.mock('~/lib/profiles/fetch', async () => {
   }
 })
 
-vi.mock('../services/original-reference-renderer', async () => {
+vi.mock('../services/compare/original-reference-renderer', async () => {
   const actual = await vi.importActual(
-    '../services/original-reference-renderer',
+    '../services/compare/original-reference-renderer',
   )
   return {
     ...actual,
@@ -135,9 +135,9 @@ vi.mock('../services/original-reference-renderer', async () => {
   }
 })
 
-vi.mock('../services/original-reference-snapshot', async () => {
+vi.mock('../services/compare/original-reference-snapshot', async () => {
   const actual = await vi.importActual(
-    '../services/original-reference-snapshot',
+    '../services/compare/original-reference-snapshot',
   )
   return {
     ...actual,

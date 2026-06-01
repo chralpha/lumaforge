@@ -36,7 +36,7 @@ import type { CpuPreviewParams } from './hooks/useCpuPreview'
 import { useCpuPreview } from './hooks/useCpuPreview'
 import { useHiddenFilePicker } from './hooks/useHiddenFilePicker'
 import { useOnlineLutSources } from './hooks/useOnlineLutSources'
-import { clampCompareSplit } from './services/compare-split'
+import { clampCompareSplit } from './services/compare/compare-split'
 
 export interface RawProcessorViewProps {
   className?: string

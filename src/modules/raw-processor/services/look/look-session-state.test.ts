@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import { createBlobOutputResult } from '~/lib/export/output-sink'
 
-import { createExportResult } from '../model/export-result'
-import type { ImageSession, StyleAsset } from '../model/session'
+import { createExportResult } from '../../model/export-result'
+import type { ImageSession, StyleAsset } from '../../model/session'
 import {
   applyActiveLookToSession,
   applyLookIntensityToSession,

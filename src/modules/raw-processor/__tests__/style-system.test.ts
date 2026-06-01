@@ -6,7 +6,7 @@ import {
   buildLUTContractSelectionState,
   mapIntensityLevel,
   toCustomStyle,
-} from '../services/style-system'
+} from '../services/look/style-system'
 
 function makeCube(title: string, comments: string[] = []) {
   const lines = [

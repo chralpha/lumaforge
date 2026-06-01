@@ -23,16 +23,16 @@ import type { DecodedImage } from '~/lib/raw/decoder'
 import { Spring } from '~/lib/spring'
 
 import type { DisplaySource } from '../model/session'
-import type { CompareRenderMode } from '../services/compare-render-mode'
+import type { CompareRenderMode } from '../services/compare/compare-render-mode'
 import {
   selectCompareRenderMode,
   supportsLayeredCompareCss,
-} from '../services/compare-render-mode'
-import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
+} from '../services/compare/compare-render-mode'
+import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 import type {
   PreviewViewport,
   PreviewViewportGeometry,
-} from '../services/preview-viewport'
+} from '../services/preview/preview-viewport'
 import {
   DEFAULT_PREVIEW_VIEWPORT,
   getWheelPreviewZoomTarget,
@@ -40,7 +40,7 @@ import {
   panPreviewViewport,
   resetPreviewViewport,
   zoomPreviewViewportAtPoint,
-} from '../services/preview-viewport'
+} from '../services/preview/preview-viewport'
 import { OriginalReferenceLayer } from './OriginalReferenceLayer'
 import type { OriginalWebglPipelineHandle } from './OriginalWebglLayer'
 import { OriginalWebglLayer } from './OriginalWebglLayer'

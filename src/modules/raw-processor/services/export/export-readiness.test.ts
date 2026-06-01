@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { ImageSession } from '../model/session'
+import type { ImageSession } from '../../model/session'
 import { deriveFullResExportReadiness } from './export-readiness'
 
 function createSession(

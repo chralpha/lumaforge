@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { ImageSession } from '../model/session'
+import type { ImageSession } from '../../model/session'
 import {
   clearEmbeddedPreviewUrlFromSession,
   createEmbeddedPreviewObjectUrl,

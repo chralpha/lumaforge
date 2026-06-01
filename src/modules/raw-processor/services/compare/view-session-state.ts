@@ -1,9 +1,9 @@
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 
-import type { ImageSession } from '../model/session'
+import type { ImageSession } from '../../model/session'
+import type { PreviewViewport } from '../preview/preview-viewport'
+import { normalizePreviewViewport } from '../preview/preview-viewport'
 import { clampCompareSplit } from './compare-split'
-import type { PreviewViewport } from './preview-viewport'
-import { normalizePreviewViewport } from './preview-viewport'
 
 export function applyViewModeToSession(
   session: ImageSession,

@@ -13,7 +13,7 @@ import {
   resolveHqPreviewExportSize,
   runFullResolutionExportJob,
   selectCurrentExportExecutionPlan,
-} from '../services/export-system'
+} from '../services/export/export-system'
 
 describe('export-system', () => {
   beforeEach(() => {

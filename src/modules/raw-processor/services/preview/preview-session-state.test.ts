@@ -1,6 +1,6 @@
 import type { DecodedImage } from '~/lib/raw/decoder'
 
-import type { ImageSession } from '../model/session'
+import type { ImageSession } from '../../model/session'
 import {
   applyBoundedHqPreviewFailure,
   applyBoundedHqPreviewSkipped,

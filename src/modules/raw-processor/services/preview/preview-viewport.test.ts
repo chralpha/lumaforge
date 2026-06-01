@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ImageSession } from '../model/session'
+import type { ImageSession } from '../../model/session'
+import { applyPreviewViewportToSession } from '../compare/view-session-state'
 import {
   DEFAULT_PREVIEW_VIEWPORT,
   panPreviewViewport,
   resetPreviewViewport,
   zoomPreviewViewportAtPoint,
 } from './preview-viewport'
-import { applyPreviewViewportToSession } from './view-session-state'
 
 const geometry = {
   viewportWidth: 400,

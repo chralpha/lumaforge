@@ -8,12 +8,12 @@ import {
   COMPARE_SPLIT_MAX as MAX_SPLIT,
   COMPARE_SPLIT_MIN as MIN_SPLIT,
   getCompareSplitFromClientX,
-} from '../services/compare-split'
+} from '../services/compare/compare-split'
 
 export {
   clampCompareSplit,
   getCompareSplitFromClientX,
-} from '../services/compare-split'
+} from '../services/compare/compare-split'
 
 const KEYBOARD_STEP = 0.01
 const IMAGE_TRACK_SELECTOR = '[data-raw-compare-track="image"]'

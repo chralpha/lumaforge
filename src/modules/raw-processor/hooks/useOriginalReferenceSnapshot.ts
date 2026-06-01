@@ -3,13 +3,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
 import type { DisplaySource } from '../model/session'
-import { renderOriginalReferenceSnapshot } from '../services/original-reference-renderer'
-import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
+import { renderOriginalReferenceSnapshot } from '../services/compare/original-reference-renderer'
+import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 import {
   createOriginalReferenceSnapshotKey,
   getOriginalReferenceSnapshotMaxPixels,
   releaseOriginalReferenceSnapshot,
-} from '../services/original-reference-snapshot'
+} from '../services/compare/original-reference-snapshot'
 
 export type OriginalReferenceSnapshotCapability = {
   webKitClass:

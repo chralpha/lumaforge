@@ -15,14 +15,14 @@ import type {
   OnlineLUTSourceEntry,
   OnlineLUTSourceIssue,
   OnlineLUTSourceState,
-} from '../services/online-lut-sources'
+} from '../services/look/online-lut-sources'
 import {
   getShareableOnlineLUTSourceResources,
   mergeOnlineLUTSourceResolution,
   removeOnlineLUTSourceResource,
   resolveOnlineLUTSourceEntry,
   resolveProfileSourceResource,
-} from '../services/online-lut-sources'
+} from '../services/look/online-lut-sources'
 
 export interface UseOnlineLutSourcesOptions {
   search: string

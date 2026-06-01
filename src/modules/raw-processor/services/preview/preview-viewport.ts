@@ -1,4 +1,4 @@
-import type { ImageSession } from '../model/session'
+import type { ImageSession } from '../../model/session'
 
 export type PreviewViewport = Pick<
   ImageSession['viewState'],

@@ -9,8 +9,8 @@ import {
   getCapabilityVectorSnapshot,
 } from '~/lib/runtime/capability-vector'
 
-import { deriveExportDisabledReason } from '../model/derive-session'
-import type { ImageSession } from '../model/session'
+import { deriveExportDisabledReason } from '../../model/derive-session'
+import type { ImageSession } from '../../model/session'
 
 const MISSING_RAW_RENDER_EXPOSURE_EXPORT_REASON =
   'RAW preview exposure is still being prepared.'

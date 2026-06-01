@@ -1,4 +1,4 @@
-import type { OriginalReferenceSnapshot } from '../services/original-reference-snapshot'
+import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 
 export function OriginalReferenceLayer({
   snapshot,

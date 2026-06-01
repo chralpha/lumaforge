@@ -1,8 +1,8 @@
 import type { DecodedImage } from '~/lib/raw/decoder'
 
-import { selectDisplaySource } from '../model/derive-session'
-import type { DisplaySource, ImageSession } from '../model/session'
-import { classifySupportLevel } from './support-matrix'
+import { selectDisplaySource } from '../../model/derive-session'
+import type { DisplaySource, ImageSession } from '../../model/session'
+import { classifySupportLevel } from '../ingest/support-matrix'
 
 type PreviewReadyPayload = {
   width: number

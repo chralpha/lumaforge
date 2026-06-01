@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { PreviewEvent } from '../services/preview-pipeline'
-import { runPreviewPipeline } from '../services/preview-pipeline'
+import type { PreviewEvent } from '../services/preview/preview-pipeline'
+import { runPreviewPipeline } from '../services/preview/preview-pipeline'
 
 describe('runPreviewPipeline', () => {
   it('falls back to quick preview when embedded preview is unavailable', async () => {

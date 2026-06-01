@@ -25,23 +25,23 @@ import {
 
 import type { ImageSession, StyleAsset } from '../../model/session'
 import {
+  getStableErrorCode,
+  isAbortError,
+  toUserFacingErrorCode,
+} from '../ingest/workflow-status'
+import {
   applyActiveLookToSession,
   preserveCustomLookIntensity,
-} from '../look-session-state'
+} from './look-session-state'
 import {
   resolveLUTContractProfile,
   resolveOnlineLUTSourceName,
-} from '../lut-workflow'
+} from './lut-workflow'
 import {
   buildLUTContractSelectionState,
   mapIntensityLevel,
   toCustomStyle,
-} from '../style-system'
-import {
-  getStableErrorCode,
-  isAbortError,
-  toUserFacingErrorCode,
-} from '../workflow-status'
+} from './style-system'
 
 const MAX_ONLINE_CUBE_BYTES = 64 * 1024 * 1024
 const onlineProfileCache = createBrowserOnlineProfileCache()

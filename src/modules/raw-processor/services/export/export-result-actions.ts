@@ -4,7 +4,7 @@ import type {
   ExportCopyCapability,
   ExportResult,
   ExportShareCapability,
-} from '../model/export-result'
+} from '../../model/export-result'
 
 type ClipboardEnvironment = {
   navigator?: {

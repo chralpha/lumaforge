@@ -3,8 +3,8 @@ import type {
   IntensityLevel,
   LUTContractSelectionState,
   StyleAsset,
-} from '../model/session'
-import { clearExportResultState } from './export-state'
+} from '../../model/session'
+import { clearExportResultState } from '../export/export-state'
 
 export function preserveCustomLookIntensity(
   style: StyleAsset,

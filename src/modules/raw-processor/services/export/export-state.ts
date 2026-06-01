@@ -7,7 +7,7 @@ import type { LumaRawExportCapability } from '@lumaforge/luma-raw-runtime'
 import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
 import type { FullResWorkerCheckpointMetric } from '~/lib/export/full-res-export-client'
 
-import type { ImageSession } from '../model/session'
+import type { ImageSession } from '../../model/session'
 
 export function toFullResCapabilityState(capability: LumaRawExportCapability) {
   if (

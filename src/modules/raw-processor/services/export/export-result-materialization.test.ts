@@ -6,7 +6,7 @@ import {
   materializeOutputBlob,
 } from '~/lib/export/output-sink'
 
-import type { ExportCopyCapability } from '../model/export-result'
+import type { ExportCopyCapability } from '../../model/export-result'
 import { createCompletedExportResult } from './export-result-materialization'
 
 const jpegMetadataMock = vi.hoisted(() => ({

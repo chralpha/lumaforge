@@ -1,2 +1,2 @@
 export * from './tiff-encoder'
-export * from '~/modules/raw-processor/services/export-system'
+export * from '~/modules/raw-processor/services/export/export-system'

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { parseCubeLUT } from '~/lib/lut/cube-parser'
 
-import type { StyleAsset } from '../model/session'
+import type { StyleAsset } from '../../model/session'
 import { prepareRawLoadState } from './raw-load-preparation'
 
 function createParams(
