@@ -1,0 +1,68 @@
+import type { MutableRefObject } from 'react'
+import { useCallback, useRef } from 'react'
+
+import type { ResourceRegistry } from '~/lib/export/resource-registry'
+import type { RawProcessingPipeline } from '~/lib/gl/pipeline'
+
+export type PreviewPipelineEvacuationHandle = Pick<
+  RawProcessingPipeline,
+  'dispose'
+>
+
+type UsePreviewPipelineEvacuationInput = {
+  resourceRegistryRef: MutableRefObject<ResourceRegistry | null>
+  pipelineRef: MutableRefObject<PreviewPipelineEvacuationHandle | null>
+  originalPreviewPipelineRef: MutableRefObject<PreviewPipelineEvacuationHandle | null>
+}
+
+export function usePreviewPipelineEvacuation({
+  resourceRegistryRef,
+  pipelineRef,
+  originalPreviewPipelineRef,
+}: UsePreviewPipelineEvacuationInput) {
+  const previewPipelineResourceIdRef = useRef(0)
+
+  const registerCurrentPreviewPipelineForEvacuation = useCallback(() => {
+    const registry = resourceRegistryRef.current
+    if (!registry) {
+      return
+    }
+
+    const registerPipeline = (
+      label: 'processed' | 'original',
+      pipeline: PreviewPipelineEvacuationHandle | null,
+      clearCurrent: () => void,
+    ) => {
+      if (!pipeline || typeof pipeline.dispose !== 'function') {
+        return
+      }
+
+      const id = `webgl-pipeline-${++previewPipelineResourceIdRef.current}-${label}`
+      registry.register({
+        id,
+        owner: 'webgl',
+        kind: 'webgl-pipeline',
+        dispose: () => {
+          clearCurrent()
+          return pipeline.dispose({ releaseContext: true })
+        },
+      })
+    }
+
+    const processedPipeline = pipelineRef.current
+    registerPipeline('processed', processedPipeline, () => {
+      if (pipelineRef.current === processedPipeline) {
+        pipelineRef.current = null
+      }
+    })
+
+    const originalPipeline = originalPreviewPipelineRef.current
+    registerPipeline('original', originalPipeline, () => {
+      if (originalPreviewPipelineRef.current === originalPipeline) {
+        originalPreviewPipelineRef.current = null
+      }
+    })
+  }, [originalPreviewPipelineRef, pipelineRef, resourceRegistryRef])
+
+  return { registerCurrentPreviewPipelineForEvacuation }
+}

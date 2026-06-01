@@ -78,6 +78,8 @@ import { useExportResultActions } from './stages/export/useExportResultActions'
 import { useHqPreviewExportAction } from './stages/export/useHqPreviewExportAction'
 import { useRawLookStage } from './stages/look/useRawLookStage'
 import { useDecodedPreviewResource } from './stages/preview/useDecodedPreviewResource'
+import type { PreviewPipelineEvacuationHandle } from './stages/preview/usePreviewPipelineEvacuation'
+import { usePreviewPipelineEvacuation } from './stages/preview/usePreviewPipelineEvacuation'
 import { useImageSession } from './useImageSession'
 import type {
   OriginalReferenceSnapshotCapability,
@@ -215,8 +217,6 @@ export interface UseRawProcessorReturn {
   pipelineRef: React.RefObject<RawProcessingPipeline | null>
 }
 
-type PreviewPipelineEvacuationHandle = Pick<RawProcessingPipeline, 'dispose'>
-
 export function useRawProcessor(): UseRawProcessorReturn {
   const baseParams = useProcessingParamsValue()
   const setParams = useSetProcessingParams()
@@ -234,7 +234,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
   const resourceRegistryRef = useRef<ResourceRegistry | null>(null)
-  const previewPipelineResourceIdRef = useRef(0)
   const originalReferenceSnapshotResourceIdRef = useRef(0)
   const originalReferenceSnapshotPendingResourceIdRef = useRef(0)
   const originalReferenceSnapshotResourceRef =
@@ -489,47 +488,12 @@ export function useRawProcessor(): UseRawProcessorReturn {
     exportAbortControllerRef.current = null
   }, [])
 
-  const registerCurrentPreviewPipelineForEvacuation = useCallback(() => {
-    const registry = resourceRegistryRef.current
-    if (!registry) {
-      return
-    }
-
-    const registerPipeline = (
-      label: 'processed' | 'original',
-      pipeline: PreviewPipelineEvacuationHandle | null,
-      clearCurrent: () => void,
-    ) => {
-      if (!pipeline || typeof pipeline.dispose !== 'function') {
-        return
-      }
-
-      const id = `webgl-pipeline-${++previewPipelineResourceIdRef.current}-${label}`
-      registry.register({
-        id,
-        owner: 'webgl',
-        kind: 'webgl-pipeline',
-        dispose: () => {
-          clearCurrent()
-          return pipeline.dispose({ releaseContext: true })
-        },
-      })
-    }
-
-    const processedPipeline = pipelineRef.current
-    registerPipeline('processed', processedPipeline, () => {
-      if (pipelineRef.current === processedPipeline) {
-        pipelineRef.current = null
-      }
+  const { registerCurrentPreviewPipelineForEvacuation } =
+    usePreviewPipelineEvacuation({
+      resourceRegistryRef,
+      pipelineRef,
+      originalPreviewPipelineRef,
     })
-
-    const originalPipeline = originalPreviewPipelineRef.current
-    registerPipeline('original', originalPipeline, () => {
-      if (originalPreviewPipelineRef.current === originalPipeline) {
-        originalPreviewPipelineRef.current = null
-      }
-    })
-  }, [])
 
   const { registerExportResultResource, queueExportResultResourceDisposal } =
     useExportResourceManagement({ resourceRegistryRef })
@@ -696,13 +660,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
         disposedRuntimeSessionsRef,
         decodedImageRef,
         sessionRef,
-        pipelineRef,
-        resourceRegistryRef,
         embeddedPreviewUrlRef,
         isMountedRef,
         runtimeWorkSessionIdRef,
         pendingLoadSessionIdRef,
-        previewPipelineResourceIdRef,
         previewCopyCanvasRef,
       },
     }),

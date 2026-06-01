@@ -100,13 +100,10 @@ function buildContext(hooks: OrderingHooks): RawLoadContext {
       disposedRuntimeSessionsRef: { current: new WeakSet() },
       decodedImageRef: { current: null },
       sessionRef: { current: null },
-      pipelineRef: { current: null },
-      resourceRegistryRef: { current: null },
       embeddedPreviewUrlRef: { current: null },
       isMountedRef: { current: true },
       runtimeWorkSessionIdRef: { current: null },
       pendingLoadSessionIdRef: { current: null },
-      previewPipelineResourceIdRef: { current: 0 },
       previewCopyCanvasRef: { current: null },
     },
   }

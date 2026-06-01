@@ -1,8 +1,7 @@
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { toast } from 'sonner'
 
-import type { ResourceRegistry } from '~/lib/export/resource-registry'
-import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
+import type { PipelineStats } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 import type { DecodedImage } from '~/lib/raw/decoder'
 import { isSupportedRaw } from '~/lib/raw/decoder'
@@ -90,13 +89,10 @@ export interface RawLoadContext {
     disposedRuntimeSessionsRef: { current: WeakSet<RawRuntimeSession> }
     decodedImageRef: { current: DecodedImage | null }
     sessionRef: { current: ImageSession | null }
-    pipelineRef: { current: RawProcessingPipeline | null }
-    resourceRegistryRef: { current: ResourceRegistry | null }
     embeddedPreviewUrlRef: { current: string | null }
     isMountedRef: { current: boolean }
     runtimeWorkSessionIdRef: { current: string | null }
     pendingLoadSessionIdRef: { current: string | null }
-    previewPipelineResourceIdRef: { current: number }
     previewCopyCanvasRef: { current: HTMLCanvasElement | null }
   }
 }
