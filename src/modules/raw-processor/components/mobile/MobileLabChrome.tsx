@@ -1,24 +1,21 @@
 import type { PreviewHistogramState } from '@lumaforge/luma-color-runtime'
-import { AnimatePresence, m, useReducedMotion } from 'motion/react'
+import { AnimatePresence, m } from 'motion/react'
 import type { ReactNode } from 'react'
-import { useEffect, useRef, useState } from 'react'
 
-import { DOCK_SPRING, IMMERSIVE_STAGGER_MS } from '../../motion'
+import { DOCK_SPRING } from '../../motion'
 import type { RawRuntimeReadinessState } from '../raw-runtime-readiness'
 import type { ColorValue } from '../tools/ColorTool'
 import type { ToneValue } from '../tools/ToneTool'
-import type { ScrubFieldId } from './AdjustListPanel'
 import { MobileEmptyState } from './MobileEmptyState'
 import { MobileFloatingOverlays } from './MobileFloatingOverlays'
 import { MobileLabModeDock } from './MobileLabModeDock'
 import { MobileLabTopbar } from './MobileLabTopbar'
 import type { MobileLutBrowserProps } from './MobileLutBrowser'
 import { MobileLutBrowser } from './MobileLutBrowser'
-import type { MobileMode } from './MobileModeDock'
 import { MobileMoreSheet } from './MobileMoreSheet'
-import { useMobilePreviewGestures } from './useMobilePreviewGestures'
+import type { MobileLabViewMode } from './useMobileLabChromeController'
+import { useMobileLabChromeController } from './useMobileLabChromeController'
 
-type ViewMode = 'processed' | 'original' | 'compare'
 type Row = { label: string; value: string }
 type Step = { index: number; label: string; timing: string }
 
@@ -30,8 +27,8 @@ export function MobileLabChrome(props: {
   onToneReset: () => void
   onColorChange: (patch: Partial<ColorValue>) => void
   onColorReset: () => void
-  viewMode: ViewMode
-  onViewModeChange: (mode: ViewMode) => void
+  viewMode: MobileLabViewMode
+  onViewModeChange: (mode: MobileLabViewMode) => void
   histogram: PreviewHistogramState
   fileName: string
   fileMeta: string
@@ -49,223 +46,39 @@ export function MobileLabChrome(props: {
   preferExportMode?: boolean
   previewFrameEl?: HTMLDivElement | null
 }) {
-  const prefersReduced = useReducedMotion() ?? false
-  const [mode, setMode] = useState<MobileMode>('look')
-  const [scrubField, setScrubField] = useState<ScrubFieldId | null>(null)
-  const [moreOpen, setMoreOpen] = useState(false)
-  const [lutBrowserOpen, setLutBrowserOpen] = useState(false)
-  const [lutBrowserStartsInContract, setLutBrowserStartsInContract] =
-    useState(false)
-  const [peeking, setPeeking] = useState(false)
-  const [immersive, setImmersive] = useState(false)
-  const [histogramOpen, setHistogramOpen] = useState(false)
-  const [dockExpanded, setDockExpanded] = useState(true)
-  const [compareSplitOpen, setCompareSplitOpen] = useState(false)
-  const previewReleasedReady =
-    props.hasImage && props.previewSuspended === true && !props.isProcessing
-  const handoffActive =
-    props.hasImage && (props.isProcessing || previewReleasedReady)
-  const viewModeBeforePeek = useRef<ViewMode>('processed')
-  const compareSplitOpenRef = useRef(false)
-  const suppressNextPeekRestore = useRef(false)
-  const preferExportModeWasActive = useRef(false)
-  const immersiveStaggerTimer = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  )
-  const expandedBeforeImmersive = useRef(false)
-
-  // When the RAW is cleared/replaced, tear down every transient layer so the
-  // empty-state scaffold can never be left behind focus / immersive / a
-  // dangling LUT or More sheet.
-  const hasImage = props.hasImage
-  const viewMode = props.viewMode
-  const onViewModeChange = props.onViewModeChange
-  useEffect(() => {
-    if (hasImage) return
-    if (immersiveStaggerTimer.current !== null) {
-      clearTimeout(immersiveStaggerTimer.current)
-      immersiveStaggerTimer.current = null
-    }
-    expandedBeforeImmersive.current = false
-    setScrubField(null)
-    setImmersive(false)
-    setLutBrowserOpen(false)
-    setLutBrowserStartsInContract(false)
-    setMoreOpen(false)
-    setDockExpanded(true)
-    compareSplitOpenRef.current = false
-    suppressNextPeekRestore.current = false
-    setCompareSplitOpen(false)
-    setHistogramOpen(false)
-    setMode('look')
-  }, [hasImage])
-
-  useEffect(() => {
-    if (!handoffActive) return
-    if (immersiveStaggerTimer.current !== null) {
-      clearTimeout(immersiveStaggerTimer.current)
-      immersiveStaggerTimer.current = null
-    }
-    expandedBeforeImmersive.current = false
-    setScrubField(null)
-    setImmersive(false)
-    setLutBrowserOpen(false)
-    setLutBrowserStartsInContract(false)
-    setMoreOpen(false)
-    compareSplitOpenRef.current = false
-    suppressNextPeekRestore.current = false
-    setCompareSplitOpen(false)
-    setHistogramOpen(false)
-    setPeeking(false)
-  }, [handoffActive])
-
-  useEffect(() => {
-    if (!hasImage || compareSplitOpen || viewMode !== 'compare') return
-    onViewModeChange('processed')
-  }, [compareSplitOpen, hasImage, onViewModeChange, viewMode])
-
-  useEffect(() => {
-    const preferExportMode = props.preferExportMode === true
-    const shouldActivate =
-      preferExportMode && !preferExportModeWasActive.current && hasImage
-    preferExportModeWasActive.current = preferExportMode
-
-    if (!shouldActivate) return
-    if (immersiveStaggerTimer.current !== null) {
-      clearTimeout(immersiveStaggerTimer.current)
-      immersiveStaggerTimer.current = null
-    }
-    expandedBeforeImmersive.current = false
-
-    setMode('export')
-    setDockExpanded(true)
-    setScrubField(null)
-    setImmersive(false)
-    setLutBrowserOpen(false)
-    setLutBrowserStartsInContract(false)
-    setMoreOpen(false)
-    compareSplitOpenRef.current = false
-    suppressNextPeekRestore.current = false
-    setCompareSplitOpen(false)
-    setHistogramOpen(false)
-  }, [hasImage, props.preferExportMode])
-
-  useEffect(
-    () => () => {
-      if (immersiveStaggerTimer.current !== null) {
-        clearTimeout(immersiveStaggerTimer.current)
-      }
-    },
-    [],
-  )
-
-  const onPeekChange = (p: boolean) => {
-    if (p) {
-      if (compareSplitOpenRef.current) return
-      viewModeBeforePeek.current = 'processed'
-      onViewModeChange('original')
-    } else {
-      setPeeking(false)
-      if (suppressNextPeekRestore.current) {
-        suppressNextPeekRestore.current = false
-        return
-      }
-      onViewModeChange(
-        compareSplitOpenRef.current ? viewModeBeforePeek.current : 'processed',
-      )
-      return
-    }
-    setPeeking(p)
-  }
-
-  const setCompareSplitMode = (open: boolean) => {
-    compareSplitOpenRef.current = open
-    suppressNextPeekRestore.current = open
-    viewModeBeforePeek.current = open ? 'compare' : 'processed'
-    setPeeking(false)
-    setCompareSplitOpen(open)
-    onViewModeChange(open ? 'compare' : 'processed')
-  }
-
-  // Mobile peek (long-press) + tap-to-immersive bind directly to the same
-  // preview frame element that owns pinch / pan. Sharing the gesture target
-  // is what keeps multi-touch alive — a sibling overlay would swallow every
-  // touch before `PreviewCanvas` ever saw the second finger.
-  const focusActive = scrubField !== null
-  const previewGesturesEnabled =
-    props.hasImage && !handoffActive && !focusActive
-  const closeSheets = () => {
-    setLutBrowserOpen(false)
-    setLutBrowserStartsInContract(false) // re-open always starts on the browse tab
-    setMoreOpen(false)
-  }
-  const clearImmersiveStagger = () => {
-    if (immersiveStaggerTimer.current !== null) {
-      clearTimeout(immersiveStaggerTimer.current)
-      immersiveStaggerTimer.current = null
-    }
-  }
-  // Entering immersive while the dock panel is expanded tidies the panel away
-  // first, then recedes the chrome a beat later — one "collapse, then recede"
-  // sequence instead of a wall vanishing at once. Exit reverses it. Reduced
-  // motion collapses both halves to an instant flip.
-  const enterImmersive = () => {
-    // A stagger already in flight means dockExpanded is mid-transition; reading
-    // it on a rapid second tap would mis-record the user's panel state. Keep the
-    // value captured when this immersive sequence first began.
-    const wasStaggering = immersiveStaggerTimer.current !== null
-    clearImmersiveStagger()
-    if (!wasStaggering) {
-      expandedBeforeImmersive.current = dockExpanded
-    }
-    if (dockExpanded && !prefersReduced) {
-      setDockExpanded(false)
-      immersiveStaggerTimer.current = setTimeout(() => {
-        immersiveStaggerTimer.current = null
-        setImmersive(true)
-      }, IMMERSIVE_STAGGER_MS)
-      return
-    }
-    setImmersive(true)
-  }
-  const exitImmersive = () => {
-    clearImmersiveStagger()
-    setImmersive(false)
-    if (expandedBeforeImmersive.current) {
-      if (prefersReduced) {
-        setDockExpanded(true)
-      } else {
-        immersiveStaggerTimer.current = setTimeout(() => {
-          immersiveStaggerTimer.current = null
-          setDockExpanded(true)
-        }, IMMERSIVE_STAGGER_MS)
-      }
-    }
-    // No eager reset: the next stable enterImmersive recaptures the panel state.
-    // Zeroing here would destroy the restore intent if a re-tap interrupts the
-    // re-expand stagger.
-  }
-  useMobilePreviewGestures(props.previewFrameEl ?? null, {
-    enabled: previewGesturesEnabled,
-    allowPeek: !compareSplitOpen && !lutBrowserOpen && !moreOpen,
-    onPeekChange,
-    onTap: () => {
-      if (lutBrowserOpen || moreOpen) {
-        closeSheets()
-        return
-      }
-      if (immersive) exitImmersive()
-      else enterImmersive()
-    },
+  const {
+    prefersReduced,
+    mode,
+    scrubField,
+    moreOpen,
+    lutBrowserOpen,
+    lutBrowserStartsInContract,
+    peeking,
+    immersive,
+    histogramOpen,
+    dockExpanded,
+    compareSplitOpen,
+    handoffActive,
+    focusActive,
+    setScrubField,
+    setMoreOpen,
+    setHistogramOpen,
+    setDockExpanded,
+    setCompareSplitMode,
+    exitImmersive,
+    openLutBrowser,
+    openLutContractBrowser,
+    closeLutBrowser,
+    handleModeChange,
+  } = useMobileLabChromeController({
+    hasImage: props.hasImage,
+    isProcessing: props.isProcessing,
+    previewSuspended: props.previewSuspended,
+    preferExportMode: props.preferExportMode,
+    previewFrameEl: props.previewFrameEl,
+    viewMode: props.viewMode,
+    onViewModeChange: props.onViewModeChange,
   })
-  const openLutBrowser = () => {
-    setLutBrowserStartsInContract(false)
-    setLutBrowserOpen(true)
-  }
-  const openLutContractBrowser = () => {
-    setLutBrowserStartsInContract(true)
-    setLutBrowserOpen(true)
-  }
 
   return (
     <div
@@ -333,13 +146,7 @@ export function MobileLabChrome(props: {
               mode={mode}
               expanded={dockExpanded && props.hasImage}
               disabled={!props.hasImage || props.isProcessing}
-              onModeChange={(m) => {
-                if (m !== 'compare' && compareSplitOpen) {
-                  setCompareSplitMode(false)
-                }
-                setMode(m)
-                setDockExpanded(true)
-              }}
+              onModeChange={handleModeChange}
               onCollapse={() => setDockExpanded(false)}
               onOpenMore={() => setMoreOpen(true)}
               scrubbing={focusActive}
@@ -366,10 +173,7 @@ export function MobileLabChrome(props: {
       <MobileLutBrowser
         open={!handoffActive && lutBrowserOpen}
         initialContractEditorOpen={lutBrowserStartsInContract}
-        onClose={() => {
-          setLutBrowserOpen(false)
-          setLutBrowserStartsInContract(false)
-        }}
+        onClose={closeLutBrowser}
         {...props.lutBrowser}
       />
 
