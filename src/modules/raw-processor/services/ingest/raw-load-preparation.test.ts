@@ -108,11 +108,11 @@ describe('raw load preparation', () => {
       title: 'Client LUT',
       sourceName: 'client.cube',
     })
-    expect(prepared.processingParamsPatch).toMatchObject({
-      intensity: 0.7,
+    expect(prepared.processingParamsPatch).toEqual({
       styleKind: 'custom',
       builtinPreset: null,
     })
+    expect(prepared.processingParamsPatch).not.toHaveProperty('intensity')
     expect(prepared.processingParamsPatch).not.toHaveProperty('viewMode')
     expect(prepared.processingParamsPatch).not.toHaveProperty('compareSplit')
   })
@@ -130,7 +130,7 @@ describe('raw load preparation', () => {
       kind: 'custom',
       currentIntensityLevel: 'strong',
     })
-    expect(prepared.processingParamsPatch.intensity).toBe(1)
+    expect(prepared.processingParamsPatch).not.toHaveProperty('intensity')
   })
 
   it('does not preserve builtin intensity as custom LUT intensity', () => {
@@ -150,6 +150,6 @@ describe('raw load preparation', () => {
       kind: 'custom',
       currentIntensityLevel: 'standard',
     })
-    expect(prepared.processingParamsPatch.intensity).toBe(0.7)
+    expect(prepared.processingParamsPatch).not.toHaveProperty('intensity')
   })
 })
