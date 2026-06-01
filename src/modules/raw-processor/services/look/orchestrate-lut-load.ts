@@ -286,10 +286,12 @@ export function orchestrateProfileSelection(
         })
       : prev,
   )
-  ctx.atoms.setParams((prev) => ({
-    ...prev,
-    styleKind: 'custom',
-    builtinPreset: null,
-    intensity: mapIntensityLevel(style.currentIntensityLevel),
-  }))
+  if (!ctx.refs.sessionRef.current) {
+    ctx.atoms.setParams((prev) => ({
+      ...prev,
+      styleKind: 'custom',
+      builtinPreset: null,
+      intensity: mapIntensityLevel(style.currentIntensityLevel),
+    }))
+  }
 }

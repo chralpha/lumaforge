@@ -2,6 +2,8 @@ import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
+import { parseCubeLUT } from '~/lib/lut/cube-parser'
+
 import type { ImageSession } from '../../../model/session'
 import { useRawLookStage } from './useRawLookStage'
 
@@ -69,7 +71,7 @@ function createSession(): ImageSession {
   }
 }
 
-function createCubeFile(title: string, name: string) {
+function createCubeContent(title: string) {
   const size = 17
   const step = 1 / (size - 1)
   const lines = [`TITLE "${title}"`, `LUT_3D_SIZE ${size}`]
@@ -82,7 +84,11 @@ function createCubeFile(title: string, name: string) {
     }
   }
 
-  const content = lines.join('\n')
+  return lines.join('\n')
+}
+
+function createCubeFile(title: string, name: string) {
+  const content = createCubeContent(title)
 
   return Object.assign(new File([content], name), {
     text: () => Promise.resolve(content),
@@ -181,6 +187,38 @@ describe('useRawLookStage', () => {
     await act(async () => {
       await result.current.loadLUT(createCubeFile('Client Look', 'look.cube'))
     })
+
+    expect(setLut).toHaveBeenCalledTimes(1)
+    expect(setSession).toHaveBeenCalledTimes(1)
+    expect(setParams).not.toHaveBeenCalled()
+  })
+
+  it('selects LUT profiles in the active session without writing legacy params', () => {
+    const session = createSession()
+    const setParams = vi.fn()
+    const setLut = vi.fn()
+    const setSession = vi.fn()
+    const lut = parseCubeLUT(createCubeContent('Client Look'), {
+      sourceName: 'look.cube',
+    })
+    const { result } = renderHook(() =>
+      useRawLookStage({
+        baseParams,
+        session,
+        sessionRef: { current: session },
+        setSession,
+        lut,
+        setLut,
+        setParams,
+        getProcessingParams: () => baseParams,
+        lutDataRef: { current: null },
+        setLutDataRef: vi.fn(),
+        scheduleToast: vi.fn(),
+        invalidateExportGraph: vi.fn(),
+      }),
+    )
+
+    result.current.selectLUTProfile('display-srgb')
 
     expect(setLut).toHaveBeenCalledTimes(1)
     expect(setSession).toHaveBeenCalledTimes(1)
