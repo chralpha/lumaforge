@@ -14,7 +14,6 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -31,9 +30,7 @@ import { getViewportBoundedBrowserLayout } from './lut-browser-layout'
 import { groupEntriesByFamily } from './lut-source-grouping'
 import { LutBrowserDialog } from './LutBrowserDialog'
 import { LutIconButton } from './LutIconButton'
-
-type OnlineLutSourceEntries = UseOnlineLutSourcesResult['state']['entries']
-type OnlineLutSourceIssues = UseOnlineLutSourcesResult['state']['issues']
+import { useOnlineLutResourceState } from './useOnlineLutResourceState'
 
 export function OnlineLutSourceControls({
   onlineLutSources,
@@ -53,49 +50,14 @@ export function OnlineLutSourceControls({
   )
   useScrollEdgeFade(browserListEl, { enabled: openResourceId != null })
   const openButtonRefs = useRef(new Map<string, HTMLButtonElement>())
-  const resourcesById = useMemo(
-    () => new Map(state.resources.map((resource) => [resource.id, resource])),
-    [state.resources],
-  )
-  const entriesByResourceId = useMemo(() => {
-    const entries = new Map<string, OnlineLutSourceEntries>()
-
-    for (const resource of state.resources) {
-      entries.set(resource.id, [])
-    }
-
-    for (const entry of state.entries) {
-      entries.set(entry.resourceId, [
-        ...(entries.get(entry.resourceId) ?? []),
-        entry,
-      ])
-    }
-
-    return entries
-  }, [state.entries, state.resources])
-  const issuesByResourceId = useMemo(() => {
-    const issues = new Map<string, OnlineLutSourceIssues>()
-
-    for (const issue of state.issues) {
-      if (!issue.resourceId) continue
-
-      issues.set(issue.resourceId, [
-        ...(issues.get(issue.resourceId) ?? []),
-        issue,
-      ])
-    }
-
-    return issues
-  }, [state.issues])
-  const openResource = openResourceId
-    ? resourcesById.get(openResourceId)
-    : undefined
-  const openEntries = openResourceId
-    ? (entriesByResourceId.get(openResourceId) ?? [])
-    : []
-  const openIssues = openResourceId
-    ? (issuesByResourceId.get(openResourceId) ?? [])
-    : []
+  const {
+    resourcesById,
+    entriesByResourceId,
+    issuesByResourceId,
+    selectedResource: openResource,
+    selectedEntries: openEntries,
+    selectedIssues: openIssues,
+  } = useOnlineLutResourceState({ state, resourceId: openResourceId })
   const closeBrowser = useCallback(
     (resourceId = openResourceId, options: { restoreFocus?: boolean } = {}) => {
       setOpenResourceId(null)

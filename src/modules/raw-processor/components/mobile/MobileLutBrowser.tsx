@@ -5,7 +5,7 @@ import type {
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { AlertTriangle, ArrowLeft, Check, Plus, Share2, X } from 'lucide-react'
 import { AnimatePresence, m, useDragControls } from 'motion/react'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { IconButton } from '~/components/ui/button'
@@ -21,9 +21,9 @@ import { useToolMotion } from '../../motion'
 import { Dropzone } from '../Dropzone'
 import type { LUTOutputOption } from '../tools/lut/lut-output-options'
 import { toOutputCarrierProfile } from '../tools/lut/lut-output-options'
-import { groupEntriesByFamily } from '../tools/lut/lut-source-grouping'
 import { LUTOutputOptionButton } from '../tools/lut/LUTOutputOptionButton'
 import { LUTProfileButton } from '../tools/lut/LUTProfileButton'
+import { useOnlineLutResourceState } from '../tools/lut/useOnlineLutResourceState'
 import {
   composeLUTContractProfile,
   getProfileOutputLabel,
@@ -140,40 +140,18 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
   const catalogBodyRef = useRef<HTMLDivElement | null>(null)
   const contractBodyRef = useRef<HTMLDivElement | null>(null)
 
-  const entriesByResourceId = useMemo(() => {
-    const entries = new Map<string, OnlineEntry[]>()
-
-    for (const resource of props.onlineLutSources?.state.resources ?? []) {
-      entries.set(resource.id, [])
-    }
-
-    for (const entry of props.onlineLutSources?.state.entries ?? []) {
-      entries.set(entry.resourceId, [
-        ...(entries.get(entry.resourceId) ?? []),
-        entry,
-      ])
-    }
-
-    return entries
-  }, [
-    props.onlineLutSources?.state.entries,
-    props.onlineLutSources?.state.resources,
-  ])
-
-  const issuesByResourceId = useMemo(() => {
-    const issues = new Map<string, OnlineIssue[]>()
-
-    for (const issue of props.onlineLutSources?.state.issues ?? []) {
-      if (!issue.resourceId) continue
-
-      issues.set(issue.resourceId, [
-        ...(issues.get(issue.resourceId) ?? []),
-        issue,
-      ])
-    }
-
-    return issues
-  }, [props.onlineLutSources?.state.issues])
+  const {
+    entriesByResourceId,
+    issuesByResourceId,
+    selectedResource,
+    selectedEntries,
+    selectedIssues,
+    selectedResourceLoading,
+    selectedEntryGroups,
+  } = useOnlineLutResourceState({
+    state: props.onlineLutSources?.state,
+    resourceId: catalogResourceId,
+  })
 
   const {
     resolvedProfile,
@@ -251,34 +229,6 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       setView('overview')
     }
   }, [catalogResourceId, props.onlineLutSources?.state.resources, view])
-
-  const selectedResource =
-    props.onlineLutSources?.state.resources.find(
-      (resource) => resource.id === catalogResourceId,
-    ) ?? null
-  const selectedEntries = useMemo(
-    () =>
-      selectedResource
-        ? (entriesByResourceId.get(selectedResource.id) ?? [])
-        : [],
-    [entriesByResourceId, selectedResource],
-  )
-  const selectedIssues = useMemo(
-    () =>
-      selectedResource
-        ? (issuesByResourceId.get(selectedResource.id) ?? [])
-        : [],
-    [issuesByResourceId, selectedResource],
-  )
-  const selectedResourceLoading = Boolean(
-    selectedResource &&
-    props.onlineLutSources?.state.isLoading &&
-    props.onlineLutSources.state.activeResourceId === selectedResource.id,
-  )
-  const selectedEntryGroups = useMemo(
-    () => groupEntriesByFamily(selectedEntries),
-    [selectedEntries],
-  )
 
   const scrollOverviewToTop = () => {
     requestAnimationFrame(() => {
