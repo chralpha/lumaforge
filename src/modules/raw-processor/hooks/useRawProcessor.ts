@@ -24,10 +24,7 @@ import {
 } from '~/atoms/raw-processor'
 import { yieldToPaint } from '~/lib/dom'
 import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
-import type {
-  ResourceRegistry,
-  TrackedLargeResource,
-} from '~/lib/export/resource-registry'
+import type { ResourceRegistry } from '~/lib/export/resource-registry'
 import { createResourceRegistry } from '~/lib/export/resource-registry'
 import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
@@ -55,7 +52,6 @@ import type {
 import type { ProcessingStatus } from '../model/workflow'
 import { supportsLayeredCompareCss } from '../services/compare/compare-render-mode'
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
-import { releaseOriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 import { deriveFullResExportReadiness } from '../services/export/export-readiness'
 import { resolveExportShareButtonCapability } from '../services/export/export-result-actions'
 import { clearExportResultState } from '../services/export/export-state'
@@ -65,6 +61,7 @@ import type { RawLoadContext } from '../services/ingest/orchestrate-raw-load'
 import { orchestrateRawLoad } from '../services/ingest/orchestrate-raw-load'
 import { getProgressRecoveryHint } from '../services/ingest/workflow-status'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
+import { useOriginalReferenceSnapshotResources } from './stages/compare/useOriginalReferenceSnapshotResources'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
 import type { PendingRecoveryRetry } from './stages/export/useExportRecoveryAction'
 import { useExportRecoveryAction } from './stages/export/useExportRecoveryAction'
@@ -78,10 +75,7 @@ import { useEmbeddedPreviewUrlLifecycle } from './stages/preview/useEmbeddedPrev
 import type { PreviewPipelineEvacuationHandle } from './stages/preview/usePreviewPipelineEvacuation'
 import { usePreviewPipelineEvacuation } from './stages/preview/usePreviewPipelineEvacuation'
 import { useImageSession } from './useImageSession'
-import type {
-  OriginalReferenceSnapshotCapability,
-  PendingOriginalReferenceSnapshotRender,
-} from './useOriginalReferenceSnapshot'
+import type { OriginalReferenceSnapshotCapability } from './useOriginalReferenceSnapshot'
 import { useOriginalReferenceSnapshot } from './useOriginalReferenceSnapshot'
 import { usePreviewHistogram } from './usePreviewHistogram'
 
@@ -231,16 +225,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
 
   const pipelineRef = useRef<RawProcessingPipeline | null>(null)
   const resourceRegistryRef = useRef<ResourceRegistry | null>(null)
-  const originalReferenceSnapshotResourceIdRef = useRef(0)
-  const originalReferenceSnapshotPendingResourceIdRef = useRef(0)
-  const originalReferenceSnapshotResourceRef =
-    useRef<TrackedLargeResource | null>(null)
-  const originalReferenceSnapshotResourceKeyRef = useRef<string | null>(null)
-  const originalReferenceSnapshotPendingResourceRef =
-    useRef<TrackedLargeResource | null>(null)
-  const originalReferenceSnapshotPendingResourceKeyRef = useRef<string | null>(
-    null,
-  )
   const previewCopyCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const sessionRef = useRef(session)
   const compareStage = useRawCompareStage({
@@ -362,68 +346,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     [],
   )
 
-  const setPendingOriginalReferenceSnapshotRender = useCallback(
-    (
-      pending: PendingOriginalReferenceSnapshotRender | null,
-      clearKey?: string,
-    ) => {
-      const previous = originalReferenceSnapshotPendingResourceRef.current
-      const previousKey = originalReferenceSnapshotPendingResourceKeyRef.current
-
-      const disposePrevious = (resource: TrackedLargeResource) => {
-        originalReferenceSnapshotPendingResourceRef.current = null
-        originalReferenceSnapshotPendingResourceKeyRef.current = null
-        void resource.dispose().catch((error) => {
-          console.warn(
-            'Failed to clean up pending original reference snapshot:',
-            error,
-          )
-        })
-      }
-
-      if (!pending) {
-        if (!previous) {
-          return
-        }
-        if (clearKey && previousKey !== clearKey) {
-          return
-        }
-        disposePrevious(previous)
-        return
-      }
-
-      if (previous && previousKey === pending.key) {
-        return
-      }
-
-      if (previous) {
-        disposePrevious(previous)
-      }
-
-      const registry = resourceRegistryRef.current
-      if (!registry) {
-        return
-      }
-
-      let tracked: TrackedLargeResource | null = null
-      tracked = registry.register({
-        id: `original-reference-snapshot-render-${++originalReferenceSnapshotPendingResourceIdRef.current}`,
-        owner: 'preview',
-        kind: 'webgl-pipeline',
-        dispose: () => {
-          if (originalReferenceSnapshotPendingResourceRef.current === tracked) {
-            originalReferenceSnapshotPendingResourceRef.current = null
-            originalReferenceSnapshotPendingResourceKeyRef.current = null
-          }
-          return pending.dispose()
-        },
-      })
-      originalReferenceSnapshotPendingResourceRef.current = tracked
-      originalReferenceSnapshotPendingResourceKeyRef.current = pending.key
-    },
-    [],
-  )
-
   const disposeRuntimeSession = useCallback(
     (runtimeSession = runtimeSessionRef.current) => {
       if (
@@ -466,6 +388,10 @@ export function useRawProcessor(): UseRawProcessorReturn {
       pipelineRef,
       originalPreviewPipelineRef,
     })
+  const {
+    setPendingOriginalReferenceSnapshotRender,
+    trackOriginalReferenceSnapshot,
+  } = useOriginalReferenceSnapshotResources({ resourceRegistryRef })
 
   const { registerExportResultResource, queueExportResultResourceDisposal } =
     useExportResourceManagement({ resourceRegistryRef })
@@ -1017,66 +943,8 @@ export function useRawProcessor(): UseRawProcessorReturn {
   })
 
   useEffect(() => {
-    const snapshot = originalReference.snapshot
-    const currentResource = originalReferenceSnapshotResourceRef.current
-    const currentResourceKey = originalReferenceSnapshotResourceKeyRef.current
-
-    if (currentResource && currentResourceKey !== snapshot?.key) {
-      originalReferenceSnapshotResourceRef.current = null
-      originalReferenceSnapshotResourceKeyRef.current = null
-      void currentResource.dispose().catch((error) => {
-        console.warn('Failed to clean up original reference snapshot:', error)
-      })
-    }
-
-    if (!snapshot || currentResourceKey === snapshot.key) {
-      return
-    }
-
-    const registry = resourceRegistryRef.current
-    if (!registry) {
-      return
-    }
-
-    let tracked: TrackedLargeResource | null = null
-    tracked = registry.register({
-      id: `original-reference-snapshot-${++originalReferenceSnapshotResourceIdRef.current}`,
-      owner: 'preview',
-      kind: 'object-url',
-      estimatedBytes: snapshot.estimatedBytes,
-      dispose: () => {
-        if (originalReferenceSnapshotResourceRef.current === tracked) {
-          originalReferenceSnapshotResourceRef.current = null
-          originalReferenceSnapshotResourceKeyRef.current = null
-        }
-        releaseOriginalReferenceSnapshot(snapshot)
-      },
-    })
-    originalReferenceSnapshotResourceRef.current = tracked
-    originalReferenceSnapshotResourceKeyRef.current = snapshot.key
-  }, [originalReference.snapshot])
-
-  useEffect(() => {
-    return () => {
-      const pendingResource =
-        originalReferenceSnapshotPendingResourceRef.current
-      originalReferenceSnapshotPendingResourceRef.current = null
-      originalReferenceSnapshotPendingResourceKeyRef.current = null
-      void pendingResource?.dispose().catch((error) => {
-        console.warn(
-          'Failed to clean up pending original reference snapshot:',
-          error,
-        )
-      })
-
-      const resource = originalReferenceSnapshotResourceRef.current
-      originalReferenceSnapshotResourceRef.current = null
-      originalReferenceSnapshotResourceKeyRef.current = null
-      void resource?.dispose().catch((error) => {
-        console.warn('Failed to clean up original reference snapshot:', error)
-      })
-    }
-  }, [])
+    trackOriginalReferenceSnapshot(originalReference.snapshot)
+  }, [originalReference.snapshot, trackOriginalReferenceSnapshot])
 
   return {
     params,
