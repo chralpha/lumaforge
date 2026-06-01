@@ -60,13 +60,9 @@ import { useRawSessionReset } from './stages/ingest/useRawSessionReset'
 import { useRawSourceState } from './stages/ingest/useRawSourceState'
 import { useLutDataState } from './stages/look/useLutDataState'
 import { useRawLookStage } from './stages/look/useRawLookStage'
-import { useDecodedPreviewResource } from './stages/preview/useDecodedPreviewResource'
-import { useEmbeddedPreviewUrlLifecycle } from './stages/preview/useEmbeddedPreviewUrlLifecycle'
 import type { PreviewPipelineEvacuationHandle } from './stages/preview/usePreviewPipelineEvacuation'
-import { usePreviewPipelineEvacuation } from './stages/preview/usePreviewPipelineEvacuation'
-import { useRestorePreviewAfterExport } from './stages/preview/useRestorePreviewAfterExport'
+import { useRawPreviewStage } from './stages/preview/useRawPreviewStage'
 import { useImageSession } from './useImageSession'
-import { usePreviewHistogram } from './usePreviewHistogram'
 import { useRawWorkflowActions } from './useRawWorkflowActions'
 import { useRawWorkflowRefs } from './useRawWorkflowRefs'
 
@@ -243,13 +239,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setPreviewViewport,
     resetPreviewViewport,
   } = compareStage
-  const { clearSessionEmbeddedPreviewUrl, revokeCurrentEmbeddedPreviewUrl } =
-    useEmbeddedPreviewUrlLifecycle({
-      embeddedPreviewUrlRef,
-      sessionRef,
-      setSession,
-    })
-
   const { disposeRuntimeSession, abortRuntimeWork, abortExportWork } =
     useRawRuntimeControls({
       runtimeSessionRef,
@@ -259,13 +248,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
       disposedRuntimeSessionsRef,
     })
 
-  const {
-    registerCurrentPreviewPipelineForEvacuation,
-    setOriginalPreviewPipeline,
-  } = usePreviewPipelineEvacuation({
-    resourceRegistryRef,
-    pipelineRef,
-  })
   const { registerExportResultResource, queueExportResultResourceDisposal } =
     useExportResourceManagement({ resourceRegistryRef })
 
@@ -316,22 +298,44 @@ export function useRawProcessor(): UseRawProcessorReturn {
     resetColor,
   } = lookStage
   paramsRef.current = params
-  const histogram = usePreviewHistogram({
-    imageRef: decodedImageRef,
-    imageVersion: decodedImageVersion,
-    imageIdentity: session?.id ?? pendingLoadSessionIdRef.current ?? undefined,
-    params,
-    lutDataRef,
-    lutDataVersion,
-    displaySource,
-  })
-
-  const { setDecodedImageRef } = useDecodedPreviewResource({
+  const {
+    histogram,
+    clearSessionEmbeddedPreviewUrl,
+    revokeCurrentEmbeddedPreviewUrl,
+    registerCurrentPreviewPipelineForEvacuation,
+    setOriginalPreviewPipeline,
+    setDecodedImageRef,
+    restorePreviewAfterExport,
+  } = useRawPreviewStage({
+    loadedFile: loadedImage.file,
+    session,
+    sessionRef,
+    pendingLoadSessionIdRef,
     decodedImageRef,
+    decodedImageVersion,
     rawRenderExposureRef,
     resourceRegistryRef,
     setDecodedImageVersion,
     invalidateExportGraph,
+    embeddedPreviewUrlRef,
+    setSession,
+    pipelineRef,
+    params,
+    lutDataRef,
+    lutDataVersion,
+    displaySource,
+    isMountedRef,
+    runtimeAbortControllerRef,
+    runtimeWorkSessionIdRef,
+    runtimeSessionRef,
+    setStatus,
+    setProgress,
+    setError,
+    abortRuntimeWork,
+    disposeRuntimeSession,
+    openSession: rawRuntimeAdapter.openSession,
+    scheduleToast,
+    toast,
   })
 
   useExportRecoveryDiscovery({
@@ -394,25 +398,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     runtimeWorkSessionIdRef,
     pendingLoadSessionIdRef,
     previewCopyCanvasRef,
-  })
-
-  const { restorePreviewAfterExport } = useRestorePreviewAfterExport({
-    loadedFile: loadedImage.file,
-    sessionRef,
-    isMountedRef,
-    runtimeAbortControllerRef,
-    runtimeWorkSessionIdRef,
-    runtimeSessionRef,
-    setStatus,
-    setProgress,
-    setError,
-    setSession,
-    setDecodedImageRef,
-    abortRuntimeWork,
-    disposeRuntimeSession,
-    openSession: rawRuntimeAdapter.openSession,
-    scheduleToast,
-    toast,
   })
 
   const { exportImage } = useFullResExportAction({
