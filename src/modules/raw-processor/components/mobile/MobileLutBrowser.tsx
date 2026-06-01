@@ -5,7 +5,6 @@ import type {
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { ArrowLeft, X } from 'lucide-react'
 import { AnimatePresence, m, useDragControls } from 'motion/react'
-import { useEffect, useId, useRef, useState } from 'react'
 
 import { IconButton } from '~/components/ui/button'
 import { Dialog } from '~/components/ui/dialog'
@@ -15,18 +14,13 @@ import { sheetSpring } from '~/lib/spring'
 import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
 import type { LUTContractSelectionState } from '../../model/session'
 import { useToolMotion } from '../../motion'
-import type { LUTOutputOption } from '../tools/lut/lut-output-options'
-import { toOutputCarrierProfile } from '../tools/lut/lut-output-options'
-import { useOnlineLutResourceState } from '../tools/lut/useOnlineLutResourceState'
-import { composeLUTContractProfile } from '../tools/lut-contract'
 import type { StrengthLevel } from '../tools/StrengthControl'
 import { MobileLutCatalogView } from './MobileLutCatalogView'
 import { MobileLutContractStatusSection } from './MobileLutContractStatusSection'
-import type { MobileLutContractStep } from './MobileLutContractView'
 import { MobileLutContractView } from './MobileLutContractView'
 import { MobileLutCurrentSections } from './MobileLutCurrentSections'
 import { MobileLutOnlineSourcesSection } from './MobileLutOnlineSourcesSection'
-import { useMobileLutContractState } from './useMobileLutContractState'
+import { useMobileLutBrowserController } from './useMobileLutBrowserController'
 
 export interface MobileLutBrowserProps {
   open: boolean
@@ -46,7 +40,6 @@ export interface MobileLutBrowserProps {
 }
 
 type OnlineResource = UseOnlineLutSourcesResult['state']['resources'][number]
-type MobileLutView = 'overview' | 'catalog' | 'contract'
 
 function resourceLabel(resource: OnlineResource) {
   return resource.label || resource.url
@@ -56,22 +49,18 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
   const { t } = useI18n()
   const { prefersReduced } = useToolMotion()
   const dragControls = useDragControls()
-  const onlineSourceInputId = useId()
   const activeIntensity = props.activeIntensity ?? 'standard'
   const strengthDisabled = props.strengthDisabled ?? true
-  const [view, setView] = useState<MobileLutView>('overview')
-  const [catalogResourceId, setCatalogResourceId] = useState<string | null>(
-    null,
-  )
-  const [contractStep, setContractStep] =
-    useState<MobileLutContractStep>('input')
-  const [contractQuery, setContractQuery] = useState('')
-  const initialContractEditorAppliedRef = useRef(false)
-  const overviewBodyRef = useRef<HTMLDivElement | null>(null)
-  const catalogBodyRef = useRef<HTMLDivElement | null>(null)
-  const contractBodyRef = useRef<HTMLDivElement | null>(null)
 
   const {
+    view,
+    onlineSourceInputId,
+    overviewBodyRef,
+    catalogBodyRef,
+    contractBodyRef,
+    contractStep,
+    contractQuery,
+    draftInputProfile,
     entriesByResourceId,
     issuesByResourceId,
     selectedResource,
@@ -79,13 +68,6 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     selectedIssues,
     selectedResourceLoading,
     selectedEntryGroups,
-  } = useOnlineLutResourceState({
-    state: props.onlineLutSources?.state,
-    resourceId: catalogResourceId,
-  })
-
-  const {
-    resolvedProfile,
     displayOutputLabel,
     contractView,
     visibleSuggestions,
@@ -95,112 +77,21 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     activeOutputOptionId,
     hasInputMatches,
     hasOutputMatches,
-  } = useMobileLutContractState({
-    contractQuery,
+    setContractStep,
+    setContractQuery,
+    returnToOverview,
+    openCatalogResource,
+    openContractView,
+    handleInputSelect,
+    handleOutputSelect,
+  } = useMobileLutBrowserController({
+    open: props.open,
+    initialContractEditorOpen: props.initialContractEditorOpen,
     lutProfileSelection: props.lutProfileSelection,
     lutProfileResolution: props.lutProfileResolution,
+    onlineLutSources: props.onlineLutSources,
+    onLutProfileSelect: props.onLutProfileSelect,
   })
-  const [draftInputProfile, setDraftInputProfile] =
-    useState<LUTColorProfile | null>(resolvedProfile ?? null)
-
-  useEffect(() => {
-    if (props.open) return
-
-    setView('overview')
-    setCatalogResourceId(null)
-    setContractStep('input')
-    setContractQuery('')
-    setDraftInputProfile(resolvedProfile ?? null)
-    initialContractEditorAppliedRef.current = false
-  }, [props.open, resolvedProfile])
-
-  useEffect(() => {
-    if (
-      !props.open ||
-      !props.initialContractEditorOpen ||
-      initialContractEditorAppliedRef.current
-    ) {
-      return
-    }
-
-    initialContractEditorAppliedRef.current = true
-    setCatalogResourceId(null)
-    setDraftInputProfile(resolvedProfile ?? null)
-    setContractQuery('')
-    setContractStep(
-      contractView.status === 'incomplete-output' ? 'output' : 'input',
-    )
-    setView('contract')
-  }, [
-    contractView.status,
-    props.initialContractEditorOpen,
-    props.open,
-    resolvedProfile,
-  ])
-
-  useEffect(() => {
-    if (!props.open) return
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = previous
-    }
-  }, [props.open])
-
-  useEffect(() => {
-    if (view !== 'catalog' || !catalogResourceId) return
-    const resourceExists =
-      props.onlineLutSources?.state.resources.some(
-        (resource) => resource.id === catalogResourceId,
-      ) ?? false
-
-    if (!resourceExists) {
-      setCatalogResourceId(null)
-      setView('overview')
-    }
-  }, [catalogResourceId, props.onlineLutSources?.state.resources, view])
-
-  const scrollOverviewToTop = () => {
-    requestAnimationFrame(() => {
-      if (overviewBodyRef.current) overviewBodyRef.current.scrollTop = 0
-    })
-  }
-
-  const returnToOverview = () => {
-    setView('overview')
-    setCatalogResourceId(null)
-    scrollOverviewToTop()
-  }
-
-  const openContractView = (
-    step: MobileLutContractStep = 'input',
-    draftOverride?: LUTColorProfile | null,
-  ) => {
-    setDraftInputProfile(
-      draftOverride !== undefined ? draftOverride : (resolvedProfile ?? null),
-    )
-    setContractQuery('')
-    setContractStep(step)
-    setCatalogResourceId(null)
-    setView('contract')
-  }
-
-  const handleInputSelect = (profile: LUTColorProfile) => {
-    setDraftInputProfile(profile)
-    setContractQuery('')
-    setContractStep('output')
-    if (contractBodyRef.current) contractBodyRef.current.scrollTop = 0
-  }
-
-  const handleOutputSelect = (option: LUTOutputOption) => {
-    const inputProfile = draftInputProfile ?? option.sourceProfile
-
-    props.onLutProfileSelect(
-      composeLUTContractProfile(inputProfile, toOutputCarrierProfile(option)),
-    )
-    setContractQuery('')
-    returnToOverview()
-  }
 
   const handleOpenChange = (open: boolean) => {
     if (!open) props.onClose()
@@ -252,10 +143,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         sourceInputId={onlineSourceInputId}
         entriesByResourceId={entriesByResourceId}
         issuesByResourceId={issuesByResourceId}
-        onBrowseResource={(resourceId) => {
-          setCatalogResourceId(resourceId)
-          setView('catalog')
-        }}
+        onBrowseResource={openCatalogResource}
       />
     </m.div>
   )
