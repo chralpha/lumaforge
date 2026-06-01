@@ -1,0 +1,153 @@
+import { AlertTriangle } from 'lucide-react'
+import type { HTMLMotionProps } from 'motion/react'
+import { m } from 'motion/react'
+import type { Ref } from 'react'
+
+import { Chip } from '~/components/ui/chip'
+import { useI18n } from '~/lib/i18n'
+import { sheetSpring } from '~/lib/spring'
+
+import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
+import type { GroupedEntries } from '../tools/lut/lut-source-grouping'
+import { useOnlineLutEntryLoader } from '../tools/lut/useOnlineLutEntryLoader'
+import { MobileLutCatalogEntryButton } from './MobileLutCatalogEntryButton'
+
+type OnlineEntry = UseOnlineLutSourcesResult['state']['entries'][number]
+type OnlineIssue = UseOnlineLutSourcesResult['state']['issues'][number]
+type OnlineResource = UseOnlineLutSourcesResult['state']['resources'][number]
+type ViewMotion = Pick<HTMLMotionProps<'div'>, 'animate' | 'exit' | 'initial'>
+
+function IssueChips({ issues }: { issues: OnlineIssue[] }) {
+  if (issues.length === 0) return null
+
+  return (
+    <ul className="m-0 flex list-none flex-wrap gap-1 p-0" role="status">
+      {issues.map((issue, index) => (
+        <li
+          key={[
+            issue.code,
+            issue.entryId ?? issue.sourceUrl ?? 'resource',
+            index,
+          ].join(':')}
+          className="m-0 min-w-0"
+        >
+          <Chip
+            tone="amber"
+            surface="on-photo"
+            size="sm"
+            className="max-w-full"
+          >
+            <AlertTriangle aria-hidden="true" className="size-3 shrink-0" />
+            <span className="min-w-0 truncate">{issue.message}</span>
+          </Chip>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+export interface MobileLutCatalogViewProps {
+  bodyRef: Ref<HTMLDivElement>
+  viewMotion: ViewMotion
+  selectedResource: OnlineResource | null
+  selectedEntries: OnlineEntry[]
+  selectedIssues: OnlineIssue[]
+  selectedResourceLoading: boolean
+  selectedEntryGroups: GroupedEntries<OnlineEntry>
+  disabled: boolean
+  loadEntry?: UseOnlineLutSourcesResult['loadEntry']
+  onEntryLoaded: () => void
+}
+
+export function MobileLutCatalogView({
+  bodyRef,
+  viewMotion,
+  selectedResource,
+  selectedEntries,
+  selectedIssues,
+  selectedResourceLoading,
+  selectedEntryGroups,
+  disabled,
+  loadEntry,
+  onEntryLoaded,
+}: MobileLutCatalogViewProps) {
+  const { t } = useI18n()
+  const { loadingEntryId, loadOnlineLutEntry } =
+    useOnlineLutEntryLoader(loadEntry)
+
+  const renderCatalogEntry = (entry: OnlineEntry) => {
+    const isEntryLoading = loadingEntryId === entry.id
+
+    return (
+      <MobileLutCatalogEntryButton
+        key={entry.id}
+        title={entry.title}
+        loading={isEntryLoading}
+        disabled={disabled}
+        ariaLabel={t('raw.mobile.lut.loadEntry', { label: entry.title })}
+        onClick={() => {
+          void loadOnlineLutEntry(entry.id, onEntryLoaded)
+        }}
+      />
+    )
+  }
+
+  return (
+    <m.div
+      key="catalog"
+      ref={bodyRef}
+      className="grid min-h-0 content-start gap-3 overflow-y-auto px-4 pb-5 pt-1"
+      {...viewMotion}
+      transition={sheetSpring}
+    >
+      {selectedResource && (
+        <div className="grid gap-2 px-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="shrink-0 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-on-photo-ink/62">
+              {t('raw.mobile.lut.entryCount', {
+                count: selectedEntries.length,
+              })}
+            </span>
+            {selectedResourceLoading && (
+              <output className="shrink-0 rounded-lf-pill border border-lf-green/35 bg-lf-green/15 px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-green-soft">
+                {t('raw.lutSource.loading')}
+              </output>
+            )}
+          </div>
+          <IssueChips issues={selectedIssues} />
+        </div>
+      )}
+
+      {selectedEntries.length > 0 ? (
+        <>
+          {selectedEntryGroups.families.map(({ family, items }) => (
+            <section key={family} className="grid gap-1.5">
+              <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-on-photo-ink/50">
+                {family}
+              </h3>
+              <div className="grid gap-1.5">
+                {items.map(renderCatalogEntry)}
+              </div>
+            </section>
+          ))}
+          {selectedEntryGroups.others.length > 0 && (
+            <section className="grid gap-1.5">
+              <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-on-photo-ink/50">
+                {t('raw.lutSource.others')}
+              </h3>
+              <div className="grid gap-1.5">
+                {selectedEntryGroups.others.map(renderCatalogEntry)}
+              </div>
+            </section>
+          )}
+        </>
+      ) : (
+        <p className="m-0 text-lf-control leading-relaxed text-lf-on-photo-ink/64">
+          {selectedIssues.length > 0
+            ? t('raw.lutSource.noneCompatible')
+            : t('raw.lutSource.noneYet')}
+        </p>
+      )}
+    </m.div>
+  )
+}

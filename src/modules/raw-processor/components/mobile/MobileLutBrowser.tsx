@@ -3,12 +3,11 @@ import type {
   LUTContractResolution,
 } from '@lumaforge/luma-color-runtime'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { AlertTriangle, ArrowLeft, X } from 'lucide-react'
+import { ArrowLeft, X } from 'lucide-react'
 import { AnimatePresence, m, useDragControls } from 'motion/react'
 import { useEffect, useId, useRef, useState } from 'react'
 
 import { IconButton } from '~/components/ui/button'
-import { Chip } from '~/components/ui/chip'
 import { Dialog } from '~/components/ui/dialog'
 import { useI18n } from '~/lib/i18n'
 import { sheetSpring } from '~/lib/spring'
@@ -20,7 +19,6 @@ import type { LUTOutputOption } from '../tools/lut/lut-output-options'
 import { toOutputCarrierProfile } from '../tools/lut/lut-output-options'
 import { LUTOutputOptionButton } from '../tools/lut/LUTOutputOptionButton'
 import { LUTProfileButton } from '../tools/lut/LUTProfileButton'
-import { useOnlineLutEntryLoader } from '../tools/lut/useOnlineLutEntryLoader'
 import { useOnlineLutResourceState } from '../tools/lut/useOnlineLutResourceState'
 import { composeLUTContractProfile } from '../tools/lut-contract'
 import {
@@ -31,7 +29,7 @@ import {
   SEGMENTED_TRACK,
 } from '../tools/segmented-chrome'
 import type { StrengthLevel } from '../tools/StrengthControl'
-import { MobileLutCatalogEntryButton } from './MobileLutCatalogEntryButton'
+import { MobileLutCatalogView } from './MobileLutCatalogView'
 import { MobileLutContractStatusSection } from './MobileLutContractStatusSection'
 import { MobileLutCurrentSections } from './MobileLutCurrentSections'
 import { MobileLutOnlineSourcesSection } from './MobileLutOnlineSourcesSection'
@@ -55,42 +53,11 @@ export interface MobileLutBrowserProps {
 }
 
 type OnlineResource = UseOnlineLutSourcesResult['state']['resources'][number]
-type OnlineEntry = UseOnlineLutSourcesResult['state']['entries'][number]
-type OnlineIssue = UseOnlineLutSourcesResult['state']['issues'][number]
 type ContractStep = 'input' | 'output'
 type MobileLutView = 'overview' | 'catalog' | 'contract'
 
 function resourceLabel(resource: OnlineResource) {
   return resource.label || resource.url
-}
-
-function IssueChips({ issues }: { issues: OnlineIssue[] }) {
-  if (issues.length === 0) return null
-
-  return (
-    <ul className="m-0 flex list-none flex-wrap gap-1 p-0" role="status">
-      {issues.map((issue, index) => (
-        <li
-          key={[
-            issue.code,
-            issue.entryId ?? issue.sourceUrl ?? 'resource',
-            index,
-          ].join(':')}
-          className="m-0 min-w-0"
-        >
-          <Chip
-            tone="amber"
-            surface="on-photo"
-            size="sm"
-            className="max-w-full"
-          >
-            <AlertTriangle aria-hidden="true" className="size-3 shrink-0" />
-            <span className="min-w-0 truncate">{issue.message}</span>
-          </Chip>
-        </li>
-      ))}
-    </ul>
-  )
 }
 
 export function MobileLutBrowser(props: MobileLutBrowserProps) {
@@ -123,9 +90,6 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     state: props.onlineLutSources?.state,
     resourceId: catalogResourceId,
   })
-  const { loadingEntryId, loadOnlineLutEntry } = useOnlineLutEntryLoader(
-    props.onlineLutSources?.loadEntry,
-  )
 
   const {
     resolvedProfile,
@@ -303,86 +267,19 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     </m.div>
   )
 
-  const handleCatalogEntryClick = async (entry: OnlineEntry) => {
-    await loadOnlineLutEntry(entry.id, returnToOverview)
-  }
-
-  const renderCatalogEntry = (entry: OnlineEntry) => {
-    const isEntryLoading = loadingEntryId === entry.id
-
-    return (
-      <MobileLutCatalogEntryButton
-        key={entry.id}
-        title={entry.title}
-        loading={isEntryLoading}
-        disabled={props.disabled}
-        ariaLabel={t('raw.mobile.lut.loadEntry', { label: entry.title })}
-        onClick={() => {
-          void handleCatalogEntryClick(entry)
-        }}
-      />
-    )
-  }
-
   const renderCatalog = () => (
-    <m.div
-      key="catalog"
-      ref={catalogBodyRef}
-      className="grid min-h-0 content-start gap-3 overflow-y-auto px-4 pb-5 pt-1"
-      {...viewMotion}
-      transition={sheetSpring}
-    >
-      {selectedResource && (
-        <div className="grid gap-2 px-1">
-          {/* Sheet top bar already shows the resource label as title — keep
-              this strip to count + transient pills + per-resource issues. */}
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="shrink-0 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-on-photo-ink/62">
-              {t('raw.mobile.lut.entryCount', {
-                count: selectedEntries.length,
-              })}
-            </span>
-            {selectedResourceLoading && (
-              <output className="shrink-0 rounded-lf-pill border border-lf-green/35 bg-lf-green/15 px-1.5 py-0.5 text-lf-eyebrow font-medium leading-none text-lf-green-soft">
-                {t('raw.lutSource.loading')}
-              </output>
-            )}
-          </div>
-          <IssueChips issues={selectedIssues} />
-        </div>
-      )}
-
-      {selectedEntries.length > 0 ? (
-        <>
-          {selectedEntryGroups.families.map(({ family, items }) => (
-            <section key={family} className="grid gap-1.5">
-              <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-on-photo-ink/50">
-                {family}
-              </h3>
-              <div className="grid gap-1.5">
-                {items.map(renderCatalogEntry)}
-              </div>
-            </section>
-          ))}
-          {selectedEntryGroups.others.length > 0 && (
-            <section className="grid gap-1.5">
-              <h3 className="m-0 px-1 text-[0.7rem] font-medium tracking-tight text-lf-on-photo-ink/50">
-                {t('raw.lutSource.others')}
-              </h3>
-              <div className="grid gap-1.5">
-                {selectedEntryGroups.others.map(renderCatalogEntry)}
-              </div>
-            </section>
-          )}
-        </>
-      ) : (
-        <p className="m-0 text-lf-control leading-relaxed text-lf-on-photo-ink/64">
-          {selectedIssues.length > 0
-            ? t('raw.lutSource.noneCompatible')
-            : t('raw.lutSource.noneYet')}
-        </p>
-      )}
-    </m.div>
+    <MobileLutCatalogView
+      bodyRef={catalogBodyRef}
+      viewMotion={viewMotion}
+      selectedResource={selectedResource}
+      selectedEntries={selectedEntries}
+      selectedIssues={selectedIssues}
+      selectedResourceLoading={selectedResourceLoading}
+      selectedEntryGroups={selectedEntryGroups}
+      disabled={props.disabled}
+      loadEntry={props.onlineLutSources?.loadEntry}
+      onEntryLoaded={returnToOverview}
+    />
   )
 
   const renderContract = () => (
