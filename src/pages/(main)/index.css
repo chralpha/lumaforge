@@ -101,51 +101,233 @@
 }
 
 .lf-hero {
+  --lf-hero-bg: oklch(0.16 0.018 235);
+  --lf-hero-bg-deep: oklch(0.1 0.018 235);
+  --lf-hero-fg: oklch(0.96 0.012 240);
+  --lf-hero-fg-muted: oklch(0.78 0.018 240);
+  --lf-hero-amber: oklch(0.82 0.14 70);
+  --lf-hero-hairline: oklch(0.95 0.01 240 / 0.1);
+  --lf-hero-hairline-strong: oklch(0.95 0.01 240 / 0.36);
+
   position: relative;
-  min-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(28px, 4vw, 56px);
+  min-height: 92vh;
   overflow: hidden;
-  display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
-  align-items: end;
-  gap: clamp(28px, 5vw, 72px);
-  padding: 108px clamp(18px, 5vw, 72px) clamp(26px, 5vw, 58px);
-  color: oklch(0.97 0.014 86);
+  padding: clamp(108px, 14vh, 168px) clamp(18px, 5vw, 72px)
+    clamp(28px, 5vw, 56px);
+  background: var(--lf-hero-bg);
+  color: var(--lf-hero-fg);
 }
 
-.lf-hero-image,
-.lf-hero-shade {
+.lf-hero-bg,
+.lf-hero-vignette {
   position: absolute;
   inset: 0;
+  pointer-events: none;
 }
 
-.lf-hero-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform: scale(1.02);
-}
-
-.lf-hero-shade {
+.lf-hero-bg {
   background:
-    linear-gradient(
-      90deg,
-      oklch(0.12 0.02 78 / 0.78),
-      oklch(0.16 0.025 80 / 0.42) 44%,
-      oklch(0.12 0.02 78 / 0.64)
+    radial-gradient(
+      120% 80% at 50% 0%,
+      oklch(0.22 0.022 235 / 0.6),
+      transparent 70%
     ),
-    linear-gradient(0deg, oklch(0.12 0.02 78 / 0.86), transparent 58%),
-    linear-gradient(180deg, oklch(0.12 0.02 78 / 0.72), transparent 24%);
+    var(--lf-hero-bg);
 }
 
-.lf-hero-content,
-.lf-hero-panel {
-  position: relative;
-  z-index: 1;
+.lf-hero-vignette {
+  background:
+    radial-gradient(
+      120% 90% at 50% 60%,
+      transparent 45%,
+      var(--lf-hero-bg-deep) 100%
+    );
 }
 
 .lf-hero-content {
-  max-width: 760px;
-  padding-bottom: clamp(6px, 2vw, 28px);
+  position: relative;
+  z-index: 1;
+  max-width: 880px;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(18px, 2.4vw, 28px);
+}
+
+.lf-hero .lf-kicker {
+  color: var(--lf-hero-amber);
+  letter-spacing: 0.08em;
+}
+
+.lf-hero h1 {
+  margin: 0;
+  font-size: clamp(3.5rem, 9vw, 7rem);
+  font-weight: 860;
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+}
+
+.lf-hero-copy {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--lf-hero-fg-muted);
+  font-size: clamp(1.05rem, 1.6vw, 1.28rem);
+  line-height: 1.55;
+}
+
+.lf-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.lf-hero .lf-button-secondary {
+  border: 1px solid var(--lf-hero-hairline-strong);
+  background: transparent;
+  color: var(--lf-hero-fg);
+}
+
+.lf-hero .lf-button-secondary:hover {
+  background: oklch(0.96 0.012 240 / 0.08);
+}
+
+.lf-hero-compare {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  overflow: hidden;
+  aspect-ratio: 16 / 6;
+  width: 100%;
+  border: 1px solid var(--lf-hero-hairline);
+  border-radius: 10px;
+  background: var(--lf-hero-bg-deep);
+  box-shadow:
+    0 1px 0 var(--lf-hero-hairline) inset,
+    0 28px 80px oklch(0.04 0.018 240 / 0.6);
+}
+
+.lf-compare-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.lf-finished-clip-rect {
+  animation: lf-compare-clip-pan 2.2s cubic-bezier(0.65, 0, 0.35, 1) 0.7s 1
+    backwards;
+}
+
+.lf-compare-handle {
+  animation: lf-compare-handle-pan 2.2s cubic-bezier(0.65, 0, 0.35, 1) 0.7s 1
+    backwards;
+}
+
+@keyframes lf-compare-clip-pan {
+  0% {
+    x: 600px;
+    width: 600px;
+  }
+
+  28% {
+    x: 168px;
+    width: 1032px;
+  }
+
+  72% {
+    x: 1032px;
+    width: 168px;
+  }
+
+  100% {
+    x: 600px;
+    width: 600px;
+  }
+}
+
+@keyframes lf-compare-handle-pan {
+  0% {
+    transform: translateX(0);
+  }
+
+  28% {
+    transform: translateX(-432px);
+  }
+
+  72% {
+    transform: translateX(432px);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.lf-compare-tag {
+  position: absolute;
+  bottom: 14px;
+  margin: 0;
+  border-radius: 999px;
+  padding: 7px 11px;
+  background: oklch(0.1 0.018 240 / 0.72);
+  color: var(--lf-hero-fg);
+  font-size: 0.72rem;
+  font-weight: 720;
+  letter-spacing: 0.01em;
+  backdrop-filter: blur(6px);
+}
+
+.lf-tag-left {
+  left: 14px;
+}
+
+.lf-tag-right {
+  right: 14px;
+}
+
+.lf-contract-rail {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 18px 0 0;
+  border-top: 1px solid var(--lf-hero-hairline);
+  list-style: none;
+}
+
+.lf-contract-rail li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 14px 6px 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--lf-hero-fg);
+}
+
+.lf-contract-rail li + li {
+  border-left: 1px solid var(--lf-hero-hairline);
+  padding-left: 14px;
+}
+
+.lf-contract-index {
+  color: var(--lf-hero-amber);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.lf-contract-sep {
+  color: var(--lf-hero-fg-muted);
+}
+
+.lf-contract-label {
+  color: var(--lf-hero-fg-muted);
+  font-weight: 600;
 }
 
 .lf-kicker,
@@ -163,28 +345,6 @@
 
 .lf-section-label {
   color: var(--lf-green-deep);
-}
-
-.lf-hero h1 {
-  margin: 12px 0 0;
-  font-size: 6.8rem;
-  line-height: 0.9;
-  font-weight: 860;
-}
-
-.lf-hero-copy {
-  max-width: 680px;
-  margin: 28px 0 0;
-  color: oklch(0.91 0.014 86);
-  font-size: 1.28rem;
-  line-height: 1.6;
-}
-
-.lf-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 34px;
 }
 
 .lf-button {
@@ -221,103 +381,6 @@
   border: 1px solid oklch(0.95 0.01 86 / 0.45);
   background: oklch(0.16 0.018 76 / 0.48);
   color: oklch(0.965 0.015 86);
-}
-
-.lf-hero-panel {
-  display: grid;
-  gap: 10px;
-  align-self: end;
-}
-
-.lf-compare-stage {
-  position: relative;
-  min-height: 430px;
-  overflow: hidden;
-  border: 1px solid oklch(0.96 0.012 86 / 0.46);
-  border-radius: 8px;
-  background: oklch(0.18 0.02 76);
-  box-shadow: 0 24px 80px var(--lf-shadow);
-}
-
-.lf-compare-stage img,
-.lf-compare-finish {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.lf-compare-stage img {
-  object-fit: cover;
-  filter: saturate(0.56) contrast(0.9) brightness(0.86);
-}
-
-.lf-compare-finish {
-  clip-path: inset(0 0 0 49%);
-  background:
-    linear-gradient(90deg, transparent 0 48%, oklch(0.83 0.12 63 / 0.12)),
-    url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1400&q=86')
-      center / cover;
-  filter: saturate(1.16) contrast(1.06) brightness(1.04);
-}
-
-.lf-compare-divider {
-  position: absolute;
-  inset: 0 auto 0 49%;
-  width: 2px;
-  background: oklch(0.96 0.012 86 / 0.88);
-}
-
-.lf-compare-divider::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 34px;
-  height: 34px;
-  border: 1px solid oklch(0.96 0.012 86 / 0.72);
-  border-radius: 50%;
-  background: oklch(0.17 0.018 76 / 0.72);
-  transform: translate(-50%, -50%);
-}
-
-.lf-compare-tag {
-  position: absolute;
-  bottom: 14px;
-  border-radius: 999px;
-  padding: 7px 10px;
-  background: oklch(0.16 0.018 76 / 0.76);
-  color: oklch(0.96 0.012 86);
-  font-size: 0.72rem;
-  font-weight: 720;
-}
-
-.lf-tag-left {
-  left: 14px;
-}
-
-.lf-tag-right {
-  right: 14px;
-}
-
-.lf-contract-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-
-.lf-contract-strip span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 30px;
-  border: 1px solid oklch(0.95 0.012 86 / 0.26);
-  border-radius: 999px;
-  padding: 7px 10px;
-  background: oklch(0.16 0.018 76 / 0.54);
-  color: oklch(0.94 0.014 86);
-  font-size: 0.71rem;
-  font-weight: 690;
 }
 
 .lf-positioning,
@@ -580,7 +643,6 @@
 }
 
 @media (max-width: 1100px) {
-  .lf-hero,
   .lf-positioning,
   .lf-workflow,
   .lf-luts {
@@ -589,14 +651,21 @@
 
   .lf-hero {
     min-height: auto;
+    padding-top: 14vh;
   }
 
-  .lf-hero-content {
-    padding-top: 12vh;
+  .lf-hero-compare {
+    aspect-ratio: 5 / 3;
   }
 
-  .lf-hero-panel {
-    max-width: 780px;
+  .lf-contract-rail {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+
+  .lf-contract-rail li:nth-child(3n + 1) {
+    border-left: 0;
+    padding-left: 0;
   }
 
   .lf-proof {
@@ -631,21 +700,12 @@
 }
 
 @media (min-width: 1101px) and (max-width: 1320px) {
-  .lf-hero {
-    grid-template-columns: minmax(0, 0.95fr) minmax(330px, 0.9fr);
-    gap: 34px;
-  }
-
   .lf-hero h1 {
-    font-size: 5.25rem;
+    font-size: clamp(3.5rem, 7.5vw, 5.5rem);
   }
 
-  .lf-hero-copy {
-    font-size: 1.12rem;
-  }
-
-  .lf-compare-stage {
-    min-height: 380px;
+  .lf-hero-compare {
+    aspect-ratio: 16 / 7;
   }
 }
 
@@ -661,22 +721,33 @@
 
   .lf-hero {
     padding: 88px 14px 22px;
+    gap: 24px;
   }
 
   .lf-hero h1 {
-    font-size: 4rem;
+    font-size: clamp(2.6rem, 12vw, 3.5rem);
   }
 
   .lf-hero-copy {
-    font-size: 1.03rem;
+    font-size: 1.05rem;
+  }
+
+  .lf-hero-compare {
+    aspect-ratio: 4 / 3;
+  }
+
+  .lf-contract-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+
+  .lf-contract-rail li:nth-child(2n + 1) {
+    border-left: 0;
+    padding-left: 0;
   }
 
   .lf-button {
     width: 100%;
-  }
-
-  .lf-compare-stage {
-    min-height: 320px;
   }
 
   .lf-positioning,
@@ -730,12 +801,6 @@
 
 @media (max-width: 420px) {
   .lf-hero h1 {
-    font-size: 3.35rem;
-  }
-}
-
-@media (max-width: 360px) {
-  .lf-hero h1 {
     font-size: 3.05rem;
   }
 }
@@ -747,5 +812,10 @@
 
   .lf-button:hover {
     transform: none;
+  }
+
+  .lf-finished-clip-rect,
+  .lf-compare-handle {
+    animation: none;
   }
 }

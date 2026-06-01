@@ -2,23 +2,26 @@ import './index.css'
 
 import {
   ArrowRight,
-  Check,
   GitFork,
   ImageUp,
   LockKeyhole,
   ShieldCheck,
   SlidersHorizontal,
 } from 'lucide-react'
+import { m, useReducedMotion } from 'motion/react'
+import { useMemo } from 'react'
 import { Link } from 'react-router'
 
+import { LandingCompareSvg } from '~/components/common/LandingCompareSvg'
 import { LocaleToggle } from '~/components/common/LocaleToggle'
+import type { Translate } from '~/lib/i18n'
 import { useI18n } from '~/lib/i18n'
 import type { SeoRouteHandle } from '~/lib/seo'
 import { HOME_ROUTE_SEO } from '~/lib/seo'
+import { Spring, surfaceFade } from '~/lib/spring'
 
 import { repository } from '../../../package.json'
 
-const heroImage = '/og-raw-preview.svg'
 const appIcon = '/favicon.png'
 
 export const handle = {
@@ -80,6 +83,100 @@ const profileGroups = [
   'ACES',
 ]
 
+function useHeroEntrance() {
+  const prefersReduced = useReducedMotion() ?? false
+
+  return useMemo(() => {
+    const entrance = (delayMs: number) => ({
+      initial: prefersReduced ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 },
+      animate: { opacity: 1, y: 0 },
+      transition: prefersReduced
+        ? { duration: 0 }
+        : { ...Spring.smooth(0.32), delay: delayMs / 1000 },
+    })
+
+    const compareEntrance = (delayMs: number) => ({
+      initial: { opacity: prefersReduced ? 1 : 0 },
+      animate: { opacity: 1 },
+      transition: prefersReduced
+        ? { duration: 0 }
+        : { ...surfaceFade, duration: 0.5, delay: delayMs / 1000 },
+    })
+
+    return { entrance, compareEntrance, prefersReduced }
+  }, [prefersReduced])
+}
+
+function HeroSection({ t }: { t: Translate }) {
+  const { entrance, compareEntrance } = useHeroEntrance()
+
+  return (
+    <section className="lf-hero" aria-labelledby="lf-hero-title">
+      <div className="lf-hero-bg" aria-hidden="true" />
+      <div className="lf-hero-vignette" aria-hidden="true" />
+
+      <div className="lf-hero-content">
+        <m.p className="lf-kicker" {...entrance(0)}>
+          {t('landing.kicker')}
+        </m.p>
+        <m.h1 id="lf-hero-title" {...entrance(80)}>
+          LumaForge
+        </m.h1>
+        <m.p className="lf-hero-copy" {...entrance(160)}>
+          {t('landing.heroCopy')}
+        </m.p>
+        <m.div
+          className="lf-hero-actions"
+          aria-label={t('landing.primaryActions')}
+          {...entrance(220)}
+        >
+          <Link to="/raw" className="lf-button lf-button-primary">
+            <ImageUp size={18} strokeWidth={1.9} />
+            {t('landing.start')}
+          </Link>
+          <a
+            href={repository.url}
+            target="_blank"
+            rel="noreferrer"
+            className="lf-button lf-button-secondary"
+          >
+            <GitFork size={18} strokeWidth={1.9} />
+            {t('landing.viewSource')}
+          </a>
+        </m.div>
+      </div>
+
+      <m.figure
+        className="lf-hero-compare"
+        aria-label={t('landing.workflowPreview')}
+        {...compareEntrance(300)}
+      >
+        <LandingCompareSvg label={t('landing.heroImageAlt')} />
+        <figcaption className="lf-compare-tag lf-tag-left">
+          {t('landing.rawPreviewTag')}
+        </figcaption>
+        <figcaption className="lf-compare-tag lf-tag-right">
+          {t('landing.finishedJpegTag')}
+        </figcaption>
+      </m.figure>
+
+      <ol className="lf-contract-rail" aria-label={t('landing.contractChecks')}>
+        {contractSteps.map((step, index) => (
+          <li key={step}>
+            <span className="lf-contract-index">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <span className="lf-contract-sep" aria-hidden="true">
+              ·
+            </span>
+            <span className="lf-contract-label">{t(step)}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
 export const Component = () => {
   const { t } = useI18n()
 
@@ -112,64 +209,7 @@ export const Component = () => {
         </div>
       </nav>
 
-      <section className="lf-hero" aria-labelledby="lf-hero-title">
-        <img
-          className="lf-hero-image"
-          src={heroImage}
-          alt={t('landing.heroImageAlt')}
-        />
-        <div className="lf-hero-shade" aria-hidden="true" />
-        <div className="lf-hero-content">
-          <p className="lf-kicker">{t('landing.kicker')}</p>
-          <h1 id="lf-hero-title">LumaForge</h1>
-          <p className="lf-hero-copy">{t('landing.heroCopy')}</p>
-          <div
-            className="lf-hero-actions"
-            aria-label={t('landing.primaryActions')}
-          >
-            <Link to="/raw" className="lf-button lf-button-primary">
-              <ImageUp size={18} strokeWidth={1.9} />
-              {t('landing.start')}
-            </Link>
-            <a
-              href={repository.url}
-              target="_blank"
-              rel="noreferrer"
-              className="lf-button lf-button-secondary"
-            >
-              <GitFork size={18} strokeWidth={1.9} />
-              {t('landing.viewSource')}
-            </a>
-          </div>
-        </div>
-        <div
-          className="lf-hero-panel"
-          aria-label={t('landing.workflowPreview')}
-        >
-          <div className="lf-compare-stage">
-            <img src={heroImage} alt="" aria-hidden="true" />
-            <div className="lf-compare-finish" aria-hidden="true" />
-            <div className="lf-compare-divider" aria-hidden="true" />
-            <span className="lf-compare-tag lf-tag-left">
-              {t('landing.rawPreviewTag')}
-            </span>
-            <span className="lf-compare-tag lf-tag-right">
-              {t('landing.finishedJpegTag')}
-            </span>
-          </div>
-          <div
-            className="lf-contract-strip"
-            aria-label={t('landing.contractChecks')}
-          >
-            {contractSteps.map((step) => (
-              <span key={step}>
-                <Check size={14} strokeWidth={2.2} />
-                {t(step)}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
+      <HeroSection t={t} />
 
       <section
         className="lf-positioning"
