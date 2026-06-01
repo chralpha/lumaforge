@@ -3,15 +3,13 @@ import type {
   LUTContractResolution,
 } from '@lumaforge/luma-color-runtime'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { AlertTriangle, ArrowLeft, Plus, Share2, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, X } from 'lucide-react'
 import { AnimatePresence, m, useDragControls } from 'motion/react'
 import { useEffect, useId, useRef, useState } from 'react'
-import { toast } from 'sonner'
 
 import { IconButton } from '~/components/ui/button'
 import { Chip } from '~/components/ui/chip'
 import { Dialog } from '~/components/ui/dialog'
-import { Input } from '~/components/ui/input'
 import { useI18n } from '~/lib/i18n'
 import { sheetSpring } from '~/lib/spring'
 
@@ -36,7 +34,7 @@ import type { StrengthLevel } from '../tools/StrengthControl'
 import { MobileLutCatalogEntryButton } from './MobileLutCatalogEntryButton'
 import { MobileLutContractStatusSection } from './MobileLutContractStatusSection'
 import { MobileLutCurrentSections } from './MobileLutCurrentSections'
-import { MobileLutSourceCard } from './MobileLutSourceCard'
+import { MobileLutOnlineSourcesSection } from './MobileLutOnlineSourcesSection'
 import { useMobileLutContractState } from './useMobileLutContractState'
 
 export interface MobileLutBrowserProps {
@@ -263,127 +261,6 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         exit: { opacity: 0, y: -8 },
       }
 
-  const renderOnlineSourcesSection = () => {
-    if (!props.onlineLutSources) return null
-
-    return (
-      <section className="grid gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="m-0 text-lf-body font-semibold text-lf-on-photo-ink">
-            {t('raw.mobile.lut.onlineHeading')}
-          </h3>
-          <button
-            type="button"
-            aria-label={t('raw.lutSource.copy')}
-            disabled={!props.onlineLutSources.share.enabled}
-            onClick={() => {
-              props.onlineLutSources?.share.copy().then(
-                () => toast.success(t('raw.lutSource.copied')),
-                () => toast.error(t('raw.lutSource.copyFailed')),
-              )
-            }}
-            className="grid size-[44px] shrink-0 place-items-center rounded-md bg-transparent text-lf-on-photo-ink/55 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-on-photo-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Share2 aria-hidden="true" className="size-5" />
-          </button>
-        </div>
-        <form
-          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (!props.onlineLutSources?.sourceUrlInput.trim()) {
-              return
-            }
-            void props.onlineLutSources?.addSourceFromInput()
-          }}
-        >
-          <label htmlFor={onlineSourceInputId} className="sr-only">
-            {t('raw.lutSource.url')}
-          </label>
-          <Input
-            id={onlineSourceInputId}
-            type="url"
-            inputMode="url"
-            autoComplete="off"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            value={props.onlineLutSources.sourceUrlInput}
-            placeholder="https://.../catalog.json"
-            onChange={(event) =>
-              props.onlineLutSources?.setSourceUrlInput(
-                event.currentTarget.value,
-              )
-            }
-            inputClassName="h-[44px] rounded-md border-transparent bg-lf-on-photo-bg text-lf-control text-lf-on-photo-ink shadow-none placeholder:text-lf-on-photo-ink/40 focus:border-transparent focus:bg-lf-on-photo-bg-strong focus:ring-2 focus:ring-lf-green/25"
-          />
-          <button
-            type="submit"
-            aria-label={t('raw.lutSource.add')}
-            disabled={!props.onlineLutSources.sourceUrlInput.trim()}
-            className="grid size-[44px] shrink-0 place-items-center rounded-md bg-transparent text-lf-on-photo-ink/55 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-on-photo-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Plus aria-hidden="true" className="size-5" />
-          </button>
-        </form>
-        {props.onlineLutSources.state.resources.length === 0 && (
-          <p className="m-0 text-xs leading-relaxed text-lf-on-photo-ink/64">
-            {t('raw.lutSource.emptyHint')}
-          </p>
-        )}
-        <div
-          className="grid gap-2"
-          aria-busy={props.onlineLutSources.state.isLoading}
-        >
-          {props.onlineLutSources.state.isLoading && (
-            <p
-              className="m-0 rounded-md border border-lf-green/35 bg-lf-green/15 px-2.5 py-2 text-xs font-semibold text-lf-green-soft"
-              role="status"
-            >
-              {t('raw.mobile.lut.loading')}
-            </p>
-          )}
-          {props.onlineLutSources.state.resources.map((resource) => {
-            const entries = entriesByResourceId.get(resource.id) ?? []
-            const resourceIssues = issuesByResourceId.get(resource.id) ?? []
-            const isResourceLoading =
-              props.onlineLutSources!.state.isLoading &&
-              props.onlineLutSources!.state.activeResourceId === resource.id
-
-            return (
-              <div key={resource.id} className="grid gap-1.5">
-                <MobileLutSourceCard
-                  resource={resource}
-                  entryCount={entries.length}
-                  isLoading={isResourceLoading}
-                  issues={resourceIssues}
-                  onRefresh={() =>
-                    void props.onlineLutSources?.refreshSource(resource.id)
-                  }
-                  onRemove={() =>
-                    props.onlineLutSources?.removeSource(resource.id)
-                  }
-                />
-                <button
-                  type="button"
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 text-lf-control font-semibold text-lf-on-photo-ink/76 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-on-photo-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
-                  onClick={() => {
-                    setCatalogResourceId(resource.id)
-                    setView('catalog')
-                  }}
-                >
-                  {t('raw.mobile.lut.browseEntries', {
-                    count: entries.length,
-                  })}
-                </button>
-              </div>
-            )
-          })}
-        </div>
-      </section>
-    )
-  }
-
   const renderOverview = () => (
     <m.div
       key="overview"
@@ -413,7 +290,16 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
         onLutProfileSelect={props.onLutProfileSelect}
         onOpenContractView={openContractView}
       />
-      {renderOnlineSourcesSection()}
+      <MobileLutOnlineSourcesSection
+        onlineLutSources={props.onlineLutSources}
+        sourceInputId={onlineSourceInputId}
+        entriesByResourceId={entriesByResourceId}
+        issuesByResourceId={issuesByResourceId}
+        onBrowseResource={(resourceId) => {
+          setCatalogResourceId(resourceId)
+          setView('catalog')
+        }}
+      />
     </m.div>
   )
 
