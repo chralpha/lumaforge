@@ -23,6 +23,7 @@ import type { LUTOutputOption } from '../tools/lut/lut-output-options'
 import { toOutputCarrierProfile } from '../tools/lut/lut-output-options'
 import { LUTOutputOptionButton } from '../tools/lut/LUTOutputOptionButton'
 import { LUTProfileButton } from '../tools/lut/LUTProfileButton'
+import { useOnlineLutEntryLoader } from '../tools/lut/useOnlineLutEntryLoader'
 import { useOnlineLutResourceState } from '../tools/lut/useOnlineLutResourceState'
 import {
   composeLUTContractProfile,
@@ -132,7 +133,6 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
   const [catalogResourceId, setCatalogResourceId] = useState<string | null>(
     null,
   )
-  const [loadingEntryId, setLoadingEntryId] = useState<string | null>(null)
   const [contractStep, setContractStep] = useState<ContractStep>('input')
   const [contractQuery, setContractQuery] = useState('')
   const initialContractEditorAppliedRef = useRef(false)
@@ -152,6 +152,9 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
     state: props.onlineLutSources?.state,
     resourceId: catalogResourceId,
   })
+  const { loadingEntryId, loadOnlineLutEntry } = useOnlineLutEntryLoader(
+    props.onlineLutSources?.loadEntry,
+  )
 
   const {
     resolvedProfile,
@@ -177,7 +180,6 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
 
     setView('overview')
     setCatalogResourceId(null)
-    setLoadingEntryId(null)
     setContractStep('input')
     setContractQuery('')
     setDraftInputProfile(resolvedProfile ?? null)
@@ -678,18 +680,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
   )
 
   const handleCatalogEntryClick = async (entry: OnlineEntry) => {
-    if (loadingEntryId || !props.onlineLutSources) return
-
-    setLoadingEntryId(entry.id)
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-    try {
-      await props.onlineLutSources.loadEntry(entry.id)
-      returnToOverview()
-    } catch {
-      // per-resource issue chip surfaces the failure
-    } finally {
-      setLoadingEntryId(null)
-    }
+    await loadOnlineLutEntry(entry.id, returnToOverview)
   }
 
   const renderCatalogEntry = (entry: OnlineEntry) => {

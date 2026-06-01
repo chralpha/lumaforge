@@ -30,6 +30,7 @@ import { getViewportBoundedBrowserLayout } from './lut-browser-layout'
 import { groupEntriesByFamily } from './lut-source-grouping'
 import { LutBrowserDialog } from './LutBrowserDialog'
 import { LutIconButton } from './LutIconButton'
+import { useOnlineLutEntryLoader } from './useOnlineLutEntryLoader'
 import { useOnlineLutResourceState } from './useOnlineLutResourceState'
 
 export function OnlineLutSourceControls({
@@ -42,7 +43,6 @@ export function OnlineLutSourceControls({
   const browserId = useId()
   const { state } = onlineLutSources
   const [openResourceId, setOpenResourceId] = useState<string | null>(null)
-  const [loadingEntryId, setLoadingEntryId] = useState<string | null>(null)
   const [browserLayout, setBrowserLayout] =
     useState<OnlineLutBrowserLayout | null>(null)
   const [browserListEl, setBrowserListEl] = useState<HTMLDivElement | null>(
@@ -50,6 +50,9 @@ export function OnlineLutSourceControls({
   )
   useScrollEdgeFade(browserListEl, { enabled: openResourceId != null })
   const openButtonRefs = useRef(new Map<string, HTMLButtonElement>())
+  const { loadingEntryId, loadOnlineLutEntry } = useOnlineLutEntryLoader(
+    onlineLutSources.loadEntry,
+  )
   const {
     resourcesById,
     entriesByResourceId,
@@ -166,21 +169,6 @@ export function OnlineLutSourceControls({
 
             const renderEntry = (entry: (typeof openEntries)[number]) => {
               const isLoading = loadingEntryId === entry.id
-              const handleLoadEntry = async () => {
-                if (loadingEntryId) return
-                setLoadingEntryId(entry.id)
-                await new Promise<void>((resolve) =>
-                  requestAnimationFrame(() => resolve()),
-                )
-                try {
-                  await onlineLutSources.loadEntry(entry.id)
-                  closeBrowser(openResource.id, { restoreFocus: true })
-                } catch {
-                  // per-resource issue chip surfaces the failure
-                } finally {
-                  setLoadingEntryId(null)
-                }
-              }
 
               return (
                 <div
@@ -199,7 +187,9 @@ export function OnlineLutSourceControls({
                     busy={isLoading}
                     disabled={isLoading}
                     onClick={() => {
-                      void handleLoadEntry()
+                      void loadOnlineLutEntry(entry.id, () =>
+                        closeBrowser(openResource.id, { restoreFocus: true }),
+                      )
                     }}
                   >
                     {isLoading ? (
