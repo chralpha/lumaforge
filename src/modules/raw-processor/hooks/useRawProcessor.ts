@@ -5,7 +5,7 @@ import type {
   ProcessingParams,
   RawRenderExposure,
 } from '@lumaforge/luma-color-runtime'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import {
@@ -33,7 +33,6 @@ import type { DecodedImage, ImageMetadata } from '~/lib/raw/decoder'
 import type { RawRuntimeSession } from '~/lib/raw/runtime-adapter'
 import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
-import { deriveCanEdit } from '../model/derive-session'
 import type {
   ExportResult,
   ExportShareCapability,
@@ -46,7 +45,6 @@ import type {
 } from '../model/session'
 import type { ProcessingStatus } from '../model/workflow'
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
-import { getProgressRecoveryHint } from '../services/ingest/workflow-status'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
 import { useOriginalReferencePolicy } from './stages/compare/useOriginalReferencePolicy'
 import { useOriginalReferenceSnapshotResources } from './stages/compare/useOriginalReferenceSnapshotResources'
@@ -65,6 +63,7 @@ import { useRawLoadAction } from './stages/ingest/useRawLoadAction'
 import { useRawProcessorLifecycle } from './stages/ingest/useRawProcessorLifecycle'
 import { useRawRuntimeControls } from './stages/ingest/useRawRuntimeControls'
 import { useRawSessionReset } from './stages/ingest/useRawSessionReset'
+import { useRawSourceState } from './stages/ingest/useRawSourceState'
 import { useRawLookStage } from './stages/look/useRawLookStage'
 import { useDecodedPreviewResource } from './stages/preview/useDecodedPreviewResource'
 import { useEmbeddedPreviewUrlLifecycle } from './stages/preview/useEmbeddedPreviewUrlLifecycle'
@@ -248,14 +247,15 @@ export function useRawProcessor(): UseRawProcessorReturn {
     },
     [],
   )
-  const hasImage = session ? deriveCanEdit(session) : false
-  const loadedImage = useMemo(
-    () => ({
-      file: session?.sourceFile.file ?? null,
-      metadata: session?.sourceFile.metadata ?? null,
-    }),
-    [session?.sourceFile.file, session?.sourceFile.metadata],
-  )
+  const {
+    hasImage,
+    loadedImage,
+    sourceFileName,
+    supportLevel,
+    progressRecoveryHint,
+    embeddedPreviewUrl,
+    displaySource,
+  } = useRawSourceState({ session, status })
   const rawRenderExposure =
     decodedImageRef.current?.renderExposure ?? rawRenderExposureRef.current
   const {
@@ -267,17 +267,6 @@ export function useRawProcessor(): UseRawProcessorReturn {
     setPreviewViewport,
     resetPreviewViewport,
   } = compareStage
-  const sourceFileName =
-    session?.sourceFile.name || loadedImage.file?.name || 'RAW photo'
-  const supportLevel =
-    session?.sourceFile.supportLevel === 'official'
-      ? 'official'
-      : 'experimental'
-  const progressRecoveryHint = getProgressRecoveryHint(status)
-  const embeddedPreviewUrl =
-    session?.previewBundle.embeddedPreview.objectUrl || null
-  const displaySource = session?.previewBundle.displaySource || 'none'
-
   const { clearSessionEmbeddedPreviewUrl, revokeCurrentEmbeddedPreviewUrl } =
     useEmbeddedPreviewUrlLifecycle({
       embeddedPreviewUrlRef,
