@@ -15,7 +15,6 @@ import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import { useI18n } from '~/lib/i18n'
 
 import {
-  ComparePreviewStage,
   ErrorOverlay,
   RAW_FILE_ACCEPT,
   RawToolSurface,
@@ -23,7 +22,7 @@ import {
   WorkspaceHeader,
 } from './components'
 import { CpuPreviewBanner } from './components/CpuPreviewBanner'
-import { RawCpuPreviewStage } from './components/RawCpuPreviewStage'
+import { RawPreviewStageSurface } from './components/RawPreviewStageSurface'
 import { RawResetConfirmationDialog } from './components/RawResetConfirmationDialog'
 import { RawWorkflowProvider } from './components/RawWorkflowContext'
 import { useRawWorkflow } from './hooks'
@@ -31,7 +30,6 @@ import { useRawRuntimeReadiness } from './hooks/stages/ingest/useRawRuntimeReadi
 import { useCapabilityGate } from './hooks/useCapabilityGate'
 import { useHiddenFilePicker } from './hooks/useHiddenFilePicker'
 import { useOnlineLutSources } from './hooks/useOnlineLutSources'
-import { clampCompareSplit } from './services/compare/compare-split'
 
 export interface RawProcessorViewProps {
   className?: string
@@ -85,16 +83,13 @@ function RawProcessorViewInner({
   rawRouteLocation,
 }: RawProcessorViewInnerProps) {
   const { t } = useI18n()
+  const workflow = useRawWorkflow()
   const {
     params,
     loadedImage,
     status,
     error,
-    progress,
     decodedImageRef,
-    decodedImageVersion,
-    lutDataRef,
-    lutDataVersion,
     stats,
     hasImage,
     canExport,
@@ -110,16 +105,9 @@ function RawProcessorViewInner({
     currentLutName,
     sourceFileName,
     supportLevel,
-    progressRecoveryHint,
     previewSuspended,
     viewMode,
     compareSplit,
-    previewViewport,
-    embeddedPreviewUrl,
-    displaySource,
-    originalReferenceSnapshot,
-    originalReferenceFallbackReason,
-    dualWebglAllowed,
     histogram,
     loadFile,
     loadLUT,
@@ -130,8 +118,6 @@ function RawProcessorViewInner({
     setColorParams,
     setViewMode,
     setCompareSplit,
-    setPreviewViewport,
-    setParams,
     clearLUT,
     exportImage,
     exportPreviewImage,
@@ -139,16 +125,13 @@ function RawProcessorViewInner({
     downloadExportResult,
     shareExportResult,
     copyExportResult,
-    restorePreviewAfterExport,
-    requestOriginalReferenceFallback,
-    setOriginalPreviewPipeline,
     reset,
     resetTone,
     resetColor,
     dismissError,
     updateStats,
     pipelineRef,
-  } = useRawWorkflow()
+  } = workflow
   const onlineLutSources = useOnlineLutSources({
     search: rawRouteLocation.search,
     pathname: rawRouteLocation.pathname,
@@ -254,13 +237,6 @@ function RawProcessorViewInner({
     null,
   )
 
-  const handleCompareSplitPreviewChange = useCallback(
-    (split: number) => {
-      setParams({ compareSplit: clampCompareSplit(split) })
-    },
-    [setParams],
-  )
-
   const isProcessing =
     status === 'warming' ||
     status === 'loading' ||
@@ -339,61 +315,17 @@ function RawProcessorViewInner({
         data-raw-lab-layout="stage-tools"
         data-raw-desktop-layout="photo-stage-command-rail"
       >
-        {isCpuMode && hasImage ? (
-          <RawCpuPreviewStage
-            image={decodedImageRef.current}
-            imageVersion={decodedImageVersion}
-            params={params}
-            lut={lutDataRef.current}
-            fallbackThumbnailUrl={embeddedPreviewUrl}
-          />
-        ) : (
-          <ComparePreviewStage
-            hasImage={hasImage}
-            imageRef={decodedImageRef}
-            imageVersion={decodedImageVersion}
-            params={params}
-            lutDataRef={lutDataRef}
-            lutDataVersion={lutDataVersion}
-            embeddedPreviewUrl={embeddedPreviewUrl}
-            displaySource={displaySource}
-            originalReferenceSnapshot={originalReferenceSnapshot}
-            originalReferenceFallbackReason={originalReferenceFallbackReason}
-            dualWebglAllowed={dualWebglAllowed}
-            previewSuspended={previewSuspended}
-            previewViewport={previewViewport}
-            split={compareSplit}
-            splitEnabled={viewMode === 'compare'}
-            onSplitChange={setCompareSplit}
-            onSplitPreviewChange={handleCompareSplitPreviewChange}
-            onPreviewViewportChange={setPreviewViewport}
-            isProcessing={isProcessing}
-            runtimeReadinessState={runtimeReadinessState}
-            onPrepareRuntime={triggerRawRuntimePrewarm}
-            phase={
-              status === 'warming'
-                ? 'warming'
-                : status === 'loading'
-                  ? 'loading'
-                  : status === 'decoding'
-                    ? 'decoding'
-                    : status === 'exporting'
-                      ? 'exporting'
-                      : 'processing'
-            }
-            progress={progress}
-            recoveryHint={progressRecoveryHint}
-            onRawDrop={handleFileDrop}
-            onStatsUpdate={handleStatsUpdate}
-            onPipelineChange={handlePipelineChange}
-            onOriginalPreviewPipelineChange={setOriginalPreviewPipeline}
-            onRequestOriginalReferenceFallback={
-              requestOriginalReferenceFallback
-            }
-            onRestorePreview={restorePreviewAfterExport}
-            previewFrameRef={setPreviewFrameEl}
-          />
-        )}
+        <RawPreviewStageSurface
+          workflow={workflow}
+          isCpuMode={isCpuMode}
+          isProcessing={isProcessing}
+          runtimeReadinessState={runtimeReadinessState}
+          onPrepareRuntime={triggerRawRuntimePrewarm}
+          onRawDrop={handleFileDrop}
+          onStatsUpdate={handleStatsUpdate}
+          onPipelineChange={handlePipelineChange}
+          onPreviewFrameChange={setPreviewFrameEl}
+        />
 
         <RawWorkflowProvider
           value={{

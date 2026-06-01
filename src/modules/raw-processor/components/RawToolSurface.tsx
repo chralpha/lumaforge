@@ -10,8 +10,12 @@ import {
 
 const selectIsNarrowViewport = (v: { w: number }) => v.w <= 640 && v.w !== 0
 
-export function RawToolSurface(props?: RawToolSurfaceProps) {
-  const workflow = useRawWorkflowContext(props)
+type RawToolSurfaceComponentProps = Partial<RawToolSurfaceProps>
+
+export function RawToolSurface(props: RawToolSurfaceComponentProps = {}) {
+  const workflow = useRawWorkflowContext(
+    hasToolSurfaceOverride(props) ? props : undefined,
+  )
   const isMobileViewport = useViewport(selectIsNarrowViewport)
 
   const content = isMobileViewport ? (
@@ -28,3 +32,9 @@ export function RawToolSurface(props?: RawToolSurfaceProps) {
 }
 
 export type { RawToolSurfaceProps } from './RawWorkflowContext'
+
+function hasToolSurfaceOverride(
+  props: RawToolSurfaceComponentProps,
+): props is RawToolSurfaceProps {
+  return Object.keys(props).length > 0
+}
