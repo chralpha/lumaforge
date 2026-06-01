@@ -54,8 +54,6 @@ import type { OriginalReferenceSnapshot } from '../services/compare/original-ref
 import { deriveFullResExportReadiness } from '../services/export/export-readiness'
 import { resolveExportShareButtonCapability } from '../services/export/export-result-actions'
 import { clearExportResultState } from '../services/export/export-state'
-import type { RawLoadContext } from '../services/ingest/orchestrate-raw-load'
-import { orchestrateRawLoad } from '../services/ingest/orchestrate-raw-load'
 import { getProgressRecoveryHint } from '../services/ingest/workflow-status'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
 import { useOriginalReferenceSnapshotResources } from './stages/compare/useOriginalReferenceSnapshotResources'
@@ -68,6 +66,7 @@ import { useExportResultActions } from './stages/export/useExportResultActions'
 import type { FullResExportOptions } from './stages/export/useFullResExportAction'
 import { useFullResExportAction } from './stages/export/useFullResExportAction'
 import { useHqPreviewExportAction } from './stages/export/useHqPreviewExportAction'
+import { useRawLoadAction } from './stages/ingest/useRawLoadAction'
 import { useRawLookStage } from './stages/look/useRawLookStage'
 import { useDecodedPreviewResource } from './stages/preview/useDecodedPreviewResource'
 import { useEmbeddedPreviewUrlLifecycle } from './stages/preview/useEmbeddedPreviewUrlLifecycle'
@@ -516,77 +515,44 @@ export function useRawProcessor(): UseRawProcessorReturn {
     }
   }, [lut, setLutDataRef])
 
-  // Stable context for the RAW load orchestrator
-  const rawLoadCtx = useMemo<RawLoadContext>(
-    () => ({
-      atoms: {
-        setStatus,
-        setError,
-        setProgress,
-        getProcessingParams: getCurrentProcessingParams,
-        setParams,
-        setSession,
-        setDecodedImageVersion,
-        setStats,
-        setPendingRecoveryRetry,
-      },
-      services: {
-        scheduleToast,
-        replaceFile,
-        abortRuntimeWork,
-        abortExportWork,
-        queueExportResultResourceDisposal,
-        revokeCurrentEmbeddedPreviewUrl,
-        clearSessionEmbeddedPreviewUrl,
-        setDecodedImageRef,
-        invalidateExportGraph,
-        registerCurrentPreviewPipelineForEvacuation,
-        disposeRuntimeSession,
-        yieldToPaint,
-        getPrewarmState: () => rawRuntimeAdapter.getPrewarmState(),
-        prewarm: () => rawRuntimeAdapter.prewarm(),
-      },
-      refs: {
-        runtimeAbortControllerRef,
-        runtimeSessionRef,
-        disposedRuntimeSessionsRef,
-        decodedImageRef,
-        sessionRef,
-        embeddedPreviewUrlRef,
-        isMountedRef,
-        runtimeWorkSessionIdRef,
-        pendingLoadSessionIdRef,
-        previewCopyCanvasRef,
-      },
-    }),
-    [
-      abortExportWork,
-      abortRuntimeWork,
-      clearSessionEmbeddedPreviewUrl,
-      disposeRuntimeSession,
-      getCurrentProcessingParams,
-      invalidateExportGraph,
-      queueExportResultResourceDisposal,
-      registerCurrentPreviewPipelineForEvacuation,
-      replaceFile,
-      revokeCurrentEmbeddedPreviewUrl,
-      scheduleToast,
-      setDecodedImageRef,
-      setError,
-      setParams,
-      setProgress,
-      setSession,
-      setStats,
-      setStatus,
-    ],
-  )
-
-  // Load RAW file
-  const loadFile = useCallback(
-    (file: File) =>
-      orchestrateRawLoad(file, params, lut, activeStyle, rawLoadCtx),
-    [params, lut, activeStyle, rawLoadCtx],
-  )
+  const { loadFile } = useRawLoadAction({
+    params,
+    lut,
+    activeStyle,
+    setStatus,
+    setError,
+    setProgress,
+    getProcessingParams: getCurrentProcessingParams,
+    setParams,
+    setSession,
+    setDecodedImageVersion,
+    setStats,
+    setPendingRecoveryRetry,
+    scheduleToast,
+    replaceFile,
+    abortRuntimeWork,
+    abortExportWork,
+    queueExportResultResourceDisposal,
+    revokeCurrentEmbeddedPreviewUrl,
+    clearSessionEmbeddedPreviewUrl,
+    setDecodedImageRef,
+    invalidateExportGraph,
+    registerCurrentPreviewPipelineForEvacuation,
+    disposeRuntimeSession,
+    yieldToPaint,
+    getPrewarmState: () => rawRuntimeAdapter.getPrewarmState(),
+    prewarm: () => rawRuntimeAdapter.prewarm(),
+    runtimeAbortControllerRef,
+    runtimeSessionRef,
+    disposedRuntimeSessionsRef,
+    decodedImageRef,
+    sessionRef,
+    embeddedPreviewUrlRef,
+    isMountedRef,
+    runtimeWorkSessionIdRef,
+    pendingLoadSessionIdRef,
+    previewCopyCanvasRef,
+  })
 
   const { restorePreviewAfterExport } = useRestorePreviewAfterExport({
     loadedFile: loadedImage.file,
