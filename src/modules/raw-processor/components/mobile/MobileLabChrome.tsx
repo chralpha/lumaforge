@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   Check,
   ChevronRight,
-  FolderOpen,
   ImageUp,
   Info,
   LockKeyhole,
@@ -21,7 +20,6 @@ import { surfaceFade } from '~/lib/spring'
 
 import { DOCK_SPRING, IMMERSIVE_STAGGER_MS } from '../../motion'
 import type { RawRuntimeReadinessState } from '../raw-runtime-readiness'
-import { getRawRuntimeReadinessCopy } from '../raw-runtime-readiness'
 import type { ColorValue } from '../tools/ColorTool'
 import { useLutContractSummary } from '../tools/lut/useLutContractSummary'
 import { getProfileOutputLabel } from '../tools/lut-contract'
@@ -30,6 +28,7 @@ import type { ScrubFieldId } from './AdjustListPanel'
 import { AdjustListPanel } from './AdjustListPanel'
 import { FloatingHistogramCard } from './FloatingHistogramCard'
 import { MobileComparePanel } from './MobileComparePanel'
+import { MobileEmptyState } from './MobileEmptyState'
 import type { MobileLutBrowserProps } from './MobileLutBrowser'
 import { MobileLutBrowser } from './MobileLutBrowser'
 import type { MobileMode } from './MobileModeDock'
@@ -290,10 +289,6 @@ export function MobileLabChrome(props: {
     lutProfileSelection: props.lutBrowser.lutProfileSelection,
     lutProfileResolution: props.lutBrowser.lutProfileResolution,
   })
-  const runtimeReadiness =
-    !props.hasImage && props.runtimeReadinessState
-      ? getRawRuntimeReadinessCopy(t, props.runtimeReadinessState)
-      : null
   const lutContractWarningLabel = lutNeedsUserSelection
     ? t('raw.mobile.lut.chooseContract')
     : lutNeedsOutput
@@ -525,70 +520,12 @@ export function MobileLabChrome(props: {
 
       <AnimatePresence>
         {!props.hasImage && (
-          <m.div
-            key="mobile-empty"
-            data-mobile-empty-state
-            data-mobile-empty-variant="toolbar"
-            className="raw-mobile-empty pointer-events-auto"
-            initial={{ opacity: 0, y: prefersReduced ? 0 : 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: prefersReduced ? 0 : 12 }}
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="raw-mobile-empty-hero" data-mobile-empty-hero>
-              <span className="raw-mobile-empty-mark" aria-hidden="true">
-                <ImageUp className="size-[30px]" strokeWidth={1.6} />
-              </span>
-              <div className="raw-mobile-empty-copy-block">
-                <h1>{t('raw.onboarding.slogan')}</h1>
-                <p className="raw-mobile-empty-copy">
-                  {t('raw.mobile.empty.copy')}
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={
-                  props.runtimeReadinessState !== 'ready' &&
-                  props.runtimeReadinessState !== undefined
-                }
-                onClick={() => {
-                  props.onPrepareRuntime?.()
-                  props.onReplaceFile()
-                }}
-                onPointerEnter={props.onPrepareRuntime}
-                onFocus={props.onPrepareRuntime}
-                className="raw-mobile-empty-cta"
-              >
-                <FolderOpen aria-hidden="true" className="size-4" />
-                {t('raw.mobile.empty.browse')}
-              </button>
-              {runtimeReadiness && (
-                <div
-                  aria-live="polite"
-                  data-raw-runtime-readiness
-                  data-state={props.runtimeReadinessState}
-                  className="raw-mobile-empty-readiness"
-                >
-                  <span
-                    className="raw-mobile-empty-readiness-dot"
-                    aria-hidden="true"
-                  />
-                  <strong>{runtimeReadiness.label}</strong>
-                  <span>{runtimeReadiness.detail}</span>
-                </div>
-              )}
-              <div
-                className="raw-mobile-empty-formats"
-                aria-label="Supported RAW formats"
-              >
-                {t('raw.mobile.empty.formats')
-                  .split(' ')
-                  .map((format) => (
-                    <span key={format}>{format}</span>
-                  ))}
-              </div>
-            </div>
-          </m.div>
+          <MobileEmptyState
+            prefersReduced={prefersReduced}
+            runtimeReadinessState={props.runtimeReadinessState}
+            onPrepareRuntime={props.onPrepareRuntime}
+            onReplaceFile={props.onReplaceFile}
+          />
         )}
       </AnimatePresence>
 
