@@ -3,23 +3,18 @@ import { AnimatePresence, m, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 
-import { surfaceFade } from '~/lib/spring'
-
 import { DOCK_SPRING, IMMERSIVE_STAGGER_MS } from '../../motion'
 import type { RawRuntimeReadinessState } from '../raw-runtime-readiness'
 import type { ColorValue } from '../tools/ColorTool'
 import type { ToneValue } from '../tools/ToneTool'
 import type { ScrubFieldId } from './AdjustListPanel'
-import { AdjustListPanel } from './AdjustListPanel'
-import { MobileComparePanel } from './MobileComparePanel'
 import { MobileEmptyState } from './MobileEmptyState'
 import { MobileFloatingOverlays } from './MobileFloatingOverlays'
+import { MobileLabModeDock } from './MobileLabModeDock'
 import { MobileLabTopbar } from './MobileLabTopbar'
-import { MobileLookPanel } from './MobileLookPanel'
 import type { MobileLutBrowserProps } from './MobileLutBrowser'
 import { MobileLutBrowser } from './MobileLutBrowser'
 import type { MobileMode } from './MobileModeDock'
-import { MobileModeDock } from './MobileModeDock'
 import { MobileMoreSheet } from './MobileMoreSheet'
 import { useMobilePreviewGestures } from './useMobilePreviewGestures'
 
@@ -272,48 +267,6 @@ export function MobileLabChrome(props: {
     setLutBrowserOpen(true)
   }
 
-  const panelContent =
-    mode === 'tone' ? (
-      <AdjustListPanel
-        tone={props.tone}
-        color={props.color}
-        onToneChange={props.onToneChange}
-        onColorChange={props.onColorChange}
-        onToneReset={props.onToneReset}
-        onColorReset={props.onColorReset}
-        onScrubChange={setScrubField}
-        scrubbing={focusActive}
-      />
-    ) : mode === 'look' ? (
-      <MobileLookPanel
-        lutBrowser={props.lutBrowser}
-        onOpenLutBrowser={openLutBrowser}
-        onOpenLutContractBrowser={openLutContractBrowser}
-      />
-    ) : mode === 'compare' ? (
-      <MobileComparePanel
-        splitOpen={compareSplitOpen}
-        onCompareReset={props.onCompareReset}
-        onSplitOpenChange={setCompareSplitMode}
-      />
-    ) : (
-      props.exportPanel
-    )
-
-  // Remount on mode change so the incoming panel fades/slides in rather than
-  // swapping instantly. Keyed (not AnimatePresence) keeps the swap robust and
-  // the panel a direct child of the dock frame.
-  const panel = (
-    <m.div
-      key={mode}
-      initial={{ opacity: 0, y: prefersReduced ? 0 : 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={surfaceFade}
-    >
-      {panelContent}
-    </m.div>
-  )
-
   return (
     <div
       className="pointer-events-none absolute inset-0 z-20"
@@ -376,7 +329,7 @@ export function MobileLabChrome(props: {
               onOpenMore={() => setMoreOpen(true)}
               onResetSession={props.onResetSession}
             />
-            <MobileModeDock
+            <MobileLabModeDock
               mode={mode}
               expanded={dockExpanded && props.hasImage}
               disabled={!props.hasImage || props.isProcessing}
@@ -389,9 +342,22 @@ export function MobileLabChrome(props: {
               }}
               onCollapse={() => setDockExpanded(false)}
               onOpenMore={() => setMoreOpen(true)}
-              canExport
               scrubbing={focusActive}
-              panel={panel}
+              prefersReduced={prefersReduced}
+              tone={props.tone}
+              color={props.color}
+              lutBrowser={props.lutBrowser}
+              compareSplitOpen={compareSplitOpen}
+              exportPanel={props.exportPanel}
+              onToneChange={props.onToneChange}
+              onToneReset={props.onToneReset}
+              onColorChange={props.onColorChange}
+              onColorReset={props.onColorReset}
+              onScrubChange={setScrubField}
+              onOpenLutBrowser={openLutBrowser}
+              onOpenLutContractBrowser={openLutContractBrowser}
+              onCompareReset={props.onCompareReset}
+              onSplitOpenChange={setCompareSplitMode}
             />
           </m.div>
         )}
