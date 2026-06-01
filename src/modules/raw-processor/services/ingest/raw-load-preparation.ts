@@ -34,10 +34,12 @@ export function prepareRawLoadState(input: {
   return {
     compareSplit,
     retainedSessionState,
-    processingParamsPatch: {
-      ...(preservedCustomStyle ? {} : { intensity: 0.7 }),
-      styleKind: preservedCustomStyle ? 'custom' : 'none',
-      builtinPreset: null,
-    },
+    processingParamsPatch: preservedCustomStyle
+      ? {}
+      : {
+          intensity: 0.7,
+          styleKind: 'none',
+          builtinPreset: null,
+        },
   }
 }

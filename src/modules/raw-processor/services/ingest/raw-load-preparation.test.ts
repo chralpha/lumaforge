@@ -108,11 +108,10 @@ describe('raw load preparation', () => {
       title: 'Client LUT',
       sourceName: 'client.cube',
     })
-    expect(prepared.processingParamsPatch).toEqual({
-      styleKind: 'custom',
-      builtinPreset: null,
-    })
+    expect(prepared.processingParamsPatch).toEqual({})
     expect(prepared.processingParamsPatch).not.toHaveProperty('intensity')
+    expect(prepared.processingParamsPatch).not.toHaveProperty('styleKind')
+    expect(prepared.processingParamsPatch).not.toHaveProperty('builtinPreset')
     expect(prepared.processingParamsPatch).not.toHaveProperty('viewMode')
     expect(prepared.processingParamsPatch).not.toHaveProperty('compareSplit')
   })
@@ -130,6 +129,7 @@ describe('raw load preparation', () => {
       kind: 'custom',
       currentIntensityLevel: 'strong',
     })
+    expect(prepared.processingParamsPatch).toEqual({})
     expect(prepared.processingParamsPatch).not.toHaveProperty('intensity')
   })
 
@@ -150,6 +150,7 @@ describe('raw load preparation', () => {
       kind: 'custom',
       currentIntensityLevel: 'standard',
     })
+    expect(prepared.processingParamsPatch).toEqual({})
     expect(prepared.processingParamsPatch).not.toHaveProperty('intensity')
   })
 })
