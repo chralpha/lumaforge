@@ -42,6 +42,10 @@
 
 .lf-wordmark {
   gap: 10px;
+  padding: 5px 14px 5px 5px;
+  border: 1px solid oklch(0.95 0.01 86 / 0.42);
+  border-radius: 999px;
+  background: oklch(0.19 0.018 76 / 0.36);
   color: inherit;
   text-decoration: none;
   font-size: 0.95rem;
@@ -51,8 +55,7 @@
 .lf-wordmark-icon {
   width: 28px;
   height: 28px;
-  border-radius: 5px;
-  box-shadow: 0 8px 22px oklch(0.1 0.02 78 / 0.24);
+  border-radius: 999px;
   object-fit: cover;
 }
 
@@ -286,48 +289,6 @@
 
 .lf-tag-right {
   right: 14px;
-}
-
-.lf-contract-rail {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0;
-  margin: 0;
-  padding: 18px 0 0;
-  border-top: 1px solid var(--lf-hero-hairline);
-  list-style: none;
-}
-
-.lf-contract-rail li {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 6px 14px 6px 0;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--lf-hero-fg);
-}
-
-.lf-contract-rail li + li {
-  border-left: 1px solid var(--lf-hero-hairline);
-  padding-left: 14px;
-}
-
-.lf-contract-index {
-  color: var(--lf-hero-amber);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
-}
-
-.lf-contract-sep {
-  color: var(--lf-hero-fg-muted);
-}
-
-.lf-contract-label {
-  color: var(--lf-hero-fg-muted);
-  font-weight: 600;
 }
 
 .lf-kicker,
@@ -658,16 +619,6 @@
     aspect-ratio: 5 / 3;
   }
 
-  .lf-contract-rail {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    row-gap: 12px;
-  }
-
-  .lf-contract-rail li:nth-child(3n + 1) {
-    border-left: 0;
-    padding-left: 0;
-  }
-
   .lf-proof {
     grid-template-columns: 1fr;
   }
@@ -734,16 +685,6 @@
 
   .lf-hero-compare {
     aspect-ratio: 4 / 3;
-  }
-
-  .lf-contract-rail {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    row-gap: 12px;
-  }
-
-  .lf-contract-rail li:nth-child(2n + 1) {
-    border-left: 0;
-    padding-left: 0;
   }
 
   .lf-button {

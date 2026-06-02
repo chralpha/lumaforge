@@ -20,7 +20,6 @@
   "landing.workflowPreview": "LumaForge color workflow preview",
   "landing.rawPreviewTag": "RAW preview",
   "landing.finishedJpegTag": "Finished JPEG",
-  "landing.contractChecks": "Color contract checks",
   "landing.contract.0": "RAW technical development",
   "landing.contract.1": "Linear ProPhoto scene handoff",
   "landing.contract.2": "Target gamut",

@@ -159,20 +159,6 @@ function HeroSection({ t }: { t: Translate }) {
           {t('landing.finishedJpegTag')}
         </figcaption>
       </m.figure>
-
-      <ol className="lf-contract-rail" aria-label={t('landing.contractChecks')}>
-        {contractSteps.map((step, index) => (
-          <li key={step}>
-            <span className="lf-contract-index">
-              {String(index + 1).padStart(2, '0')}
-            </span>
-            <span className="lf-contract-sep" aria-hidden="true">
-              ·
-            </span>
-            <span className="lf-contract-label">{t(step)}</span>
-          </li>
-        ))}
-      </ol>
     </section>
   )
 }
