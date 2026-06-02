@@ -67,17 +67,17 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
             props.onScrubChange(null)
             setSection(next)
           }}
-          className="h-11 w-full rounded-md bg-[oklch(0.96_0.006_255/0.05)] p-1"
+          className="h-11 w-full rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong p-1 backdrop-blur-background"
         >
           <SegmentItem
             value="tone"
             label={t('raw.adjust.tone')}
-            className="flex-1 text-[0.8rem] font-semibold text-lf-on-photo-ink/86 transition-colors duration-150 hover:text-lf-on-photo-ink data-[state=active]:text-lf-on-photo-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-[oklch(0.96_0.006_255/0.14)] data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.18)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80"
+            className="flex-1 text-[0.8rem] font-semibold text-lf-on-photo-ink/86 transition-colors duration-150 hover:text-lf-on-photo-ink data-[state=active]:text-lf-on-photo-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-[oklch(0.96_0.006_255/0.22)] data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.26)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80"
           />
           <SegmentItem
             value="color"
             label={t('raw.adjust.color')}
-            className="flex-1 text-[0.8rem] font-semibold text-lf-on-photo-ink/86 transition-colors duration-150 hover:text-lf-on-photo-ink data-[state=active]:text-lf-on-photo-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-[oklch(0.96_0.006_255/0.14)] data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.18)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80"
+            className="flex-1 text-[0.8rem] font-semibold text-lf-on-photo-ink/86 transition-colors duration-150 hover:text-lf-on-photo-ink data-[state=active]:text-lf-on-photo-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-[oklch(0.96_0.006_255/0.22)] data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.26)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80"
           />
         </SegmentGroup>
         <button
@@ -85,7 +85,7 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
           onClick={onSectionReset}
           disabled={isNeutral}
           aria-label={resetLabel}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft px-2.5 py-1 text-[0.72rem] font-semibold text-lf-on-photo-ink transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-3 py-1 text-[0.72rem] font-semibold text-lf-on-photo-ink backdrop-blur-background transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-40"
         >
           <RotateCcw aria-hidden="true" className="size-3" />
           {resetLabel}

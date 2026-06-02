@@ -23,6 +23,7 @@ export function MobileLabTopbar({
   onOpenLutBrowser,
   onOpenMore,
   onResetSession,
+  scrubbing,
 }: {
   hasImage: boolean
   fileName: string
@@ -34,6 +35,7 @@ export function MobileLabTopbar({
   onOpenLutBrowser: () => void
   onOpenMore: () => void
   onResetSession: () => void
+  scrubbing?: boolean
 }) {
   const { t } = useI18n()
 
@@ -45,6 +47,7 @@ export function MobileLabTopbar({
       supportLevel={supportLevel}
       histogramShown={histogramShown}
       onToggleHistogram={onToggleHistogram}
+      scrubbing={scrubbing}
       moreMenuItems={[
         {
           kind: 'item',

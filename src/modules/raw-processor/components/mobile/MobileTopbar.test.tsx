@@ -114,6 +114,59 @@ describe('mobileTopbar', () => {
     ).toBeInTheDocument()
   })
 
+  it('yields the safe-area slot to the scrub HUD by fading content while scrubbing', () => {
+    const { container, rerender } = renderMobileTopbar({
+      hasImage: true,
+      fileName: 'DSC09142.ARW',
+      fileMeta: 'Sony α7 IV',
+      supportLevel: 'official',
+      histogramShown: false,
+      onToggleHistogram: vi.fn(),
+      moreMenuItems: [],
+    })
+
+    const header = container.querySelector('[data-mobile-topbar]')!
+    expect(header).not.toHaveAttribute('data-scrubbing')
+    const idleChildren = Array.from(header.children) as HTMLElement[]
+    for (const child of idleChildren) {
+      expect(child).not.toHaveClass('opacity-0')
+      expect(child).toHaveClass('pointer-events-auto')
+    }
+
+    rerender(
+      <I18nProvider>
+        <MobileTopbar
+          hasImage
+          fileName="DSC09142.ARW"
+          fileMeta="Sony α7 IV"
+          supportLevel="official"
+          histogramShown={false}
+          onToggleHistogram={vi.fn()}
+          moreMenuItems={[]}
+          scrubbing
+        />
+      </I18nProvider>,
+    )
+
+    const scrubbingHeader = container.querySelector('[data-mobile-topbar]')!
+    expect(scrubbingHeader).toHaveAttribute('data-scrubbing', 'true')
+    const scrubbingChildren = Array.from(
+      scrubbingHeader.children,
+    ) as HTMLElement[]
+    expect(scrubbingChildren.length).toBeGreaterThan(0)
+    for (const child of scrubbingChildren) {
+      expect(child).toHaveClass('opacity-0')
+      expect(child).toHaveClass('pointer-events-none')
+      expect(child).not.toHaveClass('pointer-events-auto')
+    }
+    // The gradient backdrop on the header itself stays — that's what backs
+    // the HUD readout.
+    expect(scrubbingHeader).toHaveClass(
+      'bg-gradient-to-b',
+      'from-[oklch(0.05_0.006_255/0.82)]',
+    )
+  })
+
   it('reserves the histogram action slot before a RAW is loaded', () => {
     const { container } = renderMobileTopbar({
       hasImage: false,

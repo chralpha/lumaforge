@@ -141,6 +141,7 @@ export function MobileLabChrome(props: {
               onOpenLutBrowser={openLutBrowser}
               onOpenMore={() => setMoreOpen(true)}
               onResetSession={props.onResetSession}
+              scrubbing={focusActive}
             />
             <MobileLabModeDock
               mode={mode}

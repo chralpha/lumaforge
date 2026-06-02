@@ -25,21 +25,42 @@ export function MobileTopbar(props: {
   histogramShown: boolean
   onToggleHistogram: () => void
   moreMenuItems: MobileMoreMenuItem[]
+  scrubbing?: boolean
 }) {
   const { t } = useI18n()
   const title = props.hasImage ? props.fileName : t('raw.header.title')
   const meta = props.hasImage ? props.fileMeta : t('raw.header.subtitleEmpty')
+  const scrubbing = props.scrubbing === true
+  // During a slider scrub the topbar yields its content slot to the
+  // ScrubValueHud — same vertical band, same gradient backdrop. We fade the
+  // file title, app mark, and action cluster instead of competing for the
+  // safe-area row, keeping the gradient alone to back the HUD readout.
+  const fadeWhenScrubbing = clsxm(
+    'transition-opacity duration-150',
+    scrubbing && 'pointer-events-none opacity-0',
+  )
   return (
     <header
       data-mobile-topbar
+      data-scrubbing={scrubbing || undefined}
       className="pointer-events-none absolute inset-x-0 top-0 z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 bg-gradient-to-b from-[oklch(0.05_0.006_255/0.82)] via-[oklch(0.05_0.006_255/0.4)] to-transparent px-3 pb-5 pt-safe-offset-3 text-lf-on-photo-ink"
     >
       <img
         src={appIcon}
         alt=""
-        className="pointer-events-auto size-6 shrink-0 rounded-[5px] object-cover ring-1 ring-inset ring-[oklch(0.96_0.006_255/0.2)]"
+        className={clsxm(
+          'size-6 shrink-0 rounded-[5px] object-cover ring-1 ring-inset ring-[oklch(0.96_0.006_255/0.2)]',
+          scrubbing ? 'pointer-events-none' : 'pointer-events-auto',
+          fadeWhenScrubbing,
+        )}
       />
-      <div className="pointer-events-auto min-w-0">
+      <div
+        className={clsxm(
+          'min-w-0',
+          scrubbing ? 'pointer-events-none' : 'pointer-events-auto',
+          fadeWhenScrubbing,
+        )}
+      >
         <h1 className="m-0 truncate text-sm font-semibold leading-tight">
           {title}
         </h1>
@@ -58,7 +79,13 @@ export function MobileTopbar(props: {
           {meta}
         </p>
       </div>
-      <div className="pointer-events-auto inline-flex items-center gap-1">
+      <div
+        className={clsxm(
+          'inline-flex items-center gap-1',
+          scrubbing ? 'pointer-events-none' : 'pointer-events-auto',
+          fadeWhenScrubbing,
+        )}
+      >
         <LocaleToggle
           className={clsxm(ghostAction, 'px-2.5 text-[0.72rem] font-semibold')}
         />
