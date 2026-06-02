@@ -44,11 +44,27 @@ describe('adjustListPanel', () => {
       screen.getByRole('group', { name: /tone sliders/i }),
     ).toBeInTheDocument()
     expect(screen.getAllByRole('slider')).toHaveLength(6)
-    expect(screen.getByRole('tablist', { name: /adjust/i })).toHaveClass('h-11')
-    expect(screen.getByRole('button', { name: /reset tone/i })).toHaveClass(
+    // Tabs row + ghost reset are the new low-chrome chrome — both must keep
+    // the 44px mobile touch target without leaning on a dark scrim chip.
+    expect(screen.getByRole('tablist', { name: /adjust/i })).toHaveClass(
       'min-h-11',
     )
+    expect(screen.getByRole('button', { name: /reset tone/i })).toHaveClass(
+      'min-h-11',
+      'min-w-11',
+    )
     expect(screen.getByRole('button', { name: /reset tone/i })).toBeEnabled()
+    // The active tab carries the amber underline indicator; the chrome row
+    // wears a single hairline divider instead of a free-floating dark chip.
+    const toneTab = screen.getByRole('tab', { name: /^tone$/i })
+    expect(toneTab).toHaveAttribute('aria-selected', 'true')
+    expect(toneTab.querySelector('span[aria-hidden="true"]')).toHaveClass(
+      'bg-lf-amber',
+    )
+    expect(document.querySelector('[data-adjust-section-chrome]')).toHaveClass(
+      'border-b',
+      'border-lf-on-photo-bord-soft',
+    )
   })
 
   it('switches to Color and shows the two color sliders', async () => {

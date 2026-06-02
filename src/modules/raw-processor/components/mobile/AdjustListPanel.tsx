@@ -1,12 +1,12 @@
 import { RotateCcw } from 'lucide-react'
-import { AnimatePresence, m } from 'motion/react'
-import { useState } from 'react'
+import { AnimatePresence, m, useReducedMotion } from 'motion/react'
+import { useId, useState } from 'react'
 
-import { SegmentGroup, SegmentItem } from '~/components/ui/segment'
 import { clsxm } from '~/lib/cn'
 import { useI18n } from '~/lib/i18n'
 import { surfaceFade } from '~/lib/spring'
 
+import { DOCK_SPRING } from '../../motion'
 import type { ColorValue } from '../tools/ColorTool'
 import type { ToneValue } from '../tools/ToneTool'
 import { isColorNeutral } from './color-fields'
@@ -31,9 +31,21 @@ type AdjustListPanelProps = {
   scrubbing?: boolean
 }
 
+const SECTIONS: {
+  id: Section
+  labelKey: 'raw.adjust.tone' | 'raw.adjust.color'
+}[] = [
+  { id: 'tone', labelKey: 'raw.adjust.tone' },
+  { id: 'color', labelKey: 'raw.adjust.color' },
+]
+
 export function AdjustListPanel(props: AdjustListPanelProps) {
   const { t } = useI18n()
   const [section, setSection] = useState<Section>('tone')
+  const prefersReduced = useReducedMotion() ?? false
+  // Per-instance id so multiple AdjustListPanels (e.g. a future side-by-side)
+  // animate their own indicators rather than fighting over a shared layoutId.
+  const indicatorLayoutId = useId()
 
   const isNeutral =
     section === 'tone' ? isToneNeutral(props.tone) : isColorNeutral(props.color)
@@ -43,6 +55,12 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
     section === 'tone' ? props.onToneReset : props.onColorReset
 
   const scrubbing = props.scrubbing === true
+
+  const selectSection = (next: Section) => {
+    if (next === section) return
+    props.onScrubChange(null)
+    setSection(next)
+  }
 
   return (
     <div
@@ -54,41 +72,55 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
       <div
         data-adjust-section-chrome
         className={clsxm(
-          'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 transition-opacity duration-150',
+          'grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 border-b border-lf-on-photo-bord-soft transition-opacity duration-150',
           scrubbing && 'opacity-25',
         )}
       >
-        <SegmentGroup
+        <div
+          role="tablist"
           aria-label={t('raw.adjust.title')}
-          value={section}
-          onValueChanged={(value) => {
-            const next = value as Section
-            if (next === section) return
-            props.onScrubChange(null)
-            setSection(next)
-          }}
-          className="h-11 w-full rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong p-1 backdrop-blur-background"
+          className="inline-flex min-h-11 items-stretch gap-5 px-0.5"
         >
-          <SegmentItem
-            value="tone"
-            label={t('raw.adjust.tone')}
-            className="flex-1 text-[0.8rem] font-semibold text-lf-on-photo-ink/86 transition-colors duration-150 hover:text-lf-on-photo-ink data-[state=active]:text-lf-on-photo-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-[oklch(0.96_0.006_255/0.22)] data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.26)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80"
-          />
-          <SegmentItem
-            value="color"
-            label={t('raw.adjust.color')}
-            className="flex-1 text-[0.8rem] font-semibold text-lf-on-photo-ink/86 transition-colors duration-150 hover:text-lf-on-photo-ink data-[state=active]:text-lf-on-photo-ink data-[state=active]:[&_span[data-segment-thumb]]:bg-[oklch(0.96_0.006_255/0.22)] data-[state=active]:[&_span[data-segment-thumb]]:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.26)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80"
-          />
-        </SegmentGroup>
+          {SECTIONS.map((s) => {
+            const isActive = s.id === section
+            return (
+              <button
+                key={s.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => selectSection(s.id)}
+                className={clsxm(
+                  'relative inline-flex min-h-11 items-center px-1 text-[0.95rem] font-semibold leading-none tracking-tight transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lf-green/80',
+                  isActive
+                    ? 'text-lf-on-photo-ink'
+                    : 'text-lf-on-photo-ink/55 hover:text-lf-on-photo-ink/86',
+                )}
+              >
+                {t(s.labelKey)}
+                {isActive && (
+                  <m.span
+                    aria-hidden="true"
+                    layoutId={prefersReduced ? undefined : indicatorLayoutId}
+                    transition={DOCK_SPRING}
+                    className="absolute inset-x-1 -bottom-px h-0.5 rounded-lf-pill bg-lf-amber"
+                  />
+                )}
+              </button>
+            )
+          })}
+        </div>
         <button
           type="button"
           onClick={onSectionReset}
           disabled={isNeutral}
           aria-label={resetLabel}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong px-3 py-1 text-[0.72rem] font-semibold text-lf-on-photo-ink backdrop-blur-background transition-colors hover:border-lf-amber/55 hover:text-lf-amber-soft disabled:cursor-not-allowed disabled:opacity-40"
+          className="-mr-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-md bg-transparent text-lf-on-photo-ink/82 transition-colors hover:bg-[oklch(0.96_0.006_255/0.08)] hover:text-lf-amber-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lf-green/80 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-lf-on-photo-ink/82"
         >
-          <RotateCcw aria-hidden="true" className="size-3" />
-          {resetLabel}
+          <RotateCcw
+            aria-hidden="true"
+            className="size-[18px] stroke-current"
+          />
         </button>
       </div>
       <AnimatePresence mode="wait" initial={false}>

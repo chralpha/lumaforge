@@ -36,5 +36,10 @@ export type { RawToolSurfaceProps } from './RawWorkflowContext'
 function hasToolSurfaceOverride(
   props: RawToolSurfaceComponentProps,
 ): props is RawToolSurfaceProps {
-  return Object.keys(props).length > 0
+  // Detect real test/storybook overrides by the presence of a structural
+  // RawToolSurfaceProps field. Plain key-count checks misfire in dev because
+  // tooling like `code-inspector-plugin` injects `data-*` attributes onto
+  // every JSX call site, which would otherwise be treated as an override and
+  // clobber the workflow context value.
+  return 'histogram' in props
 }
