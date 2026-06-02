@@ -33,8 +33,13 @@ async function writeSourceRuntimeFixtures(root) {
   await Promise.all(files.map((file) => writeFixture(root, file)))
   await writeFixture(
     root,
-    'packages/luma-raw-runtime/dist/native/provenance.json',
-    '{"runtime":"raw"}',
+    'packages/luma-raw-runtime/dist/native/desktop/provenance.json',
+    '{"runtime":"raw","profile":"desktop"}',
+  )
+  await writeFixture(
+    root,
+    'packages/luma-raw-runtime/dist/native/low-memory/provenance.json',
+    '{"runtime":"raw","profile":"low-memory"}',
   )
   await writeFixture(
     root,
@@ -93,7 +98,25 @@ describe('native artifact package', () => {
         join(root, 'packages/luma-native-artifacts/native/provenance/raw.json'),
         'utf8',
       ),
-    ).resolves.toBe('{"runtime":"raw"}')
+    ).rejects.toThrow()
+    await expect(
+      readFile(
+        join(
+          root,
+          'packages/luma-native-artifacts/native/provenance/raw-desktop.json',
+        ),
+        'utf8',
+      ),
+    ).resolves.toBe('{"runtime":"raw","profile":"desktop"}')
+    await expect(
+      readFile(
+        join(
+          root,
+          'packages/luma-native-artifacts/native/provenance/raw-low-memory.json',
+        ),
+        'utf8',
+      ),
+    ).resolves.toBe('{"runtime":"raw","profile":"low-memory"}')
     await expect(
       readFile(
         join(

@@ -17,7 +17,7 @@ async function makeTempProject() {
     'packages/luma-native-artifacts/package.json',
     JSON.stringify({
       name: '@lumaforge/luma-native-artifacts',
-      version: '0.0.1',
+      version: '0.0.2',
     }),
   )
   return root
@@ -67,7 +67,7 @@ describe('prepare native runtime assets', () => {
       },
     })
 
-    expect(fetchedPackages).toEqual(['@lumaforge/luma-native-artifacts@0.0.1'])
+    expect(fetchedPackages).toEqual(['@lumaforge/luma-native-artifacts@0.0.2'])
     expect(assetSets.map((assetSet) => assetSet.source)).toEqual([
       'prebuilt',
       'prebuilt',
@@ -88,7 +88,7 @@ describe('prepare native runtime assets', () => {
       },
     })
 
-    expect(fetchedPackages).toEqual(['@lumaforge/luma-native-artifacts@0.0.1'])
+    expect(fetchedPackages).toEqual(['@lumaforge/luma-native-artifacts@0.0.2'])
     expect(assetSets.map((assetSet) => assetSet.source)).toEqual([
       'prebuilt',
       'prebuilt',

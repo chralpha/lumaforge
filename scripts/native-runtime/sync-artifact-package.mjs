@@ -37,8 +37,12 @@ const nativeFileCopies = [
     `${artifactPackageDir}/native/luma_jpeg.wasm`,
   ],
   [
-    'packages/luma-raw-runtime/dist/native/provenance.json',
-    `${artifactPackageDir}/native/provenance/raw.json`,
+    'packages/luma-raw-runtime/dist/native/desktop/provenance.json',
+    `${artifactPackageDir}/native/provenance/raw-desktop.json`,
+  ],
+  [
+    'packages/luma-raw-runtime/dist/native/low-memory/provenance.json',
+    `${artifactPackageDir}/native/provenance/raw-low-memory.json`,
   ],
   [
     'packages/luma-jpeg-runtime/dist/native/provenance.json',

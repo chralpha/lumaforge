@@ -17,7 +17,8 @@ const requiredPackageFiles = [
   `${artifactPackageDir}/THIRD_PARTY_NOTICES.md`,
   `${artifactPackageDir}/THIRD_PARTY_LICENSES/LibRaw-LICENSE.LGPL.txt`,
   `${artifactPackageDir}/THIRD_PARTY_LICENSES/libjpeg-turbo-LICENSE.md`,
-  `${artifactPackageDir}/native/provenance/raw.json`,
+  `${artifactPackageDir}/native/provenance/raw-desktop.json`,
+  `${artifactPackageDir}/native/provenance/raw-low-memory.json`,
   `${artifactPackageDir}/native/provenance/jpeg.json`,
 ]
 
