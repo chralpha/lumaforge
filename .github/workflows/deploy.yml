@@ -34,8 +34,6 @@ jobs:
       DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || vars.DEPLOY_TARGET }}
       DEPLOY_ENV: ${{ github.event_name == 'pull_request' && 'preview' || github.event.inputs.deploy_env || vars.DEPLOY_ENV || ((github.ref_name == 'main' || github.ref_name == 'master') && 'production' || 'preview') }}
       DEPLOY_PRODUCTION_BRANCHES: ${{ vars.DEPLOY_PRODUCTION_BRANCHES || 'main,master' }}
-      EMSDK_VERSION: 5.0.6
-      EMSDK_REF: 948c31acd3f369a5da276e33ab2ed57108c165e5
 
     steps:
       - uses: actions/checkout@v4
@@ -71,11 +69,6 @@ jobs:
       - name: Configure pnpm store
         run: pnpm config set store-dir ~/.pnpm-store
 
-      - name: Install native build tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y autoconf automake libtool pkg-config
-
       - name: Cache pnpm store
         uses: actions/cache@v4
         with:
@@ -84,31 +77,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-
 
-      - name: Cache Emscripten SDK
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/lumaforge-emsdk
-          key: ${{ runner.os }}-${{ runner.arch }}-emsdk-${{ env.EMSDK_VERSION }}-${{ env.EMSDK_REF }}
-
-      - name: Install Emscripten SDK
-        run: |
-          if [ ! -d "$HOME/.cache/lumaforge-emsdk/.git" ]; then
-            rm -rf "$HOME/.cache/lumaforge-emsdk"
-            git clone https://github.com/emscripten-core/emsdk.git "$HOME/.cache/lumaforge-emsdk"
-          fi
-          cd "$HOME/.cache/lumaforge-emsdk"
-          git fetch --tags --force origin
-          git reset --hard "$EMSDK_REF"
-          ./emsdk install "$EMSDK_VERSION"
-          ./emsdk activate "$EMSDK_VERSION"
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build deploy artifact
-        run: |
-          . "$HOME/.cache/lumaforge-emsdk/emsdk_env.sh"
-          pnpm run deploy:build-artifact
+        run: pnpm run deploy:build-artifact
 
       - name: Deploy selected target
         id: deploy
