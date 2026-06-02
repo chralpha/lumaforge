@@ -2,7 +2,9 @@
   "name": "@lumaforge/luma-color-runtime",
   "type": "module",
   "version": "0.1.0",
-  "private": true,
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Pure TypeScript color transform contract runtime for LumaForge.",
   "sideEffects": false,
   "exports": {

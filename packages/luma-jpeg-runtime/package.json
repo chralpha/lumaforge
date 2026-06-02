@@ -2,7 +2,9 @@
   "name": "@lumaforge/luma-jpeg-runtime",
   "type": "module",
   "version": "0.1.0",
-  "private": true,
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Bounded row-oriented JPEG encoder runtime for LumaForge.",
   "sideEffects": [
     "./dist/*.worker.js"

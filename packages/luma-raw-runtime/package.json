@@ -2,7 +2,9 @@
   "name": "@lumaforge/luma-raw-runtime",
   "type": "module",
   "version": "0.1.0",
-  "private": true,
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Performance-first browser RAW runtime for LumaForge.",
   "license": "SEE LICENSE IN LICENSE",
   "sideEffects": [
