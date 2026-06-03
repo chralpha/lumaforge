@@ -43,7 +43,7 @@ export function MobileTopbar(props: {
     <header
       data-mobile-topbar
       data-scrubbing={scrubbing || undefined}
-      className="pointer-events-none absolute inset-x-0 top-0 z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 bg-gradient-to-b from-[oklch(0.05_0.006_255/0.82)] via-[oklch(0.05_0.006_255/0.4)] to-transparent px-3 pb-5 pt-safe-offset-3 text-lf-on-photo-ink"
+      className="pointer-events-none absolute inset-x-0 top-0 z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 bg-gradient-to-b from-[oklch(0.064_0.006_255/0.82)] via-[oklch(0.064_0.006_255/0.4)] to-transparent px-3 pb-5 pt-safe-offset-3 text-lf-on-photo-ink"
     >
       <img
         src={appIcon}

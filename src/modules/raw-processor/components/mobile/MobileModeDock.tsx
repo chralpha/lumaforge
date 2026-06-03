@@ -54,7 +54,7 @@ export function MobileModeDock(props: {
   return (
     <div
       data-mobile-dock
-      className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/92 via-black/65 to-transparent pb-[max(8px,calc(env(safe-area-inset-bottom)-24px))] text-lf-on-photo-ink"
+      className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-[oklch(0.064_0.006_255/0.92)] via-[oklch(0.085_0.006_255/0.68)] to-transparent pb-[max(8px,calc(env(safe-area-inset-bottom)-24px))] text-lf-on-photo-ink"
     >
       <AnimatePresence initial={false}>
         {props.expanded && !disabled && (
@@ -64,7 +64,7 @@ export function MobileModeDock(props: {
             data-scrubbing={props.scrubbing || undefined}
             className={clsxm(
               'isolate absolute inset-x-0 bottom-full overflow-y-auto px-3.5 pb-2.5 pt-3.5',
-              "before:absolute before:inset-0 before:-z-10 before:bg-gradient-to-t before:from-black/82 before:via-black/58 before:to-transparent before:transition-opacity before:duration-150 before:content-['']",
+              "before:absolute before:inset-0 before:-z-10 before:bg-gradient-to-t before:from-[oklch(0.085_0.006_255/0.82)] before:via-[oklch(0.118_0.006_255/0.56)] before:to-transparent before:transition-opacity before:duration-150 before:content-['']",
               props.scrubbing && 'before:opacity-15',
               props.mode === 'tone'
                 ? 'max-h-[min(60vh,360px)]'

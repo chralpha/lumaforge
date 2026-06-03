@@ -23,12 +23,12 @@ export function RawResetConfirmationDialog({
       <DialogPrimitive.Portal forceMount>
         {open && (
           <>
-            <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/52 backdrop-blur-[2px] sm:bg-black/55" />
+            <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.04_0.006_255/0.52)] backdrop-blur-[2px] sm:bg-[oklch(0.04_0.006_255/0.55)]" />
             <div className="pointer-events-none fixed inset-0 z-[60] grid items-end p-0 sm:place-items-center sm:p-5">
               <DialogPrimitive.Content
                 role="alertdialog"
                 data-mobile-substrate="ink-sheet"
-                className="pointer-events-auto grid max-h-[82%] w-full overflow-hidden rounded-t-xl border-t border-lf-on-photo-bord-soft bg-gradient-to-t from-black/92 via-black/82 to-lf-darkroom-stage-low/94 text-lf-on-photo-ink shadow-[0_-18px_42px_oklch(0.04_0.012_76/0.62)] backdrop-blur-background sm:max-w-[28rem] sm:rounded-lf-panel sm:border sm:border-lf-on-photo-bord-soft sm:bg-[oklch(0.092_0.006_255/0.96)] sm:bg-none sm:text-lf-on-photo-ink sm:shadow-[0_22px_64px_oklch(0.04_0.006_255/0.5),inset_0_1px_0_oklch(0.96_0.006_255/0.06)]"
+                className="pointer-events-auto grid max-h-[82%] w-full overflow-hidden rounded-t-xl border-t border-lf-on-photo-bord-soft bg-gradient-to-t from-[oklch(0.092_0.006_255/0.96)] via-[oklch(0.118_0.006_255/0.94)] to-[oklch(0.16_0.007_255/0.88)] text-lf-on-photo-ink shadow-[0_-18px_42px_oklch(0.04_0.006_255/0.58),inset_0_1px_0_oklch(0.96_0.006_255/0.06)] backdrop-blur-background sm:max-w-[28rem] sm:rounded-lf-panel sm:border sm:border-lf-on-photo-bord-soft sm:bg-[oklch(0.092_0.006_255/0.96)] sm:bg-none sm:text-lf-on-photo-ink sm:shadow-[0_22px_64px_oklch(0.04_0.006_255/0.5),inset_0_1px_0_oklch(0.96_0.006_255/0.06)]"
               >
                 <div className="px-5 pb-5 pt-5">
                   <div className="flex min-w-0 items-center gap-2.5">
@@ -44,7 +44,7 @@ export function RawResetConfirmationDialog({
                   </DialogDescription>
                 </div>
                 <div
-                  className="grid grid-cols-2 gap-2 border-t border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-4 py-3 sm:flex sm:justify-end sm:border-lf-on-photo-bord-soft sm:bg-[oklch(0.062_0.006_255/0.92)] sm:px-5 sm:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.06)]"
+                  className="grid grid-cols-2 gap-2 border-t border-lf-on-photo-bord-soft bg-[oklch(0.064_0.006_255/0.92)] px-4 py-3 sm:flex sm:justify-end sm:border-lf-on-photo-bord-soft sm:bg-[oklch(0.062_0.006_255/0.92)] sm:px-5 sm:shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.06)]"
                   data-raw-reset-confirm-actions
                 >
                   <Button
@@ -52,7 +52,7 @@ export function RawResetConfirmationDialog({
                     size="sm"
                     type="button"
                     onClick={() => onOpenChange(false)}
-                    className="min-h-[44px] border-lf-on-photo-bord-soft bg-lf-on-photo-bg-strong text-lf-on-photo-ink/82 shadow-none hover:bg-lf-on-photo-bg-strong hover:text-lf-on-photo-ink sm:min-h-0 sm:border-0 sm:bg-transparent sm:text-lf-on-photo-ink/78 sm:shadow-none sm:hover:bg-[oklch(0.96_0.006_255/0.06)] sm:hover:text-lf-on-photo-ink"
+                    className="min-h-[44px] border-lf-on-photo-bord-soft bg-[oklch(0.096_0.006_255/0.72)] text-lf-on-photo-ink/82 shadow-none hover:bg-[oklch(0.118_0.006_255/0.86)] hover:text-lf-on-photo-ink sm:min-h-0 sm:border-0 sm:bg-transparent sm:text-lf-on-photo-ink/78 sm:shadow-none sm:hover:bg-[oklch(0.96_0.006_255/0.06)] sm:hover:text-lf-on-photo-ink"
                   >
                     {t('raw.resetConfirm.cancel')}
                   </Button>

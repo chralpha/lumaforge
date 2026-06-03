@@ -209,7 +209,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                 key="lut-browser"
                 data-mobile-substrate="ink-sheet"
                 data-mobile-lut-view={view}
-                className="absolute inset-x-0 bottom-0 z-[46] grid max-h-[82%] grid-rows-[auto_minmax(0,1fr)] rounded-t-xl border-t border-lf-on-photo-bord-soft bg-gradient-to-t from-black/92 via-black/82 to-lf-darkroom-stage-low/94 pb-safe-offset-3 text-lf-on-photo-ink shadow-[0_-18px_42px_oklch(0.04_0.012_76/0.62)] backdrop-blur-background"
+                className="absolute inset-x-0 bottom-0 z-[46] grid max-h-[82%] grid-rows-[auto_minmax(0,1fr)] rounded-t-xl border-t border-lf-on-photo-bord-soft bg-gradient-to-t from-[oklch(0.092_0.006_255/0.96)] via-[oklch(0.118_0.006_255/0.94)] to-[oklch(0.16_0.007_255/0.88)] pb-safe-offset-3 text-lf-on-photo-ink shadow-[0_-18px_42px_oklch(0.04_0.006_255/0.58),inset_0_1px_0_oklch(0.96_0.006_255/0.06)] backdrop-blur-background"
                 initial={prefersReduced ? { opacity: 0 } : { y: '100%' }}
                 animate={prefersReduced ? { opacity: 1 } : { y: '0%' }}
                 exit={prefersReduced ? { opacity: 0 } : { y: '100%' }}

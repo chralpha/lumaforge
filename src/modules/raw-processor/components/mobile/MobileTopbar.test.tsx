@@ -163,7 +163,7 @@ describe('mobileTopbar', () => {
     // the HUD readout.
     expect(scrubbingHeader).toHaveClass(
       'bg-gradient-to-b',
-      'from-[oklch(0.05_0.006_255/0.82)]',
+      'from-[oklch(0.064_0.006_255/0.82)]',
     )
   })
 

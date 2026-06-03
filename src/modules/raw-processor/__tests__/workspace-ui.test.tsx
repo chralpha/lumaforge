@@ -476,17 +476,22 @@ describe('rawProcessorView', () => {
       })
       expect(dialog).toHaveAttribute('data-mobile-substrate', 'ink-sheet')
       expect(dialog).toHaveClass('bg-gradient-to-t')
-      expect(dialog).toHaveClass('from-black/92')
+      expect(dialog).toHaveClass('from-[oklch(0.092_0.006_255/0.96)]')
+      expect(dialog).not.toHaveClass('from-black/92')
+      expect(dialog).not.toHaveClass('to-lf-darkroom-stage-low/94')
       expect(dialog).toHaveClass('text-lf-on-photo-ink')
       expect(dialog).toHaveClass('border-lf-on-photo-bord-soft')
       expect(dialog).not.toHaveClass('bg-lf-surface-raised')
       expect(dialog).not.toHaveClass('text-lf-on-surface')
       expect(
         dialog.querySelector('[data-raw-reset-confirm-actions]'),
-      ).toHaveClass('bg-lf-on-photo-bg')
+      ).toHaveClass('bg-[oklch(0.064_0.006_255/0.92)]')
       expect(
         dialog.querySelector('[data-raw-reset-confirm-actions]'),
       ).not.toHaveClass('bg-lf-surface-muted/60')
+      expect(
+        dialog.querySelector('[data-raw-reset-confirm-actions]'),
+      ).not.toHaveClass('bg-lf-on-photo-bg')
 
       // Desktop sm: overrides must also stay in the workspace chrome
       // language. The dialog renders in a Portal so it escapes the
