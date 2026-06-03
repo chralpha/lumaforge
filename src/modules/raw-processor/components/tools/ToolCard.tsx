@@ -82,6 +82,11 @@ export function ToolCard({
         )}
       >
         <span className="flex min-w-0 items-center gap-2">
+          <span
+            aria-hidden="true"
+            data-tool-card-state-indicator
+            className="size-1.5 shrink-0 rounded-lf-pill bg-lf-on-photo-ink/28 transition-colors duration-150 group-data-[state=open]/tool-trigger:bg-lf-amber"
+          />
           <span className="truncate">{title}</span>
           {meta != null && (
             <span

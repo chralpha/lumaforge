@@ -216,7 +216,7 @@ export function ToneTool({
       <Button
         variant="light"
         size="sm"
-        disabled={disabled}
+        disabled={disabled || isNeutral}
         onClick={handleReset}
         className="self-start [&_svg]:size-3.5"
       >

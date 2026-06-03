@@ -188,6 +188,11 @@ describe('rawToolSurface', () => {
     ).toBeGreaterThanOrEqual(1)
     expect(container.querySelector('[data-tool-card="adjust"]')).toBeTruthy()
     expect(container.querySelector('[data-tool-card="tone"]')).toBeNull()
+    expect(
+      Array.from(container.querySelectorAll('[data-tool-card]'), (card) =>
+        card.getAttribute('data-tool-card'),
+      ),
+    ).toEqual(['histogram', 'look', 'adjust', 'compare', 'fileFacts'])
     // Export is a persistent, non-collapsible region
     const exportRegion = screen.getByRole('region', { name: 'Export' })
     expect(exportRegion).toHaveAttribute('data-raw-export-block', 'persistent')
@@ -340,7 +345,7 @@ describe('rawToolSurface', () => {
         hasImage
         tone={{
           userExposureEv: 0,
-          userContrast: 0,
+          userContrast: 12,
           userHighlights: 0,
           userShadows: 0,
           userWhites: 0,
@@ -391,6 +396,7 @@ describe('rawToolSurface', () => {
       <RawToolSurface
         {...baseProps}
         hasImage
+        tone={{ ...baseProps.tone, userContrast: 12 }}
         color={{ userTemperature: 18, userTint: 0 }}
         onColorChange={vi.fn()}
         onColorReset={onColorReset}
@@ -426,6 +432,16 @@ describe('rawToolSurface', () => {
 
     expect(
       within(adjust).getByRole('button', { name: 'Reset color' }),
+    ).toBeDisabled()
+  })
+
+  it('disables reset tone when tone controls are neutral', () => {
+    render(<RawToolSurface {...baseProps} hasImage />)
+
+    const adjust = screen.getByRole('region', { name: 'Adjust' })
+
+    expect(
+      within(adjust).getByRole('button', { name: 'Reset tone' }),
     ).toBeDisabled()
   })
 
