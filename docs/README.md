@@ -1,3 +1,5 @@
+<div align="right"><strong>🇬🇧English</strong> | <strong><a href="./README_zh.md">🇨🇳中文</a></strong></div>
+
 # LumaForge Help
 
 LumaForge is for finishing one RAW photo with a look you already like. It keeps

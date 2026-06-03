@@ -1,3 +1,5 @@
+<div align="right"><strong>🇬🇧English</strong> | <strong><a href="./LUT_AND_EXPORT_FAQ_zh.md">🇨🇳中文</a></strong></div>
+
 # LUT and Export FAQ
 
 This page explains the choices that most often confuse hobbyist RAW users:

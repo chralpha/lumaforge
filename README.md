@@ -1,3 +1,5 @@
+<div align="right"><strong>🇬🇧English</strong> | <strong><a href="./README_zh.md">🇨🇳中文</a></strong></div>
+
 # LumaForge
 
 <p align="center">

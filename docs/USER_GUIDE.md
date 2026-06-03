@@ -1,3 +1,5 @@
+<div align="right"><strong>🇬🇧English</strong> | <strong><a href="./USER_GUIDE_zh.md">🇨🇳中文</a></strong></div>
+
 # RAW Lab Guide
 
 This guide covers the normal LumaForge flow:
