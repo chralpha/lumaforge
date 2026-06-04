@@ -12,6 +12,10 @@ import {
   getCapabilityVectorSnapshot,
 } from '~/lib/runtime/capability-vector'
 import { deriveInteractivePolicy } from '~/lib/runtime/interactive-policy'
+import {
+  derivePreviewGpuBudget,
+  detectPreviewGpuCapabilitySnapshot,
+} from '~/lib/runtime/preview-gpu-budget'
 
 import type {
   DisplaySource,
@@ -221,7 +225,6 @@ export async function orchestrateRawLoad(
 
     const capability =
       getCapabilityVectorSnapshot() ?? (await detectCapabilityVector())
-    const interactivePolicy = deriveInteractivePolicy(capability)
     if (!matchesActiveSession()) {
       runtimeAbortController.abort()
       return
@@ -236,6 +239,18 @@ export async function orchestrateRawLoad(
     ctx.services.disposeRuntimeSession()
     const activeRuntimeSession = runtimeSession
     ctx.refs.runtimeSessionRef.current = activeRuntimeSession
+    const gpuCapability = detectPreviewGpuCapabilitySnapshot()
+    const previewGpuBudget = gpuCapability
+      ? derivePreviewGpuBudget({
+          capability,
+          gpu: gpuCapability,
+          sourceWidth: activeRuntimeSession.sourceDimensions.width ?? 0,
+          sourceHeight: activeRuntimeSession.sourceDimensions.height ?? 0,
+        })
+      : undefined
+    const interactivePolicy = deriveInteractivePolicy(capability, {
+      previewGpuBudget,
+    })
     const previewPlan = createProgressivePreviewPlan({
       sourceWidth: activeRuntimeSession.sourceDimensions.width ?? 0,
       sourceHeight: activeRuntimeSession.sourceDimensions.height ?? 0,

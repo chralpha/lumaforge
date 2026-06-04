@@ -61,6 +61,21 @@ describe('deriveInteractivePolicy', () => {
     expect(p.allowConcurrentDecodeAndLutParse).toBe(false)
   })
 
+  it('uses GPU preview budget without promoting worker concurrency', () => {
+    const p = deriveInteractivePolicy(
+      { ...baseCap, pthread: false },
+      {
+        previewGpuBudget: {
+          boundedHqMaxPixels: 12_000_000,
+        },
+      },
+    )
+
+    expect(p.boundedHqMaxPixels).toBe(12_000_000)
+    expect(p.previewWorkerMemoryProfile).toBe('low-memory')
+    expect(p.allowConcurrentDecodeAndLutParse).toBe(false)
+  })
+
   it('gates desktop memory profile to chromium only', () => {
     const p = deriveInteractivePolicy({
       ...baseCap,

@@ -1,6 +1,7 @@
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { DecodedImage } from '~/lib/raw/decoder'
 import type { CapabilityVector } from '~/lib/runtime/capability-vector'
 
 import { createImageSession } from '../../model/session-factory'
@@ -10,6 +11,11 @@ import { orchestrateRawLoad } from './orchestrate-raw-load'
 const capabilityVectorMock = vi.hoisted(() => ({
   detectCapabilityVector: vi.fn(),
   getCapabilityVectorSnapshot: vi.fn(),
+}))
+
+const previewGpuBudgetMock = vi.hoisted(() => ({
+  detectPreviewGpuCapabilitySnapshot: vi.fn(),
+  derivePreviewGpuBudget: vi.fn(),
 }))
 
 vi.mock('~/lib/raw/runtime-adapter', () => ({
@@ -24,6 +30,7 @@ vi.mock('~/lib/raw/runtime-adapter', () => ({
 }))
 
 vi.mock('~/lib/runtime/capability-vector', () => capabilityVectorMock)
+vi.mock('~/lib/runtime/preview-gpu-budget', () => previewGpuBudgetMock)
 
 const defaultParams: ProcessingParams = {
   intensity: 0.7,
@@ -126,6 +133,21 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
+function createDecodedImage(width: number, height: number): DecodedImage {
+  return {
+    width,
+    height,
+    channels: 3,
+    bitsPerChannel: 16,
+    data: new Uint16Array(0),
+    layout: 'rgb-u16',
+    colorSpace: 'linear-prophoto-rgb',
+    source: 'quick',
+    metadata: { width, height },
+    renderExposure: { ev: 0, multiplier: 1, source: 'identity' },
+  }
+}
+
 describe('orchestrateRawLoad ack-before-work contract', () => {
   const defaultCapability: CapabilityVector = {
     coi: false,
@@ -145,6 +167,12 @@ describe('orchestrateRawLoad ack-before-work contract', () => {
     capabilityVectorMock.detectCapabilityVector
       .mockReset()
       .mockResolvedValue(defaultCapability)
+    previewGpuBudgetMock.detectPreviewGpuCapabilitySnapshot
+      .mockReset()
+      .mockReturnValue(null)
+    previewGpuBudgetMock.derivePreviewGpuBudget
+      .mockReset()
+      .mockReturnValue({ boundedHqMaxPixels: 8_000_000 })
   })
 
   it('commits visible status and sync setup before awaiting the paint boundary', async () => {
@@ -267,5 +295,68 @@ describe('orchestrateRawLoad ack-before-work contract', () => {
     )
 
     loadPromise.catch(() => undefined)
+  })
+
+  it('uses a GPU-aware bounded HQ budget after opening the RAW session', async () => {
+    const order: string[] = []
+    const { rawRuntimeAdapter } = await import('~/lib/raw/runtime-adapter')
+    const gpu = {
+      webgl2: true,
+      maxTextureSize: 8192,
+      maxRenderbufferSize: 8192,
+    }
+    const quick = createDecodedImage(1600, 1067)
+    const bounded = createDecodedImage(4243, 2828)
+    const decodeBoundedHqRaw = vi.fn().mockResolvedValue(bounded)
+
+    capabilityVectorMock.detectCapabilityVector.mockResolvedValue({
+      ...defaultCapability,
+      pthread: false,
+      hwConcurrency: 8,
+      webKitClass: 'chromium',
+      deviceFormFactor: 'desktop',
+    })
+    previewGpuBudgetMock.detectPreviewGpuCapabilitySnapshot.mockReturnValue(gpu)
+    previewGpuBudgetMock.derivePreviewGpuBudget.mockReturnValue({
+      boundedHqMaxPixels: 12_000_000,
+    })
+    vi.mocked(rawRuntimeAdapter.openSession).mockResolvedValue({
+      sourceDimensions: { width: 6000, height: 4000 },
+      extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+      decodeQuickRaw: vi.fn().mockResolvedValue(quick),
+      decodeBoundedHqRaw,
+    })
+
+    const ctx = buildContext({
+      order,
+      yieldToPaint: () => Promise.resolve(),
+      getPrewarmState: () => 'ready',
+    })
+
+    await orchestrateRawLoad(
+      new File(['raw'], 'sample.ARW'),
+      defaultParams,
+      null,
+      null,
+      ctx,
+    )
+
+    expect(previewGpuBudgetMock.derivePreviewGpuBudget).toHaveBeenCalledWith({
+      capability: {
+        ...defaultCapability,
+        pthread: false,
+        hwConcurrency: 8,
+        webKitClass: 'chromium',
+        deviceFormFactor: 'desktop',
+      },
+      gpu,
+      sourceWidth: 6000,
+      sourceHeight: 4000,
+    })
+    expect(decodeBoundedHqRaw).toHaveBeenCalledWith(
+      { maxOutputPixels: 12_000_000 },
+      undefined,
+      expect.any(AbortSignal),
+    )
   })
 })
