@@ -1,4 +1,4 @@
-import type { BoundedHqPreviewDecision } from './preview-resolution-policy'
+import type { ProgressivePreviewPlan } from './preview-resolution-policy'
 
 export type EmbeddedPreviewPayload = {
   width: number
@@ -37,7 +37,7 @@ function toPreviewErrorMessage(error: unknown, fallbackMessage: string) {
 
 export async function runPreviewPipeline({
   runtimeSession,
-  boundedHqDecision,
+  previewPlan,
   onEvent,
 }: {
   runtimeSession: {
@@ -47,7 +47,7 @@ export async function runPreviewPipeline({
       maxOutputPixels: number
     }) => Promise<{ width: number; height: number }>
   }
-  boundedHqDecision: BoundedHqPreviewDecision
+  previewPlan: ProgressivePreviewPlan
   onEvent: (event: PreviewEvent) => void
 }): Promise<PreviewPipelineResult> {
   let embedded: EmbeddedPreviewPayload | null = null
@@ -76,6 +76,7 @@ export async function runPreviewPipeline({
   onEvent({ type: 'quick-ready', ...quick })
   await yieldToPreviewPaint()
 
+  const boundedHqDecision = previewPlan.boundedHq
   if (boundedHqDecision.kind === 'skip') {
     onEvent({ type: 'bounded-hq-skipped', reason: boundedHqDecision.reason })
     return { boundedHqPromise: null }
@@ -84,7 +85,7 @@ export async function runPreviewPipeline({
   const boundedHqPromise = (async () => {
     try {
       const boundedHq = await runtimeSession.decodeBoundedHqRaw({
-        maxOutputPixels: boundedHqDecision.maxOutputPixels,
+        maxOutputPixels: boundedHqDecision.target.maxOutputPixels,
       })
       onEvent({ type: 'bounded-hq-ready', ...boundedHq })
     } catch (error) {

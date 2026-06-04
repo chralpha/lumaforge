@@ -26,7 +26,7 @@ import {
   revokeEmbeddedPreviewObjectUrls,
 } from '../preview/embedded-preview-url'
 import { runPreviewPipeline } from '../preview/preview-pipeline'
-import { decideBoundedHqPreview } from '../preview/preview-resolution-policy'
+import { createProgressivePreviewPlan } from '../preview/preview-resolution-policy'
 import {
   applyBoundedHqPreviewFailure,
   applyBoundedHqPreviewSkipped,
@@ -241,7 +241,7 @@ export async function orchestrateRawLoad(
     ctx.services.disposeRuntimeSession()
     const activeRuntimeSession = runtimeSession
     ctx.refs.runtimeSessionRef.current = activeRuntimeSession
-    const boundedHqDecision = decideBoundedHqPreview({
+    const previewPlan = createProgressivePreviewPlan({
       sourceWidth: activeRuntimeSession.sourceDimensions.width ?? 0,
       sourceHeight: activeRuntimeSession.sourceDimensions.height ?? 0,
       boundedHqMaxPixels: interactivePolicy.boundedHqMaxPixels,
@@ -359,7 +359,7 @@ export async function orchestrateRawLoad(
           }
         },
       },
-      boundedHqDecision,
+      previewPlan,
       onEvent: (event) => {
         if (!matchesActiveSession()) {
           return

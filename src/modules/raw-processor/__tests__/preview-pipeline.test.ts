@@ -1,7 +1,40 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { QUICK_PREVIEW_MAX_PIXELS } from '~/lib/raw/decoder'
+
 import type { PreviewEvent } from '../services/preview/preview-pipeline'
 import { runPreviewPipeline } from '../services/preview/preview-pipeline'
+import type { ProgressivePreviewPlan } from '../services/preview/preview-resolution-policy'
+
+function decodePlan(maxOutputPixels = 12_000_000): ProgressivePreviewPlan {
+  return {
+    quick: {
+      source: 'quick',
+      maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
+      purpose: 'first-interactive-preview',
+    },
+    boundedHq: {
+      kind: 'decode',
+      target: {
+        source: 'bounded-hq',
+        maxOutputPixels,
+        purpose: 'detail-upgrade',
+        upgradesFrom: 'quick',
+      },
+    },
+  }
+}
+
+function skipPlan(reason: string): ProgressivePreviewPlan {
+  return {
+    quick: {
+      source: 'quick',
+      maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
+      purpose: 'first-interactive-preview',
+    },
+    boundedHq: { kind: 'skip', reason },
+  }
+}
 
 describe('runPreviewPipeline', () => {
   it('falls back to quick preview when embedded preview is unavailable', async () => {
@@ -15,7 +48,7 @@ describe('runPreviewPipeline', () => {
           .fn()
           .mockResolvedValue({ width: 4000, height: 3000 }),
       },
-      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
+      previewPlan: decodePlan(),
       onEvent,
     })
     await result.boundedHqPromise
@@ -32,6 +65,29 @@ describe('runPreviewPipeline', () => {
     )
   })
 
+  it('passes the bounded-HQ upgrade target cap to runtime decode', async () => {
+    const decodeBoundedHqRaw = vi
+      .fn()
+      .mockResolvedValue({ width: 3266, height: 2449 })
+
+    const result = await runPreviewPipeline({
+      runtimeSession: {
+        extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
+        decodeQuickRaw: vi
+          .fn()
+          .mockResolvedValue({ width: 1600, height: 1000 }),
+        decodeBoundedHqRaw,
+      },
+      previewPlan: decodePlan(8_000_000),
+      onEvent: vi.fn(),
+    })
+    await result.boundedHqPromise
+
+    expect(decodeBoundedHqRaw).toHaveBeenCalledWith({
+      maxOutputPixels: 8_000_000,
+    })
+  })
+
   it('keeps the quick preview path observable when bounded HQ decode fails', async () => {
     const onEvent = vi.fn()
 
@@ -43,7 +99,7 @@ describe('runPreviewPipeline', () => {
           .fn()
           .mockRejectedValue(new Error('decode failed')),
       },
-      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
+      previewPlan: decodePlan(),
       onEvent,
     })
     await result.boundedHqPromise
@@ -75,7 +131,7 @@ describe('runPreviewPipeline', () => {
         decodeQuickRaw: vi.fn().mockRejectedValue(error),
         decodeBoundedHqRaw,
       },
-      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
+      previewPlan: decodePlan(),
       onEvent,
     })
 
@@ -118,7 +174,7 @@ describe('runPreviewPipeline', () => {
           .fn()
           .mockResolvedValue({ width: 4000, height: 3000 }),
       },
-      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
+      previewPlan: decodePlan(),
       onEvent,
     })
     await result.boundedHqPromise
@@ -155,7 +211,7 @@ describe('runPreviewPipeline', () => {
           .fn()
           .mockResolvedValue({ width: 4000, height: 3000 }),
       },
-      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
+      previewPlan: decodePlan(),
       onEvent: (event) => events.push(event),
     })
     await result.boundedHqPromise
@@ -191,7 +247,7 @@ describe('runPreviewPipeline', () => {
           .fn()
           .mockResolvedValue({ width: 4000, height: 3000 }),
       },
-      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
+      previewPlan: decodePlan(),
       onEvent,
     })
     await result.boundedHqPromise
@@ -217,7 +273,7 @@ describe('runPreviewPipeline', () => {
         decodeQuickRaw: vi.fn().mockResolvedValue({ width: 800, height: 600 }),
         decodeBoundedHqRaw: vi.fn().mockRejectedValue(error),
       },
-      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
+      previewPlan: decodePlan(),
       onEvent,
     })
     await result.boundedHqPromise
@@ -245,7 +301,7 @@ describe('runPreviewPipeline', () => {
           .mockResolvedValue({ width: 1600, height: 1000 }),
         decodeBoundedHqRaw: vi.fn().mockReturnValue(boundedHqPromise),
       },
-      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
+      previewPlan: decodePlan(),
       onEvent: (event) => events.push(event),
     })
 
@@ -272,7 +328,7 @@ describe('runPreviewPipeline', () => {
         decodeQuickRaw: vi.fn().mockResolvedValue({ width: 1200, height: 900 }),
         decodeBoundedHqRaw,
       },
-      boundedHqDecision: { kind: 'skip', reason: skipReason },
+      previewPlan: skipPlan(skipReason),
       onEvent: (event) => events.push(event),
     })
 
@@ -298,7 +354,7 @@ describe('runPreviewPipeline', () => {
           .mockResolvedValue({ width: 1600, height: 1000 }),
         decodeBoundedHqRaw: vi.fn().mockRejectedValue(error),
       },
-      boundedHqDecision: { kind: 'decode', maxOutputPixels: 12_000_000 },
+      previewPlan: decodePlan(),
       onEvent: (event) => events.push(event),
     })
 

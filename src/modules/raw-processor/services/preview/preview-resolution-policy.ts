@@ -3,9 +3,50 @@ import {
   QUICK_PREVIEW_MAX_PIXELS,
 } from '~/lib/raw/decoder'
 
+export type QuickPreviewTarget = {
+  readonly source: 'quick'
+  readonly maxOutputPixels: number
+  readonly purpose: 'first-interactive-preview'
+}
+
+export type BoundedHqPreviewTarget = {
+  readonly source: 'bounded-hq'
+  readonly maxOutputPixels: number
+  readonly purpose: 'detail-upgrade'
+  readonly upgradesFrom: 'quick'
+}
+
 export type BoundedHqPreviewDecision =
-  | { kind: 'decode'; maxOutputPixels: number }
+  | { kind: 'decode'; target: BoundedHqPreviewTarget }
   | { kind: 'skip'; reason: string }
+
+export type ProgressivePreviewPlan = {
+  readonly quick: QuickPreviewTarget
+  readonly boundedHq: BoundedHqPreviewDecision
+}
+
+export function createProgressivePreviewPlan({
+  sourceWidth,
+  sourceHeight,
+  boundedHqMaxPixels = BOUNDED_HQ_PREVIEW_MAX_PIXELS,
+}: {
+  sourceWidth: number
+  sourceHeight: number
+  boundedHqMaxPixels?: number
+}): ProgressivePreviewPlan {
+  return {
+    quick: {
+      source: 'quick',
+      maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
+      purpose: 'first-interactive-preview',
+    },
+    boundedHq: decideBoundedHqPreview({
+      sourceWidth,
+      sourceHeight,
+      boundedHqMaxPixels,
+    }),
+  }
+}
 
 export function decideBoundedHqPreview({
   sourceWidth,
@@ -26,6 +67,11 @@ export function decideBoundedHqPreview({
 
   return {
     kind: 'decode',
-    maxOutputPixels: boundedHqMaxPixels,
+    target: {
+      source: 'bounded-hq',
+      maxOutputPixels: boundedHqMaxPixels,
+      purpose: 'detail-upgrade',
+      upgradesFrom: 'quick',
+    },
   }
 }

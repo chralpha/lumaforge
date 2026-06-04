@@ -7,7 +7,36 @@ import {
 } from '~/lib/raw/decoder'
 import { deriveInteractivePolicy } from '~/lib/runtime/interactive-policy'
 
-import { decideBoundedHqPreview } from './preview-resolution-policy'
+import {
+  createProgressivePreviewPlan,
+  decideBoundedHqPreview,
+} from './preview-resolution-policy'
+
+describe('createProgressivePreviewPlan', () => {
+  it('makes the quick-to-bounded-HQ preview upgrade target explicit', () => {
+    expect(
+      createProgressivePreviewPlan({
+        sourceWidth: 6000,
+        sourceHeight: 4000,
+      }),
+    ).toEqual({
+      quick: {
+        source: 'quick',
+        maxOutputPixels: QUICK_PREVIEW_MAX_PIXELS,
+        purpose: 'first-interactive-preview',
+      },
+      boundedHq: {
+        kind: 'decode',
+        target: {
+          source: 'bounded-hq',
+          maxOutputPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
+          purpose: 'detail-upgrade',
+          upgradesFrom: 'quick',
+        },
+      },
+    })
+  })
+})
 
 describe('decideBoundedHqPreview', () => {
   it('uses the default bounded HQ cap on normal desktop-class input', () => {
@@ -18,7 +47,12 @@ describe('decideBoundedHqPreview', () => {
       }),
     ).toEqual({
       kind: 'decode',
-      maxOutputPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
+      target: {
+        source: 'bounded-hq',
+        maxOutputPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
+        purpose: 'detail-upgrade',
+        upgradesFrom: 'quick',
+      },
     })
   })
 
@@ -41,7 +75,12 @@ describe('decideBoundedHqPreview', () => {
       }),
     ).toEqual({
       kind: 'decode',
-      maxOutputPixels: BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
+      target: {
+        source: 'bounded-hq',
+        maxOutputPixels: BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
+        purpose: 'detail-upgrade',
+        upgradesFrom: 'quick',
+      },
     })
   })
 
