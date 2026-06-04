@@ -93,6 +93,26 @@ describe('original reference snapshot policy', () => {
     ).toBe(2_000_000)
   })
 
+  it('uses GPU preview budget before falling back to the pthread snapshot floor', () => {
+    expect(
+      getOriginalReferenceSnapshotMaxPixels({
+        displaySourcePixels: 12_000_000,
+        webKitClass: 'webkit-mobile',
+        pthread: false,
+        previewGpuBudgetMaxPixels: 12_000_000,
+      }),
+    ).toBe(12_000_000)
+
+    expect(
+      getOriginalReferenceSnapshotMaxPixels({
+        displaySourcePixels: 8_000_000,
+        webKitClass: 'webkit-mobile',
+        pthread: false,
+        previewGpuBudgetMaxPixels: 12_000_000,
+      }),
+    ).toBe(8_000_000)
+  })
+
   it('revokes object URLs exactly once', () => {
     const revokeObjectURL = vi.fn()
     const snapshot = {

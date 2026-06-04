@@ -31,6 +31,7 @@ export function useOriginalReferenceStage({
   displaySource,
   resourceRegistryRef,
 }: UseOriginalReferenceStageInput) {
+  const decodedImage = decodedImageRef.current
   const {
     setPendingOriginalReferenceSnapshotRender,
     trackOriginalReferenceSnapshot,
@@ -45,12 +46,12 @@ export function useOriginalReferenceStage({
     sessionRef,
     viewMode,
     previewSuspended,
+    previewSourceWidth: decodedImage?.width ?? null,
+    previewSourceHeight: decodedImage?.height ?? null,
   })
   const originalReference = useOriginalReferenceSnapshot({
     sessionId,
-    image: shouldPrepareOriginalReferenceSnapshot
-      ? decodedImageRef.current
-      : null,
+    image: shouldPrepareOriginalReferenceSnapshot ? decodedImage : null,
     imageVersion: decodedImageVersion,
     displaySource,
     capability: originalReferenceCapability,

@@ -54,6 +54,16 @@ const webkitNoPthread: OriginalReferenceSnapshotCapability = {
   pthread: false,
 }
 
+const webkitGpuBudgetNoPthread: OriginalReferenceSnapshotCapability = {
+  webKitClass: 'webkit-mobile',
+  pthread: false,
+  previewGpuBudget: {
+    boundedHqMaxPixels: 12_000_000,
+    dualWebglAllowed: true,
+    originalReferenceSnapshotMaxPixels: 12_000_000,
+  },
+}
+
 describe('useOriginalReferencePolicy', () => {
   it('requests a CSS original-reference fallback for the active compare session', () => {
     const session = createSession()
@@ -103,5 +113,23 @@ describe('useOriginalReferencePolicy', () => {
 
     expect(result.current.dualWebglAllowed).toBe(false)
     expect(result.current.shouldPrepareOriginalReferenceSnapshot).toBe(true)
+  })
+
+  it('allows dual WebGL on non-pthread engines when the GPU budget supports it', () => {
+    const session = createSession()
+
+    const { result } = renderHook(() =>
+      useOriginalReferencePolicy({
+        sessionId: session.id,
+        sessionRef: { current: session },
+        viewMode: 'compare',
+        previewSuspended: false,
+        getCapability: () => webkitGpuBudgetNoPthread,
+        supportsCssCompare: () => true,
+      }),
+    )
+
+    expect(result.current.dualWebglAllowed).toBe(true)
+    expect(result.current.shouldPrepareOriginalReferenceSnapshot).toBe(false)
   })
 })

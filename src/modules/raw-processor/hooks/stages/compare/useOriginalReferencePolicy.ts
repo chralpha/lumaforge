@@ -5,6 +5,10 @@ import {
   classifyUserAgent,
   getCapabilityVectorSnapshot,
 } from '~/lib/runtime/capability-vector'
+import {
+  derivePreviewGpuBudget,
+  detectPreviewGpuCapabilitySnapshot,
+} from '~/lib/runtime/preview-gpu-budget'
 
 import type { ImageSession } from '../../../model/session'
 import { supportsLayeredCompareCss } from '../../../services/compare/compare-render-mode'
@@ -15,16 +19,42 @@ type UseOriginalReferencePolicyInput = {
   sessionRef: MutableRefObject<ImageSession | null>
   viewMode: 'processed' | 'original' | 'compare'
   previewSuspended: boolean
-  getCapability?: () => OriginalReferenceSnapshotCapability
+  previewSourceWidth?: number | null
+  previewSourceHeight?: number | null
+  getCapability?: (
+    input: OriginalReferenceCapabilityInput,
+  ) => OriginalReferenceSnapshotCapability
   supportsCssCompare?: () => boolean
 }
 
-function getOriginalReferenceSnapshotCapability(): OriginalReferenceSnapshotCapability {
+type OriginalReferenceCapabilityInput = {
+  previewSourceWidth?: number | null
+  previewSourceHeight?: number | null
+}
+
+function getOriginalReferenceSnapshotCapability({
+  previewSourceWidth,
+  previewSourceHeight,
+}: OriginalReferenceCapabilityInput): OriginalReferenceSnapshotCapability {
   const capability = getCapabilityVectorSnapshot()
   if (capability) {
+    const gpuCapability =
+      previewSourceWidth && previewSourceHeight
+        ? detectPreviewGpuCapabilitySnapshot()
+        : null
+    const previewGpuBudget = gpuCapability
+      ? derivePreviewGpuBudget({
+          capability,
+          gpu: gpuCapability,
+          sourceWidth: previewSourceWidth ?? 0,
+          sourceHeight: previewSourceHeight ?? 0,
+        })
+      : undefined
+
     return {
       webKitClass: capability.webKitClass,
       pthread: capability.pthread,
+      previewGpuBudget,
     }
   }
 
@@ -43,6 +73,10 @@ function getOriginalReferenceSnapshotCapability(): OriginalReferenceSnapshotCapa
 function allowDualWebglCompare(
   capability: OriginalReferenceSnapshotCapability,
 ) {
+  if (capability.previewGpuBudget) {
+    return capability.previewGpuBudget.dualWebglAllowed
+  }
+
   return capability.webKitClass === 'chromium' && capability.pthread
 }
 
@@ -51,13 +85,18 @@ export function useOriginalReferencePolicy({
   sessionRef,
   viewMode,
   previewSuspended,
+  previewSourceWidth = null,
+  previewSourceHeight = null,
   getCapability = getOriginalReferenceSnapshotCapability,
   supportsCssCompare = supportsLayeredCompareCss,
 }: UseOriginalReferencePolicyInput) {
   const [fallbackRequestSessionId, setFallbackRequestSessionId] = useState<
     string | null
   >(null)
-  const originalReferenceCapability = getCapability()
+  const originalReferenceCapability = getCapability({
+    previewSourceWidth,
+    previewSourceHeight,
+  })
   const dualWebglAllowed = allowDualWebglCompare(originalReferenceCapability)
   const cssCompareSupported = supportsCssCompare()
   const originalReferenceFallbackRequested =

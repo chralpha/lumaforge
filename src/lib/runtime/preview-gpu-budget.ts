@@ -14,9 +14,13 @@ export interface PreviewGpuCapabilitySnapshot {
 
 export interface PreviewGpuBudget {
   readonly boundedHqMaxPixels: number
+  readonly dualWebglAllowed: boolean
+  readonly originalReferenceSnapshotMaxPixels: number
 }
 
 const DESKTOP_PERFORMANCE_PREVIEW_MAX_PIXELS = 16_000_000
+const DUAL_WEBGL_MIN_DIMENSION = 4096
+let cachedPreviewGpuCapability: PreviewGpuCapabilitySnapshot | null | undefined
 
 function hasKnownLowMemory(capability: CapabilityVector) {
   return capability.deviceMemoryGB != null && capability.deviceMemoryGB <= 4
@@ -87,6 +91,8 @@ export function derivePreviewGpuBudget({
   if (!gpu.webgl2) {
     return Object.freeze({
       boundedHqMaxPixels: QUICK_PREVIEW_MAX_PIXELS,
+      dualWebglAllowed: false,
+      originalReferenceSnapshotMaxPixels: QUICK_PREVIEW_MAX_PIXELS,
     })
   }
 
@@ -98,8 +104,16 @@ export function derivePreviewGpuBudget({
     maxDimension,
   })
 
+  const boundedHqMaxPixels = Math.min(targetPixels, dimensionLimitedPixels)
+  const dualWebglAllowed =
+    !hasKnownLowMemory(capability) &&
+    maxDimension >= DUAL_WEBGL_MIN_DIMENSION &&
+    boundedHqMaxPixels >= BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS
+
   return Object.freeze({
-    boundedHqMaxPixels: Math.min(targetPixels, dimensionLimitedPixels),
+    boundedHqMaxPixels,
+    dualWebglAllowed,
+    originalReferenceSnapshotMaxPixels: boundedHqMaxPixels,
   })
 }
 
@@ -110,37 +124,51 @@ function toPositiveInteger(value: unknown) {
 }
 
 export function detectPreviewGpuCapabilitySnapshot(): PreviewGpuCapabilitySnapshot | null {
-  if (typeof document === 'undefined') {
+  if (cachedPreviewGpuCapability !== undefined) {
+    return cachedPreviewGpuCapability
+  }
+
+  if (
+    typeof document === 'undefined' ||
+    typeof WebGL2RenderingContext === 'undefined'
+  ) {
     return null
   }
 
   const canvas = document.createElement('canvas')
-  const gl = canvas.getContext('webgl2', {
-    alpha: false,
-    depth: false,
-    stencil: false,
-    antialias: false,
-    premultipliedAlpha: false,
-    preserveDrawingBuffer: false,
-    powerPreference: 'high-performance',
-  })
+  let gl: WebGL2RenderingContext | null = null
+  try {
+    gl = canvas.getContext('webgl2', {
+      alpha: false,
+      depth: false,
+      stencil: false,
+      antialias: false,
+      premultipliedAlpha: false,
+      preserveDrawingBuffer: false,
+      powerPreference: 'high-performance',
+    })
+  } catch {
+    return null
+  }
 
   if (!gl) {
-    return Object.freeze({
+    cachedPreviewGpuCapability = Object.freeze({
       webgl2: false,
       maxTextureSize: 0,
       maxRenderbufferSize: 0,
     })
+    return cachedPreviewGpuCapability
   }
 
   try {
-    return Object.freeze({
+    cachedPreviewGpuCapability = Object.freeze({
       webgl2: true,
       maxTextureSize: toPositiveInteger(gl.getParameter(gl.MAX_TEXTURE_SIZE)),
       maxRenderbufferSize: toPositiveInteger(
         gl.getParameter(gl.MAX_RENDERBUFFER_SIZE),
       ),
     })
+    return cachedPreviewGpuCapability
   } finally {
     gl.getExtension('WEBGL_lose_context')?.loseContext()
   }

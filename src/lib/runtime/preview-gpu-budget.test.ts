@@ -32,8 +32,12 @@ describe('derivePreviewGpuBudget', () => {
         gpu: strongGpu,
         sourceWidth: 6000,
         sourceHeight: 4000,
-      }).boundedHqMaxPixels,
-    ).toBe(BOUNDED_HQ_PREVIEW_MAX_PIXELS)
+      }),
+    ).toMatchObject({
+      boundedHqMaxPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
+      dualWebglAllowed: true,
+      originalReferenceSnapshotMaxPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
+    })
   })
 
   it('caps 3:2 sources to the largest safe pixel count for a 4096 texture limit', () => {
@@ -58,7 +62,12 @@ describe('derivePreviewGpuBudget', () => {
         gpu: strongGpu,
         sourceWidth: 6000,
         sourceHeight: 4000,
-      }).boundedHqMaxPixels,
-    ).toBe(BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS)
+      }),
+    ).toMatchObject({
+      boundedHqMaxPixels: BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
+      dualWebglAllowed: false,
+      originalReferenceSnapshotMaxPixels:
+        BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
+    })
   })
 })

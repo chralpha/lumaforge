@@ -29,6 +29,7 @@ export type SnapshotCapabilityPolicyInput = {
     | 'webkit-mobile'
     | 'unknown'
   pthread: boolean
+  previewGpuBudgetMaxPixels?: number
 }
 
 const releasedSnapshotUrls = new Set<string>()
@@ -57,7 +58,19 @@ export function getOriginalReferenceSnapshotMaxPixels({
   displaySourcePixels,
   webKitClass,
   pthread,
+  previewGpuBudgetMaxPixels,
 }: SnapshotCapabilityPolicyInput): number {
+  if (
+    typeof previewGpuBudgetMaxPixels === 'number' &&
+    Number.isFinite(previewGpuBudgetMaxPixels) &&
+    previewGpuBudgetMaxPixels > 0
+  ) {
+    return Math.max(
+      1,
+      Math.min(displaySourcePixels, Math.floor(previewGpuBudgetMaxPixels)),
+    )
+  }
+
   const policyCap =
     webKitClass === 'webkit-mobile' || !pthread
       ? 2_500_000

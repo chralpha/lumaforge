@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { DecodedImage } from '~/lib/raw/decoder'
+import type { PreviewGpuBudget } from '~/lib/runtime/preview-gpu-budget'
 
 import type { DisplaySource } from '../model/session'
 import { renderOriginalReferenceSnapshot } from '../services/compare/original-reference-renderer'
@@ -18,6 +19,12 @@ export type OriginalReferenceSnapshotCapability = {
     | 'webkit-mobile'
     | 'unknown'
   pthread: boolean
+  previewGpuBudget?: Pick<
+    PreviewGpuBudget,
+    | 'boundedHqMaxPixels'
+    | 'dualWebglAllowed'
+    | 'originalReferenceSnapshotMaxPixels'
+  >
 }
 
 export type UseOriginalReferenceSnapshotInput = {
@@ -70,6 +77,8 @@ export function useOriginalReferenceSnapshot({
   const [fallbackReason, setFallbackReason] = useState<string | null>(null)
   const snapshotRef = useRef<OriginalReferenceSnapshot | null>(null)
   const snapshotSessionIdRef = useRef<string | null>(null)
+  const previewGpuBudgetMaxPixels =
+    capability.previewGpuBudget?.originalReferenceSnapshotMaxPixels
 
   const key = useMemo(() => {
     if (!sessionId || !image) return null
@@ -121,6 +130,7 @@ export function useOriginalReferenceSnapshot({
       displaySourcePixels: image.width * image.height,
       webKitClass: capability.webKitClass,
       pthread: capability.pthread,
+      previewGpuBudgetMaxPixels,
     })
 
     void renderSnapshot({
@@ -173,6 +183,7 @@ export function useOriginalReferenceSnapshot({
     renderSnapshot,
     sessionId,
     onPendingRenderChange,
+    previewGpuBudgetMaxPixels,
   ])
 
   useEffect(() => {
