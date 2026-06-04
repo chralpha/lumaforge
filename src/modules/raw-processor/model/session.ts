@@ -150,7 +150,7 @@ export type ImageSession = {
   }
   renderState: {
     status: 'idle' | 'preparing' | 'rendering' | 'ready' | 'failed'
-    lastRenderSource?: Exclude<DisplaySource, 'none'>
+    lastRenderSource?: Extract<DisplaySource, 'quick' | 'bounded-hq'>
     lastErrorCode?: string
   }
   exportState: {

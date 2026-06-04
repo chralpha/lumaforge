@@ -90,7 +90,7 @@ describe('preview session state transitions', () => {
     })
   })
 
-  it('publishes an embedded preview without changing decoded source facts', () => {
+  it('publishes an embedded preview without marking the decoded render path ready', () => {
     const session = applyPreviewReady(baseSession, 'embedded', {
       width: 1600,
       height: 1067,
@@ -111,10 +111,7 @@ describe('preview session state transitions', () => {
       displaySource: 'embedded',
     })
     expect(session.sourceFile).toEqual(baseSession.sourceFile)
-    expect(session.renderState).toEqual({
-      status: 'ready',
-      lastRenderSource: 'embedded',
-    })
+    expect(session.renderState).toEqual(baseSession.renderState)
   })
 
   it('upgrades quick preview to display source and records decoded metadata', () => {
@@ -214,7 +211,6 @@ describe('preview session state transitions', () => {
     })
     expect(session.renderState).toEqual({
       status: 'failed',
-      lastRenderSource: 'embedded',
       lastErrorCode: 'RAW_QUICK_DECODE_FAILED',
     })
     expect(session.exportState.fullResCapability).toEqual({

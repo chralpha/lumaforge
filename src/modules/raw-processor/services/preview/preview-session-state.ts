@@ -44,6 +44,15 @@ export function applyPreviewReady(
   payload: PreviewReadyPayload,
   decoded?: DecodedImage | null,
 ): ImageSession {
+  const decodedSource =
+    decoded?.source ?? (source === 'embedded' ? null : source)
+  const renderState: ImageSession['renderState'] = decodedSource
+    ? {
+        status: 'ready',
+        lastRenderSource: decodedSource,
+      }
+    : session.renderState
+
   const previewBundle = {
     ...session.previewBundle,
     embeddedPreview:
@@ -99,10 +108,7 @@ export function applyPreviewReady(
       ...previewBundle,
       displaySource: selectDisplaySource(previewBundle),
     },
-    renderState: {
-      status: 'ready',
-      lastRenderSource: source,
-    },
+    renderState,
   }
 }
 
