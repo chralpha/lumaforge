@@ -32,6 +32,7 @@ import type { OriginalReferenceSnapshot } from '../services/compare/original-ref
 import type { PreviewFrameStatus } from '../services/preview/preview-compare-readiness'
 import {
   derivePreviewCompareReadiness,
+  derivePreviewTrackReadinessTransition,
   EMPTY_ORIGINAL_WEBGL_FRAME_STATUS,
   EMPTY_PREVIEW_FRAME_STATUS,
 } from '../services/preview/preview-compare-readiness'
@@ -221,17 +222,16 @@ export function PreviewCanvas({
   const retainedTrackIdentityRef = useRef('')
 
   useLayoutEffect(() => {
-    if (retainedProcessedFrameReady) {
-      retainedTrackIdentityRef.current = processedTrackIdentity
-      return
-    }
+    const transition = derivePreviewTrackReadinessTransition({
+      retainedTrackIdentity: retainedTrackIdentityRef.current,
+      processedTrackIdentity,
+      retainedProcessedFrameReady,
+    })
 
-    if (retainedTrackIdentityRef.current === processedTrackIdentity) {
-      return
+    retainedTrackIdentityRef.current = transition.nextRetainedTrackIdentity
+    if (transition.resetTrackReady) {
+      setTrackReady(false)
     }
-
-    retainedTrackIdentityRef.current = ''
-    setTrackReady(false)
   }, [processedTrackIdentity, retainedProcessedFrameReady])
   const compareRenderMode: CompareRenderMode = selectCompareRenderMode({
     requestedViewMode: showEmbeddedPreview ? 'processed' : params.viewMode,

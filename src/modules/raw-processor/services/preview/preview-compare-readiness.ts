@@ -185,3 +185,32 @@ export function derivePreviewCompareReadiness({
     shouldDelayProcessedCompareRender: retainedCompareFrameReady,
   }
 }
+
+export function derivePreviewTrackReadinessTransition({
+  retainedTrackIdentity,
+  processedTrackIdentity,
+  retainedProcessedFrameReady,
+}: {
+  retainedTrackIdentity: string
+  processedTrackIdentity: string
+  retainedProcessedFrameReady: boolean
+}) {
+  if (retainedProcessedFrameReady) {
+    return {
+      nextRetainedTrackIdentity: processedTrackIdentity,
+      resetTrackReady: false,
+    }
+  }
+
+  if (retainedTrackIdentity === processedTrackIdentity) {
+    return {
+      nextRetainedTrackIdentity: retainedTrackIdentity,
+      resetTrackReady: false,
+    }
+  }
+
+  return {
+    nextRetainedTrackIdentity: '',
+    resetTrackReady: true,
+  }
+}

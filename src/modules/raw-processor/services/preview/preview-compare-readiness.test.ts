@@ -6,6 +6,7 @@ import type {
 } from './preview-compare-readiness'
 import {
   derivePreviewCompareReadiness,
+  derivePreviewTrackReadinessTransition,
   EMPTY_PREVIEW_FRAME_STATUS,
 } from './preview-compare-readiness'
 
@@ -110,6 +111,47 @@ describe('derivePreviewCompareReadiness', () => {
     ).toMatchObject({
       originalWebglLayerEligible: true,
       embeddedPreviewFallbackReady: false,
+    })
+  })
+})
+
+describe('derivePreviewTrackReadinessTransition', () => {
+  it('retains track readiness while a processed quick frame covers bounded-HQ handoff', () => {
+    expect(
+      derivePreviewTrackReadinessTransition({
+        retainedTrackIdentity: '',
+        processedTrackIdentity: '2:1600:1200',
+        retainedProcessedFrameReady: true,
+      }),
+    ).toEqual({
+      nextRetainedTrackIdentity: '2:1600:1200',
+      resetTrackReady: false,
+    })
+  })
+
+  it('does not reset track readiness while the retained handoff identity is still current', () => {
+    expect(
+      derivePreviewTrackReadinessTransition({
+        retainedTrackIdentity: '2:1600:1200',
+        processedTrackIdentity: '2:1600:1200',
+        retainedProcessedFrameReady: false,
+      }),
+    ).toEqual({
+      nextRetainedTrackIdentity: '2:1600:1200',
+      resetTrackReady: false,
+    })
+  })
+
+  it('clears retained identity and resets track readiness for a new preview identity', () => {
+    expect(
+      derivePreviewTrackReadinessTransition({
+        retainedTrackIdentity: '2:1600:1200',
+        processedTrackIdentity: '3:1600:1200',
+        retainedProcessedFrameReady: false,
+      }),
+    ).toEqual({
+      nextRetainedTrackIdentity: '',
+      resetTrackReady: true,
     })
   })
 })
