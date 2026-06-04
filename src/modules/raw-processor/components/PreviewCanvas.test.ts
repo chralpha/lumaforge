@@ -701,6 +701,73 @@ describe('preview canvas upload descriptor', () => {
     })
   })
 
+  it('keeps the quick preview canvas visible while bounded-HQ catches up', async () => {
+    const resizeCallbacks: ResizeObserverCallback[] = []
+    vi.stubGlobal(
+      'ResizeObserver',
+      vi.fn().mockImplementation((callback: ResizeObserverCallback) => ({
+        observe: vi.fn(() => {
+          resizeCallbacks.push(callback)
+        }),
+        disconnect: vi.fn(),
+      })),
+    )
+
+    const imageRef: RefObject<DecodedImage | null> = {
+      current: { ...decodedImage, source: 'quick' as const },
+    }
+    const props: ComponentProps<typeof PreviewCanvas> = {
+      imageRef,
+      imageVersion: 1,
+      params: defaultParams,
+      lutDataRef: { current: null },
+      lutDataVersion: 0,
+      displaySource: 'quick',
+    }
+    const { container, rerender } = render(createElement(PreviewCanvas, props))
+
+    await waitFor(() => {
+      expect(pipelineMock.instances[0]?.render).toHaveBeenCalled()
+      expect(resizeCallbacks).toHaveLength(1)
+    })
+
+    act(() => {
+      resizeCallbacks[0]?.(
+        [
+          {
+            contentRect: elementRect({ width: 400, height: 300 }),
+          } as ResizeObserverEntry,
+        ],
+        {} as ResizeObserver,
+      )
+    })
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-raw-compare-track="image"]'),
+      ).toHaveAttribute('data-preview-track-ready', 'true')
+    })
+
+    imageRef.current = {
+      ...decodedImage,
+      source: 'bounded-hq',
+      width: 1600,
+      height: 1200,
+      data: new Float32Array(1600 * 1200 * 4),
+    }
+    rerender(
+      createElement(PreviewCanvas, {
+        ...props,
+        imageVersion: 2,
+        displaySource: 'bounded-hq',
+      }),
+    )
+
+    expect(
+      container.querySelector('[data-raw-compare-track="image"]'),
+    ).toHaveAttribute('data-preview-track-ready', 'true')
+  })
+
   it('promotes bounded-HQ dual-webgl compare after the processed layer uploads the same generation', async () => {
     const imageRef: RefObject<DecodedImage | null> = {
       current: { ...decodedImage, source: 'quick' as const },

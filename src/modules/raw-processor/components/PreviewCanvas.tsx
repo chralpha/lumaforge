@@ -183,10 +183,6 @@ export function PreviewCanvas({
   const imageHeight = image?.height ?? 0
   const hasImageData = Boolean(image?.data)
 
-  useLayoutEffect(() => {
-    setTrackReady(false)
-  }, [imageVersion, imageWidth, imageHeight])
-
   const processedImageGenerationKey = [
     imageVersion,
     displaySource,
@@ -246,6 +242,24 @@ export function PreviewCanvas({
     processedFrameStatus.source === 'quick' &&
     displaySource === 'bounded-hq' &&
     image?.source === 'bounded-hq'
+  const processedTrackIdentity = [imageVersion, imageWidth, imageHeight].join(
+    ':',
+  )
+  const retainedTrackIdentityRef = useRef('')
+
+  useLayoutEffect(() => {
+    if (retainedProcessedFrameReady) {
+      retainedTrackIdentityRef.current = processedTrackIdentity
+      return
+    }
+
+    if (retainedTrackIdentityRef.current === processedTrackIdentity) {
+      return
+    }
+
+    retainedTrackIdentityRef.current = ''
+    setTrackReady(false)
+  }, [processedTrackIdentity, retainedProcessedFrameReady])
   const retainedCompareFrameReady =
     retainedOriginalWebglFrameReady && retainedProcessedFrameReady
   const embeddedPreviewFallbackReady =
