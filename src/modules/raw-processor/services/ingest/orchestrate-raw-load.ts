@@ -35,7 +35,11 @@ import {
   applyQuickPreviewFailure,
 } from '../preview/preview-session-state'
 import { prepareRawLoadState } from './raw-load-preparation'
-import { getStableErrorCode, toUserFacingErrorCode } from './workflow-status'
+import {
+  getStableErrorCode,
+  mapRawDecodePhaseToProcessingStatus,
+  toUserFacingErrorCode,
+} from './workflow-status'
 
 class RawAdapterErrorLike extends Error {
   readonly code = 'RAW_PREWARM_FAILED'
@@ -186,15 +190,6 @@ export async function orchestrateRawLoad(
       ctx.refs.runtimeWorkSessionIdRef.current === nextSession.id &&
       ctx.refs.sessionRef.current?.id === nextSession.id
 
-    const mapPhaseToStatus = (
-      phase: 'loading' | 'decoding' | 'processing' | 'complete',
-    ): ProcessingStatus => {
-      if (phase === 'loading') return 'loading'
-      if (phase === 'decoding') return 'decoding'
-      if (phase === 'processing') return 'processing'
-      return 'ready'
-    }
-
     const updatePreviewState = (
       source: Exclude<DisplaySource, 'none'>,
       payload: {
@@ -338,7 +333,7 @@ export async function orchestrateRawLoad(
                 return
               }
 
-              ctx.atoms.setStatus(mapPhaseToStatus(phase))
+              ctx.atoms.setStatus(mapRawDecodePhaseToProcessingStatus(phase))
               ctx.atoms.setProgress(progress)
             },
             runtimeSignal,

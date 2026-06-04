@@ -1,3 +1,5 @@
+import type { DecodeProgress } from '~/lib/raw/decoder'
+
 import type { ProcessingStatus } from '../../model/workflow'
 
 export function toUserFacingErrorCode(code: unknown) {
@@ -20,6 +22,15 @@ export function getStableErrorCode(error: unknown) {
 
 export function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
+}
+
+export function mapRawDecodePhaseToProcessingStatus(
+  phase: DecodeProgress['phase'],
+): ProcessingStatus {
+  if (phase === 'loading') return 'loading'
+  if (phase === 'decoding') return 'decoding'
+  if (phase === 'processing') return 'processing'
+  return 'ready'
 }
 
 export function getProgressRecoveryHint(status: ProcessingStatus) {

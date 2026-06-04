@@ -5,6 +5,7 @@ import {
   getStableErrorCode,
   isAbortError,
   isRetryableFullResExportFailure,
+  mapRawDecodePhaseToProcessingStatus,
   toUserFacingErrorCode,
 } from './workflow-status'
 
@@ -58,6 +59,13 @@ describe('workflow status helpers', () => {
     )
     expect(getProgressRecoveryHint('ready')).toBeUndefined()
     expect(getProgressRecoveryHint('error')).toBeUndefined()
+  })
+
+  it('maps RAW decode phases to user-visible workflow status', () => {
+    expect(mapRawDecodePhaseToProcessingStatus('loading')).toBe('loading')
+    expect(mapRawDecodePhaseToProcessingStatus('decoding')).toBe('decoding')
+    expect(mapRawDecodePhaseToProcessingStatus('processing')).toBe('processing')
+    expect(mapRawDecodePhaseToProcessingStatus('complete')).toBe('ready')
   })
 
   it('keeps retryable full-resolution export failure codes narrowly scoped', () => {
