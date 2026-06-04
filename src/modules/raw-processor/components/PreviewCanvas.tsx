@@ -198,6 +198,13 @@ export function PreviewCanvas({
   const currentProcessedFrameReady =
     processedFrameStatus.generationKey === processedImageGenerationKey &&
     processedFrameStatus.state === 'ready'
+  const processedPreviewVisible = trackReady && currentProcessedFrameReady
+  const showEmbeddedHandoffPreview =
+    displaySource === 'quick' &&
+    Boolean(embeddedPreviewUrl) &&
+    hasImageData &&
+    !showEmbeddedPreview &&
+    !processedPreviewVisible
   const canInteractWithPreview =
     !suspended &&
     !interactionDisabled &&
@@ -980,9 +987,20 @@ export function PreviewCanvas({
         </div>
       </div>
 
+      {showEmbeddedHandoffPreview && (
+        <img
+          src={embeddedPreviewUrl ?? undefined}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          className="raw-preview-handoff-preview"
+          data-raw-preview-handoff-preview
+        />
+      )}
+
       {error && (
         <m.div
-          className="absolute inset-0 flex items-center justify-center bg-background/80"
+          className="absolute inset-0 z-[4] flex items-center justify-center bg-background/80"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={Spring.presets.smooth}
