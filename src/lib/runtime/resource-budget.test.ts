@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
+import {
+  BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
+  BOUNDED_HQ_PREVIEW_MAX_PIXELS,
+  QUICK_PREVIEW_MAX_PIXELS,
+} from '~/lib/raw/decoder'
+
 import type { CapabilityVector } from './capability-vector'
 import { deriveRuntimeResourceBudget } from './resource-budget'
 
@@ -34,7 +40,7 @@ describe('deriveRuntimeResourceBudget', () => {
       }),
     ).toMatchObject({
       resourceClass: 'balanced-preview',
-      boundedHqMaxPixels: 12_000_000,
+      boundedHqMaxPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
       workerMemoryProfile: 'low-memory',
       exportRowSliceCeiling: 128,
       exportConcurrencyCeiling: 1,
@@ -52,7 +58,7 @@ describe('deriveRuntimeResourceBudget', () => {
       }),
     ).toMatchObject({
       resourceClass: 'mobile-safe',
-      boundedHqMaxPixels: 8_000_000,
+      boundedHqMaxPixels: BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
       workerMemoryProfile: 'low-memory',
       exportRowSliceCeiling: 128,
       exportConcurrencyCeiling: 1,
@@ -69,7 +75,7 @@ describe('deriveRuntimeResourceBudget', () => {
       }),
     ).toMatchObject({
       resourceClass: 'balanced-preview',
-      boundedHqMaxPixels: 12_000_000,
+      boundedHqMaxPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
       workerMemoryProfile: 'low-memory',
       exportRowSliceCeiling: 256,
       exportConcurrencyCeiling: 1,
@@ -87,7 +93,7 @@ describe('deriveRuntimeResourceBudget', () => {
       }),
     ).toMatchObject({
       resourceClass: 'balanced-preview',
-      boundedHqMaxPixels: 12_000_000,
+      boundedHqMaxPixels: BOUNDED_HQ_PREVIEW_MAX_PIXELS,
       workerMemoryProfile: 'low-memory',
       exportRowSliceCeiling: 128,
       exportConcurrencyCeiling: 1,
@@ -103,7 +109,7 @@ describe('deriveRuntimeResourceBudget', () => {
       }),
     ).toMatchObject({
       resourceClass: 'compat-safe',
-      boundedHqMaxPixels: 8_000_000,
+      boundedHqMaxPixels: BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
       workerMemoryProfile: 'low-memory',
       exportRowSliceCeiling: 128,
       exportConcurrencyCeiling: 1,
@@ -122,6 +128,17 @@ describe('deriveRuntimeResourceBudget', () => {
       workerMemoryProfile: 'desktop',
       exportRowSliceCeiling: 2048,
       exportConcurrencyCeiling: 3,
+    })
+  })
+
+  it('does not cap bounded HQ below the quick preview floor', () => {
+    expect(
+      deriveRuntimeResourceBudget({
+        ...baseCap,
+        deviceMemoryGB: 0.25,
+      }),
+    ).toMatchObject({
+      boundedHqMaxPixels: QUICK_PREVIEW_MAX_PIXELS,
     })
   })
 })

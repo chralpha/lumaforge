@@ -1,3 +1,9 @@
+import {
+  BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
+  BOUNDED_HQ_PREVIEW_MAX_PIXELS,
+  QUICK_PREVIEW_MAX_PIXELS,
+} from '~/lib/raw/decoder'
+
 import type { CapabilityVector } from './capability-vector'
 
 export type RuntimeResourceClass =
@@ -16,9 +22,6 @@ export interface RuntimeResourceBudget {
 }
 
 const DESKTOP_HQ_MAX_PIXELS = 16_000_000
-const BALANCED_HQ_MAX_PIXELS = 12_000_000
-const LOW_MEMORY_HQ_MAX_PIXELS = 8_000_000
-const QUICK_PREVIEW_FLOOR_PIXELS = 2_500_000
 
 function hasKnownLowMemory(cap: CapabilityVector) {
   return cap.deviceMemoryGB != null && cap.deviceMemoryGB <= 4
@@ -30,7 +33,7 @@ function capByDeviceMemory(pixels: number, cap: CapabilityVector) {
   return Math.min(
     pixels,
     Math.max(
-      QUICK_PREVIEW_FLOOR_PIXELS,
+      QUICK_PREVIEW_MAX_PIXELS,
       Math.floor(cap.deviceMemoryGB * 4_000_000),
     ),
   )
@@ -93,8 +96,8 @@ export function deriveRuntimeResourceBudget(
   const boundedHqBasePixels = desktopMemory
     ? DESKTOP_HQ_MAX_PIXELS
     : balancedPreview
-      ? BALANCED_HQ_MAX_PIXELS
-      : LOW_MEMORY_HQ_MAX_PIXELS
+      ? BOUNDED_HQ_PREVIEW_MAX_PIXELS
+      : BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS
 
   let exportRowSliceCeiling = 2048
   if (cap.webKitClass === 'webkit-mobile' || knownLowMemory) {
