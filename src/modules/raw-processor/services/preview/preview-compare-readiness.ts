@@ -30,6 +30,23 @@ export const EMPTY_ORIGINAL_WEBGL_FRAME_STATUS: OriginalWebglFrameStatus = {
   state: 'idle',
 }
 
+export function derivePreviewFrameStatusTransition({
+  currentStatus,
+  nextStatus,
+}: {
+  currentStatus: PreviewFrameStatus
+  nextStatus: PreviewFrameStatus
+}) {
+  return {
+    nextStatus,
+    shouldCommit:
+      currentStatus.generationKey !== nextStatus.generationKey ||
+      currentStatus.displaySource !== nextStatus.displaySource ||
+      currentStatus.source !== nextStatus.source ||
+      currentStatus.state !== nextStatus.state,
+  }
+}
+
 type DerivePreviewCompareReadinessInput = {
   imageVersion: number
   displaySource: DisplaySource

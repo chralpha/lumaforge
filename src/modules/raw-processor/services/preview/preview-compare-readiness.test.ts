@@ -6,6 +6,7 @@ import type {
 } from './preview-compare-readiness'
 import {
   derivePreviewCompareReadiness,
+  derivePreviewFrameStatusTransition,
   derivePreviewTrackReadinessTransition,
   EMPTY_PREVIEW_FRAME_STATUS,
 } from './preview-compare-readiness'
@@ -152,6 +153,51 @@ describe('derivePreviewTrackReadinessTransition', () => {
     ).toEqual({
       nextRetainedTrackIdentity: '',
       resetTrackReady: true,
+    })
+  })
+})
+
+describe('derivePreviewFrameStatusTransition', () => {
+  it('skips committing an unchanged processed frame status', () => {
+    expect(
+      derivePreviewFrameStatusTransition({
+        currentStatus: quickProcessedFrame,
+        nextStatus: quickProcessedFrame,
+      }),
+    ).toEqual({
+      nextStatus: quickProcessedFrame,
+      shouldCommit: false,
+    })
+  })
+
+  it('commits a changed processed frame generation', () => {
+    const nextStatus: PreviewFrameStatus = {
+      ...quickProcessedFrame,
+      generationKey: '2:bounded-hq:bounded-hq:1600:1200:data',
+      displaySource: 'bounded-hq',
+      source: 'bounded-hq',
+    }
+
+    expect(
+      derivePreviewFrameStatusTransition({
+        currentStatus: quickProcessedFrame,
+        nextStatus,
+      }),
+    ).toEqual({
+      nextStatus,
+      shouldCommit: true,
+    })
+  })
+
+  it('commits reset when the current status is not already empty', () => {
+    expect(
+      derivePreviewFrameStatusTransition({
+        currentStatus: quickProcessedFrame,
+        nextStatus: EMPTY_PREVIEW_FRAME_STATUS,
+      }),
+    ).toEqual({
+      nextStatus: EMPTY_PREVIEW_FRAME_STATUS,
+      shouldCommit: true,
     })
   })
 })

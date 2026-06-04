@@ -32,6 +32,7 @@ import type { OriginalReferenceSnapshot } from '../services/compare/original-ref
 import type { PreviewFrameStatus } from '../services/preview/preview-compare-readiness'
 import {
   derivePreviewCompareReadiness,
+  derivePreviewFrameStatusTransition,
   derivePreviewTrackReadinessTransition,
   EMPTY_ORIGINAL_WEBGL_FRAME_STATUS,
   EMPTY_PREVIEW_FRAME_STATUS,
@@ -294,18 +295,16 @@ export function PreviewCanvas({
 
   const commitProcessedFrameStatus = useCallback(
     (nextStatus: PreviewFrameStatus) => {
-      const currentStatus = processedFrameStatusRef.current
-      if (
-        currentStatus.generationKey === nextStatus.generationKey &&
-        currentStatus.displaySource === nextStatus.displaySource &&
-        currentStatus.source === nextStatus.source &&
-        currentStatus.state === nextStatus.state
-      ) {
+      const transition = derivePreviewFrameStatusTransition({
+        currentStatus: processedFrameStatusRef.current,
+        nextStatus,
+      })
+      if (!transition.shouldCommit) {
         return
       }
 
-      processedFrameStatusRef.current = nextStatus
-      setProcessedFrameStatus(nextStatus)
+      processedFrameStatusRef.current = transition.nextStatus
+      setProcessedFrameStatus(transition.nextStatus)
     },
     [],
   )
