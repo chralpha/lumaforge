@@ -227,13 +227,18 @@ export function PreviewCanvas({
       retainedTrackIdentity: retainedTrackIdentityRef.current,
       processedTrackIdentity,
       retainedProcessedFrameReady,
+      handoffPreviewVisible: showEmbeddedHandoffPreview,
     })
 
     retainedTrackIdentityRef.current = transition.nextRetainedTrackIdentity
     if (transition.resetTrackReady) {
       setTrackReady(false)
     }
-  }, [processedTrackIdentity, retainedProcessedFrameReady])
+  }, [
+    processedTrackIdentity,
+    retainedProcessedFrameReady,
+    showEmbeddedHandoffPreview,
+  ])
   const compareRenderMode: CompareRenderMode = selectCompareRenderMode({
     requestedViewMode: showEmbeddedPreview ? 'processed' : params.viewMode,
     supportsCssClip,

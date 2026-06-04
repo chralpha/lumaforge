@@ -143,6 +143,20 @@ describe('derivePreviewTrackReadinessTransition', () => {
     })
   })
 
+  it('retains track readiness while an embedded handoff image covers quick decode', () => {
+    expect(
+      derivePreviewTrackReadinessTransition({
+        retainedTrackIdentity: '',
+        processedTrackIdentity: '1:800:600',
+        retainedProcessedFrameReady: false,
+        handoffPreviewVisible: true,
+      }),
+    ).toEqual({
+      nextRetainedTrackIdentity: '1:800:600',
+      resetTrackReady: false,
+    })
+  })
+
   it('clears retained identity and resets track readiness for a new preview identity', () => {
     expect(
       derivePreviewTrackReadinessTransition({

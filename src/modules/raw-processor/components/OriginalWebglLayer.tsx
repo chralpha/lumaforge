@@ -87,7 +87,9 @@ export function OriginalWebglLayer({
     let cancelled = false
     let disposed = false
 
-    const disposePipeline = () => {
+    const disposePipeline = (
+      options?: Parameters<OriginalPipeline['dispose']>[0],
+    ) => {
       if (!pipeline || disposed) return
       disposed = true
       const disposedPipeline = pipeline
@@ -99,10 +101,16 @@ export function OriginalWebglLayer({
         pipelineRef.current = null
       }
       onPipelineChangeRef.current?.(null)
-      disposedPipeline.dispose({ releaseContext: true })
+      if (options) {
+        disposedPipeline.dispose(options)
+      } else {
+        disposedPipeline.dispose()
+      }
       setIsInitialized(false)
     }
-    handle = { dispose: disposePipeline }
+    handle = {
+      dispose: () => disposePipeline({ releaseContext: true }),
+    }
     disposeCurrentPipeline.current = disposePipeline
 
     async function initializePipeline() {

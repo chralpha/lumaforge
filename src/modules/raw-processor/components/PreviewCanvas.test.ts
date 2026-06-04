@@ -701,6 +701,67 @@ describe('preview canvas upload descriptor', () => {
     })
   })
 
+  it('keeps the preview track visible during embedded-to-quick handoff', async () => {
+    const resizeCallbacks: ResizeObserverCallback[] = []
+    vi.stubGlobal(
+      'ResizeObserver',
+      vi.fn().mockImplementation((callback: ResizeObserverCallback) => ({
+        observe: vi.fn(() => {
+          resizeCallbacks.push(callback)
+        }),
+        disconnect: vi.fn(),
+      })),
+    )
+
+    const imageRef: RefObject<DecodedImage | null> = {
+      current: null,
+    }
+    const props: ComponentProps<typeof PreviewCanvas> = {
+      imageRef,
+      imageVersion: 0,
+      params: defaultParams,
+      lutDataRef: { current: null },
+      lutDataVersion: 0,
+      embeddedPreviewUrl: 'blob:embedded-preview',
+      displaySource: 'embedded',
+    }
+    const { container, rerender } = render(createElement(PreviewCanvas, props))
+
+    await waitFor(() => {
+      expect(resizeCallbacks).toHaveLength(1)
+    })
+
+    act(() => {
+      resizeCallbacks[0]?.(
+        [
+          {
+            contentRect: elementRect({ width: 400, height: 300 }),
+          } as ResizeObserverEntry,
+        ],
+        {} as ResizeObserver,
+      )
+    })
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-raw-compare-track="image"]'),
+      ).toHaveAttribute('data-preview-track-ready', 'true')
+    })
+
+    imageRef.current = { ...decodedImage, source: 'quick' as const }
+    rerender(
+      createElement(PreviewCanvas, {
+        ...props,
+        imageVersion: 1,
+        displaySource: 'quick',
+      }),
+    )
+
+    expect(
+      container.querySelector('[data-raw-compare-track="image"]'),
+    ).toHaveAttribute('data-preview-track-ready', 'true')
+  })
+
   it('keeps the quick preview canvas visible while bounded-HQ catches up', async () => {
     const resizeCallbacks: ResizeObserverCallback[] = []
     vi.stubGlobal(

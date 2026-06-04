@@ -207,12 +207,14 @@ export function derivePreviewTrackReadinessTransition({
   retainedTrackIdentity,
   processedTrackIdentity,
   retainedProcessedFrameReady,
+  handoffPreviewVisible = false,
 }: {
   retainedTrackIdentity: string
   processedTrackIdentity: string
   retainedProcessedFrameReady: boolean
+  handoffPreviewVisible?: boolean
 }) {
-  if (retainedProcessedFrameReady) {
+  if (retainedProcessedFrameReady || handoffPreviewVisible) {
     return {
       nextRetainedTrackIdentity: processedTrackIdentity,
       resetTrackReady: false,

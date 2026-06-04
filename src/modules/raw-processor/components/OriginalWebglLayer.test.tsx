@@ -96,7 +96,7 @@ describe('originalWebglLayer', () => {
     })
   })
 
-  it('releases the WebGL context on unmount', async () => {
+  it('does not force WebGL context loss on ordinary unmount', async () => {
     const dispose = vi.fn()
     const renderPipeline = vi.fn()
     const { unmount } = render(
@@ -120,7 +120,7 @@ describe('originalWebglLayer', () => {
 
     unmount()
 
-    expect(dispose).toHaveBeenCalledWith({ releaseContext: true })
+    expect(dispose).toHaveBeenCalledWith()
   })
 
   it('publishes an evacuation handle and clears it after disposal', async () => {
