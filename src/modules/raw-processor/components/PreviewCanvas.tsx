@@ -19,7 +19,7 @@ import { clsxm } from '~/lib/cn'
 import type { PipelineStats } from '~/lib/gl/pipeline'
 import { RawProcessingPipeline } from '~/lib/gl/pipeline'
 import { useI18n } from '~/lib/i18n'
-import type { DecodedImage, DecodedImageSource } from '~/lib/raw/decoder'
+import type { DecodedImage } from '~/lib/raw/decoder'
 import { Spring } from '~/lib/spring'
 
 import type { DisplaySource } from '../model/session'
@@ -29,6 +29,12 @@ import {
   supportsLayeredCompareCss,
 } from '../services/compare/compare-render-mode'
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
+import type { PreviewFrameStatus } from '../services/preview/preview-compare-readiness'
+import {
+  derivePreviewCompareReadiness,
+  EMPTY_ORIGINAL_WEBGL_FRAME_STATUS,
+  EMPTY_PREVIEW_FRAME_STATUS,
+} from '../services/preview/preview-compare-readiness'
 import type {
   PreviewViewport,
   PreviewViewportGeometry,
@@ -53,20 +59,6 @@ import {
   tryCapturePointer,
   tryReleasePointer,
 } from './preview-canvas-helpers'
-
-type PreviewFrameStatus = {
-  generationKey: string
-  displaySource: DisplaySource
-  source: DecodedImageSource | 'preview'
-  state: 'idle' | 'ready'
-}
-
-const EMPTY_PREVIEW_FRAME_STATUS: PreviewFrameStatus = {
-  generationKey: '',
-  displaySource: 'none',
-  source: 'preview',
-  state: 'idle',
-}
 
 export interface PreviewCanvasProps {
   imageRef: React.RefObject<DecodedImage | null>
@@ -168,11 +160,9 @@ export function PreviewCanvas({
   const [isPointerPanning, setIsPointerPanning] = useState(false)
   const [isWheelInteracting, setIsWheelInteracting] = useState(false)
   const [trackReady, setTrackReady] = useState(false)
-  const [originalWebglStatus, setOriginalWebglStatus] = useState<{
-    generationKey: string
-    displaySource: DisplaySource
-    state: 'idle' | 'ready' | 'failed'
-  }>({ generationKey: '', displaySource: 'none', state: 'idle' })
+  const [originalWebglStatus, setOriginalWebglStatus] = useState(
+    EMPTY_ORIGINAL_WEBGL_FRAME_STATUS,
+  )
   const [processedFrameStatus, setProcessedFrameStatus] =
     useState<PreviewFrameStatus>(EMPTY_PREVIEW_FRAME_STATUS)
   const [error, setError] = useState<string | null>(null)
@@ -182,19 +172,37 @@ export function PreviewCanvas({
   const imageWidth = image?.width ?? 0
   const imageHeight = image?.height ?? 0
   const hasImageData = Boolean(image?.data)
+  const supportsCssClip = supportsLayeredCompareCss()
 
-  const processedImageGenerationKey = [
+  const previewCompareReadiness = derivePreviewCompareReadiness({
     imageVersion,
     displaySource,
-    image?.source ?? 'preview',
+    imageSource: image?.source,
     imageWidth,
     imageHeight,
-    hasImageData ? 'data' : 'empty',
-  ].join(':')
-  const currentProcessedFrameReady =
-    processedFrameStatus.generationKey === processedImageGenerationKey &&
-    processedFrameStatus.state === 'ready'
-  const processedPreviewVisible = trackReady && currentProcessedFrameReady
+    hasImageData,
+    trackReady,
+    embeddedPreviewUrl,
+    viewMode: params.viewMode,
+    dualWebglAllowed,
+    suspended,
+    supportsCssClip,
+    originalWebglStatus,
+    processedFrameStatus,
+  })
+  const {
+    processedImageGenerationKey,
+    currentProcessedFrameReady,
+    processedPreviewVisible,
+    originalWebglGenerationKey,
+    originalWebglReady,
+    originalWebglFailed,
+    retainedProcessedFrameReady,
+    retainedCompareFrameReady,
+    embeddedPreviewFallbackReady,
+    shouldMountOriginalWebglLayer,
+    shouldDelayProcessedCompareRender,
+  } = previewCompareReadiness
   const showEmbeddedHandoffPreview =
     displaySource === 'quick' &&
     Boolean(embeddedPreviewUrl) &&
@@ -207,41 +215,6 @@ export function PreviewCanvas({
     (hasImageData || showEmbeddedPreview) &&
     Boolean(onPreviewViewportChange)
   const normalizedPreviewViewport = normalizePreviewViewport(previewViewport)
-  const supportsCssClip = supportsLayeredCompareCss()
-  const originalWebglGenerationKey = [
-    imageVersion,
-    displaySource,
-    dualWebglAllowed ? 'dual' : 'fallback',
-    params.viewMode,
-    suspended ? 'suspended' : 'active',
-  ].join(':')
-  const originalWebglReady =
-    originalWebglStatus.generationKey === originalWebglGenerationKey &&
-    originalWebglStatus.state === 'ready'
-  const originalWebglFailed =
-    originalWebglStatus.generationKey === originalWebglGenerationKey &&
-    originalWebglStatus.state === 'failed'
-  const originalWebglLayerEligible =
-    !showEmbeddedPreview &&
-    !suspended &&
-    hasImageData &&
-    params.viewMode === 'compare' &&
-    supportsCssClip &&
-    dualWebglAllowed
-  const retainedOriginalWebglFrameReady =
-    originalWebglLayerEligible &&
-    !originalWebglReady &&
-    !originalWebglFailed &&
-    originalWebglStatus.state === 'ready' &&
-    originalWebglStatus.displaySource === 'quick' &&
-    displaySource === 'bounded-hq' &&
-    image?.source === 'bounded-hq'
-  const retainedProcessedFrameReady =
-    processedFrameStatus.state === 'ready' &&
-    processedFrameStatus.displaySource === 'quick' &&
-    processedFrameStatus.source === 'quick' &&
-    displaySource === 'bounded-hq' &&
-    image?.source === 'bounded-hq'
   const processedTrackIdentity = [imageVersion, imageWidth, imageHeight].join(
     ':',
   )
@@ -260,13 +233,6 @@ export function PreviewCanvas({
     retainedTrackIdentityRef.current = ''
     setTrackReady(false)
   }, [processedTrackIdentity, retainedProcessedFrameReady])
-  const retainedCompareFrameReady =
-    retainedOriginalWebglFrameReady && retainedProcessedFrameReady
-  const embeddedPreviewFallbackReady =
-    Boolean(embeddedPreviewUrl) &&
-    originalWebglLayerEligible &&
-    !originalWebglReady &&
-    !retainedCompareFrameReady
   const compareRenderMode: CompareRenderMode = selectCompareRenderMode({
     requestedViewMode: showEmbeddedPreview ? 'processed' : params.viewMode,
     supportsCssClip,
@@ -316,10 +282,6 @@ export function PreviewCanvas({
       pipelineCompareSplit,
     ],
   )
-  const shouldMountOriginalWebglLayer =
-    originalWebglLayerEligible && !originalWebglFailed
-  const shouldDelayProcessedCompareRender = retainedCompareFrameReady
-
   suspendedRef.current = suspended
 
   const setFrameElement = useCallback(
