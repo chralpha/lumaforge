@@ -1,5 +1,12 @@
 import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'jotai'
 import { describe, expect, it, vi } from 'vitest'
@@ -126,6 +133,66 @@ function onlineLutSourcesFixture(
   }
 }
 
+function withManyOnlineEntries(fixture: UseOnlineLutSourcesResult) {
+  const [firstEntry] = fixture.state.entries
+  fixture.state = {
+    ...fixture.state,
+    entries: [
+      firstEntry,
+      {
+        ...firstEntry,
+        id: 'ektachrome-e100',
+        title: 'Ektachrome E100',
+        sourceUrl:
+          'https://profiles.example.com/releases/v2026.05.01/entries/ektachrome-e100.json',
+        cube: {
+          ...firstEntry.cube,
+          title: 'Ektachrome E100',
+          url: 'https://profiles.example.com/blobs/ektachrome-e100.cube',
+        },
+      },
+      {
+        ...firstEntry,
+        id: 'portra-400',
+        title: 'Portra 400',
+        sourceUrl:
+          'https://profiles.example.com/releases/v2026.05.01/entries/portra-400.json',
+        cube: {
+          ...firstEntry.cube,
+          title: 'Portra 400',
+          url: 'https://profiles.example.com/blobs/portra-400.cube',
+        },
+      },
+      {
+        ...firstEntry,
+        id: 'vision3-250d',
+        title: 'Vision3 250D',
+        sourceUrl:
+          'https://profiles.example.com/releases/v2026.05.01/entries/vision3-250d.json',
+        cube: {
+          ...firstEntry.cube,
+          title: 'Vision3 250D',
+          url: 'https://profiles.example.com/blobs/vision3-250d.cube',
+        },
+      },
+      {
+        ...firstEntry,
+        id: 'velvia-50',
+        title: 'Velvia 50',
+        sourceUrl:
+          'https://profiles.example.com/releases/v2026.05.01/entries/velvia-50.json',
+        cube: {
+          ...firstEntry.cube,
+          title: 'Velvia 50',
+          url: 'https://profiles.example.com/blobs/velvia-50.cube',
+        },
+      },
+    ],
+  }
+
+  return fixture
+}
+
 function getToneRegion() {
   return screen.getByRole('region', { name: 'Adjust' })
 }
@@ -230,6 +297,26 @@ describe('rawToolSurface', () => {
     expect(
       container.querySelector('[data-raw-lut="source-controls"]'),
     ).toHaveClass('pt-1')
+  })
+
+  it('surfaces first profile LUT entries inline before opening the full catalog', async () => {
+    const user = userEvent.setup()
+    const fixture = withManyOnlineEntries(onlineLutSourcesFixture())
+    render(<RawToolSurface {...baseProps} onlineLutSources={fixture} />)
+
+    await user.click(
+      screen.getByRole('button', { name: /load kodak 2383 rec.709/i }),
+    )
+
+    await waitFor(() =>
+      expect(fixture.loadEntry).toHaveBeenCalledWith('kodak-2383-rec709'),
+    )
+    expect(
+      screen.getByRole('button', {
+        name: /open catalog from profiles.example.com/i,
+      }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Velvia 50')).not.toBeInTheDocument()
   })
 
   it('matches the empty LUT copy scale to the catalog source hint', () => {
@@ -712,18 +799,17 @@ describe('rawToolSurface', () => {
     expect(fileName).toHaveAttribute('title', currentLut)
   })
 
-  it('renders online LUT sources as collapsed summary rows by default', () => {
+  it('renders online LUT sources as collapsed summary rows by default', async () => {
+    const user = userEvent.setup()
+    const fixture = withManyOnlineEntries(onlineLutSourcesFixture())
     const { container } = render(
-      <RawToolSurface
-        {...baseProps}
-        onlineLutSources={onlineLutSourcesFixture()}
-      />,
+      <RawToolSurface {...baseProps} onlineLutSources={fixture} />,
     )
 
     expect(
       screen.getByText('Catalog from profiles.example.com'),
     ).toBeInTheDocument()
-    expect(screen.getByText('1 LUT')).toBeInTheDocument()
+    expect(screen.getByText('5 LUTs')).toBeInTheDocument()
     expect(
       screen.getByRole('button', {
         name: 'Open Catalog from profiles.example.com',
@@ -740,11 +826,27 @@ describe('rawToolSurface', () => {
       }),
     ).toBeInTheDocument()
 
-    expect(screen.queryByText('Kodak 2383 Rec.709')).not.toBeInTheDocument()
+    const inlineEntries = container.querySelector(
+      '[data-raw-lut="source-inline-entries"]',
+    )
+    expect(inlineEntries).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Load Kodak 2383 Rec.709' }),
-    ).not.toBeInTheDocument()
+      within(inlineEntries as HTMLElement).getByRole('button', {
+        name: 'Load Kodak 2383 Rec.709',
+      }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Velvia 50')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(container.querySelector('[data-raw-lut="source-entry"]')).toBeNull()
+
+    await user.click(
+      within(inlineEntries as HTMLElement).getByRole('button', {
+        name: 'Load Kodak 2383 Rec.709',
+      }),
+    )
+    await waitFor(() =>
+      expect(fixture.loadEntry).toHaveBeenCalledWith('kodak-2383-rec709'),
+    )
   })
 
   it('closes the online LUT browser with Escape or outside click and restores focus', async () => {
@@ -809,14 +911,18 @@ describe('rawToolSurface', () => {
         }),
       )
 
-      const loadButton = screen.getByRole('button', {
+      const sourceBrowserList = document.querySelector(
+        '[data-raw-lut="source-browser-list"]',
+      ) as HTMLElement
+      expect(sourceBrowserList).toBeInTheDocument()
+      const loadButton = within(sourceBrowserList).getByRole('button', {
         name: /load kodak 2383 rec.709/i,
       })
       expect(loadButton).not.toHaveAttribute('aria-busy', 'true')
 
       await user.click(loadButton)
 
-      await screen.findByRole('button', {
+      await within(sourceBrowserList).findByRole('button', {
         name: /load kodak 2383 rec.709/i,
         busy: true,
       })

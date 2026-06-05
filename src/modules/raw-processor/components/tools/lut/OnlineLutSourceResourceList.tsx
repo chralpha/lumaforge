@@ -1,4 +1,11 @@
-import { AlertTriangle, FolderOpen, RefreshCw, Trash2 } from 'lucide-react'
+import {
+  AlertTriangle,
+  Download,
+  FolderOpen,
+  Loader2,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react'
 
 import { Chip } from '~/components/ui/chip'
 import { useI18n } from '~/lib/i18n'
@@ -10,10 +17,13 @@ type OnlineLutResource = UseOnlineLutSourcesResult['state']['resources'][number]
 type OnlineLutEntry = UseOnlineLutSourcesResult['state']['entries'][number]
 type OnlineLutIssue = UseOnlineLutSourcesResult['state']['issues'][number]
 
+const inlineEntryLimit = 4
+
 export function OnlineLutSourceResourceList({
   resources,
   isLoading,
   activeResourceId,
+  loadingEntryId,
   entriesByResourceId,
   issuesByResourceId,
   openResourceId,
@@ -22,11 +32,13 @@ export function OnlineLutSourceResourceList({
   onCloseResource,
   onRefreshResource,
   onRemoveResource,
+  onEntryLoad,
   setOpenButtonRef,
 }: {
   resources: OnlineLutResource[]
   isLoading: boolean
   activeResourceId: string | null
+  loadingEntryId: string | null
   entriesByResourceId: ReadonlyMap<string, OnlineLutEntry[]>
   issuesByResourceId: ReadonlyMap<string, OnlineLutIssue[]>
   openResourceId: string | null
@@ -35,6 +47,7 @@ export function OnlineLutSourceResourceList({
   onCloseResource: (resourceId: string) => void
   onRefreshResource: (resourceId: string) => void
   onRemoveResource: (resourceId: string) => void
+  onEntryLoad: (entryId: string) => void
   setOpenButtonRef: (resourceId: string, node: HTMLButtonElement | null) => void
 }) {
   return (
@@ -47,11 +60,13 @@ export function OnlineLutSourceResourceList({
           entries={entriesByResourceId.get(resource.id) ?? []}
           issues={issuesByResourceId.get(resource.id) ?? []}
           isOpen={openResourceId === resource.id}
+          loadingEntryId={loadingEntryId}
           browserId={browserId}
           onOpen={() => onOpenResource(resource.id)}
           onClose={() => onCloseResource(resource.id)}
           onRefresh={() => onRefreshResource(resource.id)}
           onRemove={() => onRemoveResource(resource.id)}
+          onEntryLoad={onEntryLoad}
           setOpenButtonRef={(node) => setOpenButtonRef(resource.id, node)}
         />
       ))}
@@ -65,11 +80,13 @@ function OnlineLutSourceResourceRow({
   entries,
   issues,
   isOpen,
+  loadingEntryId,
   browserId,
   onOpen,
   onClose,
   onRefresh,
   onRemove,
+  onEntryLoad,
   setOpenButtonRef,
 }: {
   resource: OnlineLutResource
@@ -77,11 +94,13 @@ function OnlineLutSourceResourceRow({
   entries: OnlineLutEntry[]
   issues: OnlineLutIssue[]
   isOpen: boolean
+  loadingEntryId: string | null
   browserId: string
   onOpen: () => void
   onClose: () => void
   onRefresh: () => void
   onRemove: () => void
+  onEntryLoad: (entryId: string) => void
   setOpenButtonRef: (node: HTMLButtonElement | null) => void
 }) {
   const { t } = useI18n()
@@ -149,8 +168,74 @@ function OnlineLutSourceResourceRow({
           </LutIconButton>
         </div>
       </div>
+      <OnlineLutSourceInlineEntries
+        entries={entries}
+        loadingEntryId={loadingEntryId}
+        onEntryLoad={onEntryLoad}
+      />
       {issues.length > 0 && <OnlineLutSourceIssues issues={issues} />}
     </div>
+  )
+}
+
+function OnlineLutSourceInlineEntries({
+  entries,
+  loadingEntryId,
+  onEntryLoad,
+}: {
+  entries: OnlineLutEntry[]
+  loadingEntryId: string | null
+  onEntryLoad: (entryId: string) => void
+}) {
+  if (entries.length === 0) return null
+
+  return (
+    <div
+      className="grid gap-0.5 sm:grid-cols-2"
+      data-raw-lut="source-inline-entries"
+    >
+      {entries.slice(0, inlineEntryLimit).map((entry) => (
+        <OnlineLutSourceInlineEntry
+          key={entry.id}
+          entry={entry}
+          isLoading={loadingEntryId === entry.id}
+          onLoad={() => onEntryLoad(entry.id)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function OnlineLutSourceInlineEntry({
+  entry,
+  isLoading,
+  onLoad,
+}: {
+  entry: OnlineLutEntry
+  isLoading: boolean
+  onLoad: () => void
+}) {
+  const { t } = useI18n()
+
+  return (
+    <button
+      type="button"
+      aria-label={t('raw.lutSource.load', { label: entry.title })}
+      aria-busy={isLoading}
+      disabled={isLoading}
+      onClick={onLoad}
+      className="grid min-h-8 min-w-0 grid-cols-[minmax(0,1fr)_18px] items-center gap-1.5 rounded-md bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.035)] px-1.5 py-1 text-left text-[0.72rem] font-medium text-lf-on-surface/74 transition-colors hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.065)] hover:text-lf-on-surface focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-wait disabled:opacity-70"
+    >
+      <span className="min-w-0 truncate">{entry.title}</span>
+      {isLoading ? (
+        <Loader2
+          aria-hidden="true"
+          className="size-3.5 animate-spin motion-reduce:animate-none"
+        />
+      ) : (
+        <Download aria-hidden="true" className="size-3.5" />
+      )}
+    </button>
   )
 }
 

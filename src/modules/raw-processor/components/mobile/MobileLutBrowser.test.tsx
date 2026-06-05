@@ -70,6 +70,62 @@ function onlineLutSourcesFixture(
   }
 }
 
+function withManyOnlineEntries(fixture: UseOnlineLutSourcesResult) {
+  const [firstEntry] = fixture.state.entries
+  fixture.state = {
+    ...fixture.state,
+    entries: [
+      firstEntry,
+      {
+        ...firstEntry,
+        id: 'ektachrome-e100',
+        title: 'Ektachrome E100',
+        sourceUrl: 'https://profiles.example.com/ektachrome-e100.json',
+        cube: {
+          ...firstEntry.cube,
+          title: 'Ektachrome E100',
+          url: 'https://profiles.example.com/ektachrome-e100.cube',
+        },
+      },
+      {
+        ...firstEntry,
+        id: 'portra-400',
+        title: 'Portra 400',
+        sourceUrl: 'https://profiles.example.com/portra-400.json',
+        cube: {
+          ...firstEntry.cube,
+          title: 'Portra 400',
+          url: 'https://profiles.example.com/portra-400.cube',
+        },
+      },
+      {
+        ...firstEntry,
+        id: 'vision3-250d',
+        title: 'Vision3 250D',
+        sourceUrl: 'https://profiles.example.com/vision3-250d.json',
+        cube: {
+          ...firstEntry.cube,
+          title: 'Vision3 250D',
+          url: 'https://profiles.example.com/vision3-250d.cube',
+        },
+      },
+      {
+        ...firstEntry,
+        id: 'velvia-50',
+        title: 'Velvia 50',
+        sourceUrl: 'https://profiles.example.com/velvia-50.json',
+        cube: {
+          ...firstEntry.cube,
+          title: 'Velvia 50',
+          url: 'https://profiles.example.com/velvia-50.cube',
+        },
+      },
+    ],
+  }
+
+  return fixture
+}
+
 describe('mobileLutBrowser', () => {
   beforeEach(() => {
     vi.stubGlobal(
@@ -261,7 +317,9 @@ describe('mobileLutBrowser', () => {
     await userEvent.click(
       screen.getByRole('button', { name: /load kodak 2383 rec.709/i }),
     )
-    await new Promise((resolve) => requestAnimationFrame(resolve))
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    })
 
     expect(loadEntry).toHaveBeenCalledWith('kodak-2383-rec709')
     await waitFor(() => {
@@ -270,6 +328,36 @@ describe('mobileLutBrowser', () => {
         'overview',
       )
     })
+  })
+
+  it('surfaces first profile LUT entries inline in the overview', async () => {
+    const loadEntry = vi.fn().mockResolvedValue(undefined)
+    render(
+      <MobileLutBrowser
+        {...baseProps}
+        onlineLutSources={withManyOnlineEntries(
+          onlineLutSourcesFixture(loadEntry),
+        )}
+      />,
+    )
+
+    expect(screen.getByRole('dialog')).toHaveAttribute(
+      'data-mobile-lut-view',
+      'overview',
+    )
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /load kodak 2383 rec.709/i }),
+    )
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    })
+
+    expect(loadEntry).toHaveBeenCalledWith('kodak-2383-rec709')
+    expect(screen.queryByText('Velvia 50')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /browse 5 luts/i }),
+    ).toBeInTheDocument()
   })
 
   it('acks the mobile LUT entry load click before the load resolves', async () => {

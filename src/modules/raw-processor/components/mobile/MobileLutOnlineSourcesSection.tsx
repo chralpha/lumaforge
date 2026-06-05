@@ -5,10 +5,14 @@ import { Input } from '~/components/ui/input'
 import { useI18n } from '~/lib/i18n'
 
 import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
+import { useOnlineLutEntryLoader } from '../tools/lut/useOnlineLutEntryLoader'
+import { MobileLutCatalogEntryButton } from './MobileLutCatalogEntryButton'
 import { MobileLutSourceCard } from './MobileLutSourceCard'
 
 type OnlineEntry = UseOnlineLutSourcesResult['state']['entries'][number]
 type OnlineIssue = UseOnlineLutSourcesResult['state']['issues'][number]
+
+const inlineEntryLimit = 4
 
 export interface MobileLutOnlineSourcesSectionProps {
   onlineLutSources?: UseOnlineLutSourcesResult
@@ -26,6 +30,9 @@ export function MobileLutOnlineSourcesSection({
   onBrowseResource,
 }: MobileLutOnlineSourcesSectionProps) {
   const { t } = useI18n()
+  const { loadingEntryId, loadOnlineLutEntry } = useOnlineLutEntryLoader(
+    onlineLutSources?.loadEntry,
+  )
 
   if (!onlineLutSources) return null
 
@@ -120,6 +127,13 @@ export function MobileLutOnlineSourcesSection({
                 }
                 onRemove={() => onlineLutSources.removeSource(resource.id)}
               />
+              <MobileLutInlineEntries
+                entries={entries}
+                loadingEntryId={loadingEntryId}
+                onEntryLoad={(entryId) => {
+                  void loadOnlineLutEntry(entryId)
+                }}
+              />
               <button
                 type="button"
                 className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 text-lf-control font-semibold text-lf-on-photo-ink/76 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-on-photo-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
@@ -134,5 +148,35 @@ export function MobileLutOnlineSourcesSection({
         })}
       </div>
     </section>
+  )
+}
+
+function MobileLutInlineEntries({
+  entries,
+  loadingEntryId,
+  onEntryLoad,
+}: {
+  entries: OnlineEntry[]
+  loadingEntryId: string | null
+  onEntryLoad: (entryId: string) => void
+}) {
+  const { t } = useI18n()
+  const visibleEntries = entries.slice(0, inlineEntryLimit)
+
+  if (visibleEntries.length === 0) return null
+
+  return (
+    <div className="grid gap-1.5" data-raw-mobile-lut="source-inline-entries">
+      {visibleEntries.map((entry) => (
+        <MobileLutCatalogEntryButton
+          key={entry.id}
+          title={entry.title}
+          loading={loadingEntryId === entry.id}
+          disabled={false}
+          ariaLabel={t('raw.mobile.lut.loadEntry', { label: entry.title })}
+          onClick={() => onEntryLoad(entry.id)}
+        />
+      ))}
+    </div>
   )
 }

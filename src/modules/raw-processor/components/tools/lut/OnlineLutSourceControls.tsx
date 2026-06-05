@@ -197,6 +197,7 @@ export function OnlineLutSourceControls({
           resources={state.resources}
           isLoading={state.isLoading}
           activeResourceId={state.activeResourceId}
+          loadingEntryId={loadingEntryId}
           entriesByResourceId={entriesByResourceId}
           issuesByResourceId={issuesByResourceId}
           openResourceId={openResourceId}
@@ -211,6 +212,9 @@ export function OnlineLutSourceControls({
           onRemoveResource={(resourceId) => {
             if (openResourceId === resourceId) closeBrowser(resourceId)
             onlineLutSources.removeSource(resourceId)
+          }}
+          onEntryLoad={(entryId) => {
+            void loadOnlineLutEntry(entryId)
           }}
           setOpenButtonRef={(resourceId, node) => {
             if (node) {

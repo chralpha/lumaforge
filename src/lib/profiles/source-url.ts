@@ -13,6 +13,7 @@ export interface ProfileSourceResource {
   type: ProfileSourceType
   label: string
   fromQuery: boolean
+  isDefault?: boolean
 }
 
 export interface ProfileSourceParseIssue {

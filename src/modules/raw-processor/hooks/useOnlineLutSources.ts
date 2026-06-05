@@ -17,8 +17,11 @@ import type {
   OnlineLUTSourceState,
 } from '../services/look/online-lut-sources'
 import {
+  getInitialOnlineLUTSourceResources,
   getShareableOnlineLUTSourceResources,
   mergeOnlineLUTSourceResolution,
+  persistOnlineLUTSourceRemoval,
+  persistOnlineLUTSourceResource,
   removeOnlineLUTSourceResource,
   resolveOnlineLUTSourceEntry,
   resolveProfileSourceResource,
@@ -204,6 +207,12 @@ export function useOnlineLutSources({
   )
 
   useEffect(() => {
+    for (const resource of getInitialOnlineLUTSourceResources()) {
+      void resolveResource(resource)
+    }
+  }, [resolveResource])
+
+  useEffect(() => {
     const parsed = parseLUTResourceQuery(search)
     const resources = parsed.resources
       .filter((resource) => !queryResourceUrlsRef.current.has(resource.url))
@@ -264,6 +273,7 @@ export function useOnlineLutSources({
       false,
     )
     setSourceUrlInput('')
+    persistOnlineLUTSourceResource(resource)
     await resolveResource(resource)
   }, [resolveResource, resolveResourceId, sourceUrlInput])
 
@@ -279,6 +289,10 @@ export function useOnlineLutSources({
 
   const removeSource = useCallback(
     (resourceId: string) => {
+      const resource = stateRef.current.resources.find(
+        (item) => item.id === resourceId,
+      )
+      if (resource) persistOnlineLUTSourceRemoval(resource)
       abortResourceRequest(resourceId)
       setState((current) => removeOnlineLUTSourceResource(current, resourceId))
     },

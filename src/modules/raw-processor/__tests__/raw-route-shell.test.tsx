@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { toast } from 'sonner'
@@ -10,6 +10,10 @@ import { Component as RawRoute } from '../../../pages/(main)/raw'
 import { FileFactsTool } from '../components/tools/FileFactsTool'
 import { RawProcessorView } from '../RawProcessorView'
 import { classifySupportLevel } from '../services/ingest/support-matrix'
+import {
+  DEFAULT_LUMAFORGE_PROFILE_SOURCE,
+  ONLINE_LUT_SOURCE_STORAGE_KEY,
+} from '../services/look/online-lut-sources'
 import {
   getLut,
   getProcessingParams,
@@ -155,27 +159,14 @@ function renderRawRoute(initialEntry: string) {
   )
 }
 
-async function openLutSourceBrowser(
-  user: ReturnType<typeof userEvent.setup>,
-  sourceLabel: string,
-) {
-  const openButton = await screen.findByRole('button', {
-    name: `Open ${sourceLabel}`,
-  })
-  expect(openButton).toHaveAttribute('aria-haspopup', 'dialog')
-  expect(openButton).toHaveAttribute('aria-expanded', 'false')
-  expect(
-    screen.queryByRole('dialog', { name: `${sourceLabel} LUTs` }),
-  ).not.toBeInTheDocument()
-
-  await user.click(openButton)
-
-  const browser = await screen.findByRole('dialog', {
-    name: `${sourceLabel} LUTs`,
-  })
-  expect(openButton).toHaveAttribute('aria-expanded', 'true')
-
-  return browser
+function hideDefaultOnlineLutSource() {
+  localStorage.setItem(
+    ONLINE_LUT_SOURCE_STORAGE_KEY,
+    JSON.stringify({
+      resources: [],
+      removedDefaultUrls: [DEFAULT_LUMAFORGE_PROFILE_SOURCE.url],
+    }),
+  )
 }
 
 beforeEach(() => {
@@ -351,6 +342,10 @@ describe('rawProcessorView shell states', () => {
 })
 
 describe('rawProcessorView online LUT route sources', () => {
+  beforeEach(() => {
+    hideDefaultOnlineLutSource()
+  })
+
   it('imports a query catalog resource into the source manager', async () => {
     renderRawRoute(
       `/raw?luts=${encodeURIComponent(
@@ -381,7 +376,9 @@ describe('rawProcessorView online LUT route sources', () => {
         container.querySelectorAll('[data-raw-lut="source-resource"]'),
       ).toHaveLength(1),
     )
-    expect(screen.getByText('valid.cube')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Load valid.cube' }),
+    ).toBeInTheDocument()
 
     const status = await screen.findByRole('status')
     expect(status).toHaveTextContent(
@@ -430,15 +427,10 @@ describe('rawProcessorView online LUT route sources', () => {
     renderRawRoute(`/raw?luts=${encodeURIComponent(cubeUrl)}`)
 
     expect(await screen.findByText('lazy-direct.cube')).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Load lazy-direct.cube' }),
-    ).not.toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalled()
-
-    const browser = await openLutSourceBrowser(user, 'lazy-direct.cube')
-    const loadButton = within(browser).getByRole('button', {
+    const loadButton = screen.getByRole('button', {
       name: 'Load lazy-direct.cube',
     })
+    expect(fetchMock).not.toHaveBeenCalled()
 
     await user.click(loadButton)
 
@@ -519,13 +511,8 @@ describe('rawProcessorView online LUT route sources', () => {
     expect(
       await screen.findByText('Catalog from example.com'),
     ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Load Route Flow LUT' }),
-    ).not.toBeInTheDocument()
     await waitFor(() => expect(fetchUrls()).toEqual([catalogUrl]))
-
-    const browser = await openLutSourceBrowser(user, 'Catalog from example.com')
-    const loadButton = within(browser).getByRole('button', {
+    const loadButton = screen.getByRole('button', {
       name: 'Load Route Flow LUT',
     })
 
@@ -622,13 +609,8 @@ describe('rawProcessorView online LUT route sources', () => {
     expect(
       await screen.findByText('Catalog from example.com'),
     ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Load Hash Check LUT' }),
-    ).not.toBeInTheDocument()
     await waitFor(() => expect(fetchUrls()).toEqual([catalogUrl]))
-
-    const browser = await openLutSourceBrowser(user, 'Catalog from example.com')
-    const loadButton = within(browser).getByRole('button', {
+    const loadButton = screen.getByRole('button', {
       name: 'Load Hash Check LUT',
     })
 

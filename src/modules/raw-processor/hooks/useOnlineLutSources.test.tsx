@@ -18,11 +18,14 @@ const sha256 =
   '9c56cc51b374c3ba189210d5b6d4bf57790d351c96c47c02190ecf1e430635ab'
 const catalogUrl =
   'https://profiles.example.com/releases/v2026.05.01/catalog.json'
+const defaultCatalogUrl =
+  'https://profiles.lumaforge.invalid/channels/stable/catalog.json'
 const entryUrl =
   'https://profiles.example.com/releases/v2026.05.01/entries/kodak-2383-rec709.json'
 const secondEntryUrl =
   'https://profiles.example.com/releases/v2026.05.01/entries/ektachrome-e100.json'
 const cubeUrl = `https://profiles.example.com/blobs/sha256/9c/56/${sha256}.cube`
+const sourcesStorageKey = 'lumaforge.raw.onlineLutSources.v1'
 
 const primaryAsset = {
   role: 'cube-lut',
@@ -138,9 +141,20 @@ function setupDeferredFetchJson() {
   return { requests }
 }
 
+function hideDefaultSource() {
+  localStorage.setItem(
+    sourcesStorageKey,
+    JSON.stringify({
+      resources: [],
+      removedDefaultUrls: [defaultCatalogUrl],
+    }),
+  )
+}
+
 describe('useOnlineLutSources', () => {
   beforeEach(() => {
     mockedFetchJson.mockReset()
+    localStorage.clear()
     vi.stubGlobal('navigator', {
       clipboard: {
         writeText: vi.fn(async () => {}),
@@ -148,7 +162,173 @@ describe('useOnlineLutSources', () => {
     })
   })
 
+  it('loads the default LumaForge profile source when source storage is empty', async () => {
+    setupFetchJson({
+      [defaultCatalogUrl]: catalogDocument(),
+      [entryUrl]: entryManifest(),
+    })
+
+    const { result } = renderHook(() =>
+      useOnlineLutSources({
+        search: '',
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    await waitFor(() => expect(result.current.state.entries).toHaveLength(1))
+
+    expect(result.current.state.resources).toEqual([
+      expect.objectContaining({
+        id: 'lumaforge-default-profiles',
+        url: defaultCatalogUrl,
+        type: 'catalog',
+        label: 'LumaForge Profiles',
+        isDefault: true,
+      }),
+    ])
+    expect(result.current.state.entries[0]).toMatchObject({
+      title: 'Kodak 2383 Rec.709',
+      resourceId: 'lumaforge-default-profiles',
+    })
+    expect(result.current.share.url).toBe('/raw')
+  })
+
+  it('keeps a removed default LumaForge source hidden until source storage is cleared', async () => {
+    setupFetchJson({
+      [defaultCatalogUrl]: catalogDocument(),
+      [entryUrl]: entryManifest(),
+    })
+
+    const firstLoad = renderHook(() =>
+      useOnlineLutSources({
+        search: '',
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    await waitFor(() =>
+      expect(firstLoad.result.current.state.resources).toHaveLength(1),
+    )
+
+    act(() => {
+      firstLoad.result.current.removeSource('lumaforge-default-profiles')
+    })
+    expect(firstLoad.result.current.state.resources).toHaveLength(0)
+    firstLoad.unmount()
+
+    mockedFetchJson.mockClear()
+    const secondLoad = renderHook(() =>
+      useOnlineLutSources({
+        search: '',
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    expect(secondLoad.result.current.state.resources).toHaveLength(0)
+    expect(mockedFetchJson).not.toHaveBeenCalled()
+    secondLoad.unmount()
+
+    localStorage.clear()
+    const restored = renderHook(() =>
+      useOnlineLutSources({
+        search: '',
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    await waitFor(() =>
+      expect(restored.result.current.state.resources).toEqual([
+        expect.objectContaining({ id: 'lumaforge-default-profiles' }),
+      ]),
+    )
+  })
+
+  it('restores manually added sources from storage and forgets them after removal', async () => {
+    hideDefaultSource()
+    setupFetchJson({
+      [catalogUrl]: catalogDocument(),
+      [entryUrl]: entryManifest(),
+    })
+
+    const firstLoad = renderHook(() =>
+      useOnlineLutSources({
+        search: '',
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    act(() => {
+      firstLoad.result.current.setSourceUrlInput(catalogUrl)
+    })
+    await act(async () => {
+      await firstLoad.result.current.addSourceFromInput()
+    })
+    await waitFor(() =>
+      expect(firstLoad.result.current.state.entries).toHaveLength(1),
+    )
+    expect(JSON.parse(localStorage.getItem(sourcesStorageKey) ?? '{}')).toEqual(
+      expect.objectContaining({
+        resources: [
+          expect.objectContaining({
+            url: catalogUrl,
+            type: 'catalog',
+            label: 'Catalog from profiles.example.com',
+          }),
+        ],
+      }),
+    )
+    firstLoad.unmount()
+
+    mockedFetchJson.mockClear()
+    const restored = renderHook(() =>
+      useOnlineLutSources({
+        search: '',
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    await waitFor(() =>
+      expect(restored.result.current.state.resources).toEqual([
+        expect.objectContaining({
+          id: 'stored-lut-source-1',
+          url: catalogUrl,
+        }),
+      ]),
+    )
+    expect(mockedFetchJson).toHaveBeenCalledWith(catalogUrl, {
+      signal: expect.any(AbortSignal),
+      maxBytes: expect.any(Number),
+    })
+
+    act(() => {
+      restored.result.current.removeSource('stored-lut-source-1')
+    })
+    expect(JSON.parse(localStorage.getItem(sourcesStorageKey) ?? '{}')).toEqual(
+      expect.objectContaining({ resources: [] }),
+    )
+    restored.unmount()
+
+    mockedFetchJson.mockClear()
+    const removed = renderHook(() =>
+      useOnlineLutSources({
+        search: '',
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    expect(removed.result.current.state.resources).toHaveLength(0)
+    expect(mockedFetchJson).not.toHaveBeenCalled()
+  })
+
   it('parses and resolves query resources once on first RAW Lab load', async () => {
+    hideDefaultSource()
     setupFetchJson({
       [catalogUrl]: catalogDocument(),
       [entryUrl]: entryManifest(),
@@ -184,6 +364,7 @@ describe('useOnlineLutSources', () => {
   })
 
   it('fetches the entry manifest only when loading a selected catalog LUT', async () => {
+    hideDefaultSource()
     setupFetchJson({
       [catalogUrl]: catalogDocument(),
       [entryUrl]: entryManifest(),
@@ -227,6 +408,7 @@ describe('useOnlineLutSources', () => {
   })
 
   it('does not duplicate resources when re-rendering with the same search string', async () => {
+    hideDefaultSource()
     setupFetchJson({
       [catalogUrl]: catalogDocument(),
       [entryUrl]: entryManifest(),
@@ -256,6 +438,7 @@ describe('useOnlineLutSources', () => {
   })
 
   it('processes newly introduced query resources while mounted without duplicating the same query', async () => {
+    hideDefaultSource()
     setupFetchJson({
       [catalogUrl]: catalogDocument(),
       [entryUrl]: entryManifest(),
@@ -289,6 +472,7 @@ describe('useOnlineLutSources', () => {
   })
 
   it('keeps share disabled when no valid source has entries', () => {
+    hideDefaultSource()
     const { result } = renderHook(() =>
       useOnlineLutSources({
         search: '',
@@ -302,6 +486,7 @@ describe('useOnlineLutSources', () => {
   })
 
   it('keeps share disabled when no clipboard or Web Share API is available', async () => {
+    hideDefaultSource()
     vi.stubGlobal('navigator', {})
     setupFetchJson({
       [catalogUrl]: catalogDocument(),
@@ -322,6 +507,7 @@ describe('useOnlineLutSources', () => {
   })
 
   it('enables share when a valid source has entries and clipboard is available', async () => {
+    hideDefaultSource()
     setupFetchJson({
       [catalogUrl]: catalogDocument(),
       [entryUrl]: entryManifest(),
@@ -342,6 +528,7 @@ describe('useOnlineLutSources', () => {
   })
 
   it('copies the canonical source share URL', async () => {
+    hideDefaultSource()
     setupFetchJson({
       [catalogUrl]: catalogDocument(),
       [entryUrl]: entryManifest(),
@@ -366,6 +553,7 @@ describe('useOnlineLutSources', () => {
   })
 
   it('keeps isLoading true until all concurrent resource requests settle', async () => {
+    hideDefaultSource()
     const deferred = setupDeferredFetchJson()
     const { result } = renderHook(() =>
       useOnlineLutSources({
@@ -400,6 +588,7 @@ describe('useOnlineLutSources', () => {
   })
 
   it('preserves invalid query issues while resolving valid query resources', async () => {
+    hideDefaultSource()
     setupFetchJson({
       [catalogUrl]: catalogDocument(),
       [entryUrl]: entryManifest(),
@@ -426,6 +615,7 @@ describe('useOnlineLutSources', () => {
   })
 
   it('creates a direct CUBE entry without fetching CUBE bytes', async () => {
+    hideDefaultSource()
     const { result } = renderHook(() =>
       useOnlineLutSources({
         search: `?luts=${encodeURIComponent(cubeUrl)}`,
@@ -446,6 +636,7 @@ describe('useOnlineLutSources', () => {
   })
 
   it('aborts an in-flight metadata request when refreshing the same resource', async () => {
+    hideDefaultSource()
     const pending = setupPendingFetchJson()
     const { result } = renderHook(() =>
       useOnlineLutSources({
@@ -468,6 +659,7 @@ describe('useOnlineLutSources', () => {
   })
 
   it('aborts an in-flight metadata request when removing that resource', async () => {
+    hideDefaultSource()
     const pending = setupPendingFetchJson()
     const { result } = renderHook(() =>
       useOnlineLutSources({
@@ -488,6 +680,7 @@ describe('useOnlineLutSources', () => {
   })
 
   it('retries query metadata after StrictMode cleanup aborts the first effect pass', async () => {
+    hideDefaultSource()
     const pending = setupPendingFetchJson()
     const { result } = renderHook(
       () =>
@@ -509,6 +702,7 @@ describe('useOnlineLutSources', () => {
   })
 
   it('aborts in-flight metadata requests on unmount', async () => {
+    hideDefaultSource()
     const pending = setupPendingFetchJson()
     const { unmount } = renderHook(() =>
       useOnlineLutSources({

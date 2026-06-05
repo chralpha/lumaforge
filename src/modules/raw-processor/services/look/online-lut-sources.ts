@@ -6,6 +6,15 @@ import type { ProfileSourceResource } from '~/lib/profiles/source-url'
 import { normalizeProfileSourceUrl } from '~/lib/profiles/source-url'
 
 const defaultMaxJsonBytes = 1_000_000
+export const ONLINE_LUT_SOURCE_STORAGE_KEY = 'lumaforge.raw.onlineLutSources.v1'
+export const DEFAULT_LUMAFORGE_PROFILE_SOURCE: ProfileSourceResource = {
+  id: 'lumaforge-default-profiles',
+  url: 'https://profiles.lumaforge.invalid/channels/stable/catalog.json',
+  type: 'catalog',
+  label: 'LumaForge Profiles',
+  fromQuery: false,
+  isDefault: true,
+}
 
 export type OnlineLUTSourceEntry = OnlineLUTEntry & { resourceId: string }
 
@@ -40,6 +49,203 @@ export interface OnlineLUTSourceResolution {
 export interface OnlineLUTSourceEntryResolution {
   entry: OnlineLUTSourceEntry
   issues: OnlineLUTSourceIssue[]
+}
+
+interface StoredOnlineLUTSourceResource {
+  url: string
+  type: ProfileSourceResource['type']
+  label: string
+}
+
+interface StoredOnlineLUTSourceRegistry {
+  resources: StoredOnlineLUTSourceResource[]
+  removedDefaultUrls: string[]
+}
+
+function emptyStoredRegistry(): StoredOnlineLUTSourceRegistry {
+  return { resources: [], removedDefaultUrls: [] }
+}
+
+function getOnlineLUTSourceStorage(): Storage | null {
+  try {
+    return globalThis.localStorage
+  } catch {
+    return null
+  }
+}
+
+function isStoredResource(
+  value: unknown,
+): value is StoredOnlineLUTSourceResource {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+
+  const record = value as Record<string, unknown>
+
+  return (
+    typeof record.url === 'string' &&
+    (record.type === 'catalog' ||
+      record.type === 'entry' ||
+      record.type === 'cube') &&
+    typeof record.label === 'string'
+  )
+}
+
+function normalizeStoredUrl(value: string): string | null {
+  try {
+    return normalizeProfileSourceUrl(value)
+  } catch {
+    return null
+  }
+}
+
+function readStoredOnlineLUTSourceRegistry(
+  storage = getOnlineLUTSourceStorage(),
+): StoredOnlineLUTSourceRegistry {
+  if (!storage) return emptyStoredRegistry()
+
+  try {
+    const raw = storage.getItem(ONLINE_LUT_SOURCE_STORAGE_KEY)
+    if (!raw) return emptyStoredRegistry()
+
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return emptyStoredRegistry()
+    }
+
+    const record = parsed as Record<string, unknown>
+    const seenResources = new Set<string>()
+    const resources = Array.isArray(record.resources)
+      ? record.resources.flatMap((resource) => {
+          if (!isStoredResource(resource)) return []
+
+          const normalizedUrl = normalizeStoredUrl(resource.url)
+          if (!normalizedUrl || seenResources.has(normalizedUrl)) return []
+
+          seenResources.add(normalizedUrl)
+          return [
+            {
+              url: normalizedUrl,
+              type: resource.type,
+              label: resource.label,
+            },
+          ]
+        })
+      : []
+    const removedDefaultUrls = Array.isArray(record.removedDefaultUrls)
+      ? Array.from(
+          new Set(
+            record.removedDefaultUrls.flatMap((value) => {
+              if (typeof value !== 'string') return []
+
+              const normalizedUrl = normalizeStoredUrl(value)
+              return normalizedUrl ? [normalizedUrl] : []
+            }),
+          ),
+        )
+      : []
+
+    return { resources, removedDefaultUrls }
+  } catch {
+    return emptyStoredRegistry()
+  }
+}
+
+function writeStoredOnlineLUTSourceRegistry(
+  registry: StoredOnlineLUTSourceRegistry,
+  storage = getOnlineLUTSourceStorage(),
+) {
+  if (!storage) return
+
+  try {
+    storage.setItem(ONLINE_LUT_SOURCE_STORAGE_KEY, JSON.stringify(registry))
+  } catch {
+    // Storage can be unavailable or quota-limited; online LUT sources still work in memory.
+  }
+}
+
+function toStoredResource(
+  resource: ProfileSourceResource,
+): StoredOnlineLUTSourceResource | null {
+  if (resource.isDefault || resource.fromQuery) return null
+
+  const normalizedUrl = normalizeStoredUrl(resource.url)
+  if (!normalizedUrl) return null
+
+  return {
+    url: normalizedUrl,
+    type: resource.type,
+    label: resource.label,
+  }
+}
+
+export function getInitialOnlineLUTSourceResources(
+  options: {
+    storage?: Storage | null
+    defaultSource?: ProfileSourceResource
+  } = {},
+): ProfileSourceResource[] {
+  const defaultSource =
+    options.defaultSource ?? DEFAULT_LUMAFORGE_PROFILE_SOURCE
+  const registry = readStoredOnlineLUTSourceRegistry(options.storage)
+  const defaultUrl = normalizeStoredUrl(defaultSource.url) ?? defaultSource.url
+  const resources: ProfileSourceResource[] = []
+
+  if (!registry.removedDefaultUrls.includes(defaultUrl)) {
+    resources.push({ ...defaultSource, url: defaultUrl })
+  }
+
+  for (const [index, resource] of registry.resources.entries()) {
+    resources.push({
+      id: `stored-lut-source-${index + 1}`,
+      url: resource.url,
+      type: resource.type,
+      label: resource.label,
+      fromQuery: false,
+    })
+  }
+
+  return resources
+}
+
+export function persistOnlineLUTSourceResource(
+  resource: ProfileSourceResource,
+  options: { storage?: Storage | null } = {},
+) {
+  const storedResource = toStoredResource(resource)
+  if (!storedResource) return
+
+  const registry = readStoredOnlineLUTSourceRegistry(options.storage)
+  const resources = registry.resources.filter(
+    (item) => item.url !== storedResource.url,
+  )
+
+  writeStoredOnlineLUTSourceRegistry(
+    {
+      ...registry,
+      resources: [...resources, storedResource],
+    },
+    options.storage,
+  )
+}
+
+export function persistOnlineLUTSourceRemoval(
+  resource: ProfileSourceResource,
+  options: { storage?: Storage | null } = {},
+) {
+  const registry = readStoredOnlineLUTSourceRegistry(options.storage)
+  const normalizedUrl = normalizeStoredUrl(resource.url) ?? resource.url
+  const nextRegistry: StoredOnlineLUTSourceRegistry = {
+    resources: registry.resources.filter((item) => item.url !== normalizedUrl),
+    removedDefaultUrls: registry.removedDefaultUrls,
+  }
+
+  if (resource.isDefault) {
+    nextRegistry.removedDefaultUrls = Array.from(
+      new Set([...nextRegistry.removedDefaultUrls, normalizedUrl]),
+    )
+  }
+
+  writeStoredOnlineLUTSourceRegistry(nextRegistry, options.storage)
 }
 
 function withResourceId(
@@ -346,7 +552,8 @@ export function getShareableOnlineLUTSourceResources(
     state.entries.map((entry) => entry.resourceId),
   )
 
-  return state.resources.filter((resource) =>
-    resourceIdsWithEntries.has(resource.id),
+  return state.resources.filter(
+    (resource) =>
+      resourceIdsWithEntries.has(resource.id) && !resource.isDefault,
   )
 }
