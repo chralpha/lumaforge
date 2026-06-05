@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { WebGLCapabilities } from './context'
 import {
+  createWebGL2Context,
   detectCapabilities,
   getProcessingTextureFormatWarnings,
   selectProcessingTextureFormat,
@@ -112,6 +113,40 @@ describe('capability detection', () => {
 
     return gl as unknown as WebGL2RenderingContext
   }
+
+  it('falls back to a plain WebGL2 request when strict attributes are rejected', () => {
+    const gl = createCapabilityGl({
+      precision: 23,
+      rangeMin: 127,
+      rangeMax: 127,
+    })
+    const getContext = vi.fn(
+      (_name: string, attributes?: WebGLContextAttributes) =>
+        attributes ? null : gl,
+    )
+    const canvas = { getContext } as unknown as HTMLCanvasElement
+
+    expect(createWebGL2Context(canvas)).toBe(gl)
+    expect(getContext).toHaveBeenCalledWith('webgl2')
+  })
+
+  it('falls back to a plain WebGL2 request when strict attributes throw', () => {
+    const gl = createCapabilityGl({
+      precision: 23,
+      rangeMin: 127,
+      rangeMax: 127,
+    })
+    const getContext = vi.fn(
+      (_name: string, attributes?: WebGLContextAttributes) => {
+        if (attributes) throw new Error('strict attributes rejected')
+        return gl
+      },
+    )
+    const canvas = { getContext } as unknown as HTMLCanvasElement
+
+    expect(createWebGL2Context(canvas)).toBe(gl)
+    expect(getContext).toHaveBeenCalledWith('webgl2')
+  })
 
   it('marks tone precision as supported when fragment highp has enough precision and range', () => {
     expect(

@@ -123,22 +123,20 @@ function toPositiveInteger(value: unknown) {
     : 0
 }
 
-export function detectPreviewGpuCapabilitySnapshot(): PreviewGpuCapabilitySnapshot | null {
-  if (cachedPreviewGpuCapability !== undefined) {
-    return cachedPreviewGpuCapability
-  }
+function shouldSkipDefaultCanvasWebgl2Probe(canvas: HTMLCanvasElement) {
+  return (
+    typeof WebGL2RenderingContext === 'undefined' &&
+    typeof HTMLCanvasElement !== 'undefined' &&
+    canvas instanceof HTMLCanvasElement &&
+    canvas.getContext === HTMLCanvasElement.prototype.getContext
+  )
+}
 
-  if (
-    typeof document === 'undefined' ||
-    typeof WebGL2RenderingContext === 'undefined'
-  ) {
-    return null
-  }
-
-  const canvas = document.createElement('canvas')
-  let gl: WebGL2RenderingContext | null = null
+function requestPreviewWebGL2Context(
+  canvas: HTMLCanvasElement,
+): WebGL2RenderingContext | null {
   try {
-    gl = canvas.getContext('webgl2', {
+    const strictContext = canvas.getContext('webgl2', {
       alpha: false,
       depth: false,
       stencil: false,
@@ -147,9 +145,33 @@ export function detectPreviewGpuCapabilitySnapshot(): PreviewGpuCapabilitySnapsh
       preserveDrawingBuffer: false,
       powerPreference: 'high-performance',
     })
+    if (strictContext) return strictContext
+  } catch {
+    // Plain WebGL2 is still enough to size preview resources.
+  }
+
+  try {
+    return canvas.getContext('webgl2')
   } catch {
     return null
   }
+}
+
+export function detectPreviewGpuCapabilitySnapshot(): PreviewGpuCapabilitySnapshot | null {
+  if (cachedPreviewGpuCapability !== undefined) {
+    return cachedPreviewGpuCapability
+  }
+
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  const canvas = document.createElement('canvas')
+  if (shouldSkipDefaultCanvasWebgl2Probe(canvas)) {
+    return null
+  }
+
+  const gl = requestPreviewWebGL2Context(canvas)
 
   if (!gl) {
     cachedPreviewGpuCapability = Object.freeze({
@@ -172,4 +194,8 @@ export function detectPreviewGpuCapabilitySnapshot(): PreviewGpuCapabilitySnapsh
   } finally {
     gl.getExtension('WEBGL_lose_context')?.loseContext()
   }
+}
+
+export function resetPreviewGpuCapabilityForTest() {
+  cachedPreviewGpuCapability = undefined
 }

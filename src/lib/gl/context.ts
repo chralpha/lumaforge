@@ -52,6 +52,24 @@ function clonePipelineCapabilityWarning(
 
 let cachedCapabilities: WebGLCapabilities | null = null
 
+function requestWebGL2Context(
+  canvas: HTMLCanvasElement,
+  options: WebGLContextAttributes,
+): WebGL2RenderingContext | null {
+  try {
+    const strictContext = canvas.getContext('webgl2', options)
+    if (strictContext) return strictContext
+  } catch {
+    // Some engines can reject non-default attributes even when plain WebGL2 works.
+  }
+
+  try {
+    return canvas.getContext('webgl2')
+  } catch {
+    return null
+  }
+}
+
 /**
  * Creates a WebGL2 context with appropriate settings for RAW processing.
  */
@@ -70,7 +88,7 @@ export function createWebGL2Context(
     ...options,
   }
 
-  const gl = canvas.getContext('webgl2', defaultOptions)
+  const gl = requestWebGL2Context(canvas, defaultOptions)
   if (!gl) {
     console.error('WebGL2 is not supported')
     return null
