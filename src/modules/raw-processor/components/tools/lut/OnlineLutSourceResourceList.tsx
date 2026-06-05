@@ -171,7 +171,9 @@ function OnlineLutSourceResourceRow({
       <OnlineLutSourceInlineEntries
         entries={entries}
         loadingEntryId={loadingEntryId}
+        browserId={browserId}
         onEntryLoad={onEntryLoad}
+        onBrowseAll={onOpen}
       />
       {issues.length > 0 && <OnlineLutSourceIssues issues={issues} />}
     </div>
@@ -181,27 +183,49 @@ function OnlineLutSourceResourceRow({
 function OnlineLutSourceInlineEntries({
   entries,
   loadingEntryId,
+  browserId,
   onEntryLoad,
+  onBrowseAll,
 }: {
   entries: OnlineLutEntry[]
   loadingEntryId: string | null
+  browserId: string
   onEntryLoad: (entryId: string) => void
+  onBrowseAll: () => void
 }) {
+  const { t } = useI18n()
   if (entries.length === 0) return null
 
+  const anotherLoading = loadingEntryId !== null
+  const overflow = entries.length - inlineEntryLimit
+
   return (
-    <div
-      className="grid gap-0.5 sm:grid-cols-2"
-      data-raw-lut="source-inline-entries"
-    >
-      {entries.slice(0, inlineEntryLimit).map((entry) => (
-        <OnlineLutSourceInlineEntry
-          key={entry.id}
-          entry={entry}
-          isLoading={loadingEntryId === entry.id}
-          onLoad={() => onEntryLoad(entry.id)}
-        />
-      ))}
+    <div className="grid min-w-0 gap-1">
+      <div
+        className="grid gap-1 sm:grid-cols-2"
+        data-raw-lut="source-inline-entries"
+      >
+        {entries.slice(0, inlineEntryLimit).map((entry) => (
+          <OnlineLutSourceInlineEntry
+            key={entry.id}
+            entry={entry}
+            isLoading={loadingEntryId === entry.id}
+            isLocked={anotherLoading && loadingEntryId !== entry.id}
+            onLoad={() => onEntryLoad(entry.id)}
+          />
+        ))}
+      </div>
+      {overflow > 0 && (
+        <button
+          type="button"
+          aria-controls={browserId}
+          onClick={onBrowseAll}
+          className="justify-self-start rounded-md px-1.5 py-0.5 text-[0.7rem] font-medium text-lf-on-surface/60 transition-colors hover:text-lf-on-surface focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
+          data-raw-lut="source-inline-overflow"
+        >
+          {t('raw.lutSource.moreCount', { count: overflow })}
+        </button>
+      )}
     </div>
   )
 }
@@ -209,22 +233,33 @@ function OnlineLutSourceInlineEntries({
 function OnlineLutSourceInlineEntry({
   entry,
   isLoading,
+  isLocked,
   onLoad,
 }: {
   entry: OnlineLutEntry
   isLoading: boolean
+  isLocked: boolean
   onLoad: () => void
 }) {
   const { t } = useI18n()
+  const disabled = isLoading || isLocked
 
   return (
     <button
       type="button"
       aria-label={t('raw.lutSource.load', { label: entry.title })}
-      aria-busy={isLoading}
-      disabled={isLoading}
+      aria-busy={isLoading || undefined}
+      disabled={disabled}
       onClick={onLoad}
-      className="grid min-h-8 min-w-0 grid-cols-[minmax(0,1fr)_18px] items-center gap-1.5 rounded-md bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.035)] px-1.5 py-1 text-left text-[0.72rem] font-medium text-lf-on-surface/74 transition-colors hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.065)] hover:text-lf-on-surface focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-wait disabled:opacity-70"
+      data-raw-lut-entry-loading={isLoading ? 'true' : undefined}
+      className={[
+        'grid min-h-8 min-w-0 grid-cols-[minmax(0,1fr)_18px] items-center gap-1.5 rounded-md bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.035)] px-1.5 py-1 text-left text-[0.72rem] font-medium text-lf-on-surface/74 transition-colors hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.065)] hover:text-lf-on-surface focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
+        isLoading
+          ? 'disabled:cursor-wait disabled:opacity-80'
+          : isLocked
+            ? 'disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.035)] disabled:hover:text-lf-on-surface/74'
+            : '',
+      ].join(' ')}
     >
       <span className="min-w-0 truncate">{entry.title}</span>
       {isLoading ? (

@@ -167,16 +167,20 @@ function MobileLutInlineEntries({
 
   return (
     <div className="grid gap-1.5" data-raw-mobile-lut="source-inline-entries">
-      {visibleEntries.map((entry) => (
-        <MobileLutCatalogEntryButton
-          key={entry.id}
-          title={entry.title}
-          loading={loadingEntryId === entry.id}
-          disabled={false}
-          ariaLabel={t('raw.mobile.lut.loadEntry', { label: entry.title })}
-          onClick={() => onEntryLoad(entry.id)}
-        />
-      ))}
+      {visibleEntries.map((entry) => {
+        const isLoading = loadingEntryId === entry.id
+        const isLocked = loadingEntryId !== null && !isLoading
+        return (
+          <MobileLutCatalogEntryButton
+            key={entry.id}
+            title={entry.title}
+            loading={isLoading}
+            disabled={isLocked}
+            ariaLabel={t('raw.mobile.lut.loadEntry', { label: entry.title })}
+            onClick={() => onEntryLoad(entry.id)}
+          />
+        )
+      })}
     </div>
   )
 }

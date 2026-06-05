@@ -272,6 +272,7 @@
   "raw.lutSource.countZero": "无 LUT",
   "raw.lutSource.countOne": "1 个 LUT",
   "raw.lutSource.countMany": "{{count}} 个 LUT",
+  "raw.lutSource.moreCount": "还有 {{count}} 个",
   "raw.lutSource.others": "其他",
   "raw.lutSource.noneCompatible": "此来源未载入兼容 LUT。",
   "raw.lutSource.noneYet": "还没有兼容 LUT。",
