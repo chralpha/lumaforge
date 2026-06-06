@@ -1,4 +1,4 @@
-import { Plus, Share2 } from 'lucide-react'
+import { ChevronRight, Loader2, Plus, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Input } from '~/components/ui/input'
@@ -6,7 +6,6 @@ import { useI18n } from '~/lib/i18n'
 
 import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
 import { useOnlineLutEntryLoader } from '../tools/lut/useOnlineLutEntryLoader'
-import { MobileLutCatalogEntryButton } from './MobileLutCatalogEntryButton'
 import { MobileLutSourceCard } from './MobileLutSourceCard'
 
 type OnlineEntry = UseOnlineLutSourcesResult['state']['entries'][number]
@@ -127,22 +126,15 @@ export function MobileLutOnlineSourcesSection({
                 }
                 onRemove={() => onlineLutSources.removeSource(resource.id)}
               />
-              <MobileLutInlineEntries
+              <MobileLutInlineEntryStrip
                 entries={entries}
+                entryCount={entries.length}
                 loadingEntryId={loadingEntryId}
                 onEntryLoad={(entryId) => {
                   void loadOnlineLutEntry(entryId)
                 }}
+                onBrowseAll={() => onBrowseResource(resource.id)}
               />
-              <button
-                type="button"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3 text-lf-control font-semibold text-lf-on-photo-ink/76 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-on-photo-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
-                onClick={() => onBrowseResource(resource.id)}
-              >
-                {t('raw.mobile.lut.browseEntries', {
-                  count: entries.length,
-                })}
-              </button>
             </div>
           )
         })}
@@ -151,36 +143,96 @@ export function MobileLutOnlineSourcesSection({
   )
 }
 
-function MobileLutInlineEntries({
+function MobileLutInlineEntryStrip({
   entries,
+  entryCount,
   loadingEntryId,
   onEntryLoad,
+  onBrowseAll,
 }: {
   entries: OnlineEntry[]
+  entryCount: number
   loadingEntryId: string | null
   onEntryLoad: (entryId: string) => void
+  onBrowseAll: () => void
 }) {
   const { t } = useI18n()
   const visibleEntries = entries.slice(0, inlineEntryLimit)
 
-  if (visibleEntries.length === 0) return null
-
   return (
-    <div className="grid gap-1.5" data-raw-mobile-lut="source-inline-entries">
+    <div
+      className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      data-raw-mobile-lut="source-inline-entries"
+    >
       {visibleEntries.map((entry) => {
         const isLoading = loadingEntryId === entry.id
         const isLocked = loadingEntryId !== null && !isLoading
         return (
-          <MobileLutCatalogEntryButton
+          <MobileLutInlineEntryPill
             key={entry.id}
             title={entry.title}
-            loading={isLoading}
-            disabled={isLocked}
+            isLoading={isLoading}
+            isLocked={isLocked}
             ariaLabel={t('raw.mobile.lut.loadEntry', { label: entry.title })}
             onClick={() => onEntryLoad(entry.id)}
           />
         )
       })}
+      <button
+        type="button"
+        onClick={onBrowseAll}
+        className="inline-flex min-h-[44px] shrink-0 snap-start items-center gap-1 rounded-lf-pill border border-lf-green/40 bg-lf-green/12 px-3.5 text-lf-label font-semibold text-lf-green-soft transition-colors hover:border-lf-green/65 hover:text-lf-on-photo-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
+        data-raw-mobile-lut="source-inline-browse"
+      >
+        <span className="whitespace-nowrap">
+          {t('raw.mobile.lut.browseEntries', { count: entryCount })}
+        </span>
+        <ChevronRight aria-hidden="true" className="size-4" />
+      </button>
     </div>
+  )
+}
+
+function MobileLutInlineEntryPill({
+  title,
+  isLoading,
+  isLocked,
+  ariaLabel,
+  onClick,
+}: {
+  title: string
+  isLoading: boolean
+  isLocked: boolean
+  ariaLabel: string
+  onClick: () => void
+}) {
+  const disabled = isLoading || isLocked
+
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      aria-busy={isLoading || undefined}
+      disabled={disabled}
+      onClick={onClick}
+      data-raw-mobile-lut="source-inline-entry"
+      data-raw-mobile-lut-entry-loading={isLoading ? 'true' : undefined}
+      className={[
+        'inline-flex min-h-[44px] max-w-[14rem] shrink-0 snap-start items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3.5 text-lf-control font-medium text-lf-on-photo-ink/85 transition-colors hover:border-lf-on-photo-bord hover:bg-lf-on-photo-bg-strong hover:text-lf-on-photo-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
+        isLoading
+          ? 'disabled:cursor-wait disabled:opacity-90'
+          : isLocked
+            ? 'disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-lf-on-photo-bord-soft disabled:hover:bg-lf-on-photo-bg disabled:hover:text-lf-on-photo-ink/85'
+            : '',
+      ].join(' ')}
+    >
+      <span className="truncate">{title}</span>
+      {isLoading && (
+        <Loader2
+          aria-hidden="true"
+          className="size-3.5 shrink-0 animate-spin text-lf-green-soft motion-reduce:animate-none"
+        />
+      )}
+    </button>
   )
 }
