@@ -36,9 +36,22 @@ function createCatalogFixture() {
     size: bytes,
     title: 'Audit Rec.709 Print',
   }
+  const previewAsset = {
+    url: 'https://example.com/previews/audit-rec709.png',
+    role: 'preview-image',
+    mediaType: 'image/png',
+    size: 68,
+    title: 'Audit Rec.709 Print',
+    width: 1,
+    height: 1,
+  }
 
   return {
     cube,
+    previewPng: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
+      'base64',
+    ),
     catalog: {
       schemaVersion: 1,
       entries: [
@@ -51,6 +64,7 @@ function createCatalogFixture() {
           license: 'CC0-1.0',
           redistributionAllowed: true,
           primaryAsset,
+          previewAsset,
           entryUrl: 'https://example.com/entries/audit-rec709.json',
         },
       ],
@@ -66,6 +80,7 @@ function createCatalogFixture() {
       license: 'CC0-1.0',
       redistributionAllowed: true,
       primaryAsset,
+      previewAsset,
       entryUrl: 'https://example.com/entries/audit-rec709.json',
       lut: {
         intent: 'combined-look-output',
@@ -277,6 +292,12 @@ test('keeps sparse online LUT resource entries compact on desktop', async ({
       body: fixture.cube,
     }),
   )
+  await page.route('https://example.com/previews/audit-rec709.png', (route) =>
+    route.fulfill({
+      contentType: 'image/png',
+      body: fixture.previewPng,
+    }),
+  )
 
   await page.goto(
     `/raw?luts=${encodeURIComponent('https://example.com/catalog.json')}`,
@@ -292,6 +313,12 @@ test('keeps sparse online LUT resource entries compact on desktop', async ({
     name: 'Catalog from example.com LUTs',
   })
   await expect(browser).toBeVisible()
+  await expect(
+    browser.locator('[data-raw-lut-preview="image"]'),
+  ).toHaveAttribute('src', 'https://example.com/previews/audit-rec709.png')
+  await expect(
+    browser.locator('[data-raw-lut-preview="placeholder"]'),
+  ).toHaveCount(0)
 
   const metrics = await page.evaluate(() => {
     const entry = document.querySelector<HTMLElement>(

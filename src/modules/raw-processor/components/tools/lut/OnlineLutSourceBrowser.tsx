@@ -8,6 +8,7 @@ import type { OnlineLutBrowserLayout } from './lut-browser-layout'
 import { groupEntriesByFamily } from './lut-source-grouping'
 import { LutBrowserDialog } from './LutBrowserDialog'
 import { LutIconButton } from './LutIconButton'
+import { OnlineLutPreviewThumb } from './OnlineLutPreviewThumb'
 
 type OnlineLutResource = UseOnlineLutSourcesResult['state']['resources'][number]
 type OnlineLutEntry = UseOnlineLutSourcesResult['state']['entries'][number]
@@ -162,10 +163,11 @@ function OnlineLutSourceEntryRow({
 
   return (
     <div
-      className="grid min-w-0 grid-cols-[minmax(0,1fr)_28px] items-center gap-2 rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.045)]"
+      className="grid min-h-11 min-w-0 grid-cols-[48px_minmax(0,1fr)_28px] items-center gap-2 rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.045)]"
       data-raw-lut="source-entry"
       data-raw-lut-entry-loading={isLoading ? 'true' : undefined}
     >
+      <OnlineLutPreviewThumb preview={entry.preview} size="row" />
       <span className="min-w-0 truncate text-[0.74rem] leading-[1.35] text-lf-on-surface/75">
         {entry.title}
       </span>

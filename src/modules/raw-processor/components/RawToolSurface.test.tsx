@@ -103,6 +103,14 @@ function onlineLutSourcesFixture(
             bytes: 12,
             title: 'Kodak 2383 Rec.709',
           },
+          preview: {
+            url: 'https://profiles.example.com/previews/kodak-2383-rec709.webp',
+            mediaType: 'image/webp',
+            bytes: 4096,
+            width: 320,
+            height: 180,
+            title: 'Kodak 2383 Rec.709',
+          },
           tags: [],
           trustedContract: {
             role: 'combined-look-output',
@@ -835,6 +843,12 @@ describe('rawToolSurface', () => {
         name: 'Load Kodak 2383 Rec.709',
       }),
     ).toBeInTheDocument()
+    expect(
+      inlineEntries?.querySelector('[data-raw-lut-preview="image"]'),
+    ).toHaveAttribute(
+      'src',
+      'https://profiles.example.com/previews/kodak-2383-rec709.webp',
+    )
     expect(screen.queryByText('Velvia 50')).not.toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(container.querySelector('[data-raw-lut="source-entry"]')).toBeNull()
@@ -847,6 +861,35 @@ describe('rawToolSurface', () => {
     await waitFor(() =>
       expect(fixture.loadEntry).toHaveBeenCalledWith('kodak-2383-rec709'),
     )
+  })
+
+  it('shows online LUT preview thumbnails in the desktop source browser before load', async () => {
+    const user = userEvent.setup()
+    const fixture = onlineLutSourcesFixture()
+    render(<RawToolSurface {...baseProps} onlineLutSources={fixture} />)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Open Catalog from profiles.example.com',
+      }),
+    )
+
+    const sourceBrowserList = document.querySelector(
+      '[data-raw-lut="source-browser-list"]',
+    ) as HTMLElement
+    const loadButton = within(sourceBrowserList).getByRole('button', {
+      name: /load kodak 2383 rec.709/i,
+    })
+    const preview = loadButton
+      .closest('[data-raw-lut="source-entry"]')
+      ?.querySelector('[data-raw-lut-preview="image"]')
+
+    expect(preview).toHaveAttribute(
+      'src',
+      'https://profiles.example.com/previews/kodak-2383-rec709.webp',
+    )
+    expect(preview).toHaveAttribute('loading', 'lazy')
+    expect(fixture.loadEntry).not.toHaveBeenCalled()
   })
 
   it('closes the online LUT browser with Escape or outside click and restores focus', async () => {

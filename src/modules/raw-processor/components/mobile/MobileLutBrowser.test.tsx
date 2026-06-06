@@ -49,6 +49,14 @@ function onlineLutSourcesFixture(
               '9c56cc51b374c3ba189210d5b6d4bf57790d351c96c47c02190ecf1e430635ab',
             title: 'Kodak 2383 Rec.709',
           },
+          preview: {
+            url: 'https://profiles.example.com/previews/kodak-2383-rec709.webp',
+            mediaType: 'image/webp',
+            bytes: 4096,
+            width: 320,
+            height: 180,
+            title: 'Kodak 2383 Rec.709',
+          },
           tags: [],
         },
       ],
@@ -330,6 +338,35 @@ describe('mobileLutBrowser', () => {
     })
   })
 
+  it('shows online LUT preview thumbnails before a mobile entry is loaded', async () => {
+    const loadEntry = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <MobileLutBrowser
+        {...baseProps}
+        onlineLutSources={onlineLutSourcesFixture(loadEntry)}
+      />,
+    )
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /browse 1 luts/i }),
+    )
+
+    const loadButton = screen.getByRole('button', {
+      name: /load kodak 2383 rec.709/i,
+    })
+    const preview = loadButton.querySelector('[data-raw-lut-preview="image"]')
+
+    expect(preview).toHaveAttribute(
+      'src',
+      'https://profiles.example.com/previews/kodak-2383-rec709.webp',
+    )
+    expect(preview).toHaveAttribute('loading', 'lazy')
+    expect(
+      container.querySelector('[data-raw-lut-preview="placeholder"]'),
+    ).toBeNull()
+    expect(loadEntry).not.toHaveBeenCalled()
+  })
+
   it('surfaces first profile LUT entries inline in the overview', async () => {
     const loadEntry = vi.fn().mockResolvedValue(undefined)
     render(
@@ -556,7 +593,7 @@ describe('mobileLutBrowser', () => {
 
     expect(
       screen.getByRole('button', { name: /load kodak 2383 rec.709/i }),
-    ).toHaveClass('min-h-[44px]')
+    ).toHaveClass('min-h-[52px]')
   })
 
   it('keeps mobile catalog browsing in the dark on-photo surface family', async () => {

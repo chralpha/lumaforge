@@ -82,6 +82,7 @@ export function MobileLutCatalogView({
       <MobileLutCatalogEntryButton
         key={entry.id}
         title={entry.title}
+        preview={entry.preview}
         loading={isEntryLoading}
         disabled={disabled}
         ariaLabel={t('raw.mobile.lut.loadEntry', { label: entry.title })}

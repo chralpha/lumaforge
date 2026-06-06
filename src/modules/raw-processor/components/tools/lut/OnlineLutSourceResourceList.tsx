@@ -12,6 +12,7 @@ import { useI18n } from '~/lib/i18n'
 
 import type { UseOnlineLutSourcesResult } from '../../../hooks/useOnlineLutSources'
 import { LutIconButton } from './LutIconButton'
+import { OnlineLutPreviewThumb } from './OnlineLutPreviewThumb'
 
 type OnlineLutResource = UseOnlineLutSourcesResult['state']['resources'][number]
 type OnlineLutEntry = UseOnlineLutSourcesResult['state']['entries'][number]
@@ -253,7 +254,7 @@ function OnlineLutSourceInlineEntry({
       onClick={onLoad}
       data-raw-lut-entry-loading={isLoading ? 'true' : undefined}
       className={[
-        'grid min-h-8 min-w-0 grid-cols-[minmax(0,1fr)_18px] items-center gap-1.5 rounded-md bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.035)] px-1.5 py-1 text-left text-[0.72rem] font-medium text-lf-on-surface/74 transition-colors hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.065)] hover:text-lf-on-surface focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
+        'grid min-h-10 min-w-0 grid-cols-[40px_minmax(0,1fr)_18px] items-center gap-1.5 rounded-md bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.035)] px-1.5 py-1 text-left text-[0.72rem] font-medium text-lf-on-surface/74 transition-colors hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.065)] hover:text-lf-on-surface focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
         isLoading
           ? 'disabled:cursor-wait disabled:opacity-80'
           : isLocked
@@ -261,6 +262,7 @@ function OnlineLutSourceInlineEntry({
             : '',
       ].join(' ')}
     >
+      <OnlineLutPreviewThumb preview={entry.preview} size="inline" />
       <span className="min-w-0 truncate">{entry.title}</span>
       {isLoading ? (
         <Loader2

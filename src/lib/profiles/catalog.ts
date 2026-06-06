@@ -28,12 +28,22 @@ export interface OnlineLUTAsset {
   title?: string
 }
 
+export interface OnlineLUTPreviewAsset {
+  url: string
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/avif'
+  bytes?: number
+  width?: number
+  height?: number
+  title?: string
+}
+
 export interface OnlineLUTEntry {
   id: string
   title: string
   sourceUrl: string
   sourceType: 'catalog-entry' | 'direct-cube'
   cube: OnlineLUTAsset
+  preview?: OnlineLUTPreviewAsset
   trustedContract?: LUTContractSelection
   tags: string[]
   family?: string
@@ -97,6 +107,90 @@ function hasCubeMediaTypeOrExtension(asset: Record<string, unknown>): boolean {
   } catch {
     return false
   }
+}
+
+function readPositiveNumber(
+  value: Record<string, unknown>,
+  key: string,
+): number | undefined {
+  const field = value[key]
+
+  return typeof field === 'number' && Number.isFinite(field) && field > 0
+    ? field
+    : undefined
+}
+
+function inferPreviewMediaType(
+  asset: Record<string, unknown>,
+): OnlineLUTPreviewAsset['mediaType'] | undefined {
+  const mediaType = readString(asset, 'mediaType')?.toLowerCase()
+  if (
+    mediaType === 'image/jpeg' ||
+    mediaType === 'image/png' ||
+    mediaType === 'image/webp' ||
+    mediaType === 'image/avif'
+  ) {
+    return mediaType
+  }
+
+  const url = readString(asset, 'url')
+  if (!url) return undefined
+
+  try {
+    const pathname = new URL(url).pathname.toLowerCase()
+    if (pathname.endsWith('.jpg') || pathname.endsWith('.jpeg')) {
+      return 'image/jpeg'
+    }
+    if (pathname.endsWith('.png')) return 'image/png'
+    if (pathname.endsWith('.webp')) return 'image/webp'
+    if (pathname.endsWith('.avif')) return 'image/avif'
+  } catch {
+    return undefined
+  }
+
+  return undefined
+}
+
+function validatePreviewAsset(
+  asset: unknown,
+  entryTitle: string,
+): OnlineLUTPreviewAsset | undefined {
+  if (!isRecord(asset)) return undefined
+
+  const role = readString(asset, 'role')
+  if (role !== 'preview-image' && role !== 'thumbnail') return undefined
+
+  const url = readString(asset, 'url')
+  if (!isRuntimeUrl(url)) return undefined
+
+  const mediaType = inferPreviewMediaType(asset)
+  if (!mediaType) return undefined
+
+  return {
+    url: url!,
+    mediaType,
+    bytes: readPositiveNumber(asset, 'size'),
+    width: readPositiveNumber(asset, 'width'),
+    height: readPositiveNumber(asset, 'height'),
+    title: readString(asset, 'title') ?? entryTitle,
+  }
+}
+
+function selectPreviewAsset(
+  entry: Record<string, unknown>,
+  entryTitle: string,
+): OnlineLUTPreviewAsset | undefined {
+  const explicit = validatePreviewAsset(entry.previewAsset, entryTitle)
+  if (explicit) return explicit
+
+  const assets = Array.isArray(entry.assets) ? entry.assets : []
+
+  for (const asset of assets) {
+    const preview = validatePreviewAsset(asset, entryTitle)
+    if (preview) return preview
+  }
+
+  return undefined
 }
 
 function validateCubeAsset(
@@ -285,6 +379,7 @@ function buildEntry(
       bytes: asset.bytes,
       title,
     },
+    preview: selectPreviewAsset(entry, title),
     trustedContract,
     tags: readTags(entry.tags),
     family: readString(entry, 'family'),

@@ -13,6 +13,15 @@ const primaryAsset = {
   url: `https://profiles.example.com/blobs/sha256/9c/56/${sha256}.cube`,
 }
 
+const previewAsset = {
+  role: 'preview-image',
+  mediaType: 'image/webp',
+  size: 4096,
+  url: 'https://profiles.example.com/previews/kodak-2383-rec709.webp',
+  width: 320,
+  height: 180,
+}
+
 const entryManifest = {
   schemaVersion: 1,
   id: 'kodak-2383-rec709',
@@ -79,6 +88,45 @@ describe('online LUT release catalog parsing', () => {
             title: 'Kodak 2383 Rec.709',
           },
           tags: [],
+        },
+      ],
+    })
+  })
+
+  it('parses a safe preview image asset from catalog rows', () => {
+    const result = parseReleaseCatalog(
+      {
+        schemaVersion: 1,
+        entries: [
+          {
+            id: entryManifest.id,
+            kind: 'lut',
+            version: entryManifest.version,
+            title: entryManifest.title,
+            license: entryManifest.license,
+            redistributionAllowed: true,
+            primaryAsset,
+            previewAsset,
+            entryUrl: entryManifest.entryUrl,
+          },
+        ],
+      },
+      'https://profiles.example.com/releases/v2026.05.01/catalog.json',
+    )
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: [
+        {
+          id: 'kodak-2383-rec709',
+          preview: {
+            url: previewAsset.url,
+            mediaType: 'image/webp',
+            bytes: 4096,
+            width: 320,
+            height: 180,
+            title: 'Kodak 2383 Rec.709',
+          },
         },
       ],
     })
@@ -310,7 +358,10 @@ describe('online LUT release catalog parsing', () => {
 describe('online LUT release entry parsing', () => {
   it('accepts a release entry primaryAsset and maps its trusted contract', () => {
     const result = parseReleaseEntry(
-      entryManifest,
+      {
+        ...entryManifest,
+        previewAsset,
+      },
       'https://profiles.example.com/releases/v2026.05.01/entries/kodak-2383-rec709.json',
     )
 
@@ -326,6 +377,14 @@ describe('online LUT release entry parsing', () => {
           url: primaryAsset.url,
           sha256,
           bytes: 12,
+          title: 'Kodak 2383 Rec.709',
+        },
+        preview: {
+          url: previewAsset.url,
+          mediaType: 'image/webp',
+          bytes: 4096,
+          width: 320,
+          height: 180,
           title: 'Kodak 2383 Rec.709',
         },
         trustedContract: {
