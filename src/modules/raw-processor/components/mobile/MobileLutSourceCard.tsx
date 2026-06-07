@@ -1,9 +1,9 @@
-import { AlertTriangle, RefreshCw, Trash2 } from 'lucide-react'
+import { RefreshCw, Trash2 } from 'lucide-react'
 
-import { Chip } from '~/components/ui/chip'
 import { useI18n } from '~/lib/i18n'
 
 import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
+import { LutSourceWarning } from '../tools/lut/LutSourceWarning'
 
 type Resource = UseOnlineLutSourcesResult['state']['resources'][number]
 type Issue = UseOnlineLutSourcesResult['state']['issues'][number]
@@ -62,34 +62,7 @@ export function MobileLutSourceCard(props: {
           </button>
         </div>
       </div>
-      {props.issues.length > 0 && (
-        <ul
-          className="m-0 grid list-none gap-1 p-0"
-          role="status"
-          aria-live="polite"
-        >
-          {props.issues.map((issue, index) => (
-            <li
-              key={[
-                issue.code,
-                issue.entryId ?? issue.sourceUrl ?? 'resource',
-                index,
-              ].join(':')}
-              className="m-0"
-            >
-              <Chip
-                tone="amber"
-                surface="on-photo"
-                size="sm"
-                className="max-w-full"
-              >
-                <AlertTriangle aria-hidden="true" className="size-3 shrink-0" />
-                <span className="min-w-0 truncate">{issue.message}</span>
-              </Chip>
-            </li>
-          ))}
-        </ul>
-      )}
+      <LutSourceWarning issues={props.issues} surface="on-photo" />
     </div>
   )
 }

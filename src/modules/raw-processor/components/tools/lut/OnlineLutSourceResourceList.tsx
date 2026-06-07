@@ -1,17 +1,10 @@
-import {
-  AlertTriangle,
-  Download,
-  FolderOpen,
-  Loader2,
-  RefreshCw,
-  Trash2,
-} from 'lucide-react'
+import { Download, FolderOpen, Loader2, RefreshCw, Trash2 } from 'lucide-react'
 
-import { Chip } from '~/components/ui/chip'
 import { useI18n } from '~/lib/i18n'
 
 import type { UseOnlineLutSourcesResult } from '../../../hooks/useOnlineLutSources'
 import { LutIconButton } from './LutIconButton'
+import { LutSourceWarning } from './LutSourceWarning'
 import { OnlineLutPreviewThumb } from './OnlineLutPreviewThumb'
 
 type OnlineLutResource = UseOnlineLutSourcesResult['state']['resources'][number]
@@ -176,7 +169,7 @@ function OnlineLutSourceResourceRow({
         onEntryLoad={onEntryLoad}
         onBrowseAll={onOpen}
       />
-      {issues.length > 0 && <OnlineLutSourceIssues issues={issues} />}
+      <LutSourceWarning issues={issues} surface="on-photo" className="pt-1.5" />
     </div>
   )
 }
@@ -273,36 +266,5 @@ function OnlineLutSourceInlineEntry({
         <Download aria-hidden="true" className="size-3.5" />
       )}
     </button>
-  )
-}
-
-function OnlineLutSourceIssues({ issues }: { issues: OnlineLutIssue[] }) {
-  return (
-    <ul
-      className="m-0 grid list-none gap-1 p-0 pt-1.5"
-      role="status"
-      aria-live="polite"
-    >
-      {issues.map((issue, index) => (
-        <li
-          key={[
-            issue.code,
-            issue.entryId ?? issue.sourceUrl ?? issue.raw ?? 'resource',
-            index,
-          ].join(':')}
-          className="m-0"
-        >
-          <Chip
-            tone="amber"
-            surface="paper"
-            size="sm"
-            className="max-w-full normal-case tracking-normal"
-          >
-            <AlertTriangle aria-hidden="true" className="size-3 shrink-0" />
-            <span className="min-w-0 truncate">{issue.message}</span>
-          </Chip>
-        </li>
-      ))}
-    </ul>
   )
 }

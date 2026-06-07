@@ -640,21 +640,53 @@ describe('mobileLutBrowser', () => {
     ).toBeInTheDocument()
   })
 
-  it('surfaces per-resource issue messages inside the resource card', () => {
+  it('surfaces a per-resource issue summary inside the resource card', () => {
     const fixture = onlineLutSourcesFixture()
     fixture.state = {
       ...fixture.state,
       issues: [
         {
-          code: 'fetch-failed',
-          message: 'Could not reach catalog',
+          code: 'network',
+          message:
+            'Failed to fetch online profile resource: https://example.com/catalog.json',
           resourceId: 'source-1',
         },
       ],
     }
     render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
 
-    expect(screen.getByText('Could not reach catalog')).toBeInTheDocument()
+    // The raw runtime string (with its URL) is replaced by translated copy.
+    expect(
+      screen.getByText('This source could not be reached.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/https:\/\//)).not.toBeInTheDocument()
+  })
+
+  it('collapses multiple resource issues into one warning with a count', () => {
+    const fixture = onlineLutSourcesFixture()
+    fixture.state = {
+      ...fixture.state,
+      issues: [
+        {
+          code: 'unsupported-entry',
+          message: 'Only LUT entries are supported.',
+          resourceId: 'source-1',
+          entryId: 'a',
+        },
+        {
+          code: 'missing-sha256',
+          message: 'Primary asset sha256 is missing.',
+          resourceId: 'source-1',
+          entryId: 'b',
+        },
+      ],
+    }
+    render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
+
+    expect(
+      screen.getByText("Some entries aren't supported LUTs."),
+    ).toBeInTheDocument()
+    expect(screen.getByText('+1 more')).toBeInTheDocument()
   })
 
   it('keeps the mobile LUT contract editor touch-first', async () => {

@@ -18,6 +18,7 @@ import type { UseOnlineLutSourcesResult } from '../../../hooks/useOnlineLutSourc
 import type { OnlineLutBrowserLayout } from './lut-browser-layout'
 import { getViewportBoundedBrowserLayout } from './lut-browser-layout'
 import { LutIconButton } from './LutIconButton'
+import { LutSourceWarning } from './LutSourceWarning'
 import { OnlineLutSourceBrowser } from './OnlineLutSourceBrowser'
 import { OnlineLutSourceResourceList } from './OnlineLutSourceResourceList'
 import { useOnlineLutEntryLoader } from './useOnlineLutEntryLoader'
@@ -228,31 +229,10 @@ export function OnlineLutSourceControls({
 
       <AnimatePresence>{openBrowser}</AnimatePresence>
 
-      {(() => {
-        const looseIssues = state.issues.filter((issue) => !issue.resourceId)
-        if (looseIssues.length === 0) return null
-
-        return (
-          <div
-            className="grid gap-1 text-lf-label leading-relaxed text-lf-on-surface-soft"
-            role="status"
-            aria-live="polite"
-          >
-            {looseIssues.slice(-2).map((issue, index) => (
-              <p
-                key={[
-                  issue.code,
-                  issue.raw ?? issue.sourceUrl ?? issue.message,
-                  index,
-                ].join(':')}
-                className="m-0"
-              >
-                {issue.message}
-              </p>
-            ))}
-          </div>
-        )
-      })()}
+      <LutSourceWarning
+        issues={state.issues.filter((issue) => !issue.resourceId)}
+        surface="on-photo"
+      />
     </div>
   )
 }

@@ -1,14 +1,13 @@
-import { AlertTriangle } from 'lucide-react'
 import type { HTMLMotionProps } from 'motion/react'
 import { m } from 'motion/react'
 import type { Ref } from 'react'
 
-import { Chip } from '~/components/ui/chip'
 import { useI18n } from '~/lib/i18n'
 import { sheetSpring } from '~/lib/spring'
 
 import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
 import type { GroupedEntries } from '../tools/lut/lut-source-grouping'
+import { LutSourceWarning } from '../tools/lut/LutSourceWarning'
 import { useOnlineLutEntryLoader } from '../tools/lut/useOnlineLutEntryLoader'
 import { MobileLutCatalogEntryButton } from './MobileLutCatalogEntryButton'
 
@@ -16,35 +15,6 @@ type OnlineEntry = UseOnlineLutSourcesResult['state']['entries'][number]
 type OnlineIssue = UseOnlineLutSourcesResult['state']['issues'][number]
 type OnlineResource = UseOnlineLutSourcesResult['state']['resources'][number]
 type ViewMotion = Pick<HTMLMotionProps<'div'>, 'animate' | 'exit' | 'initial'>
-
-function IssueChips({ issues }: { issues: OnlineIssue[] }) {
-  if (issues.length === 0) return null
-
-  return (
-    <ul className="m-0 flex list-none flex-wrap gap-1 p-0" role="status">
-      {issues.map((issue, index) => (
-        <li
-          key={[
-            issue.code,
-            issue.entryId ?? issue.sourceUrl ?? 'resource',
-            index,
-          ].join(':')}
-          className="m-0 min-w-0"
-        >
-          <Chip
-            tone="amber"
-            surface="on-photo"
-            size="sm"
-            className="max-w-full"
-          >
-            <AlertTriangle aria-hidden="true" className="size-3 shrink-0" />
-            <span className="min-w-0 truncate">{issue.message}</span>
-          </Chip>
-        </li>
-      ))}
-    </ul>
-  )
-}
 
 export interface MobileLutCatalogViewProps {
   bodyRef: Ref<HTMLDivElement>
@@ -115,7 +85,7 @@ export function MobileLutCatalogView({
               </output>
             )}
           </div>
-          <IssueChips issues={selectedIssues} />
+          <LutSourceWarning issues={selectedIssues} surface="on-photo" />
         </div>
       )}
 

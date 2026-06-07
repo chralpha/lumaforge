@@ -381,10 +381,10 @@ describe('rawProcessorView online LUT route sources', () => {
     ).toBeInTheDocument()
 
     const status = await screen.findByRole('status')
-    expect(status).toHaveTextContent(
-      'Source URL must use HTTPS, or HTTP on localhost for local development.',
-    )
-    expect(status.querySelectorAll('p')).toHaveLength(1)
+    // Rejected sources surface translated copy, not the raw runtime string.
+    expect(status).toHaveTextContent('Only https sources are supported.')
+    // One collapsed warning, not a stack: no "+N more" affordance.
+    expect(status).not.toHaveTextContent('more')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 

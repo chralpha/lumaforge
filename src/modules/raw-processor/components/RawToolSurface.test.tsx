@@ -1201,7 +1201,7 @@ describe('rawToolSurface', () => {
     expect(screen.getByText('Loading')).toBeInTheDocument()
   })
 
-  it('announces online LUT source issues as status updates', () => {
+  it('announces a translated online LUT source issue summary as a status update', () => {
     render(
       <RawToolSurface
         {...baseProps}
@@ -1211,7 +1211,8 @@ describe('rawToolSurface', () => {
             issues: [
               {
                 code: 'network',
-                message: 'Failed to fetch online profile resource.',
+                message:
+                  'Failed to fetch online profile resource: https://profiles.example.com/catalog.json',
                 resourceId: 'source-1',
               },
             ],
@@ -1229,7 +1230,9 @@ describe('rawToolSurface', () => {
     const status = within(resource).getByRole('status')
 
     expect(status).toHaveAttribute('aria-live', 'polite')
-    expect(status).toHaveTextContent('Failed to fetch online profile resource.')
+    // Raw runtime strings (with URLs) are collapsed into translated copy.
+    expect(status).toHaveTextContent('This source could not be reached.')
+    expect(status).not.toHaveTextContent('https://')
     expect(within(resource).getByText('Issue')).toBeInTheDocument()
   })
 
