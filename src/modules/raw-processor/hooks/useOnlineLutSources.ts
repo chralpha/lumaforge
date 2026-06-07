@@ -69,6 +69,23 @@ function parseIssuesToSourceIssues(
   }))
 }
 
+// Loose issues (no resourceId) are transient input/query validation feedback.
+// Replace them on each parse so a fresh attempt refreshes the warning instead of
+// stacking another copy on top of the last one. Resource-bound issues are owned
+// by their resource and left untouched here.
+function withLooseIssues(
+  state: OnlineLUTSourceState,
+  looseIssues: OnlineLUTSourceIssue[],
+): OnlineLUTSourceState {
+  return {
+    ...state,
+    issues: [
+      ...state.issues.filter((issue) => issue.resourceId),
+      ...looseIssues,
+    ],
+  }
+}
+
 function retargetResource(
   resource: ProfileSourceResource,
   id: string,
@@ -223,12 +240,7 @@ export function useOnlineLutSources({
       })
     const issues = parseIssuesToSourceIssues(parsed.issues)
 
-    if (issues.length > 0) {
-      setState((current) => ({
-        ...current,
-        issues: [...current.issues, ...issues],
-      }))
-    }
+    setState((current) => withLooseIssues(current, issues))
 
     for (const resource of resources) {
       void resolveResource(resource)
@@ -258,12 +270,7 @@ export function useOnlineLutSources({
     const issues = parseIssuesToSourceIssues(parsed.issues)
     const [parsedResource] = parsed.resources
 
-    if (issues.length > 0) {
-      setState((current) => ({
-        ...current,
-        issues: [...current.issues, ...issues],
-      }))
-    }
+    setState((current) => withLooseIssues(current, issues))
 
     if (!parsedResource) return
 

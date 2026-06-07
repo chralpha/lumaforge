@@ -614,6 +614,66 @@ describe('useOnlineLutSources', () => {
     )
   })
 
+  it('refreshes invalid input issues instead of accumulating them', async () => {
+    hideDefaultSource()
+
+    const { result } = renderHook(() =>
+      useOnlineLutSources({
+        search: '',
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    act(() => result.current.setSourceUrlInput('first invalid'))
+    await act(async () => {
+      await result.current.addSourceFromInput()
+    })
+    act(() => result.current.setSourceUrlInput('second invalid'))
+    await act(async () => {
+      await result.current.addSourceFromInput()
+    })
+
+    const looseIssues = result.current.state.issues.filter(
+      (issue) => !issue.resourceId,
+    )
+    expect(looseIssues).toHaveLength(1)
+  })
+
+  it('clears stale input issues once a valid source resolves', async () => {
+    hideDefaultSource()
+    setupFetchJson({
+      [catalogUrl]: catalogDocument(),
+      [entryUrl]: entryManifest(),
+    })
+
+    const { result } = renderHook(() =>
+      useOnlineLutSources({
+        search: '',
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    act(() => result.current.setSourceUrlInput('not a url'))
+    await act(async () => {
+      await result.current.addSourceFromInput()
+    })
+    expect(
+      result.current.state.issues.filter((issue) => !issue.resourceId),
+    ).toHaveLength(1)
+
+    act(() => result.current.setSourceUrlInput(catalogUrl))
+    await act(async () => {
+      await result.current.addSourceFromInput()
+    })
+    await waitFor(() => expect(result.current.state.entries).toHaveLength(1))
+
+    expect(
+      result.current.state.issues.filter((issue) => !issue.resourceId),
+    ).toHaveLength(0)
+  })
+
   it('creates a direct CUBE entry without fetching CUBE bytes', async () => {
     hideDefaultSource()
     const { result } = renderHook(() =>
