@@ -10,7 +10,7 @@ const LOCALE_STORAGE_KEY = 'lumaforge.locale'
 export const supportedLocales = ['en', 'zh-CN'] as const
 export type Locale = (typeof supportedLocales)[number]
 
-type MessageKey = keyof typeof enMessages
+export type MessageKey = keyof typeof enMessages
 
 export type Translate = (
   key: MessageKey,
