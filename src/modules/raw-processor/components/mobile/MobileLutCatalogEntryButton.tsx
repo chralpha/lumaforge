@@ -22,7 +22,7 @@ export function MobileLutCatalogEntryButton(props: {
       aria-busy={props.loading || undefined}
       disabled={props.disabled || props.loading}
       onClick={props.onClick}
-      className="grid min-h-[52px] min-w-0 grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition-colors duration-150 hover:bg-lf-on-photo-bg-strong focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
+      className="grid min-h-[52px] min-w-0 grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors duration-150 hover:bg-lf-on-photo-bg-strong focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
       data-raw-mobile-lut="catalog-entry"
       data-raw-mobile-lut-entry-loading={props.loading ? 'true' : undefined}
     >

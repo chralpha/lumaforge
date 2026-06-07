@@ -1,3 +1,6 @@
+import { Aperture } from 'lucide-react'
+import { useEffect, useState } from 'react'
+
 import { clsxm } from '~/lib/cn'
 import type { OnlineLUTPreviewAsset } from '~/lib/profiles/catalog'
 
@@ -7,7 +10,7 @@ type OnlineLutPreviewThumbSurface = 'desktop' | 'mobile'
 const sizeClasses: Record<OnlineLutPreviewThumbSize, string> = {
   inline: 'h-7 w-10',
   row: 'h-9 w-12',
-  mobile: 'h-9 w-12',
+  mobile: 'h-12 w-16',
 }
 
 export function OnlineLutPreviewThumb({
@@ -20,6 +23,16 @@ export function OnlineLutPreviewThumb({
   surface?: OnlineLutPreviewThumbSurface
 }) {
   const isMobile = surface === 'mobile'
+  const [failed, setFailed] = useState(false)
+
+  // Remote previews come from third-party catalogs and can 404, fail CORS, or
+  // be hotlink-blocked. Reset the failed flag whenever the source changes so a
+  // working URL is never permanently masked by a previous failure.
+  useEffect(() => {
+    setFailed(false)
+  }, [preview?.url])
+
+  const showImage = Boolean(preview) && !failed
 
   return (
     <span
@@ -30,30 +43,39 @@ export function OnlineLutPreviewThumb({
           ? 'border-lf-on-photo-bord-soft bg-lf-on-photo-bg'
           : 'border-lf-hairline/35 bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.045)]',
       )}
-      data-raw-lut-preview-frame={preview ? 'image' : 'placeholder'}
+      data-raw-lut-preview-frame={showImage ? 'image' : 'placeholder'}
       aria-hidden="true"
     >
-      {preview ? (
+      {showImage ? (
         <img
-          src={preview.url}
+          src={preview!.url}
           alt=""
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
           data-raw-lut-preview="image"
           className="size-full object-cover"
         />
       ) : (
         <span
           data-raw-lut-preview="placeholder"
-          className="grid size-full grid-cols-3 overflow-hidden"
+          className="grid size-full place-items-center"
         >
-          <span className="bg-lf-green/45" />
-          <span className="bg-lf-amber/45" />
-          <span className="bg-lf-on-surface/16" />
+          <Aperture
+            className={clsxm(
+              'size-[52%] stroke-[1.5]',
+              isMobile ? 'text-lf-on-photo-ink/30' : 'text-lf-on-surface/28',
+            )}
+          />
         </span>
       )}
-      <span className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10" />
+      <span
+        className={clsxm(
+          'pointer-events-none absolute inset-0 ring-1 ring-inset',
+          isMobile ? 'ring-lf-on-photo-ink/10' : 'ring-lf-on-surface/10',
+        )}
+      />
     </span>
   )
 }
