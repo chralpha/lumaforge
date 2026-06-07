@@ -226,14 +226,14 @@ export const Component = () => {
           <p className="lf-section-label">{t('landing.pipeline.label')}</p>
           <h2 id="lf-pipeline-title">{t('landing.pipeline.title')}</h2>
         </div>
-        <div className="lf-rail" aria-label={t('landing.pipelineAria')}>
+        <ol className="lf-rail" aria-label={t('landing.pipelineAria')}>
           {contractSteps.map((step, index) => (
-            <div className="lf-rail-step" key={step}>
+            <li className="lf-rail-step" key={step}>
               <span>{String(index + 1).padStart(2, '0')}</span>
               <strong>{t(step)}</strong>
-            </div>
+            </li>
           ))}
-        </div>
+        </ol>
         <p className="lf-pipeline-note">{t('landing.pipeline.note')}</p>
       </section>
 

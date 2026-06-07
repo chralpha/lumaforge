@@ -453,6 +453,8 @@
   display: grid;
   grid-template-columns: repeat(6, minmax(130px, 1fr));
   margin-top: clamp(36px, 5vw, 72px);
+  padding: 0;
+  list-style: none;
   border-top: 1px solid oklch(0.82 0.03 82 / 0.34);
   border-bottom: 1px solid oklch(0.82 0.03 82 / 0.34);
 }
