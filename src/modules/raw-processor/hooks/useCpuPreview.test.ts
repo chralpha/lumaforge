@@ -1,4 +1,8 @@
-import type { RawRenderExposure } from '@lumaforge/luma-color-runtime'
+import type {
+  LUTColorProfile,
+  LUTData,
+  RawRenderExposure,
+} from '@lumaforge/luma-color-runtime'
 import { exposureMultiplierFromEv } from '@lumaforge/luma-color-runtime'
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -314,5 +318,181 @@ describe('useCpuPreview hook', () => {
       temperature: -25,
       tint: -20,
     })
+  })
+})
+
+describe('useCpuPreview look degradation (LUT-before-RAW)', () => {
+  const unconfirmedLut: LUTData = {
+    size: 2,
+    data: new Float32Array(2 * 2 * 2 * 3),
+    domainMin: [0, 0, 0],
+    domainMax: [1, 1, 1],
+    title: 'Detached Look',
+    inputProfile: 'display-srgb',
+    profileResolution: { kind: 'unknown' },
+  }
+
+  const confirmedProfile: LUTColorProfile = {
+    id: 'test-display-look',
+    label: 'Test Display Look',
+    role: 'display-look',
+    inputGamut: 'srgb-rec709',
+    inputTransfer: 'srgb',
+    inputRange: 'full',
+    outputGamut: 'srgb-rec709',
+    outputTransfer: 'srgb',
+    outputRange: 'full',
+    aliases: [],
+  }
+
+  const confirmedLut: LUTData = {
+    ...unconfirmedLut,
+    profileResolution: {
+      kind: 'confirmed',
+      profile: confirmedProfile,
+      confidence: 'user',
+    },
+  }
+
+  type HookProps = Parameters<typeof useCpuPreview>[0]
+
+  function renderLutFirstHook(lut: LUTData) {
+    vi.stubGlobal('Worker', FakeWorker)
+    const image = makeDecodedImage('quick')
+
+    return renderHook((props: HookProps) => useCpuPreview(props), {
+      initialProps: {
+        enabled: true,
+        image,
+        imageVersion: 1,
+        params: { ...baseParams, lut },
+        variant: 'processed' as const,
+      },
+    })
+  }
+
+  it('degrades to a look-stripped render instead of hanging when the LUT contract is unresolved at source load', () => {
+    const { result } = renderLutFirstHook(unconfirmedLut)
+
+    const worker = FakeWorker.instances[0]
+    expect(worker).toBeDefined()
+
+    // The unsupported processed graph must degrade to a look-stripped render
+    // (user tone/colour retained, LUT excluded) — parity with the GPU
+    // preview, which disables the LUT instead of blanking the photo.
+    const render = worker!.posted.find((m) => m.type === 'render')
+    expect(render).toBeDefined()
+    expect(render!.graph).toEqual(
+      buildCpuPreviewGraph(
+        { ...baseParams, styleKind: 'none', builtinPreset: null, lut: null },
+        'processed',
+      ),
+    )
+
+    act(() => {
+      worker!.respond({
+        type: 'rendered',
+        sourceId: render!.sourceId,
+        requestId: render!.requestId,
+        rgba: new Uint8ClampedArray(2 * 2 * 4),
+        width: 2,
+        height: 2,
+      })
+    })
+
+    expect(result.current.frame).not.toBeNull()
+    expect(result.current.inFlight).toBe(false)
+    expect(result.current.failureReason).toBeNull()
+  })
+
+  it('does not re-request identical degraded renders when unconfirmed LUT identity churns', () => {
+    const { rerender } = renderLutFirstHook(unconfirmedLut)
+
+    const worker = FakeWorker.instances[0]!
+    const initialRenderCount = worker.posted.filter(
+      (m) => m.type === 'render',
+    ).length
+    expect(initialRenderCount).toBe(1)
+
+    rerender({
+      enabled: true,
+      image: makeDecodedImage('quick'),
+      imageVersion: 1,
+      params: {
+        ...baseParams,
+        lut: { ...unconfirmedLut, title: 'Renamed Detached Look' },
+      },
+      variant: 'processed' as const,
+    })
+
+    expect(worker.posted.filter((m) => m.type === 'render')).toHaveLength(
+      initialRenderCount,
+    )
+  })
+
+  it('requests a full processed render once the LUT contract is confirmed', () => {
+    const { rerender } = renderLutFirstHook(unconfirmedLut)
+
+    const worker = FakeWorker.instances[0]!
+    const degradedRender = worker.posted.find((m) => m.type === 'render')
+    expect(degradedRender).toBeDefined()
+
+    act(() => {
+      worker.respond({
+        type: 'rendered',
+        sourceId: degradedRender!.sourceId,
+        requestId: degradedRender!.requestId,
+        rgba: new Uint8ClampedArray(2 * 2 * 4),
+        width: 2,
+        height: 2,
+      })
+    })
+
+    rerender({
+      enabled: true,
+      image: makeDecodedImage('quick'),
+      imageVersion: 1,
+      params: { ...baseParams, lut: confirmedLut },
+      variant: 'processed' as const,
+    })
+
+    const renders = worker.posted.filter((m) => m.type === 'render')
+    expect(renders).toHaveLength(2)
+    expect(renders.at(-1)?.graph).toEqual(
+      buildCpuPreviewGraph({ ...baseParams, lut: confirmedLut }, 'processed'),
+    )
+    expect(renders.at(-1)?.graph.lutProfile).not.toBeNull()
+  })
+
+  it('degrades builtin styles to a look-stripped render instead of hanging', () => {
+    vi.stubGlobal('Worker', FakeWorker)
+    const image = makeDecodedImage('quick')
+
+    const { result } = renderHook(() =>
+      useCpuPreview({
+        enabled: true,
+        image,
+        imageVersion: 1,
+        params: {
+          ...baseParams,
+          styleKind: 'builtin',
+          builtinPreset: 'mono',
+          lut: null,
+        },
+        variant: 'processed',
+      }),
+    )
+
+    const worker = FakeWorker.instances[0]!
+    const render = worker.posted.find((m) => m.type === 'render')
+    expect(render).toBeDefined()
+    expect(render!.graph).toEqual(
+      buildCpuPreviewGraph(
+        { ...baseParams, styleKind: 'none', builtinPreset: null, lut: null },
+        'processed',
+      ),
+    )
+    expect(result.current.inFlight).toBe(true)
+    expect(result.current.failureReason).toBeNull()
   })
 })

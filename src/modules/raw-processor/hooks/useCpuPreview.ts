@@ -246,19 +246,43 @@ export function useCpuPreview({
       }
     }
 
-    const graph = buildCpuPreviewGraph(params, variant)
+    // Resolve the colour graph for the requested variant. When the look
+    // pipeline cannot run (unresolved LUT contract, builtin style), degrade to
+    // a look-stripped graph that keeps user tone/colour — parity with the GPU
+    // preview, which renders with the LUT disabled instead of blanking. The
+    // authoritative export path stays fail-closed in resolveExportColorGraph.
+    let graph = buildCpuPreviewGraph(params, variant)
+    let lookDegraded = false
     if ('unsupportedReason' in graph) {
-      // Surface unsupported pipeline as a failure state rather than crashing.
-      setFailureReason(null)
+      lookDegraded = true
+      graph = buildCpuPreviewGraph(
+        { ...params, styleKind: 'none', builtinPreset: null, lut: null },
+        variant,
+      )
+    }
+    if ('unsupportedReason' in graph) {
+      // Even the look-stripped graph is unsupported — surface a real failure
+      // instead of leaving the in-flight spinner armed forever.
+      lastRenderKeyRef.current = null
+      setFailureReason('render-failed')
+      setInFlight(false)
       return
     }
 
-    const renderSig = `${sourceId}|${variant}|${params.styleKind}|${params.intensity}|${params.builtinPreset ?? ''}|${params.rawRenderExposure.ev}|${params.rawRenderExposure.multiplier}|${params.userExposureEv}|${params.userContrast}|${params.userHighlights}|${params.userShadows}|${params.userWhites}|${params.userBlacks}|${params.userTemperature}|${params.userTint}`
+    // Key the dedup signature on the EFFECTIVE look inputs so unconfirmed LUT
+    // identity churn does not re-request identical degraded renders.
+    const effectiveStyleKind = lookDegraded ? 'none' : params.styleKind
+    const effectiveIntensity = lookDegraded ? 0 : params.intensity
+    const effectiveBuiltinPreset = lookDegraded
+      ? ''
+      : (params.builtinPreset ?? '')
+    const effectiveLut = lookDegraded ? null : params.lut
+    const renderSig = `${sourceId}|${variant}|${lookDegraded ? 'degraded' : 'full'}|${effectiveStyleKind}|${effectiveIntensity}|${effectiveBuiltinPreset}|${params.rawRenderExposure.ev}|${params.rawRenderExposure.multiplier}|${params.userExposureEv}|${params.userContrast}|${params.userHighlights}|${params.userShadows}|${params.userWhites}|${params.userBlacks}|${params.userTemperature}|${params.userTint}`
     const prevKey = lastRenderKeyRef.current
-    if (prevKey && prevKey.sig === renderSig && prevKey.lut === params.lut) {
+    if (prevKey && prevKey.sig === renderSig && prevKey.lut === effectiveLut) {
       return
     }
-    lastRenderKeyRef.current = { sig: renderSig, lut: params.lut }
+    lastRenderKeyRef.current = { sig: renderSig, lut: effectiveLut }
 
     setInFlight(true)
     getClient().requestRender({ variant, graph })
