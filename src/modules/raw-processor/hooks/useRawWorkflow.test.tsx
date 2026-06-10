@@ -860,6 +860,14 @@ describe('useRawWorkflow embedded preview state', () => {
       expect(result.current.currentLutName).toBe('Client Secret Sauce')
     })
     expect(result.current.lut?.fingerprint).toBe(detachedFingerprint)
+    // LUT-before-RAW must still reach a previewable state: the retained look
+    // can never block the preview from becoming visible.
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+    expect(result.current.hasImage).toBe(true)
+    expect(result.current.displaySource).not.toBe('none')
+    expect(result.current.params.styleKind).toBe('custom')
     expect(jotaiStore.get(currentSessionAtom)).toMatchObject({
       activeStyle: {
         kind: 'custom',
