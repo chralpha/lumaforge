@@ -17,14 +17,11 @@ import {
   detectPreviewGpuCapabilitySnapshot,
 } from '~/lib/runtime/preview-gpu-budget'
 
-import type {
-  DisplaySource,
-  ImageSession,
-  StyleAsset,
-} from '../../model/session'
+import type { DisplaySource, ImageSession } from '../../model/session'
 import type { RetainedSessionState } from '../../model/session-factory'
 import type { ProcessingStatus } from '../../model/workflow'
 import { toFullResCapabilityState } from '../export/export-state'
+import { resolveActiveLook } from '../look/look-session-state'
 import {
   createEmbeddedPreviewObjectUrl,
   revokeEmbeddedPreviewObjectUrls,
@@ -59,6 +56,7 @@ export interface RawLoadContext {
     setError: (error: string | null) => void
     setProgress: (progress: number) => void
     getProcessingParams: () => ProcessingParams
+    getLut: () => ParsedLUT | null
     setParams: (
       value: ProcessingParams | ((prev: ProcessingParams) => ProcessingParams),
     ) => void
@@ -107,9 +105,6 @@ export interface RawLoadContext {
 
 export async function orchestrateRawLoad(
   file: File,
-  _params: ProcessingParams,
-  lut: ParsedLUT | null,
-  activeStyle: StyleAsset | null,
   ctx: RawLoadContext,
 ): Promise<void> {
   if (!isSupportedRaw(file)) {
@@ -142,8 +137,18 @@ export async function orchestrateRawLoad(
     runtimeAbortController = new AbortController()
     ctx.refs.runtimeAbortControllerRef.current = runtimeAbortController
     const runtimeSignal = runtimeAbortController.signal
+    // Read the current look from the store at load time (not from caller
+    // closures) so a LUT loaded before any RAW — or replaced while the picker
+    // was open — is always the one retained into the new session.
+    const params = ctx.atoms.getProcessingParams()
+    const lut = ctx.atoms.getLut()
+    const activeStyle = resolveActiveLook({
+      session: ctx.refs.sessionRef.current,
+      lut,
+      intensity: params.intensity,
+    })
     const loadState = prepareRawLoadState({
-      params: ctx.atoms.getProcessingParams(),
+      params,
       lut,
       activeStyle,
     })

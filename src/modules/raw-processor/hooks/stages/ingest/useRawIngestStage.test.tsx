@@ -28,13 +28,11 @@ describe('useRawIngestStage', () => {
   it('composes load and reset actions for an empty workflow', () => {
     const { result } = renderHook(() =>
       useRawIngestStage({
-        params,
-        lut: null,
-        activeStyle: null,
         setStatus: vi.fn(),
         setError: vi.fn(),
         setProgress: vi.fn(),
         getProcessingParams: () => params,
+        getLut: () => null,
         setParams: vi.fn(),
         setSession: vi.fn(),
         setDecodedImageVersion: vi.fn(),

@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { yieldToPaint } from '~/lib/dom'
 import { rawRuntimeAdapter } from '~/lib/raw/runtime-adapter'
 
+import { getLut } from '../state/workflow.atoms'
 import { buildRawWorkflowReturn } from './buildRawWorkflowReturn'
 import { useOriginalReferenceStage } from './stages/compare/useOriginalReferenceStage'
 import { useRawCompareStage } from './stages/compare/useRawCompareStage'
@@ -149,7 +150,7 @@ export function useRawWorkflow(): UseRawWorkflowReturn {
     setViewMode,
     setCompareSplit,
   })
-  const { params, activeStyle, setParams: handleSetParams } = lookStage
+  const { params, setParams: handleSetParams } = lookStage
   paramsRef.current = params
   const {
     histogram,
@@ -202,13 +203,11 @@ export function useRawWorkflow(): UseRawWorkflowReturn {
   })
 
   const { loadFile, reset } = useRawIngestStage({
-    params,
-    lut,
-    activeStyle,
     setStatus,
     setError,
     setProgress,
     getProcessingParams: getCurrentProcessingParams,
+    getLut,
     setParams,
     setSession,
     setDecodedImageVersion,

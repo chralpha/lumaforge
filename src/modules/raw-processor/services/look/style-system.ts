@@ -22,6 +22,20 @@ export function mapIntensityLevel(
   return 1
 }
 
+/**
+ * Inverse of {@link mapIntensityLevel}: recover the discrete intensity level
+ * from a stored params intensity. Used to keep the detached (pre-session)
+ * look in sync with the canonical intensity stored in processing params.
+ */
+export function intensityLevelFromValue(
+  intensity: number,
+): 'off' | 'light' | 'standard' | 'strong' {
+  if (intensity <= 0) return 'off'
+  if (intensity <= 0.4) return 'light'
+  if (intensity <= 0.7) return 'standard'
+  return 'strong'
+}
+
 function describeLUTOutput(profile: LUTColorProfile): string {
   if (!profile.outputGamut || !profile.outputTransfer || !profile.outputRange) {
     if (

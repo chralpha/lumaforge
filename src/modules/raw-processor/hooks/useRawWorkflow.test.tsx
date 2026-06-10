@@ -896,6 +896,37 @@ describe('useRawWorkflow embedded preview state', () => {
     })
   })
 
+  it('preserves a detached intensity choice across the first RAW load', async () => {
+    const { result } = renderHook(() => useRawWorkflow(), { wrapper })
+
+    await act(async () => {
+      await result.current.loadLUT(
+        createCubeFile('Client Secret Sauce', 'unknown-look.cube'),
+      )
+    })
+
+    act(() => {
+      result.current.selectIntensityLevel('strong')
+    })
+
+    expect(result.current.activeIntensity).toBe('strong')
+    expect(result.current.params.intensity).toBe(1)
+
+    await act(async () => {
+      await result.current.loadFile(new File(['raw-one'], 'frame-1.ARW'))
+    })
+
+    await waitFor(() => {
+      expect(result.current.currentLutName).toBe('Client Secret Sauce')
+    })
+    expect(result.current.activeIntensity).toBe('strong')
+    expect(result.current.params.intensity).toBe(1)
+    expect(jotaiStore.get(currentSessionAtom)?.activeStyle).toMatchObject({
+      kind: 'custom',
+      currentIntensityLevel: 'strong',
+    })
+  })
+
   it('rejects raw registry scene-creative LUT profile selections without output metadata', async () => {
     jotaiStore.set(currentSessionAtom, createTestSession())
 

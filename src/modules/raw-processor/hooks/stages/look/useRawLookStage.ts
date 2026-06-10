@@ -15,6 +15,7 @@ import type {
   LUTContractSelectionState,
   StyleAsset,
 } from '../../../model/session'
+import { resolveActiveLook } from '../../../services/look/look-session-state'
 import type { LutLoadContext } from '../../../services/look/orchestrate-lut-load'
 import {
   orchestrateLutLoadFromFile,
@@ -28,7 +29,6 @@ import {
 import {
   buildLUTContractSelectionState,
   mapIntensityLevel,
-  toCustomStyle,
 } from '../../../services/look/style-system'
 import { useRawAdjustmentActions } from './useRawAdjustmentActions'
 
@@ -69,14 +69,10 @@ export function useRawLookStage({
   setViewMode,
   setCompareSplit,
 }: UseRawLookStageInput) {
-  const detachedStyle =
-    !session && lut
-      ? {
-          ...toCustomStyle(lut),
-          currentIntensityLevel: 'standard' as const,
-        }
-      : null
-  const activeStyle = session?.activeStyle || detachedStyle
+  const activeStyle = useMemo(
+    () => resolveActiveLook({ session, lut, intensity: baseParams.intensity }),
+    [baseParams.intensity, lut, session],
+  )
   const lutProfileSelection =
     session?.lutProfileSelection ||
     (lut ? buildLUTContractSelectionState(lut) : null)

@@ -23,13 +23,11 @@ type SetProcessingParams = (
 ) => void
 
 type UseRawIngestStageInput = {
-  params: ProcessingParams
-  lut: ParsedLUT | null
-  activeStyle: StyleAsset | null
   setStatus: (status: ProcessingStatus) => void
   setError: (error: string | null) => void
   setProgress: (progress: number) => void
   getProcessingParams: () => ProcessingParams
+  getLut: () => ParsedLUT | null
   setParams: SetProcessingParams
   setSession: Dispatch<SetStateAction<ImageSession | null>>
   setDecodedImageVersion: Dispatch<SetStateAction<number>>

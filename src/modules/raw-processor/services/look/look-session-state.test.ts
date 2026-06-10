@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createBlobOutputResult } from '~/lib/export/output-sink'
+import type { ParsedLUT } from '~/lib/lut/cube-parser'
 
 import { createExportResult } from '../../model/export-result'
 import type { ImageSession, StyleAsset } from '../../model/session'
@@ -9,6 +10,8 @@ import {
   applyLookIntensityToSession,
   clearActiveLookFromSession,
   preserveCustomLookIntensity,
+  resolveActiveLook,
+  resolveDetachedLookStyle,
 } from './look-session-state'
 
 function createStyle(overrides: Partial<StyleAsset> = {}): StyleAsset {
@@ -228,5 +231,73 @@ describe('look session state transitions', () => {
         createStyle({ kind: 'builtin', currentIntensityLevel: 'light' }),
       ),
     ).toBe(style)
+  })
+})
+
+function createParsedLut(overrides: Partial<ParsedLUT> = {}): ParsedLUT {
+  return {
+    title: 'Detached Look',
+    sourceName: 'detached-look.cube',
+    comments: [],
+    size: 2,
+    domainMin: [0, 0, 0],
+    domainMax: [1, 1, 1],
+    data: new Float32Array(2 * 2 * 2 * 3),
+    fingerprint: 'detached-fingerprint',
+    profileResolution: { kind: 'unknown' },
+    inputProfile: 'display-srgb',
+    ...overrides,
+  }
+}
+
+describe('resolveActiveLook', () => {
+  it('resolves the session style once a session exists, ignoring the detached LUT', () => {
+    const sessionStyle = createStyle({ currentIntensityLevel: 'light' })
+    const session = createSession({ activeStyle: sessionStyle })
+
+    expect(
+      resolveActiveLook({ session, lut: createParsedLut(), intensity: 1 }),
+    ).toBe(sessionStyle)
+    expect(
+      resolveActiveLook({ session: createSession(), lut: null, intensity: 1 }),
+    ).toBeNull()
+  })
+
+  it('synthesizes the detached look from the LUT with the canonical params intensity', () => {
+    const detached = resolveActiveLook({
+      session: null,
+      lut: createParsedLut(),
+      intensity: 1,
+    })
+
+    expect(detached).toMatchObject({
+      kind: 'custom',
+      name: 'Detached Look',
+      currentIntensityLevel: 'strong',
+    })
+  })
+
+  it('returns no look when neither session nor detached LUT exists', () => {
+    expect(
+      resolveActiveLook({ session: null, lut: null, intensity: 0.7 }),
+    ).toBeNull()
+    expect(resolveDetachedLookStyle(null, 0.7)).toBeNull()
+  })
+
+  it('maps every detached intensity value back to its discrete level', () => {
+    const lut = createParsedLut()
+
+    expect(resolveDetachedLookStyle(lut, 0)).toMatchObject({
+      currentIntensityLevel: 'off',
+    })
+    expect(resolveDetachedLookStyle(lut, 0.4)).toMatchObject({
+      currentIntensityLevel: 'light',
+    })
+    expect(resolveDetachedLookStyle(lut, 0.7)).toMatchObject({
+      currentIntensityLevel: 'standard',
+    })
+    expect(resolveDetachedLookStyle(lut, 1)).toMatchObject({
+      currentIntensityLevel: 'strong',
+    })
   })
 })

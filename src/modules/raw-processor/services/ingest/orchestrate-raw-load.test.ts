@@ -68,6 +68,7 @@ function buildContext(hooks: OrderingHooks): RawLoadContext {
       setError: vi.fn(),
       setProgress: vi.fn(),
       getProcessingParams: vi.fn(() => defaultParams),
+      getLut: vi.fn(() => null),
       setParams: vi.fn(),
       setSession: vi.fn(),
       setDecodedImageVersion: vi.fn(),
@@ -197,7 +198,7 @@ describe('orchestrateRawLoad ack-before-work contract', () => {
     })
 
     const file = new File(['raw'], 'sample.ARW')
-    const loadPromise = orchestrateRawLoad(file, defaultParams, null, null, ctx)
+    const loadPromise = orchestrateRawLoad(file, ctx)
 
     await flushMicrotasks()
 
@@ -242,7 +243,7 @@ describe('orchestrateRawLoad ack-before-work contract', () => {
     })
 
     const file = new File(['raw'], 'sample.ARW')
-    const loadPromise = orchestrateRawLoad(file, defaultParams, null, null, ctx)
+    const loadPromise = orchestrateRawLoad(file, ctx)
 
     await flushMicrotasks()
 
@@ -279,7 +280,7 @@ describe('orchestrateRawLoad ack-before-work contract', () => {
     })
 
     const file = new File(['raw'], 'sample.ARW')
-    const loadPromise = orchestrateRawLoad(file, defaultParams, null, null, ctx)
+    const loadPromise = orchestrateRawLoad(file, ctx)
 
     await flushMicrotasks()
 
@@ -334,13 +335,7 @@ describe('orchestrateRawLoad ack-before-work contract', () => {
       getPrewarmState: () => 'ready',
     })
 
-    await orchestrateRawLoad(
-      new File(['raw'], 'sample.ARW'),
-      defaultParams,
-      null,
-      null,
-      ctx,
-    )
+    await orchestrateRawLoad(new File(['raw'], 'sample.ARW'), ctx)
 
     expect(previewGpuBudgetMock.derivePreviewGpuBudget).toHaveBeenCalledWith({
       capability: {

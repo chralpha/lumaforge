@@ -6,7 +6,9 @@ import type { PrewarmState } from '~/lib/raw/runtime-adapter'
 import type { UseRawLoadActionInput } from './useRawLoadAction'
 import { useRawLoadAction } from './useRawLoadAction'
 
-function createParams(): UseRawLoadActionInput['params'] {
+function createParams(): ReturnType<
+  UseRawLoadActionInput['getProcessingParams']
+> {
   return {
     intensity: 0.7,
     viewMode: 'compare',
@@ -28,13 +30,11 @@ function createInput(
   orchestrateLoad = vi.fn().mockResolvedValue(undefined),
 ): UseRawLoadActionInput {
   return {
-    params: createParams(),
-    lut: null,
-    activeStyle: null,
     setStatus: vi.fn(),
     setError: vi.fn(),
     setProgress: vi.fn(),
     getProcessingParams: vi.fn(createParams),
+    getLut: vi.fn(() => null),
     setParams: vi.fn(),
     setSession: vi.fn(),
     setDecodedImageVersion: vi.fn(),
@@ -81,13 +81,11 @@ describe('useRawLoadAction', () => {
     expect(orchestrateLoad).toHaveBeenCalledTimes(1)
     expect(orchestrateLoad).toHaveBeenCalledWith(
       file,
-      input.params,
-      input.lut,
-      input.activeStyle,
       expect.objectContaining({
         atoms: expect.objectContaining({
           setStatus: input.setStatus,
           getProcessingParams: input.getProcessingParams,
+          getLut: input.getLut,
           setPendingRecoveryRetry: input.setPendingRecoveryRetry,
         }),
         services: expect.objectContaining({
