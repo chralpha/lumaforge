@@ -249,7 +249,7 @@ describe('online LUT release catalog parsing', () => {
     })
   })
 
-  it('returns unsupported-entry issues when every catalog entry is non-LUT', () => {
+  it('collapses an all-calibration catalog into one calibration-catalog issue', () => {
     const result = parseReleaseCatalog(
       {
         schemaVersion: 1,
@@ -276,9 +276,11 @@ describe('online LUT release catalog parsing', () => {
       'https://profiles.example.com/releases/v2026.05.01/catalog.json',
     )
 
+    // Pointing a LUT source at the calibration catalog is a domain mix-up:
+    // one targeted issue, not one unsupported-entry per calibration profile.
     expect(result).toMatchObject({
       ok: false,
-      issues: [{ code: 'unsupported-entry', entryId: 'camera-profile' }],
+      issues: [{ code: 'calibration-catalog' }],
     })
   })
 

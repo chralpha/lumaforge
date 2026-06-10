@@ -19,7 +19,7 @@ const sha256 =
 const catalogUrl =
   'https://profiles.example.com/releases/v2026.05.01/catalog.json'
 const defaultCatalogUrl =
-  'https://profiles.lumaforge.invalid/channels/stable/catalog.json'
+  'https://luma-prof.ichr.me/channels/stable/luts/catalog.json'
 const entryUrl =
   'https://profiles.example.com/releases/v2026.05.01/entries/kodak-2383-rec709.json'
 const secondEntryUrl =
@@ -245,6 +245,33 @@ describe('useOnlineLutSources', () => {
         expect.objectContaining({ id: 'lumaforge-default-profiles' }),
       ]),
     )
+  })
+
+  it('keeps the default hidden for users who removed it at its legacy flat-catalog URL', () => {
+    // The default source moved from channels/stable/catalog.json to the
+    // scoped channels/stable/luts/catalog.json. A user who removed the old
+    // default must not see the source resurrected by the URL change.
+    localStorage.setItem(
+      sourcesStorageKey,
+      JSON.stringify({
+        resources: [],
+        removedDefaultUrls: [
+          'https://luma-prof.ichr.me/channels/stable/catalog.json',
+        ],
+      }),
+    )
+
+    const { result, unmount } = renderHook(() =>
+      useOnlineLutSources({
+        search: '',
+        pathname: '/raw',
+        loadOnlineLUT: createLoadOnlineLUT(),
+      }),
+    )
+
+    expect(result.current.state.resources).toHaveLength(0)
+    expect(mockedFetchJson).not.toHaveBeenCalled()
+    unmount()
   })
 
   it('restores manually added sources from storage and forgets them after removal', async () => {

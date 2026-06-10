@@ -292,6 +292,7 @@
   "raw.lutSource.issues.credentialedUrl": "请移除来源地址中的凭据。",
   "raw.lutSource.issues.unsupportedResource": "不支持该来源类型。",
   "raw.lutSource.issues.invalidCatalog": "不支持此目录的格式。",
+  "raw.lutSource.issues.calibrationCatalog": "此来源是校准目录，请在“校准”中使用。",
   "raw.lutSource.issues.invalidEntry": "此来源中的部分条目无效。",
   "raw.lutSource.issues.unsupportedEntry": "部分条目不是受支持的 LUT。",
   "raw.lutSource.issues.unsupportedAsset": "部分 LUT 文件缺失或不受支持。",

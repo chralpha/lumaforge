@@ -5,16 +5,32 @@ import { OnlineProfileFetchError } from '~/lib/profiles/fetch'
 import type { ProfileSourceResource } from '~/lib/profiles/source-url'
 import { normalizeProfileSourceUrl } from '~/lib/profiles/source-url'
 
-const defaultMaxJsonBytes = 1_000_000
+// Hard fetch budget for online LUT JSON documents. The producer keeps the
+// scoped LUT catalog inside this budget (lumaforge-profiles lut-catalog.ts,
+// LUT_CATALOG_MAX_BYTES) — both sides lock the same 1_000_000 literal in
+// their contract tests, so a drift breaks the build on whichever side moved.
+export const ONLINE_LUT_MAX_JSON_BYTES = 1_000_000
+const defaultMaxJsonBytes = ONLINE_LUT_MAX_JSON_BYTES
 export const ONLINE_LUT_SOURCE_STORAGE_KEY = 'lumaforge.raw.onlineLutSources.v1'
 export const DEFAULT_LUMAFORGE_PROFILE_SOURCE: ProfileSourceResource = {
   id: 'lumaforge-default-profiles',
-  url: 'https://profiles.lumaforge.invalid/channels/stable/catalog.json',
+  // Channel-pinned LUT-scoped catalog (kind: "lut" entries only). The producer
+  // keeps luts/catalog.json inside defaultMaxJsonBytes
+  // (lumaforge-profiles lut-catalog.ts, LUT_CATALOG_MAX_BYTES) — see
+  // lut-catalog-contract.test.ts for the locked boundary.
+  url: 'https://luma-prof.ichr.me/channels/stable/luts/catalog.json',
   type: 'catalog',
   label: 'LumaForge Profiles',
   fromQuery: false,
   isDefault: true,
 }
+
+// URLs the default source pointed at before moving to the scoped LUT catalog.
+// A user who removed the default while it lived at one of these must not see
+// it resurrected just because the default URL changed.
+const LEGACY_DEFAULT_LUT_SOURCE_URLS = [
+  'https://luma-prof.ichr.me/channels/stable/catalog.json',
+]
 
 export type OnlineLUTSourceEntry = OnlineLUTEntry & { resourceId: string }
 
@@ -190,7 +206,13 @@ export function getInitialOnlineLUTSourceResources(
   const defaultUrl = normalizeStoredUrl(defaultSource.url) ?? defaultSource.url
   const resources: ProfileSourceResource[] = []
 
-  if (!registry.removedDefaultUrls.includes(defaultUrl)) {
+  const removedDefault =
+    registry.removedDefaultUrls.includes(defaultUrl) ||
+    LEGACY_DEFAULT_LUT_SOURCE_URLS.some((legacyUrl) =>
+      registry.removedDefaultUrls.includes(legacyUrl),
+    )
+
+  if (!removedDefault) {
     resources.push({ ...defaultSource, url: defaultUrl })
   }
 

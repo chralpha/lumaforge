@@ -10,6 +10,7 @@ export type OnlineProfileIssueCode =
   | 'missing-sha256'
   | 'invalid-url'
   | 'unsupported-contract'
+  | 'calibration-catalog'
 
 export interface OnlineProfileIssue {
   code: OnlineProfileIssueCode
@@ -397,6 +398,31 @@ export function parseReleaseCatalog(
     }
   }
 
+  // Calibration root manifests are the calibration stage's domain. The shape
+  // check stays inline (importing ./calibration-catalog would be a cycle) and
+  // is deliberately narrower than detectCalibrationDocumentKind: it also
+  // requires the root-only `catalogRevision` field so unrelated JSON that
+  // merely carries `indexes` keeps the generic invalid-catalog error, and it
+  // yields to `entries` arrays so a document carrying both still parses as a
+  // LUT catalog. Surface the domain mix-up instead of a generic shape error.
+  if (
+    isRecord(document) &&
+    typeof document.schemaVersion === 'number' &&
+    typeof document.catalogRevision === 'number' &&
+    isRecord(document.indexes) &&
+    !Array.isArray(document.entries)
+  ) {
+    return {
+      ok: false,
+      issues: [
+        issue(
+          'calibration-catalog',
+          'This source is a camera/lens calibration catalog, not a LUT catalog.',
+        ),
+      ],
+    }
+  }
+
   if (
     !isRecord(document) ||
     document.schemaVersion !== 1 ||
@@ -410,6 +436,8 @@ export function parseReleaseCatalog(
 
   const entries: OnlineCatalogEntry[] = []
   const issues: OnlineProfileIssue[] = []
+  let calibrationEntryCount = 0
+  let sawLutEntry = false
 
   for (const entry of document.entries) {
     if (!isRecord(entry)) {
@@ -420,12 +448,19 @@ export function parseReleaseCatalog(
     const entryId = readString(entry, 'id')
     const entryIssues: OnlineProfileIssue[] = []
 
-    if (readString(entry, 'kind') !== 'lut') {
+    const kind = readString(entry, 'kind')
+    if (kind !== 'lut') {
+      // Calibration kinds from ./calibration-catalog SUPPORTED_KINDS.
+      if (kind === 'camera-profile' || kind === 'lens-correction-profile') {
+        calibrationEntryCount += 1
+      }
       issues.push(
         issue('unsupported-entry', 'Only LUT entries are supported.', entryId),
       )
       continue
     }
+
+    sawLutEntry = true
 
     if (entry.redistributionAllowed !== true) {
       issues.push(
@@ -471,6 +506,23 @@ export function parseReleaseCatalog(
 
   if (entries.length > 0) {
     return { ok: true, value: entries }
+  }
+
+  // A LUT-less catalog full of calibration profiles is a domain mix-up (the
+  // user pointed a LUT source at the calibration catalog). Collapse it into
+  // one targeted issue instead of one "unsupported entry" per profile — but
+  // only when no LUT-kind entry appeared at all: a catalog whose LUT entries
+  // merely failed validation must keep reporting those real issues.
+  if (calibrationEntryCount > 0 && !sawLutEntry) {
+    return {
+      ok: false,
+      issues: [
+        issue(
+          'calibration-catalog',
+          'This source is a camera/lens calibration catalog, not a LUT catalog.',
+        ),
+      ],
+    }
   }
 
   return {

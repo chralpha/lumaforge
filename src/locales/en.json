@@ -292,6 +292,7 @@
   "raw.lutSource.issues.credentialedUrl": "Remove credentials from the source URL.",
   "raw.lutSource.issues.unsupportedResource": "That source type isn't supported.",
   "raw.lutSource.issues.invalidCatalog": "This catalog's format isn't supported.",
+  "raw.lutSource.issues.calibrationCatalog": "This source is a calibration catalog. Use it under Calibration instead.",
   "raw.lutSource.issues.invalidEntry": "Some entries in this source are invalid.",
   "raw.lutSource.issues.unsupportedEntry": "Some entries aren't supported LUTs.",
   "raw.lutSource.issues.unsupportedAsset": "Some LUT files are missing or unsupported.",
