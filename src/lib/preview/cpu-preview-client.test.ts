@@ -122,6 +122,20 @@ describe('cpuPreviewClient', () => {
     expect(frames).toEqual([renders[0].requestId, renders2[1].requestId])
   })
 
+  it('reports a render requested with no loaded source instead of dropping it', () => {
+    const { worker, posted } = fakeWorker()
+    const client = new CpuPreviewClient(() => worker)
+    const onError = vi.fn()
+    client.onError(onError)
+
+    client.requestRender({ variant: 'processed', graph })
+
+    // Callers arm in-flight state before requesting; a silent drop would
+    // leave that state wedged forever.
+    expect(posted.filter((m) => m.type === 'render')).toHaveLength(0)
+    expect(onError).toHaveBeenCalledWith('render-failed')
+  })
+
   it('reports worker construction failure without throwing to the caller', () => {
     const client = new CpuPreviewClient(() => {
       throw new Error('boom')

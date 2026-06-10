@@ -110,7 +110,13 @@ export class CpuPreviewClient {
   }
 
   requestRender(req: PendingRender) {
-    if (!this.sourceId) return
+    if (!this.sourceId) {
+      // Callers arm their in-flight state before requesting; dropping the
+      // request silently (e.g. after a failed source transfer) would leave
+      // that state wedged forever, so report it through the error channel.
+      this.errorHandler?.('render-failed')
+      return
+    }
     if (this.inFlightId != null) {
       this.pending = req
       return

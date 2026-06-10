@@ -428,6 +428,51 @@ describe('preview canvas upload descriptor', () => {
     expect(screen.getByText('Context restore failed')).toBeTruthy()
   })
 
+  it('keeps the preview alive when the LUT texture upload fails', async () => {
+    const initialize = deferred<void>()
+    pipelineMock.initialize.mockReturnValueOnce(initialize.promise)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    render(
+      createElement(PreviewCanvas, {
+        imageRef: { current: decodedImage },
+        imageVersion: 1,
+        params: { ...defaultParams, styleKind: 'custom' },
+        lutDataRef: {
+          current: {
+            size: 2,
+            data: new Float32Array(2 * 2 * 2 * 3),
+            domainMin: [0, 0, 0],
+            domainMax: [1, 1, 1],
+            inputProfile: 'display-srgb',
+            profileResolution: { kind: 'unknown' },
+          },
+        },
+        lutDataVersion: 1,
+      }),
+    )
+
+    expect(pipelineMock.instances).toHaveLength(1)
+    pipelineMock.instances[0]!.uploadLUT.mockImplementation(() => {
+      throw new Error('Failed to create LUT texture')
+    })
+
+    await act(async () => {
+      initialize.resolve()
+    })
+
+    // The LUT failure degrades to a LUT-less preview: no error overlay, the
+    // processed render still happens, and the failure is logged.
+    expect(pipelineMock.instances[0]!.uploadLUT).toHaveBeenCalled()
+    expect(screen.queryByText('Preview unavailable')).toBeNull()
+    expect(pipelineMock.instances[0]!.render).toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith(
+      'LUT upload failed; rendering preview without the LUT:',
+      expect.any(Error),
+    )
+    warn.mockRestore()
+  })
+
   it('uploads decoded image render exposure through the component path', async () => {
     const data = new Uint16Array([1024, 1024, 1024])
     const image: DecodedImage = {

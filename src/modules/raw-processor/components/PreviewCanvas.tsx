@@ -820,10 +820,17 @@ export function PreviewCanvas({
     if (!pipeline || !isInitialized) return
     const lutData = lutDataRef.current
 
-    if (lutData) {
-      pipeline.uploadLUT(lutData)
-    } else {
-      pipeline.clearLUT()
+    try {
+      if (lutData) {
+        pipeline.uploadLUT(lutData)
+      } else {
+        pipeline.clearLUT()
+      }
+    } catch (err) {
+      // A failed LUT texture upload degrades to a LUT-less preview (the
+      // pipeline clears its LUT state on failure); it must not escape this
+      // passive effect and tear down the whole /raw surface.
+      console.warn('LUT upload failed; rendering preview without the LUT:', err)
     }
   }, [lutDataRef, lutDataVersion, isInitialized])
 
