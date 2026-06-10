@@ -355,4 +355,22 @@ describe('orchestrateRawLoad ack-before-work contract', () => {
       expect.any(AbortSignal),
     )
   })
+
+  it('surfaces failures thrown before the session exists instead of sticking in loading', async () => {
+    const order: string[] = []
+    const ctx = buildContext({
+      order,
+      yieldToPaint: () => Promise.resolve(),
+      getPrewarmState: () => 'ready',
+    })
+    vi.mocked(ctx.services.replaceFile).mockImplementation(() => {
+      throw new Error('session creation failed')
+    })
+
+    await orchestrateRawLoad(new File(['raw'], 'sample.ARW'), ctx)
+
+    expect(ctx.atoms.setError).toHaveBeenCalledWith('session creation failed')
+    expect(order).toContain('status:error')
+    expect(ctx.services.scheduleToast).toHaveBeenCalled()
+  })
 })

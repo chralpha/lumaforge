@@ -497,9 +497,25 @@ export async function orchestrateRawLoad(
       ctx.refs.runtimeWorkSessionIdRef.current = null
     }
   } catch (err) {
+    if (!ctx.refs.isMountedRef.current) {
+      return
+    }
+
+    if (!loadSessionId) {
+      // The load failed before a session existed (look/state preparation or
+      // session creation). That window is synchronous, so no newer load can
+      // have superseded this one — surface the failure instead of leaving
+      // the workflow stuck in warming/loading with no error.
+      const message = err instanceof Error ? err.message : 'Failed to load file'
+      ctx.atoms.setError(message)
+      ctx.atoms.setStatus('error')
+      ctx.services.scheduleToast(() =>
+        toast.error('Failed to load RAW file', { description: message }),
+      )
+      return
+    }
+
     if (
-      !loadSessionId ||
-      !ctx.refs.isMountedRef.current ||
       ctx.refs.runtimeWorkSessionIdRef.current !== loadSessionId ||
       ctx.refs.sessionRef.current?.id !== loadSessionId
     ) {
