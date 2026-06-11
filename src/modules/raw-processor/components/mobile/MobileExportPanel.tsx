@@ -3,6 +3,7 @@ import { AnimatePresence, m, useReducedMotion } from 'motion/react'
 
 import { localizeCopyLabel, localizeRawReason, useI18n } from '~/lib/i18n'
 
+import { formatBytes } from '../../format-bytes'
 import type {
   ExportResult,
   ExportShareCapability,
@@ -28,12 +29,6 @@ function BusySpinner() {
       }
     />
   )
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function MobileExportAction(props: {
