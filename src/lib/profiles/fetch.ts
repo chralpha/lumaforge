@@ -93,9 +93,15 @@ async function fetchResponse(
   return response
 }
 
+export type OnlineProfileFetchProgress = (
+  receivedBytes: number,
+  totalBytes?: number,
+) => void
+
 async function readBytesWithLimit(
   response: Response,
   maxBytes: number,
+  onProgress?: OnlineProfileFetchProgress,
 ): Promise<Uint8Array> {
   if (!response.body) {
     const bytes = new Uint8Array(await response.arrayBuffer())
@@ -104,6 +110,11 @@ async function readBytesWithLimit(
     return bytes
   }
 
+  // Note: with a content-encoded response this is the compressed size while
+  // the reader yields decompressed bytes; callers preferring an exact total
+  // should use the catalog-declared asset size instead.
+  const contentLength = getContentLength(response.headers)
+  const declaredTotal = contentLength || undefined
   const reader = response.body.getReader()
   const chunks: Uint8Array[] = []
   let totalBytes = 0
@@ -122,6 +133,7 @@ async function readBytesWithLimit(
     }
 
     chunks.push(value)
+    onProgress?.(totalBytes, declaredTotal)
   }
 
   const bytes = new Uint8Array(totalBytes)
@@ -137,12 +149,16 @@ async function readBytesWithLimit(
 
 export async function fetchBytesWithLimit(
   url: string,
-  options: { signal?: AbortSignal; maxBytes: number },
+  options: {
+    signal?: AbortSignal
+    maxBytes: number
+    onProgress?: OnlineProfileFetchProgress
+  },
 ): Promise<Uint8Array> {
   const response = await fetchResponse(url, options.signal)
   assertContentLengthWithinLimit(response.headers, options.maxBytes)
 
-  return readBytesWithLimit(response, options.maxBytes)
+  return readBytesWithLimit(response, options.maxBytes, options.onProgress)
 }
 
 export async function fetchJsonWithLimit<T>(
@@ -247,6 +263,7 @@ export async function fetchCachedBytesWithLimit(
     signal?: AbortSignal
     maxBytes: number
     cache?: OnlineProfileCache
+    onProgress?: OnlineProfileFetchProgress
   },
 ): Promise<Uint8Array> {
   const cacheKey = `url:${normalizeCacheUrl(url)}`
@@ -277,6 +294,7 @@ export async function fetchVerifiedCubeAsset(
     signal?: AbortSignal
     maxBytes: number
     cache?: OnlineProfileCache
+    onProgress?: OnlineProfileFetchProgress
   },
 ): Promise<Uint8Array> {
   const expectedHash = normalizeHash(asset.sha256)

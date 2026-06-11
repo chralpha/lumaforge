@@ -377,3 +377,53 @@ describe('fetchVerifiedCubeAsset', () => {
     ])
   })
 })
+
+describe('fetchBytesWithLimit progress', () => {
+  it('reports cumulative received bytes with the content-length total', async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(10))
+        controller.enqueue(new Uint8Array(5))
+        controller.close()
+      },
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        response(stream, { headers: { 'content-length': '15' } }),
+      ),
+    )
+    const events: Array<{ received: number; total?: number }> = []
+
+    await fetchBytesWithLimit('https://profiles.example.com/a.cube', {
+      maxBytes: 100,
+      onProgress: (received, total) => events.push({ received, total }),
+    })
+
+    expect(events).toEqual([
+      { received: 10, total: 15 },
+      { received: 15, total: 15 },
+    ])
+  })
+
+  it('omits the total when content-length is absent', async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(4))
+        controller.close()
+      },
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => response(stream)),
+    )
+    const events: Array<{ received: number; total?: number }> = []
+
+    await fetchBytesWithLimit('https://profiles.example.com/a.cube', {
+      maxBytes: 100,
+      onProgress: (received, total) => events.push({ received, total }),
+    })
+
+    expect(events).toEqual([{ received: 4, total: undefined }])
+  })
+})
