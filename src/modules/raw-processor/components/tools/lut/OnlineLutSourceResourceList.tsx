@@ -142,14 +142,14 @@ function OnlineLutSourceResourceRow({
           <span className="min-w-0 truncate text-[0.78rem] font-medium text-lf-on-surface/85">
             {resource.label}
           </span>
-          <span className="shrink-0 rounded-full bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.06)] px-1.5 py-0.5 text-[0.66rem] font-medium leading-none text-lf-on-surface/72 tabular-nums">
-            {formatEntryCount(entries.length)}
+          <span
+            className="shrink-0 rounded-full bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.06)] px-1.5 py-0.5 text-[0.66rem] font-medium leading-none text-lf-on-surface/72 tabular-nums"
+            data-raw-lut="source-count-chip"
+          >
+            {isLoading
+              ? t('raw.lutSource.loading')
+              : formatEntryCount(entries.length)}
           </span>
-          {isLoading && (
-            <span className="shrink-0 rounded-full bg-[oklch(from_var(--color-lf-green)_l_c_h_/_0.12)] px-1.5 py-0.5 text-[0.66rem] font-medium leading-none text-lf-green-deep">
-              {t('raw.lutSource.loading')}
-            </span>
-          )}
           {hasIssue && (
             <span className="shrink-0 rounded-full bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.14)] px-1.5 py-0.5 text-[0.66rem] font-medium leading-none text-lf-on-surface/80">
               {t('raw.lutSource.issue')}
@@ -190,6 +190,7 @@ function OnlineLutSourceResourceRow({
       </div>
       <OnlineLutSourceInlineEntries
         entries={entries}
+        isResourceLoading={isLoading}
         loadingEntryId={loadingEntryId}
         failedEntryId={failedEntryId}
         entryLoadProgress={entryLoadProgress}
@@ -205,6 +206,7 @@ function OnlineLutSourceResourceRow({
 
 function OnlineLutSourceInlineEntries({
   entries,
+  isResourceLoading,
   loadingEntryId,
   failedEntryId,
   entryLoadProgress,
@@ -214,6 +216,7 @@ function OnlineLutSourceInlineEntries({
   onBrowseAll,
 }: {
   entries: OnlineLutEntry[]
+  isResourceLoading: boolean
   loadingEntryId: string | null
   failedEntryId: string | null
   entryLoadProgress: OnlineLutEntryLoadProgress | null
@@ -223,7 +226,27 @@ function OnlineLutSourceInlineEntries({
   onBrowseAll: () => void
 }) {
   const { t } = useI18n()
-  if (entries.length === 0) return null
+  if (entries.length === 0) {
+    // Reserve the resting grid footprint while the catalog resolves so the
+    // dropzone and strength controls below do not jump when entries land.
+    if (!isResourceLoading) return null
+
+    return (
+      <div
+        className="grid gap-1 sm:grid-cols-2"
+        data-raw-lut="source-inline-entries"
+        aria-hidden="true"
+      >
+        {Array.from({ length: inlineEntryLimit }, (_, slot) => (
+          <span
+            key={slot}
+            data-raw-lut="entry-skeleton"
+            className="min-h-9 animate-pulse rounded-md bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.035)] motion-reduce:animate-none"
+          />
+        ))}
+      </div>
+    )
+  }
 
   const anotherLoading = loadingEntryId !== null
   const overflow = entries.length - inlineEntryLimit

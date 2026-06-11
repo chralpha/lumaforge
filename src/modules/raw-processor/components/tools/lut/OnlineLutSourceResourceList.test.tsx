@@ -33,17 +33,19 @@ function renderList(
       totalBytes?: number
     } | null
     onCancelEntryLoad?: () => void
+    isLoading?: boolean
+    entries?: never[]
   } = {},
 ) {
   return render(
     <OnlineLutSourceResourceList
       resources={[resource]}
-      isLoading={false}
-      activeResourceId={null}
+      isLoading={overrides.isLoading ?? false}
+      activeResourceId={overrides.isLoading ? 'res-1' : null}
       loadingEntryId={overrides.loadingEntryId ?? null}
       failedEntryId={overrides.failedEntryId ?? null}
       entryLoadProgress={overrides.entryLoadProgress ?? null}
-      entriesByResourceId={new Map([['res-1', [entry]]])}
+      entriesByResourceId={new Map([['res-1', overrides.entries ?? [entry]]])}
       issuesByResourceId={new Map()}
       openResourceId={null}
       browserId="browser-1"
@@ -107,5 +109,28 @@ describe('onlineLutSourceResourceList download feedback', () => {
 
     fireEvent.click(loadingButton!)
     expect(onCancelEntryLoad).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('onlineLutSourceResourceList loading stability', () => {
+  it('reserves the entry grid with a skeleton while the source loads', () => {
+    const { container } = renderList({ isLoading: true, entries: [] })
+
+    expect(
+      container.querySelectorAll('[data-raw-lut="entry-skeleton"]'),
+    ).toHaveLength(4)
+    expect(container.textContent).toContain('Loading')
+  })
+
+  it('swaps the loading text for the count inside one stable chip', () => {
+    const { container } = renderList()
+
+    expect(
+      container.querySelector('[data-raw-lut="entry-skeleton"]'),
+    ).toBeNull()
+    expect(container.textContent).not.toContain('Loading')
+    expect(
+      container.querySelectorAll('[data-raw-lut="source-count-chip"]'),
+    ).toHaveLength(1)
   })
 })

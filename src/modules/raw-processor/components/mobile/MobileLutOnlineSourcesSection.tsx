@@ -104,14 +104,11 @@ export function MobileLutOnlineSourcesSection({
         </p>
       )}
       <div className="grid gap-2" aria-busy={onlineLutSources.state.isLoading}>
-        {onlineLutSources.state.isLoading && (
-          <p
-            className="m-0 rounded-md border border-lf-green/35 bg-lf-green/15 px-2.5 py-2 text-xs font-semibold text-lf-green-soft"
-            role="status"
-          >
-            {t('raw.mobile.lut.loading')}
-          </p>
-        )}
+        {/* Announce loading without inserting layout: the resource card's
+            refresh spinner is the visual signal. */}
+        <p className="sr-only" role="status">
+          {onlineLutSources.state.isLoading ? t('raw.mobile.lut.loading') : ''}
+        </p>
         {onlineLutSources.state.resources.map((resource) => {
           const entries = entriesByResourceId.get(resource.id) ?? []
           const resourceIssues = issuesByResourceId.get(resource.id) ?? []
