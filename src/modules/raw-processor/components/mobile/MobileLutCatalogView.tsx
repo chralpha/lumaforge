@@ -25,7 +25,12 @@ export interface MobileLutCatalogViewProps {
   selectedResourceLoading: boolean
   selectedEntryGroups: GroupedEntries<OnlineEntry>
   disabled: boolean
-  loadEntry?: UseOnlineLutSourcesResult['loadEntry']
+  lutSources?: Pick<
+    UseOnlineLutSourcesResult,
+    'loadEntry' | 'loadingEntryId' | 'failedEntryId'
+  >
+  entryLoadProgress: UseOnlineLutSourcesResult['entryLoadProgress']
+  onCancelEntryLoad?: UseOnlineLutSourcesResult['cancelEntryLoad']
   onEntryLoaded: () => void
 }
 
@@ -38,15 +43,18 @@ export function MobileLutCatalogView({
   selectedResourceLoading,
   selectedEntryGroups,
   disabled,
-  loadEntry,
+  lutSources,
+  entryLoadProgress,
+  onCancelEntryLoad,
   onEntryLoaded,
 }: MobileLutCatalogViewProps) {
   const { t } = useI18n()
-  const { loadingEntryId, loadOnlineLutEntry } =
-    useOnlineLutEntryLoader(loadEntry)
+  const { loadingEntryId, failedEntryId, loadOnlineLutEntry } =
+    useOnlineLutEntryLoader(lutSources)
 
   const renderCatalogEntry = (entry: OnlineEntry) => {
     const isEntryLoading = loadingEntryId === entry.id
+    const isEntryFailed = failedEntryId === entry.id
 
     return (
       <MobileLutCatalogEntryButton
@@ -54,8 +62,18 @@ export function MobileLutCatalogView({
         title={entry.title}
         preview={entry.preview}
         loading={isEntryLoading}
+        failed={isEntryFailed}
+        sizeBytes={entry.cube.bytes}
+        progress={
+          entryLoadProgress?.entryId === entry.id ? entryLoadProgress : null
+        }
+        onCancel={onCancelEntryLoad}
         disabled={disabled}
-        ariaLabel={t('raw.mobile.lut.loadEntry', { label: entry.title })}
+        ariaLabel={
+          isEntryFailed
+            ? t('raw.lutSource.loadFailedRetry', { label: entry.title })
+            : t('raw.mobile.lut.loadEntry', { label: entry.title })
+        }
         onClick={() => {
           void loadOnlineLutEntry(entry.id, onEntryLoaded)
         }}

@@ -1,14 +1,19 @@
-import { Download, Loader2 } from 'lucide-react'
+import { Download, TriangleAlert, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { useI18n } from '~/lib/i18n'
 
-import type { UseOnlineLutSourcesResult } from '../../../hooks/useOnlineLutSources'
+import { formatBytes } from '../../../format-bytes'
+import type {
+  OnlineLutEntryLoadProgress,
+  UseOnlineLutSourcesResult,
+} from '../../../hooks/useOnlineLutSources'
 import type { OnlineLutBrowserLayout } from './lut-browser-layout'
 import { groupEntriesByFamily } from './lut-source-grouping'
 import { LutBrowserDialog } from './LutBrowserDialog'
 import { LutIconButton } from './LutIconButton'
 import { OnlineLutPreviewThumb } from './OnlineLutPreviewThumb'
+import { entryLoadPercent } from './OnlineLutSourceResourceList'
 
 type OnlineLutResource = UseOnlineLutSourcesResult['state']['resources'][number]
 type OnlineLutEntry = UseOnlineLutSourcesResult['state']['entries'][number]
@@ -21,12 +26,15 @@ export function OnlineLutSourceBrowser({
   issues,
   layout,
   loadingEntryId,
+  failedEntryId,
+  entryLoadProgress,
   listRef,
   triggerElement,
   passthroughElements,
   restoreFocus,
   onClose,
   onEntryLoad,
+  onCancelEntryLoad,
 }: {
   id: string
   resource: OnlineLutResource
@@ -34,12 +42,15 @@ export function OnlineLutSourceBrowser({
   issues: OnlineLutIssue[]
   layout: OnlineLutBrowserLayout
   loadingEntryId: string | null
+  failedEntryId: string | null
+  entryLoadProgress: OnlineLutEntryLoadProgress | null
   listRef: (node: HTMLDivElement | null) => void
   triggerElement?: HTMLElement
   passthroughElements: () => Iterable<HTMLElement>
   restoreFocus: () => void
   onClose: () => void
   onEntryLoad: (entryId: string) => void
+  onCancelEntryLoad: () => void
 }) {
   const { t } = useI18n()
   const formatEntryCount = (count: number) =>
@@ -79,6 +90,9 @@ export function OnlineLutSourceBrowser({
           <OnlineLutSourceEntryGroups
             entries={entries}
             loadingEntryId={loadingEntryId}
+            failedEntryId={failedEntryId}
+            entryLoadProgress={entryLoadProgress}
+            onCancelEntryLoad={onCancelEntryLoad}
             onEntryLoad={onEntryLoad}
           />
         ) : (
@@ -96,11 +110,17 @@ export function OnlineLutSourceBrowser({
 function OnlineLutSourceEntryGroups({
   entries,
   loadingEntryId,
+  failedEntryId,
+  entryLoadProgress,
   onEntryLoad,
+  onCancelEntryLoad,
 }: {
   entries: OnlineLutEntry[]
   loadingEntryId: string | null
+  failedEntryId: string | null
+  entryLoadProgress: OnlineLutEntryLoadProgress | null
   onEntryLoad: (entryId: string) => void
+  onCancelEntryLoad: () => void
 }) {
   const { t } = useI18n()
   const { families, others } = groupEntriesByFamily(entries)
@@ -112,7 +132,12 @@ function OnlineLutSourceEntryGroups({
         key={entry.id}
         entry={entry}
         isLoading={isLoading}
+        isFailed={failedEntryId === entry.id}
+        progress={
+          entryLoadProgress?.entryId === entry.id ? entryLoadProgress : null
+        }
         onLoad={() => onEntryLoad(entry.id)}
+        onCancel={onCancelEntryLoad}
       />
     )
   }
@@ -153,38 +178,83 @@ function OnlineLutSourceEntrySection({
 function OnlineLutSourceEntryRow({
   entry,
   isLoading,
+  isFailed,
+  progress,
   onLoad,
+  onCancel,
 }: {
   entry: OnlineLutEntry
   isLoading: boolean
+  isFailed: boolean
+  progress: OnlineLutEntryLoadProgress | null
   onLoad: () => void
+  onCancel: () => void
 }) {
   const { t } = useI18n()
+  const percent = isLoading ? entryLoadPercent(progress) : null
+  const sizeLabel = entry.cube.bytes ? formatBytes(entry.cube.bytes) : null
+  const metaLabel =
+    isLoading && progress
+      ? percent !== null
+        ? `${percent}% · ${formatBytes(progress.receivedBytes)}`
+        : formatBytes(progress.receivedBytes)
+      : sizeLabel
 
   return (
     <div
-      className="grid min-h-11 min-w-0 grid-cols-[48px_minmax(0,1fr)_28px] items-center gap-2 rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.045)]"
+      className={[
+        'relative grid min-h-11 min-w-0 grid-cols-[48px_minmax(0,1fr)_28px] items-center gap-2 overflow-hidden rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.045)]',
+        isFailed ? 'bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.08)]' : '',
+      ].join(' ')}
       data-raw-lut="source-entry"
       data-raw-lut-entry-loading={isLoading ? 'true' : undefined}
+      data-raw-lut-entry-failed={isFailed ? 'true' : undefined}
     >
       <OnlineLutPreviewThumb preview={entry.preview} size="row" />
-      <span className="min-w-0 truncate text-[0.74rem] leading-[1.35] text-lf-on-surface/75">
-        {entry.title}
+      <span className="grid min-w-0 gap-0.5">
+        <span className="min-w-0 truncate text-[0.74rem] leading-[1.35] text-lf-on-surface/75">
+          {entry.title}
+        </span>
+        {metaLabel && (
+          <span className="min-w-0 truncate text-[0.64rem] leading-none text-lf-on-surface/45 tabular-nums">
+            {metaLabel}
+          </span>
+        )}
       </span>
       <LutIconButton
-        label={t('raw.lutSource.load', {
-          label: entry.title,
-        })}
+        label={
+          isLoading
+            ? t('raw.lutSource.cancelDownload', { label: entry.title })
+            : isFailed
+              ? t('raw.lutSource.loadFailedRetry', { label: entry.title })
+              : t('raw.lutSource.load', { label: entry.title })
+        }
         busy={isLoading}
-        disabled={isLoading}
-        onClick={onLoad}
+        onClick={isLoading ? onCancel : onLoad}
       >
         {isLoading ? (
-          <Loader2 aria-hidden="true" />
+          <X aria-hidden="true" />
+        ) : isFailed ? (
+          <TriangleAlert aria-hidden="true" className="text-lf-amber" />
         ) : (
           <Download aria-hidden="true" />
         )}
       </LutIconButton>
+      {isLoading && percent !== null && (
+        <span
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={percent}
+          aria-label={t('raw.lutSource.load', { label: entry.title })}
+          className="absolute inset-x-0 bottom-0 h-0.5 bg-[oklch(0.96_0.006_255/0.05)]"
+        >
+          <span
+            className="block h-full bg-lf-green/70 transition-[width] duration-150 ease-out"
+            style={{ width: `${percent}%` }}
+          />
+        </span>
+      )}
     </div>
   )
 }

@@ -158,7 +158,9 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
       selectedResourceLoading={selectedResourceLoading}
       selectedEntryGroups={selectedEntryGroups}
       disabled={props.disabled}
-      loadEntry={props.onlineLutSources?.loadEntry}
+      lutSources={props.onlineLutSources}
+      entryLoadProgress={props.onlineLutSources?.entryLoadProgress ?? null}
+      onCancelEntryLoad={props.onlineLutSources?.cancelEntryLoad}
       onEntryLoaded={returnToOverview}
     />
   )

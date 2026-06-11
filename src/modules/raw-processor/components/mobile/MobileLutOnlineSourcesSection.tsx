@@ -1,10 +1,14 @@
-import { ChevronRight, Loader2, Plus, Share2 } from 'lucide-react'
+import { ChevronRight, Plus, Share2, TriangleAlert, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Input } from '~/components/ui/input'
 import { useI18n } from '~/lib/i18n'
 
-import type { UseOnlineLutSourcesResult } from '../../hooks/useOnlineLutSources'
+import type {
+  OnlineLutEntryLoadProgress,
+  UseOnlineLutSourcesResult,
+} from '../../hooks/useOnlineLutSources'
+import { entryLoadPercent } from '../tools/lut/OnlineLutSourceResourceList'
 import { useOnlineLutEntryLoader } from '../tools/lut/useOnlineLutEntryLoader'
 import { MobileLutSourceCard } from './MobileLutSourceCard'
 
@@ -29,9 +33,10 @@ export function MobileLutOnlineSourcesSection({
   onBrowseResource,
 }: MobileLutOnlineSourcesSectionProps) {
   const { t } = useI18n()
-  const { loadingEntryId, loadOnlineLutEntry } = useOnlineLutEntryLoader(
-    onlineLutSources?.loadEntry,
-  )
+  const { loadingEntryId, failedEntryId, loadOnlineLutEntry } =
+    useOnlineLutEntryLoader(onlineLutSources)
+  const entryLoadProgress = onlineLutSources?.entryLoadProgress ?? null
+  const cancelEntryLoad = onlineLutSources?.cancelEntryLoad
 
   if (!onlineLutSources) return null
 
@@ -130,9 +135,12 @@ export function MobileLutOnlineSourcesSection({
                 entries={entries}
                 entryCount={entries.length}
                 loadingEntryId={loadingEntryId}
+                failedEntryId={failedEntryId}
+                entryLoadProgress={entryLoadProgress}
                 onEntryLoad={(entryId) => {
                   void loadOnlineLutEntry(entryId)
                 }}
+                onCancelEntryLoad={cancelEntryLoad}
                 onBrowseAll={() => onBrowseResource(resource.id)}
               />
             </div>
@@ -147,13 +155,19 @@ function MobileLutInlineEntryStrip({
   entries,
   entryCount,
   loadingEntryId,
+  failedEntryId,
+  entryLoadProgress,
   onEntryLoad,
+  onCancelEntryLoad,
   onBrowseAll,
 }: {
   entries: OnlineEntry[]
   entryCount: number
   loadingEntryId: string | null
+  failedEntryId: string | null
+  entryLoadProgress: OnlineLutEntryLoadProgress | null
   onEntryLoad: (entryId: string) => void
+  onCancelEntryLoad?: () => void
   onBrowseAll: () => void
 }) {
   const { t } = useI18n()
@@ -167,14 +181,29 @@ function MobileLutInlineEntryStrip({
       {visibleEntries.map((entry) => {
         const isLoading = loadingEntryId === entry.id
         const isLocked = loadingEntryId !== null && !isLoading
+        const isFailed = failedEntryId === entry.id
         return (
           <MobileLutInlineEntryPill
             key={entry.id}
             title={entry.title}
             isLoading={isLoading}
             isLocked={isLocked}
-            ariaLabel={t('raw.mobile.lut.loadEntry', { label: entry.title })}
-            onClick={() => onEntryLoad(entry.id)}
+            isFailed={isFailed}
+            percent={
+              isLoading && entryLoadProgress?.entryId === entry.id
+                ? entryLoadPercent(entryLoadProgress)
+                : null
+            }
+            ariaLabel={
+              isLoading
+                ? t('raw.lutSource.cancelDownload', { label: entry.title })
+                : isFailed
+                  ? t('raw.lutSource.loadFailedRetry', { label: entry.title })
+                  : t('raw.mobile.lut.loadEntry', { label: entry.title })
+            }
+            onClick={() =>
+              isLoading ? onCancelEntryLoad?.() : onEntryLoad(entry.id)
+            }
           />
         )
       })}
@@ -197,16 +226,20 @@ function MobileLutInlineEntryPill({
   title,
   isLoading,
   isLocked,
+  isFailed,
+  percent,
   ariaLabel,
   onClick,
 }: {
   title: string
   isLoading: boolean
   isLocked: boolean
+  isFailed: boolean
+  percent: number | null
   ariaLabel: string
   onClick: () => void
 }) {
-  const disabled = isLoading || isLocked
+  const disabled = isLocked
 
   return (
     <button
@@ -217,22 +250,29 @@ function MobileLutInlineEntryPill({
       onClick={onClick}
       data-raw-mobile-lut="source-inline-entry"
       data-raw-mobile-lut-entry-loading={isLoading ? 'true' : undefined}
+      data-raw-mobile-lut-entry-failed={isFailed ? 'true' : undefined}
       className={[
         'inline-flex min-h-[44px] max-w-[14rem] shrink-0 snap-start items-center gap-1.5 rounded-lf-pill border border-lf-on-photo-bord-soft bg-lf-on-photo-bg px-3.5 text-lf-control font-medium text-lf-on-photo-ink/85 transition-colors hover:border-lf-on-photo-bord hover:bg-lf-on-photo-bg-strong hover:text-lf-on-photo-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
-        isLoading
-          ? 'disabled:cursor-wait disabled:opacity-90'
-          : isLocked
-            ? 'disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-lf-on-photo-bord-soft disabled:hover:bg-lf-on-photo-bg disabled:hover:text-lf-on-photo-ink/85'
-            : '',
+        isLocked
+          ? 'disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-lf-on-photo-bord-soft disabled:hover:bg-lf-on-photo-bg disabled:hover:text-lf-on-photo-ink/85'
+          : '',
+        isFailed
+          ? 'border-lf-amber/45 bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.10)]'
+          : '',
       ].join(' ')}
     >
       <span className="truncate">{title}</span>
-      {isLoading && (
-        <Loader2
+      {isLoading ? (
+        <span className="inline-flex shrink-0 items-center gap-1 text-[0.7rem] font-semibold text-lf-on-photo-text-soft tabular-nums">
+          {percent !== null && <span>{percent}%</span>}
+          <X aria-hidden="true" className="size-3.5" />
+        </span>
+      ) : isFailed ? (
+        <TriangleAlert
           aria-hidden="true"
-          className="size-3.5 shrink-0 animate-spin text-lf-green-soft motion-reduce:animate-none"
+          className="size-3.5 shrink-0 text-lf-amber"
         />
-      )}
+      ) : null}
     </button>
   )
 }

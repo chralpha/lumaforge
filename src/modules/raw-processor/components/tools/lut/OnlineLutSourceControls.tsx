@@ -41,9 +41,8 @@ export function OnlineLutSourceControls({
   )
   useScrollEdgeFade(browserListEl, { enabled: openResourceId != null })
   const openButtonRefs = useRef(new Map<string, HTMLButtonElement>())
-  const { loadingEntryId, loadOnlineLutEntry } = useOnlineLutEntryLoader(
-    onlineLutSources.loadEntry,
-  )
+  const { loadingEntryId, failedEntryId, loadOnlineLutEntry } =
+    useOnlineLutEntryLoader(onlineLutSources)
   const {
     resourcesById,
     entriesByResourceId,
@@ -126,6 +125,8 @@ export function OnlineLutSourceControls({
       issues={openIssues}
       layout={browserLayout}
       loadingEntryId={loadingEntryId}
+      failedEntryId={failedEntryId}
+      entryLoadProgress={onlineLutSources.entryLoadProgress}
       listRef={setBrowserListEl}
       restoreFocus={() =>
         openButtonRefs.current.get(dialogResource.id)?.focus()
@@ -138,6 +139,7 @@ export function OnlineLutSourceControls({
           closeBrowser(dialogResource.id, { restoreFocus: true }),
         )
       }}
+      onCancelEntryLoad={onlineLutSources.cancelEntryLoad}
     />
   )
 
@@ -199,6 +201,8 @@ export function OnlineLutSourceControls({
           isLoading={state.isLoading}
           activeResourceId={state.activeResourceId}
           loadingEntryId={loadingEntryId}
+          failedEntryId={failedEntryId}
+          entryLoadProgress={onlineLutSources.entryLoadProgress}
           entriesByResourceId={entriesByResourceId}
           issuesByResourceId={issuesByResourceId}
           openResourceId={openResourceId}
@@ -217,6 +221,7 @@ export function OnlineLutSourceControls({
           onEntryLoad={(entryId) => {
             void loadOnlineLutEntry(entryId)
           }}
+          onCancelEntryLoad={onlineLutSources.cancelEntryLoad}
           setOpenButtonRef={(resourceId, node) => {
             if (node) {
               openButtonRefs.current.set(resourceId, node)
