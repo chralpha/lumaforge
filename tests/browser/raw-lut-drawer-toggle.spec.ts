@@ -48,10 +48,6 @@ function createCatalogFixture() {
 
   return {
     cube,
-    previewPng: Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
-      'base64',
-    ),
     catalog: {
       schemaVersion: 1,
       entries: [
@@ -292,13 +288,6 @@ test('keeps sparse online LUT resource entries compact on desktop', async ({
       body: fixture.cube,
     }),
   )
-  await page.route('https://example.com/previews/audit-rec709.png', (route) =>
-    route.fulfill({
-      contentType: 'image/png',
-      body: fixture.previewPng,
-    }),
-  )
-
   await page.goto(
     `/raw?luts=${encodeURIComponent('https://example.com/catalog.json')}`,
   )
@@ -313,12 +302,9 @@ test('keeps sparse online LUT resource entries compact on desktop', async ({
     name: 'Catalog from example.com LUTs',
   })
   await expect(browser).toBeVisible()
-  await expect(
-    browser.locator('[data-raw-lut-preview="image"]'),
-  ).toHaveAttribute('src', 'https://example.com/previews/audit-rec709.png')
-  await expect(
-    browser.locator('[data-raw-lut-preview="placeholder"]'),
-  ).toHaveCount(0)
+  // Preview chrome was removed with the shelved preheat design; entries from
+  // catalogs that still ship preview assets must render without it.
+  await expect(browser.locator('[data-raw-lut-preview]')).toHaveCount(0)
 
   const metrics = await page.evaluate(() => {
     const entry = document.querySelector<HTMLElement>(

@@ -60,10 +60,8 @@ export function MobileLutCatalogView({
       <MobileLutCatalogEntryButton
         key={entry.id}
         title={entry.title}
-        preview={entry.preview}
         loading={isEntryLoading}
         failed={isEntryFailed}
-        sizeBytes={entry.cube.bytes}
         progress={
           entryLoadProgress?.entryId === entry.id ? entryLoadProgress : null
         }

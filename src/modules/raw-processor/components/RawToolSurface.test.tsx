@@ -131,7 +131,11 @@ function onlineLutSourcesFixture(
     addSourceFromInput: vi.fn(),
     refreshSource: vi.fn(),
     removeSource: vi.fn(),
-    loadEntry: vi.fn(),
+    loadEntry: vi.fn(async (): Promise<'loaded'> => 'loaded'),
+    loadingEntryId: null,
+    failedEntryId: null,
+    entryLoadProgress: null,
+    cancelEntryLoad: vi.fn(),
     share: {
       enabled: true,
       url: '/raw?luts=https%3A%2F%2Fprofiles.example.com%2Freleases%2Fv2026.05.01%2Fcatalog.json',
@@ -843,12 +847,6 @@ describe('rawToolSurface', () => {
         name: 'Load Kodak 2383 Rec.709',
       }),
     ).toBeInTheDocument()
-    expect(
-      inlineEntries?.querySelector('[data-raw-lut-preview="image"]'),
-    ).toHaveAttribute(
-      'src',
-      'https://profiles.example.com/previews/kodak-2383-rec709.webp',
-    )
     expect(screen.queryByText('Velvia 50')).not.toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(container.querySelector('[data-raw-lut="source-entry"]')).toBeNull()
@@ -861,35 +859,6 @@ describe('rawToolSurface', () => {
     await waitFor(() =>
       expect(fixture.loadEntry).toHaveBeenCalledWith('kodak-2383-rec709'),
     )
-  })
-
-  it('shows online LUT preview thumbnails in the desktop source browser before load', async () => {
-    const user = userEvent.setup()
-    const fixture = onlineLutSourcesFixture()
-    render(<RawToolSurface {...baseProps} onlineLutSources={fixture} />)
-
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Open Catalog from profiles.example.com',
-      }),
-    )
-
-    const sourceBrowserList = document.querySelector(
-      '[data-raw-lut="source-browser-list"]',
-    ) as HTMLElement
-    const loadButton = within(sourceBrowserList).getByRole('button', {
-      name: /load kodak 2383 rec.709/i,
-    })
-    const preview = loadButton
-      .closest('[data-raw-lut="source-entry"]')
-      ?.querySelector('[data-raw-lut-preview="image"]')
-
-    expect(preview).toHaveAttribute(
-      'src',
-      'https://profiles.example.com/previews/kodak-2383-rec709.webp',
-    )
-    expect(preview).toHaveAttribute('loading', 'lazy')
-    expect(fixture.loadEntry).not.toHaveBeenCalled()
   })
 
   it('closes the online LUT browser with Escape or outside click and restores focus', async () => {
@@ -935,8 +904,8 @@ describe('rawToolSurface', () => {
     const loadHandle: { resolve: (() => void) | null } = { resolve: null }
     const loadEntry = vi.fn(
       () =>
-        new Promise<void>((resolve) => {
-          loadHandle.resolve = resolve
+        new Promise<'loaded'>((resolve) => {
+          loadHandle.resolve = () => resolve('loaded')
         }),
     )
 
@@ -965,8 +934,9 @@ describe('rawToolSurface', () => {
 
       await user.click(loadButton)
 
+      // While loading the action flips to a cancel affordance.
       await within(sourceBrowserList).findByRole('button', {
-        name: /load kodak 2383 rec.709/i,
+        name: /cancel download of kodak 2383 rec.709/i,
         busy: true,
       })
       expect(loadEntry).not.toHaveBeenCalled()

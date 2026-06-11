@@ -23,7 +23,7 @@ const baseProps = {
 }
 
 function onlineLutSourcesFixture(
-  loadEntry = vi.fn(),
+  loadEntry = vi.fn(async (): Promise<'loaded'> => 'loaded'),
 ): UseOnlineLutSourcesResult {
   return {
     state: {
@@ -70,6 +70,10 @@ function onlineLutSourcesFixture(
     refreshSource: vi.fn(),
     removeSource: vi.fn(),
     loadEntry,
+    loadingEntryId: null,
+    failedEntryId: null,
+    entryLoadProgress: null,
+    cancelEntryLoad: vi.fn(),
     share: {
       enabled: false,
       url: '',
@@ -299,7 +303,7 @@ describe('mobileLutBrowser', () => {
   })
 
   it('opens a source catalog, loads an online LUT entry, and returns to overview', async () => {
-    const loadEntry = vi.fn().mockResolvedValue(undefined)
+    const loadEntry = vi.fn().mockResolvedValue('loaded' as const)
     render(
       <MobileLutBrowser
         {...baseProps}
@@ -336,35 +340,6 @@ describe('mobileLutBrowser', () => {
         'overview',
       )
     })
-  })
-
-  it('shows online LUT preview thumbnails before a mobile entry is loaded', async () => {
-    const loadEntry = vi.fn().mockResolvedValue(undefined)
-    const { container } = render(
-      <MobileLutBrowser
-        {...baseProps}
-        onlineLutSources={onlineLutSourcesFixture(loadEntry)}
-      />,
-    )
-
-    await userEvent.click(
-      screen.getByRole('button', { name: /browse 1 luts/i }),
-    )
-
-    const loadButton = screen.getByRole('button', {
-      name: /load kodak 2383 rec.709/i,
-    })
-    const preview = loadButton.querySelector('[data-raw-lut-preview="image"]')
-
-    expect(preview).toHaveAttribute(
-      'src',
-      'https://profiles.example.com/previews/kodak-2383-rec709.webp',
-    )
-    expect(preview).toHaveAttribute('loading', 'lazy')
-    expect(
-      container.querySelector('[data-raw-lut-preview="placeholder"]'),
-    ).toBeNull()
-    expect(loadEntry).not.toHaveBeenCalled()
   })
 
   it('surfaces first profile LUT entries inline in the overview', async () => {
@@ -409,8 +384,8 @@ describe('mobileLutBrowser', () => {
     const loadHandle: { resolve: (() => void) | null } = { resolve: null }
     const loadEntry = vi.fn(
       () =>
-        new Promise<void>((resolve) => {
-          loadHandle.resolve = resolve
+        new Promise<'loaded'>((resolve) => {
+          loadHandle.resolve = () => resolve('loaded')
         }),
     )
 
@@ -435,7 +410,7 @@ describe('mobileLutBrowser', () => {
 
       expect(
         await screen.findByRole('button', {
-          name: /load kodak 2383 rec.709/i,
+          name: /cancel download of kodak 2383 rec\.709/i,
           busy: true,
         }),
       ).toBeInTheDocument()

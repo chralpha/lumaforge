@@ -1,4 +1,4 @@
-import { Download, TriangleAlert, X } from 'lucide-react'
+import { Aperture, Download, TriangleAlert, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { useI18n } from '~/lib/i18n'
@@ -12,7 +12,6 @@ import type { OnlineLutBrowserLayout } from './lut-browser-layout'
 import { groupEntriesByFamily } from './lut-source-grouping'
 import { LutBrowserDialog } from './LutBrowserDialog'
 import { LutIconButton } from './LutIconButton'
-import { OnlineLutPreviewThumb } from './OnlineLutPreviewThumb'
 import { entryLoadPercent } from './OnlineLutSourceResourceList'
 
 type OnlineLutResource = UseOnlineLutSourcesResult['state']['resources'][number]
@@ -192,25 +191,27 @@ function OnlineLutSourceEntryRow({
 }) {
   const { t } = useI18n()
   const percent = isLoading ? entryLoadPercent(progress) : null
-  const sizeLabel = entry.cube.bytes ? formatBytes(entry.cube.bytes) : null
   const metaLabel =
     isLoading && progress
       ? percent !== null
         ? `${percent}% · ${formatBytes(progress.receivedBytes)}`
         : formatBytes(progress.receivedBytes)
-      : sizeLabel
+      : null
 
   return (
     <div
       className={[
-        'relative grid min-h-11 min-w-0 grid-cols-[48px_minmax(0,1fr)_28px] items-center gap-2 overflow-hidden rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.045)]',
+        'relative grid min-h-10 min-w-0 grid-cols-[18px_minmax(0,1fr)_28px] items-center gap-2 overflow-hidden rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.045)]',
         isFailed ? 'bg-[oklch(from_var(--color-lf-amber)_l_c_h_/_0.08)]' : '',
       ].join(' ')}
       data-raw-lut="source-entry"
       data-raw-lut-entry-loading={isLoading ? 'true' : undefined}
       data-raw-lut-entry-failed={isFailed ? 'true' : undefined}
     >
-      <OnlineLutPreviewThumb preview={entry.preview} size="row" />
+      <Aperture
+        aria-hidden="true"
+        className="size-[18px] text-lf-on-surface/40"
+      />
       <span className="grid min-w-0 gap-0.5">
         <span className="min-w-0 truncate text-[0.74rem] leading-[1.35] text-lf-on-surface/75">
           {entry.title}

@@ -1,19 +1,15 @@
-import { TriangleAlert, X } from 'lucide-react'
+import { Aperture, TriangleAlert, X } from 'lucide-react'
 
 import { useI18n } from '~/lib/i18n'
-import type { OnlineLUTPreviewAsset } from '~/lib/profiles/catalog'
 
 import { formatBytes } from '../../format-bytes'
 import type { OnlineLutEntryLoadProgress } from '../../hooks/useOnlineLutSources'
-import { OnlineLutPreviewThumb } from '../tools/lut/OnlineLutPreviewThumb'
 import { entryLoadPercent } from '../tools/lut/OnlineLutSourceResourceList'
 
 export function MobileLutCatalogEntryButton(props: {
   title: string
-  preview?: OnlineLUTPreviewAsset
   loading: boolean
   failed?: boolean
-  sizeBytes?: number
   progress?: OnlineLutEntryLoadProgress | null
   disabled: boolean
   ariaLabel: string
@@ -29,9 +25,7 @@ export function MobileLutCatalogEntryButton(props: {
       ? percent !== null
         ? `${percent}% · ${formatBytes(props.progress.receivedBytes)}`
         : formatBytes(props.progress.receivedBytes)
-      : props.sizeBytes
-        ? formatBytes(props.sizeBytes)
-        : null
+      : null
   const cancelLabel = t('raw.lutSource.cancelDownload', { label: props.title })
 
   return (
@@ -43,16 +37,12 @@ export function MobileLutCatalogEntryButton(props: {
       onClick={
         props.loading ? (props.onCancel ?? props.onClick) : props.onClick
       }
-      className="relative grid min-h-[52px] min-w-0 grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-md px-2.5 py-2 text-left transition-colors duration-150 hover:bg-lf-on-photo-bg-strong focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
+      className="relative grid min-h-[52px] min-w-0 grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-2.5 overflow-hidden rounded-md px-2.5 py-2 text-left transition-colors duration-150 hover:bg-lf-on-photo-bg-strong focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green disabled:cursor-not-allowed disabled:opacity-50"
       data-raw-mobile-lut="catalog-entry"
       data-raw-mobile-lut-entry-loading={props.loading ? 'true' : undefined}
       data-raw-mobile-lut-entry-failed={props.failed ? 'true' : undefined}
     >
-      <OnlineLutPreviewThumb
-        preview={props.preview}
-        size="mobile"
-        surface="mobile"
-      />
+      <Aperture aria-hidden="true" className="size-5 text-lf-on-photo-ink/45" />
       <span className="grid min-w-0 gap-0.5">
         <span className="min-w-0 truncate text-lf-control font-medium text-lf-on-photo-ink">
           {props.title}

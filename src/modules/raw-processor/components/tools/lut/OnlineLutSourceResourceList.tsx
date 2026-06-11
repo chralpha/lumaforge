@@ -1,4 +1,5 @@
 import {
+  Aperture,
   Download,
   FolderOpen,
   RefreshCw,
@@ -16,7 +17,6 @@ import type {
 } from '../../../hooks/useOnlineLutSources'
 import { LutIconButton } from './LutIconButton'
 import { LutSourceWarning } from './LutSourceWarning'
-import { OnlineLutPreviewThumb } from './OnlineLutPreviewThumb'
 
 type OnlineLutResource = UseOnlineLutSourcesResult['state']['resources'][number]
 type OnlineLutEntry = UseOnlineLutSourcesResult['state']['entries'][number]
@@ -294,14 +294,12 @@ function OnlineLutSourceInlineEntry({
 }) {
   const { t } = useI18n()
   const percent = isLoading ? entryLoadPercent(progress) : null
-  const sizeLabel = entry.cube.bytes ? formatBytes(entry.cube.bytes) : null
-  const metaLabel = isLoading
-    ? progress
+  const metaLabel =
+    isLoading && progress
       ? percent !== null
         ? `${percent}% · ${formatBytes(progress.receivedBytes)}`
         : formatBytes(progress.receivedBytes)
-      : sizeLabel
-    : sizeLabel
+      : null
 
   return (
     <button
@@ -319,7 +317,7 @@ function OnlineLutSourceInlineEntry({
       data-raw-lut-entry-loading={isLoading ? 'true' : undefined}
       data-raw-lut-entry-failed={isFailed ? 'true' : undefined}
       className={[
-        'relative grid min-h-10 min-w-0 grid-cols-[40px_minmax(0,1fr)_18px] items-center gap-1.5 overflow-hidden rounded-md bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.035)] px-1.5 py-1 text-left text-[0.72rem] font-medium text-lf-on-surface/74 transition-colors hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.065)] hover:text-lf-on-surface focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
+        'relative grid min-h-9 min-w-0 grid-cols-[16px_minmax(0,1fr)_16px] items-center gap-1.5 overflow-hidden rounded-md bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.035)] px-1.5 py-1 text-left text-[0.72rem] font-medium text-lf-on-surface/74 transition-colors hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.065)] hover:text-lf-on-surface focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green',
         isLocked
           ? 'disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.035)] disabled:hover:text-lf-on-surface/74'
           : '',
@@ -328,7 +326,7 @@ function OnlineLutSourceInlineEntry({
           : '',
       ].join(' ')}
     >
-      <OnlineLutPreviewThumb preview={entry.preview} size="inline" />
+      <Aperture aria-hidden="true" className="size-4 text-lf-on-surface/40" />
       <span className="grid min-w-0 gap-0.5">
         <span className="min-w-0 truncate">{entry.title}</span>
         {metaLabel && (

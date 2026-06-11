@@ -76,10 +76,11 @@ describe('onlineLutSourceResourceList failure state', () => {
 })
 
 describe('onlineLutSourceResourceList download feedback', () => {
-  it('shows the catalog-declared size on entries at rest', () => {
+  it('keeps entries free of size meta and preview chrome at rest', () => {
     const { container } = renderList()
 
-    expect(container.textContent).toContain('947.6 KB')
+    expect(container.textContent).not.toContain('947.6 KB')
+    expect(container.querySelector('[data-raw-lut-preview]')).toBeNull()
   })
 
   it('shows determinate progress and cancels on click while loading', () => {
@@ -96,6 +97,7 @@ describe('onlineLutSourceResourceList download feedback', () => {
 
     const bar = container.querySelector('[role="progressbar"]')
     expect(bar).toHaveAttribute('aria-valuenow', '50')
+    expect(container.textContent).toContain('50% · 473.8 KB')
 
     const loadingButton = container.querySelector(
       '[data-raw-lut-entry-loading="true"]',
