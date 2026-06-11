@@ -154,8 +154,13 @@ export function useRawLookStage({
   )
 
   const loadOnlineLUT = useCallback(
-    (entry: OnlineLUTEntry, options?: { signal?: AbortSignal }) =>
-      orchestrateOnlineLutLoad(entry, options, lutCtx),
+    (
+      entry: OnlineLUTEntry,
+      options?: {
+        signal?: AbortSignal
+        onProgress?: (receivedBytes: number, totalBytes?: number) => void
+      },
+    ) => orchestrateOnlineLutLoad(entry, options, lutCtx),
     [lutCtx],
   )
 

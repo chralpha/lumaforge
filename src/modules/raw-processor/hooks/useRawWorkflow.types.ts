@@ -23,6 +23,7 @@ import type {
 } from '../model/session'
 import type { ProcessingStatus } from '../model/workflow'
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
+import type { LutLoadOutcome } from '../services/look/orchestrate-lut-load'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
 import type { FullResExportOptions } from './stages/export/useFullResExportAction'
 import type { PreviewPipelineEvacuationHandle } from './stages/preview/usePreviewPipelineEvacuation'
@@ -66,11 +67,14 @@ export interface UseRawWorkflowReturn {
   histogram: PreviewHistogramState
   previewSuspended: boolean
   loadFile: (file: File) => Promise<void>
-  loadLUT: (file: File) => Promise<void>
+  loadLUT: (file: File) => Promise<LutLoadOutcome>
   loadOnlineLUT: (
     entry: OnlineLUTEntry,
-    options?: { signal?: AbortSignal },
-  ) => Promise<void>
+    options?: {
+      signal?: AbortSignal
+      onProgress?: (receivedBytes: number, totalBytes?: number) => void
+    },
+  ) => Promise<LutLoadOutcome>
   selectLUTProfile: (profile: LUTColorProfile | string) => void
   selectIntensityLevel: (level: 'off' | 'light' | 'standard' | 'strong') => void
   setViewMode: (mode: ProcessingParams['viewMode']) => void

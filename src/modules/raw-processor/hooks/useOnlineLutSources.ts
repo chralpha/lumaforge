@@ -26,14 +26,24 @@ import {
   resolveOnlineLUTSourceEntry,
   resolveProfileSourceResource,
 } from '../services/look/online-lut-sources'
+import type { LutLoadOutcome } from '../services/look/orchestrate-lut-load'
 
 export interface UseOnlineLutSourcesOptions {
   search: string
   pathname: string
   loadOnlineLUT: (
     entry: OnlineLUTEntry,
-    options?: { signal?: AbortSignal },
-  ) => Promise<void>
+    options?: {
+      signal?: AbortSignal
+      onProgress?: (receivedBytes: number, totalBytes?: number) => void
+    },
+  ) => Promise<LutLoadOutcome>
+}
+
+export interface OnlineLutEntryLoadProgress {
+  entryId: string
+  receivedBytes: number
+  totalBytes?: number
 }
 
 export interface UseOnlineLutSourcesResult {
@@ -43,7 +53,12 @@ export interface UseOnlineLutSourcesResult {
   addSourceFromInput: () => Promise<void>
   refreshSource: (resourceId: string) => Promise<void>
   removeSource: (resourceId: string) => void
-  loadEntry: (entryId: string) => Promise<void>
+  loadEntry: (entryId: string) => Promise<LutLoadOutcome>
+  /** Authoritative across every surface; at most one entry loads at a time. */
+  loadingEntryId: string | null
+  failedEntryId: string | null
+  entryLoadProgress: OnlineLutEntryLoadProgress | null
+  cancelEntryLoad: () => void
   share: {
     enabled: boolean
     url: string
@@ -142,6 +157,15 @@ export function useOnlineLutSources({
   const nextResourceIdRef = useRef(1)
   const resourceControllersRef = useRef(new Map<string, AbortController>())
   const loadControllersRef = useRef(new Set<AbortController>())
+  const [entryLoadProgress, setEntryLoadProgress] =
+    useState<OnlineLutEntryLoadProgress | null>(null)
+  const [loadingEntryId, setLoadingEntryId] = useState<string | null>(null)
+  const [failedEntryId, setFailedEntryId] = useState<string | null>(null)
+  const activeEntryLoadRef = useRef<{
+    entryId: string
+    controller: AbortController
+  } | null>(null)
+  const lastProgressEmitRef = useRef(0)
   const stateRef = useRef(state)
 
   useEffect(() => {
@@ -307,12 +331,36 @@ export function useOnlineLutSources({
   )
 
   const loadEntry = useCallback(
-    async (entryId: string) => {
+    async (entryId: string): Promise<LutLoadOutcome> => {
+      // One entry load at a time across every surface (desktop inline, dialog,
+      // mobile pills, mobile catalog). A second surface racing in must not
+      // steal the active load's cancel handle or progress slot.
+      if (activeEntryLoadRef.current) return 'aborted'
+
       const entry = stateRef.current.entries.find((item) => item.id === entryId)
-      if (!entry) return
+      if (!entry) return 'failed'
 
       const controller = new AbortController()
       loadControllersRef.current.add(controller)
+      activeEntryLoadRef.current = { entryId, controller }
+      lastProgressEmitRef.current = 0
+      setLoadingEntryId(entryId)
+      setFailedEntryId(null)
+
+      // The catalog-declared cube size is the trustworthy total; a CDN's
+      // content-length reflects the compressed transfer instead.
+      const declaredTotal = entry.cube.bytes
+      const onProgress = (receivedBytes: number, totalBytes?: number) => {
+        if (controller.signal.aborted) return
+
+        const total = declaredTotal ?? totalBytes
+        const now = Date.now()
+        const isFinal = total !== undefined && receivedBytes >= total
+        if (!isFinal && now - lastProgressEmitRef.current < 120) return
+
+        lastProgressEmitRef.current = now
+        setEntryLoadProgress({ entryId, receivedBytes, totalBytes: total })
+      }
 
       try {
         const entryResolution = await resolveOnlineLUTSourceEntry(entry, {
@@ -320,7 +368,7 @@ export function useOnlineLutSources({
           signal: controller.signal,
         })
 
-        if (controller.signal.aborted) return
+        if (controller.signal.aborted) return 'aborted'
 
         if (entryResolution.entry !== entry || entryResolution.issues.length) {
           setState((current) =>
@@ -333,15 +381,32 @@ export function useOnlineLutSources({
           )
         }
 
-        await loadOnlineLUT(entryResolution.entry, {
+        const outcome = await loadOnlineLUT(entryResolution.entry, {
           signal: controller.signal,
+          onProgress,
         })
+        if (outcome === 'failed') setFailedEntryId(entryId)
+        return outcome
+      } catch (error) {
+        if (!controller.signal.aborted) setFailedEntryId(entryId)
+        throw error
       } finally {
         loadControllersRef.current.delete(controller)
+        if (activeEntryLoadRef.current?.controller === controller) {
+          activeEntryLoadRef.current = null
+        }
+        setLoadingEntryId((current) => (current === entryId ? null : current))
+        setEntryLoadProgress((current) =>
+          current?.entryId === entryId ? null : current,
+        )
       }
     },
     [loadOnlineLUT],
   )
+
+  const cancelEntryLoad = useCallback(() => {
+    activeEntryLoadRef.current?.controller.abort()
+  }, [])
 
   const shareResources = useMemo(
     () => getShareableOnlineLUTSourceResources(state),
@@ -383,6 +448,10 @@ export function useOnlineLutSources({
     refreshSource,
     removeSource,
     loadEntry,
+    loadingEntryId,
+    failedEntryId,
+    entryLoadProgress,
+    cancelEntryLoad,
     share,
   }
 }

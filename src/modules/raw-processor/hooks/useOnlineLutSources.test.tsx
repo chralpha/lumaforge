@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { OnlineLUTEntry } from '~/lib/profiles/catalog'
 import { fetchJsonWithLimit } from '~/lib/profiles/fetch'
 
+import type { LutLoadOutcome } from '../services/look/orchestrate-lut-load'
 import { useOnlineLutSources } from './useOnlineLutSources'
 
 vi.mock('~/lib/profiles/fetch', async (importOriginal) => ({
@@ -86,7 +87,10 @@ function catalogDocument() {
 
 function createLoadOnlineLUT() {
   return vi.fn(
-    async (_entry: OnlineLUTEntry, _options?: { signal?: AbortSignal }) => {},
+    async (
+      _entry: OnlineLUTEntry,
+      _options?: { signal?: AbortSignal },
+    ): Promise<LutLoadOutcome> => 'loaded',
   )
 }
 
@@ -388,6 +392,221 @@ describe('useOnlineLutSources', () => {
       resourceId: 'lut-source-1',
     })
     expect(mockedFetchJson).toHaveBeenCalledTimes(1)
+  })
+
+  it('exposes download progress for the in-flight entry and clears it after', async () => {
+    hideDefaultSource()
+    setupFetchJson({
+      [catalogUrl]: catalogDocument(),
+      [entryUrl]: entryManifest(),
+    })
+
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const loadOnlineLUT = vi.fn(
+      async (
+        _entry: OnlineLUTEntry,
+        options?: {
+          signal?: AbortSignal
+          onProgress?: (received: number, total?: number) => void
+        },
+      ): Promise<LutLoadOutcome> => {
+        options?.onProgress?.(1024, 4096)
+        await gate
+        return 'loaded'
+      },
+    )
+    const { result } = renderHook(() =>
+      useOnlineLutSources({
+        search: `?luts=${encodeURIComponent(catalogUrl)}`,
+        pathname: '/raw',
+        loadOnlineLUT,
+      }),
+    )
+
+    await waitFor(() => expect(result.current.state.entries).toHaveLength(1))
+    expect(result.current.entryLoadProgress).toBeNull()
+
+    let loading!: Promise<unknown>
+    act(() => {
+      loading = result.current.loadEntry('kodak-2383-rec709')
+    })
+
+    await waitFor(() =>
+      expect(result.current.entryLoadProgress).toMatchObject({
+        entryId: 'kodak-2383-rec709',
+        receivedBytes: 1024,
+      }),
+    )
+
+    await act(async () => {
+      release()
+      await loading
+    })
+
+    expect(result.current.entryLoadProgress).toBeNull()
+  })
+
+  it('exposes the shared loading and failed entry state across consumers', async () => {
+    hideDefaultSource()
+    setupFetchJson({
+      [catalogUrl]: catalogDocument(),
+      [entryUrl]: entryManifest(),
+    })
+
+    let release!: (outcome: 'failed') => void
+    const gate = new Promise<'failed'>((resolve) => {
+      release = resolve
+    })
+    const loadOnlineLUT = vi.fn((): Promise<LutLoadOutcome> => gate)
+    const { result } = renderHook(() =>
+      useOnlineLutSources({
+        search: `?luts=${encodeURIComponent(catalogUrl)}`,
+        pathname: '/raw',
+        loadOnlineLUT,
+      }),
+    )
+
+    await waitFor(() => expect(result.current.state.entries).toHaveLength(1))
+    expect(result.current.loadingEntryId).toBeNull()
+    expect(result.current.failedEntryId).toBeNull()
+
+    let loading!: Promise<unknown>
+    act(() => {
+      loading = result.current.loadEntry('kodak-2383-rec709')
+    })
+
+    await waitFor(() =>
+      expect(result.current.loadingEntryId).toBe('kodak-2383-rec709'),
+    )
+
+    await act(async () => {
+      release('failed')
+      await loading
+    })
+
+    expect(result.current.loadingEntryId).toBeNull()
+    expect(result.current.failedEntryId).toBe('kodak-2383-rec709')
+  })
+
+  it('ignores a second loadEntry while one is in flight', async () => {
+    hideDefaultSource()
+    setupFetchJson({
+      [catalogUrl]: catalogDocument(),
+      [entryUrl]: entryManifest(),
+    })
+
+    let release!: (outcome: 'loaded') => void
+    const gate = new Promise<'loaded'>((resolve) => {
+      release = resolve
+    })
+    const loadOnlineLUT = vi.fn((): Promise<LutLoadOutcome> => gate)
+    const { result } = renderHook(() =>
+      useOnlineLutSources({
+        search: `?luts=${encodeURIComponent(catalogUrl)}`,
+        pathname: '/raw',
+        loadOnlineLUT,
+      }),
+    )
+
+    await waitFor(() => expect(result.current.state.entries).toHaveLength(1))
+
+    let first!: Promise<unknown>
+    act(() => {
+      first = result.current.loadEntry('kodak-2383-rec709')
+    })
+    await waitFor(() => expect(loadOnlineLUT).toHaveBeenCalledTimes(1))
+
+    // A second surface racing in while the first load is active is ignored.
+    let second!: Promise<unknown>
+    act(() => {
+      second = result.current.loadEntry('kodak-2383-rec709')
+    })
+    await expect(second).resolves.toBe('aborted')
+    expect(loadOnlineLUT).toHaveBeenCalledTimes(1)
+
+    // The original load keeps its cancel handle: cancelling aborts IT.
+    await act(async () => {
+      release('loaded')
+      await first
+    })
+    expect(result.current.loadingEntryId).toBeNull()
+  })
+
+  it('does not mark the entry failed when cancelled during manifest resolution', async () => {
+    hideDefaultSource()
+    const { requests } = setupDeferredFetchJson()
+    const loadOnlineLUT = createLoadOnlineLUT()
+    const { result } = renderHook(() =>
+      useOnlineLutSources({
+        search: `?luts=${encodeURIComponent(catalogUrl)}`,
+        pathname: '/raw',
+        loadOnlineLUT,
+      }),
+    )
+
+    await waitFor(() => expect(requests).toHaveLength(1))
+    await act(async () => {
+      requests[0].resolve(catalogDocument())
+    })
+    await waitFor(() => expect(result.current.state.entries).toHaveLength(1))
+
+    let loading!: Promise<unknown>
+    act(() => {
+      loading = result.current.loadEntry('kodak-2383-rec709')
+    })
+    await waitFor(() => expect(requests).toHaveLength(2))
+
+    await act(async () => {
+      result.current.cancelEntryLoad()
+      requests[1].reject(new DOMException('Aborted', 'AbortError'))
+      await expect(loading).resolves.toBe('aborted')
+    })
+
+    expect(result.current.failedEntryId).toBeNull()
+    expect(result.current.loadingEntryId).toBeNull()
+  })
+
+  it('cancelEntryLoad aborts the in-flight entry load', async () => {
+    hideDefaultSource()
+    setupFetchJson({
+      [catalogUrl]: catalogDocument(),
+      [entryUrl]: entryManifest(),
+    })
+
+    const loadOnlineLUT = vi.fn(
+      (
+        _entry: OnlineLUTEntry,
+        options?: { signal?: AbortSignal },
+      ): Promise<LutLoadOutcome> =>
+        new Promise((resolve) => {
+          options?.signal?.addEventListener('abort', () => resolve('aborted'))
+        }),
+    )
+    const { result } = renderHook(() =>
+      useOnlineLutSources({
+        search: `?luts=${encodeURIComponent(catalogUrl)}`,
+        pathname: '/raw',
+        loadOnlineLUT,
+      }),
+    )
+
+    await waitFor(() => expect(result.current.state.entries).toHaveLength(1))
+
+    let loading!: Promise<unknown>
+    act(() => {
+      loading = result.current.loadEntry('kodak-2383-rec709')
+    })
+    await waitFor(() => expect(loadOnlineLUT).toHaveBeenCalledTimes(1))
+
+    await act(async () => {
+      result.current.cancelEntryLoad()
+      await expect(loading).resolves.toBe('aborted')
+    })
+
+    expect(result.current.entryLoadProgress).toBeNull()
   })
 
   it('fetches the entry manifest only when loading a selected catalog LUT', async () => {
