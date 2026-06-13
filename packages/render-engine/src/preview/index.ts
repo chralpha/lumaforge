@@ -30,3 +30,24 @@ export type {
   CpuPreviewResponse,
   CpuPreviewVariant,
 } from './worker-bridge/protocol'
+
+// P4b net-new
+export {
+  type CandidateParams,
+  candidateRender,
+  type CandidateRenderOptions,
+  type CandidateRenderSource,
+  type CandidateResult,
+} from './candidate-render'
+export {
+  composeContactSheet,
+  type ComposeContactSheetInput,
+  type ContactSheet,
+  type ContactSheetTile,
+} from './contact-sheet'
+export {
+  encodePreviewFrameToJpeg,
+  type EncodePreviewFrameToJpegInput,
+  type PreviewJpegEncoder,
+  type PreviewJpegEncoderFactory,
+} from './preview-jpeg-encode'
