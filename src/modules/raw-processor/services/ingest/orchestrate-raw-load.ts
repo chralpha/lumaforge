@@ -1,4 +1,6 @@
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
+import { deriveInteractivePolicy } from '@lumaforge/render-engine/policy'
+import { createProgressivePreviewPlan } from '@lumaforge/render-engine/preview'
 import { toast } from 'sonner'
 
 import type { PipelineStats } from '~/lib/gl/pipeline'
@@ -11,7 +13,6 @@ import {
   detectCapabilityVector,
   getCapabilityVectorSnapshot,
 } from '~/lib/runtime/capability-vector'
-import { deriveInteractivePolicy } from '~/lib/runtime/interactive-policy'
 import {
   derivePreviewGpuBudget,
   detectPreviewGpuCapabilitySnapshot,
@@ -27,7 +28,6 @@ import {
   revokeEmbeddedPreviewObjectUrls,
 } from '../preview/embedded-preview-url'
 import { runPreviewPipeline } from '../preview/preview-pipeline'
-import { createProgressivePreviewPlan } from '../preview/preview-resolution-policy'
 import {
   applyBoundedHqPreviewFailure,
   applyBoundedHqPreviewSkipped,

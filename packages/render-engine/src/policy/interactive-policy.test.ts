@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { CapabilityVector } from './capability-vector'
+import type { CapabilityVector } from './capability-input'
 import { deriveInteractivePolicy } from './interactive-policy'
 
 const baseCap: CapabilityVector = {

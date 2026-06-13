@@ -1,16 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
+import { deriveInteractivePolicy } from '../policy/interactive-policy'
 import {
   BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
   BOUNDED_HQ_PREVIEW_MAX_PIXELS,
-  QUICK_PREVIEW_MAX_PIXELS,
-} from '~/lib/raw/decoder'
-import { deriveInteractivePolicy } from '~/lib/runtime/interactive-policy'
-
-import {
   createProgressivePreviewPlan,
   decideBoundedHqPreview,
-} from './preview-resolution-policy'
+  QUICK_PREVIEW_MAX_PIXELS} from './preview-plan'
 
 describe('createProgressivePreviewPlan', () => {
   it('makes the quick-to-bounded-HQ preview upgrade target explicit', () => {

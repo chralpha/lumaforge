@@ -2,9 +2,8 @@ import {
   BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,
   BOUNDED_HQ_PREVIEW_MAX_PIXELS,
   QUICK_PREVIEW_MAX_PIXELS,
-} from '~/lib/raw/decoder'
-
-import type { CapabilityVector } from './capability-vector'
+} from '../preview/preview-plan'
+import type { CapabilityVector } from './capability-input'
 
 export type RuntimeResourceClass =
   | 'desktop-performance'

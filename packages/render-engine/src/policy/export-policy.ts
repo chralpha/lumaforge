@@ -1,4 +1,4 @@
-import type { CapabilityVector } from './capability-vector'
+import type { CapabilityVector } from './capability-input'
 import type { ExportRuntimeResources } from './export-runtime-resources'
 import { deriveRuntimeResourceBudget } from './resource-budget'
 

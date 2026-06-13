@@ -1,6 +1,7 @@
 // Preview-resolution thresholds (engine copy; src/lib/raw/decoder.ts retains app-side back-compat copy until P5)
 export const QUICK_PREVIEW_MAX_PIXELS = 2_500_000
 export const BOUNDED_HQ_PREVIEW_MAX_PIXELS = 12_000_000
+export const BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS = 8_000_000
 
 export type QuickPreviewTarget = {
   readonly source: 'quick'

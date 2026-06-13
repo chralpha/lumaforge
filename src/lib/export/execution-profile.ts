@@ -1,11 +1,12 @@
-import type { ExportFidelity } from '~/lib/gl/export'
-import type { CapabilityVector } from '~/lib/runtime/capability-vector'
 import type {
   ExportOrchestrationCopy,
   ExportPolicy,
   PerformancePreference,
-} from '~/lib/runtime/export-policy'
-import { deriveExportPolicy } from '~/lib/runtime/export-policy'
+} from '@lumaforge/render-engine/policy'
+import { deriveExportPolicy } from '@lumaforge/render-engine/policy'
+
+import type { ExportFidelity } from '~/lib/gl/export'
+import type { CapabilityVector } from '~/lib/runtime/capability-vector'
 import type { ExportRuntimeResources } from '~/lib/runtime/export-runtime-resources'
 
 import type {

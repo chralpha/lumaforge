@@ -1,4 +1,4 @@
-import type { CapabilityVector } from './capability-vector'
+import type { CapabilityVector } from './capability-input'
 import type { PreviewGpuBudget } from './preview-gpu-budget'
 import { deriveRuntimeResourceBudget } from './resource-budget'
 

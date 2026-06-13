@@ -1,10 +1,10 @@
+import type { ProgressivePreviewPlan } from '@lumaforge/render-engine/preview'
 import { describe, expect, it, vi } from 'vitest'
 
 import { QUICK_PREVIEW_MAX_PIXELS } from '~/lib/raw/decoder'
 
 import type { PreviewEvent } from '../services/preview/preview-pipeline'
 import { runPreviewPipeline } from '../services/preview/preview-pipeline'
-import type { ProgressivePreviewPlan } from '../services/preview/preview-resolution-policy'
 
 function decodePlan(maxOutputPixels = 12_000_000): ProgressivePreviewPlan {
   return {
