@@ -326,6 +326,7 @@ describe('orchestrateRawLoad ack-before-work contract', () => {
       extractEmbeddedPreview: vi.fn().mockResolvedValue(null),
       decodeQuickRaw: vi.fn().mockResolvedValue(quick),
       decodeBoundedHqRaw,
+      applyCalibration: vi.fn().mockResolvedValue({ applied: true } as const),
       dispose: vi.fn(),
     })
 

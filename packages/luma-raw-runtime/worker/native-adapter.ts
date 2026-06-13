@@ -14,12 +14,18 @@ import type {
   LumaRawWindowRect,
 } from '../src/types'
 import type {
+  LumaRawNativeCalibrationPayload,
   LumaRawNativeDecodeOptions,
   LumaRawNativeFactory,
   LumaRawNativeOpenSettings,
   LumaRawNativeOpenTimings,
   LumaRawNativeProcessor,
 } from './native-types'
+
+type EmbindCalibrationParams = {
+  xyzToCamera: number[]
+  toneCurveLut?: number[]
+}
 
 type EmbindProcessor = {
   loadBuffer?: (data: Uint8Array) => unknown
@@ -32,6 +38,7 @@ type EmbindProcessor = {
   readRawWindow?: (rect: LumaRawWindowRect) => unknown
   readProcessedWindow?: (request: LumaRawProcessedWindowRequest) => unknown
   endProcessedWindowExport?: () => void
+  applyCalibration?: (params: EmbindCalibrationParams) => unknown
   decodePreview: (options?: LumaRawNativeDecodeOptions) => unknown
   decodeHq: (options?: LumaRawNativeDecodeOptions) => unknown
   delete?: () => void
@@ -1064,6 +1071,57 @@ export function createNativeFactory(
       if (processor.endProcessedWindowExport) {
         adapted.endProcessedWindowExport = () => {
           processor.endProcessedWindowExport?.()
+        }
+      }
+      if (processor.applyCalibration) {
+        adapted.applyCalibration = (
+          payload: LumaRawNativeCalibrationPayload,
+        ) => {
+          if (!processor.applyCalibration) {
+            throw new TypeError(
+              'Native RAW calibration application is unavailable.',
+            )
+          }
+
+          if (!(payload.xyzToCamera instanceof Float32Array)) {
+            throw new TypeError(
+              'Native RAW calibration payload xyzToCamera must be a Float32Array.',
+            )
+          }
+          if (payload.xyzToCamera.length !== 9) {
+            throw new TypeError(
+              'Native RAW calibration payload xyzToCamera must have length 9.',
+            )
+          }
+          for (let index = 0; index < 9; index += 1) {
+            if (!Number.isFinite(payload.xyzToCamera[index])) {
+              throw new TypeError(
+                'Native RAW calibration payload xyzToCamera must contain finite values.',
+              )
+            }
+          }
+
+          // Embind val("number[]") accepts plain JS arrays. Convert from
+          // Float32Array once at the boundary instead of marshaling the typed
+          // array element-by-element across the JS<->Wasm bridge.
+          const params: EmbindCalibrationParams = {
+            xyzToCamera: Array.from(payload.xyzToCamera),
+          }
+          if (payload.toneCurveLut) {
+            if (!(payload.toneCurveLut instanceof Float32Array)) {
+              throw new TypeError(
+                'Native RAW calibration payload toneCurveLut must be a Float32Array.',
+              )
+            }
+            if (payload.toneCurveLut.length < 4096) {
+              throw new TypeError(
+                'Native RAW calibration payload toneCurveLut must have at least 4096 entries.',
+              )
+            }
+            params.toneCurveLut = Array.from(payload.toneCurveLut)
+          }
+
+          processor.applyCalibration(params)
         }
       }
 

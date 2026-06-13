@@ -832,6 +832,154 @@ describe('createLumaRawRuntime', () => {
     ])
   })
 
+  it('applies a calibration profile through the session, transferring the matrix and tone curve buffers', async () => {
+    const transfers: Array<{ type: string; transfer: Transferable[] }> = []
+    const echoWorker = new EchoWorker((request) => {
+      if (request.type === 'openSession') {
+        return {
+          sessionId: 'cal-session-1',
+          probe: {
+            jobId: request.id,
+            width: 6240,
+            height: 4168,
+            supportLevel: 'experimental' as const,
+            timings: { total: 1 },
+          },
+          timings: { total: 1 },
+        }
+      }
+      if (request.type === 'applyCalibrationToSession') {
+        return { applied: true } as const
+      }
+      if (request.type === 'closeSession') {
+        return { closed: true } as const
+      }
+      throw new Error(`Unexpected request: ${request.type}`)
+    })
+    const worker = {
+      get onmessage() {
+        return echoWorker.onmessage
+      },
+      set onmessage(value: typeof echoWorker.onmessage) {
+        echoWorker.onmessage = value
+      },
+      get onerror() {
+        return echoWorker.onerror
+      },
+      set onerror(value: typeof echoWorker.onerror) {
+        echoWorker.onerror = value
+      },
+      terminate: echoWorker.terminate,
+      postMessage: vi.fn(
+        (request: LumaRawWorkerRequest, transfer?: Transferable[]) => {
+          transfers.push({ type: request.type, transfer: transfer ?? [] })
+          echoWorker.postMessage(request)
+        },
+      ),
+    }
+    const runtime = createLumaRawRuntime({
+      requireCrossOriginIsolation: false,
+      workerFactory: () => worker as unknown as Worker,
+    })
+
+    const session = await runtime.openSession(new File(['raw'], 'sample.ARW'))
+
+    const xyzToCamera = new Float32Array([
+      0.7, 0.2, 0.1, 0.3, 0.85, -0.15, -0.05, 0.1, 0.95,
+    ])
+    const toneCurveLut = new Float32Array(4096)
+    for (let index = 0; index < toneCurveLut.length; index += 1) {
+      toneCurveLut[index] = index / (toneCurveLut.length - 1)
+    }
+
+    await expect(
+      session.applyCalibration({
+        profileId: 'adobe-standard',
+        profileName: 'Adobe Standard',
+        xyzToCamera,
+        toneCurveLut,
+      }),
+    ).resolves.toEqual({ applied: true })
+
+    const applyCall = transfers.find(
+      (entry) => entry.type === 'applyCalibrationToSession',
+    )
+    expect(applyCall).toBeDefined()
+    expect(applyCall?.transfer).toEqual([
+      xyzToCamera.buffer,
+      toneCurveLut.buffer,
+    ])
+
+    session.dispose()
+  })
+
+  it('applies a calibration profile without a tone-curve LUT', async () => {
+    const transfers: Array<{ type: string; transfer: Transferable[] }> = []
+    const echoWorker = new EchoWorker((request) => {
+      if (request.type === 'openSession') {
+        return {
+          sessionId: 'cal-session-2',
+          probe: {
+            jobId: request.id,
+            width: 6240,
+            height: 4168,
+            supportLevel: 'experimental' as const,
+            timings: { total: 1 },
+          },
+          timings: { total: 1 },
+        }
+      }
+      if (request.type === 'applyCalibrationToSession') {
+        return { applied: true } as const
+      }
+      if (request.type === 'closeSession') {
+        return { closed: true } as const
+      }
+      throw new Error(`Unexpected request: ${request.type}`)
+    })
+    const worker = {
+      get onmessage() {
+        return echoWorker.onmessage
+      },
+      set onmessage(value: typeof echoWorker.onmessage) {
+        echoWorker.onmessage = value
+      },
+      get onerror() {
+        return echoWorker.onerror
+      },
+      set onerror(value: typeof echoWorker.onerror) {
+        echoWorker.onerror = value
+      },
+      terminate: echoWorker.terminate,
+      postMessage: vi.fn(
+        (request: LumaRawWorkerRequest, transfer?: Transferable[]) => {
+          transfers.push({ type: request.type, transfer: transfer ?? [] })
+          echoWorker.postMessage(request)
+        },
+      ),
+    }
+    const runtime = createLumaRawRuntime({
+      requireCrossOriginIsolation: false,
+      workerFactory: () => worker as unknown as Worker,
+    })
+
+    const session = await runtime.openSession(new File(['raw'], 'sample.ARW'))
+    const xyzToCamera = new Float32Array(9)
+
+    await session.applyCalibration({
+      profileId: 'matrix-only',
+      profileName: 'Matrix Only',
+      xyzToCamera,
+    })
+
+    const applyCall = transfers.find(
+      (entry) => entry.type === 'applyCalibrationToSession',
+    )
+    expect(applyCall?.transfer).toEqual([xyzToCamera.buffer])
+
+    session.dispose()
+  })
+
   it('does not recreate a worker when disposing a session after runtime disposal', async () => {
     const worker = new RecordingWorker()
     const workerFactory = vi.fn(() => worker as unknown as Worker)

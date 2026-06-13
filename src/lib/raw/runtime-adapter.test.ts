@@ -175,6 +175,7 @@ function makeLumaRuntime(
         readProcessedWindow: vi.fn(),
         decodeQuick: vi.fn().mockResolvedValue(makeLumaFrame('quick')),
         decodeBoundedHq: vi.fn().mockResolvedValue(makeLumaFrame('bounded-hq')),
+        applyCalibration: vi.fn().mockResolvedValue({ applied: true } as const),
         dispose: vi.fn(),
       }),
       ...overrides,
@@ -334,6 +335,7 @@ describe('raw runtime adapter', () => {
         readProcessedWindow: vi.fn(),
         decodeQuick,
         decodeBoundedHq,
+        applyCalibration: vi.fn().mockResolvedValue({ applied: true } as const),
         dispose,
       }),
     })
@@ -394,6 +396,7 @@ describe('raw runtime adapter', () => {
         probeExportCapability: vi.fn().mockResolvedValue(makeCapability()),
         readRawWindow: vi.fn(),
         readProcessedWindow: vi.fn(),
+        applyCalibration: vi.fn().mockResolvedValue({ applied: true } as const),
         dispose: vi.fn(),
       }),
     })
@@ -432,6 +435,7 @@ describe('raw runtime adapter', () => {
         probeExportCapability: vi.fn().mockResolvedValue(makeCapability()),
         readRawWindow: vi.fn(),
         readProcessedWindow: vi.fn(),
+        applyCalibration: vi.fn().mockResolvedValue({ applied: true } as const),
         dispose: vi.fn(),
       }),
     })
@@ -469,6 +473,7 @@ describe('raw runtime adapter', () => {
         readProcessedWindow: vi.fn(),
         decodeQuick: vi.fn(),
         decodeBoundedHq: vi.fn(),
+        applyCalibration: vi.fn().mockResolvedValue({ applied: true } as const),
         dispose: vi.fn(),
       }),
     })
@@ -508,6 +513,7 @@ describe('raw runtime adapter', () => {
         readProcessedWindow: vi.fn(),
         decodeQuick: vi.fn(),
         decodeBoundedHq: vi.fn(),
+        applyCalibration: vi.fn().mockResolvedValue({ applied: true } as const),
         dispose: vi.fn(),
       }),
     })
@@ -570,6 +576,9 @@ describe('raw runtime adapter', () => {
           readProcessedWindow: vi.fn(),
           decodeQuick: vi.fn(),
           decodeBoundedHq: vi.fn(),
+          applyCalibration: vi
+            .fn()
+            .mockResolvedValue({ applied: true } as const),
           dispose: vi.fn(),
         }),
       })
@@ -629,6 +638,7 @@ describe('raw runtime adapter', () => {
         readProcessedWindow: vi.fn(),
         decodeQuick,
         decodeBoundedHq,
+        applyCalibration: vi.fn().mockResolvedValue({ applied: true } as const),
         dispose: vi.fn(),
       }),
     })

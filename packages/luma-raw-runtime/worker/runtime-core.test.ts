@@ -2147,6 +2147,127 @@ describe('runtime-core', () => {
     expect(openCount).toBe(0)
   })
 
+  it('forwards applyCalibrationToSession payloads into the native processor', async () => {
+    const calls: Array<{
+      xyzToCamera: Float32Array
+      toneCurveLut?: Float32Array
+    }> = []
+    const core = createRuntimeCore({
+      createProcessor() {
+        return {
+          ...makeNativeFactory().createProcessor(),
+          applyCalibration(payload) {
+            calls.push({
+              xyzToCamera: payload.xyzToCamera,
+              toneCurveLut: payload.toneCurveLut,
+            })
+          },
+        }
+      },
+    })
+
+    const opened = await core.handleRequest({
+      id: 'job-calibration-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+
+    const xyzToCamera = new Float32Array([
+      0.7, 0.2, 0.1, 0.3, 0.85, -0.15, -0.05, 0.1, 0.95,
+    ])
+    const toneCurveLut = new Float32Array(4096)
+
+    const matrixOnly = await core.handleRequest({
+      id: 'job-calibration-matrix-only',
+      type: 'applyCalibrationToSession',
+      payload: {
+        sessionId: opened.payload.sessionId,
+        cameraCalibration: {
+          profileId: 'p-matrix',
+          profileName: 'Matrix Only',
+          xyzToCamera,
+        },
+      },
+    })
+
+    const matrixAndCurve = await core.handleRequest({
+      id: 'job-calibration-with-curve',
+      type: 'applyCalibrationToSession',
+      payload: {
+        sessionId: opened.payload.sessionId,
+        cameraCalibration: {
+          profileId: 'p-curve',
+          profileName: 'With Curve',
+          xyzToCamera,
+          toneCurveLut,
+        },
+      },
+    })
+
+    expect(matrixOnly).toMatchObject({
+      ok: true,
+      type: 'applyCalibrationToSession',
+      payload: { applied: true },
+    })
+    expect(matrixAndCurve).toMatchObject({
+      ok: true,
+      type: 'applyCalibrationToSession',
+      payload: { applied: true },
+    })
+    expect(calls).toHaveLength(2)
+    expect(calls[0]).toMatchObject({
+      xyzToCamera,
+      toneCurveLut: undefined,
+    })
+    expect(calls[1]).toMatchObject({
+      xyzToCamera,
+      toneCurveLut,
+    })
+  })
+
+  it('fails closed when applyCalibrationToSession is unsupported by the processor', async () => {
+    const core = createRuntimeCore(makeNativeFactory())
+
+    const opened = await core.handleRequest({
+      id: 'job-calibration-missing-open',
+      type: 'openSession',
+      payload: {
+        fileBuffer: new ArrayBuffer(4),
+        fileName: 'sample.ARW',
+        fileSize: 4,
+      },
+    })
+    expect(opened.ok && opened.type === 'openSession').toBe(true)
+    if (!opened.ok || opened.type !== 'openSession') return
+
+    const response = await core.handleRequest({
+      id: 'job-calibration-missing',
+      type: 'applyCalibrationToSession',
+      payload: {
+        sessionId: opened.payload.sessionId,
+        cameraCalibration: {
+          profileId: 'p1',
+          profileName: 'Adobe Standard',
+          xyzToCamera: new Float32Array(9),
+        },
+      },
+    })
+
+    expect(response).toMatchObject({
+      ok: false,
+      type: 'applyCalibrationToSession',
+      error: {
+        code: 'RAW_RUNTIME_UNAVAILABLE',
+      },
+    })
+  })
+
   it('bounds best-effort cancellation tracking', async () => {
     const core = createRuntimeCore(makeNativeFactory())
 

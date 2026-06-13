@@ -2,6 +2,7 @@ import { LumaRawRuntimeError } from './errors'
 import type {
   LumaEmbeddedPreview,
   LumaRawBoundedHqOptions,
+  LumaRawCameraCalibrationProfile,
   LumaRawDecodeSession,
   LumaRawExportCapability,
   LumaRawFrame,
@@ -310,6 +311,24 @@ export function createLumaRawRuntime(
           'readProcessedWindowFromSession',
           { sessionId: sessionInfo.sessionId, request },
           [],
+          stageSignal,
+        )
+      },
+      applyCalibration(
+        profile: LumaRawCameraCalibrationProfile,
+        stageSignal?: AbortSignal,
+      ) {
+        const transferables: Transferable[] = [profile.xyzToCamera.buffer]
+        if (profile.toneCurveLut) {
+          transferables.push(profile.toneCurveLut.buffer)
+        }
+        return client.request(
+          'applyCalibrationToSession',
+          {
+            sessionId: sessionInfo.sessionId,
+            cameraCalibration: profile,
+          },
+          transferables,
           stageSignal,
         )
       },

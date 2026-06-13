@@ -11,6 +11,7 @@ function createRuntimeSession(): RawRuntimeSession {
     extractEmbeddedPreview: vi.fn(),
     decodeQuickRaw: vi.fn(),
     decodeBoundedHqRaw: vi.fn(),
+    applyCalibration: vi.fn().mockResolvedValue({ applied: true } as const),
     dispose: vi.fn(),
   }
 }

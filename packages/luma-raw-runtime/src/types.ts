@@ -272,6 +272,19 @@ export type LumaRawSessionInfo = {
   heap?: LumaRawHeapStats
 }
 
+// Camera calibration payload carried across the worker boundary by
+// `applyCalibrationToSession`. The matrix follows DNG `ColorMatrix1/2`
+// convention (XYZ -> CameraRGB), row-major length 9, matching LibRaw's
+// `imgdata.color.cam_xyz` direction. `toneCurveLut`, when present, is the
+// DNG tone curve pre-baked to a 1D LUT in linear working space (>=4096
+// entries) — Phase 1 forwards it but does NOT apply the LUT yet.
+export type LumaRawCameraCalibrationProfile = {
+  profileId: string
+  profileName: string
+  xyzToCamera: Float32Array
+  toneCurveLut?: Float32Array
+}
+
 export type LumaRawFrame = {
   jobId: string
   sessionId?: string
@@ -331,6 +344,10 @@ export type LumaRawDecodeSession = LumaRawSessionInfo & {
     request: LumaRawProcessedWindowRequest,
     signal?: AbortSignal,
   ) => Promise<LumaRawProcessedWindow>
+  applyCalibration: (
+    profile: LumaRawCameraCalibrationProfile,
+    signal?: AbortSignal,
+  ) => Promise<{ applied: true }>
   dispose: () => void
 }
 

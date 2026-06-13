@@ -816,15 +816,14 @@ int maxOutputPixelsFromOptions(val options) {
   return static_cast<int>(max_output_pixels);
 }
 
-// SPIKE-ONLY: subclass exposing the protected LibRaw::cam_xyz_coeff helper so
-// the DCP matrix-injection spike (applyDcpParamsSpike) can rebuild rgb_cam /
-// pre_mul from a caller-provided XYZ-to-Camera matrix. Do not call from
-// production code paths.
-class LumaSpikeLibRaw : public LibRaw {
+// Production subclass exposing the protected LibRaw::cam_xyz_coeff helper so
+// applyCalibration() can rebuild rgb_cam / pre_mul from a caller-provided
+// XYZ-to-Camera matrix. This is "strategy A" from the DCP native spike audit
+// (docs/audits/2026-06-13-dcp-native-spike.md); we deliberately inherit the
+// LibRaw normalize+pseudoinverse path rather than reimplementing it.
+class LumaCalibrationLibRaw : public LibRaw {
  public:
-  void spike_cam_xyz_coeff(float _rgb_cam[3][4], double cam_xyz[4][3]) {
-    cam_xyz_coeff(_rgb_cam, cam_xyz);
-  }
+  using LibRaw::cam_xyz_coeff;
 };
 
 class LumaRawProcessor {
@@ -962,25 +961,62 @@ class LumaRawProcessor {
     return decodeImage(maxOutputPixelsFromOptions(options));
   }
 
-  // SPIKE-ONLY: inject a caller-provided XYZ-to-Camera matrix (row-major
-  // length-9 Float64Array or array) into imgdata.color.cam_xyz, rebuild
-  // rgb_cam via LibRaw::cam_xyz_coeff, then run dcraw_process and return the
-  // 16-bit RGB result. Requires that openBuffer was called previously. The
-  // processor is recycled-and-reopened on every invocation so successive calls
-  // start from clean metadata-derived state and the result is deterministic.
+  // Inject a caller-provided XYZ-to-Camera 3x3 matrix into LibRaw color state
+  // so the next dcraw_process() consumes the calibration. The matrix follows
+  // DNG ColorMatrix1/2 convention (the same direction LibRaw's
+  // imgdata.color.cam_xyz holds), row-major length 9.
   //
-  // This entry point is non-production. The follow-up worker-protocol PR is
-  // expected to replace it with an applyCalibrationToSession plumbing path
-  // that wires DCP/LCP profiles through the worker bridge.
-  val applyDcpParamsSpike(val settings, val matrix) {
+  // The caller is responsible for solving the dual-illuminant interpolation
+  // (DNG-spec inverse-CCT alpha) before invoking this entry — the wrapper
+  // never sees raw illuminants. See
+  // packages/luma-color-runtime/src/dcp-interpolate.ts (phase 2 producer).
+  //
+  // Sequencing requirements verified by the native spike (audit at
+  // docs/audits/2026-06-13-dcp-native-spike.md):
+  //   1. Mirror cam_xyz into BOTH imgdata.color AND imgdata.rawdata.color.
+  //      raw2image_start (src/preprocessing/raw2image.cpp:21) memmoves
+  //      &imgdata.rawdata.color over &imgdata.color at the top of every
+  //      dcraw_process; mutations to imgdata.color alone are silently
+  //      reverted to the cmatrix-derived baseline.
+  //   2. Rebuild rgb_cam / pre_mul via LibRaw::cam_xyz_coeff (exposed via
+  //      LumaCalibrationLibRaw). Strategy B (manual math) and C (write
+  //      rgb_cam directly) are documented fallbacks in the audit but unused.
+  //   3. Mirror the rebuilt rgb_cam and pre_mul into imgdata.rawdata.color
+  //      for the same raw2image_start reason.
+  //   4. Leave params.use_camera_matrix = 1 (the strict-export default).
+  //      Setting it to 0 routes LibRaw through the raw_color=1 branch in
+  //      convert_to_rgb_loop and skips out_cam entirely, defeating the
+  //      injection.
+  //
+  // Requires the session to have been opened and unpacked. The wrapper does
+  // not call unpack/dcraw_process here; the next decode/processed-window read
+  // will pick up the new color state.
+  //
+  // PHASE 1 LIMITATION: when toneCurveLut is provided, the wrapper stashes
+  // it on the session as a std::vector<float> for a future post-process pass
+  // (per DNG spec, ToneCurve runs after the matrix in linear working space,
+  // before output gamma). The actual per-pixel LUT pass is NOT implemented
+  // in this PR — it lands in a follow-up to keep this PR shippable. See the
+  // spec at docs/specs/2026-06-13-dcp-via-libraw-lcms2-design.md "Pipeline
+  // Math: What Changes in the Wrapper" for the intended ordering.
+  void applyCalibration(val params) {
     if (input_buffer_.empty()) {
-      throw std::runtime_error("LibRaw input buffer is empty.");
+      throw std::runtime_error(
+          "LibRaw input buffer is empty; applyCalibration requires the "
+          "session to be open.");
     }
 
+    if (params.isNull() || params.isUndefined() ||
+        !params.hasOwnProperty("xyzToCamera")) {
+      throw std::runtime_error(
+          "applyCalibration params must include an xyzToCamera matrix.");
+    }
+
+    const val matrix = params["xyzToCamera"];
     if (matrix.isNull() || matrix.isUndefined() ||
         matrix["length"].as<int>() != 9) {
       throw std::runtime_error(
-          "applyDcpParamsSpike matrix must be a length-9 numeric array.");
+          "applyCalibration xyzToCamera must be a length-9 numeric array.");
     }
 
     double xyz_to_camera[9];
@@ -988,50 +1024,20 @@ class LumaRawProcessor {
       const double value = matrix[i].as<double>();
       if (!std::isfinite(value)) {
         throw std::runtime_error(
-            "applyDcpParamsSpike matrix contains a non-finite value.");
+            "applyCalibration xyzToCamera contains a non-finite value.");
       }
       xyz_to_camera[i] = value;
     }
 
-    processor_.recycle();
-    unpacked_ = false;
-    processed_ = false;
-
-    applySettings(settings);
-    requireLibRawSuccess(
-        "LibRaw spike open_buffer",
-        processor_.open_buffer(input_buffer_.data(), input_buffer_.size()));
-    requireLibRawSuccess("LibRaw spike unpack", processor_.unpack());
-    unpacked_ = true;
+    ensureUnpacked();
 
     libraw_colordata_t &color = processor_.imgdata.color;
     libraw_colordata_t &raw_color = processor_.imgdata.rawdata.color;
 
-    // Capture pre-injection state for diagnostics.
-    float rgb_cam_before[3][3];
-    float pre_mul_before[4];
-    for (int r = 0; r < 3; ++r) {
-      for (int c = 0; c < 3; ++c) {
-        rgb_cam_before[r][c] = color.rgb_cam[r][c];
-      }
-    }
-    for (int i = 0; i < 4; ++i) {
-      pre_mul_before[i] = color.pre_mul[i];
-    }
-
-    // CRITICAL: dcraw_process() -> raw2image_ex() -> raw2image_start() runs
-    //   memmove(&imgdata.color, &imgdata.rawdata.color, sizeof imgdata.color);
-    // which clobbers any mutation we make to imgdata.color before
-    // dcraw_process. Writes must therefore land in both imgdata.color (so the
-    // rebuilt rgb_cam is available to convert_to_rgb if the postprocess path
-    // ever uses it directly) AND in imgdata.rawdata.color (so the restored
-    // values used by raw2image_start are the ones we want). See
-    // src/preprocessing/raw2image.cpp:21.
-
-    // Write the new XYZ-to-Camera 3x3 into imgdata.color.cam_xyz (shape [4][3],
-    // float). Rows 0..2 carry the matrix; the 4th camera-color row stays zero
-    // unless the camera reports a 4-color sensor (rare; cam_xyz_coeff only
-    // consults rows < colors).
+    // (1) Write the new XYZ-to-Camera 3x3 into imgdata.color.cam_xyz (shape
+    // [4][3], float). Rows 0..2 carry the matrix; the 4th camera-color row
+    // stays zero for 3-color cameras. Mirror to rawdata.color.cam_xyz to
+    // survive raw2image_start's memmove on the next dcraw_process.
     for (int row = 0; row < 3; ++row) {
       for (int col = 0; col < 3; ++col) {
         const float value = static_cast<float>(xyz_to_camera[row * 3 + col]);
@@ -1046,25 +1052,23 @@ class LumaRawProcessor {
       }
     }
 
-    // LibRaw::cam_xyz_coeff expects a double[4][3] (it matches identify() /
-    // colordata.cpp call sites). Copy the user matrix directly into a double
-    // buffer (avoid float storage round-trip via imgdata.color.cam_xyz).
+    // (2) Rebuild rgb_cam / pre_mul via LibRaw::cam_xyz_coeff. The helper
+    // expects double[4][3]; copy from the caller matrix directly to avoid the
+    // float storage round-trip through imgdata.color.cam_xyz.
     double cam_xyz_double[4][3] = {{0}};
     for (int row = 0; row < 3; ++row) {
       for (int col = 0; col < 3; ++col) {
         cam_xyz_double[row][col] = xyz_to_camera[row * 3 + col];
       }
     }
+    processor_.cam_xyz_coeff(color.rgb_cam, cam_xyz_double);
 
-    // Rebuild rgb_cam / pre_mul from the new cam_xyz using LibRaw's own
-    // helper, matching how identify() / adobe_coeff seed these fields. This
-    // exercises strategy A from the spike plan.
-    processor_.spike_cam_xyz_coeff(color.rgb_cam, cam_xyz_double);
-
-    // Mirror the rebuilt rgb_cam and pre_mul into imgdata.rawdata.color so
-    // raw2image_start's memmove does not revert to the cmatrix-derived
-    // baseline. pre_mul will subsequently be overridden by scale_colors when
-    // use_camera_wb=1 and cam_mul is valid, which is expected.
+    // (3) Mirror the rebuilt rgb_cam (full [3][4] including the X-Trans /
+    // 4-color slot, which we want zeroed on 3-color cameras) and pre_mul
+    // into imgdata.rawdata.color. pre_mul will be overridden by
+    // scale_colors() under use_camera_wb=1 when cam_mul is valid; this is
+    // expected per the spike audit's "DCP affects matrix, not WB scalars"
+    // semantics (Phase 1).
     for (int r = 0; r < 3; ++r) {
       for (int c = 0; c < 4; ++c) {
         raw_color.rgb_cam[r][c] = color.rgb_cam[r][c];
@@ -1074,65 +1078,47 @@ class LumaRawProcessor {
       raw_color.pre_mul[i] = color.pre_mul[i];
     }
 
-    // dcraw_process consults rgb_cam via convert_to_rgb when raw_color=0.
-    // Force raw_color=0 by routing through use_camera_matrix=1 (already part
-    // of strict export settings) so the injected rgb_cam is honored. We do
-    // not flip use_camera_matrix=0 because that path falls back to the legacy
-    // raw_color=1 branch and bypasses our injection.
-    requireLibRawSuccess("LibRaw spike dcraw_process",
-                         processor_.dcraw_process());
-    processed_ = true;
+    // (4) Force use_camera_matrix=1 so convert_to_rgb honors the injected
+    // rgb_cam. The strict-export quickSettings/hqSettings already set this,
+    // but the openSession path may have been re-applied with different
+    // settings; re-asserting it here makes applyCalibration safe to call
+    // outside the export window.
+    processor_.imgdata.params.use_camera_matrix = 1;
 
-    int width = 0;
-    int height = 0;
-    int colors = 0;
-    int bits_per_sample = 0;
-    processor_.get_mem_image_format(&width, &height, &colors,
-                                    &bits_per_sample);
-    if (colors != 3 || bits_per_sample != 16 || width <= 0 || height <= 0) {
-      throw std::runtime_error(
-          "LibRaw spike output is not the expected RGB16 bitmap image.");
-    }
+    // (5) Mark the next decode as "not yet processed" so processed_ doesn't
+    // short-circuit the dcraw_process call that consumes the new color
+    // state. unpacked_ stays true — the rawdata mosaic is unchanged.
+    processed_ = false;
 
-    const size_t sample_count = checkedMultiply(
-        checkedMultiply(static_cast<size_t>(width),
-                        static_cast<size_t>(height),
-                        "spike RGB16 pixel count"),
-        static_cast<size_t>(3), "spike RGB16 sample count");
-    std::vector<uint16_t> output(sample_count);
-    const int stride = width * 3 * static_cast<int>(sizeof(uint16_t));
-    requireLibRawSuccess("LibRaw spike copy_mem_image",
-                         processor_.copy_mem_image(output.data(), stride, 0));
-    processor_.free_image();
-
-    val rgb_cam_before_array = val::array();
-    for (int r = 0; r < 3; ++r) {
-      for (int c = 0; c < 3; ++c) {
-        rgb_cam_before_array.set(r * 3 + c, rgb_cam_before[r][c]);
+    // (6) PHASE 1: stash toneCurveLut on the session for a future
+    // post-process pass. The pass itself is intentionally deferred so this
+    // PR can ship the matrix path without holding it for a per-channel LUT
+    // implementation. See the comment block at the top of this method.
+    //
+    // Each applyCalibration() resets the stash so the previous profile's
+    // curve cannot leak into a profile that ships matrix-only.
+    tone_curve_lut_.clear();
+    if (params.hasOwnProperty("toneCurveLut")) {
+      const val lut = params["toneCurveLut"];
+      if (!lut.isNull() && !lut.isUndefined()) {
+        const int length = lut["length"].as<int>();
+        if (length < 4096) {
+          throw std::runtime_error(
+              "applyCalibration toneCurveLut must have at least 4096 "
+              "entries.");
+        }
+        tone_curve_lut_.resize(static_cast<size_t>(length));
+        for (int i = 0; i < length; ++i) {
+          const double value = lut[i].as<double>();
+          if (!std::isfinite(value)) {
+            throw std::runtime_error(
+                "applyCalibration toneCurveLut contains a non-finite "
+                "value.");
+          }
+          tone_curve_lut_[static_cast<size_t>(i)] = static_cast<float>(value);
+        }
       }
     }
-    val rgb_cam_after_array = val::array();
-    for (int r = 0; r < 3; ++r) {
-      for (int c = 0; c < 3; ++c) {
-        rgb_cam_after_array.set(r * 3 + c, color.rgb_cam[r][c]);
-      }
-    }
-    val pre_mul_before_array = val::array();
-    val pre_mul_after_array = val::array();
-    for (int i = 0; i < 4; ++i) {
-      pre_mul_before_array.set(i, pre_mul_before[i]);
-      pre_mul_after_array.set(i, color.pre_mul[i]);
-    }
-
-    val result = val::object();
-    result.set("data", copiedUint16Array(output.data(), output.size()));
-    result.set("width", width);
-    result.set("height", height);
-    result.set("rgbCamBefore", rgb_cam_before_array);
-    result.set("rgbCamAfter", rgb_cam_after_array);
-    result.set("preMulBefore", pre_mul_before_array);
-    result.set("preMulAfter", pre_mul_after_array);
-    return result;
   }
 
   val probeExportCapability() {
@@ -1573,8 +1559,12 @@ class LumaRawProcessor {
     return output;
   }
 
-  LumaSpikeLibRaw processor_;
+  LumaCalibrationLibRaw processor_;
   std::vector<unsigned char> input_buffer_;
+  // Phase 1: stashed for a future post-process tone-curve pass. Not yet
+  // consumed by dcraw_process; see applyCalibration() for the deferred
+  // implementation note.
+  std::vector<float> tone_curve_lut_;
   bool unpacked_ = false;
   bool processed_ = false;
 };
@@ -1595,8 +1585,5 @@ EMSCRIPTEN_BINDINGS(luma_raw_runtime) {
       .function("readProcessedWindow", &LumaRawProcessor::readProcessedWindow)
       .function("decodePreview", &LumaRawProcessor::decodePreview)
       .function("decodeHq", &LumaRawProcessor::decodeHq)
-      // SPIKE-ONLY: see LumaRawProcessor::applyDcpParamsSpike. Removed by the
-      // follow-up worker-protocol PR that adds production applyCalibration.
-      .function("applyDcpParamsSpike",
-                &LumaRawProcessor::applyDcpParamsSpike);
+      .function("applyCalibration", &LumaRawProcessor::applyCalibration);
 }

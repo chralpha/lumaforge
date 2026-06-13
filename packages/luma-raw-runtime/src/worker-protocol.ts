@@ -1,6 +1,7 @@
 import type { LumaRawErrorCode } from './errors'
 import type {
   LumaEmbeddedPreview,
+  LumaRawCameraCalibrationProfile,
   LumaRawExportCapability,
   LumaRawFrame,
   LumaRawProbe,
@@ -24,6 +25,7 @@ export type LumaRawWorkerRequestType =
   | 'readRawWindowFromSession'
   | 'readProcessedWindowFromSession'
   | 'endProcessedWindowExportFromSession'
+  | 'applyCalibrationToSession'
   | 'closeSession'
   | 'probe'
   | 'extractEmbeddedPreview'
@@ -56,6 +58,12 @@ export type LumaRawWorkerProcessedWindowPayload = {
   memoryProfile?: LumaRawRuntimeMemoryProfile
 }
 
+export type LumaRawWorkerApplyCalibrationPayload = {
+  sessionId: string
+  cameraCalibration: LumaRawCameraCalibrationProfile
+  memoryProfile?: LumaRawRuntimeMemoryProfile
+}
+
 export type LumaRawWorkerQuickSessionPayload = {
   sessionId: string
   maxOutputPixels?: number
@@ -82,6 +90,7 @@ export type LumaRawWorkerRequestPayloadByType = {
   readRawWindowFromSession: LumaRawWorkerRawWindowPayload
   readProcessedWindowFromSession: LumaRawWorkerProcessedWindowPayload
   endProcessedWindowExportFromSession: LumaRawWorkerSessionPayload
+  applyCalibrationToSession: LumaRawWorkerApplyCalibrationPayload
   closeSession: LumaRawWorkerSessionPayload
   probe: LumaRawWorkerFilePayload
   extractEmbeddedPreview: LumaRawWorkerFilePayload
@@ -114,6 +123,7 @@ export type LumaRawWorkerPayloadByType = {
   readRawWindowFromSession: LumaRawWindow
   readProcessedWindowFromSession: LumaRawProcessedWindow
   endProcessedWindowExportFromSession: { ended: true }
+  applyCalibrationToSession: { applied: true }
   closeSession: { closed: true }
   probe: LumaRawProbe
   extractEmbeddedPreview: LumaEmbeddedPreview | null

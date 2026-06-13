@@ -87,6 +87,35 @@ describe('lumaRawWorkerRequest typing', () => {
 })
 
 describe('lumaRawWorkerClient', () => {
+  it('types the applyCalibrationToSession protocol request and response', () => {
+    const xyzToCamera = new Float32Array(9)
+    const request: LumaRawWorkerRequest<'applyCalibrationToSession'> = {
+      id: 'raw-job-apply-calibration',
+      type: 'applyCalibrationToSession',
+      payload: {
+        sessionId: 'session-cal',
+        cameraCalibration: {
+          profileId: 'p1',
+          profileName: 'Test Profile',
+          xyzToCamera,
+        },
+      },
+    }
+
+    const response: LumaRawWorkerResponse = {
+      id: request.id,
+      ok: true,
+      type: 'applyCalibrationToSession',
+      payload: { applied: true },
+    }
+
+    expect(request.payload.cameraCalibration.xyzToCamera).toBe(xyzToCamera)
+    expect(response.ok).toBe(true)
+    if (response.ok && response.type === 'applyCalibrationToSession') {
+      expect(response.payload.applied).toBe(true)
+    }
+  })
+
   it('types raw-window worker protocol requests and responses', () => {
     const request: LumaRawWorkerRequest<'readRawWindowFromSession'> = {
       id: 'raw-job-window',

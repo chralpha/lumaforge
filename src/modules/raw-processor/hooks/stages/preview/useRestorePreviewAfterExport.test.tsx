@@ -99,6 +99,7 @@ describe('useRestorePreviewAfterExport', () => {
         return decoded
       }),
       decodeBoundedHqRaw: vi.fn(),
+      applyCalibration: vi.fn().mockResolvedValue({ applied: true } as const),
       dispose: vi.fn(),
     }
     const openSession = vi.fn().mockResolvedValue(runtimeSession)

@@ -922,6 +922,43 @@ export function createRuntimeCore(
     return response
   }
 
+  function handleApplyCalibrationToSession(
+    request: LumaRawWorkerRequest<'applyCalibrationToSession'>,
+  ): LumaRawWorkerResponse {
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    const session = requireSession(request.payload.sessionId)
+    if (!session.processor.applyCalibration) {
+      throw new LumaRawRuntimeError(
+        'RAW_RUNTIME_UNAVAILABLE',
+        'RAW runtime calibration application is unavailable for this source.',
+      )
+    }
+
+    const { cameraCalibration } = request.payload
+    session.processor.applyCalibration({
+      xyzToCamera: cameraCalibration.xyzToCamera,
+      ...(cameraCalibration.toneCurveLut
+        ? { toneCurveLut: cameraCalibration.toneCurveLut }
+        : {}),
+    })
+
+    const response: LumaRawWorkerResponse = {
+      id: request.id,
+      ok: true,
+      type: request.type,
+      payload: { applied: true },
+    }
+
+    if (consumeCancellation(request)) {
+      return cancelledResponse(request)
+    }
+
+    return response
+  }
+
   return {
     async handleRequest(
       request: LumaRawWorkerRequest,
@@ -963,6 +1000,8 @@ export function createRuntimeCore(
             return handleReadProcessedWindowFromSession(request)
           case 'endProcessedWindowExportFromSession':
             return handleEndProcessedWindowExportFromSession(request)
+          case 'applyCalibrationToSession':
+            return handleApplyCalibrationToSession(request)
           case 'decodeQuickFromSession':
           case 'decodeBoundedHqFromSession':
             return handleDecodeFromSession(request)

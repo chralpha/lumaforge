@@ -75,6 +75,15 @@ export type LumaRawNativeProcessedWindowRequest = LumaRawProcessedWindowRequest
 export type LumaRawNativeProcessedWindow = LumaRawProcessedWindow
 export type LumaRawNativeProcessedWindowExportSessionInfo = { active: true }
 
+// Subset of the LumaRawCameraCalibrationProfile carried into the native
+// wrapper. The runtime adapter strips identity fields (profileId,
+// profileName) before invoking the native call because LibRaw does not need
+// to know which profile produced the matrix.
+export type LumaRawNativeCalibrationPayload = {
+  xyzToCamera: Float32Array
+  toneCurveLut?: Float32Array
+}
+
 export type LumaRawNativeProcessor = {
   loadBuffer: (data: Uint8Array) => Pick<LumaRawNativeOpenTimings, 'copyToWasm'>
   openWithSettings: (
@@ -93,6 +102,7 @@ export type LumaRawNativeProcessor = {
     request: LumaRawProcessedWindowRequest,
   ) => LumaRawProcessedWindow
   endProcessedWindowExport?: () => void
+  applyCalibration?: (payload: LumaRawNativeCalibrationPayload) => void
   decodePreview: (options?: LumaRawNativeDecodeOptions) => LumaRawNativeImage
   decodeHq: (options?: LumaRawNativeDecodeOptions) => LumaRawNativeImage
   dispose: () => void

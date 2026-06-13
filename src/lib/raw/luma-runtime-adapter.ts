@@ -1,6 +1,7 @@
 import { resolveRawRenderExposure } from '@lumaforge/luma-color-runtime'
 import type {
   LumaEmbeddedPreview,
+  LumaRawCameraCalibrationProfile,
   LumaRawErrorCode,
   LumaRawExportCapability,
   LumaRawExportUnsupportedReason,
@@ -438,6 +439,16 @@ export async function openRawSessionWithLuma(
         return frameToDecodedImage(frame)
       } catch (error) {
         throw normalizeRawAdapterError(error, 'RAW_BOUNDED_HQ_DECODE_FAILED')
+      }
+    },
+    async applyCalibration(
+      profile: LumaRawCameraCalibrationProfile,
+      signal?: AbortSignal,
+    ) {
+      try {
+        return await session.applyCalibration(profile, signal)
+      } catch (error) {
+        throw normalizeRawAdapterError(error, 'RAW_RUNTIME_UNAVAILABLE')
       }
     },
     dispose() {

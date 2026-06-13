@@ -7,6 +7,7 @@ export { createLumaRawRuntime } from './runtime'
 export type {
   LumaEmbeddedPreview,
   LumaRawBoundedHqOptions,
+  LumaRawCameraCalibrationProfile,
   LumaRawCfaInfo,
   LumaRawCfaPattern,
   LumaRawDecodeSession,
