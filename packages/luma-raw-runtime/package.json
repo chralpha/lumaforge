@@ -13,12 +13,16 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/src/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/src/runtime-node.d.ts",
+      "import": "./dist/node.js"
     }
   },
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/src/index.d.ts",
   "files": [
     "LICENSE",
     "README.md",
@@ -48,5 +52,8 @@
     "test": "vitest run src worker fixtures/scripts --exclude src/native-smoke.test.ts",
     "test:native-smoke": "vitest run src/native-smoke.test.ts --environment jsdom",
     "bench:serve": "vite --host 0.0.0.0 --port 4174 --config vite.config.ts"
+  },
+  "dependencies": {
+    "@lumaforge/luma-native-artifacts": "workspace:*"
   }
 }

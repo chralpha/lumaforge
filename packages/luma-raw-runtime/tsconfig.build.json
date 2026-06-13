@@ -1,9 +1,18 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "rootDir": "src",
+    "rootDir": ".",
     "emitDeclarationOnly": true,
     "noEmit": false
   },
-  "include": ["src/index.ts", "src/errors.ts", "src/types.ts"]
+  "include": [
+    "src/index.ts",
+    "src/errors.ts",
+    "src/types.ts",
+    "src/runtime-node.ts",
+    "src/worker-protocol.ts",
+    "worker/runtime-core.ts",
+    "worker/native-adapter.ts",
+    "worker/native-types.ts"
+  ]
 }

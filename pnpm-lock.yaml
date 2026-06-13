@@ -262,7 +262,11 @@ importers:
 
   packages/luma-native-artifacts: {}
 
-  packages/luma-raw-runtime: {}
+  packages/luma-raw-runtime:
+    dependencies:
+      '@lumaforge/luma-native-artifacts':
+        specifier: workspace:*
+        version: link:../luma-native-artifacts
 
 packages:
 

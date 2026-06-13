@@ -47,9 +47,11 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: false,
     lib: {
-      entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+      entry: {
+        index: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+        node: fileURLToPath(new URL('./src/runtime-node.ts', import.meta.url)),
+      },
       formats: ['es'],
-      fileName: () => 'index.js',
     },
     rollupOptions: {
       output: {
