@@ -32,6 +32,9 @@
       ],
       "@lumaforge/render-engine/policy": [
         "./packages/render-engine/src/policy/index.ts"
+      ],
+      "@lumaforge/render-engine/preview": [
+        "./packages/render-engine/src/preview/index.ts"
       ]
     },
     "resolveJsonModule": true,

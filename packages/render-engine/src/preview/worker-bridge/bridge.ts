@@ -5,7 +5,7 @@ import type {
   CpuPreviewRequest,
   CpuPreviewResponse,
   CpuPreviewVariant,
-} from './cpu-preview-protocol'
+} from './protocol'
 
 export type CpuPreviewWorkerLike = {
   postMessage: (msg: CpuPreviewRequest, transfer?: Transferable[]) => void

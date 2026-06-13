@@ -24,6 +24,10 @@
     "./policy": {
       "types": "./dist/src/policy/index.d.ts",
       "import": "./dist/policy.js"
+    },
+    "./preview": {
+      "types": "./dist/src/preview/index.d.ts",
+      "import": "./dist/preview.js"
     }
   },
   "main": "./dist/index.js",

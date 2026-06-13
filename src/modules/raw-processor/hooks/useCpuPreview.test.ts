@@ -4,13 +4,13 @@ import type {
   RawRenderExposure,
 } from '@lumaforge/luma-color-runtime'
 import { exposureMultiplierFromEv } from '@lumaforge/luma-color-runtime'
-import { act, renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-
 import type {
   CpuPreviewRequest,
   CpuPreviewResponse,
-} from '~/lib/preview/cpu-preview-protocol'
+} from '@lumaforge/render-engine/preview'
+import { act, renderHook } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import type { DecodedImage } from '~/lib/raw/decoder'
 
 import type { CpuPreviewParams } from './useCpuPreview'

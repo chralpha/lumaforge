@@ -1,8 +1,5 @@
-import { renderCpuPreviewFrame } from './cpu-preview-frame'
-import type {
-  CpuPreviewRequest,
-  CpuPreviewResponse,
-} from './cpu-preview-protocol'
+import { renderCpuPreviewFrame } from '../preview-render'
+import type { CpuPreviewRequest, CpuPreviewResponse } from './protocol'
 
 type SourceState = { width: number; height: number; data: Uint16Array }
 const sources = new Map<string, SourceState>()

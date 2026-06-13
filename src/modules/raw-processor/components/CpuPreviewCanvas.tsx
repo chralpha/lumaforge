@@ -8,13 +8,12 @@
  *   - Never use ctx.scale() + putImageData on the visible canvas.
  */
 
+import type { CpuPreviewFailureReason,CpuPreviewFrame  } from '@lumaforge/render-engine/preview'
 import { useEffect, useRef } from 'react'
 
 import { LoadingCircle } from '~/components/ui/loading'
 import { clsxm } from '~/lib/cn'
 import { useI18n } from '~/lib/i18n'
-import type { CpuPreviewFrame } from '~/lib/preview/cpu-preview-client'
-import type { CpuPreviewFailureReason } from '~/lib/preview/cpu-preview-protocol'
 
 export interface CpuPreviewCanvasProps {
   frame: CpuPreviewFrame | null

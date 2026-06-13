@@ -76,6 +76,10 @@ const RENDER_ENGINE_POLICY_SOURCE = resolve(
   ROOT,
   './packages/render-engine/src/policy/index.ts',
 )
+const RENDER_ENGINE_PREVIEW_SOURCE = resolve(
+  ROOT,
+  './packages/render-engine/src/preview/index.ts',
+)
 const LUMAFORGE_OG_IMAGE_OUTPUT = 'og-image.png'
 const LUMAFORGE_OG_IMAGE_FONT_SOURCE = resolve(
   ROOT,
@@ -281,6 +285,7 @@ export default defineConfig(({ command }) => {
         '@lumaforge/render-engine/export': RENDER_ENGINE_EXPORT_SOURCE,
         '@lumaforge/render-engine/manifest': RENDER_ENGINE_MANIFEST_SOURCE,
         '@lumaforge/render-engine/policy': RENDER_ENGINE_POLICY_SOURCE,
+        '@lumaforge/render-engine/preview': RENDER_ENGINE_PREVIEW_SOURCE,
         '@lumaforge/render-engine': RENDER_ENGINE_SOURCE,
       },
       tsconfigPaths: true,

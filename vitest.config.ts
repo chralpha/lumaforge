@@ -53,6 +53,12 @@ export default defineConfig({
           import.meta.url,
         ),
       ),
+      '@lumaforge/render-engine/preview': fileURLToPath(
+        new URL(
+          './packages/render-engine/src/preview/index.ts',
+          import.meta.url,
+        ),
+      ),
       '@lumaforge/render-engine': fileURLToPath(
         new URL('./packages/render-engine/src/index.ts', import.meta.url),
       ),

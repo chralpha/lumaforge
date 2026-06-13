@@ -1,7 +1,5 @@
-import type {SupportedExportColorGraphDescriptor} from '@lumaforge/luma-color-runtime';
-import {
-  createRowBandProcessor
-} from '@lumaforge/luma-color-runtime'
+import type { SupportedExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
+import { createRowBandProcessor } from '@lumaforge/luma-color-runtime'
 
 const PREVIEW_ROW_BAND_ROWS = 32
 

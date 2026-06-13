@@ -1,11 +1,11 @@
-import type {SupportedExportColorGraphDescriptor} from '@lumaforge/luma-color-runtime';
+import type { SupportedExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
 import {
   createRowBandProcessor,
-  resolveExportColorGraph
+  resolveExportColorGraph,
 } from '@lumaforge/luma-color-runtime'
 import { describe, expect, it } from 'vitest'
 
-import { renderCpuPreviewFrame } from './cpu-preview-frame'
+import { renderCpuPreviewFrame } from './preview-render'
 
 function neutralGraph(): SupportedExportColorGraphDescriptor {
   const g = resolveExportColorGraph({

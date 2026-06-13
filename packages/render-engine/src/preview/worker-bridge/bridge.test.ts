@@ -1,11 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { CpuPreviewWorkerLike } from './cpu-preview-client'
-import { CpuPreviewClient } from './cpu-preview-client'
-import type {
-  CpuPreviewRequest,
-  CpuPreviewResponse,
-} from './cpu-preview-protocol'
+import type { CpuPreviewWorkerLike } from './bridge'
+import { CpuPreviewClient } from './bridge'
+import type { CpuPreviewRequest, CpuPreviewResponse } from './protocol'
 
 function fakeWorker() {
   const posted: CpuPreviewRequest[] = []

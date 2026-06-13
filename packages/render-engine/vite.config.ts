@@ -19,6 +19,9 @@ export default defineConfig({
         policy: fileURLToPath(
           new URL('./src/policy/index.ts', import.meta.url),
         ),
+        preview: fileURLToPath(
+          new URL('./src/preview/index.ts', import.meta.url),
+        ),
       },
       formats: ['es'],
     },

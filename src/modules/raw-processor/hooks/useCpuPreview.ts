@@ -5,14 +5,12 @@ import type {
   SupportedExportColorGraphDescriptor,
 } from '@lumaforge/luma-color-runtime'
 import { resolveExportColorGraph } from '@lumaforge/luma-color-runtime'
+import type {   CpuPreviewFailureReason,
+CpuPreviewFrame,
+  CpuPreviewVariant } from '@lumaforge/render-engine/preview'
+import { CpuPreviewClient } from '@lumaforge/render-engine/preview'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import type { CpuPreviewFrame } from '~/lib/preview/cpu-preview-client'
-import { CpuPreviewClient } from '~/lib/preview/cpu-preview-client'
-import type {
-  CpuPreviewFailureReason,
-  CpuPreviewVariant,
-} from '~/lib/preview/cpu-preview-protocol'
 import type { DecodedImage } from '~/lib/raw/decoder'
 
 // ---------------------------------------------------------------------------

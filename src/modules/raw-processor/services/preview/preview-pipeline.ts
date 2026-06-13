@@ -1,4 +1,4 @@
-import type { ProgressivePreviewPlan } from './preview-resolution-policy'
+import type { ProgressivePreviewPlan } from '@lumaforge/render-engine/preview'
 
 export type EmbeddedPreviewPayload = {
   width: number
