@@ -187,9 +187,11 @@ LumaForge (load-time)
                        ↓
             libraw_wrapper.cpp
                   - imgdata.color.cam_xyz[i][j] := xyzToCamera          (matches LibRaw direction)
-                  - params.use_camera_matrix := 0                       // ignore embedded/adobe_coeff
-                  - re-trigger LibRaw's cam_xyz_coeff() so rgb_cam refreshes
-                  - dcraw_process()                                     // unchanged downstream
+                  - imgdata.rawdata.color.cam_xyz[i][j] := xyzToCamera  (MUST mirror — see below)
+                  - re-trigger cam_xyz_coeff() so rgb_cam + pre_mul refresh
+                  - imgdata.rawdata.color.rgb_cam / pre_mul := mirror   (MUST mirror)
+                  - params.use_camera_matrix := 1                       // keep — see below
+                  - dcraw_process()
                   - if toneCurveLut: post-process 1D LUT in linear working space
                                      (before output gamma / colorspace conversion)
 ```
@@ -227,9 +229,15 @@ Key implementation points:
   post-process LUT runs once per `dcraw_process()` output, per channel,
   in linear working space — before any output gamma or color-space conversion.
 - **Profile swap reuses the warm session** via `applyCalibrationToSession`
-  (already implemented). Switching profile does NOT re-decode; only the
-  matrix + LUT change. The full re-render cost is the post-process pass
-  plus the LibRaw color-stage refresh, both bounded.
+  (already implemented). However, the native spike (see audit) verified that
+  **LibRaw 0.22.1 has no "re-postprocess without re-unpack" entry point** —
+  `dcraw_process()` always runs `raw2image_ex` → `convert_to_rgb` against a
+  fresh copy of `rawdata`. Switching a profile therefore re-runs at least
+  `raw2image_ex` + `convert_to_rgb` on the already-unpacked bayer; it does
+  NOT re-run `unpack()`. For the iPhone SE DNG fixture this is ~2s on a
+  CPU-only WASM run. If sub-100ms profile swap is later required, the
+  wrapper must extend LibRaw with a custom entry that runs the post-stages
+  only. Phase 1 accepts the per-swap cost.
 
 ## Pipeline Math: What Changes in the Wrapper
 
@@ -239,19 +247,32 @@ from `color.cam_xyz`) and `color.cam_xyz` (LibRaw's XYZ→Camera matrix in DNG
 ColorMatrix direction, populated by LibRaw from the file's embedded matrix or
 `adobe_coeff` tables) and produces the working-RGB transform.
 
-After this change:
+After this change (sequence verified by the native spike — see
+`docs/audits/2026-06-13-dcp-native-spike.md`):
 
-1. Before `dcraw_process()`, if `cameraCalibration.xyzToCamera` was provided
-   via `applyCalibrationToSession`:
+1. After `unpack()` and before `dcraw_process()`, if
+   `cameraCalibration.xyzToCamera` was provided via `applyCalibrationToSession`:
    - Overwrite `imgdata.color.cam_xyz[i][j]` from the 3×3 input (row-major,
      fourth row left zero — LibRaw stores `[4][3]` but only 3 are populated
      for 3-color cameras).
-   - Set `params.use_camera_matrix = 0` to instruct LibRaw to ignore both the
-     embedded color profile and the `adobe_coeff` table.
-   - Force LibRaw to refresh `rgb_cam` from the new `cam_xyz`. The exact API
-     is verified by the Pre-MVP native spike (below) — `cam_xyz_coeff()` is
-     internal to some LibRaw versions, and the public re-derivation path
-     may differ.
+   - **MIRROR to `imgdata.rawdata.color.cam_xyz`** as well. `raw2image_start`
+     (`vendor/LibRaw-0.22.1/src/preprocessing/raw2image.cpp:21`) does
+     `memmove(&imgdata.color, &imgdata.rawdata.color, sizeof(imgdata.color))`
+     at the start of every `dcraw_process` call — without the mirror the
+     injection is silently reverted to LibRaw's adobe_coeff baseline.
+   - Call LibRaw's `cam_xyz_coeff()` to rebuild `rgb_cam` (`[3][4]`) and
+     `pre_mul` from the new `cam_xyz`. This helper is `protected` in
+     `libraw/libraw.h:364`, so the wrapper exposes it via a thin
+     `LumaCalibrationLibRaw : public LibRaw` subclass with a public
+     trampoline. (Strategy A in the spike audit; strategies B and C are
+     documented fallbacks.)
+   - **MIRROR `rgb_cam` and `pre_mul`** into `imgdata.rawdata.color.*` for
+     the same `raw2image_start` reason.
+   - Keep `params.use_camera_matrix = 1`. Setting it to 0 routes LibRaw
+     through the `raw_color = 1` branch in `convert_to_rgb_loop`, which
+     skips `out_cam` entirely and emits raw camera RGB — defeating the
+     whole injection. With `use_camera_matrix = 1` LibRaw reads the
+     injected `rgb_cam` through the normal `convert_to_rgb` path.
 2. The existing `buildCameraToWorkingRgb` continues to work unchanged — it
    reads `rgb_cam` / `cam_xyz` regardless of where they came from. This is
    the key safety property: there is no new exit point in the wrapper and
@@ -263,35 +284,42 @@ After this change:
    In DNG order, `LookTable` runs after the matrix and before `ToneCurve`;
    phase 1 has no LookTable so the ToneCurve is the only post-matrix step.
 
-`use_camera_wb` and `cam_mul` are not touched. DCP affects the camera→XYZ
-matrix path, not white balance. `whiteNeutral` is consumed by the iterative
-interpolation only; nothing about it is pushed back into LibRaw's WB.
+White balance:
 
-### Pre-MVP native spike (gates Phase 1)
+- `use_camera_wb = 1` and `cam_mul` are left unchanged in Phase 1. DCP
+  affects the camera→XYZ matrix path, not the WB scalars. `whiteNeutral`
+  feeds the iterative interpolation only.
+- Caveat: `cam_xyz_coeff()` writes `pre_mul` as a side effect, but under
+  `use_camera_wb = 1` the subsequent `scale_colors()` overrides `pre_mul`
+  from `cam_mul`. So Phase 1 DCP application changes the matrix but not
+  the neutral. A future "DCP-derived neutral wins" mode must clear `cam_mul`
+  or set `use_camera_wb = 0` — out of scope here, called out in the audit.
 
-Before any UI or catalog wiring lands, a small native test must pass:
+### Pre-MVP native spike — RESOLVED (2026-06-13)
 
-```
-given:
-  known RAW fixture
-  matrix A injected via applyCalibrationToSession
-  matrix B injected via applyCalibrationToSession (different from A)
+The gate is met. Audit: `docs/audits/2026-06-13-dcp-native-spike.md`.
 
-assert:
-  dcraw_process output buffer differs between A and B
-  imgdata.color.cam_xyz reflects the injected matrix at process time
-  imgdata.color.rgb_cam differs between A and B (proves rgb_cam refresh)
-  pre_mul behavior is consistent (either updates with matrix, or
-  is intentionally pinned — pick one and document)
-```
+Summary of findings (drives the wrapper sequence above):
 
-If LibRaw 0.22.1's `cam_xyz_coeff()` does not refresh `rgb_cam` when
-`cam_xyz` is externally mutated post-open, the spike must produce the
-exact native API or sequence that does. If no such API exists in the
-version we ship, phase 1 falls back to also computing `rgb_cam` from the
-inverted matrix and writing it directly — both fields, atomically, before
-`dcraw_process()`. The spike result drives the wrapper implementation; do
-not write production code on speculation.
+- **Strategy A** (subclass + expose `cam_xyz_coeff`) works against
+  LibRaw 0.22.1. Fallback strategies B (re-implement the math) and C
+  (write `rgb_cam` directly) are documented in the audit but unused.
+- **`raw2image_start` clobber** is real and must be defended against by
+  mirroring `cam_xyz` / `rgb_cam` / `pre_mul` into `imgdata.rawdata.color.*`
+  alongside `imgdata.color.*`.
+- **`use_camera_matrix = 1`** (not 0) is required — the 0 branch skips
+  `out_cam` and the injection is never read.
+- Idempotency: applying the same matrix twice produces bit-identical
+  output. Distinct matrices A and B produce L2 = 5,051,169 across
+  36.6M RGB16 samples — strong above the 1000 floor.
+- `pre_mul` does not change post-process under `use_camera_wb = 1`
+  (scale_colors overrides). Phase 1 ships with this behavior; future
+  DCP-derived-neutral mode is out of scope.
+
+The non-production `applyDcpParamsSpike` Embind entry the audit added
+gets removed by the worker-protocol PR; production replaces it with
+the structured `applyCalibrationToSession` carrying `xyzToCamera` +
+optional `toneCurveLut`.
 
 ## UI Surface
 
@@ -390,10 +418,10 @@ each camera-fixture DCP are the contract surface this consumer trusts.
   every dual-illuminant DCP shifts color. Mitigation: DNG spec worked example
   + numpy-reference goldens in Tier 2; the alpha is emitted as telemetry so
   unusual values are auditable in the rollout.
-- **`use_camera_matrix = 0` + LibRaw `rgb_cam` refresh.** Promoted from risk
-  to **explicit Phase 1 gate**. See "Pre-MVP native spike" above; if the
-  spike cannot make `rgb_cam` refresh from a post-open `cam_xyz` mutation in
-  LibRaw 0.22.1, the wrapper writes both fields directly.
+- **`use_camera_matrix` + LibRaw `rgb_cam` refresh.** RESOLVED by the
+  Pre-MVP native spike. Strategy A (subclass + expose `cam_xyz_coeff`)
+  passes against LibRaw 0.22.1 with the `raw2image_start` mirror trap
+  fixed and `use_camera_matrix = 1` retained. See audit for measurements.
 - **Catalog cross-repo coordination.** Synchronized but order-flexible:
   producer ships `dcp-params` first (forward-compatible — old clients
   ignore); LumaForge consumer ships next; once the next consumer is in
