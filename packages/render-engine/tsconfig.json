@@ -1,0 +1,29 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "rootDir": ".",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "@lumaforge/luma-color-runtime": [
+        "../luma-color-runtime/dist/src/index.d.ts"
+      ],
+      "@lumaforge/luma-raw-runtime": [
+        "../luma-raw-runtime/dist/src/index.d.ts"
+      ],
+      "@lumaforge/luma-jpeg-runtime": [
+        "../luma-jpeg-runtime/dist/src/index.d.ts"
+      ]
+    },
+    "types": ["vitest/globals"],
+    "allowJs": false,
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": false,
+    "noEmit": true,
+    "outDir": "dist"
+  },
+  "include": ["src/**/*"]
+}

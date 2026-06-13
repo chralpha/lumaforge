@@ -1,0 +1,39 @@
+import process from 'node:process'
+import { fileURLToPath } from 'node:url'
+
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  build: {
+    outDir: 'dist',
+    emptyOutDir: !process.env.VITEST,
+    lib: {
+      entry: {
+        index: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+        manifest: fileURLToPath(
+          new URL('./src/manifest/index.ts', import.meta.url),
+        ),
+        policy: fileURLToPath(
+          new URL('./src/policy/index.ts', import.meta.url),
+        ),
+      },
+      formats: ['es'],
+    },
+    rollupOptions: {
+      // Keep Node built-ins and workspace runtime packages as runtime
+      // imports so the bundle doesn't drag in a frozen copy of them.
+      external: [/^node:/, /^@lumaforge\//],
+      output: {
+        chunkFileNames: '[name].js',
+        entryFileNames: '[name].js',
+      },
+    },
+    sourcemap: true,
+    target: 'es2022',
+  },
+  test: {
+    environment: 'node',
+    globals: false,
+    include: ['src/**/*.test.ts'],
+  },
+})

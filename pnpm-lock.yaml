@@ -272,6 +272,18 @@ importers:
         specifier: workspace:*
         version: link:../luma-native-artifacts
 
+  packages/render-engine:
+    dependencies:
+      '@lumaforge/luma-color-runtime':
+        specifier: workspace:*
+        version: link:../luma-color-runtime
+      '@lumaforge/luma-jpeg-runtime':
+        specifier: workspace:*
+        version: link:../luma-jpeg-runtime
+      '@lumaforge/luma-raw-runtime':
+        specifier: workspace:*
+        version: link:../luma-raw-runtime
+
 packages:
 
   '@adobe/css-tools@4.4.4':
