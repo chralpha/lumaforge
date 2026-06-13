@@ -849,7 +849,6 @@ describe('rawToolSurface', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText('Velvia 50')).not.toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(container.querySelector('[data-raw-lut="source-entry"]')).toBeNull()
 
     await user.click(
       within(inlineEntries as HTMLElement).getByRole('button', {

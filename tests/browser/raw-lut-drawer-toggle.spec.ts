@@ -307,14 +307,17 @@ test('keeps sparse online LUT resource entries compact on desktop', async ({
   await expect(browser.locator('[data-raw-lut-preview]')).toHaveCount(0)
 
   const metrics = await page.evaluate(() => {
-    const entry = document.querySelector<HTMLElement>(
-      '[data-raw-lut="source-entry"]',
-    )
     const dialog = document.querySelector<HTMLElement>(
       '[data-raw-lut-browser-dialog="source"]',
     )
     const list = document.querySelector<HTMLElement>(
       '[data-raw-lut="source-browser-list"]',
+    )
+    // Scope to the dialog list: inline preview tiles in the tool surface
+    // share the catalog-entry chrome since the paint was unified, so a
+    // top-level query would grab the wrong element.
+    const entry = list?.querySelector<HTMLElement>(
+      '[data-raw-lut="catalog-entry"]',
     )
     const toolSurface = document.querySelector<HTMLElement>('.raw-tool-surface')
 
