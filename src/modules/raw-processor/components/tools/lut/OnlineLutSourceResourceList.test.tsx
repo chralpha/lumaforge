@@ -99,7 +99,10 @@ describe('onlineLutSourceResourceList download feedback', () => {
 
     const bar = container.querySelector('[role="progressbar"]')
     expect(bar).toHaveAttribute('aria-valuenow', '50')
-    expect(container.textContent).toContain('50% · 473.8 KB')
+    // Title stays put: progress is conveyed by the bar, never by a meta line
+    // above the entry that would shift the title down as bytes arrive.
+    expect(container.textContent).not.toContain('50%')
+    expect(container.textContent).not.toContain('473.8 KB')
 
     const loadingButton = container.querySelector(
       '[data-raw-lut-entry-loading="true"]',

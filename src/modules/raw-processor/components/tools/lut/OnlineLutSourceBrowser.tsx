@@ -3,7 +3,6 @@ import type { ReactNode } from 'react'
 
 import { useI18n } from '~/lib/i18n'
 
-import { formatBytes } from '../../../format-bytes'
 import type {
   OnlineLutEntryLoadProgress,
   UseOnlineLutSourcesResult,
@@ -191,12 +190,6 @@ function OnlineLutSourceEntryRow({
 }) {
   const { t } = useI18n()
   const percent = isLoading ? entryLoadPercent(progress) : null
-  const metaLabel =
-    isLoading && progress
-      ? percent !== null
-        ? `${percent}% · ${formatBytes(progress.receivedBytes)}`
-        : formatBytes(progress.receivedBytes)
-      : null
 
   return (
     <div
@@ -212,15 +205,8 @@ function OnlineLutSourceEntryRow({
         aria-hidden="true"
         className="size-[18px] text-lf-on-surface/40"
       />
-      <span className="grid min-w-0 gap-0.5">
-        <span className="min-w-0 truncate text-[0.74rem] leading-[1.35] text-lf-on-surface/75">
-          {entry.title}
-        </span>
-        {metaLabel && (
-          <span className="min-w-0 truncate text-[0.64rem] leading-none text-lf-on-surface/45 tabular-nums">
-            {metaLabel}
-          </span>
-        )}
+      <span className="min-w-0 truncate text-[0.74rem] leading-[1.35] text-lf-on-surface/75">
+        {entry.title}
       </span>
       <LutIconButton
         label={

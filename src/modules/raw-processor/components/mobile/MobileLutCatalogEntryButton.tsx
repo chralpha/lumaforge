@@ -2,7 +2,6 @@ import { Aperture, TriangleAlert, X } from 'lucide-react'
 
 import { useI18n } from '~/lib/i18n'
 
-import { formatBytes } from '../../format-bytes'
 import type { OnlineLutEntryLoadProgress } from '../../hooks/useOnlineLutSources'
 import { entryLoadPercent } from '../tools/lut/OnlineLutSourceResourceList'
 
@@ -20,12 +19,6 @@ export function MobileLutCatalogEntryButton(props: {
   const percent = props.loading
     ? entryLoadPercent(props.progress ?? null)
     : null
-  const metaLabel =
-    props.loading && props.progress
-      ? percent !== null
-        ? `${percent}% · ${formatBytes(props.progress.receivedBytes)}`
-        : formatBytes(props.progress.receivedBytes)
-      : null
   const cancelLabel = t('raw.lutSource.cancelDownload', { label: props.title })
 
   return (
@@ -43,15 +36,8 @@ export function MobileLutCatalogEntryButton(props: {
       data-raw-mobile-lut-entry-failed={props.failed ? 'true' : undefined}
     >
       <Aperture aria-hidden="true" className="size-5 text-lf-on-photo-ink/45" />
-      <span className="grid min-w-0 gap-0.5">
-        <span className="min-w-0 truncate text-lf-control font-medium text-lf-on-photo-ink">
-          {props.title}
-        </span>
-        {metaLabel && (
-          <span className="min-w-0 truncate text-[0.68rem] leading-none text-lf-on-photo-text-meta tabular-nums">
-            {metaLabel}
-          </span>
-        )}
+      <span className="min-w-0 truncate text-lf-control font-medium text-lf-on-photo-ink">
+        {props.title}
       </span>
       {props.loading ? (
         <span className="inline-flex items-center gap-1 text-xs font-semibold text-lf-on-photo-text-soft">

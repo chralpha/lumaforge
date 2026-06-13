@@ -10,7 +10,6 @@ import {
 
 import { useI18n } from '~/lib/i18n'
 
-import { formatBytes } from '../../../format-bytes'
 import type {
   OnlineLutEntryLoadProgress,
   UseOnlineLutSourcesResult,
@@ -317,12 +316,6 @@ function OnlineLutSourceInlineEntry({
 }) {
   const { t } = useI18n()
   const percent = isLoading ? entryLoadPercent(progress) : null
-  const metaLabel =
-    isLoading && progress
-      ? percent !== null
-        ? `${percent}% · ${formatBytes(progress.receivedBytes)}`
-        : formatBytes(progress.receivedBytes)
-      : null
 
   return (
     <button
@@ -350,14 +343,7 @@ function OnlineLutSourceInlineEntry({
       ].join(' ')}
     >
       <Aperture aria-hidden="true" className="size-4 text-lf-on-surface/40" />
-      <span className="grid min-w-0 gap-0.5">
-        <span className="min-w-0 truncate">{entry.title}</span>
-        {metaLabel && (
-          <span className="min-w-0 truncate text-[0.62rem] font-normal text-lf-on-surface/45 tabular-nums">
-            {metaLabel}
-          </span>
-        )}
-      </span>
+      <span className="min-w-0 truncate">{entry.title}</span>
       {isLoading ? (
         <X aria-hidden="true" className="size-3.5" />
       ) : isFailed ? (
