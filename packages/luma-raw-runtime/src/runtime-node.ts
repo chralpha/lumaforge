@@ -1,10 +1,8 @@
 import { loadNativeModuleForNode } from '@lumaforge/luma-native-artifacts/load-for-node'
 
 import { createNativeFactory } from '../worker/native-adapter'
-import type {LumaRawRuntimeCore} from '../worker/runtime-core';
-import {
-  createRuntimeCore
-} from '../worker/runtime-core'
+import type { LumaRawRuntimeCore } from '../worker/runtime-core'
+import { createRuntimeCore } from '../worker/runtime-core'
 import { LumaRawRuntimeError } from './errors'
 import type {
   LumaEmbeddedPreview,
@@ -50,6 +48,18 @@ export type LumaRawNodeRuntimeOptions = {
   nativeLoader?: LumaRawNodeNativeLoader
 }
 
+/**
+ * Node-side LumaRaw runtime. Single-thread by design (v1 of the
+ * render-engine spec). Multi-thread Node mode is a future phase.
+ *
+ * **AbortSignal semantics**: signals are checked once at the entry of each
+ * call. The underlying native decode runs synchronously inside the JS
+ * thread, so a signal that fires *after* dispatch begins cannot interrupt
+ * it. Browser parity uses Worker.terminate() for late aborts; Node
+ * single-thread has no equivalent. For the agent/CLI workflow this is
+ * acceptable — render units are small enough to either complete or be
+ * gated on entry.
+ */
 export type LumaRawNodeRuntime = {
   init: () => Promise<LumaRawRuntimeInfo>
   probe: (
@@ -143,12 +153,24 @@ export async function createLumaRawRuntimeForNode(
 ): Promise<LumaRawNodeRuntime> {
   const memoryProfile = options.memoryProfile ?? 'desktop'
   const nativeLoader = options.nativeLoader ?? defaultNativeLoader
-  const nativeModule = await nativeLoader({ memoryProfile })
+
+  let nativeModule: unknown
+  try {
+    nativeModule = await nativeLoader({ memoryProfile })
+  } catch (error) {
+    throw new LumaRawRuntimeError(
+      'RAW_RUNTIME_UNAVAILABLE',
+      'Failed to load the Luma RAW native module for Node.',
+      { cause: error },
+    )
+  }
+
   const nativeFactory = createNativeFactory(
     nativeModule as Parameters<typeof createNativeFactory>[0],
   )
   const core = createRuntimeCore(nativeFactory, { memoryProfile })
   const counter = { value: 0 }
+  const openSessionIds = new Set<string>()
   let disposed = false
 
   function assertLive(): void {
@@ -177,10 +199,12 @@ export async function createLumaRawRuntimeForNode(
       signal,
     )
 
+    openSessionIds.add(sessionInfo.sessionId)
     let sessionDisposed = false
     const dispose = () => {
       if (sessionDisposed) return
       sessionDisposed = true
+      openSessionIds.delete(sessionInfo.sessionId)
       void dispatch(
         core,
         'closeSession',
@@ -347,7 +371,18 @@ export async function createLumaRawRuntimeForNode(
     },
 
     dispose() {
+      if (disposed) return
       disposed = true
+      // Close any sessions the caller forgot. Native sessions (LumaRawProcessor
+      // instances + per-session input vectors) live in the same process for
+      // Node single-thread mode and would otherwise leak.
+      const ids = [...openSessionIds]
+      openSessionIds.clear()
+      for (const sessionId of ids) {
+        void dispatch(core, 'closeSession', { sessionId }, counter).catch(
+          () => undefined,
+        )
+      }
     },
   }
 }

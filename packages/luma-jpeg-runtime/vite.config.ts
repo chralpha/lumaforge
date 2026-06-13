@@ -1,5 +1,6 @@
 import { readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'vite'
@@ -29,6 +30,9 @@ export default defineConfig({
     {
       name: 'luma-jpeg-preserve-native-assets',
       buildStart() {
+        // Skip during vitest — clearing dist mid-test invalidates the
+        // bundle smoke tests that load from `dist/node.js`.
+        if (process.env.VITEST) return
         cleanDistExceptNative()
       },
     },
@@ -44,6 +48,10 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
+      // Keep Node built-ins and the workspace artifact loader as external
+      // imports so the Node entry bundle resolves them at runtime instead
+      // of getting Vite's browser-environment stub.
+      external: [/^node:/, '@lumaforge/luma-native-artifacts/load-for-node'],
       output: {
         chunkFileNames: '[name].js',
         entryFileNames: '[name].js',

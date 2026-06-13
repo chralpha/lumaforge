@@ -1,11 +1,22 @@
 import { loadNativeModuleForNode } from '@lumaforge/luma-native-artifacts/load-for-node'
 
 import { createNativeJpegEncoderFactory } from '../worker/native-adapter'
-import type {InternalJpegEncoderFactoryLoader, JpegWorkerRequest, JpegWorkerResponse} from '../worker/runtime-core';
-import {
-  createJpegRuntimeCore
+import type {
+  InternalJpegEncoderFactoryLoader,
+  JpegWorkerRequest,
+  JpegWorkerResponse,
 } from '../worker/runtime-core'
+import { createJpegRuntimeCore } from '../worker/runtime-core'
 import type { LumaJpegChunk, LumaJpegEncoderOptions } from './runtime'
+
+type JpegRequestType = JpegWorkerRequest['type']
+type JpegRequestPayloadByType = {
+  [R in JpegWorkerRequest as R['type']]: R['payload']
+}
+// runtime-core's JpegWorkerResponse is success-only (failures are thrown
+// and converted to failure envelopes by the Worker shim). Indexing it by
+// `type` gives the per-request response shape for the in-process path.
+type JpegResponseByType = { [R in JpegWorkerResponse as R['type']]: R }
 
 export type LumaJpegNodeNativeLoader = () => Promise<unknown>
 
@@ -19,7 +30,8 @@ export type LumaJpegNodeRuntimeOptions = {
   /**
    * Optional callback invoked for each JPEG chunk produced when an encoder
    * is created with `finishMode: 'chunks'`. Receives Uint8Array bytes
-   * directly (no Blob conversion).
+   * directly (no Blob conversion). Both synchronous throws and async
+   * rejections are surfaced via the awaiting `finish()`.
    */
   onChunk?: (chunk: LumaJpegChunk) => void | Promise<void>
 }
@@ -44,6 +56,13 @@ function makeRequestId(counter: { value: number }): string {
   return `jpeg-node-${counter.value}`
 }
 
+/**
+ * Convert a runtime-core Blob into a Uint8Array.
+ *
+ * Requires Node 18+ (global Blob with `arrayBuffer()`). jsdom-flavored test
+ * environments may lack `arrayBuffer` on their Blob polyfill; the Node-entry
+ * test file therefore uses `@vitest-environment node`.
+ */
 async function blobToUint8Array(blob: Blob): Promise<Uint8Array> {
   return new Uint8Array(await blob.arrayBuffer())
 }
@@ -54,7 +73,13 @@ export async function createLumaJpegRuntimeForNode(
   const nativeLoader = options.nativeLoader ?? defaultNativeLoader
 
   const encoderFactoryLoader: InternalJpegEncoderFactoryLoader = async () => {
-    const nativeModule = await nativeLoader()
+    let nativeModule: unknown
+    try {
+      nativeModule = await nativeLoader()
+    } catch (error) {
+      const cause = error instanceof Error ? error.message : String(error)
+      throw new Error(`LUMA_JPEG_NATIVE_LOAD_FAILED: ${cause}`)
+    }
     return createNativeJpegEncoderFactory(
       nativeModule as Parameters<typeof createNativeJpegEncoderFactory>[0],
     )
@@ -70,12 +95,19 @@ export async function createLumaJpegRuntimeForNode(
       if (!response.ok) return
       if (response.type !== 'chunk') return
       if (!options.onChunk) return
-      const task = Promise.resolve(options.onChunk(response.payload))
+      // Promise.resolve().then(...) converts a synchronous throw inside
+      // options.onChunk into an async rejection on `task`. Without this,
+      // a sync throw escapes onResponse and rejects the current
+      // dispatch (rows/finish) directly, inconsistent with the
+      // "surfaced at finish()" contract.
+      const task = Promise.resolve()
+        .then(() => options.onChunk!(response.payload))
+        .then(() => undefined)
       chunkQueue.push(task)
       try {
         await task
       } catch {
-        // swallowed; the awaiter on chunkQueue will surface it
+        // swallowed here; drainChunkQueue re-throws via Promise.all
       }
     },
   })
@@ -86,20 +118,20 @@ export async function createLumaJpegRuntimeForNode(
     }
   }
 
-  async function dispatch(
-    type: JpegWorkerRequest['type'],
-    payload: JpegWorkerRequest['payload'],
-  ): Promise<JpegWorkerResponse> {
+  async function dispatch<T extends JpegRequestType>(
+    type: T,
+    payload: JpegRequestPayloadByType[T],
+  ): Promise<JpegResponseByType[T]> {
     const request = {
       id: makeRequestId(counter),
       type,
       payload,
     } as JpegWorkerRequest
-    const response = await core.handleRequest(request)
+    const response = (await core.handleRequest(request)) as JpegWorkerResponse
     if (!response.ok) {
       throw new Error('LUMA_JPEG_RUNTIME_UNEXPECTED_FAILURE')
     }
-    return response
+    return response as JpegResponseByType[T]
   }
 
   async function drainChunkQueue(): Promise<void> {
@@ -146,9 +178,6 @@ export async function createLumaJpegRuntimeForNode(
         await createPromise
         assertOpen()
         const response = await dispatch('finish', {})
-        if (response.type !== 'finish') {
-          throw new Error('LUMA_JPEG_RUNTIME_UNEXPECTED_RESPONSE')
-        }
         await drainChunkQueue()
         state = 'finished'
         encoderActive = false
