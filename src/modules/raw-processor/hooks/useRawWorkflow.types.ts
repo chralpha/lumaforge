@@ -25,6 +25,7 @@ import type { ProcessingStatus } from '../model/workflow'
 import type { OriginalReferenceSnapshot } from '../services/compare/original-reference-snapshot'
 import type { LutLoadOutcome } from '../services/look/orchestrate-lut-load'
 import type { PreviewViewport } from '../services/preview/preview-viewport'
+import type { UseRawCalibrationStageReturn } from './stages/calibration/useRawCalibrationStage'
 import type { FullResExportOptions } from './stages/export/useFullResExportAction'
 import type { PreviewPipelineEvacuationHandle } from './stages/preview/usePreviewPipelineEvacuation'
 
@@ -116,4 +117,10 @@ export interface UseRawWorkflowReturn {
   dismissError: () => void
   updateStats: (stats: PipelineStats) => void
   pipelineRef: RefObject<RawProcessingPipeline | null>
+  /**
+   * Camera-calibration stage surface. UI components consume this object in
+   * the next PR; the workflow does not act on selection here beyond the
+   * stage's own effects.
+   */
+  calibrationStage: UseRawCalibrationStageReturn
 }

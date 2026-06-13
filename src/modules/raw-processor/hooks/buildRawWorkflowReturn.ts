@@ -4,6 +4,7 @@ import type { PipelineStats, RawProcessingPipeline } from '~/lib/gl/pipeline'
 import type { ParsedLUT } from '~/lib/lut/cube-parser'
 
 import type { ProcessingStatus } from '../model/workflow'
+import type { useRawCalibrationStage } from './stages/calibration/useRawCalibrationStage'
 import type { useOriginalReferenceStage } from './stages/compare/useOriginalReferenceStage'
 import type { useRawCompareStage } from './stages/compare/useRawCompareStage'
 import type { useRawExportStage } from './stages/export/useRawExportStage'
@@ -42,6 +43,7 @@ type BuildRawWorkflowReturnInput = {
   ingestStage: Pick<ReturnType<typeof useRawIngestStage>, 'loadFile' | 'reset'>
   exportStage: ReturnType<typeof useRawExportStage>
   originalReferenceStage: ReturnType<typeof useOriginalReferenceStage>
+  calibrationStage: ReturnType<typeof useRawCalibrationStage>
 }
 
 export function buildRawWorkflowReturn({
@@ -57,6 +59,7 @@ export function buildRawWorkflowReturn({
   ingestStage,
   exportStage,
   originalReferenceStage,
+  calibrationStage,
 }: BuildRawWorkflowReturnInput): UseRawWorkflowReturn {
   return {
     params: lookStage.params,
@@ -129,5 +132,6 @@ export function buildRawWorkflowReturn({
     dismissError: workflowState.dismissError,
     updateStats: workflowState.updateStats,
     pipelineRef: refs.pipelineRef,
+    calibrationStage,
   }
 }
