@@ -258,7 +258,11 @@ importers:
 
   packages/luma-color-runtime: {}
 
-  packages/luma-jpeg-runtime: {}
+  packages/luma-jpeg-runtime:
+    dependencies:
+      '@lumaforge/luma-native-artifacts':
+        specifier: workspace:*
+        version: link:../luma-native-artifacts
 
   packages/luma-native-artifacts: {}
 

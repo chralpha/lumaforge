@@ -13,6 +13,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/src/runtime-node.d.ts",
+      "import": "./dist/node.js"
     }
   },
   "main": "./dist/index.js",
@@ -36,5 +40,8 @@
     "test": "vitest run src worker native --exclude src/native-smoke.test.ts",
     "test:native-smoke": "vitest run src/native-smoke.test.ts --environment jsdom",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@lumaforge/luma-native-artifacts": "workspace:*"
   }
 }
