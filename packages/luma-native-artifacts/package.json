@@ -11,16 +11,25 @@
     "./native/**/*.js",
     "./native/**/*.wasm"
   ],
+  "exports": {
+    "./load-for-node": {
+      "types": "./load-for-node.d.mts",
+      "import": "./load-for-node.mjs"
+    }
+  },
   "files": [
     "LICENSE",
     "README.md",
     "THIRD_PARTY_LICENSES",
     "THIRD_PARTY_NOTICES.md",
+    "load-for-node.d.mts",
+    "load-for-node.mjs",
     "native"
   ],
   "scripts": {
     "sync": "node ../../scripts/native-runtime/sync-artifact-package.mjs",
     "verify": "node ../../scripts/native-runtime/verify-artifact-package.mjs",
+    "test": "vitest run",
     "pack:dry-run": "pnpm run verify && npm pack --dry-run --json"
   }
 }
