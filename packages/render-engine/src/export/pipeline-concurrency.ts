@@ -1,4 +1,4 @@
-import type { ExportFidelity } from '~/lib/gl/export'
+import type { ExportFidelity } from '../policy/export-fidelity'
 
 export function normalizeExportConcurrency(
   requested: number | undefined,

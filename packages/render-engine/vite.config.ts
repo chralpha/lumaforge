@@ -10,6 +10,9 @@ export default defineConfig({
     lib: {
       entry: {
         index: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+        export: fileURLToPath(
+          new URL('./src/export/index.ts', import.meta.url),
+        ),
         manifest: fileURLToPath(
           new URL('./src/manifest/index.ts', import.meta.url),
         ),

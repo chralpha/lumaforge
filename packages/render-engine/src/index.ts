@@ -68,4 +68,26 @@ export {
 // Policy (input types — spec §4 policy/)
 export type { CapabilityVector } from './policy/capability-input'
 export { NODE_DEFAULT_CAPABILITY } from './policy/capability-input'
+export type { ExportFidelity } from './policy/export-fidelity'
 export type { RenderBudget } from './policy/render-budget'
+
+// Export (pure-logic primitives migrated at P3a — spec §8)
+export { TypedBufferPool } from './export/buffer-pool'
+export {
+  normalizeExportConcurrency,
+  runOrderedConcurrent,
+} from './export/pipeline-concurrency'
+export {
+  type LinearProPhotoTile,
+  type ProcessedRgb16Rows,
+  processedWindowToLinearProPhotoTile,
+  processedWindowToRgb16Rows,
+} from './export/processed-window-transform'
+export {
+  expandRectWithHalo,
+  type ExportStrip,
+  MAX_EXPORT_STRIP_ROWS,
+  normalizePreferredStripRows,
+  planExportStrips,
+  reduceStripRows,
+} from './export/strip-scheduler'

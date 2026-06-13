@@ -13,6 +13,10 @@
       "types": "./dist/src/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./export": {
+      "types": "./dist/src/export/index.d.ts",
+      "import": "./dist/export.js"
+    },
     "./manifest": {
       "types": "./dist/src/manifest/index.d.ts",
       "import": "./dist/manifest.js"

@@ -17,6 +17,9 @@ importers:
       '@lumaforge/luma-raw-runtime':
         specifier: workspace:*
         version: link:packages/luma-raw-runtime
+      '@lumaforge/render-engine':
+        specifier: workspace:*
+        version: link:packages/render-engine
       '@pastel-palette/tailwindcss':
         specifier: 1.0.0-canary.3
         version: 1.0.0-canary.3

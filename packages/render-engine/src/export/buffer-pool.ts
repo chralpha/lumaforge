@@ -23,7 +23,9 @@ export class TypedBufferPool<T extends ArrayBufferView> {
 
   release(buffer: T): void {
     if (!this.leased.delete(buffer)) {
-      throw new Error('Cannot release a buffer that was not acquired from this pool.')
+      throw new Error(
+        'Cannot release a buffer that was not acquired from this pool.',
+      )
     }
 
     if (this.freeList.length >= this.capacity) {

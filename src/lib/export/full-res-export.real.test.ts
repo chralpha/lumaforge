@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { RawRenderExposure } from '@lumaforge/luma-color-runtime'
 import { resolveExportColorGraph } from '@lumaforge/luma-color-runtime'
 import { createLumaRawRuntime } from '@lumaforge/luma-raw-runtime'
+import { processedWindowToRgb16Rows } from '@lumaforge/render-engine'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -38,7 +39,6 @@ import { createRuntimeCore } from '../../../packages/luma-raw-runtime/worker/run
 import { runFullResolutionJpegExport } from './full-res-export'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
 import { createBlobOutputResult, materializeOutputBlob } from './output-sink'
-import { processedWindowToRgb16Rows } from './processed-window-transform'
 
 type NativeModuleFactory = (options?: {
   locateFile?: (path: string) => string

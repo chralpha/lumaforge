@@ -1,4 +1,8 @@
 import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
+import {
+  normalizeExportConcurrency,
+  normalizePreferredStripRows,
+} from '@lumaforge/render-engine'
 
 import type {
   ExportCheckpointMode,
@@ -10,9 +14,7 @@ import type { FullResolutionExportProgress } from './full-res-export'
 import type { BlobOutputResult, ExportOutputResult } from './output-sink'
 import { createOpfsFileBackedOutputResult } from './output-sink'
 import type { ExportPerfMetric } from './perf/export-metrics'
-import { normalizeExportConcurrency } from './pipeline-concurrency'
 import type { SourceFingerprint } from './source-fingerprint'
-import { normalizePreferredStripRows } from './strip-scheduler'
 
 export type FullResWorkerExecutionPlan = {
   profileName: ExportExecutionProfileName

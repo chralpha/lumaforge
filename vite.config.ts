@@ -60,6 +60,22 @@ const LUMA_JPEG_RUNTIME_SOURCE = resolve(
   ROOT,
   './packages/luma-jpeg-runtime/src/index.ts',
 )
+const RENDER_ENGINE_SOURCE = resolve(
+  ROOT,
+  './packages/render-engine/src/index.ts',
+)
+const RENDER_ENGINE_EXPORT_SOURCE = resolve(
+  ROOT,
+  './packages/render-engine/src/export/index.ts',
+)
+const RENDER_ENGINE_MANIFEST_SOURCE = resolve(
+  ROOT,
+  './packages/render-engine/src/manifest/index.ts',
+)
+const RENDER_ENGINE_POLICY_SOURCE = resolve(
+  ROOT,
+  './packages/render-engine/src/policy/index.ts',
+)
 const LUMAFORGE_OG_IMAGE_OUTPUT = 'og-image.png'
 const LUMAFORGE_OG_IMAGE_FONT_SOURCE = resolve(
   ROOT,
@@ -262,6 +278,10 @@ export default defineConfig(({ command }) => {
         '@lumaforge/luma-color-runtime': LUMA_COLOR_RUNTIME_SOURCE,
         '@lumaforge/luma-raw-runtime': LUMA_RAW_RUNTIME_SOURCE,
         '@lumaforge/luma-jpeg-runtime': LUMA_JPEG_RUNTIME_SOURCE,
+        '@lumaforge/render-engine/export': RENDER_ENGINE_EXPORT_SOURCE,
+        '@lumaforge/render-engine/manifest': RENDER_ENGINE_MANIFEST_SOURCE,
+        '@lumaforge/render-engine/policy': RENDER_ENGINE_POLICY_SOURCE,
+        '@lumaforge/render-engine': RENDER_ENGINE_SOURCE,
       },
       tsconfigPaths: true,
     },

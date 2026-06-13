@@ -35,6 +35,27 @@ export default defineConfig({
       '@lumaforge/luma-jpeg-runtime': fileURLToPath(
         new URL('./packages/luma-jpeg-runtime/src/index.ts', import.meta.url),
       ),
+      '@lumaforge/render-engine/export': fileURLToPath(
+        new URL(
+          './packages/render-engine/src/export/index.ts',
+          import.meta.url,
+        ),
+      ),
+      '@lumaforge/render-engine/manifest': fileURLToPath(
+        new URL(
+          './packages/render-engine/src/manifest/index.ts',
+          import.meta.url,
+        ),
+      ),
+      '@lumaforge/render-engine/policy': fileURLToPath(
+        new URL(
+          './packages/render-engine/src/policy/index.ts',
+          import.meta.url,
+        ),
+      ),
+      '@lumaforge/render-engine': fileURLToPath(
+        new URL('./packages/render-engine/src/index.ts', import.meta.url),
+      ),
     },
   },
   test: {

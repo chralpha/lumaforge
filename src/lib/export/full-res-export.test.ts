@@ -12,13 +12,13 @@ import type {
   LumaRawProcessedWindow,
   LumaRawProcessedWindowRequest,
 } from '@lumaforge/luma-raw-runtime'
+import { processedWindowToLinearProPhotoTile } from '@lumaforge/render-engine'
 
 import type { FullResExportResourceFailure } from './full-res-export'
 import { runFullResolutionJpegExport } from './full-res-export'
 import { createWasmJpegRowSink } from './jpeg/wasm-row-sink'
 import type { FileBackedOutputResult } from './output-sink'
 import { createBlobOutputResult, materializeOutputBlob } from './output-sink'
-import { processedWindowToLinearProPhotoTile } from './processed-window-transform'
 
 function makeCapability(
   overrides: Partial<LumaRawExportCapability> = {},
