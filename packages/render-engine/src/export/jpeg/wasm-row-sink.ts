@@ -1,7 +1,7 @@
 import type { LumaJpegRuntime } from '@lumaforge/luma-jpeg-runtime'
 import { createLumaJpegRuntime } from '@lumaforge/luma-jpeg-runtime'
 
-import { createBlobOutputResult } from '../output-sink'
+import { createBlobOutputResult } from './output-result'
 import type { JpegRowSink } from './row-writer'
 
 export const JPEG_RUNTIME_UNAVAILABLE_MESSAGE =

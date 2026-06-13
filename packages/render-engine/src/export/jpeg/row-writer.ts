@@ -1,4 +1,4 @@
-import type { ExportOutputResult } from '../output-sink'
+import type { ExportOutputResult } from './output-result'
 
 export type JpegRowSinkSession = {
   writeRows: (rgbRows: Uint8Array, rowCount: number) => Promise<void>

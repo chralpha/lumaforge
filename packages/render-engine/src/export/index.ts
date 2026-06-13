@@ -24,3 +24,34 @@ export {
   planExportStrips,
   reduceStripRows,
 } from './strip-scheduler'
+
+// P3b: full-res export engine + JPEG row writer/sink + perf metrics
+export {
+  FullResExportResourceFailure,
+  type FullResolutionExportProgress,
+  runFullResolutionJpegExport,
+  type RunFullResolutionJpegExportInput,
+} from './full-res-export'
+export {
+  type BlobOutputResult,
+  createBlobOutputResult,
+  type ExportOutputResult,
+  type FileBackedOutputResult,
+} from './jpeg/output-result'
+export {
+  createJpegRowWriter,
+  type JpegRowSink,
+  type JpegRowSinkSession,
+  type JpegRowWriter,
+} from './jpeg/row-writer'
+export {
+  createWasmJpegRowSink,
+  isWasmJpegRuntimeAvailable,
+  JPEG_RUNTIME_UNAVAILABLE_MESSAGE,
+} from './jpeg/wasm-row-sink'
+export {
+  createExportMetricCollector,
+  type ExportPerfMetric,
+  formatExportMetricJsonl,
+  nowMs,
+} from './perf/export-metrics'

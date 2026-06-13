@@ -1,7 +1,7 @@
 import { createLumaRawRuntime } from '@lumaforge/luma-raw-runtime'
+import { runFullResolutionJpegExport } from '@lumaforge/render-engine/export'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { runFullResolutionJpegExport } from './full-res-export'
 import { runProcessedWindowExportLifecycle } from './full-res-export.worker'
 import type { FullResExportWorkerResponse } from './full-res-export-client'
 import {
@@ -14,7 +14,7 @@ vi.mock('@lumaforge/luma-raw-runtime', () => ({
   createLumaRawRuntime: vi.fn(),
 }))
 
-vi.mock('./full-res-export', () => ({
+vi.mock('@lumaforge/render-engine/export', () => ({
   runFullResolutionJpegExport: vi.fn(),
 }))
 

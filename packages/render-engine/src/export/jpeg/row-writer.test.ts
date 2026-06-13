@@ -1,4 +1,6 @@
-import { createBlobOutputResult } from '../output-sink'
+import { describe, expect, it } from 'vitest'
+
+import { createBlobOutputResult } from './output-result'
 import { createJpegRowWriter } from './row-writer'
 
 describe('createJpegRowWriter', () => {

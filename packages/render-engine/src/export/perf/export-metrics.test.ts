@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest'
+
 import type { ExportPerfMetric } from './export-metrics'
 import {
   createExportMetricCollector,

@@ -3,6 +3,7 @@ import {
   normalizeExportConcurrency,
   normalizePreferredStripRows,
 } from '@lumaforge/render-engine'
+import type { ExportPerfMetric,FullResolutionExportProgress  } from '@lumaforge/render-engine/export'
 
 import type {
   ExportCheckpointMode,
@@ -10,10 +11,8 @@ import type {
   ExportOutputSink,
   ExportRuntimeMemoryProfile,
 } from './execution-profile'
-import type { FullResolutionExportProgress } from './full-res-export'
 import type { BlobOutputResult, ExportOutputResult } from './output-sink'
 import { createOpfsFileBackedOutputResult } from './output-sink'
-import type { ExportPerfMetric } from './perf/export-metrics'
 import type { SourceFingerprint } from './source-fingerprint'
 
 export type FullResWorkerExecutionPlan = {

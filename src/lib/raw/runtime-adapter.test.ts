@@ -4,9 +4,8 @@ import type {
   LumaRawRuntime,
   LumaRawRuntimeInfo,
 } from '@lumaforge/luma-raw-runtime'
+import { JPEG_RUNTIME_UNAVAILABLE_MESSAGE } from '@lumaforge/render-engine/export'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-
-import { JPEG_RUNTIME_UNAVAILABLE_MESSAGE } from '~/lib/export/jpeg/wasm-row-sink'
 
 import {
   BOUNDED_HQ_PREVIEW_LOW_MEMORY_MAX_PIXELS,

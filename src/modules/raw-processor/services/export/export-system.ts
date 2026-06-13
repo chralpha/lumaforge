@@ -1,8 +1,8 @@
 import type { ExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
+import type { FullResolutionExportProgress } from '@lumaforge/render-engine/export'
 
 import type { ExportExecutionPlan } from '~/lib/export/execution-profile'
 import { selectExportExecutionPlan } from '~/lib/export/execution-profile'
-import type { FullResolutionExportProgress } from '~/lib/export/full-res-export'
 import type {
   FullResWorkerCheckpointConfig,
   FullResWorkerExecutionPlan,

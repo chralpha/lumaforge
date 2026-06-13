@@ -1,14 +1,14 @@
 import { createLumaJpegRuntime } from '@lumaforge/luma-jpeg-runtime'
 import { createLumaRawRuntime } from '@lumaforge/luma-raw-runtime'
+import type { JpegRowSink } from '@lumaforge/render-engine/export'
+import { runFullResolutionJpegExport } from '@lumaforge/render-engine/export'
 
 import { createRawExportSession } from '../raw/export-runtime-adapter'
-import { runFullResolutionJpegExport } from './full-res-export'
 import type {
   FullResExportWorkerRequest,
   FullResExportWorkerResponse,
   FullResWorkerOutputResult,
 } from './full-res-export-client'
-import type { JpegRowSink } from './jpeg/row-writer'
 import type { JpegExportMetadata } from './jpeg-metadata'
 import { preserveJpegMetadata } from './jpeg-metadata'
 import type { ExportOutputResult } from './output-sink'

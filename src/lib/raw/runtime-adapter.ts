@@ -4,8 +4,7 @@ import type {
   LumaRawExportCapability,
   LumaRawRuntime,
 } from '@lumaforge/luma-raw-runtime'
-
-import { isWasmJpegRuntimeAvailable } from '~/lib/export/jpeg/wasm-row-sink'
+import { isWasmJpegRuntimeAvailable } from '@lumaforge/render-engine/export'
 
 import type { DecodedImage, ProgressCallback } from './decoder'
 import {

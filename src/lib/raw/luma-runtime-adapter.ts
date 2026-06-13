@@ -8,8 +8,8 @@ import type {
   LumaRawFrame,
   LumaRawRuntime,
 } from '@lumaforge/luma-raw-runtime'
+import { JPEG_RUNTIME_UNAVAILABLE_MESSAGE } from '@lumaforge/render-engine/export'
 
-import { JPEG_RUNTIME_UNAVAILABLE_MESSAGE } from '~/lib/export/jpeg/wasm-row-sink'
 import {
   detectCapabilityVector,
   getCapabilityVectorSnapshot,
