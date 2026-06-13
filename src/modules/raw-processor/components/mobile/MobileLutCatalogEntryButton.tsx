@@ -1,4 +1,4 @@
-import { Aperture, TriangleAlert, X } from 'lucide-react'
+import { Aperture, Download, TriangleAlert, X } from 'lucide-react'
 
 import { useI18n } from '~/lib/i18n'
 
@@ -50,9 +50,10 @@ export function MobileLutCatalogEntryButton(props: {
           {t('raw.mobile.lut.retry')}
         </span>
       ) : (
-        <span className="text-xs font-semibold text-lf-green-soft">
-          {t('raw.mobile.lut.load')}
-        </span>
+        <Download
+          aria-hidden="true"
+          className="size-4 text-lf-on-photo-ink/55"
+        />
       )}
       {props.loading && percent !== null && (
         <span

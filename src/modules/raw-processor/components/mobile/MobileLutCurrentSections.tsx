@@ -62,7 +62,7 @@ export function MobileLutCurrentSections({
                 </span>
               )}
               <span
-                className="min-w-0 truncate text-[0.82rem] font-semibold text-lf-on-photo-ink"
+                className="min-w-0 truncate text-lf-control font-semibold text-lf-on-photo-ink"
                 title={currentLutName ?? undefined}
               >
                 {currentLutName ?? t('raw.lut.add')}

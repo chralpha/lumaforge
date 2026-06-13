@@ -247,7 +247,7 @@ export function MobileLutBrowser(props: MobileLutBrowserProps) {
                       <span aria-hidden="true" />
                     )}
                     <DialogPrimitive.Title asChild>
-                      <h2 className="m-0 min-w-0 truncate text-center text-[0.95rem] font-semibold text-lf-on-photo-ink">
+                      <h2 className="m-0 min-w-0 truncate text-center text-lf-body font-semibold text-lf-on-photo-ink">
                         {title}
                       </h2>
                     </DialogPrimitive.Title>

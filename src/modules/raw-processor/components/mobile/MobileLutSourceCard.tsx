@@ -1,4 +1,4 @@
-import { RefreshCw, Trash2 } from 'lucide-react'
+import { FolderOpen, RefreshCw, Trash2 } from 'lucide-react'
 
 import { useI18n } from '~/lib/i18n'
 
@@ -13,6 +13,7 @@ export function MobileLutSourceCard(props: {
   entryCount: number
   isLoading: boolean
   issues: Issue[]
+  onBrowse: () => void
   onRefresh: () => void
   onRemove: () => void
 }) {
@@ -39,6 +40,14 @@ export function MobileLutSourceCard(props: {
           )}
         </div>
         <div className="flex shrink-0 gap-1">
+          <button
+            type="button"
+            aria-label={t('raw.lutSource.open', { label })}
+            onClick={props.onBrowse}
+            className="grid size-[44px] place-items-center rounded-md bg-transparent text-lf-on-photo-ink/55 transition-colors hover:bg-lf-on-photo-bg-strong hover:text-lf-on-photo-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
+          >
+            <FolderOpen aria-hidden="true" className="size-5" />
+          </button>
           <button
             type="button"
             aria-label={t('raw.lutSource.refresh', { label })}

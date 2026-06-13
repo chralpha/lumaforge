@@ -1,4 +1,4 @@
-import { ChevronRight, Plus, Share2, TriangleAlert, X } from 'lucide-react'
+import { Plus, Share2, TriangleAlert, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Input } from '~/components/ui/input'
@@ -123,6 +123,7 @@ export function MobileLutOnlineSourcesSection({
                 entryCount={entries.length}
                 isLoading={isResourceLoading}
                 issues={resourceIssues}
+                onBrowse={() => onBrowseResource(resource.id)}
                 onRefresh={() =>
                   void onlineLutSources.refreshSource(resource.id)
                 }
@@ -130,7 +131,6 @@ export function MobileLutOnlineSourcesSection({
               />
               <MobileLutInlineEntryStrip
                 entries={entries}
-                entryCount={entries.length}
                 loadingEntryId={loadingEntryId}
                 failedEntryId={failedEntryId}
                 entryLoadProgress={entryLoadProgress}
@@ -138,7 +138,6 @@ export function MobileLutOnlineSourcesSection({
                   void loadOnlineLutEntry(entryId)
                 }}
                 onCancelEntryLoad={cancelEntryLoad}
-                onBrowseAll={() => onBrowseResource(resource.id)}
               />
             </div>
           )
@@ -150,25 +149,23 @@ export function MobileLutOnlineSourcesSection({
 
 function MobileLutInlineEntryStrip({
   entries,
-  entryCount,
   loadingEntryId,
   failedEntryId,
   entryLoadProgress,
   onEntryLoad,
   onCancelEntryLoad,
-  onBrowseAll,
 }: {
   entries: OnlineEntry[]
-  entryCount: number
   loadingEntryId: string | null
   failedEntryId: string | null
   entryLoadProgress: OnlineLutEntryLoadProgress | null
   onEntryLoad: (entryId: string) => void
   onCancelEntryLoad?: () => void
-  onBrowseAll: () => void
 }) {
   const { t } = useI18n()
   const visibleEntries = entries.slice(0, inlineEntryLimit)
+
+  if (visibleEntries.length === 0) return null
 
   return (
     <div
@@ -204,17 +201,6 @@ function MobileLutInlineEntryStrip({
           />
         )
       })}
-      <button
-        type="button"
-        onClick={onBrowseAll}
-        className="inline-flex min-h-[44px] shrink-0 snap-start items-center gap-1 rounded-lf-pill border border-lf-green/40 bg-lf-green/12 px-3.5 text-lf-label font-semibold text-lf-green-soft transition-colors hover:border-lf-green/65 hover:text-lf-on-photo-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green"
-        data-raw-mobile-lut="source-inline-browse"
-      >
-        <span className="whitespace-nowrap">
-          {t('raw.mobile.lut.browseEntries', { count: entryCount })}
-        </span>
-        <ChevronRight aria-hidden="true" className="size-4" />
-      </button>
     </div>
   )
 }

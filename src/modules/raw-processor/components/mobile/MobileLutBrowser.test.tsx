@@ -317,14 +317,16 @@ describe('mobileLutBrowser', () => {
     )
 
     await userEvent.click(
-      screen.getByRole('button', { name: /browse 1 luts/i }),
+      screen.getByRole('button', { name: /open profiles catalog/i }),
     )
 
     expect(screen.getByRole('dialog')).toHaveAttribute(
       'data-mobile-lut-view',
       'catalog',
     )
-    expect(screen.queryByRole('button', { name: /browse 1 luts/i })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: /open profiles catalog/i }),
+    ).toBeNull()
 
     await userEvent.click(
       screen.getByRole('button', { name: /load kodak 2383 rec.709/i }),
@@ -367,8 +369,11 @@ describe('mobileLutBrowser', () => {
 
     expect(loadEntry).toHaveBeenCalledWith('kodak-2383-rec709')
     expect(screen.queryByText('Velvia 50')).not.toBeInTheDocument()
+    // The source card's FolderOpen button is the only path into the catalog
+    // view; the inline strip stays preview-only so 5+ entries don't fight for
+    // a redundant "Browse all" pill at the end of the scroller.
     expect(
-      screen.getByRole('button', { name: /browse 5 luts/i }),
+      screen.getByRole('button', { name: /open profiles catalog/i }),
     ).toBeInTheDocument()
   })
 
@@ -398,7 +403,7 @@ describe('mobileLutBrowser', () => {
       )
 
       await userEvent.click(
-        screen.getByRole('button', { name: /browse 1 luts/i }),
+        screen.getByRole('button', { name: /open profiles catalog/i }),
       )
 
       const loadButton = screen.getByRole('button', {
@@ -563,7 +568,7 @@ describe('mobileLutBrowser', () => {
     render(<MobileLutBrowser {...baseProps} onlineLutSources={fixture} />)
 
     await userEvent.click(
-      screen.getByRole('button', { name: /browse 1 luts/i }),
+      screen.getByRole('button', { name: /open profiles catalog/i }),
     )
 
     expect(
@@ -586,7 +591,7 @@ describe('mobileLutBrowser', () => {
     expect(sourceInput).not.toHaveClass('focus:border-lf-amber')
 
     await userEvent.click(
-      screen.getByRole('button', { name: /browse 1 luts/i }),
+      screen.getByRole('button', { name: /open profiles catalog/i }),
     )
 
     const entry = screen.getByRole('button', {
