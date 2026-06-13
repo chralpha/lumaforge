@@ -16,7 +16,7 @@ const jpegMetadataMock = vi.hoisted(() => ({
   ),
 }))
 
-vi.mock('~/lib/export/jpeg-metadata', () => ({
+vi.mock('@lumaforge/render-engine/export', () => ({
   preserveJpegMetadata: jpegMetadataMock.preserveJpegMetadata,
 }))
 

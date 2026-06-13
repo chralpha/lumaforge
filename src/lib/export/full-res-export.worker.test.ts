@@ -14,9 +14,14 @@ vi.mock('@lumaforge/luma-raw-runtime', () => ({
   createLumaRawRuntime: vi.fn(),
 }))
 
-vi.mock('@lumaforge/render-engine/export', () => ({
-  runFullResolutionJpegExport: vi.fn(),
-}))
+vi.mock('@lumaforge/render-engine/export', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@lumaforge/render-engine/export')>()
+  return {
+    ...actual,
+    runFullResolutionJpegExport: vi.fn(),
+  }
+})
 
 afterEach(() => {
   vi.restoreAllMocks()

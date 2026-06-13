@@ -1,7 +1,7 @@
 import { createLumaJpegRuntime } from '@lumaforge/luma-jpeg-runtime'
 import { createLumaRawRuntime } from '@lumaforge/luma-raw-runtime'
-import type { JpegRowSink } from '@lumaforge/render-engine/export'
-import { runFullResolutionJpegExport } from '@lumaforge/render-engine/export'
+import type { JpegExportMetadata,JpegRowSink  } from '@lumaforge/render-engine/export'
+import { preserveJpegMetadata,runFullResolutionJpegExport  } from '@lumaforge/render-engine/export'
 
 import { createRawExportSession } from '../raw/export-runtime-adapter'
 import type {
@@ -9,8 +9,6 @@ import type {
   FullResExportWorkerResponse,
   FullResWorkerOutputResult,
 } from './full-res-export-client'
-import type { JpegExportMetadata } from './jpeg-metadata'
-import { preserveJpegMetadata } from './jpeg-metadata'
 import type { ExportOutputResult } from './output-sink'
 import {
   createBlobOutputResult,

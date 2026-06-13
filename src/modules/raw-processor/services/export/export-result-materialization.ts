@@ -1,5 +1,6 @@
-import type { JpegExportMetadata } from '~/lib/export/jpeg-metadata'
-import { preserveJpegMetadata } from '~/lib/export/jpeg-metadata'
+import type { JpegExportMetadata } from '@lumaforge/render-engine/export'
+import { preserveJpegMetadata } from '@lumaforge/render-engine/export'
+
 import type { ExportOutputResult } from '~/lib/export/output-sink'
 import { createBlobOutputResult } from '~/lib/export/output-sink'
 

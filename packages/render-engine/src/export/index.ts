@@ -33,6 +33,11 @@ export {
   type RunFullResolutionJpegExportInput,
 } from './full-res-export'
 export {
+  type JpegExportMetadata,
+  preserveJpegMetadata,
+  type PreserveJpegMetadataInput,
+} from './jpeg/jpeg-metadata'
+export {
   type BlobOutputResult,
   createBlobOutputResult,
   type ExportOutputResult,
