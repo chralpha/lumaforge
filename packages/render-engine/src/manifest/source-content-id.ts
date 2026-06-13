@@ -43,13 +43,17 @@ function bytesToHex(bytes: Uint8Array): string {
 async function sha256OfBytes(bytes: Uint8Array): Promise<string> {
   const subtle = globalThis.crypto?.subtle
   if (subtle) {
-    // Subtle expects a BufferSource. We always pass a freshly-allocated
-    // ArrayBuffer matching the view exactly to (a) avoid hashing unrelated
-    // tail bytes when the input is a subarray, and (b) avoid the
-    // ArrayBufferLike SharedArrayBuffer typing wart on Uint8Array.buffer.
-    const buffer = new ArrayBuffer(bytes.byteLength)
-    new Uint8Array(buffer).set(bytes)
-    const digest = await subtle.digest('SHA-256', buffer)
+    // `subtle.digest` hashes the bytes described by the view (not the whole
+    // underlying buffer), so passing the Uint8Array directly is correct AND
+    // matches the spec §6.6 memory budget (peak ≈ byte_size). The earlier
+    // defensive copy doubled peak to 2×byte_size without benefit; only
+    // re-copy when the view is a subarray of a larger underlying buffer
+    // AND we need an explicit `ArrayBuffer` to satisfy the BufferSource
+    // typing across TS lib versions.
+    const digest = await subtle.digest(
+      'SHA-256',
+      bytes as unknown as ArrayBuffer,
+    )
     return bytesToHex(new Uint8Array(digest))
   }
   return createStreamingSha256().update(bytes).digestHex()

@@ -7,6 +7,7 @@
   },
   "description": "Headless render engine for LumaForge — composes luma-color, luma-raw, and luma-jpeg runtimes. Runs in browser and Node.js.",
   "license": "SEE LICENSE IN LICENSE",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
@@ -33,8 +34,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run src"
   },
-  "dependencies": {
-    "@lumaforge/luma-color-runtime": "workspace:*",
+  "peerDependencies": {
+    "@lumaforge/luma-jpeg-runtime": "workspace:*",
+    "@lumaforge/luma-raw-runtime": "workspace:*"
+  },
+  "devDependencies": {
     "@lumaforge/luma-jpeg-runtime": "workspace:*",
     "@lumaforge/luma-raw-runtime": "workspace:*"
   }

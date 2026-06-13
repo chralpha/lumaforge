@@ -273,10 +273,7 @@ importers:
         version: link:../luma-native-artifacts
 
   packages/render-engine:
-    dependencies:
-      '@lumaforge/luma-color-runtime':
-        specifier: workspace:*
-        version: link:../luma-color-runtime
+    devDependencies:
       '@lumaforge/luma-jpeg-runtime':
         specifier: workspace:*
         version: link:../luma-jpeg-runtime

@@ -85,7 +85,15 @@ export interface CalibrationIdentity {
 export interface ColorGraphIdentity {
   /** SHA-256 of the canonical descriptor. */
   readonly fingerprint: string
-  /** Serialized `resolveExportColorGraph` output. Treated as opaque. */
+  /**
+   * Serialized `resolveExportColorGraph` output. Treated as opaque at P2.
+   *
+   * Spec §14 Q4: P3 (when the export engine migration lands) MUST freeze a
+   * `descriptor_version` field on this structure so future descriptor-shape
+   * changes don't invalidate canonical hashes silently. Until then,
+   * downstream readers should treat the descriptor as opaque bytes and rely
+   * on `fingerprint` for equality comparison.
+   */
   readonly descriptor: unknown
 }
 
