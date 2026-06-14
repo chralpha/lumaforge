@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import { getLinearProPhotoToGamutMatrix, mat3Invert } from './matrix'
 import { linearProPhotoToOklab, oklabToOklch } from './oklab'
-import type {HSLBandId, HSLBandShift} from './selective-color';
+import type {
+  HSLBandId,
+  HSLBandShift,
+  LumaColorSelectiveColorParams,
+} from './selective-color'
 import {
   adjacentBandCenters,
   BAND_CENTERS_RAD,
@@ -14,8 +18,9 @@ import {
   LUT_SIZE,
   makeNeutralBand,
   mixBandShift,
+  resolveSelectiveColorParams,
   SAT_MAX_FACTOR,
-  wrapFraction
+  wrapFraction,
 } from './selective-color'
 
 const BAND_IDS_ORDERED: readonly HSLBandId[] = [
@@ -265,6 +270,99 @@ describe('mixBandShift', () => {
     expect(mid.hue).toBeCloseTo(0, 12)
     expect(mid.saturation).toBeCloseTo(30, 12)
     expect(mid.lightness).toBeCloseTo(15, 12)
+  })
+})
+
+function makeNeutralParams(): LumaColorSelectiveColorParams {
+  const bands = {} as Record<HSLBandId, HSLBandShift>
+  for (const id of BAND_IDS_ORDERED) {
+    bands[id] = makeNeutralBand()
+  }
+  return { selectiveColor: bands }
+}
+
+function paramsWithBand(
+  bandId: HSLBandId,
+  shift: HSLBandShift,
+): LumaColorSelectiveColorParams {
+  const params = makeNeutralParams()
+  const next = { ...params.selectiveColor, [bandId]: shift }
+  return { selectiveColor: next }
+}
+
+describe('resolveSelectiveColorParams bake', () => {
+  it('bake_size_invariant: writes exactly 1024 entries', () => {
+    const { prepared } = resolveSelectiveColorParams(makeNeutralParams())
+    expect(prepared.buffer.length).toBe(4 * LUT_SIZE)
+    expect(prepared.buffer.length).toBe(1024)
+  })
+
+  it('reuses the caller-supplied out buffer when provided', () => {
+    const out = new Float32Array(4 * LUT_SIZE)
+    const { prepared } = resolveSelectiveColorParams(makeNeutralParams(), out)
+    expect(prepared.buffer).toBe(out)
+  })
+
+  it('bake_field_naming: bake reads band.saturation, not band.sat', () => {
+    const params = paramsWithBand('red', {
+      hue: 0,
+      saturation: 50,
+      lightness: 0,
+    })
+    const { prepared } = resolveSelectiveColorParams(params)
+    // The G channel at the red anchor index encodes 1 + (saturation/100) * SAT_MAX_FACTOR.
+    // With saturation = 50 and SAT_MAX_FACTOR = 1.0, the value is bracketed
+    // between 1 (no saturation contribution) and 2 (full clamp). If the bake
+    // mistakenly reads `band.sat` (undefined), the resolved field is 0 and the
+    // G channel collapses back to 1.0.
+    const redCenter = BAND_CENTERS_RAD[0]
+    const anchorIdx =
+      Math.round((redCenter / (Math.PI * 2)) * LUT_SIZE) % LUT_SIZE
+    const gAtAnchor = prepared.buffer[4 * anchorIdx + 1]
+    expect(gAtAnchor).not.toBeCloseTo(1.0, 6)
+    expect(gAtAnchor).toBeGreaterThan(1.0)
+    expect(gAtAnchor).toBeLessThanOrEqual(2.0)
+  })
+
+  it('partition_of_unity_exactly_two_bands: only the two bracket bands contribute and weights sum to 1', () => {
+    const markerHue = 100
+    const tolerance = 1e-6
+    const out = new Float32Array(4 * LUT_SIZE)
+
+    for (let i = 0; i < LUT_SIZE; i++) {
+      const h_i = (i / LUT_SIZE) * Math.PI * 2
+      const { leftIdx, rightIdx } = adjacentBandCenters(h_i)
+
+      const weights: number[] = Array.from<number>({
+        length: BAND_IDS_ORDERED.length,
+      }).fill(0)
+      for (let b = 0; b < BAND_IDS_ORDERED.length; b++) {
+        const bandId = BAND_IDS_ORDERED[b]
+        const params = paramsWithBand(bandId, {
+          hue: markerHue,
+          saturation: 0,
+          lightness: 0,
+        })
+        const { prepared } = resolveSelectiveColorParams(params, out)
+        const rAtI = prepared.buffer[4 * i + 0]
+        const weight = rAtI / HUE_MAX_DELTA_RAD / (markerHue / 100)
+
+        if (b === leftIdx || b === rightIdx) {
+          weights[b] = weight
+        } else {
+          expect(
+            Math.abs(rAtI),
+            `non-bracket band ${bandId} contributed to LUT index ${i}`,
+          ).toBeLessThanOrEqual(tolerance)
+        }
+      }
+
+      const sum = weights[leftIdx] + weights[rightIdx]
+      expect(
+        Math.abs(sum - 1),
+        `bracket weights at LUT index ${i} sum to ${sum}, expected 1`,
+      ).toBeLessThanOrEqual(tolerance)
+    }
   })
 })
 

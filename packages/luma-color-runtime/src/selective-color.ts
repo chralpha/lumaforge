@@ -172,3 +172,125 @@ export function mixBandShift(
     lightness: oneMinusT * left.lightness + t * right.lightness,
   }
 }
+
+export interface UserSelectiveColorGraphStep {
+  readonly kind: 'user-selective-color'
+  readonly bands: NormalizedSelectiveColorBands
+  readonly chromaClampLow: number
+  readonly chromaClampHigh: number
+  readonly workingSpace: 'oklab-via-prophoto-d65'
+  readonly operator: 'oklch-per-band-shift'
+  readonly constantsVersion: number
+}
+
+export interface PreparedSelectiveColorLut {
+  readonly bands: NormalizedSelectiveColorBands
+  readonly buffer: Float32Array
+  readonly constantsVersion: number
+}
+
+const BAND_IDS_ORDERED: readonly HSLBandId[] = [
+  'red',
+  'orange',
+  'yellow',
+  'green',
+  'aqua',
+  'blue',
+  'purple',
+  'magenta',
+]
+
+function clamp(value: number, lo: number, hi: number): number {
+  return value < lo ? lo : value > hi ? hi : value
+}
+
+function normalizeScalar(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0
+  return clamp(value, -100, 100)
+}
+
+function normalizeBand(raw: unknown): HSLBandShift {
+  if (raw === null || typeof raw !== 'object') return makeNeutralBand()
+  const candidate = raw as Partial<HSLBandShift>
+  return {
+    hue: normalizeScalar(candidate.hue),
+    saturation: normalizeScalar(candidate.saturation),
+    lightness: normalizeScalar(candidate.lightness),
+  }
+}
+
+function normalizeBands(source: unknown): NormalizedSelectiveColorBands {
+  const sourceRecord =
+    source !== null && typeof source === 'object'
+      ? (source as Partial<Record<HSLBandId, unknown>>)
+      : {}
+  const out = {} as Record<HSLBandId, HSLBandShift>
+  for (const id of BAND_IDS_ORDERED) {
+    out[id] = normalizeBand(sourceRecord[id])
+  }
+  return out
+}
+
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const denom = edge1 - edge0
+  if (denom === 0) return x < edge0 ? 0 : 1
+  const t = clamp((x - edge0) / denom, 0, 1)
+  return t * t * (3 - 2 * t)
+}
+
+export function resolveSelectiveColorParams(
+  params:
+    | Partial<LumaColorSelectiveColorParams>
+    | LumaColorSelectiveColorParams,
+  outBuffer?: Float32Array,
+): { step: UserSelectiveColorGraphStep; prepared: PreparedSelectiveColorLut } {
+  const bands = normalizeBands(
+    (params as Partial<LumaColorSelectiveColorParams>)?.selectiveColor,
+  )
+  const buffer =
+    outBuffer && outBuffer.length === 4 * LUT_SIZE
+      ? outBuffer
+      : new Float32Array(4 * LUT_SIZE)
+
+  for (let i = 0; i < LUT_SIZE; i++) {
+    const h_i = (i / LUT_SIZE) * TWO_PI
+    const { leftIdx, rightIdx } = adjacentBandCenters(h_i)
+    const t = wrapFraction(
+      h_i,
+      BAND_CENTERS_RAD[leftIdx],
+      BAND_CENTERS_RAD[rightIdx],
+    )
+    const tPrime = smoothstep(0, 1, t)
+    const mixed = mixBandShift(
+      bands[BAND_IDS_ORDERED[leftIdx]],
+      bands[BAND_IDS_ORDERED[rightIdx]],
+      tPrime,
+    )
+
+    const base = 4 * i
+    buffer[base + 0] = (mixed.hue / 100) * HUE_MAX_DELTA_RAD
+    buffer[base + 1] = clamp(
+      1 + (mixed.saturation / 100) * SAT_MAX_FACTOR,
+      0,
+      2,
+    )
+    buffer[base + 2] = (mixed.lightness / 100) * LIGHT_MAX_DELTA
+    buffer[base + 3] = 0
+  }
+
+  const step: UserSelectiveColorGraphStep = {
+    kind: 'user-selective-color',
+    bands,
+    chromaClampLow: CHROMA_CLAMP_LOW,
+    chromaClampHigh: CHROMA_CLAMP_HIGH,
+    workingSpace: 'oklab-via-prophoto-d65',
+    operator: 'oklch-per-band-shift',
+    constantsVersion: LUT_CONSTANTS_VERSION,
+  }
+  const prepared: PreparedSelectiveColorLut = {
+    bands,
+    buffer,
+    constantsVersion: LUT_CONSTANTS_VERSION,
+  }
+  return { step, prepared }
+}
