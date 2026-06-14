@@ -247,10 +247,12 @@ export function resolveSelectiveColorParams(
   const bands = normalizeBands(
     (params as Partial<LumaColorSelectiveColorParams>)?.selectiveColor,
   )
-  const buffer =
-    outBuffer && outBuffer.length === 4 * LUT_SIZE
-      ? outBuffer
-      : new Float32Array(4 * LUT_SIZE)
+  if (outBuffer !== undefined && outBuffer.length !== 4 * LUT_SIZE) {
+    throw new Error(
+      `outBuffer length must be ${4 * LUT_SIZE}, got ${outBuffer.length}`,
+    )
+  }
+  const buffer = outBuffer ?? new Float32Array(4 * LUT_SIZE)
 
   for (let i = 0; i < LUT_SIZE; i++) {
     const h_i = (i / LUT_SIZE) * TWO_PI

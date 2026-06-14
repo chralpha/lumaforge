@@ -303,6 +303,16 @@ describe('resolveSelectiveColorParams bake', () => {
     expect(prepared.buffer).toBe(out)
   })
 
+  it('rejects outBuffer with wrong length', () => {
+    const badBuffer = new Float32Array(512)
+    expect(() =>
+      resolveSelectiveColorParams(makeNeutralParams(), badBuffer),
+    ).toThrow(/1024/)
+    expect(() =>
+      resolveSelectiveColorParams(makeNeutralParams(), badBuffer),
+    ).toThrow(/512/)
+  })
+
   it('bake_field_naming: bake reads band.saturation, not band.sat', () => {
     const params = paramsWithBand('red', {
       hue: 0,
