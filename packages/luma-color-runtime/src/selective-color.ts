@@ -235,6 +235,28 @@ function normalizeBands(source: unknown): NormalizedSelectiveColorBands {
   return out
 }
 
+/**
+ * Normalize raw selective-color params into a durable, clamped per-band record.
+ *
+ * Public entry point shared between the LUT bake (`resolveSelectiveColorParams`)
+ * and the export color graph resolver (`resolveExportColorGraph`). Missing or
+ * malformed bands resolve to the neutral shift; scalars are clamped to
+ * [-100, 100]. The returned record contains exactly one entry per
+ * `HSLBandId` in the canonical order.
+ */
+export function normalizeSelectiveColorParams(
+  params:
+    | Partial<LumaColorSelectiveColorParams>
+    | LumaColorSelectiveColorParams
+    | undefined
+    | null,
+): NormalizedSelectiveColorBands {
+  return normalizeBands(
+    (params as Partial<LumaColorSelectiveColorParams> | null | undefined)
+      ?.selectiveColor,
+  )
+}
+
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const denom = edge1 - edge0
   if (denom === 0) return x < edge0 ? 0 : 1
@@ -248,9 +270,7 @@ export function resolveSelectiveColorParams(
     | LumaColorSelectiveColorParams,
   outBuffer?: Float32Array,
 ): { step: UserSelectiveColorGraphStep; prepared: PreparedSelectiveColorLut } {
-  const bands = normalizeBands(
-    (params as Partial<LumaColorSelectiveColorParams>)?.selectiveColor,
-  )
+  const bands = normalizeSelectiveColorParams(params)
   if (outBuffer !== undefined && outBuffer.length !== 4 * LUT_SIZE) {
     throw new Error(
       `outBuffer length must be ${4 * LUT_SIZE}, got ${outBuffer.length}`,

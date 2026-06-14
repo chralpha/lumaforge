@@ -10,6 +10,16 @@ import {
 } from './matrix'
 import type { RawRenderExposure } from './raw-render-exposure'
 import type { LUTColorProfile, LUTRole, SignalRange } from './registry'
+import type {
+  LumaColorSelectiveColorParams,
+  UserSelectiveColorGraphStep,
+} from './selective-color'
+import {
+  CHROMA_CLAMP_HIGH,
+  CHROMA_CLAMP_LOW,
+  LUT_CONSTANTS_VERSION,
+  normalizeSelectiveColorParams,
+} from './selective-color'
 import type { LumaColorToneParams } from './tone'
 import { resolveToneParams } from './tone'
 import type { LUTData, ProcessingParams } from './types'
@@ -46,6 +56,7 @@ export type ExportColorGraphStep =
       luminanceCoefficients: readonly [number, number, number]
       zeroLuminanceMode: 'return-black'
     }
+  | UserSelectiveColorGraphStep
   | { kind: 'gamut-to-lut-input'; matrix: Mat3; gamut: ColorGamutId }
   | {
       kind: 'encode-lut-transfer'
@@ -152,6 +163,7 @@ export function resolveExportColorGraph(input: {
   userBlacks?: LumaColorToneParams['userBlacks']
   userTemperature?: LumaColorBalanceParams['userTemperature']
   userTint?: LumaColorBalanceParams['userTint']
+  selectiveColor?: LumaColorSelectiveColorParams['selectiveColor']
 }): ExportColorGraphDescriptor {
   const rawRenderExposure =
     input.rawRenderExposure ?? IDENTITY_RAW_RENDER_EXPOSURE
@@ -166,6 +178,9 @@ export function resolveExportColorGraph(input: {
     userShadows: input.userShadows,
     userWhites: input.userWhites,
     userBlacks: input.userBlacks,
+  })
+  const selectiveColorBands = normalizeSelectiveColorParams({
+    selectiveColor: input.selectiveColor,
   })
   const base: ExportColorGraphStep[] = [
     { kind: 'input-linear-prophoto' },
@@ -206,6 +221,15 @@ export function resolveExportColorGraph(input: {
       pivot: tone.regionalTonePivot,
       luminanceCoefficients: tone.luminanceCoefficients,
       zeroLuminanceMode: 'return-black',
+    },
+    {
+      kind: 'user-selective-color',
+      bands: selectiveColorBands,
+      chromaClampLow: CHROMA_CLAMP_LOW,
+      chromaClampHigh: CHROMA_CLAMP_HIGH,
+      workingSpace: 'oklab-via-prophoto-d65',
+      operator: 'oklch-per-band-shift',
+      constantsVersion: LUT_CONSTANTS_VERSION,
     },
   ]
 

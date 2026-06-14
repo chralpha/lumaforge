@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
+import type { ExportColorGraphStep } from './color-graph'
 import { resolveExportColorGraph } from './color-graph'
 import { getLUTColorProfile } from './registry'
+import {
+  CHROMA_CLAMP_HIGH,
+  CHROMA_CLAMP_LOW,
+  LUT_CONSTANTS_VERSION,
+  LUT_SIZE,
+  resolveSelectiveColorParams,
+} from './selective-color'
 
 describe('resolveExportColorGraph', () => {
   it('resolves no-lut export to linear ProPhoto then sRGB output', () => {
@@ -25,6 +33,7 @@ describe('resolveExportColorGraph', () => {
       'user-exposure',
       'user-contrast',
       'user-regional-tone',
+      'user-selective-color',
       'output-srgb',
     ])
     expect(graph.steps[1]).toMatchObject({
@@ -63,6 +72,7 @@ describe('resolveExportColorGraph', () => {
           whites: 0,
           blacks: 0,
         },
+        { kind: 'user-selective-color' },
         { kind: 'output-srgb' },
       ],
     })
@@ -85,6 +95,7 @@ describe('resolveExportColorGraph', () => {
       'user-exposure',
       'user-contrast',
       'user-regional-tone',
+      'user-selective-color',
       'output-srgb',
     ])
     expect(graph.steps[2]).toMatchObject({
@@ -189,6 +200,7 @@ describe('resolveExportColorGraph', () => {
       'user-exposure',
       'user-contrast',
       'user-regional-tone',
+      'user-selective-color',
       'gamut-to-lut-input',
       'encode-lut-transfer',
       'lut3d',
@@ -294,18 +306,19 @@ describe('resolveExportColorGraph', () => {
       'user-exposure',
       'user-contrast',
       'user-regional-tone',
+      'user-selective-color',
       'gamut-to-lut-input',
       'encode-lut-transfer',
       'lut3d',
       'lut-output-to-srgb',
       'output-srgb',
     ])
-    expect(graph.steps[8]).toMatchObject({
+    expect(graph.steps[9]).toMatchObject({
       kind: 'lut3d',
       domainMin: [0, 0, 0],
       domainMax: [1, 1, 1],
     })
-    expect(graph.steps[9]).toMatchObject({
+    expect(graph.steps[10]).toMatchObject({
       kind: 'lut-output-to-srgb',
       transfer: 's-log3',
       range: 'full',
@@ -383,7 +396,7 @@ describe('resolveExportColorGraph', () => {
     if (!graph.supported) {
       throw new Error('Expected supported graph')
     }
-    expect(graph.steps[9]).toMatchObject({
+    expect(graph.steps[10]).toMatchObject({
       kind: 'lut-output-to-srgb',
       transfer: 'gamma24',
       range: 'full',
@@ -560,5 +573,173 @@ describe('resolveExportColorGraph', () => {
     expect(graph.message).toBe(
       'Choose a LUT output profile before full-resolution export.',
     )
+  })
+
+  describe('user-selective-color graph step', () => {
+    it('graph_step_composition: inserts selective-color after regional tone and before LUT/output', () => {
+      const noLutGraph = resolveExportColorGraph({
+        styleKind: 'none',
+        intensity: 0.7,
+        builtinPreset: null,
+        lut: null,
+      })
+
+      expect(noLutGraph.supported).toBe(true)
+      if (!noLutGraph.supported) throw new Error('Expected supported graph')
+      const noLutKinds = noLutGraph.steps.map((step) => step.kind)
+      const regionalToneIdx = noLutKinds.indexOf('user-regional-tone')
+      const selectiveColorIdx = noLutKinds.indexOf('user-selective-color')
+      const outputSrgbIdx = noLutKinds.indexOf('output-srgb')
+      expect(selectiveColorIdx).toBeGreaterThan(regionalToneIdx)
+      expect(selectiveColorIdx).toBeLessThan(outputSrgbIdx)
+
+      const profile = getLUTColorProfile('sony-sgamut3cine-slog3')
+      if (!profile) throw new Error('Missing profile')
+
+      const customLutGraph = resolveExportColorGraph({
+        styleKind: 'custom',
+        intensity: 0.7,
+        builtinPreset: null,
+        lut: {
+          size: 2,
+          data: new Float32Array(24),
+          domainMin: [0, 0, 0],
+          domainMax: [1, 1, 1],
+          inputProfile: 'v-log',
+          profileResolution: {
+            kind: 'confirmed',
+            confidence: 'user',
+            profile: {
+              ...profile,
+              outputGamut: 's-gamut3-cine',
+              outputTransfer: 's-log3',
+              outputRange: 'full',
+            },
+          },
+        },
+      })
+
+      expect(customLutGraph.supported).toBe(true)
+      if (!customLutGraph.supported) {
+        throw new Error('Expected supported graph')
+      }
+      const customLutKinds = customLutGraph.steps.map((step) => step.kind)
+      const regionalToneCustomIdx = customLutKinds.indexOf('user-regional-tone')
+      const selectiveColorCustomIdx = customLutKinds.indexOf(
+        'user-selective-color',
+      )
+      const gamutToLutIdx = customLutKinds.indexOf('gamut-to-lut-input')
+      expect(selectiveColorCustomIdx).toBeGreaterThan(regionalToneCustomIdx)
+      expect(selectiveColorCustomIdx).toBeLessThan(gamutToLutIdx)
+    })
+
+    it('graph_step_no_buffer: graph step carries durable params only, never a Float32Array', () => {
+      const graph = resolveExportColorGraph({
+        styleKind: 'none',
+        intensity: 0.7,
+        builtinPreset: null,
+        lut: null,
+        selectiveColor: {
+          red: { hue: 50, saturation: 0, lightness: 0 },
+          orange: { hue: 0, saturation: 0, lightness: 0 },
+          yellow: { hue: 0, saturation: 0, lightness: 0 },
+          green: { hue: 0, saturation: 0, lightness: 0 },
+          aqua: { hue: 0, saturation: 0, lightness: 0 },
+          blue: { hue: 0, saturation: 0, lightness: 0 },
+          purple: { hue: 0, saturation: 0, lightness: 0 },
+          magenta: { hue: 0, saturation: 0, lightness: 0 },
+        },
+      })
+
+      expect(graph.supported).toBe(true)
+      if (!graph.supported) throw new Error('Expected supported graph')
+      const step = graph.steps.find((s) => s.kind === 'user-selective-color')
+      expect(step).toBeDefined()
+      if (!step) throw new Error('Expected selective-color step')
+
+      // Walk every property; no value may be a Float32Array (or any TypedArray
+      // smelling like a LUT buffer). The step is durable params + constants.
+      for (const value of Object.values(step)) {
+        expect(value instanceof Float32Array).toBe(false)
+        expect(value instanceof Uint8Array).toBe(false)
+        if (
+          value !== null &&
+          typeof value === 'object' &&
+          'length' in (value as object)
+        ) {
+          expect((value as ArrayLike<unknown>).length).not.toBe(1024)
+        }
+      }
+
+      // TypeScript-level regression catch: the step type must not declare a
+      // Float32Array `buffer` property. The @ts-expect-error fails to compile
+      // if a future change adds one.
+      type StepKind = Extract<
+        ExportColorGraphStep,
+        { kind: 'user-selective-color' }
+      >
+      const _typeCheck = (s: StepKind): unknown =>
+        // @ts-expect-error: step must not carry a Float32Array buffer
+        s.buffer satisfies Float32Array
+      void _typeCheck
+    })
+
+    it('lut_ownership: graph step is decoupled from any baked LUT buffer', () => {
+      const input = {
+        styleKind: 'none' as const,
+        intensity: 0.7,
+        builtinPreset: null,
+        lut: null,
+        selectiveColor: {
+          red: { hue: 50, saturation: 0, lightness: 0 },
+          orange: { hue: 0, saturation: 0, lightness: 0 },
+          yellow: { hue: 0, saturation: 0, lightness: 0 },
+          green: { hue: 0, saturation: 0, lightness: 0 },
+          aqua: { hue: 0, saturation: 0, lightness: 0 },
+          blue: { hue: 0, saturation: 0, lightness: 0 },
+          purple: { hue: 0, saturation: 0, lightness: 0 },
+          magenta: { hue: 0, saturation: 0, lightness: 0 },
+        },
+      }
+
+      const graph = resolveExportColorGraph(input)
+      expect(graph.supported).toBe(true)
+      if (!graph.supported) throw new Error('Expected supported graph')
+      const graphStep = graph.steps.find(
+        (s) => s.kind === 'user-selective-color',
+      )
+      expect(graphStep).toBeDefined()
+      if (!graphStep) throw new Error('Expected selective-color step')
+
+      // Pool buffer simulates caller-owned T4 ownership model.
+      const poolBuffer = new Float32Array(4 * LUT_SIZE)
+      const { step: bakeStep, prepared } = resolveSelectiveColorParams(
+        { selectiveColor: input.selectiveColor },
+        poolBuffer,
+      )
+      expect(prepared.buffer).toBe(poolBuffer)
+
+      // Snapshot before mutation.
+      const before = JSON.stringify(graphStep)
+      // Mutate the caller-owned pool buffer in place.
+      poolBuffer.fill(999)
+      // Captured graph step is untouched (no buffer reference).
+      const after = JSON.stringify(graphStep)
+      expect(after).toBe(before)
+
+      // Structural equality of bands between graph step and bake step.
+      expect(graphStep).toMatchObject({
+        kind: 'user-selective-color',
+        chromaClampLow: CHROMA_CLAMP_LOW,
+        chromaClampHigh: CHROMA_CLAMP_HIGH,
+        workingSpace: 'oklab-via-prophoto-d65',
+        operator: 'oklch-per-band-shift',
+        constantsVersion: LUT_CONSTANTS_VERSION,
+      })
+      if (graphStep.kind !== 'user-selective-color') {
+        throw new Error('Type narrow guard')
+      }
+      expect(graphStep.bands).toEqual(bakeStep.bands)
+    })
   })
 })
