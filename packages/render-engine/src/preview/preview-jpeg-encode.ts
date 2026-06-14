@@ -45,12 +45,15 @@ export async function encodePreviewFrameToJpeg(
   }
 
   const encoder = createEncoder({ width, height, quality })
-  const rgbBand = new Uint8Array(width * PREVIEW_ENCODE_ROW_BAND * 3)
 
   try {
     for (let row = 0; row < height; row += PREVIEW_ENCODE_ROW_BAND) {
       const rowCount = Math.min(PREVIEW_ENCODE_ROW_BAND, height - row)
-      const dst = rgbBand.subarray(0, width * rowCount * 3)
+      // Allocate a fresh buffer per band. The browser encoder transfers the
+      // underlying ArrayBuffer to its worker via postMessage, which detaches
+      // it — reusing a single band buffer across iterations means iteration
+      // N+1 would read/write a detached typed array.
+      const dst = new Uint8Array(width * rowCount * 3)
       const srcStart = row * width * 4
       for (let p = 0; p < width * rowCount; p += 1) {
         const s = srcStart + p * 4

@@ -9,10 +9,8 @@
 
 import type { SupportedExportColorGraphDescriptor } from '@lumaforge/luma-color-runtime'
 
-import type {PreviewJpegEncoderFactory} from './preview-jpeg-encode';
-import {
-  encodePreviewFrameToJpeg
-} from './preview-jpeg-encode'
+import type { PreviewJpegEncoderFactory } from './preview-jpeg-encode'
+import { encodePreviewFrameToJpeg } from './preview-jpeg-encode'
 import { renderCpuPreviewFrame } from './preview-render'
 
 export type CandidateParams = {
@@ -62,14 +60,23 @@ function createIterator(
   const { params, signal } = options
   const maxConcurrent = Math.max(1, Math.floor(options.maxConcurrent))
   let nextStart = 0
-  const queue: Array<Promise<CandidateResult>> = []
+  // Active set keyed by promise identity. Yielded by completion order via
+  // Promise.race — a slow candidate 0 does NOT hold back a fast candidate
+  // 1 from being surfaced, which is the documented streaming /
+  // back-pressure contract.
+  const inFlight = new Set<Promise<CandidateResult>>()
   let done = false
 
   function ensurePending(): void {
-    while (queue.length < maxConcurrent && nextStart < params.length) {
+    while (inFlight.size < maxConcurrent && nextStart < params.length) {
       const index = nextStart
       nextStart += 1
-      queue.push(renderCandidate(options, index, params[index]))
+      const promise: Promise<CandidateResult> = renderCandidate(
+        options,
+        index,
+        params[index],
+      ).finally(() => inFlight.delete(promise))
+      inFlight.add(promise)
     }
   }
 
@@ -80,18 +87,18 @@ function createIterator(
         done = true
         throw signal.reason ?? new Error('CANDIDATE_RENDER_ABORTED')
       }
-      if (queue.length === 0 && nextStart >= params.length) {
+      ensurePending()
+      if (inFlight.size === 0) {
         done = true
         return { value: undefined, done: true }
       }
-      ensurePending()
-      const next = await queue.shift()!
+      const next = await Promise.race(inFlight)
       return { value: next, done: false }
     },
     async return(): Promise<IteratorResult<CandidateResult>> {
       done = true
-      await Promise.allSettled(queue)
-      queue.length = 0
+      await Promise.allSettled(inFlight)
+      inFlight.clear()
       return { value: undefined, done: true }
     },
   }

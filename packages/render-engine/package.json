@@ -43,10 +43,12 @@
     "test": "vitest run src"
   },
   "peerDependencies": {
+    "@lumaforge/luma-color-runtime": "workspace:*",
     "@lumaforge/luma-jpeg-runtime": "workspace:*",
     "@lumaforge/luma-raw-runtime": "workspace:*"
   },
   "devDependencies": {
+    "@lumaforge/luma-color-runtime": "workspace:*",
     "@lumaforge/luma-jpeg-runtime": "workspace:*",
     "@lumaforge/luma-raw-runtime": "workspace:*"
   }

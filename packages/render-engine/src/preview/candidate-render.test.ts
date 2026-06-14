@@ -1,11 +1,21 @@
 /// <reference types="node" />
 // @vitest-environment node
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import type {CandidateParams} from './candidate-render';
+import type { CandidateParams } from './candidate-render'
 import { candidateRender } from './candidate-render'
 import type { PreviewJpegEncoderFactory } from './preview-jpeg-encode'
+
+// Bypass the real color-graph executor — these tests exercise iteration
+// mechanics, not pixel correctness. The mock returns a fixed RGBA buffer
+// sized to the source so encodePreviewFrameToJpeg accepts it.
+vi.mock('./preview-render', () => ({
+  renderCpuPreviewFrame: vi.fn(
+    ({ width, height }: { width: number; height: number }) =>
+      new Uint8ClampedArray(width * height * 4),
+  ),
+}))
 
 function fakeGraph(label: string): CandidateParams['graph'] {
   return { label, steps: [] } as unknown as CandidateParams['graph']
@@ -98,5 +108,38 @@ describe('candidateRender (mechanics)', () => {
     expect(iter.return).toBeTypeOf('function')
     const closed = await iter.return!()
     expect(closed.done).toBe(true)
+  })
+
+  it('yields candidates by completion order, not by insertion order', async () => {
+    // Encoder factory that introduces a controllable per-candidate delay.
+    // Candidate 0 finishes LAST; candidate 1 finishes FIRST. With FIFO
+    // queueing, the iterator would withhold candidate 1 until candidate
+    // 0 resolved. Promise.race-based yield surfaces candidate 1 first.
+    const delays = [60, 10]
+    let nextDelayIdx = 0
+    const delayingFactory: PreviewJpegEncoderFactory = ({ width, height }) => {
+      const delay = delays[nextDelayIdx++]
+      return {
+        writeRows: async () => undefined,
+        finish: async () => {
+          await new Promise((resolve) => setTimeout(resolve, delay))
+          return { width, height }
+        },
+        abort: () => undefined,
+      }
+    }
+    const completionOrder: number[] = []
+    for await (const result of candidateRender({
+      source: SOURCE,
+      params: [
+        { graph: fakeGraph('slow') } as never,
+        { graph: fakeGraph('fast') } as never,
+      ],
+      maxConcurrent: 2,
+      createEncoder: delayingFactory,
+    })) {
+      completionOrder.push(result.index)
+    }
+    expect(completionOrder).toEqual([1, 0])
   })
 })

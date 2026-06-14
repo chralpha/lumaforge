@@ -28,7 +28,7 @@ type PendingRender = {
 }
 
 const defaultWorkerFactory = (): CpuPreviewWorkerLike =>
-  new Worker(new URL('./cpu-preview.worker.ts', import.meta.url), {
+  new Worker(new URL('./browser-worker.ts', import.meta.url), {
     type: 'module',
   }) as unknown as CpuPreviewWorkerLike
 

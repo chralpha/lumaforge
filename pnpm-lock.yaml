@@ -277,6 +277,9 @@ importers:
 
   packages/render-engine:
     devDependencies:
+      '@lumaforge/luma-color-runtime':
+        specifier: workspace:*
+        version: link:../luma-color-runtime
       '@lumaforge/luma-jpeg-runtime':
         specifier: workspace:*
         version: link:../luma-jpeg-runtime
