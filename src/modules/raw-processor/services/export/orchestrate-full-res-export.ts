@@ -171,6 +171,7 @@ export async function orchestrateFullResExport(
     userBlacks: ctx.atoms.params.userBlacks,
     userTemperature: ctx.atoms.params.userTemperature,
     userTint: ctx.atoms.params.userTint,
+    selectiveColor: ctx.atoms.params.selectiveColor,
   })
 
   if (!graph.supported) {

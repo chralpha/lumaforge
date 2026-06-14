@@ -4,6 +4,12 @@ import type { Mat3 } from './matrix'
 import { mat3Identity } from './matrix'
 import type { LUTColorProfile } from './registry'
 import { createRowBandProcessor } from './row-band-processor'
+import {
+  CHROMA_CLAMP_HIGH,
+  CHROMA_CLAMP_LOW,
+  LUT_CONSTANTS_VERSION,
+  makeNeutralBand,
+} from './selective-color'
 
 const BOUNDARY_PROFILE: LUTColorProfile = {
   id: 'test-linear-boundary-probe',
@@ -49,6 +55,24 @@ function neutralToneSteps(): SupportedExportColorGraphDescriptor['steps'] {
       operator: 'linear-prophoto-log-luminance-regions',
       luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
       zeroLuminanceMode: 'return-black',
+    },
+    {
+      kind: 'user-selective-color',
+      bands: {
+        red: makeNeutralBand(),
+        orange: makeNeutralBand(),
+        yellow: makeNeutralBand(),
+        green: makeNeutralBand(),
+        aqua: makeNeutralBand(),
+        blue: makeNeutralBand(),
+        purple: makeNeutralBand(),
+        magenta: makeNeutralBand(),
+      },
+      chromaClampLow: CHROMA_CLAMP_LOW,
+      chromaClampHigh: CHROMA_CLAMP_HIGH,
+      workingSpace: 'oklab-via-prophoto-d65',
+      operator: 'oklch-per-band-shift',
+      constantsVersion: LUT_CONSTANTS_VERSION,
     },
   ]
 }

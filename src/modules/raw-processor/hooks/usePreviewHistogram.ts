@@ -111,6 +111,7 @@ function createHistogramJob({
     params.userBlacks ?? 0,
     params.userTemperature ?? 0,
     params.userTint ?? 0,
+    params.selectiveColor ? JSON.stringify(params.selectiveColor) : '',
   ].join(':')
 
   if (!image) {
@@ -172,6 +173,7 @@ function createHistogramJob({
     userBlacks: params.userBlacks,
     userTemperature: params.userTemperature,
     userTint: params.userTint,
+    selectiveColor: params.selectiveColor,
   })
 
   if (!graph.supported) {
@@ -239,6 +241,7 @@ export function usePreviewHistogram(
     userBlacks,
     userTemperature,
     userTint,
+    selectiveColor,
   } = params
   const histogramParams = useMemo<ProcessingParams>(
     () => ({
@@ -253,12 +256,14 @@ export function usePreviewHistogram(
       userBlacks,
       userTemperature,
       userTint,
+      selectiveColor,
       viewMode: 'processed',
       compareSplit: 0.5,
     }),
     [
       builtinPreset,
       intensity,
+      selectiveColor,
       styleKind,
       userBlacks,
       userContrast,

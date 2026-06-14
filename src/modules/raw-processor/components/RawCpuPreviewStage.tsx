@@ -47,6 +47,7 @@ export function RawCpuPreviewStage({
       userBlacks: params.userBlacks,
       userTemperature: params.userTemperature,
       userTint: params.userTint,
+      selectiveColor: params.selectiveColor,
     },
     variant,
   })

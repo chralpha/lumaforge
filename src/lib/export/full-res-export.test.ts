@@ -3,7 +3,11 @@ import type {
   SupportedExportColorGraphDescriptor,
 } from '@lumaforge/luma-color-runtime'
 import {
+  CHROMA_CLAMP_HIGH,
+  CHROMA_CLAMP_LOW,
   createRowBandProcessor,
+  LUT_CONSTANTS_VERSION,
+  makeNeutralBand,
   mat3Identity,
   resolveColorBalanceParams,
 } from '@lumaforge/luma-color-runtime'
@@ -206,6 +210,24 @@ function neutralToneSteps(): ExportColorGraphStep[] {
       pivot: 0.18,
       luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
       zeroLuminanceMode: 'return-black',
+    },
+    {
+      kind: 'user-selective-color',
+      bands: {
+        red: makeNeutralBand(),
+        orange: makeNeutralBand(),
+        yellow: makeNeutralBand(),
+        green: makeNeutralBand(),
+        aqua: makeNeutralBand(),
+        blue: makeNeutralBand(),
+        purple: makeNeutralBand(),
+        magenta: makeNeutralBand(),
+      },
+      chromaClampLow: CHROMA_CLAMP_LOW,
+      chromaClampHigh: CHROMA_CLAMP_HIGH,
+      workingSpace: 'oklab-via-prophoto-d65',
+      operator: 'oklch-per-band-shift',
+      constantsVersion: LUT_CONSTANTS_VERSION,
     },
   ]
 }

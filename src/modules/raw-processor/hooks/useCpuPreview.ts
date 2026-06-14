@@ -1,13 +1,16 @@
 import type {
+  LumaColorSelectiveColorParams,
   LUTData,
   ProcessingParams,
   RawRenderExposure,
   SupportedExportColorGraphDescriptor,
 } from '@lumaforge/luma-color-runtime'
 import { resolveExportColorGraph } from '@lumaforge/luma-color-runtime'
-import type {   CpuPreviewFailureReason,
-CpuPreviewFrame,
-  CpuPreviewVariant } from '@lumaforge/render-engine/preview'
+import type {
+  CpuPreviewFailureReason,
+  CpuPreviewFrame,
+  CpuPreviewVariant,
+} from '@lumaforge/render-engine/preview'
 import { CpuPreviewClient } from '@lumaforge/render-engine/preview'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
@@ -31,6 +34,7 @@ export type CpuPreviewParams = {
   userBlacks: number
   userTemperature: number
   userTint: number
+  selectiveColor?: LumaColorSelectiveColorParams['selectiveColor']
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +80,7 @@ export function buildCpuPreviewGraph(
           userBlacks: 0,
           userTemperature: 0,
           userTint: 0,
+          selectiveColor: undefined,
         }
       : params
 
@@ -275,7 +280,11 @@ export function useCpuPreview({
       ? ''
       : (params.builtinPreset ?? '')
     const effectiveLut = lookDegraded ? null : params.lut
-    const renderSig = `${sourceId}|${variant}|${lookDegraded ? 'degraded' : 'full'}|${effectiveStyleKind}|${effectiveIntensity}|${effectiveBuiltinPreset}|${params.rawRenderExposure.ev}|${params.rawRenderExposure.multiplier}|${params.userExposureEv}|${params.userContrast}|${params.userHighlights}|${params.userShadows}|${params.userWhites}|${params.userBlacks}|${params.userTemperature}|${params.userTint}`
+    const selectiveColorSig =
+      variant === 'neutral' || !params.selectiveColor
+        ? ''
+        : JSON.stringify(params.selectiveColor)
+    const renderSig = `${sourceId}|${variant}|${lookDegraded ? 'degraded' : 'full'}|${effectiveStyleKind}|${effectiveIntensity}|${effectiveBuiltinPreset}|${params.rawRenderExposure.ev}|${params.rawRenderExposure.multiplier}|${params.userExposureEv}|${params.userContrast}|${params.userHighlights}|${params.userShadows}|${params.userWhites}|${params.userBlacks}|${params.userTemperature}|${params.userTint}|${selectiveColorSig}`
     const prevKey = lastRenderKeyRef.current
     if (prevKey && prevKey.sig === renderSig && prevKey.lut === effectiveLut) {
       return

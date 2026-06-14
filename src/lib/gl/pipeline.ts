@@ -762,6 +762,7 @@ export class RawProcessingPipeline {
       userBlacks: this.params.userBlacks,
       userTemperature: this.params.userTemperature,
       userTint: this.params.userTint,
+      selectiveColor: this.params.selectiveColor,
     })
     const resolvedProfile = exportGraph.supported
       ? exportGraph.lutProfile

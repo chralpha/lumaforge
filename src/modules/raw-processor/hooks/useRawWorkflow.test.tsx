@@ -1,5 +1,11 @@
 import type { RawRenderExposure } from '@lumaforge/luma-color-runtime'
-import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
+import {
+  CHROMA_CLAMP_HIGH,
+  CHROMA_CLAMP_LOW,
+  getLUTColorProfile,
+  LUT_CONSTANTS_VERSION,
+  makeNeutralBand,
+} from '@lumaforge/luma-color-runtime'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { Provider } from 'jotai'
 import type { ReactNode } from 'react'
@@ -2250,6 +2256,24 @@ describe('useRawWorkflow embedded preview state', () => {
         pivot: 0.18,
         luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
         zeroLuminanceMode: 'return-black',
+      },
+      {
+        kind: 'user-selective-color',
+        bands: {
+          red: makeNeutralBand(),
+          orange: makeNeutralBand(),
+          yellow: makeNeutralBand(),
+          green: makeNeutralBand(),
+          aqua: makeNeutralBand(),
+          blue: makeNeutralBand(),
+          purple: makeNeutralBand(),
+          magenta: makeNeutralBand(),
+        },
+        chromaClampLow: CHROMA_CLAMP_LOW,
+        chromaClampHigh: CHROMA_CLAMP_HIGH,
+        workingSpace: 'oklab-via-prophoto-d65',
+        operator: 'oklch-per-band-shift',
+        constantsVersion: LUT_CONSTANTS_VERSION,
       },
       { kind: 'output-srgb' },
     ]

@@ -337,9 +337,11 @@ function createResolvedVLogClassic709Graph(lutContent: string) {
   expect(graph.steps.map((step) => step.kind)).toEqual([
     'input-linear-prophoto',
     'raw-render-exposure',
+    'user-color-balance',
     'user-exposure',
     'user-contrast',
     'user-regional-tone',
+    'user-selective-color',
     'gamut-to-lut-input',
     'encode-lut-transfer',
     'lut3d',

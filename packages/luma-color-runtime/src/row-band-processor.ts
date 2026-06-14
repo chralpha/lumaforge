@@ -3,6 +3,12 @@ import { compressLutInputToDomain } from './lut-domain'
 import { mix, sampleLutTrilinear } from './lut3d'
 import { getProPhotoToTargetMatrix } from './matrix'
 import { getTransferFunction } from './registry'
+import type { PreparedSelectiveColorLut } from './selective-color'
+import {
+  applySelectiveColorRow,
+  LUT_SIZE as SELECTIVE_COLOR_LUT_SIZE,
+  resolveSelectiveColorParams,
+} from './selective-color'
 import { regionalToneScaleFromLuminance } from './tone'
 
 const CHANNELS_PER_PIXEL = 3
@@ -62,6 +68,11 @@ type UserColorBalanceStep = Extract<
   { kind: 'user-color-balance' }
 >
 
+type UserSelectiveColorStep = Extract<
+  SupportedExportColorGraphDescriptor['steps'][number],
+  { kind: 'user-selective-color' }
+>
+
 function isSimpleNoLutGraph(
   graph: SupportedExportColorGraphDescriptor,
 ): graph is SupportedExportColorGraphDescriptor & {
@@ -84,19 +95,21 @@ function isSimpleNoLutGraph(
       SupportedExportColorGraphDescriptor['steps'][number],
       { kind: 'user-regional-tone' }
     >,
+    UserSelectiveColorStep,
     { kind: 'output-srgb' },
   ]
 } {
   return (
     graph.lutProfile === null &&
-    graph.steps.length === 7 &&
+    graph.steps.length === 8 &&
     graph.steps[0]?.kind === 'input-linear-prophoto' &&
     graph.steps[1]?.kind === 'raw-render-exposure' &&
     graph.steps[2]?.kind === 'user-color-balance' &&
     graph.steps[3]?.kind === 'user-exposure' &&
     graph.steps[4]?.kind === 'user-contrast' &&
     graph.steps[5]?.kind === 'user-regional-tone' &&
-    graph.steps[6]?.kind === 'output-srgb'
+    graph.steps[6]?.kind === 'user-selective-color' &&
+    graph.steps[7]?.kind === 'output-srgb'
   )
 }
 
@@ -122,6 +135,7 @@ function isSupportedLutGraph(
       SupportedExportColorGraphDescriptor['steps'][number],
       { kind: 'user-regional-tone' }
     >,
+    UserSelectiveColorStep,
     Extract<
       SupportedExportColorGraphDescriptor['steps'][number],
       { kind: 'gamut-to-lut-input' }
@@ -142,18 +156,19 @@ function isSupportedLutGraph(
   ]
 } {
   return (
-    graph.steps.length === 11 &&
+    graph.steps.length === 12 &&
     graph.steps[0]?.kind === 'input-linear-prophoto' &&
     graph.steps[1]?.kind === 'raw-render-exposure' &&
     graph.steps[2]?.kind === 'user-color-balance' &&
     graph.steps[3]?.kind === 'user-exposure' &&
     graph.steps[4]?.kind === 'user-contrast' &&
     graph.steps[5]?.kind === 'user-regional-tone' &&
-    graph.steps[6]?.kind === 'gamut-to-lut-input' &&
-    graph.steps[7]?.kind === 'encode-lut-transfer' &&
-    graph.steps[8]?.kind === 'lut3d' &&
-    graph.steps[9]?.kind === 'lut-output-to-srgb' &&
-    graph.steps[10]?.kind === 'output-srgb'
+    graph.steps[6]?.kind === 'user-selective-color' &&
+    graph.steps[7]?.kind === 'gamut-to-lut-input' &&
+    graph.steps[8]?.kind === 'encode-lut-transfer' &&
+    graph.steps[9]?.kind === 'lut3d' &&
+    graph.steps[10]?.kind === 'lut-output-to-srgb' &&
+    graph.steps[11]?.kind === 'output-srgb'
   )
 }
 
@@ -275,7 +290,92 @@ function applyUserRegionalToneScalarTo(
   return out
 }
 
-type GraphApplier = (linear: Float32Array, bytes: Uint8Array) => void
+type SelectiveColorContext = {
+  step: UserSelectiveColorStep
+  lutBuffer: Float32Array
+  prepared: PreparedSelectiveColorLut
+  bandsRef: UserSelectiveColorStep['bands'] | null
+}
+
+function createSelectiveColorContext(
+  step: UserSelectiveColorStep,
+): SelectiveColorContext {
+  const lutBuffer = new Float32Array(4 * SELECTIVE_COLOR_LUT_SIZE)
+  return {
+    step,
+    lutBuffer,
+    prepared: {
+      bands: step.bands,
+      buffer: lutBuffer,
+      constantsVersion: step.constantsVersion,
+    },
+    bandsRef: null,
+  }
+}
+
+function allBandsNeutral(step: UserSelectiveColorStep) {
+  const bands = step.bands
+  for (const id of [
+    'red',
+    'orange',
+    'yellow',
+    'green',
+    'aqua',
+    'blue',
+    'purple',
+    'magenta',
+  ] as const) {
+    const band = bands[id]
+    if (band.hue !== 0 || band.saturation !== 0 || band.lightness !== 0) {
+      return false
+    }
+  }
+  return true
+}
+
+function ensureSelectiveColorPrepared(context: SelectiveColorContext) {
+  const bands = context.step.bands
+  if (context.bandsRef === bands) {
+    return context.prepared
+  }
+  const { prepared } = resolveSelectiveColorParams(
+    { selectiveColor: bands },
+    context.lutBuffer,
+  )
+  context.prepared = prepared
+  context.bandsRef = bands
+  return prepared
+}
+
+function applySelectiveColorToSceneScratch(
+  sceneScratch: Float32Array,
+  pixelLength: number,
+  context: SelectiveColorContext,
+) {
+  // All-neutral bands are mathematically identity, but the OKLab roundtrip
+  // inside applySelectiveColorRow introduces ~1 ULP drift in linear ProPhoto.
+  // That drift can flip a 1-byte boundary in the downstream sRGB byte at
+  // tightly-clamped LUT domains, breaking byte-exact precision contracts.
+  // Skip the apply when every band is neutral to preserve byte-exactness.
+  if (allBandsNeutral(context.step)) {
+    return
+  }
+  const prepared = ensureSelectiveColorPrepared(context)
+  const view = sceneScratch.subarray(0, pixelLength)
+  applySelectiveColorRow(
+    view,
+    view,
+    prepared,
+    context.step.chromaClampLow,
+    context.step.chromaClampHigh,
+  )
+}
+
+type GraphApplier = (
+  linear: Float32Array,
+  bytes: Uint8Array,
+  sceneScratch: Float32Array,
+) => void
 
 function compileGraphApplier(
   graph: SupportedExportColorGraphDescriptor,
@@ -288,10 +388,12 @@ function compileGraphApplier(
     const exposureMultiplier = getUserExposureMultiplier(graph.steps[3])
     const contrastStep = graph.steps[4]
     const regionalToneStep = graph.steps[5]
+    const selectiveColorContext = createSelectiveColorContext(graph.steps[6])
     const toneScratch: MutableRgb = [0, 0, 0]
 
-    return (linear, bytes) => {
-      for (let index = 0; index < linear.length; index += 3) {
+    return (linear, bytes, sceneScratch) => {
+      const length = linear.length
+      for (let index = 0; index < length; index += 3) {
         const baseR = (linear[index] ?? 0) * rawRenderExposureMultiplier
         const baseG = (linear[index + 1] ?? 0) * rawRenderExposureMultiplier
         const baseB = (linear[index + 2] ?? 0) * rawRenderExposureMultiplier
@@ -312,9 +414,21 @@ function compileGraphApplier(
           regionalToneStep,
           toneScratch,
         )
-        const sceneR = scene[0]
-        const sceneG = scene[1]
-        const sceneB = scene[2]
+        sceneScratch[index] = scene[0]
+        sceneScratch[index + 1] = scene[1]
+        sceneScratch[index + 2] = scene[2]
+      }
+
+      applySelectiveColorToSceneScratch(
+        sceneScratch,
+        length,
+        selectiveColorContext,
+      )
+
+      for (let index = 0; index < length; index += 3) {
+        const sceneR = sceneScratch[index]
+        const sceneG = sceneScratch[index + 1]
+        const sceneB = sceneScratch[index + 2]
         const displayLinearR = clampMin0(
           PROPHOTO_TO_SRGB_MATRIX[0] * sceneR +
             PROPHOTO_TO_SRGB_MATRIX[1] * sceneG +
@@ -348,10 +462,11 @@ function compileGraphApplier(
   const exposureMultiplier = getUserExposureMultiplier(graph.steps[3])
   const contrastStep = graph.steps[4]
   const regionalToneStep = graph.steps[5]
-  const inputMatrix = graph.steps[6].matrix
-  const encodeStep = graph.steps[7]
-  const lutStep = graph.steps[8]
-  const outputStep = graph.steps[9]
+  const selectiveColorContext = createSelectiveColorContext(graph.steps[6])
+  const inputMatrix = graph.steps[7].matrix
+  const encodeStep = graph.steps[8]
+  const lutStep = graph.steps[9]
+  const outputStep = graph.steps[10]
   const outputMatrix = outputStep.matrix
   const encodeTransfer = getTransferFunction(encodeStep.transfer)
   const decodeTransfer = getTransferFunction(outputStep.transfer)
@@ -376,8 +491,9 @@ function compileGraphApplier(
   const lutInputDomain: MutableRgb = [0, 0, 0]
   const lutSample: [number, number, number] = [0, 0, 0]
 
-  return (linear, bytes) => {
-    for (let index = 0; index < linear.length; index += 3) {
+  return (linear, bytes, sceneScratch) => {
+    const length = linear.length
+    for (let index = 0; index < length; index += 3) {
       const baseR = (linear[index] ?? 0) * rawRenderExposureMultiplier
       const baseG = (linear[index + 1] ?? 0) * rawRenderExposureMultiplier
       const baseB = (linear[index + 2] ?? 0) * rawRenderExposureMultiplier
@@ -398,9 +514,21 @@ function compileGraphApplier(
         regionalToneStep,
         toneScratch,
       )
-      const sceneR = scene[0]
-      const sceneG = scene[1]
-      const sceneB = scene[2]
+      sceneScratch[index] = scene[0]
+      sceneScratch[index + 1] = scene[1]
+      sceneScratch[index + 2] = scene[2]
+    }
+
+    applySelectiveColorToSceneScratch(
+      sceneScratch,
+      length,
+      selectiveColorContext,
+    )
+
+    for (let index = 0; index < length; index += 3) {
+      const sceneR = sceneScratch[index]
+      const sceneG = sceneScratch[index + 1]
+      const sceneB = sceneScratch[index + 2]
 
       const baseDisplayLinearR = clampMin0(
         PROPHOTO_TO_SRGB_MATRIX[0] * sceneR +
@@ -587,12 +715,13 @@ export function createRowBandProcessor({
 
   const applyGraph = compileGraphApplier(graph)
   const floatScratch = new Float32Array(maxLength)
+  const sceneScratch = new Float32Array(maxLength)
   const rgb8Scratch = new Uint8Array(maxLength)
 
   function processFloatRows(source: Float32Array, rowCount: number) {
     const length = validateRows(source.length, width, rowBandRows, rowCount)
     const rows = rgb8Scratch.subarray(0, length)
-    applyGraph(source, rows)
+    applyGraph(source, rows, sceneScratch)
     return rows
   }
 
