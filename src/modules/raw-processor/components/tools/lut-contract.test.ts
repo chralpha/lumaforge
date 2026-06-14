@@ -1,7 +1,7 @@
 import { getLUTColorProfile } from '@lumaforge/luma-color-runtime'
 import { describe, expect, it } from 'vitest'
 
-import { deriveLUTContractView } from './lut-contract'
+import { deriveLUTContractView, getProfileContractLabel } from './lut-contract'
 
 const vlog709 = getLUTColorProfile('panasonic-vgamut-vlog')! // input-only unless output annotated
 
@@ -88,5 +88,23 @@ describe('deriveLUTContractView', () => {
       null,
     )
     expect(view.status).toBe('incomplete-output')
+  })
+})
+
+describe('getProfileContractLabel', () => {
+  it('returns the profile label without the output suffix when the profile has a full output contract', () => {
+    const complete = {
+      ...vlog709,
+      role: 'combined-look-output' as const,
+      outputGamut: 'srgb-rec709' as const,
+      outputTransfer: 'gamma24' as const,
+      outputRange: 'full' as const,
+    }
+    expect(getProfileContractLabel(complete)).toBe(vlog709.label)
+    expect(getProfileContractLabel(complete)).not.toContain('->')
+  })
+
+  it('returns the profile label when the profile lacks an output contract', () => {
+    expect(getProfileContractLabel(vlog709)).toBe(vlog709.label)
   })
 })

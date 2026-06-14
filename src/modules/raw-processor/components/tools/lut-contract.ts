@@ -118,15 +118,6 @@ export function composeLUTContractProfile(
 }
 
 export function getProfileContractLabel(profile: LUTColorProfile) {
-  const outputLabel = getProfileOutputLabel(profile)
-  if (
-    outputLabel &&
-    outputLabel !== 'Output profile required' &&
-    !hasDisplayLikeInput(profile)
-  ) {
-    return `${profile.label} -> ${outputLabel}`
-  }
-
   return profile.label
 }
 
