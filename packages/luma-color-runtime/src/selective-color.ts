@@ -1,5 +1,9 @@
 import { getLinearProPhotoToGamutMatrix, mat3Invert } from './matrix'
-import { linearProPhotoToOklab, oklabToOklch } from './oklab'
+import {
+  linearProPhotoToOklab,
+  oklabToLinearProPhoto,
+  oklabToOklch,
+} from './oklab'
 
 export type HSLBandId =
   | 'red'
@@ -295,4 +299,83 @@ export function resolveSelectiveColorParams(
     constantsVersion: LUT_CONSTANTS_VERSION,
   }
   return { step, prepared }
+}
+
+interface RowOut {
+  [index: number]: number
+  length: number
+}
+
+export function applySelectiveColorRow(
+  rgbIn: ArrayLike<number>,
+  rgbOut: RowOut,
+  prepared: PreparedSelectiveColorLut,
+  chromaClampLow: number = CHROMA_CLAMP_LOW,
+  chromaClampHigh: number = CHROMA_CLAMP_HIGH,
+): void {
+  const length = rgbIn.length
+  if (rgbOut.length < length) {
+    throw new Error(
+      `rgbOut length ${rgbOut.length} is shorter than rgbIn length ${length}`,
+    )
+  }
+  if (length % 3 !== 0) {
+    throw new Error(
+      `rgbIn length ${length} is not divisible by 3 (interleaved RGB row)`,
+    )
+  }
+  const buffer = prepared.buffer
+  const lutSize = LUT_SIZE
+  const lab = new Float32Array(3)
+  const labShifted = new Float32Array(3)
+  const rgbScratch = new Float32Array(3)
+  for (let p = 0; p < length; p += 3) {
+    rgbScratch[0] = rgbIn[p + 0]
+    rgbScratch[1] = rgbIn[p + 1]
+    rgbScratch[2] = rgbIn[p + 2]
+    linearProPhotoToOklab(rgbScratch, lab)
+    const L = lab[0]
+    const a = lab[1]
+    const b = lab[2]
+    const C = Math.sqrt(a * a + b * b)
+    const h = Math.atan2(b, a)
+    const hNormRaw = h / TWO_PI + 1.0
+    const hNorm = hNormRaw - Math.floor(hNormRaw)
+
+    const x = hNorm * lutSize
+    const i0f = Math.floor(x)
+    const t = x - i0f
+    const i0 = i0f % lutSize
+    const i1 = (i0 + 1) % lutSize
+    const base0 = 4 * i0
+    const base1 = 4 * i1
+    const oneMinusT = 1 - t
+    const hueShift = oneMinusT * buffer[base0 + 0] + t * buffer[base1 + 0]
+    const satMul = oneMinusT * buffer[base0 + 1] + t * buffer[base1 + 1]
+    const lightAdd = oneMinusT * buffer[base0 + 2] + t * buffer[base1 + 2]
+
+    const denom = chromaClampHigh - chromaClampLow
+    let strength: number
+    if (denom <= 0) {
+      strength = C < chromaClampLow ? 0 : 1
+    } else {
+      const u = (C - chromaClampLow) / denom
+      const uc = u < 0 ? 0 : u > 1 ? 1 : u
+      strength = uc * uc * (3 - 2 * uc)
+    }
+
+    const delta = strength * hueShift
+    const scale = 1 + strength * (satMul - 1)
+    const addL = strength * lightAdd
+    const cosD = Math.cos(delta)
+    const sinD = Math.sin(delta)
+    labShifted[0] = L + addL
+    labShifted[1] = (a * cosD - b * sinD) * scale
+    labShifted[2] = (a * sinD + b * cosD) * scale
+
+    oklabToLinearProPhoto(labShifted, rgbScratch)
+    rgbOut[p + 0] = rgbScratch[0]
+    rgbOut[p + 1] = rgbScratch[1]
+    rgbOut[p + 2] = rgbScratch[2]
+  }
 }
