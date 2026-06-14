@@ -1,9 +1,11 @@
+import type { HSLBandId, HSLBandShift } from '@lumaforge/luma-color-runtime'
 import { m } from 'motion/react'
 import type { ReactNode } from 'react'
 
 import { surfaceFade } from '~/lib/spring'
 
 import type { ColorValue } from '../tools/ColorTool'
+import type { HSLToolValue } from '../tools/HSLTool'
 import type { ToneValue } from '../tools/ToneTool'
 import type { ScrubFieldId } from './AdjustListPanel'
 import { AdjustListPanel } from './AdjustListPanel'
@@ -21,6 +23,7 @@ export function MobileLabModeDock({
   prefersReduced,
   tone,
   color,
+  selectiveColor,
   lutBrowser,
   compareSplitOpen,
   exportPanel,
@@ -31,6 +34,8 @@ export function MobileLabModeDock({
   onToneReset,
   onColorChange,
   onColorReset,
+  onSelectiveColorChange,
+  onSelectiveColorReset,
   onScrubChange,
   onOpenLutBrowser,
   onOpenLutContractBrowser,
@@ -44,6 +49,7 @@ export function MobileLabModeDock({
   prefersReduced: boolean
   tone: ToneValue
   color: ColorValue
+  selectiveColor: HSLToolValue | undefined
   lutBrowser: Omit<MobileLutBrowserProps, 'open' | 'onClose'>
   compareSplitOpen: boolean
   exportPanel: ReactNode
@@ -54,6 +60,11 @@ export function MobileLabModeDock({
   onToneReset: () => void
   onColorChange: (patch: Partial<ColorValue>) => void
   onColorReset: () => void
+  onSelectiveColorChange: (
+    band: HSLBandId,
+    shift: Partial<HSLBandShift>,
+  ) => void
+  onSelectiveColorReset: () => void
   onScrubChange: (field: ScrubFieldId | null) => void
   onOpenLutBrowser: () => void
   onOpenLutContractBrowser: () => void
@@ -81,6 +92,7 @@ export function MobileLabModeDock({
             mode={mode}
             tone={tone}
             color={color}
+            selectiveColor={selectiveColor}
             lutBrowser={lutBrowser}
             compareSplitOpen={compareSplitOpen}
             exportPanel={exportPanel}
@@ -89,6 +101,8 @@ export function MobileLabModeDock({
             onToneReset={onToneReset}
             onColorChange={onColorChange}
             onColorReset={onColorReset}
+            onSelectiveColorChange={onSelectiveColorChange}
+            onSelectiveColorReset={onSelectiveColorReset}
             onScrubChange={onScrubChange}
             onOpenLutBrowser={onOpenLutBrowser}
             onOpenLutContractBrowser={onOpenLutContractBrowser}
@@ -105,6 +119,7 @@ function MobileLabModePanel({
   mode,
   tone,
   color,
+  selectiveColor,
   lutBrowser,
   compareSplitOpen,
   exportPanel,
@@ -113,6 +128,8 @@ function MobileLabModePanel({
   onToneReset,
   onColorChange,
   onColorReset,
+  onSelectiveColorChange,
+  onSelectiveColorReset,
   onScrubChange,
   onOpenLutBrowser,
   onOpenLutContractBrowser,
@@ -122,6 +139,7 @@ function MobileLabModePanel({
   mode: MobileMode
   tone: ToneValue
   color: ColorValue
+  selectiveColor: HSLToolValue | undefined
   lutBrowser: Omit<MobileLutBrowserProps, 'open' | 'onClose'>
   compareSplitOpen: boolean
   exportPanel: ReactNode
@@ -130,6 +148,11 @@ function MobileLabModePanel({
   onToneReset: () => void
   onColorChange: (patch: Partial<ColorValue>) => void
   onColorReset: () => void
+  onSelectiveColorChange: (
+    band: HSLBandId,
+    shift: Partial<HSLBandShift>,
+  ) => void
+  onSelectiveColorReset: () => void
   onScrubChange: (field: ScrubFieldId | null) => void
   onOpenLutBrowser: () => void
   onOpenLutContractBrowser: () => void
@@ -141,10 +164,13 @@ function MobileLabModePanel({
       <AdjustListPanel
         tone={tone}
         color={color}
+        selectiveColor={selectiveColor}
         onToneChange={onToneChange}
         onColorChange={onColorChange}
+        onSelectiveColorChange={onSelectiveColorChange}
         onToneReset={onToneReset}
         onColorReset={onColorReset}
+        onSelectiveColorReset={onSelectiveColorReset}
         onScrubChange={onScrubChange}
         scrubbing={scrubbing}
       />

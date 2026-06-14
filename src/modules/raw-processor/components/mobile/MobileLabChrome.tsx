@@ -1,10 +1,15 @@
-import type { PreviewHistogramState } from '@lumaforge/luma-color-runtime'
+import type {
+  HSLBandId,
+  HSLBandShift,
+  PreviewHistogramState,
+} from '@lumaforge/luma-color-runtime'
 import { AnimatePresence, m } from 'motion/react'
 import type { ReactNode } from 'react'
 
 import { DOCK_SPRING } from '../../motion'
 import type { RawRuntimeReadinessState } from '../raw-runtime-readiness'
 import type { ColorValue } from '../tools/ColorTool'
+import type { HSLToolValue } from '../tools/HSLTool'
 import type { ToneValue } from '../tools/ToneTool'
 import { MobileEmptyState } from './MobileEmptyState'
 import { MobileFloatingOverlays } from './MobileFloatingOverlays'
@@ -23,10 +28,16 @@ export function MobileLabChrome(props: {
   hasImage: boolean
   tone: ToneValue
   color: ColorValue
+  selectiveColor: HSLToolValue | undefined
   onToneChange: (patch: Partial<ToneValue>) => void
   onToneReset: () => void
   onColorChange: (patch: Partial<ColorValue>) => void
   onColorReset: () => void
+  onSelectiveColorChange: (
+    band: HSLBandId,
+    shift: Partial<HSLBandShift>,
+  ) => void
+  onSelectiveColorReset: () => void
   viewMode: MobileLabViewMode
   onViewModeChange: (mode: MobileLabViewMode) => void
   histogram: PreviewHistogramState
@@ -113,6 +124,7 @@ export function MobileLabChrome(props: {
         scrubField={scrubField}
         tone={props.tone}
         color={props.color}
+        selectiveColor={props.selectiveColor}
         onExitImmersive={exitImmersive}
       />
 
@@ -154,6 +166,7 @@ export function MobileLabChrome(props: {
               prefersReduced={prefersReduced}
               tone={props.tone}
               color={props.color}
+              selectiveColor={props.selectiveColor}
               lutBrowser={props.lutBrowser}
               compareSplitOpen={compareSplitOpen}
               exportPanel={props.exportPanel}
@@ -161,6 +174,8 @@ export function MobileLabChrome(props: {
               onToneReset={props.onToneReset}
               onColorChange={props.onColorChange}
               onColorReset={props.onColorReset}
+              onSelectiveColorChange={props.onSelectiveColorChange}
+              onSelectiveColorReset={props.onSelectiveColorReset}
               onScrubChange={setScrubField}
               onOpenLutBrowser={openLutBrowser}
               onOpenLutContractBrowser={openLutContractBrowser}

@@ -5,6 +5,7 @@ import { useI18n } from '~/lib/i18n'
 import { surfaceFade } from '~/lib/spring'
 
 import type { ColorValue } from '../tools/ColorTool'
+import type { HSLToolValue } from '../tools/HSLTool'
 import type { ToneValue } from '../tools/ToneTool'
 import type { ScrubFieldId } from './AdjustListPanel'
 import { FloatingHistogramCard } from './FloatingHistogramCard'
@@ -21,6 +22,7 @@ export interface MobileFloatingOverlaysProps {
   scrubField: ScrubFieldId | null
   tone: ToneValue
   color: ColorValue
+  selectiveColor: HSLToolValue | undefined
   onExitImmersive: () => void
 }
 
@@ -35,6 +37,7 @@ export function MobileFloatingOverlays({
   scrubField,
   tone,
   color,
+  selectiveColor,
   onExitImmersive,
 }: MobileFloatingOverlaysProps) {
   const { t } = useI18n()
@@ -88,7 +91,12 @@ export function MobileFloatingOverlays({
           )}
       </AnimatePresence>
 
-      <ScrubValueHud field={scrubField} tone={tone} color={color} />
+      <ScrubValueHud
+        field={scrubField}
+        tone={tone}
+        color={color}
+        selectiveColor={selectiveColor}
+      />
     </>
   )
 }

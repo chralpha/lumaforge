@@ -39,10 +39,13 @@ export function MobileRawToolSurface() {
       hasImage={props.hasImage}
       tone={props.tone}
       color={props.color}
+      selectiveColor={props.selectiveColor}
       onToneChange={props.onToneChange}
       onToneReset={props.onToneReset}
       onColorChange={props.onColorChange}
       onColorReset={props.onColorReset}
+      onSelectiveColorChange={props.onSelectiveColorChange}
+      onSelectiveColorReset={props.onSelectiveColorReset}
       viewMode={props.viewMode}
       onViewModeChange={props.onViewModeChange}
       histogram={props.histogram}

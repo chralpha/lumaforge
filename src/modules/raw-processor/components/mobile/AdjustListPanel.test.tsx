@@ -1,10 +1,27 @@
+import type { HSLBandId, HSLBandShift } from '@lumaforge/luma-color-runtime'
+import { makeNeutralBand } from '@lumaforge/luma-color-runtime'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import enMessages from '~/locales/en.json'
+
 import { AdjustListPanel } from './AdjustListPanel'
 import { COLOR_NEUTRAL } from './color-fields'
 import { TONE_NEUTRAL } from './tone-fields'
+
+function neutralBands(): Record<HSLBandId, HSLBandShift> {
+  return {
+    red: makeNeutralBand(),
+    orange: makeNeutralBand(),
+    yellow: makeNeutralBand(),
+    green: makeNeutralBand(),
+    aqua: makeNeutralBand(),
+    blue: makeNeutralBand(),
+    purple: makeNeutralBand(),
+    magenta: makeNeutralBand(),
+  }
+}
 
 describe('adjustListPanel', () => {
   beforeEach(() => {
@@ -27,10 +44,13 @@ describe('adjustListPanel', () => {
     const props = {
       tone: { ...TONE_NEUTRAL, userContrast: 10 },
       color: { ...COLOR_NEUTRAL, userTemperature: 24 },
+      selectiveColor: neutralBands(),
       onToneChange: vi.fn(),
       onColorChange: vi.fn(),
+      onSelectiveColorChange: vi.fn(),
       onToneReset: vi.fn(),
       onColorReset: vi.fn(),
+      onSelectiveColorReset: vi.fn(),
       onScrubChange: vi.fn(),
       ...overrides,
     }
@@ -77,21 +97,71 @@ describe('adjustListPanel', () => {
     expect(screen.getByRole('button', { name: /reset color/i })).toBeEnabled()
   })
 
+  it('exposes three subpanel tabs in Tone → Color → HSL order', () => {
+    renderPanel()
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(3)
+    expect(tabs.map((t) => t.textContent)).toEqual([
+      enMessages['raw.adjust.tone'],
+      enMessages['raw.adjust.color'],
+      enMessages['raw.adjust.hsl'],
+    ])
+  })
+
+  it('switches to HSL and mounts the band-list view (closed by default)', async () => {
+    renderPanel()
+    await userEvent.click(
+      screen.getByRole('tab', { name: enMessages['raw.adjust.hsl'] }),
+    )
+    expect(
+      screen.getByRole('group', { name: /hsl bands/i }),
+    ).toBeInTheDocument()
+    // Two-level: bands are closed initially, no sliders revealed.
+    expect(screen.queryAllByRole('slider')).toHaveLength(0)
+    expect(
+      screen.getByRole('button', { name: enMessages['raw.hsl.bands.red'] }),
+    ).toBeInTheDocument()
+  })
+
   it('disables the section reset when the active section is neutral', async () => {
-    renderPanel({ tone: TONE_NEUTRAL, color: COLOR_NEUTRAL })
+    renderPanel({
+      tone: TONE_NEUTRAL,
+      color: COLOR_NEUTRAL,
+      selectiveColor: neutralBands(),
+    })
     expect(screen.getByRole('button', { name: /reset tone/i })).toBeDisabled()
     await userEvent.click(screen.getByRole('tab', { name: /color/i }))
     expect(screen.getByRole('button', { name: /reset color/i })).toBeDisabled()
+    await userEvent.click(
+      screen.getByRole('tab', { name: enMessages['raw.adjust.hsl'] }),
+    )
+    expect(
+      screen.getByRole('button', { name: enMessages['raw.hsl.reset'] }),
+    ).toBeDisabled()
   })
 
   it('section reset calls the section-scoped handler only', async () => {
-    const props = renderPanel()
+    const props = renderPanel({
+      selectiveColor: {
+        ...neutralBands(),
+        green: { hue: 6, saturation: 0, lightness: 0 },
+      },
+    })
     await userEvent.click(screen.getByRole('button', { name: /reset tone/i }))
     expect(props.onToneReset).toHaveBeenCalledTimes(1)
     expect(props.onColorReset).not.toHaveBeenCalled()
+    expect(props.onSelectiveColorReset).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('tab', { name: /color/i }))
     await userEvent.click(screen.getByRole('button', { name: /reset color/i }))
     expect(props.onColorReset).toHaveBeenCalledTimes(1)
+    expect(props.onSelectiveColorReset).not.toHaveBeenCalled()
+    await userEvent.click(
+      screen.getByRole('tab', { name: enMessages['raw.adjust.hsl'] }),
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: enMessages['raw.hsl.reset'] }),
+    )
+    expect(props.onSelectiveColorReset).toHaveBeenCalledTimes(1)
   })
 
   it('child scrub events bubble out with the section kind', () => {
@@ -108,6 +178,28 @@ describe('adjustListPanel', () => {
     expect(props.onScrubChange).toHaveBeenLastCalledWith(null)
   })
 
+  it('hSL scrub events bubble out with kind=hsl, band, and key', async () => {
+    const props = renderPanel()
+    await userEvent.click(
+      screen.getByRole('tab', { name: enMessages['raw.adjust.hsl'] }),
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: enMessages['raw.hsl.bands.red'] }),
+    )
+    const sliders = screen.getAllByRole('slider')
+    const hueScrub = sliders[0].closest(
+      '[data-testid="adjust-slider-row-scrub"]',
+    )!
+    fireEvent.pointerDown(hueScrub)
+    expect(props.onScrubChange).toHaveBeenLastCalledWith({
+      kind: 'hsl',
+      band: 'red',
+      key: 'hue',
+    })
+    fireEvent.pointerUp(hueScrub)
+    expect(props.onScrubChange).toHaveBeenLastCalledWith(null)
+  })
+
   it('clears any in-flight scrub when the segment is switched', async () => {
     const onScrubChange = vi.fn()
     renderPanel({ onScrubChange })
@@ -120,15 +212,57 @@ describe('adjustListPanel', () => {
     expect(onScrubChange).toHaveBeenCalledWith(null)
   })
 
+  it('switching between subpanels preserves each subpanel value (no cross-reset)', async () => {
+    const bands = neutralBands()
+    bands.orange = { hue: 8, saturation: 0, lightness: 0 }
+    const tone = { ...TONE_NEUTRAL, userContrast: 22 }
+    const color = { ...COLOR_NEUTRAL, userTint: -14 }
+    renderPanel({ tone, color, selectiveColor: bands })
+
+    // Tone sliders show the contrast value.
+    expect(screen.getByRole('slider', { name: 'Contrast' })).toHaveAttribute(
+      'aria-valuenow',
+      '22',
+    )
+
+    // Switch to Color: tint value persists.
+    await userEvent.click(screen.getByRole('tab', { name: /color/i }))
+    expect(screen.getByRole('slider', { name: 'Tint' })).toHaveAttribute(
+      'aria-valuenow',
+      '-14',
+    )
+
+    // Switch to HSL and expand orange: hue=8 persists.
+    await userEvent.click(
+      screen.getByRole('tab', { name: enMessages['raw.adjust.hsl'] }),
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: enMessages['raw.hsl.bands.orange'] }),
+    )
+    expect(
+      screen.getByRole('slider', { name: enMessages['raw.hsl.fields.hue'] }),
+    ).toHaveAttribute('aria-valuenow', '8')
+
+    // Back to Tone: contrast still 22.
+    await userEvent.click(screen.getByRole('tab', { name: /^tone$/i }))
+    expect(screen.getByRole('slider', { name: 'Contrast' })).toHaveAttribute(
+      'aria-valuenow',
+      '22',
+    )
+  })
+
   it('recedes the segment+reset row when scrubbing is true', () => {
     const { container, rerender } = render(
       <AdjustListPanel
         tone={TONE_NEUTRAL}
         color={COLOR_NEUTRAL}
+        selectiveColor={neutralBands()}
         onToneChange={vi.fn()}
         onColorChange={vi.fn()}
+        onSelectiveColorChange={vi.fn()}
         onToneReset={vi.fn()}
         onColorReset={vi.fn()}
+        onSelectiveColorReset={vi.fn()}
         onScrubChange={vi.fn()}
       />,
     )
@@ -139,10 +273,13 @@ describe('adjustListPanel', () => {
       <AdjustListPanel
         tone={TONE_NEUTRAL}
         color={COLOR_NEUTRAL}
+        selectiveColor={neutralBands()}
         onToneChange={vi.fn()}
         onColorChange={vi.fn()}
+        onSelectiveColorChange={vi.fn()}
         onToneReset={vi.fn()}
         onColorReset={vi.fn()}
+        onSelectiveColorReset={vi.fn()}
         onScrubChange={vi.fn()}
         scrubbing
       />,

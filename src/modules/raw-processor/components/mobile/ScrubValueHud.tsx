@@ -1,18 +1,26 @@
+import { makeNeutralBand } from '@lumaforge/luma-color-runtime'
 import { AnimatePresence, m } from 'motion/react'
 
 import { useI18n } from '~/lib/i18n'
 import { surfaceFade } from '~/lib/spring'
 
 import type { ColorValue } from '../tools/ColorTool'
+import type { HSLToolValue } from '../tools/HSLTool'
 import type { ToneValue } from '../tools/ToneTool'
 import type { ScrubFieldId } from './AdjustListPanel'
 import { formatColorValueShort, MOBILE_COLOR_FIELDS } from './color-fields'
+import {
+  formatHSLValueShort,
+  HSL_BAND_LABEL_KEY,
+  MOBILE_HSL_FIELDS,
+} from './hsl-fields'
 import { formatToneValueShort, MOBILE_TONE_FIELDS } from './tone-fields'
 
 type ScrubValueHudProps = {
   field: ScrubFieldId | null
   tone: ToneValue
   color: ColorValue
+  selectiveColor: HSLToolValue | undefined
 }
 
 export function ScrubValueHud(props: ScrubValueHudProps) {
@@ -45,7 +53,7 @@ export function ScrubValueHud(props: ScrubValueHudProps) {
 }
 
 type Readout = {
-  kind: 'tone' | 'color'
+  kind: 'tone' | 'color' | 'hsl'
   key: string
   label: string
   formatted: string
@@ -70,13 +78,28 @@ function resolveReadout(
     }
   }
 
-  const colorField = MOBILE_COLOR_FIELDS.find((f) => f.key === field.key)
-  if (!colorField) return null
-  const value = props.color[colorField.key]
+  if (field.kind === 'color') {
+    const colorField = MOBILE_COLOR_FIELDS.find((f) => f.key === field.key)
+    if (!colorField) return null
+    const value = props.color[colorField.key]
+    return {
+      kind: 'color',
+      key: colorField.key,
+      label: t(colorField.labelKey),
+      formatted: formatColorValueShort(colorField.key, value),
+    }
+  }
+
+  // HSL — label couples the band name with the field name so the HUD reads
+  // "Red · Hue" instead of just "Hue" while a band is being scrubbed.
+  const hslField = MOBILE_HSL_FIELDS.find((f) => f.key === field.key)
+  if (!hslField) return null
+  const band = props.selectiveColor?.[field.band] ?? makeNeutralBand()
+  const value = band[hslField.key]
   return {
-    kind: 'color',
-    key: colorField.key,
-    label: t(colorField.labelKey),
-    formatted: formatColorValueShort(colorField.key, value),
+    kind: 'hsl',
+    key: `${field.band}.${hslField.key}`,
+    label: `${t(HSL_BAND_LABEL_KEY[field.band])} · ${t(hslField.labelKey)}`,
+    formatted: formatHSLValueShort(hslField.key, value),
   }
 }

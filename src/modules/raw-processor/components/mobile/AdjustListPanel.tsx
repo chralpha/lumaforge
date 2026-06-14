@@ -1,3 +1,4 @@
+import type { HSLBandId, HSLBandShift } from '@lumaforge/luma-color-runtime'
 import { RotateCcw } from 'lucide-react'
 import { AnimatePresence, m, useReducedMotion } from 'motion/react'
 import { useId, useState } from 'react'
@@ -8,35 +9,46 @@ import { surfaceFade } from '~/lib/spring'
 
 import { DOCK_SPRING } from '../../motion'
 import type { ColorValue } from '../tools/ColorTool'
+import type { HSLToolValue } from '../tools/HSLTool'
 import type { ToneValue } from '../tools/ToneTool'
 import { isColorNeutral } from './color-fields'
 import { ColorListPanel } from './ColorListPanel'
+import { isHSLNeutral } from './hsl-fields'
+import { HSLListPanel } from './HSLListPanel'
 import { isToneNeutral } from './tone-fields'
 import { ToneListPanel } from './ToneListPanel'
 
-type Section = 'tone' | 'color'
+type Section = 'tone' | 'color' | 'hsl'
 
 export type ScrubFieldId =
   | { kind: 'tone'; key: keyof ToneValue }
   | { kind: 'color'; key: keyof ColorValue }
+  | { kind: 'hsl'; band: HSLBandId; key: keyof HSLBandShift }
 
 type AdjustListPanelProps = {
   tone: ToneValue
   color: ColorValue
+  selectiveColor: HSLToolValue | undefined
   onToneChange: (patch: Partial<ToneValue>) => void
   onColorChange: (patch: Partial<ColorValue>) => void
+  onSelectiveColorChange: (
+    band: HSLBandId,
+    shift: Partial<HSLBandShift>,
+  ) => void
   onToneReset: () => void
   onColorReset: () => void
+  onSelectiveColorReset: () => void
   onScrubChange: (field: ScrubFieldId | null) => void
   scrubbing?: boolean
 }
 
 const SECTIONS: {
   id: Section
-  labelKey: 'raw.adjust.tone' | 'raw.adjust.color'
+  labelKey: 'raw.adjust.tone' | 'raw.adjust.color' | 'raw.adjust.hsl'
 }[] = [
   { id: 'tone', labelKey: 'raw.adjust.tone' },
   { id: 'color', labelKey: 'raw.adjust.color' },
+  { id: 'hsl', labelKey: 'raw.adjust.hsl' },
 ]
 
 export function AdjustListPanel(props: AdjustListPanelProps) {
@@ -48,11 +60,23 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
   const indicatorLayoutId = useId()
 
   const isNeutral =
-    section === 'tone' ? isToneNeutral(props.tone) : isColorNeutral(props.color)
+    section === 'tone'
+      ? isToneNeutral(props.tone)
+      : section === 'color'
+        ? isColorNeutral(props.color)
+        : isHSLNeutral(props.selectiveColor)
   const resetLabel =
-    section === 'tone' ? t('raw.tone.reset') : t('raw.color.reset')
+    section === 'tone'
+      ? t('raw.tone.reset')
+      : section === 'color'
+        ? t('raw.color.reset')
+        : t('raw.hsl.reset')
   const onSectionReset =
-    section === 'tone' ? props.onToneReset : props.onColorReset
+    section === 'tone'
+      ? props.onToneReset
+      : section === 'color'
+        ? props.onColorReset
+        : props.onSelectiveColorReset
 
   const scrubbing = props.scrubbing === true
 
@@ -143,7 +167,7 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
               }
             />
           </m.div>
-        ) : (
+        ) : section === 'color' ? (
           <m.div
             key="color"
             data-adjust-list-section="color"
@@ -158,6 +182,27 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
               onScrubChange={(field) =>
                 props.onScrubChange(
                   field ? { kind: 'color', key: field.key } : null,
+                )
+              }
+            />
+          </m.div>
+        ) : (
+          <m.div
+            key="hsl"
+            data-adjust-list-section="hsl"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={surfaceFade}
+          >
+            <HSLListPanel
+              value={props.selectiveColor}
+              onChange={props.onSelectiveColorChange}
+              onScrubChange={(field) =>
+                props.onScrubChange(
+                  field
+                    ? { kind: 'hsl', band: field.band, key: field.key }
+                    : null,
                 )
               }
             />
