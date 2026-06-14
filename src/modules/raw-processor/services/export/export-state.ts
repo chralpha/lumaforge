@@ -2,6 +2,7 @@ import type {
   ProcessingParams,
   RawRenderExposure,
 } from '@lumaforge/luma-color-runtime'
+import { normalizeSelectiveColorParams } from '@lumaforge/luma-color-runtime'
 import type { LumaRawExportCapability } from '@lumaforge/luma-raw-runtime'
 
 import type { ExportCheckpointManifest } from '~/lib/export/checkpoint-store'
@@ -175,6 +176,43 @@ export function changesRenderGraphParams(
       next.userBlacks !== current.userBlacks) ||
     (Object.hasOwn(next, 'userTemperature') &&
       next.userTemperature !== current.userTemperature) ||
-    (Object.hasOwn(next, 'userTint') && next.userTint !== current.userTint)
+    (Object.hasOwn(next, 'userTint') && next.userTint !== current.userTint) ||
+    (Object.hasOwn(next, 'selectiveColor') &&
+      changesSelectiveColor(current.selectiveColor, next.selectiveColor))
   )
+}
+
+function changesSelectiveColor(
+  current: ProcessingParams['selectiveColor'],
+  next: ProcessingParams['selectiveColor'],
+) {
+  // Normalize both sides through the runtime so undefined/partial records and
+  // an explicit all-neutral record compare equal. The export color graph and
+  // the LUT bake see the normalized record, so this matches the contract that
+  // actually feeds the renderer.
+  const currentBands = normalizeSelectiveColorParams({
+    selectiveColor: current,
+  })
+  const nextBands = normalizeSelectiveColorParams({ selectiveColor: next })
+  for (const id of [
+    'red',
+    'orange',
+    'yellow',
+    'green',
+    'aqua',
+    'blue',
+    'purple',
+    'magenta',
+  ] as const) {
+    const cur = currentBands[id]
+    const nxt = nextBands[id]
+    if (
+      cur.hue !== nxt.hue ||
+      cur.saturation !== nxt.saturation ||
+      cur.lightness !== nxt.lightness
+    ) {
+      return true
+    }
+  }
+  return false
 }

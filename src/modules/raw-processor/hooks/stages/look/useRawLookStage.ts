@@ -242,6 +242,8 @@ export function useRawLookStage({
     resetTone,
     setColorParams,
     resetColor,
+    setSelectiveColorBand,
+    resetSelectiveColor,
   } = useRawAdjustmentActions({
     params,
     setParams,
@@ -267,5 +269,7 @@ export function useRawLookStage({
     resetTone,
     setColorParams,
     resetColor,
+    setSelectiveColorBand,
+    resetSelectiveColor,
   }
 }

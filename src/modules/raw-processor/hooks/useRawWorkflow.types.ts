@@ -1,4 +1,6 @@
 import type {
+  HSLBandId,
+  HSLBandShift,
   LUTColorProfile,
   LUTData,
   PreviewHistogramState,
@@ -102,6 +104,8 @@ export interface UseRawWorkflowReturn {
     params: Partial<Pick<ProcessingParams, 'userTemperature' | 'userTint'>>,
   ) => void
   resetColor: () => void
+  setSelectiveColorBand: (band: HSLBandId, shift: Partial<HSLBandShift>) => void
+  resetSelectiveColor: () => void
   exportImage: (options: FullResExportOptions) => Promise<void>
   exportPreviewImage: () => Promise<void>
   recoverInterruptedExport: (file: File) => Promise<void>

@@ -173,6 +173,8 @@ function createLoadedProcessorState(
     resetTone: vi.fn(),
     setColorParams: vi.fn(),
     resetColor: vi.fn(),
+    setSelectiveColorBand: vi.fn(),
+    resetSelectiveColor: vi.fn(),
     exportImage: vi.fn(),
     exportPreviewImage: vi.fn(),
     recoverInterruptedExport: vi.fn(),

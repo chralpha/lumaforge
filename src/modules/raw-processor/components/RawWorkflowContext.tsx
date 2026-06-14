@@ -1,4 +1,6 @@
 import type {
+  HSLBandId,
+  HSLBandShift,
   LUTColorProfile,
   LUTContractResolution,
   PreviewHistogramState,
@@ -30,6 +32,11 @@ export interface RawToolSurfaceProps {
   onToneReset: () => void
   onColorChange: (value: Partial<ColorValue>) => void
   onColorReset: () => void
+  onSelectiveColorChange: (
+    band: HSLBandId,
+    shift: Partial<HSLBandShift>,
+  ) => void
+  onSelectiveColorReset: () => void
   onCompareReset: () => void
   viewMode: 'processed' | 'original' | 'compare'
   onViewModeChange: (mode: 'processed' | 'original' | 'compare') => void

@@ -77,6 +77,8 @@ export function RawWorkflowToolProvider({
         onToneReset: workflow.resetTone,
         onColorChange: workflow.setColorParams,
         onColorReset: workflow.resetColor,
+        onSelectiveColorChange: workflow.setSelectiveColorBand,
+        onSelectiveColorReset: workflow.resetSelectiveColor,
         fileName: workflow.sourceFileName,
         onReplaceFile,
         onResetSession,

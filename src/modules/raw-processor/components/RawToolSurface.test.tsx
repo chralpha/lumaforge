@@ -41,6 +41,8 @@ const baseProps = {
   onToneReset: vi.fn(),
   onColorChange: vi.fn(),
   onColorReset: vi.fn(),
+  onSelectiveColorChange: vi.fn(),
+  onSelectiveColorReset: vi.fn(),
   onCompareReset: vi.fn(),
   viewMode: 'processed' as const,
   onViewModeChange: vi.fn(),

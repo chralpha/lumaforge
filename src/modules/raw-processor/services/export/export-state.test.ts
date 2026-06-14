@@ -1,3 +1,4 @@
+import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 import type { LumaRawExportCapability } from '@lumaforge/luma-raw-runtime'
 import { describe, expect, it } from 'vitest'
 
@@ -231,6 +232,119 @@ describe('export state helpers', () => {
       true,
     )
     expect(changesRenderGraphParams(current, { userTint: -8 })).toBe(true)
+  })
+
+  it('treats selective color band shifts as render graph changes', () => {
+    const neutralBand = { hue: 0, saturation: 0, lightness: 0 } as const
+    const neutralSelectiveColor = {
+      red: neutralBand,
+      orange: neutralBand,
+      yellow: neutralBand,
+      green: neutralBand,
+      aqua: neutralBand,
+      blue: neutralBand,
+      purple: neutralBand,
+      magenta: neutralBand,
+    } as const
+    const current = {
+      styleKind: 'none',
+      builtinPreset: null,
+      intensity: 0.7,
+      viewMode: 'compare',
+      compareSplit: 0.5,
+      userExposureEv: 0,
+      userContrast: 0,
+      userHighlights: 0,
+      userShadows: 0,
+      userWhites: 0,
+      userBlacks: 0,
+      userTemperature: 0,
+      userTint: 0,
+      selectiveColor: neutralSelectiveColor,
+    } as const
+
+    // Same neutral record by structural equality must not invalidate.
+    expect(
+      changesRenderGraphParams(current, {
+        selectiveColor: neutralSelectiveColor,
+      }),
+    ).toBe(false)
+
+    // Touching any band scalar must invalidate.
+    expect(
+      changesRenderGraphParams(current, {
+        selectiveColor: {
+          ...neutralSelectiveColor,
+          red: { hue: 50, saturation: 0, lightness: 0 },
+        },
+      }),
+    ).toBe(true)
+    expect(
+      changesRenderGraphParams(current, {
+        selectiveColor: {
+          ...neutralSelectiveColor,
+          blue: { hue: 0, saturation: 30, lightness: 0 },
+        },
+      }),
+    ).toBe(true)
+    expect(
+      changesRenderGraphParams(current, {
+        selectiveColor: {
+          ...neutralSelectiveColor,
+          magenta: { hue: 0, saturation: 0, lightness: -10 },
+        },
+      }),
+    ).toBe(true)
+  })
+
+  it('treats setting selective color from undefined to a non-neutral record as a render graph change', () => {
+    const neutralBand = { hue: 0, saturation: 0, lightness: 0 } as const
+    const current: ProcessingParams = {
+      styleKind: 'none',
+      builtinPreset: null,
+      intensity: 0.7,
+      viewMode: 'compare',
+      compareSplit: 0.5,
+      userExposureEv: 0,
+      userContrast: 0,
+      userHighlights: 0,
+      userShadows: 0,
+      userWhites: 0,
+      userBlacks: 0,
+      userTemperature: 0,
+      userTint: 0,
+    }
+
+    expect(
+      changesRenderGraphParams(current, {
+        selectiveColor: {
+          red: { hue: 50, saturation: 0, lightness: 0 },
+          orange: neutralBand,
+          yellow: neutralBand,
+          green: neutralBand,
+          aqua: neutralBand,
+          blue: neutralBand,
+          purple: neutralBand,
+          magenta: neutralBand,
+        },
+      }),
+    ).toBe(true)
+
+    // From undefined to an explicit but neutral record should not invalidate.
+    expect(
+      changesRenderGraphParams(current, {
+        selectiveColor: {
+          red: neutralBand,
+          orange: neutralBand,
+          yellow: neutralBand,
+          green: neutralBand,
+          aqua: neutralBand,
+          blue: neutralBand,
+          purple: neutralBand,
+          magenta: neutralBand,
+        },
+      }),
+    ).toBe(false)
   })
 
   it('compares raw render exposure by value while preserving null semantics', () => {

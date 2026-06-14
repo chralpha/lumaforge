@@ -118,6 +118,8 @@ export function buildRawWorkflowReturn({
     resetTone: lookStage.resetTone,
     setColorParams: lookStage.setColorParams,
     resetColor: lookStage.resetColor,
+    setSelectiveColorBand: lookStage.setSelectiveColorBand,
+    resetSelectiveColor: lookStage.resetSelectiveColor,
     exportImage: exportStage.exportImage,
     exportPreviewImage: exportStage.exportPreviewImage,
     recoverInterruptedExport: exportStage.recoverInterruptedExport,
