@@ -5,6 +5,7 @@
 
 import type {
   BuiltinStylePreset,
+  LumaColorSelectiveColorParams,
   LUTColorProfile,
   LUTContractResolution,
   LUTData,
@@ -13,12 +14,16 @@ import type {
   TransferFunctionId,
 } from '@lumaforge/luma-color-runtime'
 import {
+  CHROMA_CLAMP_HIGH,
+  CHROMA_CLAMP_LOW,
   getLinearProPhotoToGamutMatrix,
   getLUTOutputToTargetMatrix,
+  LUT_SIZE as SELECTIVE_COLOR_LUT_SIZE,
   mat3Identity,
   mat3ToGLSL,
   resolveColorBalanceParams,
   resolveExportColorGraph,
+  resolveSelectiveColorParams,
   resolveToneParams,
 } from '@lumaforge/luma-color-runtime'
 import {
@@ -366,6 +371,14 @@ export class RawProcessingPipeline {
   private lutTexture: WebGLTexture | null = null
   private fallbackLutTexture: WebGLTexture | null = null
   private processedTexture: WebGLTexture | null = null
+  private selectiveColorTexture: WebGLTexture | null = null
+
+  // Selective-color LUT bake state
+  private selectiveColorBuffer: Float32Array | null = null
+  private lastBakedSelectiveBands:
+    | LumaColorSelectiveColorParams['selectiveColor']
+    | null
+    | undefined = undefined
 
   // Framebuffers
   private processFBO: WebGLFramebuffer | null = null
@@ -444,7 +457,50 @@ export class RawProcessingPipeline {
       throw new Error('Failed to create fallback LUT texture')
     }
 
+    // The selective-color LUT is a 256x1 RGBA16F texture with NEAREST
+    // filtering. Shader-side `sampleSelectiveColorLut` does its own bilinear
+    // hue-interpolation via `texelFetch`, so we deliberately disable hardware
+    // filtering to keep CPU/GPU bit-parity. The pooled buffer is sized for one
+    // baked LUT (4 channels x 256 texels) and reused across param changes.
+    this.selectiveColorTexture = this.createSelectiveColorLutTexture()
+    if (!this.selectiveColorTexture) {
+      throw new Error('Failed to create selective-color LUT texture')
+    }
+    this.selectiveColorBuffer = new Float32Array(4 * SELECTIVE_COLOR_LUT_SIZE)
+
     this.isInitialized = true
+  }
+
+  private createSelectiveColorLutTexture(): WebGLTexture | null {
+    const { gl } = this
+    const texture = gl.createTexture()
+    if (!texture) return null
+
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+
+    // Initial neutral fill: hueShift=0, satMul=1, lightAdd=0, padding=0.
+    const neutral = new Float32Array(4 * SELECTIVE_COLOR_LUT_SIZE)
+    for (let i = 0; i < SELECTIVE_COLOR_LUT_SIZE; i++) {
+      neutral[4 * i + 1] = 1
+    }
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA16F,
+      SELECTIVE_COLOR_LUT_SIZE,
+      1,
+      0,
+      gl.RGBA,
+      gl.FLOAT,
+      neutral,
+    )
+    gl.bindTexture(gl.TEXTURE_2D, null)
+
+    return texture
   }
 
   private createFallbackLutTexture(): WebGLTexture | null {
@@ -529,6 +585,14 @@ export class RawProcessingPipeline {
       u_lutRole: gl.getUniformLocation(program, 'u_lutRole'),
       u_lutInputRange: gl.getUniformLocation(program, 'u_lutInputRange'),
       u_lutOutputRange: gl.getUniformLocation(program, 'u_lutOutputRange'),
+      u_selectiveColorLUT: gl.getUniformLocation(
+        program,
+        'u_selectiveColorLUT',
+      ),
+      u_selectiveColorChromaClamp: gl.getUniformLocation(
+        program,
+        'u_selectiveColorChromaClamp',
+      ),
     }
   }
 
@@ -816,6 +880,51 @@ export class RawProcessingPipeline {
     }
   }
 
+  private bindSelectiveColorPass(
+    processUniforms: Record<string, WebGLUniformLocation | null>,
+  ): void {
+    const { gl } = this
+    const texture = this.selectiveColorTexture
+    const buffer = this.selectiveColorBuffer
+    if (!texture || !buffer) return
+
+    const bands = this.params.selectiveColor
+    if (bands !== this.lastBakedSelectiveBands) {
+      // resolveSelectiveColorParams writes into the pooled buffer; passing it
+      // as the out-buffer keeps the hot path allocation-free. The function
+      // accepts a Partial here so undefined `bands` bakes a neutral LUT.
+      const partial: Partial<LumaColorSelectiveColorParams> = bands
+        ? { selectiveColor: bands }
+        : {}
+      resolveSelectiveColorParams(partial, buffer)
+
+      gl.activeTexture(gl.TEXTURE2)
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+      gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        0,
+        0,
+        SELECTIVE_COLOR_LUT_SIZE,
+        1,
+        gl.RGBA,
+        gl.FLOAT,
+        buffer,
+      )
+      this.lastBakedSelectiveBands = bands
+    } else {
+      gl.activeTexture(gl.TEXTURE2)
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+    }
+
+    gl.uniform1i(processUniforms.u_selectiveColorLUT, 2)
+    gl.uniform2f(
+      processUniforms.u_selectiveColorChromaClamp,
+      CHROMA_CLAMP_LOW,
+      CHROMA_CLAMP_HIGH,
+    )
+  }
+
   private renderProcessPass(): void {
     const {
       gl,
@@ -875,6 +984,11 @@ export class RawProcessingPipeline {
       gl.uniform3fv(processUniforms.u_lutDomainMin, [0, 0, 0])
       gl.uniform3fv(processUniforms.u_lutDomainMax, [1, 1, 1])
     }
+
+    // Selective-color LUT lives on texture unit 2. Re-bake only on reference
+    // change of the params.selectiveColor record so steady-state preview avoids
+    // a redundant 1KB upload + sin/cos pass per frame.
+    this.bindSelectiveColorPass(processUniforms)
 
     gl.uniform1f(processUniforms.u_intensity, params.intensity)
     gl.uniform1i(
@@ -1229,6 +1343,7 @@ export class RawProcessingPipeline {
       lutTexture,
       fallbackLutTexture,
       processedTexture,
+      selectiveColorTexture,
       processFBO,
       processProgramFloat,
       processProgramU16,
@@ -1241,6 +1356,7 @@ export class RawProcessingPipeline {
     if (lutTexture) gl.deleteTexture(lutTexture)
     if (fallbackLutTexture) gl.deleteTexture(fallbackLutTexture)
     if (processedTexture) gl.deleteTexture(processedTexture)
+    if (selectiveColorTexture) gl.deleteTexture(selectiveColorTexture)
 
     // Delete framebuffers
     if (processFBO) gl.deleteFramebuffer(processFBO)
@@ -1260,6 +1376,9 @@ export class RawProcessingPipeline {
     this.lutTexture = null
     this.fallbackLutTexture = null
     this.processedTexture = null
+    this.selectiveColorTexture = null
+    this.selectiveColorBuffer = null
+    this.lastBakedSelectiveBands = undefined
     this.processFBO = null
     this.processProgramFloat = null
     this.processProgramU16 = null

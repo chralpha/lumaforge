@@ -1,7 +1,9 @@
 import {
   LUMA_COLOR_BALANCE_GLSL,
   LUMA_COLOR_LUT_GLSL,
+  LUMA_COLOR_OKLAB_GLSL,
   LUMA_COLOR_RANGE_GLSL,
+  LUMA_COLOR_SELECTIVE_COLOR_GLSL,
   LUMA_COLOR_TONE_GLSL,
   LUMA_COLOR_TRANSFER_GLSL,
 } from '@lumaforge/luma-color-runtime/glsl'
@@ -65,6 +67,8 @@ uniform int u_lutOutputTransfer;
 uniform int u_lutRole;
 uniform int u_lutInputRange;
 uniform int u_lutOutputRange;
+uniform sampler2D u_selectiveColorLUT;
+uniform vec2 u_selectiveColorChromaClamp;
 `
 
 const PROCESS_FRAGMENT_SHADER_BODY = /* glsl */ `
@@ -80,6 +84,8 @@ ${LUMA_COLOR_RANGE_GLSL}
 ${LUMA_COLOR_LUT_GLSL}
 ${LUMA_COLOR_BALANCE_GLSL}
 ${LUMA_COLOR_TONE_GLSL}
+${LUMA_COLOR_OKLAB_GLSL}
+${LUMA_COLOR_SELECTIVE_COLOR_GLSL}
 
 float luminance709(vec3 color) {
   return dot(color, vec3(0.2126, 0.7152, 0.0722));
@@ -156,6 +162,11 @@ void main() {
     u_userShadows,
     u_userWhites,
     u_userBlacks
+  );
+  editedBaseSceneLinearProPhoto = applyUserSelectiveColor(
+    editedBaseSceneLinearProPhoto,
+    u_selectiveColorLUT,
+    u_selectiveColorChromaClamp
   );
   vec3 technicalBaseDisplayLinear =
     max(linearProPhotoToLinearSrgb(technicalBaseSceneLinearProPhoto), vec3(0.0));

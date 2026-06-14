@@ -2,7 +2,9 @@ import { getProPhotoToTargetMatrix } from '@lumaforge/luma-color-runtime'
 import {
   LUMA_COLOR_BALANCE_GLSL,
   LUMA_COLOR_LUT_GLSL,
+  LUMA_COLOR_OKLAB_GLSL,
   LUMA_COLOR_RANGE_GLSL,
+  LUMA_COLOR_SELECTIVE_COLOR_GLSL,
   LUMA_COLOR_TONE_GLSL,
   LUMA_COLOR_TRANSFER_GLSL,
 } from '@lumaforge/luma-color-runtime/glsl'
@@ -484,6 +486,64 @@ describe('process shader style path', () => {
       expect(shader).toContain(
         'readInputSceneLinearProPhoto(v_texCoord) * u_rawRenderExposureMultiplier',
       )
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant declares selective-color sampler and chroma-clamp uniforms',
+    (_name, shader) => {
+      expect(shader).toContain('uniform sampler2D u_selectiveColorLUT')
+      expect(shader).toContain('uniform vec2 u_selectiveColorChromaClamp')
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant composes OKLab and selective-color GLSL in dependency order',
+    (_name, shader) => {
+      expect(shader).toContain(LUMA_COLOR_OKLAB_GLSL)
+      expect(shader).toContain(LUMA_COLOR_SELECTIVE_COLOR_GLSL)
+
+      // OKLab GLSL defines linearProPhotoToOklab; selective-color GLSL calls it.
+      // Marker substrings come straight from the runtime sources so a drift in
+      // either string surfaces here instead of as a silent shader-link failure.
+      const oklabMarker = 'vec3 linearProPhotoToOklab(vec3 rgb)'
+      const selectiveMarker =
+        'vec3 applyUserSelectiveColor(vec3 rgbProPhoto, sampler2D lut, vec2 chromaClamp)'
+      const oklabIndex = shader.indexOf(oklabMarker)
+      const selectiveIndex = shader.indexOf(selectiveMarker)
+      expect(oklabIndex).toBeGreaterThanOrEqual(0)
+      expect(selectiveIndex).toBeGreaterThanOrEqual(0)
+      expect(oklabIndex).toBeLessThan(selectiveIndex)
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant calls applyUserSelectiveColor after tone and before LUT/style branches',
+    (_name, shader) => {
+      expect(shader).toContain(
+        'editedBaseSceneLinearProPhoto = applyUserSelectiveColor(',
+      )
+      expect(shader).toContain('u_selectiveColorLUT')
+      expect(shader).toContain('u_selectiveColorChromaClamp')
+
+      const toneCallIndex = shader.indexOf(
+        'vec3 editedBaseSceneLinearProPhoto = applyUserTone(',
+      )
+      const selectiveCallIndex = shader.indexOf(
+        'editedBaseSceneLinearProPhoto = applyUserSelectiveColor(',
+      )
+      const lutDispatchIndex = shader.indexOf('if (isSceneCreativeLut())')
+      const builtinDispatchIndex = shader.indexOf(
+        'if (u_styleKind == STYLE_BUILTIN)',
+      )
+
+      expect(toneCallIndex).toBeGreaterThanOrEqual(0)
+      expect(selectiveCallIndex).toBeGreaterThanOrEqual(0)
+      expect(lutDispatchIndex).toBeGreaterThanOrEqual(0)
+      expect(builtinDispatchIndex).toBeGreaterThanOrEqual(0)
+      expect(toneCallIndex).toBeLessThan(selectiveCallIndex)
+      expect(selectiveCallIndex).toBeLessThan(builtinDispatchIndex)
+      expect(selectiveCallIndex).toBeLessThan(lutDispatchIndex)
     },
   )
 })
