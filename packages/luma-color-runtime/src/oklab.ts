@@ -1,4 +1,4 @@
-import type {Mat3} from './matrix';
+import type { Mat3 } from './matrix'
 import { mat3Invert, mat3Multiply } from './matrix'
 
 export type OklabVec3 = Float32Array | [number, number, number]
@@ -134,7 +134,7 @@ export function oklchToOklab(
   return out
 }
 
-export const OKLAB_GLSL = /* glsl */ `
+export const LUMA_COLOR_OKLAB_GLSL = /* glsl */ `
 const mat3 M_PROPHOTO_TO_LMS = mat3(
   ${M_PROPHOTO_TO_LMS[0]}, ${M_PROPHOTO_TO_LMS[3]}, ${M_PROPHOTO_TO_LMS[6]},
   ${M_PROPHOTO_TO_LMS[1]}, ${M_PROPHOTO_TO_LMS[4]}, ${M_PROPHOTO_TO_LMS[7]},

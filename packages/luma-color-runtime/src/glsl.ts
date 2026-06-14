@@ -1,6 +1,9 @@
 import type { TransferFunctionId } from './log-encoding'
 import type { LUTRole, SignalRange } from './registry'
 
+export { LUMA_COLOR_OKLAB_GLSL } from './oklab'
+export { LUMA_COLOR_SELECTIVE_COLOR_GLSL } from './selective-color'
+
 export const LUT_ROLE_UNIFORMS: Record<LUTRole, number> = {
   'display-look': 0,
   'scene-creative': 1,

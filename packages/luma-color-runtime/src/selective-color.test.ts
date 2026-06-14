@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
+import * as glslReExports from './glsl'
 import { getLinearProPhotoToGamutMatrix, mat3Invert } from './matrix'
+import * as oklabModule from './oklab'
 import {
   linearProPhotoToOklab,
+  LUMA_COLOR_OKLAB_GLSL,
   oklabToLinearProPhoto,
   oklabToOklch,
   oklchToOklab,
@@ -20,6 +23,7 @@ import {
   CHROMA_CLAMP_LOW,
   HUE_MAX_DELTA_RAD,
   LIGHT_MAX_DELTA,
+  LUMA_COLOR_SELECTIVE_COLOR_GLSL,
   LUT_CONSTANTS_VERSION,
   LUT_SIZE,
   makeNeutralBand,
@@ -579,7 +583,7 @@ function mat3MultiplyF64(
   a: readonly number[],
   b: readonly number[],
 ): readonly number[] {
-  const out: number[] = Array.from({length: 9}).fill(0)
+  const out: number[] = Array.from({ length: 9 }).fill(0)
   for (let row = 0; row < 3; row++) {
     for (let col = 0; col < 3; col++) {
       out[row * 3 + col] =
@@ -769,7 +773,7 @@ describe('applySelectiveColorRow seam continuity (seam_continuity)', () => {
     const lab = new Float32Array(3)
     const lch = new Float32Array(3)
     const rgbScratch = new Float32Array(3)
-    const inputHues = Array.from({length: N})
+    const inputHues = Array.from({ length: N })
     for (let i = 0; i < N; i++) {
       const hNorm = i / N
       lch[0] = L
@@ -787,7 +791,7 @@ describe('applySelectiveColorRow seam continuity (seam_continuity)', () => {
     const out = new Float32Array(N * 3)
     applySelectiveColorRow(ramp, out, prepared)
 
-    const shifts = Array.from({length: N})
+    const shifts = Array.from({ length: N })
     const labOut = new Float32Array(3)
     for (let i = 0; i < N; i++) {
       // The ramp is constructed from linearly-known hues; recover the input
@@ -969,7 +973,7 @@ describe('applySelectiveColorRow cross-talk smoothness (cross_talk_smoothness)',
     const params = makeBandsWithScalar(0, 'hue', 50)
     const { prepared } = resolveSelectiveColorParams(params)
     const ramp = new Float32Array(N * 3)
-    const inputHues = Array.from({length: N})
+    const inputHues = Array.from({ length: N })
     const lab = new Float32Array(3)
     const rgbScratch = new Float32Array(3)
     for (let i = 0; i < N; i++) {
@@ -985,7 +989,7 @@ describe('applySelectiveColorRow cross-talk smoothness (cross_talk_smoothness)',
     }
     const out = new Float32Array(N * 3)
     applySelectiveColorRow(ramp, out, prepared)
-    const shifts = Array.from({length: N})
+    const shifts = Array.from({ length: N })
     const labOut = new Float32Array(3)
     for (let i = 0; i < N; i++) {
       linearProPhotoToOklab(
@@ -1006,5 +1010,63 @@ describe('applySelectiveColorRow cross-talk smoothness (cross_talk_smoothness)',
     // regression-detecting threshold rather than a fixed physical bound; a
     // gross C¹ violation would push max step well above 0.1.
     expect(maxStep).toBeLessThan(2e-2)
+  })
+})
+
+describe('selective-color GLSL contract', () => {
+  it('exports sampleSelectiveColorLut with 256-entry linear interpolation', () => {
+    expect(LUMA_COLOR_SELECTIVE_COLOR_GLSL).toContain(
+      'vec4 sampleSelectiveColorLut(sampler2D lut, float hNorm)',
+    )
+    expect(LUMA_COLOR_SELECTIVE_COLOR_GLSL).toContain('fract(hNorm) * 256.0')
+    expect(LUMA_COLOR_SELECTIVE_COLOR_GLSL).toContain(
+      'texelFetch(lut, ivec2(i0, 0), 0)',
+    )
+    expect(LUMA_COLOR_SELECTIVE_COLOR_GLSL).toContain(
+      'texelFetch(lut, ivec2(i1, 0), 0)',
+    )
+    expect(LUMA_COLOR_SELECTIVE_COLOR_GLSL).toContain('mix(a, b, t)')
+  })
+
+  it('exports applyUserSelectiveColor with the documented signature', () => {
+    expect(LUMA_COLOR_SELECTIVE_COLOR_GLSL).toContain(
+      'vec3 applyUserSelectiveColor(vec3 rgbProPhoto, sampler2D lut, vec2 chromaClamp)',
+    )
+  })
+
+  it('mirrors the CPU apply algorithm: oklab roundtrip, smoothstep chroma clamp, direct rotation', () => {
+    expect(LUMA_COLOR_SELECTIVE_COLOR_GLSL).toContain('linearProPhotoToOklab')
+    expect(LUMA_COLOR_SELECTIVE_COLOR_GLSL).toContain('oklabToLinearProPhoto')
+    expect(LUMA_COLOR_SELECTIVE_COLOR_GLSL).toContain(
+      'smoothstep(chromaClamp.x, chromaClamp.y',
+    )
+    // GLSL's polar form is atan(y, x); guard that the implementer used the
+    // two-argument overload by matching the `atan(` token (single-arg atan
+    // would compile but would not be the polar form).
+    expect(LUMA_COLOR_SELECTIVE_COLOR_GLSL).toMatch(/atan\(/)
+    // Chroma scale formula matches the CPU 1 + strength * (satMul - 1).
+    // The local LUT sample is named `lutSample` to avoid GLSL ES 3.00's
+    // reserved `sample` keyword; the test asserts the scale formula shape
+    // regardless of that exact identifier.
+    expect(LUMA_COLOR_SELECTIVE_COLOR_GLSL).toMatch(/mix\(1\.0,\s*\w+\.g/)
+    // Direct-(a,b) rotation: both cos(delta) and sin(delta) appear, and the
+    // rotation expression a*cosD - b*sinD is materialised.
+    expect(LUMA_COLOR_SELECTIVE_COLOR_GLSL).toContain('cos(delta)')
+    expect(LUMA_COLOR_SELECTIVE_COLOR_GLSL).toContain('sin(delta)')
+    expect(LUMA_COLOR_SELECTIVE_COLOR_GLSL).toMatch(
+      /a\s*\*\s*cosD\s*-\s*b\s*\*\s*sinD/,
+    )
+  })
+
+  it('re-exports both GLSL strings from glsl.ts (the package subpath entry)', () => {
+    expect(glslReExports.LUMA_COLOR_OKLAB_GLSL).toBe(LUMA_COLOR_OKLAB_GLSL)
+    expect(glslReExports.LUMA_COLOR_SELECTIVE_COLOR_GLSL).toBe(
+      LUMA_COLOR_SELECTIVE_COLOR_GLSL,
+    )
+  })
+
+  it('renames OKLAB_GLSL -> LUMA_COLOR_OKLAB_GLSL (regression guard)', () => {
+    expect('OKLAB_GLSL' in oklabModule).toBe(false)
+    expect('LUMA_COLOR_OKLAB_GLSL' in oklabModule).toBe(true)
   })
 })
