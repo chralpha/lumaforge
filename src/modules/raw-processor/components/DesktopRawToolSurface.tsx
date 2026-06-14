@@ -92,11 +92,14 @@ export function DesktopRawToolSurface() {
           <AdjustTool
             tone={props.tone}
             color={props.color}
+            selectiveColor={props.selectiveColor}
             disabled={editorDisabled}
             onToneChange={props.onToneChange}
             onToneReset={props.onToneReset}
             onColorChange={props.onColorChange}
             onColorReset={props.onColorReset}
+            onSelectiveColorChange={props.onSelectiveColorChange}
+            onSelectiveColorReset={props.onSelectiveColorReset}
           />
         </ToolCard>
         <ToolCard id="compare" title={t('raw.compare.title')}>

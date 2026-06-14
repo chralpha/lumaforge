@@ -20,6 +20,7 @@ import type {
 import type { RawRuntimeReadinessState } from './raw-runtime-readiness'
 import type { ColorValue } from './tools/ColorTool'
 import type { FileFactsTool } from './tools/FileFactsTool'
+import type { HSLToolValue } from './tools/HSLTool'
 import type { StrengthLevel } from './tools/StrengthControl'
 import type { ToneValue } from './tools/ToneTool'
 
@@ -27,6 +28,7 @@ export interface RawToolSurfaceProps {
   activeIntensity: StrengthLevel
   tone: ToneValue
   color: ColorValue
+  selectiveColor: HSLToolValue | undefined
   onIntensitySelect: (level: StrengthLevel) => void
   onToneChange: (value: Partial<ToneValue>) => void
   onToneReset: () => void
