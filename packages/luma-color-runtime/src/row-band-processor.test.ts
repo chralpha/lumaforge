@@ -1,5 +1,5 @@
 import type { SupportedExportColorGraphDescriptor } from './color-graph'
-import { mat3Identity } from './matrix'
+import { getLinearProPhotoToGamutMatrix, mat3Identity } from './matrix'
 import { linearProPhotoToOklab, oklabToLinearProPhoto } from './oklab'
 import type { LUTColorProfile } from './registry'
 import { createRowBandProcessor } from './row-band-processor'
@@ -577,34 +577,41 @@ describe('createRowBandProcessor', () => {
 
     const bytesWithSelective = withSelective.processFloatRows(linear, 1)
 
-    // Compute an expected reference by running the pure-output pipeline
-    // (input → ProPhoto-to-sRGB matrix → encode) since all knobs are neutral.
+    // Independently re-derive the expected sRGB bytes from the ProPhoto->sRGB
+    // matrix + sRGB transfer — the only operations the pipeline should run
+    // for an all-neutral graph. This bypasses the OKLab roundtrip entirely;
+    // a regression that removes the neutral bypass and applies signedCbrt +
+    // matrix multiplies on neutral input would introduce F32 ULP drift that
+    // can flip 8-bit byte boundaries, surfacing as a test failure here
+    // rather than as a silent preview/export parity break.
+    const M_PROPHOTO_TO_SRGB = getLinearProPhotoToGamutMatrix('srgb-rec709')
     const expected = new Uint8Array(pixelCount * 3)
     for (let p = 0; p < pixelCount; p += 1) {
       const r = linear[p * 3 + 0]
       const g = linear[p * 3 + 1]
       const b = linear[p * 3 + 2]
-      // Same ProPhoto->sRGB matrix the processor uses (getProPhotoToTargetMatrix).
-      // We reuse the processor's no-LUT path with the same step set to derive
-      // the reference, by running on a separate processor with a graph whose
-      // selective-color bands are also neutral but explicitly distinct.
-      const labRef = new Float32Array(3)
-      const back = new Float32Array(3)
-      linearProPhotoToOklab(new Float32Array([r, g, b]), labRef)
-      oklabToLinearProPhoto(labRef, back)
-      // Sanity: the OKLab round-trip itself is exact in F32 ProPhoto for
-      // these values; if it weren't, the identity test would catch it.
-      expect(Math.abs(back[0] - r)).toBeLessThan(1e-5)
-      expect(Math.abs(back[1] - g)).toBeLessThan(1e-5)
-      expect(Math.abs(back[2] - b)).toBeLessThan(1e-5)
-      expected[p * 3 + 0] = bytesWithSelective[p * 3 + 0]
-      expected[p * 3 + 1] = bytesWithSelective[p * 3 + 1]
-      expected[p * 3 + 2] = bytesWithSelective[p * 3 + 2]
+      const sR =
+        M_PROPHOTO_TO_SRGB[0] * r +
+        M_PROPHOTO_TO_SRGB[1] * g +
+        M_PROPHOTO_TO_SRGB[2] * b
+      const sG =
+        M_PROPHOTO_TO_SRGB[3] * r +
+        M_PROPHOTO_TO_SRGB[4] * g +
+        M_PROPHOTO_TO_SRGB[5] * b
+      const sB =
+        M_PROPHOTO_TO_SRGB[6] * r +
+        M_PROPHOTO_TO_SRGB[7] * g +
+        M_PROPHOTO_TO_SRGB[8] * b
+      expected[p * 3 + 0] = toSrgbByte(sR)
+      expected[p * 3 + 1] = toSrgbByte(sG)
+      expected[p * 3 + 2] = toSrgbByte(sB)
     }
 
-    // Re-run with a fresh processor on the SAME neutral graph and confirm
-    // determinism. Together with the OKLab round-trip sanity above, this
-    // pins down that the neutral selective-color insertion is identity.
+    expect(Array.from(bytesWithSelective)).toEqual(Array.from(expected))
+
+    // Determinism: a fresh processor on the SAME neutral graph returns the
+    // same bytes — guards against any per-instance state (pooled buffers,
+    // last-baked references) accidentally biasing the first run.
     const second = createRowBandProcessor({
       width: pixelCount,
       rowBandRows: 1,

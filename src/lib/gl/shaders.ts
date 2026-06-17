@@ -69,6 +69,7 @@ uniform int u_lutInputRange;
 uniform int u_lutOutputRange;
 uniform sampler2D u_selectiveColorLUT;
 uniform vec2 u_selectiveColorChromaClamp;
+uniform bool u_selectiveColorActive;
 `
 
 const PROCESS_FRAGMENT_SHADER_BODY = /* glsl */ `
@@ -163,11 +164,13 @@ void main() {
     u_userWhites,
     u_userBlacks
   );
-  editedBaseSceneLinearProPhoto = applyUserSelectiveColor(
-    editedBaseSceneLinearProPhoto,
-    u_selectiveColorLUT,
-    u_selectiveColorChromaClamp
-  );
+  if (u_selectiveColorActive) {
+    editedBaseSceneLinearProPhoto = applyUserSelectiveColor(
+      editedBaseSceneLinearProPhoto,
+      u_selectiveColorLUT,
+      u_selectiveColorChromaClamp
+    );
+  }
   vec3 technicalBaseDisplayLinear =
     max(linearProPhotoToLinearSrgb(technicalBaseSceneLinearProPhoto), vec3(0.0));
   vec3 editedBaseDisplayLinear =

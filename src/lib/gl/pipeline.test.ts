@@ -410,6 +410,10 @@ describe('rawProcessingPipeline selective color pass', () => {
       expect.anything(),
       'u_selectiveColorChromaClamp',
     )
+    expect(contextMock.gl.getUniformLocation).toHaveBeenCalledWith(
+      expect.anything(),
+      'u_selectiveColorActive',
+    )
   })
 
   it('allocates a NEAREST-filtered RGBA16F 256x1 selective-color LUT texture', async () => {
@@ -469,6 +473,46 @@ describe('rawProcessingPipeline selective color pass', () => {
     expect(contextMock.gl.uniform1i).toHaveBeenCalledWith(
       'u_selectiveColorLUT',
       2,
+    )
+    // Initial bake is the neutral all-zero LUT, so the shader bypass must
+    // be off (0). This pins the WebGL preview to the same bit-pattern the
+    // CPU export's neutral-bypass branch produces — the parity contract
+    // that the unconditional-call regression broke.
+    expect(contextMock.gl.uniform1i).toHaveBeenCalledWith(
+      'u_selectiveColorActive',
+      0,
+    )
+  })
+
+  it('flips u_selectiveColorActive on when any band slider is non-zero', async () => {
+    contextMock.reset()
+    const pipeline = new RawProcessingPipeline(document.createElement('canvas'))
+    await pipeline.initialize()
+    pipeline.setParams({
+      selectiveColor: {
+        red: { hue: 50, saturation: 0, lightness: 0 },
+        orange: { hue: 0, saturation: 0, lightness: 0 },
+        yellow: { hue: 0, saturation: 0, lightness: 0 },
+        green: { hue: 0, saturation: 0, lightness: 0 },
+        aqua: { hue: 0, saturation: 0, lightness: 0 },
+        blue: { hue: 0, saturation: 0, lightness: 0 },
+        purple: { hue: 0, saturation: 0, lightness: 0 },
+        magenta: { hue: 0, saturation: 0, lightness: 0 },
+      },
+    })
+
+    pipeline.uploadImage({
+      data: new Float32Array(4),
+      width: 1,
+      height: 1,
+      layout: 'rgba-float32',
+      colorSpace: 'display-srgb-preview',
+    })
+    pipeline.render()
+
+    expect(contextMock.gl.uniform1i).toHaveBeenCalledWith(
+      'u_selectiveColorActive',
+      1,
     )
   })
 

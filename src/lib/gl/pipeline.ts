@@ -21,6 +21,7 @@ import {
   LUT_SIZE as SELECTIVE_COLOR_LUT_SIZE,
   mat3Identity,
   mat3ToGLSL,
+  normalizeSelectiveColorParams,
   resolveColorBalanceParams,
   resolveExportColorGraph,
   resolveSelectiveColorParams,
@@ -175,6 +176,24 @@ export function describeRawUploadInput(input: RawUploadInput): {
     channelCount: 4,
     bytesPerPixel: 16,
   }
+}
+
+// Returns true when at least one band scalar is non-zero. The shader bypass
+// uses this to skip the OKLab roundtrip and keep WebGL bit-identical with the
+// CPU export's neutral path (which itself bypasses applySelectiveColorRow
+// when bands are all-neutral, because the F32 OKLab round-trip can flip
+// 8-bit byte boundaries on otherwise-unchanged pixels).
+function isSelectiveColorActive(
+  bands: LumaColorSelectiveColorParams['selectiveColor'] | null | undefined,
+): boolean {
+  if (!bands) return false
+  const normalized = normalizeSelectiveColorParams({ selectiveColor: bands })
+  for (const band of Object.values(normalized)) {
+    if (band.hue !== 0 || band.saturation !== 0 || band.lightness !== 0) {
+      return true
+    }
+  }
+  return false
 }
 
 function getExportFailureCode(error: unknown): string {
@@ -379,6 +398,10 @@ export class RawProcessingPipeline {
     | LumaColorSelectiveColorParams['selectiveColor']
     | null
     | undefined = undefined
+  // Mirrors row-band-processor's neutral bypass: when every band is neutral,
+  // the shader skips the OKLab roundtrip so WebGL preview stays byte-exact
+  // with the CPU export's `selectiveColorNeutralBypass` branch.
+  private lastSelectiveColorActive = false
 
   // Framebuffers
   private processFBO: WebGLFramebuffer | null = null
@@ -592,6 +615,10 @@ export class RawProcessingPipeline {
       u_selectiveColorChromaClamp: gl.getUniformLocation(
         program,
         'u_selectiveColorChromaClamp',
+      ),
+      u_selectiveColorActive: gl.getUniformLocation(
+        program,
+        'u_selectiveColorActive',
       ),
     }
   }
@@ -912,6 +939,7 @@ export class RawProcessingPipeline {
         buffer,
       )
       this.lastBakedSelectiveBands = bands
+      this.lastSelectiveColorActive = isSelectiveColorActive(bands)
     } else {
       gl.activeTexture(gl.TEXTURE2)
       gl.bindTexture(gl.TEXTURE_2D, texture)
@@ -922,6 +950,10 @@ export class RawProcessingPipeline {
       processUniforms.u_selectiveColorChromaClamp,
       CHROMA_CLAMP_LOW,
       CHROMA_CLAMP_HIGH,
+    )
+    gl.uniform1i(
+      processUniforms.u_selectiveColorActive,
+      this.lastSelectiveColorActive ? 1 : 0,
     )
   }
 
@@ -1379,6 +1411,7 @@ export class RawProcessingPipeline {
     this.selectiveColorTexture = null
     this.selectiveColorBuffer = null
     this.lastBakedSelectiveBands = undefined
+    this.lastSelectiveColorActive = false
     this.processFBO = null
     this.processProgramFloat = null
     this.processProgramU16 = null

@@ -494,6 +494,21 @@ describe('process shader style path', () => {
     (_name, shader) => {
       expect(shader).toContain('uniform sampler2D u_selectiveColorLUT')
       expect(shader).toContain('uniform vec2 u_selectiveColorChromaClamp')
+      expect(shader).toContain('uniform bool u_selectiveColorActive')
+    },
+  )
+
+  it.each(PROCESS_SHADER_VARIANTS)(
+    '%s variant gates applyUserSelectiveColor on u_selectiveColorActive',
+    (_name, shader) => {
+      // Preview/export parity contract: when every band is neutral the
+      // shader must skip the OKLab roundtrip so WebGL stays byte-exact with
+      // the CPU export's neutral bypass. A regression that drops the
+      // conditional would call applyUserSelectiveColor unconditionally and
+      // re-introduce the F32 drift that flips 8-bit byte boundaries.
+      expect(shader).toMatch(
+        /if\s*\(\s*u_selectiveColorActive\s*\)\s*\{\s*editedBaseSceneLinearProPhoto\s*=\s*applyUserSelectiveColor\(/,
+      )
     },
   )
 

@@ -3,7 +3,19 @@
 Date: 2026-06-14
 Branch: `feat/selective-color-hsl-mvp`
 HEAD at capture: `37aa257bb01a0eb03f627eb2c46086b71d69bf48`
-Status: **PENDING (iPhone 13 run not yet executed; desktop baseline captured)**
+Status: **PENDING — DO NOT PROMOTE** (iPhone 13 run not yet executed; desktop baseline captured)
+
+> **Ship block.** The desktop CPU bench (below) measures the selective-color
+> stage alone at ≈ 1.6 s for 16 MP. The export budget is < 2 s total — that
+> leaves ≈ 400 ms for decode, LUT, JPEG encode, IO, and orchestration
+> combined. Without the iPhone 13 measurement closing the loop on actual
+> mobile total wall-clock, promoting selective color out of feature-flag
+> risks shipping a user-visible mobile-export regression. Codex's
+> adversarial review (2026-06-17) explicitly called this out as a high-
+> severity ship blocker. Resolution path: run the iPhone protocol below
+> AND/OR implement one of the spec's fallback-ladder steps (lower-cost
+> CPU approximation that survives the LUT-survival pixel-parity test, or
+> defer to a future GPU export path) before merge.
 
 ## Purpose
 
