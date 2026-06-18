@@ -271,10 +271,12 @@ export function PreviewCanvas({
         userBlacks: params.userBlacks,
         userTemperature: params.userTemperature,
         userTint: params.userTint,
+        selectiveColor: params.selectiveColor,
       }) satisfies ProcessingParams,
     [
       params.builtinPreset,
       params.intensity,
+      params.selectiveColor,
       params.styleKind,
       params.userBlacks,
       params.userContrast,

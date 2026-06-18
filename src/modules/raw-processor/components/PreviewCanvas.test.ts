@@ -549,6 +549,41 @@ describe('preview canvas upload descriptor', () => {
     expect(onPipelineChange).not.toHaveBeenCalledWith(pipeline)
   })
 
+  it('threads selectiveColor params through to the WebGL pipeline (regression)', async () => {
+    // Regression for a bug where processedCanvasParams omitted
+    // params.selectiveColor — the WebGL preview ignored every HSL slider
+    // even though the bake, CPU preview, histogram, and export-state paths
+    // all consumed it. The shader saw a permanently-undefined
+    // selectiveColor and the u_selectiveColorActive gate stayed off.
+    const neutralBand = { hue: 0, saturation: 0, lightness: 0 }
+    const selectiveColor = {
+      red: { hue: 50, saturation: 0, lightness: 0 },
+      orange: neutralBand,
+      yellow: neutralBand,
+      green: neutralBand,
+      aqua: neutralBand,
+      blue: neutralBand,
+      purple: neutralBand,
+      magenta: neutralBand,
+    }
+
+    render(
+      createElement(PreviewCanvas, {
+        imageRef: { current: decodedImage },
+        imageVersion: 1,
+        params: { ...defaultParams, selectiveColor },
+        lutDataRef: { current: null },
+        lutDataVersion: 0,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(getPipelineParamCalls()).toContainEqual(
+        expect.objectContaining({ selectiveColor }),
+      )
+    })
+  })
+
   it('disposes the preview pipeline while suspended and recovers after resume', async () => {
     const onPipelineChange = vi.fn()
 
