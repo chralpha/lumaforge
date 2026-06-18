@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useI18n } from '~/lib/i18n'
 
 import type { ColorValue } from '../tools/ColorTool'
+import { temperatureTrack, tintTrack } from '../tools/slider-tracks'
 import { AdjustSliderRow } from './AdjustSliderRow'
 import { formatColorValueShort, MOBILE_COLOR_FIELDS } from './color-fields'
 
@@ -10,6 +11,11 @@ type ColorListPanelProps = {
   color: ColorValue
   onChange: (patch: Partial<ColorValue>) => void
   onScrubChange: (field: { key: keyof ColorValue } | null) => void
+}
+
+const COLOR_FIELD_TRACK: Record<keyof ColorValue, string> = {
+  userTemperature: temperatureTrack(),
+  userTint: tintTrack(),
 }
 
 export function ColorListPanel(props: ColorListPanelProps) {
@@ -38,6 +44,7 @@ export function ColorListPanel(props: ColorListPanelProps) {
             min={field.min}
             max={field.max}
             step={field.step}
+            track={COLOR_FIELD_TRACK[field.key]}
             formatValue={(v) => formatColorValueShort(field.key, v)}
             resetAriaLabel={t('raw.mobile.adjustList.fieldResetAria', {
               label,

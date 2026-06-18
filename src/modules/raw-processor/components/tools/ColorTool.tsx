@@ -4,8 +4,11 @@ import { z } from 'zod'
 
 import { Button } from '~/components/ui/button'
 import { Slider } from '~/components/ui/slider'
+import { clsxm } from '~/lib/cn'
 import type { Translate } from '~/lib/i18n'
 import { useI18n } from '~/lib/i18n'
+
+import { temperatureTrack, tintTrack } from './slider-tracks'
 
 export const ColorValueSchema = z.object({
   userTemperature: z.number().min(-100).max(100),
@@ -19,19 +22,24 @@ const COLOR_DEFAULTS: ColorValue = {
   userTint: 0,
 }
 
-const FIELDS: {
+type ColorField = {
   key: keyof ColorValue
   labelKey: Parameters<Translate>[0]
   min: number
   max: number
   step: number
-}[] = [
+  /** CSS background gradient hinting the direction of the effect. */
+  track: string
+}
+
+const FIELDS: ColorField[] = [
   {
     key: 'userTemperature',
     labelKey: 'raw.color.temperature',
     min: -100,
     max: 100,
     step: 1,
+    track: temperatureTrack(),
   },
   {
     key: 'userTint',
@@ -39,6 +47,7 @@ const FIELDS: {
     min: -100,
     max: 100,
     step: 1,
+    track: tintTrack(),
   },
 ]
 
@@ -47,72 +56,59 @@ function formatSignedInteger(value: number) {
   return rounded > 0 ? `+${rounded}` : `${rounded}`
 }
 
-function ColorSlider({
-  labelId,
-  value,
-  min,
-  max,
-  step,
-  disabled,
-  onChange,
-}: {
-  labelId: string
-  value: number
-  min: number
-  max: number
-  step: number
-  disabled: boolean
-  onChange: (value: number) => void
-}) {
-  return (
-    <Slider
-      thumbAriaLabelledBy={labelId}
-      value={[value]}
-      min={min}
-      max={max}
-      step={step}
-      disabled={disabled}
-      onValueChange={([v]) => onChange(v)}
-    />
-  )
-}
-
-function ColorField({
+function ColorFieldRow({
   field,
   label,
   value,
   disabled,
   onChange,
 }: {
-  field: (typeof FIELDS)[number]
+  field: ColorField
   label: string
   value: ColorValue
   disabled: boolean
   onChange: (value: Partial<ColorValue>) => void
 }) {
   const labelId = useId()
+  const current = value[field.key]
+  const dirty = current !== 0
 
   return (
-    <div className="grid gap-1.5">
+    <div
+      data-color-field={field.key}
+      data-dirty={dirty ? '' : undefined}
+      className="grid gap-1.5 rounded-md px-1.5 py-0.5 transition-colors duration-150 hover:bg-[oklch(0.96_0.006_255/0.04)]"
+    >
       <div className="flex items-center justify-between text-[0.8rem]">
-        <label id={labelId} className="font-medium text-lf-on-surface/80">
+        <label
+          id={labelId}
+          className={clsxm(
+            'font-medium transition-colors duration-150',
+            dirty ? 'text-lf-amber-soft' : 'text-lf-on-surface/80',
+          )}
+        >
           {label}
         </label>
         <output
           aria-hidden="true"
-          className="tabular-nums font-medium text-lf-on-surface/80"
+          className={clsxm(
+            'tabular-nums font-medium transition-colors duration-150',
+            dirty ? 'text-lf-amber-soft' : 'text-lf-on-surface/80',
+          )}
         >
-          {formatSignedInteger(value[field.key])}
+          {formatSignedInteger(current)}
         </output>
       </div>
-      <ColorSlider
-        labelId={labelId}
-        value={value[field.key]}
+      <Slider
+        thumbAriaLabelledBy={labelId}
+        value={[current]}
         min={field.min}
         max={field.max}
         step={field.step}
         disabled={disabled}
-        onChange={(v) => onChange({ [field.key]: v })}
+        bipolar
+        track={field.track}
+        onValueChange={([v]) => onChange({ [field.key]: v })}
       />
     </div>
   )
@@ -136,9 +132,9 @@ export function ColorTool({
 
   return (
     <div className="grid gap-3">
-      <div className="grid gap-3.5">
+      <div className="grid gap-2.5">
         {FIELDS.map((field) => (
-          <ColorField
+          <ColorFieldRow
             key={field.key}
             field={field}
             label={t(field.labelKey)}

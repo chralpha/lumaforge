@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { Button } from '~/components/ui/button'
 import { Slider } from '~/components/ui/slider'
+import { clsxm } from '~/lib/cn'
 import type { Translate } from '~/lib/i18n'
 import { useI18n } from '~/lib/i18n'
 
@@ -88,37 +89,7 @@ const FIELDS: {
 const BASIC_FIELDS = FIELDS.filter((field) => field.group === 'basic')
 const FINE_FIELDS = FIELDS.filter((field) => field.group === 'fine')
 
-function ToneSlider({
-  labelId,
-  value,
-  min,
-  max,
-  step,
-  disabled,
-  onChange,
-}: {
-  labelId: string
-  value: number
-  min: number
-  max: number
-  step: number
-  disabled: boolean
-  onChange: (value: number) => void
-}) {
-  return (
-    <Slider
-      thumbAriaLabelledBy={labelId}
-      value={[value]}
-      min={min}
-      max={max}
-      step={step}
-      disabled={disabled}
-      onValueChange={([v]) => onChange(v)}
-    />
-  )
-}
-
-function ToneField({
+function ToneFieldRow({
   field,
   label,
   value,
@@ -134,28 +105,44 @@ function ToneField({
   formatValue: (key: keyof ToneValue, val: number) => string
 }) {
   const labelId = useId()
+  const current = value[field.key]
+  const dirty = current !== 0
 
   return (
-    <div className="grid gap-1.5">
+    <div
+      data-tone-field={field.key}
+      data-dirty={dirty ? '' : undefined}
+      className="grid gap-1.5 rounded-md px-1.5 py-0.5 transition-colors duration-150 hover:bg-[oklch(0.96_0.006_255/0.04)]"
+    >
       <div className="flex items-center justify-between text-[0.8rem]">
-        <label id={labelId} className="font-medium text-lf-on-surface/80">
+        <label
+          id={labelId}
+          className={clsxm(
+            'font-medium transition-colors duration-150',
+            dirty ? 'text-lf-amber-soft' : 'text-lf-on-surface/80',
+          )}
+        >
           {label}
         </label>
         <output
           aria-hidden="true"
-          className="tabular-nums font-medium text-lf-on-surface/80"
+          className={clsxm(
+            'tabular-nums font-medium transition-colors duration-150',
+            dirty ? 'text-lf-amber-soft' : 'text-lf-on-surface/80',
+          )}
         >
-          {formatValue(field.key, value[field.key])}
+          {formatValue(field.key, current)}
         </output>
       </div>
-      <ToneSlider
-        labelId={labelId}
-        value={value[field.key]}
+      <Slider
+        thumbAriaLabelledBy={labelId}
+        value={[current]}
         min={field.min}
         max={field.max}
         step={field.step}
         disabled={disabled}
-        onChange={(v) => onChange({ [field.key]: v })}
+        bipolar
+        onValueChange={([v]) => onChange({ [field.key]: v })}
       />
     </div>
   )
@@ -178,33 +165,25 @@ export function ToneTool({
     ([key, val]) => val === TONE_DEFAULTS[key as keyof ToneValue],
   )
 
-  const handleReset = () => {
-    onReset()
-  }
-
   const formatValue = (key: keyof ToneValue, val: number) =>
     key === 'userExposureEv' ? `${val.toFixed(2)} EV` : `${Math.round(val)}`
 
-  const renderField = (field: (typeof FIELDS)[number]) => {
-    const label = t(field.labelKey)
-
-    return (
-      <ToneField
-        key={field.key}
-        field={field}
-        label={label}
-        value={value}
-        disabled={disabled}
-        onChange={onChange}
-        formatValue={formatValue}
-      />
-    )
-  }
+  const renderField = (field: (typeof FIELDS)[number]) => (
+    <ToneFieldRow
+      key={field.key}
+      field={field}
+      label={t(field.labelKey)}
+      value={value}
+      disabled={disabled}
+      onChange={onChange}
+      formatValue={formatValue}
+    />
+  )
 
   return (
     <div className="grid gap-3">
-      <div className="grid gap-3.5">{BASIC_FIELDS.map(renderField)}</div>
-      <div className="grid gap-3.5">{FINE_FIELDS.map(renderField)}</div>
+      <div className="grid gap-2.5">{BASIC_FIELDS.map(renderField)}</div>
+      <div className="grid gap-2.5">{FINE_FIELDS.map(renderField)}</div>
       <p className="text-[0.78rem] leading-relaxed text-lf-on-surface/72">
         {t('raw.tone.note')}
       </p>
@@ -217,7 +196,7 @@ export function ToneTool({
         variant="light"
         size="sm"
         disabled={disabled || isNeutral}
-        onClick={handleReset}
+        onClick={onReset}
         className="self-start [&_svg]:size-3.5"
       >
         <RotateCcw aria-hidden="true" />

@@ -9,6 +9,11 @@ import { useI18n } from '~/lib/i18n'
 import { surfaceFade } from '~/lib/spring'
 
 import type { HSLToolValue } from '../tools/HSLTool'
+import {
+  hslHueTrack,
+  hslLightnessTrack,
+  hslSaturationTrack,
+} from '../tools/slider-tracks'
 import { AdjustSliderRow } from './AdjustSliderRow'
 import {
   formatHSLValueShort,
@@ -25,6 +30,17 @@ type HSLListPanelProps = {
   value: HSLToolValue | undefined
   onChange: (band: HSLBandId, shift: Partial<HSLBandShift>) => void
   onScrubChange: (field: HSLScrubField | null) => void
+}
+
+function trackForField(band: HSLBandId, key: keyof HSLBandShift): string {
+  switch (key) {
+    case 'hue':
+      return hslHueTrack(band)
+    case 'saturation':
+      return hslSaturationTrack(band)
+    case 'lightness':
+      return hslLightnessTrack(band)
+  }
 }
 
 export function HSLListPanel(props: HSLListPanelProps) {
@@ -75,7 +91,7 @@ export function HSLListPanel(props: HSLListPanelProps) {
               aria-controls={`hsl-band-fields-${band}`}
               onClick={() => selectBand(band)}
               className={clsxm(
-                'inline-grid min-h-11 grid-cols-[18px_minmax(0,1fr)_18px] items-center gap-3 rounded-md border border-transparent px-3 text-left transition-[background-color,border-color] duration-150',
+                'inline-grid min-h-11 grid-cols-[18px_minmax(0,1fr)_18px] items-center gap-3 rounded-md border border-transparent px-3 text-left transition-[background-color,border-color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lf-green/80',
                 isOpen && 'border-lf-amber/55 bg-lf-on-photo-bg-strong',
               )}
             >
@@ -131,6 +147,7 @@ export function HSLListPanel(props: HSLListPanelProps) {
                         min={field.min}
                         max={field.max}
                         step={field.step}
+                        track={trackForField(band, field.key)}
                         formatValue={(v) => formatHSLValueShort(field.key, v)}
                         resetAriaLabel={t(
                           'raw.mobile.adjustList.fieldResetAria',

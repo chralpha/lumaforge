@@ -11,6 +11,17 @@ type AdjustSliderRowProps = {
   resetAriaLabel: string
   activeScrub?: boolean
   siblingScrubbing?: boolean
+  /**
+   * Optional directional gradient for the Slider track (temperature, tint,
+   * HSL hue/sat/light). When omitted the Slider falls back to its dim wash.
+   */
+  track?: string
+  /**
+   * When true (default) the Slider renders a bipolar Range anchored at 0,
+   * so the dirty fill reads as "offset from neutral". Set false for
+   * unipolar domains (e.g. 0..1 strength meters).
+   */
+  bipolar?: boolean
   onChange: (value: number) => void
   onScrubChange: (scrubbing: boolean) => void
 }
@@ -20,6 +31,7 @@ export function AdjustSliderRow(props: AdjustSliderRowProps) {
   const formatted = props.formatValue(props.value)
   const activeScrub = props.activeScrub === true
   const siblingScrubbing = props.siblingScrubbing === true
+  const bipolar = props.bipolar !== false
 
   return (
     <div
@@ -52,6 +64,8 @@ export function AdjustSliderRow(props: AdjustSliderRowProps) {
           min={props.min}
           max={props.max}
           step={props.step}
+          bipolar={bipolar}
+          track={props.track}
           onValueChange={([next]) => {
             if (next !== undefined) {
               props.onChange(next)

@@ -1,7 +1,6 @@
 import type { HSLBandId, HSLBandShift } from '@lumaforge/luma-color-runtime'
 import { makeNeutralBand } from '@lumaforge/luma-color-runtime'
 import { RotateCcw } from 'lucide-react'
-import type { CSSProperties } from 'react'
 import { useId, useState } from 'react'
 
 import { Button } from '~/components/ui/button'
@@ -9,6 +8,13 @@ import { Slider } from '~/components/ui/slider'
 import { clsxm } from '~/lib/cn'
 import type { Translate } from '~/lib/i18n'
 import { useI18n } from '~/lib/i18n'
+
+import { HSL_BAND_SWATCH } from '../mobile/hsl-fields'
+import {
+  hslHueTrack,
+  hslLightnessTrack,
+  hslSaturationTrack,
+} from './slider-tracks'
 
 export type HSLToolValue = Readonly<Record<HSLBandId, Readonly<HSLBandShift>>>
 
@@ -54,22 +60,15 @@ const HSL_AXIS_RESET_KEY: Record<keyof HSLBandShift, Parameters<Translate>[0]> =
     lightness: 'raw.hsl.resetLightness',
   }
 
-/**
- * On-photo swatch chips and slider-track tint that hint at each band's anchor
- * hue on the dark `/raw` surface. Chosen as recognisable hue cues, not the
- * actual OKLCh band centres (which live in the runtime). Used both for the
- * left-side chip and as `--lf-hsl-band-color` to colour the slider Range
- * fill so each row carries its band identity visually.
- */
-const HSL_BAND_SWATCH: Record<HSLBandId, string> = {
-  red: 'oklch(0.62 0.21 27)',
-  orange: 'oklch(0.74 0.17 55)',
-  yellow: 'oklch(0.86 0.17 95)',
-  green: 'oklch(0.74 0.18 145)',
-  aqua: 'oklch(0.78 0.13 200)',
-  blue: 'oklch(0.62 0.18 260)',
-  purple: 'oklch(0.58 0.20 305)',
-  magenta: 'oklch(0.66 0.22 340)',
+function trackForAxis(band: HSLBandId, axis: keyof HSLBandShift): string {
+  switch (axis) {
+    case 'hue':
+      return hslHueTrack(band)
+    case 'saturation':
+      return hslSaturationTrack(band)
+    case 'lightness':
+      return hslLightnessTrack(band)
+  }
 }
 
 function formatSignedInteger(value: number) {
@@ -114,9 +113,11 @@ function HSLAxisTabs({
       aria-label={labelText}
       data-hsl-axis-tabs
       className={clsxm(
-        'grid grid-cols-3 gap-1 rounded-full p-0.5',
-        'bg-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.06)]',
-        'ring-1 ring-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.10)]',
+        'grid grid-cols-3 gap-0.5 rounded-full p-0.5',
+        // Cool-near-white wash — matches the segmented-chrome track idiom
+        // so HSL axis tabs read as part of the same chrome family as the
+        // Strength control and LUT contract tabs.
+        'bg-[oklch(0.96_0.006_255/0.05)]',
       )}
     >
       {HSL_AXIS_ORDER.map((axis) => {
@@ -132,12 +133,14 @@ function HSLAxisTabs({
             disabled={disabled}
             onClick={() => onSelect(axis)}
             className={clsxm(
-              'flex h-7 items-center justify-center rounded-full text-[0.78rem] font-medium tracking-wide transition-colors',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lf-green/30',
+              'relative flex h-7 items-center justify-center rounded-full text-[0.78rem] tracking-wide transition-colors duration-150',
+              'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lf-green/80',
               'disabled:cursor-not-allowed disabled:opacity-60',
               selected
-                ? 'bg-lf-surface text-lf-on-surface shadow-[0_1px_2px_oklch(0.18_0.018_76/0.22)]'
-                : 'text-lf-on-surface/72 hover:text-lf-on-surface',
+                ? // Cool lift + inset top highlight — matches
+                  // segmented-chrome SEGMENTED_THUMB_BG.
+                  'bg-[oklch(0.96_0.006_255/0.10)] font-semibold text-lf-on-surface shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.14)]'
+                : 'font-medium text-lf-on-surface/72 hover:text-lf-on-surface/92',
             )}
           >
             {axisLabels[axis]}
@@ -166,15 +169,16 @@ function HSLAxisSliderRow({
   onChange: (next: number) => void
 }) {
   const titleId = useId()
+  const dirty = value !== 0
 
   return (
     <div
       role="group"
       data-hsl-band={band}
       data-hsl-axis={axis}
+      data-dirty={dirty ? '' : undefined}
       aria-labelledby={titleId}
-      style={{ '--lf-hsl-band-color': HSL_BAND_SWATCH[band] } as CSSProperties}
-      className="grid gap-1"
+      className="grid gap-1 rounded-md px-1.5 py-0.5 transition-colors duration-150 hover:bg-[oklch(0.96_0.006_255/0.04)]"
     >
       <div className="flex items-center justify-between text-[0.78rem]">
         <div className="flex items-center gap-2">
@@ -184,14 +188,23 @@ function HSLAxisSliderRow({
             className="size-2.5 shrink-0 rounded-full ring-1 ring-[oklch(from_var(--color-lf-on-surface)_l_c_h_/_0.18)]"
             style={{ backgroundColor: HSL_BAND_SWATCH[band] }}
           />
-          <span id={titleId} className="text-lf-on-surface/82">
+          <span
+            id={titleId}
+            className={clsxm(
+              'transition-colors duration-150',
+              dirty ? 'text-lf-amber-soft' : 'text-lf-on-surface/82',
+            )}
+          >
             <span className="sr-only">{axisLabel}: </span>
             {bandLabel}
           </span>
         </div>
         <output
           aria-hidden="true"
-          className="tabular-nums text-lf-on-surface/72"
+          className={clsxm(
+            'tabular-nums transition-colors duration-150',
+            dirty ? 'text-lf-amber-soft' : 'text-lf-on-surface/72',
+          )}
         >
           {formatSignedInteger(value)}
         </output>
@@ -203,8 +216,9 @@ function HSLAxisSliderRow({
         max={100}
         step={1}
         disabled={disabled}
+        bipolar
+        track={trackForAxis(band, axis)}
         onValueChange={([next]) => onChange(next)}
-        className="[&_[data-slot=slider-range]]:bg-[color-mix(in_oklch,var(--lf-hsl-band-color)_72%,transparent)]"
       />
     </div>
   )
@@ -254,7 +268,7 @@ export function HSLTool({
         role="tabpanel"
         data-hsl-axis-panel={activeAxis}
         aria-label={axisLabels[activeAxis]}
-        className="grid gap-2.5"
+        className="grid gap-1.5"
       >
         {HSL_BAND_ORDER.map((band) => {
           const bandValue = value?.[band] ?? makeNeutralBand()
