@@ -67,118 +67,257 @@ function setup(
   return { onChange, onReset, ...utils }
 }
 
-describe('hslTool', () => {
-  it('renders 8 band sections in the documented red-to-magenta order', () => {
+function bandRows() {
+  return screen
+    .getAllByRole('group')
+    .filter((el) => el.getAttribute('data-hsl-band'))
+}
+
+function axisTab(name: string) {
+  return screen.getByRole('tab', { name })
+}
+
+describe('hslTool axis-first layout', () => {
+  it('renders three axis tabs and defaults to hue', () => {
     setup()
-    const sections = screen.getAllByRole('group', { name: /.+/ })
-    // 8 band groups
-    const bandSections = sections.filter((el) =>
-      el.getAttribute('data-hsl-band'),
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(3)
+    expect(tabs.map((t) => t.textContent)).toEqual([
+      enMessages['raw.hsl.fields.hue'],
+      enMessages['raw.hsl.fields.saturation'],
+      enMessages['raw.hsl.fields.lightness'],
+    ])
+    expect(axisTab(enMessages['raw.hsl.fields.hue'])).toHaveAttribute(
+      'aria-selected',
+      'true',
     )
-    expect(bandSections).toHaveLength(8)
-    BAND_ORDER.forEach((band, index) => {
-      expect(bandSections[index]).toHaveAttribute('data-hsl-band', band)
-      expect(bandSections[index]).toHaveAccessibleName(
-        enMessages[`raw.hsl.bands.${band}` as keyof typeof enMessages],
-      )
-    })
+    expect(
+      screen.getByRole('tabpanel', {
+        name: enMessages['raw.hsl.fields.hue'],
+      }),
+    ).toBeInTheDocument()
   })
 
-  it('exposes hue, saturation, and lightness sliders inside every band', () => {
+  it('renders 8 band rows in documented order with a single slider each', () => {
     setup()
-    const bandSections = screen
-      .getAllByRole('group')
-      .filter((el) => el.getAttribute('data-hsl-band'))
-    for (const section of bandSections) {
-      const sliders = within(section).getAllByRole('slider')
-      expect(sliders).toHaveLength(3)
-      const labels = sliders.map((s) => s.getAttribute('aria-labelledby'))
-      const labelTexts = labels.map((labelledBy) => {
-        if (!labelledBy) return null
-        return document.getElementById(labelledBy)?.textContent ?? null
-      })
-      expect(labelTexts).toEqual([
-        enMessages['raw.hsl.fields.hue'],
-        enMessages['raw.hsl.fields.saturation'],
-        enMessages['raw.hsl.fields.lightness'],
-      ])
+    const rows = bandRows()
+    expect(rows).toHaveLength(8)
+    BAND_ORDER.forEach((band, i) => {
+      expect(rows[i]).toHaveAttribute('data-hsl-band', band)
+      const sliders = within(rows[i]).getAllByRole('slider')
+      expect(sliders).toHaveLength(1)
+    })
+    expect(screen.getAllByRole('slider')).toHaveLength(8)
+  })
+
+  it('labels every slider with the active axis name', () => {
+    setup()
+    const sliders = screen.getAllByRole('slider')
+    for (const s of sliders) {
+      expect(s).toHaveAttribute('aria-label', enMessages['raw.hsl.fields.hue'])
     }
   })
 
-  it('clamps each slider to the [-100, 100] range with step 1', () => {
+  it('clamps each slider to [-100, 100]', () => {
     setup()
-    const sliders = screen.getAllByRole('slider')
-    expect(sliders).toHaveLength(24)
-    for (const slider of sliders) {
+    for (const slider of screen.getAllByRole('slider')) {
       expect(slider).toHaveAttribute('aria-valuemin', '-100')
       expect(slider).toHaveAttribute('aria-valuemax', '100')
     }
   })
 
-  it('disables the reset button when value is undefined (no HSL touched yet)', () => {
-    setup({ value: undefined })
-    const reset = screen.getByRole('button', {
-      name: enMessages['raw.hsl.reset'],
-    })
-    expect(reset).toBeDisabled()
+  it('switches the active axis when a tab is clicked, swapping all 8 sliders', async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(axisTab(enMessages['raw.hsl.fields.saturation']))
+    expect(axisTab(enMessages['raw.hsl.fields.saturation'])).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    const sliders = screen.getAllByRole('slider')
+    expect(sliders).toHaveLength(8)
+    for (const s of sliders) {
+      expect(s).toHaveAttribute(
+        'aria-label',
+        enMessages['raw.hsl.fields.saturation'],
+      )
+    }
+    expect(
+      screen.getByRole('tabpanel', {
+        name: enMessages['raw.hsl.fields.saturation'],
+      }),
+    ).toBeInTheDocument()
   })
 
-  it('disables the reset button when all 24 scalars are neutral', () => {
-    setup({ value: neutralBands() })
-    const reset = screen.getByRole('button', {
-      name: enMessages['raw.hsl.reset'],
-    })
-    expect(reset).toBeDisabled()
-  })
-
-  it('enables the reset button when any scalar is non-zero', () => {
-    const value = neutralBands()
-    value.orange = { hue: 12, saturation: 0, lightness: 0 }
-    setup({ value })
-    const reset = screen.getByRole('button', {
-      name: enMessages['raw.hsl.reset'],
-    })
-    expect(reset).toBeEnabled()
-  })
-
-  it('calls onChange with the band id and just the touched scalar', async () => {
+  it('dispatches onChange(band, {hue: n}) on the default Hue tab', async () => {
     const user = userEvent.setup()
     const { onChange } = setup({ value: neutralBands() })
-    const redSection = screen
-      .getAllByRole('group')
-      .find((el) => el.getAttribute('data-hsl-band') === 'red')!
-    const sliders = within(redSection).getAllByRole('slider')
-    sliders[0].focus()
+
+    const redSlider = within(
+      bandRows().find((el) => el.getAttribute('data-hsl-band') === 'red')!,
+    ).getByRole('slider')
+    redSlider.focus()
     await user.keyboard('{ArrowRight}')
 
     expect(onChange).toHaveBeenCalledTimes(1)
-    const [band, shift] = onChange.mock.calls[0]
-    expect(band).toBe('red')
-    expect(shift).toEqual({ hue: 1 })
+    expect(onChange.mock.calls[0]).toEqual(['red', { hue: 1 }])
   })
 
-  it('calls onReset exactly once when the reset button is clicked', async () => {
+  it('dispatches onChange(band, {saturation: n}) on the Saturation tab', async () => {
+    const user = userEvent.setup()
+    const { onChange } = setup({ value: neutralBands() })
+
+    await user.click(axisTab(enMessages['raw.hsl.fields.saturation']))
+    const orangeSlider = within(
+      bandRows().find((el) => el.getAttribute('data-hsl-band') === 'orange')!,
+    ).getByRole('slider')
+    orangeSlider.focus()
+    await user.keyboard('{ArrowRight}')
+
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange.mock.calls[0]).toEqual(['orange', { saturation: 1 }])
+  })
+
+  it('reflects the active axis value (Lightness tab shows the lightness scalars)', async () => {
     const user = userEvent.setup()
     const value = neutralBands()
-    value.green = { hue: 4, saturation: 0, lightness: 0 }
-    const { onReset } = setup({ value })
+    value.aqua = { hue: 7, saturation: 0, lightness: 42 }
+    setup({ value })
+
+    await user.click(axisTab(enMessages['raw.hsl.fields.lightness']))
+    const aquaSlider = within(
+      bandRows().find((el) => el.getAttribute('data-hsl-band') === 'aqua')!,
+    ).getByRole('slider')
+    expect(aquaSlider).toHaveAttribute('aria-valuenow', '42')
+
+    // Switching back to Hue should reflect aqua.hue = 7, not 42
+    await user.click(axisTab(enMessages['raw.hsl.fields.hue']))
+    const aquaSliderHue = within(
+      bandRows().find((el) => el.getAttribute('data-hsl-band') === 'aqua')!,
+    ).getByRole('slider')
+    expect(aquaSliderHue).toHaveAttribute('aria-valuenow', '7')
+  })
+})
+
+describe('hslTool reset buttons', () => {
+  it('disables both reset buttons when value is undefined', () => {
+    setup({ value: undefined })
+    expect(
+      screen.getByRole('button', {
+        name: enMessages['raw.hsl.resetHue'],
+      }),
+    ).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: enMessages['raw.hsl.reset'] }),
+    ).toBeDisabled()
+  })
+
+  it('shows the axis-scoped reset label that matches the active tab', async () => {
+    const user = userEvent.setup()
+    setup()
+    expect(
+      screen.getByRole('button', {
+        name: enMessages['raw.hsl.resetHue'],
+      }),
+    ).toBeInTheDocument()
+
+    await user.click(axisTab(enMessages['raw.hsl.fields.saturation']))
+    expect(
+      screen.getByRole('button', {
+        name: enMessages['raw.hsl.resetSaturation'],
+      }),
+    ).toBeInTheDocument()
+
+    await user.click(axisTab(enMessages['raw.hsl.fields.lightness']))
+    expect(
+      screen.getByRole('button', {
+        name: enMessages['raw.hsl.resetLightness'],
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('enables axis reset only when the active axis is non-neutral', async () => {
+    const user = userEvent.setup()
+    const value = neutralBands()
+    value.green = { hue: 0, saturation: 30, lightness: 0 }
+    setup({ value })
+
+    // On Hue tab the axis is neutral (green.hue = 0, others 0) -> disabled
+    expect(
+      screen.getByRole('button', {
+        name: enMessages['raw.hsl.resetHue'],
+      }),
+    ).toBeDisabled()
+    // Reset all is enabled because saturation is non-neutral.
+    expect(
+      screen.getByRole('button', { name: enMessages['raw.hsl.reset'] }),
+    ).toBeEnabled()
+
+    // Switch to Saturation tab -> axis reset enables.
+    await user.click(axisTab(enMessages['raw.hsl.fields.saturation']))
+    expect(
+      screen.getByRole('button', {
+        name: enMessages['raw.hsl.resetSaturation'],
+      }),
+    ).toBeEnabled()
+  })
+
+  it('axis reset emits onChange for all 8 bands clearing only the active axis', async () => {
+    const user = userEvent.setup()
+    const value = neutralBands()
+    value.red = { hue: 30, saturation: 30, lightness: 30 }
+    value.blue = { hue: -20, saturation: 0, lightness: 0 }
+    const { onChange, onReset } = setup({ value })
+
+    await user.click(
+      screen.getByRole('button', {
+        name: enMessages['raw.hsl.resetHue'],
+      }),
+    )
+
+    expect(onReset).not.toHaveBeenCalled()
+    expect(onChange).toHaveBeenCalledTimes(8)
+    const bandsInOrder = onChange.mock.calls.map(([band]) => band)
+    expect(bandsInOrder).toEqual(BAND_ORDER)
+    for (const [, shift] of onChange.mock.calls) {
+      expect(shift).toEqual({ hue: 0 })
+    }
+  })
+
+  it('reset all dispatches onReset once', async () => {
+    const user = userEvent.setup()
+    const value = neutralBands()
+    value.purple = { hue: 11, saturation: 0, lightness: 0 }
+    const { onReset, onChange } = setup({ value })
 
     await user.click(
       screen.getByRole('button', { name: enMessages['raw.hsl.reset'] }),
     )
     expect(onReset).toHaveBeenCalledTimes(1)
+    expect(onChange).not.toHaveBeenCalled()
   })
+})
 
+describe('hslTool surface', () => {
   it('renders the product copy explaining adjacent-band coordination', () => {
     setup()
     expect(screen.getByText(enMessages['raw.hsl.note'])).toBeInTheDocument()
   })
 
-  it('disables all sliders and the reset button when disabled is true', () => {
+  it('disables sliders, tabs, and both reset buttons when disabled is true', () => {
     setup({ value: undefined, disabled: true })
     for (const slider of screen.getAllByRole('slider')) {
       expect(slider).toHaveAttribute('data-disabled')
     }
+    for (const tab of screen.getAllByRole('tab')) {
+      expect(tab).toBeDisabled()
+    }
+    expect(
+      screen.getByRole('button', {
+        name: enMessages['raw.hsl.resetHue'],
+      }),
+    ).toBeDisabled()
     expect(
       screen.getByRole('button', { name: enMessages['raw.hsl.reset'] }),
     ).toBeDisabled()

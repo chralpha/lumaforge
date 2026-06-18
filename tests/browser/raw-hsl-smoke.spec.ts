@@ -94,30 +94,29 @@ test('drives selective-color HSL through all 8 bands and resets cleanly', async 
       .not.toBe(before)
   }
 
-  // Reset HSL clears every band back to neutral.
-  const resetButton = hslSection.getByRole('button', { name: 'Reset HSL' })
+  // "Reset all" wipes every band on every axis back to neutral.
+  const resetButton = hslSection.getByRole('button', { name: 'Reset all' })
   await expect(resetButton).toBeEnabled()
   await resetButton.click()
 
+  // After reset, the Hue axis (active by default) shows every band at 0.
   for (const band of HSL_BANDS) {
-    const bandGroup = hslSection.locator(`[data-hsl-band="${band}"]`)
-    const sliders = bandGroup.getByRole('slider')
-    const count = await sliders.count()
-    expect(count).toBe(3)
-    for (let index = 0; index < count; index += 1) {
-      const value = Number(
-        await sliders.nth(index).getAttribute('aria-valuenow'),
-      )
-      expect(value).toBe(0)
-    }
+    const slider = hslSection
+      .locator(`[data-hsl-band="${band}"]`)
+      .getByRole('slider', { name: 'Hue' })
+    await expect(slider).toBeVisible()
+    expect(Number(await slider.getAttribute('aria-valuenow'))).toBe(0)
   }
   await expect(resetButton).toBeDisabled()
 
-  // Adjust two bands again so the export pipeline sees a non-trivial LUT.
+  // Adjust red.Hue (default tab) so the export pipeline sees a non-trivial LUT.
   const redHue = hslSection
     .locator('[data-hsl-band="red"]')
     .getByRole('slider', { name: 'Hue' })
   await scrollAndDragSliderToCenterPlusOffset(page, redHue, 0.2)
+
+  // Switch to the Saturation axis tab and adjust blue.Saturation.
+  await hslSection.getByRole('tab', { name: 'Saturation' }).click()
   const blueSat = hslSection
     .locator('[data-hsl-band="blue"]')
     .getByRole('slider', { name: 'Saturation' })
