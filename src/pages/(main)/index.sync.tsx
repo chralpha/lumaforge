@@ -153,8 +153,8 @@ function InteractiveCompare({
       role="slider"
       tabIndex={0}
       aria-label={label}
-      aria-valuemin={0}
-      aria-valuemax={100}
+      aria-valuemin={2}
+      aria-valuemax={98}
       aria-valuenow={Math.round(position * 100)}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
