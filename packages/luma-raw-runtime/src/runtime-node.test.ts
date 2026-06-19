@@ -11,13 +11,19 @@ import { LumaRawRuntimeError } from './errors'
 import { createLumaRawRuntimeForNode } from './runtime-node'
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const artifactsDir = resolve(packageDir, '..', 'luma-native-artifacts')
+const NATIVE_AVAILABLE =
+  existsSync(join(artifactsDir, 'native/desktop/luma_raw.wasm')) &&
+  existsSync(join(artifactsDir, 'native/low-memory/luma_raw.wasm'))
 const FIXTURE_PATH = join(
   packageDir,
   'fixtures/.cache/public/raw-pixls-iphone-se.dng',
 )
 const FIXTURE_AVAILABLE = existsSync(FIXTURE_PATH)
 
-const describeWithFixture = FIXTURE_AVAILABLE ? describe : describe.skip
+const describeWithNative = NATIVE_AVAILABLE ? describe : describe.skip
+const describeWithFixture =
+  NATIVE_AVAILABLE && FIXTURE_AVAILABLE ? describe : describe.skip
 
 async function loadFixture(): Promise<{
   data: Uint8Array
@@ -32,7 +38,7 @@ async function loadFixture(): Promise<{
   }
 }
 
-describe('createLumaRawRuntimeForNode (input validation)', () => {
+describeWithNative('createLumaRawRuntimeForNode (input validation)', () => {
   it('init returns runtime info', async () => {
     const runtime = await createLumaRawRuntimeForNode()
     try {
@@ -149,7 +155,13 @@ describeWithFixture('createLumaRawRuntimeForNode (live decode)', () => {
   }, 30_000)
 })
 
-if (!FIXTURE_AVAILABLE) {
+if (!NATIVE_AVAILABLE) {
+  describe('createLumaRawRuntimeForNode — SKIPPED (native)', () => {
+    it('native WASM missing; run native build or pnpm native:prepare', () => {
+      expect(NATIVE_AVAILABLE).toBe(false)
+    })
+  })
+} else if (!FIXTURE_AVAILABLE) {
   describe('createLumaRawRuntimeForNode (live decode) — SKIPPED', () => {
     it('fixture missing; run `pnpm fixtures:fetch-public` to populate it', () => {
       expect(FIXTURE_AVAILABLE).toBe(false)

@@ -2,10 +2,17 @@
 // @vitest-environment node
 
 import { Buffer } from 'node:buffer'
+import { existsSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
 import { createLumaJpegRuntimeForNode } from './runtime-node'
+
+const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const artifactsDir = resolve(packageDir, '..', 'luma-native-artifacts')
+const NATIVE_AVAILABLE = existsSync(join(artifactsDir, 'native/luma_jpeg.wasm'))
 
 function makeRgbGradient(width: number, height: number): Uint8Array {
   const rows = new Uint8Array(width * height * 3)
@@ -20,7 +27,9 @@ function makeRgbGradient(width: number, height: number): Uint8Array {
   return rows
 }
 
-describe('createLumaJpegRuntimeForNode', () => {
+const describeWithNative = NATIVE_AVAILABLE ? describe : describe.skip
+
+describeWithNative('createLumaJpegRuntimeForNode', () => {
   it('encodes a small RGB image to a JPEG byte stream', async () => {
     const runtime = await createLumaJpegRuntimeForNode()
     try {
@@ -124,3 +133,11 @@ describe('createLumaJpegRuntimeForNode', () => {
     ).toThrow(/DISPOSED/i)
   })
 })
+
+if (!NATIVE_AVAILABLE) {
+  describe('createLumaJpegRuntimeForNode — SKIPPED (native)', () => {
+    it('native WASM missing; run native build or pnpm native:prepare', () => {
+      expect(NATIVE_AVAILABLE).toBe(false)
+    })
+  })
+}
