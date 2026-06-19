@@ -6,6 +6,7 @@ import {
   LUMA_COLOR_SELECTIVE_COLOR_GLSL,
   LUMA_COLOR_TONE_GLSL,
   LUMA_COLOR_TRANSFER_GLSL,
+  LUMA_COLOR_USER_SATURATION_GLSL,
 } from '@lumaforge/luma-color-runtime/glsl'
 
 /**
@@ -70,6 +71,8 @@ uniform int u_lutOutputRange;
 uniform sampler2D u_selectiveColorLUT;
 uniform vec2 u_selectiveColorChromaClamp;
 uniform bool u_selectiveColorActive;
+uniform float u_userSaturation;
+uniform float u_userVibrance;
 `
 
 const PROCESS_FRAGMENT_SHADER_BODY = /* glsl */ `
@@ -87,6 +90,7 @@ ${LUMA_COLOR_BALANCE_GLSL}
 ${LUMA_COLOR_TONE_GLSL}
 ${LUMA_COLOR_OKLAB_GLSL}
 ${LUMA_COLOR_SELECTIVE_COLOR_GLSL}
+${LUMA_COLOR_USER_SATURATION_GLSL}
 
 float luminance709(vec3 color) {
   return dot(color, vec3(0.2126, 0.7152, 0.0722));
@@ -163,6 +167,11 @@ void main() {
     u_userShadows,
     u_userWhites,
     u_userBlacks
+  );
+  editedBaseSceneLinearProPhoto = applyUserSaturation(
+    editedBaseSceneLinearProPhoto,
+    u_userSaturation,
+    u_userVibrance
   );
   if (u_selectiveColorActive) {
     editedBaseSceneLinearProPhoto = applyUserSelectiveColor(

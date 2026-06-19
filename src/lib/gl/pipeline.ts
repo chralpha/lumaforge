@@ -622,6 +622,8 @@ export class RawProcessingPipeline {
         program,
         'u_selectiveColorActive',
       ),
+      u_userSaturation: gl.getUniformLocation(program, 'u_userSaturation'),
+      u_userVibrance: gl.getUniformLocation(program, 'u_userVibrance'),
     }
   }
 
@@ -1067,6 +1069,8 @@ export class RawProcessingPipeline {
     gl.uniform1f(processUniforms.u_userShadows, tone.userShadows)
     gl.uniform1f(processUniforms.u_userWhites, tone.userWhites)
     gl.uniform1f(processUniforms.u_userBlacks, tone.userBlacks)
+    gl.uniform1f(processUniforms.u_userSaturation, params.userSaturation)
+    gl.uniform1f(processUniforms.u_userVibrance, params.userVibrance)
     gl.uniform1i(
       processUniforms.u_styleKind,
       STYLE_KIND_UNIFORMS[params.styleKind],
