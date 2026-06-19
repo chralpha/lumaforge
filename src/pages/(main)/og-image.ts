@@ -12,20 +12,16 @@ interface LumaForgeOgImageAssets {
 }
 
 const colors = {
-  dark: 'oklch(0.18 0.02 76)',
-  heroInk: 'oklch(0.97 0.014 86)',
-  amber: 'oklch(0.78 0.16 63)',
+  bg: 'oklch(0.075 0.006 255)',
+  text: 'oklch(0.94 0.012 240)',
+  textMuted: 'oklch(0.56 0.012 255)',
+  amber: 'oklch(0.78 0.14 63)',
   green: 'oklch(0.59 0.15 153)',
-  status: 'oklch(0.86 0.02 82 / 0.66)',
-  hairline: 'oklch(0.82 0.03 82 / 0.30)',
-  onPhotoBg: 'oklch(0.16 0.018 76 / 0.80)',
-  onPhotoBgStrong: 'oklch(0.16 0.018 76 / 0.86)',
-  onPhotoBorder: 'oklch(0.96 0.012 86 / 0.26)',
-  rawDot: 'oklch(0.86 0.13 72)',
-  fileMuted: 'oklch(0.86 0.02 82 / 0.72)',
-  divider: 'oklch(0.96 0.012 86 / 0.94)',
-  dividerBorder: 'oklch(0.96 0.012 86 / 0.82)',
-  dividerHandleBg: 'oklch(0.16 0.018 76 / 0.72)',
+  border: 'oklch(1 0 0 / 0.07)',
+  onPhotoBg: 'oklch(0.08 0.006 255 / 0.72)',
+  onPhotoBorder: 'oklch(1 0 0 / 0.10)',
+  divider: 'oklch(0.94 0.012 240 / 0.92)',
+  dividerHandleBg: 'oklch(0.08 0.006 255 / 0.62)',
 }
 
 const e = createElement
@@ -42,10 +38,7 @@ function checkIcon(size = 12, stroke = 2.4) {
       strokeWidth: stroke,
       strokeLinecap: 'round',
       strokeLinejoin: 'round',
-      style: {
-        display: 'block',
-        flexShrink: 0,
-      },
+      style: { display: 'block', flexShrink: 0 },
     },
     e('polyline', { points: '20 6 9 17 4 12' }),
   )
@@ -63,10 +56,7 @@ function imageUpIcon() {
       strokeWidth: 1.9,
       strokeLinecap: 'round',
       strokeLinejoin: 'round',
-      style: {
-        display: 'block',
-        flexShrink: 0,
-      },
+      style: { display: 'block', flexShrink: 0 },
     },
     e('path', {
       d: 'M21 12V8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12',
@@ -85,13 +75,11 @@ function compareHandleIcon() {
       height: 14,
       viewBox: '0 0 20 14',
       fill: 'none',
-      stroke: 'oklch(0.96 0.012 86 / 0.92)',
+      stroke: 'oklch(0.94 0.012 240 / 0.88)',
       strokeWidth: 1.8,
       strokeLinecap: 'round',
       strokeLinejoin: 'round',
-      style: {
-        display: 'block',
-      },
+      style: { display: 'block' },
     },
     e('polyline', { points: '5 2 1 7 5 12' }),
     e('polyline', { points: '15 2 19 7 15 12' }),
@@ -101,13 +89,7 @@ function compareHandleIcon() {
 function markLockup(logoSrc: string) {
   return e(
     'div',
-    {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        height: 36,
-      },
-    },
+    { style: { display: 'flex', alignItems: 'center', height: 36 } },
     e('img', {
       src: logoSrc,
       width: 36,
@@ -116,7 +98,7 @@ function markLockup(logoSrc: string) {
         width: 36,
         height: 36,
         borderRadius: 5,
-        boxShadow: '0 8px 22px oklch(0.05 0.02 78 / 0.40)',
+        boxShadow: '0 8px 22px oklch(0 0 0 / 0.40)',
       },
     }),
     e(
@@ -124,9 +106,9 @@ function markLockup(logoSrc: string) {
       {
         style: {
           marginLeft: 12,
-          color: colors.heroInk,
+          color: colors.text,
           fontSize: 18,
-          fontWeight: 760,
+          fontWeight: 680,
           letterSpacing: '-0.005em',
           lineHeight: 1,
         },
@@ -144,13 +126,13 @@ function eyebrow() {
         marginBottom: 22,
         color: colors.amber,
         fontSize: 12.5,
-        fontWeight: 780,
-        letterSpacing: '0.04em',
+        fontWeight: 700,
+        letterSpacing: '0.08em',
         lineHeight: 1.2,
         textTransform: 'uppercase',
       },
     },
-    'RAW → LUT → JPEG',
+    'Browser RAW finishing lab',
   )
 }
 
@@ -167,9 +149,9 @@ function headline() {
     {
       style: {
         margin: 0,
-        color: colors.heroInk,
+        color: colors.text,
         fontSize: 70,
-        fontWeight: 860,
+        fontWeight: 780,
         lineHeight: 0.94,
         letterSpacing: '-0.028em',
       },
@@ -188,9 +170,9 @@ function statusLine() {
       style: {
         display: 'flex',
         alignItems: 'center',
-        color: colors.status,
+        color: colors.textMuted,
         fontSize: 13.5,
-        fontWeight: 620,
+        fontWeight: 560,
         lineHeight: 1,
       },
     },
@@ -202,46 +184,38 @@ function statusLine() {
         backgroundColor: colors.green,
       },
     }),
-    e(
-      'div',
-      {
-        style: {
-          marginLeft: 10,
-        },
-      },
-      'Browser-local · no upload',
-    ),
+    e('div', { style: { marginLeft: 10 } }, 'Browser-local · no upload'),
   )
+}
+
+function chipStyle(extra?: CSSProperties): CSSProperties {
+  return {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '8px 13px',
+    borderRadius: 999,
+    border: `1px solid ${colors.onPhotoBorder}`,
+    backgroundColor: colors.onPhotoBg,
+    color: colors.text,
+    fontSize: 12.5,
+    fontWeight: 660,
+    letterSpacing: '0.01em',
+    lineHeight: 1,
+    ...extra,
+  }
 }
 
 function rawTag() {
   return e(
     'div',
-    {
-      style: {
-        position: 'absolute',
-        top: 28,
-        left: 28,
-        display: 'flex',
-        alignItems: 'center',
-        padding: '8px 13px',
-        borderRadius: 999,
-        border: `1px solid ${colors.onPhotoBorder}`,
-        backgroundColor: colors.onPhotoBg,
-        color: colors.heroInk,
-        fontSize: 12.5,
-        fontWeight: 720,
-        letterSpacing: '0.01em',
-        lineHeight: 1,
-      },
-    },
+    { style: chipStyle({ position: 'absolute', top: 28, left: 28 }) },
     e('div', {
       style: {
         width: 6,
         height: 6,
         borderRadius: 999,
-        backgroundColor: colors.rawDot,
-        boxShadow: `0 0 8px ${colors.rawDot}`,
+        backgroundColor: colors.amber,
+        boxShadow: `0 0 8px ${colors.amber}`,
       },
     }),
     e('div', { style: { marginLeft: 8 } }, 'RAW preview'),
@@ -251,24 +225,7 @@ function rawTag() {
 function finishedTag() {
   return e(
     'div',
-    {
-      style: {
-        position: 'absolute',
-        top: 28,
-        right: 28,
-        display: 'flex',
-        alignItems: 'center',
-        padding: '8px 13px',
-        borderRadius: 999,
-        border: `1px solid ${colors.onPhotoBorder}`,
-        backgroundColor: colors.onPhotoBg,
-        color: colors.heroInk,
-        fontSize: 12.5,
-        fontWeight: 720,
-        letterSpacing: '0.01em',
-        lineHeight: 1,
-      },
-    },
+    { style: chipStyle({ position: 'absolute', top: 28, right: 28 }) },
     checkIcon(),
     e('div', { style: { marginLeft: 8 } }, 'Finished JPEG · Rec.709'),
   )
@@ -278,22 +235,12 @@ function contractChip() {
   return e(
     'div',
     {
-      style: {
+      style: chipStyle({
         position: 'absolute',
         bottom: 28,
         left: 28,
-        display: 'flex',
-        alignItems: 'center',
         padding: '8px 13px 8px 11px',
-        borderRadius: 999,
-        border: `1px solid ${colors.onPhotoBorder}`,
-        backgroundColor: colors.onPhotoBg,
-        color: colors.heroInk,
-        fontSize: 12.5,
-        fontWeight: 720,
-        letterSpacing: '0.01em',
-        lineHeight: 1,
-      },
+      }),
     },
     checkIcon(),
     e('div', { style: { marginLeft: 8 } }, 'ARRI LogC → Rec.709'),
@@ -313,10 +260,10 @@ function filePill() {
         padding: '10px 14px',
         borderRadius: 8,
         border: `1px solid ${colors.onPhotoBorder}`,
-        backgroundColor: colors.onPhotoBgStrong,
-        color: colors.heroInk,
+        backgroundColor: colors.onPhotoBg,
+        color: colors.text,
         fontSize: 12.5,
-        fontWeight: 720,
+        fontWeight: 660,
         lineHeight: 1,
         fontFeatureSettings: '"tnum" 1',
       },
@@ -328,19 +275,10 @@ function filePill() {
         width: 1,
         height: 14,
         marginLeft: 10,
-        backgroundColor: 'oklch(0.96 0.012 86 / 0.24)',
+        backgroundColor: 'oklch(1 0 0 / 0.12)',
       },
     }),
-    e(
-      'div',
-      {
-        style: {
-          marginLeft: 10,
-          color: colors.fileMuted,
-        },
-      },
-      '24.3 MB',
-    ),
+    e('div', { style: { marginLeft: 10, color: colors.textMuted } }, '24.3 MB'),
   )
 }
 
@@ -407,7 +345,7 @@ function rightPane(heroImageSrc: string) {
         bottom: 0,
         left: 335,
         background:
-          'linear-gradient(90deg, oklch(0.86 0.13 63 / 0.06), oklch(0.86 0.13 63 / 0.14))',
+          'linear-gradient(90deg, oklch(0.59 0.15 153 / 0.04), oklch(0.59 0.15 153 / 0.10))',
       },
     }),
     e('div', {
@@ -418,7 +356,7 @@ function rightPane(heroImageSrc: string) {
         left: 334,
         width: 2,
         backgroundColor: colors.divider,
-        boxShadow: '0 0 14px oklch(0.05 0.02 78 / 0.45)',
+        boxShadow: '0 0 14px oklch(0 0 0 / 0.45)',
       },
     }),
     e(
@@ -434,7 +372,7 @@ function rightPane(heroImageSrc: string) {
           width: 52,
           height: 52,
           borderRadius: '50%',
-          border: `1.5px solid ${colors.dividerBorder}`,
+          border: '1.5px solid oklch(1 0 0 / 0.14)',
           backgroundColor: colors.dividerHandleBg,
         },
       },
@@ -456,8 +394,8 @@ function ogImageElement({ heroImageSrc, logoSrc }: LumaForgeOgImageAssets) {
         width: LUMAFORGE_OG_IMAGE_WIDTH,
         height: LUMAFORGE_OG_IMAGE_HEIGHT,
         overflow: 'hidden',
-        backgroundColor: colors.dark,
-        color: colors.heroInk,
+        backgroundColor: colors.bg,
+        color: colors.text,
         fontFamily: 'Geist Sans',
         fontFeatureSettings: '"ss01" 1, "cv11" 1',
       },
@@ -472,7 +410,7 @@ function ogImageElement({ heroImageSrc, logoSrc }: LumaForgeOgImageAssets) {
           width: 530,
           height: 630,
           padding: '56px 44px 52px 64px',
-          borderRight: `1px solid ${colors.hairline}`,
+          borderRight: `1px solid ${colors.border}`,
           boxSizing: 'border-box',
         },
       },
