@@ -36,6 +36,8 @@ const neutralTone: ToneValue = {
 const neutralColor: ColorValue = {
   userTemperature: 0,
   userTint: 0,
+  userSaturation: 0,
+  userVibrance: 0,
 }
 
 function neutralSelectiveColor(): Record<HSLBandId, HSLBandShift> {

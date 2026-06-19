@@ -235,6 +235,8 @@ const DEFAULT_PARAMS: ProcessingParams = {
   userBlacks: 0,
   userTemperature: 0,
   userTint: 0,
+  userSaturation: 0,
+  userVibrance: 0,
 }
 
 const VIEW_MODE_UNIFORMS: Record<ProcessingParams['viewMode'], number> = {
@@ -853,6 +855,8 @@ export class RawProcessingPipeline {
       userBlacks: this.params.userBlacks,
       userTemperature: this.params.userTemperature,
       userTint: this.params.userTint,
+      userSaturation: this.params.userSaturation,
+      userVibrance: this.params.userVibrance,
       selectiveColor: this.params.selectiveColor,
     })
     const resolvedProfile = exportGraph.supported

@@ -23,6 +23,8 @@ function createParams(): ReturnType<
     userBlacks: 0,
     userTemperature: 0,
     userTint: 0,
+    userSaturation: 0,
+    userVibrance: 0,
   }
 }
 

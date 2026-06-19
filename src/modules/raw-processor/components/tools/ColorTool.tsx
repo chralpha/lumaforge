@@ -13,6 +13,8 @@ import { temperatureTrack, tintTrack } from './slider-tracks'
 export const ColorValueSchema = z.object({
   userTemperature: z.number().min(-100).max(100),
   userTint: z.number().min(-100).max(100),
+  userSaturation: z.number().min(-100).max(100),
+  userVibrance: z.number().min(-100).max(100),
 })
 
 export type ColorValue = z.infer<typeof ColorValueSchema>
@@ -20,6 +22,8 @@ export type ColorValue = z.infer<typeof ColorValueSchema>
 const COLOR_DEFAULTS: ColorValue = {
   userTemperature: 0,
   userTint: 0,
+  userSaturation: 0,
+  userVibrance: 0,
 }
 
 type ColorField = {

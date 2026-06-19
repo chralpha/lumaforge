@@ -27,7 +27,12 @@ describe('mobile color fields', () => {
   })
 
   it('detects neutral temperature and tint', () => {
-    expect(COLOR_NEUTRAL).toEqual({ userTemperature: 0, userTint: 0 })
+    expect(COLOR_NEUTRAL).toEqual({
+      userTemperature: 0,
+      userTint: 0,
+      userSaturation: 0,
+      userVibrance: 0,
+    })
     expect(isColorNeutral(COLOR_NEUTRAL)).toBe(true)
     expect(isColorNeutral({ ...COLOR_NEUTRAL, userTemperature: 1 })).toBe(false)
     expect(isColorNeutral({ ...COLOR_NEUTRAL, userTint: -1 })).toBe(false)

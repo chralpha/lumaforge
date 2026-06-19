@@ -46,6 +46,8 @@ const defaultParams: ProcessingParams = {
   userBlacks: 0,
   userTemperature: 0,
   userTint: 0,
+  userSaturation: 0,
+  userVibrance: 0,
 }
 
 interface OrderingHooks {

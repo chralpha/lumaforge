@@ -1,6 +1,7 @@
 import type { ProcessingParams } from '@lumaforge/luma-color-runtime'
 import {
   normalizeColorBalanceParams,
+  normalizeSaturationParams,
   normalizeToneParams,
 } from '@lumaforge/luma-color-runtime'
 
@@ -161,20 +162,27 @@ export function computeToneParams(
 
 export function computeColorParams(
   prevParams: ProcessingParams,
-  colorParams: Partial<Pick<ProcessingParams, 'userTemperature' | 'userTint'>>,
+  colorParams: Partial<
+    Pick<
+      ProcessingParams,
+      'userTemperature' | 'userTint' | 'userSaturation' | 'userVibrance'
+    >
+  >,
 ): { params: ProcessingParams; shouldClearExportResult: boolean } {
-  const normalized = normalizeColorBalanceParams({
+  const normalizedBalance = normalizeColorBalanceParams({
     userTemperature: colorParams.userTemperature ?? prevParams.userTemperature,
     userTint: colorParams.userTint ?? prevParams.userTint,
   })
+  const normalizedSat = normalizeSaturationParams({
+    userSaturation: colorParams.userSaturation ?? prevParams.userSaturation,
+    userVibrance: colorParams.userVibrance ?? prevParams.userVibrance,
+  })
 
-  const shouldClearExportResult = changesRenderGraphParams(
-    prevParams,
-    normalized,
-  )
+  const merged = { ...normalizedBalance, ...normalizedSat }
+  const shouldClearExportResult = changesRenderGraphParams(prevParams, merged)
 
   return {
-    params: { ...prevParams, ...normalized },
+    params: { ...prevParams, ...merged },
     shouldClearExportResult,
   }
 }

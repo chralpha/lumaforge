@@ -16,6 +16,8 @@ type ColorListPanelProps = {
 const COLOR_FIELD_TRACK: Record<keyof ColorValue, string> = {
   userTemperature: temperatureTrack(),
   userTint: tintTrack(),
+  userSaturation: '',
+  userVibrance: '',
 }
 
 export function ColorListPanel(props: ColorListPanelProps) {

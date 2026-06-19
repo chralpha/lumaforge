@@ -23,6 +23,8 @@ function createParams(
     userBlacks: 20,
     userTemperature: 0,
     userTint: 0,
+    userSaturation: 0,
+    userVibrance: 0,
     ...overrides,
   }
 }

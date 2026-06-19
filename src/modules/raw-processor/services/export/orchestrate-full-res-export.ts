@@ -171,6 +171,8 @@ export async function orchestrateFullResExport(
     userBlacks: ctx.atoms.params.userBlacks,
     userTemperature: ctx.atoms.params.userTemperature,
     userTint: ctx.atoms.params.userTint,
+    userSaturation: ctx.atoms.params.userSaturation,
+    userVibrance: ctx.atoms.params.userVibrance,
     selectiveColor: ctx.atoms.params.selectiveColor,
   })
 
@@ -396,6 +398,8 @@ export async function orchestrateFullResExport(
       color: {
         userTemperature: ctx.atoms.params.userTemperature,
         userTint: ctx.atoms.params.userTint,
+        userSaturation: ctx.atoms.params.userSaturation,
+        userVibrance: ctx.atoms.params.userVibrance,
       },
       style: activeSession.activeStyle,
     })

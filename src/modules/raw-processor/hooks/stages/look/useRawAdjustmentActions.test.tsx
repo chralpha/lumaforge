@@ -47,6 +47,8 @@ const baseParams: ProcessingParams = {
   userBlacks: 0,
   userTemperature: 0,
   userTint: 0,
+  userSaturation: 0,
+  userVibrance: 0,
 }
 
 type MutableParamsRef = {

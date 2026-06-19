@@ -19,6 +19,8 @@ const params: ProcessingParams = {
   userBlacks: 0,
   userTemperature: 0,
   userTint: 0,
+  userSaturation: 0,
+  userVibrance: 0,
 }
 
 function createSession(id: string): ImageSession {

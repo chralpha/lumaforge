@@ -177,6 +177,10 @@ export function changesRenderGraphParams(
     (Object.hasOwn(next, 'userTemperature') &&
       next.userTemperature !== current.userTemperature) ||
     (Object.hasOwn(next, 'userTint') && next.userTint !== current.userTint) ||
+    (Object.hasOwn(next, 'userSaturation') &&
+      next.userSaturation !== current.userSaturation) ||
+    (Object.hasOwn(next, 'userVibrance') &&
+      next.userVibrance !== current.userVibrance) ||
     (Object.hasOwn(next, 'selectiveColor') &&
       changesSelectiveColor(current.selectiveColor, next.selectiveColor))
   )

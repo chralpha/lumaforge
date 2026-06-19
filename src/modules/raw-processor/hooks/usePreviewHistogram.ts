@@ -173,6 +173,8 @@ function createHistogramJob({
     userBlacks: params.userBlacks,
     userTemperature: params.userTemperature,
     userTint: params.userTint,
+    userSaturation: params.userSaturation,
+    userVibrance: params.userVibrance,
     selectiveColor: params.selectiveColor,
   })
 

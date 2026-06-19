@@ -271,6 +271,8 @@ export function PreviewCanvas({
         userBlacks: params.userBlacks,
         userTemperature: params.userTemperature,
         userTint: params.userTint,
+        userSaturation: params.userSaturation,
+        userVibrance: params.userVibrance,
         selectiveColor: params.selectiveColor,
       }) satisfies ProcessingParams,
     [
@@ -285,6 +287,8 @@ export function PreviewCanvas({
       params.userShadows,
       params.userTemperature,
       params.userTint,
+      params.userSaturation,
+      params.userVibrance,
       params.userWhites,
       params.viewMode,
       pipelineCompareSplit,

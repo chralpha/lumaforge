@@ -71,6 +71,8 @@ export function RawWorkflowToolProvider({
         color: {
           userTemperature: workflow.params.userTemperature,
           userTint: workflow.params.userTint,
+          userSaturation: workflow.params.userSaturation,
+          userVibrance: workflow.params.userVibrance,
         },
         selectiveColor: workflow.params.selectiveColor,
         onIntensitySelect: workflow.selectIntensityLevel,

@@ -189,6 +189,8 @@ describe('export state helpers', () => {
       userBlacks: 0,
       userTemperature: 0,
       userTint: 0,
+      userSaturation: 0,
+      userVibrance: 0,
     } as const
 
     expect(
@@ -226,6 +228,8 @@ describe('export state helpers', () => {
       userBlacks: 0,
       userTemperature: 0,
       userTint: 0,
+      userSaturation: 0,
+      userVibrance: 0,
     } as const
 
     expect(changesRenderGraphParams(current, { userTemperature: 12 })).toBe(
@@ -260,6 +264,8 @@ describe('export state helpers', () => {
       userBlacks: 0,
       userTemperature: 0,
       userTint: 0,
+      userSaturation: 0,
+      userVibrance: 0,
       selectiveColor: neutralSelectiveColor,
     } as const
 
@@ -313,6 +319,8 @@ describe('export state helpers', () => {
       userBlacks: 0,
       userTemperature: 0,
       userTint: 0,
+      userSaturation: 0,
+      userVibrance: 0,
     }
 
     expect(

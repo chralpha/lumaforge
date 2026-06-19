@@ -41,6 +41,8 @@ const baseParams: CpuPreviewParams = {
   userBlacks: -5,
   userTemperature: 40,
   userTint: -20,
+  userSaturation: 0,
+  userVibrance: 0,
 }
 
 class FakeWorker {
@@ -120,6 +122,8 @@ describe('useCpuPreview helpers', () => {
         userBlacks: 0,
         userTemperature: 0,
         userTint: 0,
+        userSaturation: 0,
+        userVibrance: 0,
       },
       'processed',
     )

@@ -16,6 +16,8 @@ const defaultParams: ProcessingParams = {
   userBlacks: 0,
   userTemperature: 0,
   userTint: 0,
+  userSaturation: 0,
+  userVibrance: 0,
   intensity: 0.7,
   viewMode: 'processed',
   compareSplit: 0.5,

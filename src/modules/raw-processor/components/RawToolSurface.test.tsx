@@ -35,6 +35,8 @@ const baseProps = {
   color: {
     userTemperature: 0,
     userTint: 0,
+    userSaturation: 0,
+    userVibrance: 0,
   },
   onIntensitySelect: vi.fn(),
   onToneChange: vi.fn(),
@@ -498,7 +500,12 @@ describe('rawToolSurface', () => {
         {...baseProps}
         hasImage
         tone={{ ...baseProps.tone, userContrast: 12 }}
-        color={{ userTemperature: 18, userTint: 0 }}
+        color={{
+          userTemperature: 18,
+          userTint: 0,
+          userSaturation: 0,
+          userVibrance: 0,
+        }}
         onColorChange={vi.fn()}
         onColorReset={onColorReset}
         onToneReset={onToneReset}

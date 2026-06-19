@@ -47,6 +47,8 @@ export function formatColorValue(key: keyof ColorValue, v: number) {
 export const COLOR_NEUTRAL: ColorValue = {
   userTemperature: 0,
   userTint: 0,
+  userSaturation: 0,
+  userVibrance: 0,
 }
 
 export function isColorNeutral(value: ColorValue): boolean {

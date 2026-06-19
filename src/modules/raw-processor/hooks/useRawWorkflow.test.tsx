@@ -5,6 +5,12 @@ import {
   getLUTColorProfile,
   LUT_CONSTANTS_VERSION,
   makeNeutralBand,
+  SKIN_HUE_CENTER_DEG,
+  SKIN_HUE_SIGMA_DEG,
+  SKIN_PROTECT_STRENGTH,
+  USER_SATURATION_MAX_FACTOR,
+  USER_VIBRANCE_MAX_FACTOR,
+  VIBRANCE_CHROMA_REF,
 } from '@lumaforge/luma-color-runtime'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { Provider } from 'jotai'
@@ -2256,6 +2262,18 @@ describe('useRawWorkflow embedded preview state', () => {
         pivot: 0.18,
         luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
         zeroLuminanceMode: 'return-black',
+      },
+      {
+        kind: 'user-saturation',
+        operator: 'oklab-chroma-with-skin-protection',
+        saturation: 0,
+        vibrance: 0,
+        satMaxFactor: USER_SATURATION_MAX_FACTOR,
+        vibMaxFactor: USER_VIBRANCE_MAX_FACTOR,
+        chromaRef: VIBRANCE_CHROMA_REF,
+        skinHueCenterDeg: SKIN_HUE_CENTER_DEG,
+        skinHueSigmaDeg: SKIN_HUE_SIGMA_DEG,
+        skinProtectStrength: SKIN_PROTECT_STRENGTH,
       },
       {
         kind: 'user-selective-color',

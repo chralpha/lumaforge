@@ -110,7 +110,10 @@ export function useRawAdjustmentActions({
   const setColorParams = useCallback(
     (
       colorParams: Partial<
-        Pick<ProcessingParams, 'userTemperature' | 'userTint'>
+        Pick<
+          ProcessingParams,
+          'userTemperature' | 'userTint' | 'userSaturation' | 'userVibrance'
+        >
       >,
     ) => {
       let shouldClearExportResult = false
@@ -132,6 +135,8 @@ export function useRawAdjustmentActions({
     setProcessingParams({
       userTemperature: 0,
       userTint: 0,
+      userSaturation: 0,
+      userVibrance: 0,
     })
   }, [setProcessingParams])
 

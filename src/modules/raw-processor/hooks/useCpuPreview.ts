@@ -34,6 +34,8 @@ export type CpuPreviewParams = {
   userBlacks: number
   userTemperature: number
   userTint: number
+  userSaturation: number
+  userVibrance: number
   selectiveColor?: LumaColorSelectiveColorParams['selectiveColor']
 }
 
@@ -80,6 +82,8 @@ export function buildCpuPreviewGraph(
           userBlacks: 0,
           userTemperature: 0,
           userTint: 0,
+          userSaturation: 0,
+          userVibrance: 0,
           selectiveColor: undefined,
         }
       : params
@@ -284,7 +288,7 @@ export function useCpuPreview({
       variant === 'neutral' || !params.selectiveColor
         ? ''
         : JSON.stringify(params.selectiveColor)
-    const renderSig = `${sourceId}|${variant}|${lookDegraded ? 'degraded' : 'full'}|${effectiveStyleKind}|${effectiveIntensity}|${effectiveBuiltinPreset}|${params.rawRenderExposure.ev}|${params.rawRenderExposure.multiplier}|${params.userExposureEv}|${params.userContrast}|${params.userHighlights}|${params.userShadows}|${params.userWhites}|${params.userBlacks}|${params.userTemperature}|${params.userTint}|${selectiveColorSig}`
+    const renderSig = `${sourceId}|${variant}|${lookDegraded ? 'degraded' : 'full'}|${effectiveStyleKind}|${effectiveIntensity}|${effectiveBuiltinPreset}|${params.rawRenderExposure.ev}|${params.rawRenderExposure.multiplier}|${params.userExposureEv}|${params.userContrast}|${params.userHighlights}|${params.userShadows}|${params.userWhites}|${params.userBlacks}|${params.userTemperature}|${params.userTint}|${params.userSaturation}|${params.userVibrance}|${selectiveColorSig}`
     const prevKey = lastRenderKeyRef.current
     if (prevKey && prevKey.sig === renderSig && prevKey.lut === effectiveLut) {
       return
