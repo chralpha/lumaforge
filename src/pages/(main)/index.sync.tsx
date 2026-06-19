@@ -3,18 +3,17 @@ import './index.css'
 import {
   ArrowRight,
   GitFork,
-  ImageUp,
   LockKeyhole,
   ShieldCheck,
   SlidersHorizontal,
+  Star,
 } from 'lucide-react'
 import { m, useReducedMotion } from 'motion/react'
-import { useMemo } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 
 import { LandingCompareSvg } from '~/components/common/LandingCompareSvg'
 import { LocaleToggle } from '~/components/common/LocaleToggle'
-import type { Translate } from '~/lib/i18n'
 import { useI18n } from '~/lib/i18n'
 import type { SeoRouteHandle } from '~/lib/seo'
 import { HOME_ROUTE_SEO } from '~/lib/seo'
@@ -29,30 +28,6 @@ export const handle = {
 } satisfies SeoRouteHandle
 
 export const loader = () => null
-
-const workflow = [
-  {
-    label: 'landing.workflow.0.label',
-    detail: 'landing.workflow.0.detail',
-  },
-  {
-    label: 'landing.workflow.1.label',
-    detail: 'landing.workflow.1.detail',
-  },
-  {
-    label: 'landing.workflow.2.label',
-    detail: 'landing.workflow.2.detail',
-  },
-] as const
-
-const contractSteps = [
-  'landing.contract.0',
-  'landing.contract.1',
-  'landing.contract.2',
-  'landing.contract.3',
-  'landing.contract.4',
-  'landing.contract.5',
-] as const
 
 const proofPoints = [
   {
@@ -72,16 +47,20 @@ const proofPoints = [
   },
 ] as const
 
-const profileGroups = [
-  'ARRI LogC',
-  'RED Log3G10',
-  'Sony S-Log',
-  'Panasonic V-Log',
-  'Fujifilm F-Log',
-  'Canon Log',
-  'Nikon N-Log',
-  'ACES',
-]
+const workflowSteps = [
+  {
+    label: 'landing.workflow.0.label',
+    detail: 'landing.workflow.0.detail',
+  },
+  {
+    label: 'landing.workflow.1.label',
+    detail: 'landing.workflow.1.detail',
+  },
+  {
+    label: 'landing.workflow.2.label',
+    detail: 'landing.workflow.2.detail',
+  },
+] as const
 
 function useHeroEntrance() {
   const prefersReduced = useReducedMotion() ?? false
@@ -95,76 +74,81 @@ function useHeroEntrance() {
         : { ...Spring.smooth(0.32), delay: delayMs / 1000 },
     })
 
-    const compareEntrance = (delayMs: number) => ({
+    const fadeIn = (delayMs: number) => ({
       initial: { opacity: prefersReduced ? 1 : 0 },
       animate: { opacity: 1 },
       transition: prefersReduced
         ? { duration: 0 }
-        : { ...surfaceFade, duration: 0.5, delay: delayMs / 1000 },
+        : { ...surfaceFade, duration: 0.6, delay: delayMs / 1000 },
     })
 
-    return { entrance, compareEntrance, prefersReduced }
+    return { entrance, fadeIn }
   }, [prefersReduced])
 }
 
-function HeroSection({ t }: { t: Translate }) {
-  const { entrance, compareEntrance } = useHeroEntrance()
+function InteractiveCompare({
+  label,
+  rawTag,
+  finishedTag,
+}: {
+  label: string
+  rawTag: string
+  finishedTag: string
+}) {
+  const [position, setPosition] = useState(0.5)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const dragging = useRef(false)
+
+  const updatePosition = useCallback((clientX: number) => {
+    const el = containerRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setPosition(
+      Math.max(0.02, Math.min(0.98, (clientX - rect.left) / rect.width)),
+    )
+  }, [])
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      dragging.current = true
+      ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+      updatePosition(e.clientX)
+    },
+    [updatePosition],
+  )
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!dragging.current) return
+      updatePosition(e.clientX)
+    },
+    [updatePosition],
+  )
+
+  const onPointerUp = useCallback(() => {
+    dragging.current = false
+  }, [])
 
   return (
-    <section className="lf-hero" aria-labelledby="lf-hero-title">
-      <div className="lf-hero-bg" aria-hidden="true" />
-      <div className="lf-hero-vignette" aria-hidden="true" />
-
-      <div className="lf-hero-content">
-        <m.p className="lf-kicker" {...entrance(0)}>
-          {t('landing.kicker')}
-        </m.p>
-        <m.h1 id="lf-hero-title" {...entrance(80)}>
-          LumaForge
-        </m.h1>
-        <m.p className="lf-hero-copy" {...entrance(160)}>
-          {t('landing.heroCopy')}
-        </m.p>
-        <m.div
-          className="lf-hero-actions"
-          aria-label={t('landing.primaryActions')}
-          {...entrance(220)}
-        >
-          <Link to="/raw" className="lf-button lf-button-primary">
-            <ImageUp size={18} strokeWidth={1.9} />
-            {t('landing.start')}
-          </Link>
-          <a
-            href={repository.url}
-            target="_blank"
-            rel="noreferrer"
-            className="lf-button lf-button-secondary"
-          >
-            <GitFork size={18} strokeWidth={1.9} />
-            {t('landing.viewSource')}
-          </a>
-        </m.div>
-      </div>
-
-      <m.figure
-        className="lf-hero-compare"
-        aria-label={t('landing.workflowPreview')}
-        {...compareEntrance(300)}
-      >
-        <LandingCompareSvg label={t('landing.heroImageAlt')} />
-        <figcaption className="lf-compare-tag lf-tag-left">
-          {t('landing.rawPreviewTag')}
-        </figcaption>
-        <figcaption className="lf-compare-tag lf-tag-right">
-          {t('landing.finishedJpegTag')}
-        </figcaption>
-      </m.figure>
-    </section>
+    <div
+      ref={containerRef}
+      className="lf-compare-container"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+    >
+      <LandingCompareSvg label={label} splitPosition={position} />
+      <figcaption className="lf-compare-tag lf-tag-left">{rawTag}</figcaption>
+      <figcaption className="lf-compare-tag lf-tag-right">
+        {finishedTag}
+      </figcaption>
+    </div>
   )
 }
 
 export const Component = () => {
   const { t } = useI18n()
+  const { entrance, fadeIn } = useHeroEntrance()
 
   return (
     <main className="lf-landing">
@@ -190,84 +174,92 @@ export const Component = () => {
             target="_blank"
             rel="noreferrer"
           >
-            <GitFork size={18} strokeWidth={1.8} />
+            <GitFork size={16} strokeWidth={1.8} />
           </a>
         </div>
       </nav>
 
-      <HeroSection t={t} />
+      <section className="lf-hero" aria-labelledby="lf-hero-title">
+        <div className="lf-hero-glow" aria-hidden="true" />
 
-      <section
-        className="lf-positioning"
-        aria-labelledby="lf-positioning-title"
-      >
-        <div>
-          <p className="lf-section-label">{t('landing.positioning.label')}</p>
-          <h2 id="lf-positioning-title">{t('landing.positioning.title')}</h2>
+        <div className="lf-hero-content">
+          <m.p className="lf-kicker" {...entrance(0)}>
+            {t('landing.kicker')}
+          </m.p>
+          <m.h1 id="lf-hero-title" {...entrance(80)}>
+            LumaForge
+          </m.h1>
+          <m.p className="lf-hero-copy" {...entrance(160)}>
+            {t('landing.heroCopy')}
+          </m.p>
+          <m.div className="lf-hero-actions" {...entrance(220)}>
+            <Link to="/raw" className="lf-button lf-button-primary">
+              {t('landing.openRawLab')}
+              <ArrowRight size={16} strokeWidth={2} />
+            </Link>
+            <a
+              href={repository.url}
+              target="_blank"
+              rel="noreferrer"
+              className="lf-star-link"
+            >
+              <Star size={14} strokeWidth={1.8} />
+              {t('landing.starOnGithub')}
+            </a>
+          </m.div>
         </div>
-        <div className="lf-positioning-copy">
-          <p>{t('landing.positioning.copy.0')}</p>
-          <p>{t('landing.positioning.copy.1')}</p>
-        </div>
+
+        <m.div className="lf-product-window" {...fadeIn(350)}>
+          <div className="lf-window-chrome" aria-hidden="true">
+            <div className="lf-window-dots">
+              <div className="lf-window-dot" />
+              <div className="lf-window-dot" />
+              <div className="lf-window-dot" />
+            </div>
+            <span className="lf-window-filename">DSC_4832.ARW</span>
+            <span className="lf-window-pipeline">ARRI LogC → Rec.709</span>
+          </div>
+          <figure
+            className="lf-window-body"
+            aria-label={t('landing.workflowPreview')}
+          >
+            <InteractiveCompare
+              label={t('landing.heroImageAlt')}
+              rawTag={t('landing.rawPreviewTag')}
+              finishedTag={t('landing.finishedJpegTag')}
+            />
+          </figure>
+        </m.div>
       </section>
 
       <section className="lf-proof" aria-label={t('landing.proofAria')}>
         {proofPoints.map(({ icon: Icon, title, text }) => (
           <article key={title} className="lf-proof-item">
-            <Icon size={22} strokeWidth={1.8} />
+            <Icon size={22} strokeWidth={1.7} />
             <h3>{t(title)}</h3>
             <p>{t(text)}</p>
           </article>
         ))}
       </section>
 
-      <section className="lf-pipeline" aria-labelledby="lf-pipeline-title">
-        <div className="lf-pipeline-header">
-          <p className="lf-section-label">{t('landing.pipeline.label')}</p>
-          <h2 id="lf-pipeline-title">{t('landing.pipeline.title')}</h2>
-        </div>
-        <ol className="lf-rail" aria-label={t('landing.pipelineAria')}>
-          {contractSteps.map((step, index) => (
-            <li className="lf-rail-step" key={step}>
-              <span>{String(index + 1).padStart(2, '0')}</span>
-              <strong>{t(step)}</strong>
-            </li>
-          ))}
-        </ol>
-        <p className="lf-pipeline-note">{t('landing.pipeline.note')}</p>
-      </section>
-
-      <section className="lf-workflow" aria-labelledby="lf-workflow-title">
-        <div className="lf-workflow-heading">
-          <p className="lf-section-label">{t('landing.workflow.label')}</p>
-          <h2 id="lf-workflow-title">{t('landing.workflow.title')}</h2>
-        </div>
-        <ol className="lf-workflow-list">
-          {workflow.map((item, index) => (
-            <li key={item.label}>
+      <section
+        className="lf-section lf-workflow"
+        aria-labelledby="lf-workflow-title"
+      >
+        <p className="lf-section-label">{t('landing.workflow.label')}</p>
+        <h2 id="lf-workflow-title">{t('landing.workflow.title')}</h2>
+        <div className="lf-workflow-grid">
+          {workflowSteps.map((item, index) => (
+            <div key={item.label} className="lf-workflow-step">
               <span>{index + 1}</span>
-              <div>
-                <h3>{t(item.label)}</h3>
-                <p>{t(item.detail)}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="lf-luts" aria-labelledby="lf-luts-title">
-        <div>
-          <p className="lf-section-label">{t('landing.luts.label')}</p>
-          <h2 id="lf-luts-title">{t('landing.luts.title')}</h2>
-        </div>
-        <div className="lf-profile-cloud" aria-label={t('landing.lutsAria')}>
-          {profileGroups.map((profile) => (
-            <span key={profile}>{profile}</span>
+              <h3>{t(item.label)}</h3>
+              <p>{t(item.detail)}</p>
+            </div>
           ))}
         </div>
       </section>
 
-      <section className="lf-final" aria-labelledby="lf-final-title">
+      <section className="lf-section lf-final" aria-labelledby="lf-final-title">
         <img
           className="lf-final-icon"
           src={appIcon}
@@ -278,9 +270,21 @@ export const Component = () => {
         <p>{t('landing.final.copy')}</p>
         <Link to="/raw" className="lf-button lf-button-primary">
           {t('landing.final.cta')}
-          <ArrowRight size={18} strokeWidth={1.9} />
+          <ArrowRight size={16} strokeWidth={2} />
         </Link>
       </section>
+
+      <footer className="lf-footer">
+        <a
+          href={repository.url}
+          target="_blank"
+          rel="noreferrer"
+          className="lf-footer-source"
+        >
+          <GitFork size={14} strokeWidth={1.8} />
+          {t('landing.footer.openSource')}
+        </a>
+      </footer>
     </main>
   )
 }

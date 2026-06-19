@@ -55,6 +55,8 @@
   "landing.final.title": "进入 RAW Lab，完成这张照片。",
   "landing.final.copy": "全程在浏览器本地运行；能复现才导出，不能确定就停下来说明原因。",
   "landing.final.cta": "打开 RAW Lab",
+  "landing.starOnGithub": "在 GitHub 上 Star",
+  "landing.footer.openSource": "100% 开源",
   "raw.header.title": "LumaForge RAW Lab",
   "raw.header.subtitleLoaded": "本机 RAW 成片工作区",
   "raw.header.subtitleEmpty": "拖入一张 RAW，在本机预览、对比、定稿并导出。",

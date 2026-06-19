@@ -1,4 +1,12 @@
-export function LandingCompareSvg({ label }: { label: string }) {
+export function LandingCompareSvg({
+  label,
+  splitPosition = 0.5,
+}: {
+  label: string
+  splitPosition?: number
+}) {
+  const splitX = Math.round(splitPosition * 1200)
+
   return (
     <svg
       className="lf-compare-svg"
@@ -32,13 +40,7 @@ export function LandingCompareSvg({ label }: { label: string }) {
           <stop offset="1" stopColor="#eaa65f" stopOpacity="0" />
         </radialGradient>
         <clipPath id="lf-finished-clip">
-          <rect
-            className="lf-finished-clip-rect"
-            x="600"
-            y="0"
-            width="600"
-            height="900"
-          />
+          <rect x={splitX} y="0" width={1200 - splitX} height="900" />
         </clipPath>
         <filter id="lf-soft-grain">
           <feTurbulence
@@ -96,21 +98,21 @@ export function LandingCompareSvg({ label }: { label: string }) {
         opacity="0.24"
       />
 
-      <g className="lf-compare-handle">
+      <g transform={`translate(${splitX - 600}, 0)`}>
         <rect
           x="598"
           y="0"
           width="4"
           height="900"
           fill="#f4ead7"
-          opacity="0.95"
+          opacity="0.9"
         />
-        <circle cx="600" cy="450" r="48" fill="#101417" opacity="0.64" />
+        <circle cx="600" cy="450" r="44" fill="#101417" opacity="0.6" />
         <path
-          d="M584 450h32M592 438l-12 12 12 12M608 438l12 12-12 12"
+          d="M586 450h28M592 440l-10 10 10 10M608 440l10 10-10 10"
           fill="none"
           stroke="#f8f0dd"
-          strokeWidth="5"
+          strokeWidth="4"
           strokeLinecap="round"
           strokeLinejoin="round"
         />

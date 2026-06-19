@@ -99,9 +99,11 @@ image-editor assumptions.
 
 - `/raw` is a fixed cool-slate darkroom defined by `--color-lf-*` tokens in
   `src/styles/tailwind.css` `@theme`. It ignores `data-theme`.
-- The landing page has a separate warm brand palette under `.lf-landing` in
-  `src/pages/(main)/index.css`. Do not mix landing `--lf-*` variables with
-  `/raw` `--color-lf-*` tokens.
+- The landing page uses a cool-slate palette under `.lf-landing` in
+  `src/pages/(main)/index.css` that is derived from the darkroom aesthetic.
+  Landing-specific `--lf-*` tokens (surface, text, accent) are intentionally
+  aligned with the app's `--color-lf-*` hue family (hue 255, low chroma) so
+  the two surfaces feel like the same product.
 - Read `DESIGN.md` "Theme contract" before touching tokens or theme code.
 - Follow existing UI boundaries:
   - primitives in `src/components/ui`

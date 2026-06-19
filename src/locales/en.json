@@ -55,6 +55,8 @@
   "landing.final.title": "Open the RAW lab. Finish the photo.",
   "landing.final.copy": "The workflow is browser-local, export-aware, and deliberately hard to misconfigure.",
   "landing.final.cta": "Try LumaForge",
+  "landing.starOnGithub": "Star on GitHub",
+  "landing.footer.openSource": "100% open source",
   "raw.header.title": "LumaForge RAW Lab",
   "raw.header.subtitleLoaded": "Browser-local RAW finishing workspace",
   "raw.header.subtitleEmpty": "Drop one RAW to preview, compare, finish, and export locally.",
