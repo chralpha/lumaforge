@@ -16,3 +16,7 @@ packages/luma-jpeg-runtime/native/vendor/
 packages/luma-jpeg-runtime/native/build/
 packages/luma-raw-runtime/fixtures/.cache/
 stats.html
+
+tmp/
+test-results/
+playwright-report/

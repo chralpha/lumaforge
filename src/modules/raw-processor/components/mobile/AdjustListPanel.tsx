@@ -96,11 +96,25 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
       <div
         data-adjust-section-chrome
         className={clsxm(
-          // Pin the section + reset bar to the top of the dock's scroll
-          // viewport so dragging the slider list never carries the section
-          // tabs up with it. The cool-dark wash + backdrop-blur masks the
-          // sliders scrolling behind without breaking the chrome's gradient.
-          'sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 border-b border-lf-on-photo-bord-soft bg-lf-surface/85 backdrop-blur-sm transition-opacity duration-150',
+          // Pin the section + reset bar to the dock's top edge so dragging
+          // the slider list never carries the tabs up with it.
+          'sticky top-0 z-10',
+          // Negative margins extend the bar's bg edge-to-edge of the dock's
+          // padding-box, covering the dock's px-3.5 lateral gutters; matching
+          // px-3.5 restores the inner content position. (The dock omits pt
+          // in tone mode so the bar sits flush at the dock's top edge — no
+          // -mt extension needed and no translucent gap above where slider
+          // content could leak when scrolled.)
+          '-mx-3.5 px-3.5 pt-3.5',
+          'grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2',
+          'border-b border-lf-on-photo-bord-soft',
+          // Near-opaque cool-slate fill + strong backdrop-blur so whatever
+          // scrolls beneath the bar is fully obscured. Lower-opacity glassy
+          // washes let slider content show through and look "heavy" because
+          // they fight the dock's transparent-to-dark gradient instead of
+          // settling at the top of it.
+          'bg-[oklch(0.10_0.006_255/0.94)] backdrop-blur-md',
+          'transition-opacity duration-150',
           scrubbing && 'opacity-25',
         )}
       >

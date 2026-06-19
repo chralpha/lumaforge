@@ -63,7 +63,11 @@ export function MobileModeDock(props: {
             data-mobile-dock-panel
             data-scrubbing={props.scrubbing || undefined}
             className={clsxm(
-              'isolate absolute inset-x-0 bottom-full overflow-y-auto px-3.5 pb-2.5 pt-3.5',
+              'isolate absolute inset-x-0 bottom-full overflow-y-auto px-3.5 pb-2.5',
+              // Tone mode renders its own pinned chrome bar at the dock's
+              // top edge; consuming the pt-3.5 buffer keeps slider content
+              // from leaking above the bar as the list scrolls.
+              props.mode !== 'tone' && 'pt-3.5',
               "before:absolute before:inset-0 before:-z-10 before:bg-gradient-to-t before:from-[oklch(0.085_0.006_255/0.82)] before:via-[oklch(0.118_0.006_255/0.56)] before:to-transparent before:transition-opacity before:duration-150 before:content-['']",
               props.scrubbing && 'before:opacity-15',
               props.mode === 'tone'
