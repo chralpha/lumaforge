@@ -12,6 +12,22 @@ export * from './oklab'
 export * from './raw-render-exposure'
 export * from './registry'
 export * from './row-band-processor'
+export type { LumaColorSaturationParams } from './saturation'
+export {
+  applyUserSaturationTo,
+  normalizeSaturationParams,
+  resolveSaturationParams,
+  SKIN_HUE_CENTER_DEG,
+  SKIN_HUE_SIGMA_DEG,
+  SKIN_PROTECT_STRENGTH,
+  USER_SATURATION_MAX,
+  USER_SATURATION_MAX_FACTOR,
+  USER_SATURATION_MIN,
+  USER_VIBRANCE_MAX,
+  USER_VIBRANCE_MAX_FACTOR,
+  USER_VIBRANCE_MIN,
+  VIBRANCE_CHROMA_REF,
+} from './saturation'
 export * from './selective-color'
 export * from './tone'
 export * from './types'
