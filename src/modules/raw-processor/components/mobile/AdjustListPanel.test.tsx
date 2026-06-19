@@ -93,7 +93,7 @@ describe('adjustListPanel', () => {
       'sticky',
       'top-0',
       '-mx-3.5',
-      'bg-[oklch(0.10_0.006_255/0.94)]',
+      'bg-[oklch(0.10_0.006_255)]',
       'backdrop-blur-md',
     )
   })

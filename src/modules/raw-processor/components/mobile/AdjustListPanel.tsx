@@ -108,12 +108,11 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
           '-mx-3.5 px-3.5 pt-3.5',
           'grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2',
           'border-b border-lf-on-photo-bord-soft',
-          // Near-opaque cool-slate fill + strong backdrop-blur so whatever
-          // scrolls beneath the bar is fully obscured. Lower-opacity glassy
-          // washes let slider content show through and look "heavy" because
-          // they fight the dock's transparent-to-dark gradient instead of
-          // settling at the top of it.
-          'bg-[oklch(0.10_0.006_255/0.94)] backdrop-blur-md',
+          // Fully opaque cool-slate fill — any sub-1.0 alpha leaves a
+          // residual leak of slider content scrolling beneath the bar.
+          // backdrop-blur stays as a safety net for the scrubbing-fade
+          // state (opacity-25 transition makes the bar momentarily glassy).
+          'bg-[oklch(0.10_0.006_255)] backdrop-blur-md',
           'transition-opacity duration-150',
           scrubbing && 'opacity-25',
         )}
