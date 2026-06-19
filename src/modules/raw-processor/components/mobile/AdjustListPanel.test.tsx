@@ -85,6 +85,14 @@ describe('adjustListPanel', () => {
       'border-b',
       'border-lf-on-photo-bord-soft',
     )
+    // The chrome stays pinned to the dock-panel scroll viewport so dragging
+    // the slider list never carries the section tabs away with it.
+    expect(document.querySelector('[data-adjust-section-chrome]')).toHaveClass(
+      'sticky',
+      'top-0',
+      'bg-lf-surface/85',
+      'backdrop-blur-sm',
+    )
   })
 
   it('switches to Color and shows the two color sliders', async () => {

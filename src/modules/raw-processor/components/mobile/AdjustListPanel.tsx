@@ -96,7 +96,11 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
       <div
         data-adjust-section-chrome
         className={clsxm(
-          'grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 border-b border-lf-on-photo-bord-soft transition-opacity duration-150',
+          // Pin the section + reset bar to the top of the dock's scroll
+          // viewport so dragging the slider list never carries the section
+          // tabs up with it. The cool-dark wash + backdrop-blur masks the
+          // sliders scrolling behind without breaking the chrome's gradient.
+          'sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 border-b border-lf-on-photo-bord-soft bg-lf-surface/85 backdrop-blur-sm transition-opacity duration-150',
           scrubbing && 'opacity-25',
         )}
       >
