@@ -112,8 +112,11 @@ describe('mobileModeDock', () => {
       />,
     )
 
+    // Tone locks to a fixed height (`h-[...]`, not `max-h`) so the panel can
+    // run its own flex-column internal scroll — chrome stays put while the
+    // slider list scrolls inside `[data-adjust-list-scroll]`.
     expect(screen.getByTestId('panel').parentElement).toHaveClass(
-      'max-h-[min(60vh,360px)]',
+      'h-[min(60vh,360px)]',
     )
   })
 

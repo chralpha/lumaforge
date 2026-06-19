@@ -85,16 +85,20 @@ describe('adjustListPanel', () => {
       'border-b',
       'border-lf-on-photo-bord-soft',
     )
-    // The chrome stays pinned to the dock-panel scroll viewport so dragging
-    // the slider list never carries the section tabs away with it. The bar
-    // bg extends edge-to-edge of the dock (negative x margin) and renders a
-    // near-opaque cool-slate fill so slider content does not leak through.
+    // The chrome lives in a flex column as a non-shrinking header above an
+    // independent scroll region — the slider list scrolls inside its own
+    // container and never crosses the chrome. That removes the need for
+    // an opaque "obscurer" bg, so the bar stays a delicate frosted glass.
     expect(document.querySelector('[data-adjust-section-chrome]')).toHaveClass(
-      'sticky',
-      'top-0',
+      'shrink-0',
       '-mx-3.5',
-      'bg-[oklch(0.10_0.006_255)]',
-      'backdrop-blur-md',
+      'bg-[oklch(0.118_0.006_255/0.40)]',
+      'backdrop-blur-xl',
+    )
+    expect(document.querySelector('[data-adjust-list-scroll]')).toHaveClass(
+      'overflow-y-auto',
+      'flex-1',
+      'min-h-0',
     )
   })
 

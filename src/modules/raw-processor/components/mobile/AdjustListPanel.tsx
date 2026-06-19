@@ -91,28 +91,30 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
       role="region"
       aria-label={t('raw.mobile.adjustList.aria')}
       data-scrubbing={scrubbing || undefined}
-      className="grid gap-2"
+      className="flex h-full flex-col gap-2"
     >
       <div
         data-adjust-section-chrome
         className={clsxm(
-          // Pin the section + reset bar to the dock's top edge so dragging
-          // the slider list never carries the tabs up with it.
-          'sticky top-0 z-10',
-          // Negative margins extend the bar's bg edge-to-edge of the dock's
-          // padding-box, covering the dock's px-3.5 lateral gutters; matching
-          // px-3.5 restores the inner content position. (The dock omits pt
-          // in tone mode so the bar sits flush at the dock's top edge — no
-          // -mt extension needed and no translucent gap above where slider
-          // content could leak when scrolled.)
-          '-mx-3.5 px-3.5 pt-3.5',
+          // Header in a flex column — never overlaps the slider list, so
+          // we don't need an opaque "obscurer" bg. The slider list lives
+          // in its own scroll region beneath and cannot reach the chrome.
+          'shrink-0',
+          // Negative x margin extends the bar edge-to-edge of the dock's
+          // padding-box, covering the px-3.5 lateral gutters; matching
+          // px-3.5 restores the inner content position.
+          '-mx-3.5 px-3.5',
           'grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2',
           'border-b border-lf-on-photo-bord-soft',
-          // Fully opaque cool-slate fill — any sub-1.0 alpha leaves a
-          // residual leak of slider content scrolling beneath the bar.
-          // backdrop-blur stays as a safety net for the scrubbing-fade
-          // state (opacity-25 transition makes the bar momentarily glassy).
-          'bg-[oklch(0.10_0.006_255)] backdrop-blur-md',
+          // Delicate frosted glass over the photo above the dock. Because
+          // no content can scroll behind it (internal scroll lives below
+          // in its own region), the alpha can stay low without leaking —
+          // and the bar reads as part of the dock's transparent-to-dark
+          // gradient instead of a separate dark slab pasted on top.
+          'bg-[oklch(0.118_0.006_255/0.40)] backdrop-blur-xl',
+          // 1px inset top highlight — soft "edge of light" matching the
+          // segmented-chrome lift language on the desktop.
+          'shadow-[inset_0_1px_0_oklch(0.96_0.006_255/0.10)]',
           'transition-opacity duration-150',
           scrubbing && 'opacity-25',
         )}
@@ -132,10 +134,10 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
                 aria-selected={isActive}
                 onClick={() => selectSection(s.id)}
                 className={clsxm(
-                  'relative inline-flex min-h-11 items-center px-1 text-[0.95rem] font-semibold leading-none tracking-tight transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lf-green/80',
+                  'relative inline-flex min-h-11 items-center px-1 text-[0.86rem] font-medium leading-none tracking-normal transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lf-green/80',
                   isActive
-                    ? 'text-lf-on-photo-ink'
-                    : 'text-lf-on-photo-ink/55 hover:text-lf-on-photo-ink/86',
+                    ? 'font-semibold text-lf-on-photo-ink'
+                    : 'text-lf-on-photo-ink/62 hover:text-lf-on-photo-ink/88',
                 )}
               >
                 {t(s.labelKey)}
@@ -164,68 +166,76 @@ export function AdjustListPanel(props: AdjustListPanelProps) {
           />
         </button>
       </div>
-      <AnimatePresence mode="wait" initial={false}>
-        {section === 'tone' ? (
-          <m.div
-            key="tone"
-            data-adjust-list-section="tone"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={surfaceFade}
-          >
-            <ToneListPanel
-              tone={props.tone}
-              onChange={props.onToneChange}
-              onScrubChange={(field) =>
-                props.onScrubChange(
-                  field ? { kind: 'tone', key: field.key } : null,
-                )
-              }
-            />
-          </m.div>
-        ) : section === 'color' ? (
-          <m.div
-            key="color"
-            data-adjust-list-section="color"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={surfaceFade}
-          >
-            <ColorListPanel
-              color={props.color}
-              onChange={props.onColorChange}
-              onScrubChange={(field) =>
-                props.onScrubChange(
-                  field ? { kind: 'color', key: field.key } : null,
-                )
-              }
-            />
-          </m.div>
-        ) : (
-          <m.div
-            key="hsl"
-            data-adjust-list-section="hsl"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={surfaceFade}
-          >
-            <HSLListPanel
-              value={props.selectiveColor}
-              onChange={props.onSelectiveColorChange}
-              onScrubChange={(field) =>
-                props.onScrubChange(
-                  field
-                    ? { kind: 'hsl', band: field.band, key: field.key }
-                    : null,
-                )
-              }
-            />
-          </m.div>
-        )}
-      </AnimatePresence>
+      <div
+        data-adjust-list-scroll
+        // Independent scroll region — slider list scrolls here, never
+        // crosses the chrome above. -mx-3.5 lets rows + the dirty-row
+        // amber border bleed edge-to-edge of the dock padding-box.
+        className="-mx-3.5 min-h-0 flex-1 overflow-y-auto px-3.5"
+      >
+        <AnimatePresence mode="wait" initial={false}>
+          {section === 'tone' ? (
+            <m.div
+              key="tone"
+              data-adjust-list-section="tone"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={surfaceFade}
+            >
+              <ToneListPanel
+                tone={props.tone}
+                onChange={props.onToneChange}
+                onScrubChange={(field) =>
+                  props.onScrubChange(
+                    field ? { kind: 'tone', key: field.key } : null,
+                  )
+                }
+              />
+            </m.div>
+          ) : section === 'color' ? (
+            <m.div
+              key="color"
+              data-adjust-list-section="color"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={surfaceFade}
+            >
+              <ColorListPanel
+                color={props.color}
+                onChange={props.onColorChange}
+                onScrubChange={(field) =>
+                  props.onScrubChange(
+                    field ? { kind: 'color', key: field.key } : null,
+                  )
+                }
+              />
+            </m.div>
+          ) : (
+            <m.div
+              key="hsl"
+              data-adjust-list-section="hsl"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={surfaceFade}
+            >
+              <HSLListPanel
+                value={props.selectiveColor}
+                onChange={props.onSelectiveColorChange}
+                onScrubChange={(field) =>
+                  props.onScrubChange(
+                    field
+                      ? { kind: 'hsl', band: field.band, key: field.key }
+                      : null,
+                  )
+                }
+              />
+            </m.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   )
 }

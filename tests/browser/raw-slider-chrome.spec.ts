@@ -238,26 +238,25 @@ test('mobile Adjust list panels carry directional tracks and bipolar overlay', a
   await expect(lightTrack).toHaveAttribute('style', /0\.88 c h/i)
 
   // ----- Section chrome stays pinned when the slider list overscrolls -----
-  // Switch to Tone — its six sliders are the longest list and most likely to
-  // overscroll the dock viewport on iPhone 14 Pro.
-  await dockPanel.getByRole('tab', { name: 'Tone' }).click()
-  const toneSection = dockPanel.locator('[data-adjust-list-section="tone"]')
-  await expect(toneSection).toBeVisible()
-
+  // The Adjust panel runs an internal flex-column layout: the chrome is a
+  // non-scrolling header above an independent `[data-adjust-list-scroll]`
+  // region that owns slider-list overflow. Scrolling that region must NOT
+  // move the chrome. With the HSL Red band expanded the list overflows
+  // (8 collapsed + 3 expanded axis rows > 360px dock max).
   const sectionChrome = dockPanel.locator('[data-adjust-section-chrome]')
   const chromeTopBefore = await sectionChrome.evaluate(
     (el) => el.getBoundingClientRect().top,
   )
 
-  // Drive the dock-panel scroll directly — overflow-y-auto is the scroll
-  // container, sticky should pin the chrome to its inner padding edge.
-  await dockPanel.evaluate((el) => el.scrollBy({ top: 120 }))
+  const scrollContainer = dockPanel.locator('[data-adjust-list-scroll]')
+  await scrollContainer.evaluate((el) => el.scrollBy({ top: 160 }))
   await page.waitForTimeout(120)
 
   const chromeTopAfter = await sectionChrome.evaluate(
     (el) => el.getBoundingClientRect().top,
   )
-  // If sticky works, the chrome stays within a couple of px of its original
-  // viewport position. Without sticky it would shift by ~120px upward.
+  // Chrome lives outside the scroll region, so its viewport position is
+  // invariant to inner scroll. Without the flex-column split it would
+  // shift by ~160px upward as the dock itself scrolled.
   expect(Math.abs(chromeTopAfter - chromeTopBefore)).toBeLessThanOrEqual(4)
 })

@@ -63,15 +63,15 @@ export function MobileModeDock(props: {
             data-mobile-dock-panel
             data-scrubbing={props.scrubbing || undefined}
             className={clsxm(
-              'isolate absolute inset-x-0 bottom-full overflow-y-auto px-3.5 pb-2.5',
-              // Tone mode renders its own pinned chrome bar at the dock's
-              // top edge; consuming the pt-3.5 buffer keeps slider content
-              // from leaking above the bar as the list scrolls.
-              props.mode !== 'tone' && 'pt-3.5',
+              'isolate absolute inset-x-0 bottom-full overflow-y-auto px-3.5 pb-2.5 pt-3.5',
               "before:absolute before:inset-0 before:-z-10 before:bg-gradient-to-t before:from-[oklch(0.085_0.006_255/0.82)] before:via-[oklch(0.118_0.006_255/0.56)] before:to-transparent before:transition-opacity before:duration-150 before:content-['']",
               props.scrubbing && 'before:opacity-15',
+              // Tone mode locks to a fixed height so AdjustListPanel can
+              // resolve `h-full` and manage its own internal scroll (chrome
+              // outside the scroll, slider list inside). Other modes still
+              // use max-h since their content sizes itself naturally.
               props.mode === 'tone'
-                ? 'max-h-[min(60vh,360px)]'
+                ? 'h-[min(60vh,360px)]'
                 : props.mode === 'export'
                   ? 'max-h-[min(32vh,260px)]'
                   : 'max-h-[24vh]',

@@ -88,7 +88,8 @@ test('adjust bar visual evidence', async ({ page }, testInfo) => {
     clip,
   })
 
-  await dockPanel.evaluate((el) => el.scrollBy({ top: 200 }))
+  const scrollContainer = dockPanel.locator('[data-adjust-list-scroll]')
+  await scrollContainer.evaluate((el) => el.scrollBy({ top: 200 }))
   await page.waitForTimeout(160)
 
   await page.screenshot({

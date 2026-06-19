@@ -84,6 +84,10 @@ export function MobileLabModeDock({
       panel={
         <m.div
           key={mode}
+          // Tone needs the wrapper to fill the dock so AdjustListPanel can
+          // h-full down and run its own internal scroll. Other modes flow
+          // at content-derived height.
+          className={mode === 'tone' ? 'h-full' : undefined}
           initial={{ opacity: 0, y: prefersReduced ? 0 : 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={surfaceFade}
