@@ -10,6 +10,16 @@ import {
 } from './matrix'
 import type { RawRenderExposure } from './raw-render-exposure'
 import type { LUTColorProfile, LUTRole, SignalRange } from './registry'
+import type { LumaColorSaturationParams } from './saturation'
+import {
+  normalizeSaturationParams,
+  SKIN_HUE_CENTER_DEG,
+  SKIN_HUE_SIGMA_DEG,
+  SKIN_PROTECT_STRENGTH,
+  USER_SATURATION_MAX_FACTOR,
+  USER_VIBRANCE_MAX_FACTOR,
+  VIBRANCE_CHROMA_REF,
+} from './saturation'
 import type {
   LumaColorSelectiveColorParams,
   UserSelectiveColorGraphStep,
@@ -57,6 +67,18 @@ export type ExportColorGraphStep =
       zeroLuminanceMode: 'return-black'
     }
   | UserSelectiveColorGraphStep
+  | {
+      kind: 'user-saturation'
+      operator: 'oklab-chroma-with-skin-protection'
+      saturation: number
+      vibrance: number
+      satMaxFactor: number
+      vibMaxFactor: number
+      chromaRef: number
+      skinHueCenterDeg: number
+      skinHueSigmaDeg: number
+      skinProtectStrength: number
+    }
   | { kind: 'gamut-to-lut-input'; matrix: Mat3; gamut: ColorGamutId }
   | {
       kind: 'encode-lut-transfer'
@@ -163,6 +185,8 @@ export function resolveExportColorGraph(input: {
   userBlacks?: LumaColorToneParams['userBlacks']
   userTemperature?: LumaColorBalanceParams['userTemperature']
   userTint?: LumaColorBalanceParams['userTint']
+  userSaturation?: LumaColorSaturationParams['userSaturation']
+  userVibrance?: LumaColorSaturationParams['userVibrance']
   selectiveColor?: LumaColorSelectiveColorParams['selectiveColor']
 }): ExportColorGraphDescriptor {
   const rawRenderExposure =
@@ -181,6 +205,10 @@ export function resolveExportColorGraph(input: {
   })
   const selectiveColorBands = normalizeSelectiveColorParams({
     selectiveColor: input.selectiveColor,
+  })
+  const satParams = normalizeSaturationParams({
+    userSaturation: input.userSaturation,
+    userVibrance: input.userVibrance,
   })
   const base: ExportColorGraphStep[] = [
     { kind: 'input-linear-prophoto' },
@@ -221,6 +249,18 @@ export function resolveExportColorGraph(input: {
       pivot: tone.regionalTonePivot,
       luminanceCoefficients: tone.luminanceCoefficients,
       zeroLuminanceMode: 'return-black',
+    },
+    {
+      kind: 'user-saturation',
+      operator: 'oklab-chroma-with-skin-protection',
+      saturation: satParams.userSaturation,
+      vibrance: satParams.userVibrance,
+      satMaxFactor: USER_SATURATION_MAX_FACTOR,
+      vibMaxFactor: USER_VIBRANCE_MAX_FACTOR,
+      chromaRef: VIBRANCE_CHROMA_REF,
+      skinHueCenterDeg: SKIN_HUE_CENTER_DEG,
+      skinHueSigmaDeg: SKIN_HUE_SIGMA_DEG,
+      skinProtectStrength: SKIN_PROTECT_STRENGTH,
     },
     {
       kind: 'user-selective-color',

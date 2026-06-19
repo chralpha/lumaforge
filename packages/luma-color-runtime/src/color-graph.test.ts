@@ -33,6 +33,7 @@ describe('resolveExportColorGraph', () => {
       'user-exposure',
       'user-contrast',
       'user-regional-tone',
+      'user-saturation',
       'user-selective-color',
       'output-srgb',
     ])
@@ -72,6 +73,7 @@ describe('resolveExportColorGraph', () => {
           whites: 0,
           blacks: 0,
         },
+        { kind: 'user-saturation' },
         { kind: 'user-selective-color' },
         { kind: 'output-srgb' },
       ],
@@ -95,6 +97,7 @@ describe('resolveExportColorGraph', () => {
       'user-exposure',
       'user-contrast',
       'user-regional-tone',
+      'user-saturation',
       'user-selective-color',
       'output-srgb',
     ])
@@ -200,6 +203,7 @@ describe('resolveExportColorGraph', () => {
       'user-exposure',
       'user-contrast',
       'user-regional-tone',
+      'user-saturation',
       'user-selective-color',
       'gamut-to-lut-input',
       'encode-lut-transfer',
@@ -306,6 +310,7 @@ describe('resolveExportColorGraph', () => {
       'user-exposure',
       'user-contrast',
       'user-regional-tone',
+      'user-saturation',
       'user-selective-color',
       'gamut-to-lut-input',
       'encode-lut-transfer',
@@ -313,12 +318,12 @@ describe('resolveExportColorGraph', () => {
       'lut-output-to-srgb',
       'output-srgb',
     ])
-    expect(graph.steps[9]).toMatchObject({
+    expect(graph.steps[10]).toMatchObject({
       kind: 'lut3d',
       domainMin: [0, 0, 0],
       domainMax: [1, 1, 1],
     })
-    expect(graph.steps[10]).toMatchObject({
+    expect(graph.steps[11]).toMatchObject({
       kind: 'lut-output-to-srgb',
       transfer: 's-log3',
       range: 'full',
@@ -396,7 +401,7 @@ describe('resolveExportColorGraph', () => {
     if (!graph.supported) {
       throw new Error('Expected supported graph')
     }
-    expect(graph.steps[10]).toMatchObject({
+    expect(graph.steps[11]).toMatchObject({
       kind: 'lut-output-to-srgb',
       transfer: 'gamma24',
       range: 'full',
@@ -573,6 +578,41 @@ describe('resolveExportColorGraph', () => {
     expect(graph.message).toBe(
       'Choose a LUT output profile before full-resolution export.',
     )
+  })
+
+  it('emits user-saturation step at index 6 in simple graph', () => {
+    const graph = resolveExportColorGraph({
+      styleKind: 'none',
+      intensity: 0.7,
+      builtinPreset: null,
+      lut: null,
+      userSaturation: 42,
+      userVibrance: -17,
+    })
+    expect(graph.supported).toBe(true)
+    if (!graph.supported) return
+    expect(graph.steps).toHaveLength(9)
+    expect(graph.steps[6].kind).toBe('user-saturation')
+    const step = graph.steps[6] as any
+    expect(step.saturation).toBe(42)
+    expect(step.vibrance).toBe(-17)
+    expect(step.operator).toBe('oklab-chroma-with-skin-protection')
+    expect(graph.steps[7].kind).toBe('user-selective-color')
+    expect(graph.steps[8].kind).toBe('output-srgb')
+  })
+
+  it('always emits user-saturation even when both are zero', () => {
+    const graph = resolveExportColorGraph({
+      styleKind: 'none',
+      intensity: 0.7,
+      builtinPreset: null,
+      lut: null,
+      userSaturation: 0,
+      userVibrance: 0,
+    })
+    expect(graph.supported).toBe(true)
+    if (!graph.supported) return
+    expect(graph.steps[6].kind).toBe('user-saturation')
   })
 
   describe('user-selective-color graph step', () => {
