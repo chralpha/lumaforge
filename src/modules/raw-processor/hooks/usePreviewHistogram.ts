@@ -243,6 +243,8 @@ export function usePreviewHistogram(
     userBlacks,
     userTemperature,
     userTint,
+    userSaturation,
+    userVibrance,
     selectiveColor,
   } = params
   const histogramParams = useMemo<ProcessingParams>(
@@ -258,6 +260,8 @@ export function usePreviewHistogram(
       userBlacks,
       userTemperature,
       userTint,
+      userSaturation,
+      userVibrance,
       selectiveColor,
       viewMode: 'processed',
       compareSplit: 0.5,
@@ -274,6 +278,8 @@ export function usePreviewHistogram(
       userShadows,
       userTemperature,
       userTint,
+      userSaturation,
+      userVibrance,
       userWhites,
     ],
   )

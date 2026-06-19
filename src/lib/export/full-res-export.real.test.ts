@@ -341,6 +341,7 @@ function createResolvedVLogClassic709Graph(lutContent: string) {
     'user-exposure',
     'user-contrast',
     'user-regional-tone',
+    'user-saturation',
     'user-selective-color',
     'gamut-to-lut-input',
     'encode-lut-transfer',
