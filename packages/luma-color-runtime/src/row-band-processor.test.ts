@@ -3,6 +3,14 @@ import { getLinearProPhotoToGamutMatrix, mat3Identity } from './matrix'
 import { linearProPhotoToOklab, oklabToLinearProPhoto } from './oklab'
 import type { LUTColorProfile } from './registry'
 import { createRowBandProcessor } from './row-band-processor'
+import {
+  SKIN_HUE_CENTER_DEG,
+  SKIN_HUE_SIGMA_DEG,
+  SKIN_PROTECT_STRENGTH,
+  USER_SATURATION_MAX_FACTOR,
+  USER_VIBRANCE_MAX_FACTOR,
+  VIBRANCE_CHROMA_REF,
+} from './saturation'
 import type { NormalizedSelectiveColorBands } from './selective-color'
 import {
   CHROMA_CLAMP_HIGH,
@@ -34,6 +42,21 @@ function neutralBands(): NormalizedSelectiveColorBands {
     blue: makeNeutralBand(),
     purple: makeNeutralBand(),
     magenta: makeNeutralBand(),
+  }
+}
+
+function neutralSaturationStep(): SupportedExportColorGraphDescriptor['steps'][number] {
+  return {
+    kind: 'user-saturation',
+    operator: 'oklab-chroma-with-skin-protection',
+    saturation: 0,
+    vibrance: 0,
+    satMaxFactor: USER_SATURATION_MAX_FACTOR,
+    vibMaxFactor: USER_VIBRANCE_MAX_FACTOR,
+    chromaRef: VIBRANCE_CHROMA_REF,
+    skinHueCenterDeg: SKIN_HUE_CENTER_DEG,
+    skinHueSigmaDeg: SKIN_HUE_SIGMA_DEG,
+    skinProtectStrength: SKIN_PROTECT_STRENGTH,
   }
 }
 
@@ -73,6 +96,7 @@ function neutralToneSteps(): SupportedExportColorGraphDescriptor['steps'] {
       luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
       zeroLuminanceMode: 'return-black',
     },
+    neutralSaturationStep(),
     neutralSelectiveColorStep(),
   ]
 }
@@ -530,25 +554,27 @@ describe('createRowBandProcessor', () => {
     ).toHaveLength(3)
   })
 
-  it('detects the post-T7 no-LUT graph (8 steps) as supported', () => {
-    expect(noLutGraph.steps).toHaveLength(8)
-    expect(noLutGraph.steps[6]?.kind).toBe('user-selective-color')
-    expect(noLutGraph.steps[7]?.kind).toBe('output-srgb')
+  it('detects the post-T7 no-LUT graph (9 steps) as supported', () => {
+    expect(noLutGraph.steps).toHaveLength(9)
+    expect(noLutGraph.steps[6]?.kind).toBe('user-saturation')
+    expect(noLutGraph.steps[7]?.kind).toBe('user-selective-color')
+    expect(noLutGraph.steps[8]?.kind).toBe('output-srgb')
 
     expect(() =>
       createRowBandProcessor({ width: 1, rowBandRows: 1, graph: noLutGraph }),
     ).not.toThrow()
   })
 
-  it('detects the post-T7 custom-LUT graph (12 steps) as supported', () => {
+  it('detects the post-T7 custom-LUT graph (13 steps) as supported', () => {
     const lutGraph = makeIdentityProbeGraph()
-    expect(lutGraph.steps).toHaveLength(12)
-    expect(lutGraph.steps[6]?.kind).toBe('user-selective-color')
-    expect(lutGraph.steps[7]?.kind).toBe('gamut-to-lut-input')
-    expect(lutGraph.steps[8]?.kind).toBe('encode-lut-transfer')
-    expect(lutGraph.steps[9]?.kind).toBe('lut3d')
-    expect(lutGraph.steps[10]?.kind).toBe('lut-output-to-srgb')
-    expect(lutGraph.steps[11]?.kind).toBe('output-srgb')
+    expect(lutGraph.steps).toHaveLength(13)
+    expect(lutGraph.steps[6]?.kind).toBe('user-saturation')
+    expect(lutGraph.steps[7]?.kind).toBe('user-selective-color')
+    expect(lutGraph.steps[8]?.kind).toBe('gamut-to-lut-input')
+    expect(lutGraph.steps[9]?.kind).toBe('encode-lut-transfer')
+    expect(lutGraph.steps[10]?.kind).toBe('lut3d')
+    expect(lutGraph.steps[11]?.kind).toBe('lut-output-to-srgb')
+    expect(lutGraph.steps[12]?.kind).toBe('output-srgb')
 
     expect(() =>
       createRowBandProcessor({ width: 1, rowBandRows: 1, graph: lutGraph }),
@@ -671,6 +697,7 @@ describe('createRowBandProcessor', () => {
           luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
           zeroLuminanceMode: 'return-black',
         },
+        neutralSaturationStep(),
         neutralSelectiveColorStep(redShiftBands),
         { kind: 'output-srgb' },
       ],

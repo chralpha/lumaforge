@@ -5,6 +5,14 @@ import { mat3Identity } from './matrix'
 import type { LUTColorProfile } from './registry'
 import { createRowBandProcessor } from './row-band-processor'
 import {
+  SKIN_HUE_CENTER_DEG,
+  SKIN_HUE_SIGMA_DEG,
+  SKIN_PROTECT_STRENGTH,
+  USER_SATURATION_MAX_FACTOR,
+  USER_VIBRANCE_MAX_FACTOR,
+  VIBRANCE_CHROMA_REF,
+} from './saturation'
+import {
   CHROMA_CLAMP_HIGH,
   CHROMA_CLAMP_LOW,
   LUT_CONSTANTS_VERSION,
@@ -55,6 +63,18 @@ function neutralToneSteps(): SupportedExportColorGraphDescriptor['steps'] {
       operator: 'linear-prophoto-log-luminance-regions',
       luminanceCoefficients: [0.2880402, 0.7118741, 0.0000857],
       zeroLuminanceMode: 'return-black',
+    },
+    {
+      kind: 'user-saturation',
+      operator: 'oklab-chroma-with-skin-protection',
+      saturation: 0,
+      vibrance: 0,
+      satMaxFactor: USER_SATURATION_MAX_FACTOR,
+      vibMaxFactor: USER_VIBRANCE_MAX_FACTOR,
+      chromaRef: VIBRANCE_CHROMA_REF,
+      skinHueCenterDeg: SKIN_HUE_CENTER_DEG,
+      skinHueSigmaDeg: SKIN_HUE_SIGMA_DEG,
+      skinProtectStrength: SKIN_PROTECT_STRENGTH,
     },
     {
       kind: 'user-selective-color',

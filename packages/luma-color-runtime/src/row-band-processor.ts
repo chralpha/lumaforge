@@ -3,6 +3,7 @@ import { compressLutInputToDomain } from './lut-domain'
 import { mix, sampleLutTrilinear } from './lut3d'
 import { getProPhotoToTargetMatrix } from './matrix'
 import { getTransferFunction } from './registry'
+import { applyUserSaturationTo } from './saturation'
 import type { PreparedSelectiveColorLut } from './selective-color'
 import {
   applySelectiveColorRow,
@@ -73,6 +74,11 @@ type UserSelectiveColorStep = Extract<
   { kind: 'user-selective-color' }
 >
 
+type UserSaturationStep = Extract<
+  SupportedExportColorGraphDescriptor['steps'][number],
+  { kind: 'user-saturation' }
+>
+
 function isSimpleNoLutGraph(
   graph: SupportedExportColorGraphDescriptor,
 ): graph is SupportedExportColorGraphDescriptor & {
@@ -95,21 +101,23 @@ function isSimpleNoLutGraph(
       SupportedExportColorGraphDescriptor['steps'][number],
       { kind: 'user-regional-tone' }
     >,
+    UserSaturationStep,
     UserSelectiveColorStep,
     { kind: 'output-srgb' },
   ]
 } {
   return (
     graph.lutProfile === null &&
-    graph.steps.length === 8 &&
+    graph.steps.length === 9 &&
     graph.steps[0]?.kind === 'input-linear-prophoto' &&
     graph.steps[1]?.kind === 'raw-render-exposure' &&
     graph.steps[2]?.kind === 'user-color-balance' &&
     graph.steps[3]?.kind === 'user-exposure' &&
     graph.steps[4]?.kind === 'user-contrast' &&
     graph.steps[5]?.kind === 'user-regional-tone' &&
-    graph.steps[6]?.kind === 'user-selective-color' &&
-    graph.steps[7]?.kind === 'output-srgb'
+    graph.steps[6]?.kind === 'user-saturation' &&
+    graph.steps[7]?.kind === 'user-selective-color' &&
+    graph.steps[8]?.kind === 'output-srgb'
   )
 }
 
@@ -135,6 +143,7 @@ function isSupportedLutGraph(
       SupportedExportColorGraphDescriptor['steps'][number],
       { kind: 'user-regional-tone' }
     >,
+    UserSaturationStep,
     UserSelectiveColorStep,
     Extract<
       SupportedExportColorGraphDescriptor['steps'][number],
@@ -156,19 +165,20 @@ function isSupportedLutGraph(
   ]
 } {
   return (
-    graph.steps.length === 12 &&
+    graph.steps.length === 13 &&
     graph.steps[0]?.kind === 'input-linear-prophoto' &&
     graph.steps[1]?.kind === 'raw-render-exposure' &&
     graph.steps[2]?.kind === 'user-color-balance' &&
     graph.steps[3]?.kind === 'user-exposure' &&
     graph.steps[4]?.kind === 'user-contrast' &&
     graph.steps[5]?.kind === 'user-regional-tone' &&
-    graph.steps[6]?.kind === 'user-selective-color' &&
-    graph.steps[7]?.kind === 'gamut-to-lut-input' &&
-    graph.steps[8]?.kind === 'encode-lut-transfer' &&
-    graph.steps[9]?.kind === 'lut3d' &&
-    graph.steps[10]?.kind === 'lut-output-to-srgb' &&
-    graph.steps[11]?.kind === 'output-srgb'
+    graph.steps[6]?.kind === 'user-saturation' &&
+    graph.steps[7]?.kind === 'user-selective-color' &&
+    graph.steps[8]?.kind === 'gamut-to-lut-input' &&
+    graph.steps[9]?.kind === 'encode-lut-transfer' &&
+    graph.steps[10]?.kind === 'lut3d' &&
+    graph.steps[11]?.kind === 'lut-output-to-srgb' &&
+    graph.steps[12]?.kind === 'output-srgb'
   )
 }
 
@@ -388,7 +398,10 @@ function compileGraphApplier(
     const exposureMultiplier = getUserExposureMultiplier(graph.steps[3])
     const contrastStep = graph.steps[4]
     const regionalToneStep = graph.steps[5]
-    const selectiveColorContext = createSelectiveColorContext(graph.steps[6])
+    const saturationStep = graph.steps[6]
+    const isSatIdentity =
+      saturationStep.saturation === 0 && saturationStep.vibrance === 0
+    const selectiveColorContext = createSelectiveColorContext(graph.steps[7])
     const toneScratch: MutableRgb = [0, 0, 0]
 
     return (linear, bytes, sceneScratch) => {
@@ -417,6 +430,17 @@ function compileGraphApplier(
         sceneScratch[index] = scene[0]
         sceneScratch[index + 1] = scene[1]
         sceneScratch[index + 2] = scene[2]
+      }
+
+      if (!isSatIdentity) {
+        for (let index = 0; index < length; index += 3) {
+          applyUserSaturationTo(
+            sceneScratch,
+            index,
+            saturationStep.saturation,
+            saturationStep.vibrance,
+          )
+        }
       }
 
       applySelectiveColorToSceneScratch(
@@ -462,11 +486,14 @@ function compileGraphApplier(
   const exposureMultiplier = getUserExposureMultiplier(graph.steps[3])
   const contrastStep = graph.steps[4]
   const regionalToneStep = graph.steps[5]
-  const selectiveColorContext = createSelectiveColorContext(graph.steps[6])
-  const inputMatrix = graph.steps[7].matrix
-  const encodeStep = graph.steps[8]
-  const lutStep = graph.steps[9]
-  const outputStep = graph.steps[10]
+  const saturationStep = graph.steps[6]
+  const isSatIdentity =
+    saturationStep.saturation === 0 && saturationStep.vibrance === 0
+  const selectiveColorContext = createSelectiveColorContext(graph.steps[7])
+  const inputMatrix = graph.steps[8].matrix
+  const encodeStep = graph.steps[9]
+  const lutStep = graph.steps[10]
+  const outputStep = graph.steps[11]
   const outputMatrix = outputStep.matrix
   const encodeTransfer = getTransferFunction(encodeStep.transfer)
   const decodeTransfer = getTransferFunction(outputStep.transfer)
@@ -517,6 +544,17 @@ function compileGraphApplier(
       sceneScratch[index] = scene[0]
       sceneScratch[index + 1] = scene[1]
       sceneScratch[index + 2] = scene[2]
+    }
+
+    if (!isSatIdentity) {
+      for (let index = 0; index < length; index += 3) {
+        applyUserSaturationTo(
+          sceneScratch,
+          index,
+          saturationStep.saturation,
+          saturationStep.vibrance,
+        )
+      }
     }
 
     applySelectiveColorToSceneScratch(
