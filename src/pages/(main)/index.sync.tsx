@@ -129,13 +129,37 @@ function InteractiveCompare({
     dragging.current = false
   }, [])
 
+  const onKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const step = e.shiftKey ? 0.1 : 0.02
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      setPosition((p) => Math.max(0.02, p - step))
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      setPosition((p) => Math.min(0.98, p + step))
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      setPosition(0.02)
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      setPosition(0.98)
+    }
+  }, [])
+
   return (
     <div
       ref={containerRef}
       className="lf-compare-container"
+      role="slider"
+      tabIndex={0}
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(position * 100)}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onKeyDown={onKeyDown}
     >
       <LandingCompareSvg label={label} splitPosition={position} />
       <figcaption className="lf-compare-tag lf-tag-left">{rawTag}</figcaption>
