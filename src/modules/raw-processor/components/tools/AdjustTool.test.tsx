@@ -6,9 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import enMessages from '~/locales/en.json'
 
+import type { ColorValue } from '../color-fields'
+import type { ToneValue } from '../tone-fields'
 import { AdjustTool } from './AdjustTool'
-import type { ColorValue } from './ColorTool'
-import type { ToneValue } from './ToneTool'
 
 beforeEach(() => {
   vi.stubGlobal(

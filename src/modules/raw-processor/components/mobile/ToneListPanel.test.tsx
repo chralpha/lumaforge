@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { TONE_NEUTRAL } from './tone-fields'
+import { TONE_NEUTRAL } from '../tone-fields'
 import { ToneListPanel } from './ToneListPanel'
 
 describe('toneListPanel', () => {

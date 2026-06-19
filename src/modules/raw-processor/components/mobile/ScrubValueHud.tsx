@@ -4,17 +4,17 @@ import { AnimatePresence, m } from 'motion/react'
 import { useI18n } from '~/lib/i18n'
 import { surfaceFade } from '~/lib/spring'
 
-import type { ColorValue } from '../tools/ColorTool'
+import type { ColorValue } from '../color-fields'
+import { COLOR_FIELDS, formatColorValueShort } from '../color-fields'
+import type { ToneValue } from '../tone-fields'
+import { formatToneValueShort, TONE_FIELDS } from '../tone-fields'
 import type { HSLToolValue } from '../tools/HSLTool'
-import type { ToneValue } from '../tools/ToneTool'
 import type { ScrubFieldId } from './AdjustListPanel'
-import { formatColorValueShort, MOBILE_COLOR_FIELDS } from './color-fields'
 import {
   formatHSLValueShort,
   HSL_BAND_LABEL_KEY,
   MOBILE_HSL_FIELDS,
 } from './hsl-fields'
-import { formatToneValueShort, MOBILE_TONE_FIELDS } from './tone-fields'
 
 type ScrubValueHudProps = {
   field: ScrubFieldId | null
@@ -67,7 +67,7 @@ function resolveReadout(
   if (!field) return null
 
   if (field.kind === 'tone') {
-    const toneField = MOBILE_TONE_FIELDS.find((f) => f.key === field.key)
+    const toneField = TONE_FIELDS.find((f) => f.key === field.key)
     if (!toneField) return null
     const value = props.tone[toneField.key]
     return {
@@ -79,7 +79,7 @@ function resolveReadout(
   }
 
   if (field.kind === 'color') {
-    const colorField = MOBILE_COLOR_FIELDS.find((f) => f.key === field.key)
+    const colorField = COLOR_FIELDS.find((f) => f.key === field.key)
     if (!colorField) return null
     const value = props.color[colorField.key]
     return {

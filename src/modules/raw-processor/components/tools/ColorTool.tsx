@@ -1,13 +1,17 @@
 import { RotateCcw } from 'lucide-react'
 import { useId } from 'react'
-import { z } from 'zod'
 
 import { Button } from '~/components/ui/button'
 import { Slider } from '~/components/ui/slider'
 import { clsxm } from '~/lib/cn'
-import type { Translate } from '~/lib/i18n'
 import { useI18n } from '~/lib/i18n'
 
+import type { ColorValue } from '../color-fields'
+import {
+  COLOR_FIELDS,
+  formatColorValueShort,
+  isColorNeutral,
+} from '../color-fields'
 import {
   saturationTrack,
   temperatureTrack,
@@ -15,70 +19,11 @@ import {
   vibranceTrack,
 } from './slider-tracks'
 
-export const ColorValueSchema = z.object({
-  userTemperature: z.number().min(-100).max(100),
-  userTint: z.number().min(-100).max(100),
-  userSaturation: z.number().min(-100).max(100),
-  userVibrance: z.number().min(-100).max(100),
-})
-
-export type ColorValue = z.infer<typeof ColorValueSchema>
-
-const COLOR_DEFAULTS: ColorValue = {
-  userTemperature: 0,
-  userTint: 0,
-  userSaturation: 0,
-  userVibrance: 0,
-}
-
-type ColorField = {
-  key: keyof ColorValue
-  labelKey: Parameters<Translate>[0]
-  min: number
-  max: number
-  step: number
-  /** CSS background gradient hinting the direction of the effect. */
-  track: string
-}
-
-const FIELDS: ColorField[] = [
-  {
-    key: 'userTemperature',
-    labelKey: 'raw.color.temperature',
-    min: -100,
-    max: 100,
-    step: 1,
-    track: temperatureTrack(),
-  },
-  {
-    key: 'userTint',
-    labelKey: 'raw.color.tint',
-    min: -100,
-    max: 100,
-    step: 1,
-    track: tintTrack(),
-  },
-  {
-    key: 'userSaturation',
-    labelKey: 'raw.color.saturation',
-    min: -100,
-    max: 100,
-    step: 1,
-    track: saturationTrack(),
-  },
-  {
-    key: 'userVibrance',
-    labelKey: 'raw.color.vibrance',
-    min: -100,
-    max: 100,
-    step: 1,
-    track: vibranceTrack(),
-  },
-]
-
-function formatSignedInteger(value: number) {
-  const rounded = Math.round(value)
-  return rounded > 0 ? `+${rounded}` : `${rounded}`
+const COLOR_TRACK: Record<keyof ColorValue, string> = {
+  userTemperature: temperatureTrack(),
+  userTint: tintTrack(),
+  userSaturation: saturationTrack(),
+  userVibrance: vibranceTrack(),
 }
 
 function ColorFieldRow({
@@ -88,7 +33,7 @@ function ColorFieldRow({
   disabled,
   onChange,
 }: {
-  field: ColorField
+  field: (typeof COLOR_FIELDS)[number]
   label: string
   value: ColorValue
   disabled: boolean
@@ -121,7 +66,7 @@ function ColorFieldRow({
             dirty ? 'text-lf-amber-soft' : 'text-lf-on-surface/80',
           )}
         >
-          {formatSignedInteger(current)}
+          {formatColorValueShort(field.key, current)}
         </output>
       </div>
       <Slider
@@ -132,7 +77,7 @@ function ColorFieldRow({
         step={field.step}
         disabled={disabled}
         bipolar
-        track={field.track}
+        track={COLOR_TRACK[field.key]}
         onValueChange={([v]) => onChange({ [field.key]: v })}
       />
     </div>
@@ -151,14 +96,12 @@ export function ColorTool({
   onReset: () => void
 }) {
   const { t } = useI18n()
-  const isNeutral = Object.entries(value).every(
-    ([key, val]) => val === COLOR_DEFAULTS[key as keyof ColorValue],
-  )
+  const isNeutral = isColorNeutral(value)
 
   return (
     <div className="grid gap-3">
       <div className="grid gap-2.5">
-        {FIELDS.map((field) => (
+        {COLOR_FIELDS.map((field) => (
           <ColorFieldRow
             key={field.key}
             field={field}

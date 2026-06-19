@@ -2,9 +2,9 @@ import { useState } from 'react'
 
 import { useI18n } from '~/lib/i18n'
 
-import type { ToneValue } from '../tools/ToneTool'
+import type { ToneValue } from '../tone-fields'
+import { formatToneValueShort, TONE_FIELDS } from '../tone-fields'
 import { AdjustSliderRow } from './AdjustSliderRow'
-import { formatToneValueShort, MOBILE_TONE_FIELDS } from './tone-fields'
 
 type ToneListPanelProps = {
   tone: ToneValue
@@ -23,7 +23,7 @@ export function ToneListPanel(props: ToneListPanelProps) {
       aria-label={t('raw.mobile.adjustList.toneListAria')}
       className="grid gap-0.5"
     >
-      {MOBILE_TONE_FIELDS.map((field) => {
+      {TONE_FIELDS.map((field) => {
         const label = t(field.labelKey)
         const isActive = scrubbingKey === field.key
         const isSibling = scrubbingKey !== null && !isActive

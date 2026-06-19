@@ -1,8 +1,17 @@
+import { z } from 'zod'
+
 import type { Translate } from '~/lib/i18n'
 
-import type { ColorValue } from '../tools/ColorTool'
+export const ColorValueSchema = z.object({
+  userTemperature: z.number().min(-100).max(100),
+  userTint: z.number().min(-100).max(100),
+  userSaturation: z.number().min(-100).max(100),
+  userVibrance: z.number().min(-100).max(100),
+})
 
-export type MobileColorField = {
+export type ColorValue = z.infer<typeof ColorValueSchema>
+
+export type ColorField = {
   key: keyof ColorValue
   labelKey: Parameters<Translate>[0]
   short: string
@@ -12,7 +21,7 @@ export type MobileColorField = {
   unit: string
 }
 
-export const MOBILE_COLOR_FIELDS: MobileColorField[] = [
+export const COLOR_FIELDS: ColorField[] = [
   {
     key: 'userTemperature',
     labelKey: 'raw.color.temperature',
@@ -51,6 +60,17 @@ export const MOBILE_COLOR_FIELDS: MobileColorField[] = [
   },
 ]
 
+export const COLOR_NEUTRAL: ColorValue = {
+  userTemperature: 0,
+  userTint: 0,
+  userSaturation: 0,
+  userVibrance: 0,
+}
+
+export function isColorNeutral(value: ColorValue): boolean {
+  return COLOR_FIELDS.every((f) => value[f.key] === 0)
+}
+
 const sign = (v: number) => (v > 0 ? '+' : '')
 
 export function formatColorValueShort(_key: keyof ColorValue, v: number) {
@@ -60,15 +80,4 @@ export function formatColorValueShort(_key: keyof ColorValue, v: number) {
 
 export function formatColorValue(key: keyof ColorValue, v: number) {
   return formatColorValueShort(key, v)
-}
-
-export const COLOR_NEUTRAL: ColorValue = {
-  userTemperature: 0,
-  userTint: 0,
-  userSaturation: 0,
-  userVibrance: 0,
-}
-
-export function isColorNeutral(value: ColorValue): boolean {
-  return MOBILE_COLOR_FIELDS.every((f) => value[f.key] === 0)
 }

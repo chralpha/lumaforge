@@ -10,9 +10,9 @@ import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { COLOR_NEUTRAL } from './color-fields'
+import { COLOR_NEUTRAL } from '../color-fields'
+import { TONE_NEUTRAL } from '../tone-fields'
 import { MobileLabChrome } from './MobileLabChrome'
-import { TONE_NEUTRAL } from './tone-fields'
 
 const base = {
   hasImage: true,

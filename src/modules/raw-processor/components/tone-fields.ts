@@ -1,8 +1,19 @@
+import { z } from 'zod'
+
 import type { Translate } from '~/lib/i18n'
 
-import type { ToneValue } from '../tools/ToneTool'
+export const ToneValueSchema = z.object({
+  userExposureEv: z.number().min(-5).max(5),
+  userContrast: z.number().min(-100).max(100),
+  userHighlights: z.number().min(-100).max(100),
+  userShadows: z.number().min(-100).max(100),
+  userWhites: z.number().min(-100).max(100),
+  userBlacks: z.number().min(-100).max(100),
+})
 
-export type MobileToneField = {
+export type ToneValue = z.infer<typeof ToneValueSchema>
+
+export type ToneField = {
   key: keyof ToneValue
   labelKey: Parameters<Translate>[0]
   short: string
@@ -10,9 +21,10 @@ export type MobileToneField = {
   max: number
   step: number
   unit: string
+  group: 'basic' | 'fine'
 }
 
-export const MOBILE_TONE_FIELDS: MobileToneField[] = [
+export const TONE_FIELDS: ToneField[] = [
   {
     key: 'userExposureEv',
     labelKey: 'raw.tone.exposure',
@@ -21,6 +33,7 @@ export const MOBILE_TONE_FIELDS: MobileToneField[] = [
     max: 5,
     step: 0.01,
     unit: 'EV',
+    group: 'basic',
   },
   {
     key: 'userContrast',
@@ -30,6 +43,7 @@ export const MOBILE_TONE_FIELDS: MobileToneField[] = [
     max: 100,
     step: 1,
     unit: '',
+    group: 'basic',
   },
   {
     key: 'userHighlights',
@@ -39,6 +53,7 @@ export const MOBILE_TONE_FIELDS: MobileToneField[] = [
     max: 100,
     step: 1,
     unit: '',
+    group: 'fine',
   },
   {
     key: 'userShadows',
@@ -48,6 +63,7 @@ export const MOBILE_TONE_FIELDS: MobileToneField[] = [
     max: 100,
     step: 1,
     unit: '',
+    group: 'fine',
   },
   {
     key: 'userWhites',
@@ -57,6 +73,7 @@ export const MOBILE_TONE_FIELDS: MobileToneField[] = [
     max: 100,
     step: 1,
     unit: '',
+    group: 'fine',
   },
   {
     key: 'userBlacks',
@@ -66,20 +83,9 @@ export const MOBILE_TONE_FIELDS: MobileToneField[] = [
     max: 100,
     step: 1,
     unit: '',
+    group: 'fine',
   },
 ]
-
-const sign = (v: number) => (v > 0 ? '+' : '')
-
-export function formatToneValueShort(key: keyof ToneValue, v: number): string {
-  if (key === 'userExposureEv') return `${sign(v)}${v.toFixed(2)}`
-  return `${sign(v)}${Math.round(v)}`
-}
-
-export function formatToneValue(key: keyof ToneValue, v: number): string {
-  if (key === 'userExposureEv') return `${formatToneValueShort(key, v)} EV`
-  return formatToneValueShort(key, v)
-}
 
 export const TONE_NEUTRAL: ToneValue = {
   userExposureEv: 0,
@@ -91,5 +97,17 @@ export const TONE_NEUTRAL: ToneValue = {
 }
 
 export function isToneNeutral(value: ToneValue): boolean {
-  return MOBILE_TONE_FIELDS.every((f) => value[f.key] === 0)
+  return TONE_FIELDS.every((f) => value[f.key] === 0)
+}
+
+const sign = (v: number) => (v > 0 ? '+' : '')
+
+export function formatToneValueShort(key: keyof ToneValue, v: number): string {
+  if (key === 'userExposureEv') return `${sign(v)}${v.toFixed(2)}`
+  return `${sign(v)}${Math.round(v)}`
+}
+
+export function formatToneValue(key: keyof ToneValue, v: number): string {
+  if (key === 'userExposureEv') return `${formatToneValueShort(key, v)} EV`
+  return formatToneValueShort(key, v)
 }

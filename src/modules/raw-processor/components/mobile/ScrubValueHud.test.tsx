@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { COLOR_NEUTRAL } from './color-fields'
+import { COLOR_NEUTRAL } from '../color-fields'
+import { TONE_NEUTRAL } from '../tone-fields'
 import { ScrubValueHud } from './ScrubValueHud'
-import { TONE_NEUTRAL } from './tone-fields'
 
 describe('scrubValueHud', () => {
   beforeEach(() => {

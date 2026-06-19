@@ -1,23 +1,23 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  COLOR_FIELDS,
   COLOR_NEUTRAL,
   formatColorValue,
   formatColorValueShort,
   isColorNeutral,
-  MOBILE_COLOR_FIELDS,
 } from './color-fields'
 
-describe('mobile color fields', () => {
+describe('color fields', () => {
   it('exposes all four color fields matching ColorTool bounds', () => {
-    expect(MOBILE_COLOR_FIELDS.map((f) => f.key)).toEqual([
+    expect(COLOR_FIELDS.map((f) => f.key)).toEqual([
       'userTemperature',
       'userTint',
       'userSaturation',
       'userVibrance',
     ])
 
-    for (const field of MOBILE_COLOR_FIELDS) {
+    for (const field of COLOR_FIELDS) {
       expect([field.min, field.max, field.step]).toEqual([-100, 100, 1])
     }
   })

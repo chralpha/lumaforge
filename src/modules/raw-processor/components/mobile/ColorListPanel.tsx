@@ -2,7 +2,8 @@ import { useState } from 'react'
 
 import { useI18n } from '~/lib/i18n'
 
-import type { ColorValue } from '../tools/ColorTool'
+import type { ColorValue } from '../color-fields'
+import { COLOR_FIELDS, formatColorValueShort } from '../color-fields'
 import {
   saturationTrack,
   temperatureTrack,
@@ -10,7 +11,6 @@ import {
   vibranceTrack,
 } from '../tools/slider-tracks'
 import { AdjustSliderRow } from './AdjustSliderRow'
-import { formatColorValueShort, MOBILE_COLOR_FIELDS } from './color-fields'
 
 type ColorListPanelProps = {
   color: ColorValue
@@ -38,7 +38,7 @@ export function ColorListPanel(props: ColorListPanelProps) {
       aria-label={t('raw.mobile.adjustList.colorListAria')}
       className="grid gap-0.5"
     >
-      {MOBILE_COLOR_FIELDS.map((field) => {
+      {COLOR_FIELDS.map((field) => {
         const label = t(field.labelKey)
         const isActive = scrubbingKey === field.key
         const isSibling = scrubbingKey !== null && !isActive

@@ -2,11 +2,11 @@ import type { HSLBandId, HSLBandShift } from '@lumaforge/luma-color-runtime'
 
 import { useI18n } from '~/lib/i18n'
 
-import type { ColorValue } from './ColorTool'
+import type { ColorValue } from '../color-fields'
+import type { ToneValue } from '../tone-fields'
 import { ColorTool } from './ColorTool'
 import type { HSLToolValue } from './HSLTool'
 import { HSLTool } from './HSLTool'
-import type { ToneValue } from './ToneTool'
 import { ToneTool } from './ToneTool'
 
 export function AdjustTool({

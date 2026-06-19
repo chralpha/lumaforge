@@ -6,9 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import enMessages from '~/locales/en.json'
 
+import { COLOR_NEUTRAL } from '../color-fields'
+import { TONE_NEUTRAL } from '../tone-fields'
 import { AdjustListPanel } from './AdjustListPanel'
-import { COLOR_NEUTRAL } from './color-fields'
-import { TONE_NEUTRAL } from './tone-fields'
 
 function neutralBands(): Record<HSLBandId, HSLBandShift> {
   return {

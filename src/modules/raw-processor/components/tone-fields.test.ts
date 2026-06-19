@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest'
 import {
   formatToneValue,
   formatToneValueShort,
-  MOBILE_TONE_FIELDS,
+  TONE_FIELDS,
 } from './tone-fields'
 
-describe('mobile tone fields', () => {
+describe('tone fields', () => {
   it('exposes six fields matching ToneTool bounds', () => {
-    expect(MOBILE_TONE_FIELDS.map((f) => f.key)).toEqual([
+    expect(TONE_FIELDS.map((f) => f.key)).toEqual([
       'userExposureEv',
       'userContrast',
       'userHighlights',
@@ -16,17 +16,15 @@ describe('mobile tone fields', () => {
       'userWhites',
       'userBlacks',
     ])
-    const exp = MOBILE_TONE_FIELDS[0]
+    const exp = TONE_FIELDS[0]
     expect([exp.min, exp.max, exp.step]).toEqual([-5, 5, 0.01])
-    const con = MOBILE_TONE_FIELDS[1]
+    const con = TONE_FIELDS[1]
     expect([con.min, con.max, con.step]).toEqual([-100, 100, 1])
   })
 
   it('does not include color adjustment fields', () => {
-    expect(MOBILE_TONE_FIELDS.map((f) => f.key)).not.toContain(
-      'userTemperature',
-    )
-    expect(MOBILE_TONE_FIELDS.map((f) => f.key)).not.toContain('userTint')
+    expect(TONE_FIELDS.map((f) => f.key)).not.toContain('userTemperature')
+    expect(TONE_FIELDS.map((f) => f.key)).not.toContain('userTint')
   })
 
   it('formats exposure with EV and sign', () => {

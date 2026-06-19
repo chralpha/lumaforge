@@ -4,9 +4,9 @@ import type { ReactNode } from 'react'
 
 import { surfaceFade } from '~/lib/spring'
 
-import type { ColorValue } from '../tools/ColorTool'
+import type { ColorValue } from '../color-fields'
+import type { ToneValue } from '../tone-fields'
 import type { HSLToolValue } from '../tools/HSLTool'
-import type { ToneValue } from '../tools/ToneTool'
 import type { ScrubFieldId } from './AdjustListPanel'
 import { AdjustListPanel } from './AdjustListPanel'
 import { MobileComparePanel } from './MobileComparePanel'

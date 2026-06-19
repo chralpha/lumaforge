@@ -17,12 +17,12 @@ import type {
   ExportRecoveryState,
   LUTContractSelectionState,
 } from '../model/session'
+import type { ColorValue } from './color-fields'
 import type { RawRuntimeReadinessState } from './raw-runtime-readiness'
-import type { ColorValue } from './tools/ColorTool'
+import type { ToneValue } from './tone-fields'
 import type { FileFactsTool } from './tools/FileFactsTool'
 import type { HSLToolValue } from './tools/HSLTool'
 import type { StrengthLevel } from './tools/StrengthControl'
-import type { ToneValue } from './tools/ToneTool'
 
 export interface RawToolSurfaceProps {
   activeIntensity: StrengthLevel
