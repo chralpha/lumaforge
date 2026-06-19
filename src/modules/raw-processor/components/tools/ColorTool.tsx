@@ -8,7 +8,12 @@ import { clsxm } from '~/lib/cn'
 import type { Translate } from '~/lib/i18n'
 import { useI18n } from '~/lib/i18n'
 
-import { temperatureTrack, tintTrack } from './slider-tracks'
+import {
+  saturationTrack,
+  temperatureTrack,
+  tintTrack,
+  vibranceTrack,
+} from './slider-tracks'
 
 export const ColorValueSchema = z.object({
   userTemperature: z.number().min(-100).max(100),
@@ -52,6 +57,22 @@ const FIELDS: ColorField[] = [
     max: 100,
     step: 1,
     track: tintTrack(),
+  },
+  {
+    key: 'userSaturation',
+    labelKey: 'raw.color.saturation',
+    min: -100,
+    max: 100,
+    step: 1,
+    track: saturationTrack(),
+  },
+  {
+    key: 'userVibrance',
+    labelKey: 'raw.color.vibrance',
+    min: -100,
+    max: 100,
+    step: 1,
+    track: vibranceTrack(),
   },
 ]
 

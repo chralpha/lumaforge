@@ -205,6 +205,8 @@
   "raw.tone.reset": "Reset tone",
   "raw.color.temperature": "Temperature",
   "raw.color.tint": "Tint",
+  "raw.color.saturation": "Saturation",
+  "raw.color.vibrance": "Vibrance",
   "raw.color.note": "Relative color balance applies before tone, LUT conversion, and full-resolution export.",
   "raw.color.preserved": "Color settings preserved",
   "raw.color.reset": "Reset color",

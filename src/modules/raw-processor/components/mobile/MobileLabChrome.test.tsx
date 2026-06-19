@@ -467,10 +467,12 @@ describe('mobileLabChrome', () => {
       screen.getByRole('group', { name: /color sliders/i }),
     ).toBeInTheDocument()
     const sliders = screen.getAllByRole('slider')
-    expect(sliders).toHaveLength(2)
+    expect(sliders).toHaveLength(4)
     expect(sliders.map((s) => s.getAttribute('aria-label'))).toEqual([
       'Temperature',
       'Tint',
+      'Saturation',
+      'Vibrance',
     ])
     expect(screen.getByText('+24')).toBeInTheDocument()
     expect(screen.getByText('-12')).toBeInTheDocument()

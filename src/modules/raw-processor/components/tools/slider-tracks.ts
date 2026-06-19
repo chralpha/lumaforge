@@ -96,3 +96,25 @@ export function tintTrack(): string {
   const green = `oklch(0.74 0.18 145 / ${TRACK_ALPHA})`
   return `linear-gradient(to right, ${magenta} 0%, ${NEUTRAL_MID} 50%, ${green} 100%)`
 }
+
+/**
+ * Saturation track: gray (negative / desaturated) → neutral → vivid warm
+ * (positive / saturated). Higher chroma endpoint (0.20) communicates the
+ * full-spectrum nature of the control.
+ */
+export function saturationTrack(): string {
+  const gray = `oklch(from var(--color-lf-on-surface) l 0 h / ${TRACK_ALPHA})`
+  const saturated = `oklch(0.72 0.20 50 / ${TRACK_ALPHA})`
+  return `linear-gradient(to right, ${gray} 0%, ${NEUTRAL_MID} 50%, ${saturated} 100%)`
+}
+
+/**
+ * Vibrance track: same directional intent as saturationTrack but the
+ * positive end uses a lower chroma (0.13 vs 0.20) to visually communicate
+ * that Vibrance is the softer, more selective control.
+ */
+export function vibranceTrack(): string {
+  const gray = `oklch(from var(--color-lf-on-surface) l 0 h / ${TRACK_ALPHA})`
+  const saturated = `oklch(0.72 0.13 50 / ${TRACK_ALPHA})`
+  return `linear-gradient(to right, ${gray} 0%, ${NEUTRAL_MID} 50%, ${saturated} 100%)`
+}

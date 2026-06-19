@@ -20,7 +20,7 @@ describe('colorListPanel', () => {
     vi.unstubAllGlobals()
   })
 
-  it('renders Temperature then Tint with current values', () => {
+  it('renders Temperature, Tint, Saturation, Vibrance with current values', () => {
     render(
       <ColorListPanel
         color={{ ...COLOR_NEUTRAL, userTemperature: 24, userTint: -12 }}
@@ -29,10 +29,12 @@ describe('colorListPanel', () => {
       />,
     )
     const sliders = screen.getAllByRole('slider')
-    expect(sliders).toHaveLength(2)
+    expect(sliders).toHaveLength(4)
     expect(sliders.map((s) => s.getAttribute('aria-label'))).toEqual([
       'Temperature',
       'Tint',
+      'Saturation',
+      'Vibrance',
     ])
     expect(screen.getByText('+24')).toBeInTheDocument()
     expect(screen.getByText('-12')).toBeInTheDocument()

@@ -9,10 +9,12 @@ import {
 } from './color-fields'
 
 describe('mobile color fields', () => {
-  it('exposes temperature and tint fields matching ColorTool bounds', () => {
+  it('exposes all four color fields matching ColorTool bounds', () => {
     expect(MOBILE_COLOR_FIELDS.map((f) => f.key)).toEqual([
       'userTemperature',
       'userTint',
+      'userSaturation',
+      'userVibrance',
     ])
 
     for (const field of MOBILE_COLOR_FIELDS) {

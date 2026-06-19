@@ -3,7 +3,12 @@ import { useState } from 'react'
 import { useI18n } from '~/lib/i18n'
 
 import type { ColorValue } from '../tools/ColorTool'
-import { temperatureTrack, tintTrack } from '../tools/slider-tracks'
+import {
+  saturationTrack,
+  temperatureTrack,
+  tintTrack,
+  vibranceTrack,
+} from '../tools/slider-tracks'
 import { AdjustSliderRow } from './AdjustSliderRow'
 import { formatColorValueShort, MOBILE_COLOR_FIELDS } from './color-fields'
 
@@ -16,8 +21,8 @@ type ColorListPanelProps = {
 const COLOR_FIELD_TRACK: Record<keyof ColorValue, string> = {
   userTemperature: temperatureTrack(),
   userTint: tintTrack(),
-  userSaturation: '',
-  userVibrance: '',
+  userSaturation: saturationTrack(),
+  userVibrance: vibranceTrack(),
 }
 
 export function ColorListPanel(props: ColorListPanelProps) {

@@ -102,13 +102,13 @@ describe('adjustListPanel', () => {
     )
   })
 
-  it('switches to Color and shows the two color sliders', async () => {
+  it('switches to Color and shows the four color sliders', async () => {
     renderPanel()
     await userEvent.click(screen.getByRole('tab', { name: /color/i }))
     expect(
       screen.getByRole('group', { name: /color sliders/i }),
     ).toBeInTheDocument()
-    expect(screen.getAllByRole('slider')).toHaveLength(2)
+    expect(screen.getAllByRole('slider')).toHaveLength(4)
     expect(screen.getByRole('button', { name: /reset color/i })).toBeEnabled()
   })
 

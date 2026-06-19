@@ -205,6 +205,8 @@
   "raw.tone.reset": "重置影调",
   "raw.color.temperature": "色温",
   "raw.color.tint": "色调",
+  "raw.color.saturation": "饱和度",
+  "raw.color.vibrance": "自然饱和度",
   "raw.color.note": "相对颜色平衡会先于影调、LUT 转换和全分辨率导出应用。",
   "raw.color.preserved": "颜色设置已保留",
   "raw.color.reset": "重置颜色",

@@ -31,6 +31,24 @@ export const MOBILE_COLOR_FIELDS: MobileColorField[] = [
     step: 1,
     unit: '',
   },
+  {
+    key: 'userSaturation',
+    labelKey: 'raw.color.saturation',
+    short: 'SAT',
+    min: -100,
+    max: 100,
+    step: 1,
+    unit: '',
+  },
+  {
+    key: 'userVibrance',
+    labelKey: 'raw.color.vibrance',
+    short: 'VIB',
+    min: -100,
+    max: 100,
+    step: 1,
+    unit: '',
+  },
 ]
 
 const sign = (v: number) => (v > 0 ? '+' : '')
