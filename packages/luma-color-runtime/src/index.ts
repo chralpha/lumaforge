@@ -1,11 +1,26 @@
 export * from './color-balance'
 export * from './color-graph'
 export * from './constants'
+export type { ParseCubeOptions, ParsedLUT } from './cube-parser'
+export {
+  generateIdentityLUT,
+  isSupportedLUT,
+  parseCubeLUT,
+  SUPPORTED_LUT_EXTENSIONS,
+  toLUTData,
+  validateLUT,
+} from './cube-parser'
 export * from './dcp-interpolate'
 export * from './histogram'
 export * from './log-encoding'
 export * from './lut-contract'
 export * from './lut-domain'
+export type { ResolveLUTProfileInput } from './lut-profile-resolution'
+export {
+  inferLUTInputProfile,
+  resolveLUTProfile,
+  toCompatInputProfile,
+} from './lut-profile-resolution'
 export * from './lut3d'
 export * from './matrix'
 export * from './oklab'

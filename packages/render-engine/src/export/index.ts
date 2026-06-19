@@ -35,11 +35,20 @@ export {
 export {
   type JpegExportMetadata,
   preserveJpegMetadata,
+  preserveJpegMetadataBytes,
+  type PreserveJpegMetadataBytesInput,
   type PreserveJpegMetadataInput,
 } from './jpeg/jpeg-metadata'
 export {
+  type BytesJpegEncoder,
+  type BytesJpegRuntime,
+  createNodeJpegRowSink,
+} from './jpeg/node-row-sink'
+export {
   type BlobOutputResult,
+  type BytesOutputResult,
   createBlobOutputResult,
+  createBytesOutputResult,
   type ExportOutputResult,
   type FileBackedOutputResult,
 } from './jpeg/output-result'

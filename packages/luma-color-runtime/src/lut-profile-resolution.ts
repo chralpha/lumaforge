@@ -1,34 +1,25 @@
-import type {
-  LUTColorProfile,
-  LUTContractResolution,
-  LUTContractSelection,
-  LUTInputProfile,
-  LUTRole,
-  ParsedLUT,
-  SignalRange,
-  StoredLUTContractSelection,
-} from '@lumaforge/luma-color-runtime'
 import {
   buildStoredContractSelection,
-  contractToLUTColorProfile as contractToRuntimeLUTColorProfile,
-  getLUTColorProfile,
-  inferLUTColorProfileHints,
+  contractToLUTColorProfile,
   isLUTRole,
   isSignalRange,
   resolveColorGamutId,
   resolveTransferFunctionId,
-  toLUTContractSelection,
-} from '@lumaforge/luma-color-runtime'
-
-export type {
-  LUTContractSelection,
+} from './lut-contract'
+import type { LUTColorProfile } from './registry'
+import { getLUTColorProfile, inferLUTColorProfileHints } from './registry'
+import type {
+  LUTContractResolution,
+  LUTInputProfile,
   StoredLUTContractSelection,
-} from '@lumaforge/luma-color-runtime'
-export { toLUTContractSelection } from '@lumaforge/luma-color-runtime'
+} from './types'
 
-const LUT_PROFILE_SELECTIONS_STORAGE_KEY = 'lumaforge.lutProfileSelections.v1'
-function stripCubeExtension(name: string): string {
-  return name.replace(/\.cube$/i, '')
+export interface ResolveLUTProfileInput {
+  title: string
+  sourceName?: string
+  comments: string[]
+  fingerprint?: string
+  lookupStoredProfile?: (fingerprint: string) => LUTColorProfile | undefined
 }
 
 function normalizeProfileText(value: string): string {
@@ -62,140 +53,6 @@ function getCompatibleLUTColorProfile(
   return getLUTColorProfile(resolveCompatProfileId(profileId))
 }
 
-function getLUTProfileStorage(): Storage | undefined {
-  try {
-    return globalThis.localStorage
-  } catch {
-    return undefined
-  }
-}
-
-function isStoredLUTContractSelection(
-  value: unknown,
-): value is StoredLUTContractSelection {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return false
-  }
-
-  const candidate = value as Record<string, unknown>
-  const role = candidate.role
-  const inputGamut = resolveColorGamutId(candidate.inputGamut)
-  const inputTransfer = resolveTransferFunctionId(candidate.inputTransfer)
-  const inputRange = candidate.inputRange
-  const outputGamut = resolveColorGamutId(candidate.outputGamut)
-  const outputTransfer = resolveTransferFunctionId(candidate.outputTransfer)
-  const outputRange = candidate.outputRange
-
-  if (
-    !isLUTRole(role) ||
-    !inputGamut ||
-    !inputTransfer ||
-    !isSignalRange(inputRange)
-  ) {
-    return false
-  }
-
-  const normalized = buildStoredContractSelection({
-    role,
-    inputGamut,
-    inputTransfer,
-    inputRange,
-    outputGamut,
-    outputTransfer,
-    outputRange: isSignalRange(outputRange) ? outputRange : undefined,
-  })
-  if (!normalized) {
-    return false
-  }
-
-  return true
-}
-
-function normalizeStoredLUTContractSelection(
-  value: unknown,
-): StoredLUTContractSelection | undefined {
-  if (typeof value === 'string') {
-    const profile = getCompatibleLUTColorProfile(value)
-    return profile
-      ? buildStoredContractSelection({
-          inputProfile: profile.id,
-          role: profile.role,
-          inputGamut: profile.inputGamut,
-          inputTransfer: profile.inputTransfer,
-          inputRange: profile.inputRange,
-          outputGamut: profile.outputGamut,
-          outputTransfer: profile.outputTransfer,
-          outputRange: profile.outputRange,
-        })
-      : undefined
-  }
-
-  if (!isStoredLUTContractSelection(value)) return undefined
-
-  const candidate = value
-  return buildStoredContractSelection({
-    inputProfile:
-      typeof candidate.inputProfile === 'string'
-        ? (getCompatibleLUTColorProfile(candidate.inputProfile)?.id ??
-          candidate.inputProfile)
-        : undefined,
-    role: candidate.role as LUTRole,
-    inputGamut: resolveColorGamutId(candidate.inputGamut),
-    inputTransfer: resolveTransferFunctionId(candidate.inputTransfer),
-    inputRange: candidate.inputRange as SignalRange,
-    outputGamut: resolveColorGamutId(candidate.outputGamut),
-    outputTransfer: resolveTransferFunctionId(candidate.outputTransfer),
-    outputRange: isSignalRange(candidate.outputRange)
-      ? candidate.outputRange
-      : undefined,
-  })
-}
-
-function readStoredLUTContractSelections(): Record<
-  string,
-  StoredLUTContractSelection
-> {
-  const storage = getLUTProfileStorage()
-  if (!storage) return {}
-
-  try {
-    const raw = storage.getItem(LUT_PROFILE_SELECTIONS_STORAGE_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return {}
-    }
-    return Object.fromEntries(
-      Object.entries(parsed)
-        .map(([fingerprint, value]) => [
-          fingerprint,
-          normalizeStoredLUTContractSelection(value),
-        ])
-        .filter((entry): entry is [string, StoredLUTContractSelection] =>
-          Boolean(entry[1]),
-        ),
-    )
-  } catch {
-    return {}
-  }
-}
-
-function writeStoredLUTContractSelections(
-  selections: Record<string, StoredLUTContractSelection>,
-) {
-  const storage = getLUTProfileStorage()
-  if (!storage) return
-
-  try {
-    storage.setItem(
-      LUT_PROFILE_SELECTIONS_STORAGE_KEY,
-      JSON.stringify(selections),
-    )
-  } catch {
-    // Storage can be unavailable or quota-limited; profile resolution should still work.
-  }
-}
-
 function getContractProfileId(contract: StoredLUTContractSelection): string {
   const baseProfile = contract.inputProfile
     ? getCompatibleLUTColorProfile(contract.inputProfile)
@@ -208,109 +65,13 @@ function getContractProfileId(contract: StoredLUTContractSelection): string {
   )
 }
 
-function normalizeAppContractSelection(
-  selection: LUTContractSelection,
-): LUTContractSelection {
-  const inputProfile =
-    typeof selection.inputProfile === 'string'
-      ? getCompatibleLUTColorProfile(selection.inputProfile)?.id
-      : undefined
-
-  return {
-    ...selection,
-    inputProfile,
-  }
-}
-
-export function contractToLUTColorProfile(
+function resolvedProfileFromContract(
   contract: StoredLUTContractSelection,
 ): LUTColorProfile {
-  return contractToRuntimeLUTColorProfile(
-    getContractProfileId(contract),
-    contract,
-  )
+  return contractToLUTColorProfile(getContractProfileId(contract), contract)
 }
 
-export function getStoredLUTContractSelection(
-  fingerprint: string,
-): StoredLUTContractSelection | undefined {
-  return readStoredLUTContractSelections()[fingerprint]
-}
-
-export function getStoredLUTProfileSelection(
-  fingerprint: string,
-): LUTColorProfile | undefined {
-  const contract = getStoredLUTContractSelection(fingerprint)
-  return contract ? contractToLUTColorProfile(contract) : undefined
-}
-
-export function storeLUTContractSelection(
-  fingerprint: string,
-  selection: LUTContractSelection,
-): LUTColorProfile | undefined {
-  const contract = buildStoredContractSelection(
-    normalizeAppContractSelection(selection),
-  )
-  if (!contract) return undefined
-
-  writeStoredLUTContractSelections({
-    ...readStoredLUTContractSelections(),
-    [fingerprint]: contract,
-  })
-
-  return contractToLUTColorProfile(contract)
-}
-
-export function storeLUTProfileSelection(
-  fingerprint: string,
-  profileId: string,
-): LUTColorProfile | undefined {
-  const profile = getCompatibleLUTColorProfile(profileId)
-  if (!profile) return undefined
-
-  return storeLUTContractSelection(fingerprint, toLUTContractSelection(profile))
-}
-
-export function applyLUTContractSelection(
-  lut: ParsedLUT,
-  selection: LUTContractSelection,
-): ParsedLUT | undefined {
-  const profile = storeLUTContractSelection(lut.fingerprint, selection)
-  if (!profile) return undefined
-
-  const profileResolution: LUTContractResolution = {
-    kind: 'confirmed',
-    confidence: 'user',
-    profile,
-  }
-
-  return {
-    ...lut,
-    profileResolution,
-    inputProfile: toCompatInputProfile(profileResolution),
-  }
-}
-
-export function applyLUTProfileSelection(
-  lut: ParsedLUT,
-  profileId: string,
-): ParsedLUT | undefined {
-  const profile = getCompatibleLUTColorProfile(profileId)
-  if (!profile) return undefined
-
-  return applyLUTContractSelection(lut, toLUTContractSelection(profile))
-}
-
-function extractCubeComments(content: string): string[] {
-  return content
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('#'))
-    .map((line) => line.replace(/^#+\s?/, '').trim())
-    .filter(Boolean)
-}
-
-function readStructuredMetadata(comments: string[]) {
+function readStructuredMetadata(comments: string[]): Map<string, string> {
   const metadata = new Map<string, string>()
   for (const comment of comments) {
     if (!comment.startsWith('LUMAFORGE_')) continue
@@ -356,7 +117,7 @@ function resolveStructuredMetadataContract(
     outputRange: isSignalRange(outputRange) ? outputRange : undefined,
   })
 
-  return contract ? contractToLUTColorProfile(contract) : undefined
+  return contract ? resolvedProfileFromContract(contract) : undefined
 }
 
 function buildProfileSignature(input: {
@@ -398,11 +159,7 @@ function buildInputProfileInput(input: {
     .map((comment) => stripOutputSide(comment).trim())
     .filter((comment) => comment.length > 0)
 
-  return {
-    title,
-    sourceName,
-    comments,
-  }
+  return { title, sourceName, comments }
 }
 
 function inferOutputAnnotation(
@@ -500,12 +257,9 @@ function uniqueProfiles(profiles: LUTColorProfile[]): LUTColorProfile[] {
   return unique
 }
 
-export function resolveLUTProfile(input: {
-  title: string
-  sourceName?: string
-  comments: string[]
-  fingerprint?: string
-}): LUTContractResolution {
+export function resolveLUTProfile(
+  input: ResolveLUTProfileInput,
+): LUTContractResolution {
   const signature = buildProfileSignature(input)
 
   const metadataProfile = resolveStructuredMetadataContract(input.comments)
@@ -517,8 +271,8 @@ export function resolveLUTProfile(input: {
     }
   }
 
-  if (input.fingerprint) {
-    const storedProfile = getStoredLUTProfileSelection(input.fingerprint)
+  if (input.fingerprint && input.lookupStoredProfile) {
+    const storedProfile = input.lookupStoredProfile(input.fingerprint)
     if (storedProfile) {
       return {
         kind: 'confirmed',
@@ -562,20 +316,31 @@ export function toCompatInputProfile(
   return 'display-srgb'
 }
 
-export function inferLUTInputProfile({
-  content,
-  sourceName,
-  title,
-}: {
+function extractCubeComments(content: string): string[] {
+  return content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('#'))
+    .map((line) => line.replace(/^#+\s?/, '').trim())
+    .filter(Boolean)
+}
+
+function stripCubeExtension(name: string): string {
+  return name.replace(/\.cube$/i, '')
+}
+
+export function inferLUTInputProfile(input: {
   content: string
   sourceName?: string
   title?: string
 }): LUTInputProfile {
   return toCompatInputProfile(
     resolveLUTProfile({
-      title: title || (sourceName ? stripCubeExtension(sourceName) : ''),
-      sourceName,
-      comments: extractCubeComments(content),
+      title:
+        input.title ||
+        (input.sourceName ? stripCubeExtension(input.sourceName) : ''),
+      sourceName: input.sourceName,
+      comments: extractCubeComments(input.content),
     }),
   )
 }

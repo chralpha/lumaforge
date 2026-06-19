@@ -278,7 +278,13 @@ function writeIfd(
   return nextValueOffset
 }
 
-function createExifPayload(input: PreserveJpegMetadataInput) {
+type ExifBuildInput = {
+  metadata?: JpegExportMetadata | null
+  width: number
+  height: number
+}
+
+function createExifPayload(input: ExifBuildInput) {
   const metadata = input.metadata ?? {}
   const dateTime = formatExifDate(resolveTimestamp(metadata.timestamp))
   const ifd0Entries: TiffEntry[] = []
@@ -349,7 +355,7 @@ function createExifPayload(input: PreserveJpegMetadataInput) {
   return payload
 }
 
-function createApp1ExifSegment(input: PreserveJpegMetadataInput) {
+function createApp1ExifSegment(input: ExifBuildInput) {
   const payload = createExifPayload(input)
   const length = payload.length + 2
   if (length > UINT16_MAX) return null
@@ -422,7 +428,7 @@ export async function preserveJpegMetadata({
   width,
   height,
 }: PreserveJpegMetadataInput) {
-  const segment = createApp1ExifSegment({ jpeg, metadata, width, height })
+  const segment = createApp1ExifSegment({ metadata, width, height })
   if (!segment) return jpeg
 
   const header = await readBlobHead(jpeg)
@@ -433,4 +439,32 @@ export async function preserveJpegMetadata({
     [jpeg.slice(0, insertionOffset), segment, jpeg.slice(insertionOffset)],
     { type: jpeg.type || 'image/jpeg' },
   )
+}
+
+export type PreserveJpegMetadataBytesInput = {
+  jpeg: Uint8Array
+  metadata?: JpegExportMetadata | null
+  width: number
+  height: number
+}
+
+export function preserveJpegMetadataBytes({
+  jpeg,
+  metadata,
+  width,
+  height,
+}: PreserveJpegMetadataBytesInput): Uint8Array {
+  const segment = createApp1ExifSegment({ metadata, width, height })
+  if (!segment) return jpeg
+
+  const headerEnd = Math.min(jpeg.length, 65536)
+  const header = jpeg.subarray(0, headerEnd)
+  const insertionOffset = findJpegMetadataInsertionOffset(header, jpeg.length)
+  if (insertionOffset === null) return jpeg
+
+  const result = new Uint8Array(jpeg.length + segment.length)
+  result.set(jpeg.subarray(0, insertionOffset), 0)
+  result.set(segment, insertionOffset)
+  result.set(jpeg.subarray(insertionOffset), insertionOffset + segment.length)
+  return result
 }

@@ -28,7 +28,18 @@ export type FileBackedOutputResult = {
   cleanup?: () => Promise<void>
 }
 
-export type ExportOutputResult = BlobOutputResult | FileBackedOutputResult
+export type BytesOutputResult = {
+  kind: 'bytes'
+  filename: string
+  bytes: Uint8Array
+  byteLength: number
+  mimeType: string
+}
+
+export type ExportOutputResult =
+  | BlobOutputResult
+  | FileBackedOutputResult
+  | BytesOutputResult
 
 export function createBlobOutputResult(input: {
   filename: string
@@ -40,5 +51,19 @@ export function createBlobOutputResult(input: {
     blob: input.blob,
     byteLength: input.blob.size,
     mimeType: input.blob.type || 'image/jpeg',
+  }
+}
+
+export function createBytesOutputResult(input: {
+  filename: string
+  bytes: Uint8Array
+  mimeType?: string
+}): BytesOutputResult {
+  return {
+    kind: 'bytes',
+    filename: input.filename,
+    bytes: input.bytes,
+    byteLength: input.bytes.byteLength,
+    mimeType: input.mimeType ?? 'image/jpeg',
   }
 }

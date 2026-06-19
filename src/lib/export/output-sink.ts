@@ -16,7 +16,18 @@ export type FileBackedOutputResult = {
   cleanup?: () => Promise<void>
 }
 
-export type ExportOutputResult = BlobOutputResult | FileBackedOutputResult
+export type BytesOutputResult = {
+  kind: 'bytes'
+  filename: string
+  bytes: Uint8Array
+  byteLength: number
+  mimeType: string
+}
+
+export type ExportOutputResult =
+  | BlobOutputResult
+  | FileBackedOutputResult
+  | BytesOutputResult
 
 type OpfsStorage = Pick<StorageManager, 'getDirectory'>
 
@@ -260,7 +271,12 @@ export function createOpfsFileBackedOutputResult(input: {
   }
 }
 
-export async function materializeOutputBlob(result: ExportOutputResult) {
+export async function materializeOutputBlob(
+  result: ExportOutputResult,
+): Promise<Blob> {
   if (result.kind === 'blob') return result.blob
+  if (result.kind === 'bytes') {
+    return new Blob([result.bytes as BlobPart], { type: result.mimeType })
+  }
   return result.openBlob()
 }

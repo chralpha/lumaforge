@@ -99,7 +99,7 @@ export type ExportProgressDebugPayload = {
 
 export type ExportOutputMaterializedDebugPayload = {
   action: 'download' | 'share' | 'copy'
-  outputKind: ExportOutputSink | 'blob' | 'file-backed'
+  outputKind: ExportOutputSink | 'blob' | 'file-backed' | 'bytes'
   filename: string
   byteLength: number
   materializedAt: string
