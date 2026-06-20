@@ -498,7 +498,7 @@ fn isOutputLut() -> bool {
 
 fn normalizeLutInputChannel(value: f32, domainMin: f32, domainMax: f32) -> f32 {
   let span = domainMax - domainMin;
-  if (value != value || span != span || span <= 0.0) {
+  if (value != value || span != span || abs(value) > 3.4e38 || abs(span) > 3.4e38 || span <= 0.0) {
     return 0.0;
   }
   return max((value - domainMin) / span, 0.0);
