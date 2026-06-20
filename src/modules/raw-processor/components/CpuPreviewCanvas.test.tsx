@@ -21,7 +21,7 @@ describe('cpuPreviewCanvas', () => {
       clearRect: vi.fn(),
       scale: vi.fn(),
       setTransform: vi.fn(),
-    } as unknown as CanvasRenderingContext2D)
+    } as unknown as ReturnType<HTMLCanvasElement['getContext']>)
 
     render(<CpuPreviewCanvas frame={frame} inFlight={false} />)
     expect(putImageData).toHaveBeenCalled()

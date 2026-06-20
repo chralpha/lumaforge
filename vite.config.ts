@@ -44,6 +44,10 @@ const LUMA_COLOR_RUNTIME_GLSL_SOURCE = resolve(
   ROOT,
   './packages/luma-color-runtime/src/glsl.ts',
 )
+const LUMA_COLOR_RUNTIME_WGSL_SOURCE = resolve(
+  ROOT,
+  './packages/luma-color-runtime/src/wgsl.ts',
+)
 const LUMA_COLOR_RUNTIME_TESTING_SOURCE = resolve(
   ROOT,
   './packages/luma-color-runtime/src/testing.ts',
@@ -276,6 +280,7 @@ export default defineConfig(({ command }) => {
     },
     resolve: {
       alias: {
+        '@lumaforge/luma-color-runtime/wgsl': LUMA_COLOR_RUNTIME_WGSL_SOURCE,
         '@lumaforge/luma-color-runtime/glsl': LUMA_COLOR_RUNTIME_GLSL_SOURCE,
         '@lumaforge/luma-color-runtime/testing':
           LUMA_COLOR_RUNTIME_TESTING_SOURCE,
