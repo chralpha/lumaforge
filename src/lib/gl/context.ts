@@ -56,10 +56,10 @@ export async function requestWebGPUDevice(): Promise<{
     powerPreference: 'high-performance',
   })
   if (!adapter) return null
-  const requiredFeatures: GPUFeatureName[] = []
-  if (adapter.features.has('float32-filterable')) {
-    requiredFeatures.push('float32-filterable')
+  if (!adapter.features.has('float32-filterable')) {
+    throw new Error('WebGPU adapter does not support float32-filterable')
   }
+  const requiredFeatures: GPUFeatureName[] = ['float32-filterable']
   const device = await adapter.requestDevice({
     requiredFeatures,
     requiredLimits: {

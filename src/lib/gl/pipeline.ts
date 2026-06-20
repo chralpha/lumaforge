@@ -553,9 +553,12 @@ export class RawProcessingPipeline {
       buffers: [VERTEX_BUFFER_LAYOUT],
     }
 
+    const primitive: GPUPrimitiveState = { topology: 'triangle-strip' }
+
     this.processPipelineFloat = d.createRenderPipeline({
       layout: processLayoutFloat,
       vertex: vertexState,
+      primitive,
       fragment: {
         module: processFloatModule,
         entryPoint: 'main',
@@ -565,6 +568,7 @@ export class RawProcessingPipeline {
     this.processPipelineU16 = d.createRenderPipeline({
       layout: processLayoutU16,
       vertex: vertexState,
+      primitive,
       fragment: {
         module: processU16Module,
         entryPoint: 'main',
@@ -578,6 +582,7 @@ export class RawProcessingPipeline {
     this.outputPipeline = d.createRenderPipeline({
       layout: outputLayout,
       vertex: vertexState,
+      primitive,
       fragment: {
         module: outputModule,
         entryPoint: 'main',
@@ -605,7 +610,7 @@ export class RawProcessingPipeline {
   private createSelectiveColorLutTexture(): void {
     this.selectiveColorTexture = this.device.createTexture({
       size: [SELECTIVE_COLOR_LUT_SIZE, 1],
-      format: 'rgba16float',
+      format: 'rgba32float',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     })
     const neutral = new Float32Array(4 * SELECTIVE_COLOR_LUT_SIZE)
@@ -615,7 +620,7 @@ export class RawProcessingPipeline {
     this.device.queue.writeTexture(
       { texture: this.selectiveColorTexture },
       neutral,
-      { bytesPerRow: SELECTIVE_COLOR_LUT_SIZE * 8 },
+      { bytesPerRow: SELECTIVE_COLOR_LUT_SIZE * 16 },
       [SELECTIVE_COLOR_LUT_SIZE, 1],
     )
     this.selectiveColorBuffer = new Float32Array(4 * SELECTIVE_COLOR_LUT_SIZE)
@@ -985,7 +990,7 @@ export class RawProcessingPipeline {
       this.device.queue.writeTexture(
         { texture: this.selectiveColorTexture! },
         buffer,
-        { bytesPerRow: SELECTIVE_COLOR_LUT_SIZE * 8 },
+        { bytesPerRow: SELECTIVE_COLOR_LUT_SIZE * 16 },
         [SELECTIVE_COLOR_LUT_SIZE, 1],
       )
       this.lastBakedSelectiveBands = bands

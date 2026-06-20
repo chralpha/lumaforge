@@ -133,7 +133,7 @@ fn applyBuiltinStyle(displayColor: vec3f) -> vec3f {
     color = applyWarmCool(color, vec3f(1.03, 1.00, 0.98));
     color = adjustContrastBuiltin(color, 0.94, 0.18);
     color = adjustSaturationBuiltin(color, 0.95);
-    color += vec3f(0.012) * (1.0 - smoothstep(0.0, 0.26, color));
+    color += vec3f(0.012) * (1.0 - smoothstep(vec3f(0.0), vec3f(0.26), color));
   } else if (params.builtinPreset == 4) {
     color = adjustContrastBuiltin(color, 1.18, 0.18);
     color = adjustSaturationBuiltin(color, 1.08);
@@ -142,7 +142,7 @@ fn applyBuiltinStyle(displayColor: vec3f) -> vec3f {
     let luma = luminance709(color);
     let shadowTint = vec3f(0.93, 1.02, 1.10);
     let highlightTint = vec3f(1.08, 1.02, 0.94);
-    color *= mix(shadowTint, highlightTint, smoothstep(0.18, 0.75, vec3f(luma)));
+    color *= mix(shadowTint, highlightTint, smoothstep(0.18, 0.75, luma));
     color = adjustContrastBuiltin(color, 1.1, 0.18);
     color = adjustSaturationBuiltin(color, 0.92);
   } else if (params.builtinPreset == 6) {
@@ -273,8 +273,7 @@ export const PREVIEW_OUTPUT_SHADER = /* wgsl */ `
 
 @fragment
 fn main(@location(0) texCoord: vec2f) -> @location(0) vec4f {
-  let displayTexCoord = vec2f(texCoord.x, 1.0 - texCoord.y);
-  let color = textureSampleLevel(processedTexture, processedSampler, displayTexCoord, 0.0).rgb;
+  let color = textureSampleLevel(processedTexture, processedSampler, texCoord, 0.0).rgb;
   return vec4f(clamp(color, vec3f(0.0), vec3f(1.0)), 1.0);
 }
 `
